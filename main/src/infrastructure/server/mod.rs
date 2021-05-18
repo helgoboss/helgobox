@@ -911,6 +911,9 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
         .mappings(MappingCompartment::ControllerMappings)
         .filter_map(|m| {
             let m = m.borrow();
+            if !m.visible_in_projection.get() {
+                return None;
+            }
             let target_descriptor = if session.mapping_is_on(m.id()) {
                 if m.target_model.category.get() == TargetCategory::Virtual {
                     // Virtual
@@ -919,7 +922,8 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
                         .mappings(MappingCompartment::MainMappings)
                         .filter(|mp| {
                             let mp = mp.borrow();
-                            mp.source_model.category.get() == SourceCategory::Virtual
+                            mp.visible_in_projection.get()
+                                && mp.source_model.category.get() == SourceCategory::Virtual
                                 && mp.source_model.create_control_element() == control_element
                                 && session.mapping_is_on(mp.id())
                         });

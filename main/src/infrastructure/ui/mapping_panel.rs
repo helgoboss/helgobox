@@ -809,6 +809,14 @@ impl<'a> MutableMappingPanel<'a> {
         self.mapping.feedback_send_behavior.set(behavior);
     }
 
+    fn update_mapping_is_visible_in_projection(&mut self) {
+        self.mapping.visible_in_projection.set(
+            self.view
+                .require_control(root::ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX)
+                .is_checked(),
+        );
+    }
+
     fn update_mode_hint(&self, mode_parameter: ModeParameter) {
         self.panel
             .last_touched_mode_parameter
@@ -2115,6 +2123,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_window_title();
         self.panel.mapping_header_panel.invalidate_controls();
         self.invalidate_mapping_feedback_send_behavior_combo_box();
+        self.invalidate_mapping_visible_in_projection_check_box();
         self.invalidate_mapping_advanced_settings_button();
         self.invalidate_source_controls();
         self.invalidate_target_controls(None);
@@ -2267,6 +2276,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         combo
             .select_combo_box_item_by_index(self.mapping.feedback_send_behavior.get().into())
             .unwrap();
+    }
+
+    fn invalidate_mapping_visible_in_projection_check_box(&self) {
+        let cb = self
+            .view
+            .require_control(root::ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX);
+        cb.set_checked(self.mapping.visible_in_projection.get());
     }
 
     fn invalidate_mapping_advanced_settings_button(&self) {
@@ -3799,6 +3815,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mapping_feedback_send_behavior_combo_box();
             });
         self.panel
+            .when(self.mapping.visible_in_projection.changed(), |view, _| {
+                view.invalidate_mapping_visible_in_projection_check_box();
+            });
+        self.panel
             .when(self.mapping.advanced_settings_changed(), |view, _| {
                 view.invalidate_mapping_advanced_settings_button();
             });
@@ -5067,6 +5087,9 @@ impl View for MappingPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             // Mapping
+            root::ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX => {
+                self.write(|p| p.update_mapping_is_visible_in_projection());
+            }
             root::ID_MAPPING_ADVANCED_BUTTON => {
                 self.edit_advanced_settings();
             }

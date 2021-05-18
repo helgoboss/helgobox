@@ -28,6 +28,7 @@ pub struct MappingModel {
     pub feedback_is_enabled: Prop<bool>,
     pub feedback_send_behavior: Prop<FeedbackSendBehavior>,
     pub activation_condition_model: ActivationConditionModel,
+    pub visible_in_projection: Prop<bool>,
     pub source_model: SourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
@@ -75,6 +76,7 @@ impl MappingModel {
             feedback_is_enabled: prop(true),
             feedback_send_behavior: prop(Default::default()),
             activation_condition_model: Default::default(),
+            visible_in_projection: prop(true),
             source_model: Default::default(),
             mode_model: Default::default(),
             target_model: TargetModel {
@@ -205,6 +207,7 @@ impl MappingModel {
             .merge(self.control_is_enabled.changed())
             .merge(self.feedback_is_enabled.changed())
             .merge(self.feedback_send_behavior.changed())
+            .merge(self.visible_in_projection.changed())
             .merge(
                 self.activation_condition_model
                     .changed_processing_relevant(),

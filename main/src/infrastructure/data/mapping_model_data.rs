@@ -1,5 +1,5 @@
 use crate::application::MappingModel;
-use crate::base::default_util::is_default;
+use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     ExtendedProcessorContext, FeedbackSendBehavior, GroupId, MappingCompartment, MappingId,
 };
@@ -35,6 +35,8 @@ pub struct MappingModelData {
     send_feedback_after_control: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     advanced: Option<serde_yaml::mapping::Mapping>,
+    #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
+    visible_in_projection: bool,
 }
 
 impl MappingModelData {
@@ -58,6 +60,7 @@ impl MappingModelData {
                 &model.activation_condition_model,
             ),
             advanced: model.advanced_settings().cloned(),
+            visible_in_projection: model.visible_in_projection.get(),
         }
     }
 
@@ -171,5 +174,8 @@ impl MappingModelData {
             .feedback_send_behavior
             .set_with_optional_notification(feedback_send_behavior, with_notification);
         let _ = model.set_advanced_settings(self.advanced.clone(), with_notification);
+        model
+            .visible_in_projection
+            .set_with_optional_notification(self.visible_in_projection, with_notification);
     }
 }
