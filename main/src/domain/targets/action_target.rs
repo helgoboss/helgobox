@@ -2,9 +2,11 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     ActionInvocationType, AdditionalFeedbackEvent, ControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{ControlType, ControlValue, Fraction, Target, UnitValue};
+use helgoboss_midi::U14;
 use reaper_high::{Action, ActionCharacter, Project, Reaper};
-use reaper_medium::CommandId;
+use reaper_medium::{ActionValueChange, CommandId, WindowContext};
+use std::convert::TryFrom;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActionTarget {
@@ -49,11 +51,11 @@ impl RealearnTarget for ActionTarget {
             ControlValue::Absolute(v) => match self.invocation_type {
                 ActionInvocationType::Trigger => {
                     if !v.is_zero() {
-                        self.action.invoke(v.get(), false, Some(self.project));
+                        self.invoke_with_unit_value(v);
                     }
                 }
                 ActionInvocationType::Absolute => {
-                    self.action.invoke(v.get(), false, Some(self.project))
+                    self.invoke_with_unit_value(v);
                 }
                 ActionInvocationType::Relative => {
                     return Err("relative invocation type can't take absolute values");
@@ -66,6 +68,17 @@ impl RealearnTarget for ActionTarget {
                     return Err("relative values need relative invocation type");
                 }
             }
+            ControlValue::AbsoluteDiscrete(f) => match self.invocation_type {
+                ActionInvocationType::Trigger => {
+                    if !f.is_zero() {
+                        self.invoke_with_fraction(f)
+                    }
+                }
+                ActionInvocationType::Absolute => self.invoke_with_fraction(f),
+                ActionInvocationType::Relative => {
+                    return Err("relative invocation type can't take absolute values");
+                }
+            },
         };
         Ok(())
     }
@@ -112,5 +125,23 @@ impl<'a> Target<'a> for ActionTarget {
 
     fn control_type(&self) -> ControlType {
         self.control_type_and_character().0
+    }
+}
+
+impl ActionTarget {
+    fn invoke_with_fraction(&self, f: Fraction) {
+        if let Ok(u14) = U14::try_from(f.actual()) {
+            self.action.invoke_directly(
+                ActionValueChange::AbsoluteHighRes(u14),
+                WindowContext::Win(Reaper::get().main_window()),
+                self.project.context(),
+            );
+        }
+    }
+}
+
+impl ActionTarget {
+    fn invoke_with_unit_value(&self, v: UnitValue) {
+        self.action.invoke(v.get(), false, Some(self.project))
     }
 }
