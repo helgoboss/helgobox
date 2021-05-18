@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-05-16 (v2.10.0-pre.1)</code></td>
+  <td><code>2021-05-18 (v2.10.0-pre.2)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -1042,6 +1042,8 @@ Sources share the following common settings and functions:
 
 - **Learn:** Starts or stops learning the source of this mapping.
 - **Category:** Lets you choose the source category.
+    - **None:** A special kind of source that will never emit any events. It's intended to be used on mappings which are
+      not supposed to be controlled directly but only via *group interaction* (see section [Tuning](#tuning)).
     - **MIDI:** Incoming MIDI events.
     - **OSC:** Incoming OSC events.
     - **Virtual:** Invocations of virtual control elements (coming from virtual controller mappings). This source
@@ -2109,17 +2111,44 @@ The following elements are relevant for all kinds of sources, both in *control* 
   This wouldn't prevent the volume from exceeding that range if changed e.g. in REAPER itself. This
   setting applies to targets which are controlled via absolute control values (= all targets with
   the exception of the [Project: Invoke REAPER action](#project-invoke-reaper-action) if invocation type is _Relative_).
+
+These are relevant for the control direction only:
+
+- **Group interaction:** Lets you control not just *this* mapping but also *all other mappings in the same mapping
+   group*. Very powerful feature! Hint: If you just want to control *other* mappings and not *this* mapping, just pick
+   a target that doesn't have any effect, for example an unused internal ReaLearn compartment parameter
+   (target type "FX: Set parameter value" with FX set to `<This>`).
+    - **None:** Switches group interaction off. This is the default. Incoming control events will just affect *this*
+      mapping, not others.
+    - **Same control:** This will broadcast any incoming control value to all other mappings in the same group. The
+      tuning section of this mapping will be ignored when controlling the other mappings. The tuning sections of the
+      other mappings will be respected, including the source min/max setting.
+    - **Same target value:** This will set the target value of each other mapping in the same group to the target value
+      of this mapping. Nice: It will respect the target min/max setting of both this mapping and the other mappings.
+      All other settings of the tuning section will not be processed. Needless to say, this kind of control is always
+      absolute, which means it can lead to parameter jumps. Therefore, it's most suited for on/off targets. If you don't
+      like this, choose *Same control* instead.
+    - **Inverse control:** This is like *Same control* but broadcasts the *inverse* of the incoming control value.
+    - **Inverse target value:** This is like *Same target value* but sets the target values of the other mappings to the
+      *inverse* value. This is very useful in practice with buttons because it essentially gives you exclusivity within
+      one group. It's a great alternative to the *Exclusive* setting which is available for some targets. Unlike the
+      latter, *Inverse target value* allows for exclusivity between completely different target types and completely
+      custom groupings - independent of e.g. organization of tracks into folders. 
+      
+
+These are relevant for the feedback direction only:
+
 - **Feedback transformation (EEL):** This is like _Control transformation (EEL)_ (see further below) but used for
   translating a target value back to a source value for feedback purposes. It usually makes most
   sense if it's exactly the reverse of the control transformation. Be aware: Here `x` is the desired
   source value (= output value) and `y` is the current target value (= input value), so you must
   assign the desired source value to `x`. Example: `x = y * 2`. ReaLearn's feedback processing order is like this
   since version 2:
-  1. Apply target interval.
-  2. Apply reverse.
-  3. Apply transformation.
-  4. Apply source interval.
-  
+    1. Apply target interval.
+    2. Apply reverse.
+    3. Apply transformation.
+    4. Apply source interval.  
+
 The following elements are relevant for all kinds of sources. For rotary encoders they are relevant only in
 *feedback* direction, not in *control* direction.
 
@@ -2136,6 +2165,7 @@ The following elements are relevant for all kinds of sources. For rotary encoder
   | **Min or max** | If the source value is < "Source Min", ReaLearn will behave as if "Source Min" was received (or 0% if min = max).<br><br>If the source value is > "Source Max", ReaLearn will behave as if "Source Max" was received (or 100% if min = max). | If the target value is < "Target Min", ReaLearn will behave as if "Target Min" was detected (or 0% if min = max).<br><br>If the target value is > "Target Max", ReaLearn will behave as if "Target Max" was detected (or 100% if min = max). |
   | **Min**        | ReaLearn will behave as if "Source Min" was received (or 0% if min = max).                                                                                                                                                                   | ReaLearn will behave as if "Target Min" was detected (or 0% if min = max). Useful for getting radio-button-like feedback.                                                                                                                    |
   | **Ignore**     | Target value won't be touched.                                                                                                                                                                                                               | No feedback will be sent.                                                                                                                                                                                                                    |
+
 
 ##### For knobs/faders and buttons (control only)
 
