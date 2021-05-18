@@ -5,11 +5,10 @@ use crate::domain::{
     FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackValue,
     GroupId, InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
     MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
-    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, PartialControlMatch, ProcessorContext,
-    QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
-    RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperTarget,
-    SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
-    TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
+    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedSource,
+    RealFeedbackValue, RealSource, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
+    RealearnTarget, ReaperTarget, SharedInstanceState, SmallAsciiString, SourceFeedbackValue,
+    SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -2069,34 +2068,26 @@ impl<EH: DomainEventHandler> Basics<EH> {
             .values_mut()
             .filter(|m| m.control_is_effectively_on())
             .flat_map(|m| {
-                if let Some(control_match) = m.control_osc_virtualizing(msg) {
-                    use PartialControlMatch::*;
-                    match control_match {
-                        ProcessVirtual(virtual_source_value) => {
-                            self.control_main_mappings_virtual(
-                                main_mappings,
-                                virtual_source_value,
-                                ControlOptions {
-                                    // We inherit "Send feedback after control" if it's
-                                    // enabled for the virtual mapping. That's the easy way to do it.
-                                    // Downside: If multiple real control elements are mapped to one
-                                    // virtual control element,
-                                    // "feedback after control" will be sent to all of
-                                    // those, which is technically not
-                                    // necessary. It would be enough to just send it
-                                    // to the one that was touched. However, it also doesn't really
-                                    // hurt.
-                                    enforce_send_feedback_after_control: m
-                                        .options()
-                                        .send_feedback_after_control,
-                                    mode_control_options: m.mode_control_options(),
-                                },
-                            )
-                        }
-                        ProcessDirect(_) => {
-                            unreachable!("we shouldn't be here")
-                        }
-                    }
+                if let Some(virtual_source_value) = m.control_osc_virtualizing(msg) {
+                    self.control_main_mappings_virtual(
+                        main_mappings,
+                        virtual_source_value,
+                        ControlOptions {
+                            // We inherit "Send feedback after control" if it's
+                            // enabled for the virtual mapping. That's the easy way to do it.
+                            // Downside: If multiple real control elements are mapped to one
+                            // virtual control element,
+                            // "feedback after control" will be sent to all of
+                            // those, which is technically not
+                            // necessary. It would be enough to just send it
+                            // to the one that was touched. However, it also doesn't really
+                            // hurt.
+                            enforce_send_feedback_after_control: m
+                                .options()
+                                .send_feedback_after_control,
+                            mode_control_options: m.mode_control_options(),
+                        },
+                    )
                 } else {
                     vec![]
                 }

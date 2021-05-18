@@ -681,7 +681,7 @@ impl MainMapping {
         }
     }
 
-    pub fn control_osc_virtualizing(&mut self, msg: &OscMessage) -> Option<PartialControlMatch> {
+    pub fn control_osc_virtualizing(&mut self, msg: &OscMessage) -> Option<VirtualSourceValue> {
         if self.targets.is_empty() {
             return None;
         }
@@ -692,10 +692,8 @@ impl MainMapping {
         };
         // First target is enough because this does nothing yet.
         match self.targets.first()? {
-            CompoundMappingTarget::Reaper(_) => {
-                Some(PartialControlMatch::ProcessDirect(control_value))
-            }
             CompoundMappingTarget::Virtual(t) => match_partially(&mut self.core, t, control_value),
+            CompoundMappingTarget::Reaper(_) => None,
         }
     }
 }
@@ -820,6 +818,7 @@ impl RealTimeMapping {
         };
         if let Some(RealTimeCompoundMappingTarget::Virtual(t)) = self.resolved_target.as_ref() {
             match_partially(&mut self.core, t, control_value)
+                .map(PartialControlMatch::ProcessVirtual)
         } else {
             Some(PartialControlMatch::ProcessDirect(control_value))
         }
@@ -1418,7 +1417,7 @@ fn match_partially(
     core: &mut MappingCore,
     target: &VirtualTarget,
     control_value: ControlValue,
-) -> Option<PartialControlMatch> {
+) -> Option<VirtualSourceValue> {
     // Determine resulting virtual control value in real-time processor.
     // It's important to do that here. We need to know the result in order to
     // return if there was actually a match of *real* non-virtual mappings.
@@ -1430,10 +1429,7 @@ fn match_partially(
     if core.options.prevent_echo_feedback {
         core.time_of_last_control = Some(Instant::now());
     }
-    let res = PartialControlMatch::ProcessVirtual(VirtualSourceValue::new(
-        target.control_element(),
-        transformed_control_value,
-    ));
+    let res = VirtualSourceValue::new(target.control_element(), transformed_control_value);
     Some(res)
 }
 
