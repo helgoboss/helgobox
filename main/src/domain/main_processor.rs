@@ -2,13 +2,14 @@ use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
     ClipChangedEvent, CompoundMappingSource, CompoundMappingTarget, ControlContext, ControlInput,
     ControlMode, DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
-    FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackValue,
-    GroupId, InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
-    MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
-    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedSource,
-    RealFeedbackValue, RealSource, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
-    RealearnTarget, ReaperTarget, SharedInstanceState, SmallAsciiString, SourceFeedbackValue,
-    SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
+    FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
+    FeedbackSendBehavior, FeedbackValue, GroupId, InstanceFeedbackEvent,
+    InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping, MappingActivationEffect,
+    MappingCompartment, MappingId, MidiDestination, MidiSource, NormalRealTimeTask, OscDeviceId,
+    OscFeedbackTask, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
+    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperTarget,
+    SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
+    TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -2080,9 +2081,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             // necessary. It would be enough to just send it
                             // to the one that was touched. However, it also doesn't really
                             // hurt.
-                            enforce_send_feedback_after_control: m
-                                .options()
-                                .send_feedback_after_control,
+                            enforce_send_feedback_after_control: m.options().feedback_send_behavior
+                                == FeedbackSendBehavior::SendFeedbackAfterControl,
                             mode_control_options: m.mode_control_options(),
                         },
                     )

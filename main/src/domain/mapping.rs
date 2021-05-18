@@ -36,8 +36,36 @@ pub struct ProcessorMappingOptions {
     pub target_is_active: bool,
     pub control_is_enabled: bool,
     pub feedback_is_enabled: bool,
-    pub prevent_echo_feedback: bool,
-    pub send_feedback_after_control: bool,
+    pub feedback_send_behavior: FeedbackSendBehavior,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Debug,
+    Enum,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum FeedbackSendBehavior {
+    #[display(fmt = "Normal")]
+    Normal,
+    #[display(fmt = "Send feedback after control")]
+    SendFeedbackAfterControl,
+    #[display(fmt = "Prevent echo feedback")]
+    PreventEchoFeedback,
+}
+
+impl Default for FeedbackSendBehavior {
+    fn default() -> Self {
+        Self::Normal
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
@@ -517,7 +545,9 @@ impl MainMapping {
                 Some(HitTarget(v)) => {
                     at_least_one_target_val_was_changed = true;
                     at_least_one_target_was_reached = true;
-                    if self.core.options.prevent_echo_feedback {
+                    if self.core.options.feedback_send_behavior
+                        == FeedbackSendBehavior::PreventEchoFeedback
+                    {
                         self.core.time_of_last_control = Some(Instant::now());
                     }
                     // Be graceful here.
@@ -567,7 +597,9 @@ impl MainMapping {
             // TODO-low Wouldn't it be better to always send feedback in this situation? But that
             //  could the user let believe that it actually works while in reality it's not "true"
             //  feedback that is independent from control. So an opt-in is maybe the right thing.
-            self.core.options.send_feedback_after_control && self.feedback_is_effectively_on()
+            self.core.options.feedback_send_behavior
+                == FeedbackSendBehavior::SendFeedbackAfterControl
+                && self.feedback_is_effectively_on()
         }
     }
 
@@ -669,7 +701,8 @@ impl MainMapping {
         options: ControlOptions,
         context: ControlContext,
     ) -> Option<FeedbackValue> {
-        if self.core.options.send_feedback_after_control
+        if self.core.options.feedback_send_behavior
+            == FeedbackSendBehavior::SendFeedbackAfterControl
             || options.enforce_send_feedback_after_control
         {
             if self.feedback_is_effectively_on() {
@@ -1434,7 +1467,7 @@ fn match_partially(
     //  virtual targets one day, we need to poll this in real-time processor and OSC
     //  processing, too!
     let transformed_control_value = core.mode.control(control_value, target, ())?;
-    if core.options.prevent_echo_feedback {
+    if core.options.feedback_send_behavior == FeedbackSendBehavior::PreventEchoFeedback {
         core.time_of_last_control = Some(Instant::now());
     }
     let res = VirtualSourceValue::new(target.control_element(), transformed_control_value);

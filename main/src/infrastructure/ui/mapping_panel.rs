@@ -37,8 +37,8 @@ use crate::application::{
 };
 use crate::base::Global;
 use crate::domain::{
-    control_element_domains, ClipInfo, ControlContext, FeedbackOutput, InstanceId,
-    SendMidiDestination, SharedInstanceState, SlotContent, CLIP_SLOT_COUNT,
+    control_element_domains, ClipInfo, ControlContext, FeedbackOutput, FeedbackSendBehavior,
+    InstanceId, SendMidiDestination, SharedInstanceState, SlotContent, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -799,12 +799,14 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
-    fn update_mapping_prevent_echo_feedback(&mut self) {
-        self.mapping.prevent_echo_feedback.set(
-            self.view
-                .require_control(root::ID_MAPPING_PREVENT_ECHO_FEEDBACK_CHECK_BOX)
-                .is_checked(),
-        );
+    fn update_mapping_feedback_send_behavior(&mut self) {
+        let behavior = self
+            .view
+            .require_control(root::ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX)
+            .selected_combo_box_item_index()
+            .try_into()
+            .expect("invalid feedback send behavior");
+        self.mapping.feedback_send_behavior.set(behavior);
     }
 
     fn update_mode_hint(&self, mode_parameter: ModeParameter) {
@@ -812,14 +814,6 @@ impl<'a> MutableMappingPanel<'a> {
             .last_touched_mode_parameter
             .borrow_mut()
             .set(Some(mode_parameter));
-    }
-
-    fn update_mapping_send_feedback_after_control(&mut self) {
-        self.mapping.send_feedback_after_control.set(
-            self.view
-                .require_control(root::ID_MAPPING_SEND_FEEDBACK_AFTER_CONTROL_CHECK_BOX)
-                .is_checked(),
-        );
     }
 
     fn update_source_is_registered(&mut self) {
@@ -2104,6 +2098,7 @@ impl<'a> MutableMappingPanel<'a> {
 
 impl<'a> ImmutableMappingPanel<'a> {
     fn fill_all_controls(&self) {
+        self.fill_mapping_feedback_send_behavior_combo_box();
         self.fill_source_category_combo_box();
         self.fill_source_midi_message_number_combo_box();
         self.fill_source_midi_clock_transport_message_type_combo_box();
@@ -2119,8 +2114,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_all_controls(&self) {
         self.invalidate_window_title();
         self.panel.mapping_header_panel.invalidate_controls();
-        self.invalidate_mapping_prevent_echo_feedback_check_box();
-        self.invalidate_mapping_send_feedback_after_control_check_box();
+        self.invalidate_mapping_feedback_send_behavior_combo_box();
         self.invalidate_mapping_advanced_settings_button();
         self.invalidate_source_controls();
         self.invalidate_target_controls(None);
@@ -2266,18 +2260,13 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text(format!("Mapping \"{}\"", self.mapping.effective_name()));
     }
 
-    fn invalidate_mapping_prevent_echo_feedback_check_box(&self) {
-        let cb = self
+    fn invalidate_mapping_feedback_send_behavior_combo_box(&self) {
+        let combo = self
             .view
-            .require_control(root::ID_MAPPING_PREVENT_ECHO_FEEDBACK_CHECK_BOX);
-        cb.set_checked(self.mapping.prevent_echo_feedback.get());
-    }
-
-    fn invalidate_mapping_send_feedback_after_control_check_box(&self) {
-        let cb = self
-            .view
-            .require_control(root::ID_MAPPING_SEND_FEEDBACK_AFTER_CONTROL_CHECK_BOX);
-        cb.set_checked(self.mapping.send_feedback_after_control.get());
+            .require_control(root::ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX);
+        combo
+            .select_combo_box_item_by_index(self.mapping.feedback_send_behavior.get().into())
+            .unwrap();
     }
 
     fn invalidate_mapping_advanced_settings_button(&self) {
@@ -3806,15 +3795,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mode_controls();
             });
         self.panel
-            .when(self.mapping.prevent_echo_feedback.changed(), |view, _| {
-                view.invalidate_mapping_prevent_echo_feedback_check_box();
+            .when(self.mapping.feedback_send_behavior.changed(), |view, _| {
+                view.invalidate_mapping_feedback_send_behavior_combo_box();
             });
-        self.panel.when(
-            self.mapping.send_feedback_after_control.changed(),
-            |view, _| {
-                view.invalidate_mapping_send_feedback_after_control_check_box();
-            },
-        );
         self.panel
             .when(self.mapping.advanced_settings_changed(), |view, _| {
                 view.invalidate_mapping_advanced_settings_button();
@@ -4914,6 +4897,13 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
     }
 
+    fn fill_mapping_feedback_send_behavior_combo_box(&self) {
+        let b = self
+            .view
+            .require_control(root::ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX);
+        b.fill_combo_box_indexed(FeedbackSendBehavior::into_enum_iter());
+    }
+
     fn fill_target_category_combo_box(&self) {
         let b = self
             .view
@@ -5077,12 +5067,6 @@ impl View for MappingPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             // Mapping
-            root::ID_MAPPING_PREVENT_ECHO_FEEDBACK_CHECK_BOX => {
-                self.write(|p| p.update_mapping_prevent_echo_feedback())
-            }
-            root::ID_MAPPING_SEND_FEEDBACK_AFTER_CONTROL_CHECK_BOX => {
-                self.write(|p| p.update_mapping_send_feedback_after_control())
-            }
             root::ID_MAPPING_ADVANCED_BUTTON => {
                 self.edit_advanced_settings();
             }
@@ -5135,6 +5119,10 @@ impl View for MappingPanel {
 
     fn option_selected(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
+            // Mapping
+            root::ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX => {
+                self.write(|p| p.update_mapping_feedback_send_behavior())
+            }
             // Source
             root::ID_SOURCE_CATEGORY_COMBO_BOX => self.write(|p| p.update_source_category()),
             root::ID_SOURCE_TYPE_COMBO_BOX => self.write(|p| p.update_source_type()),

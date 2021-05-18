@@ -1,6 +1,8 @@
 use crate::application::MappingModel;
 use crate::base::default_util::is_default;
-use crate::domain::{ExtendedProcessorContext, GroupId, MappingCompartment, MappingId};
+use crate::domain::{
+    ExtendedProcessorContext, FeedbackSendBehavior, GroupId, MappingCompartment, MappingId,
+};
 use crate::infrastructure::data::{
     ActivationConditionData, EnabledData, MigrationDescriptor, ModeModelData, SourceModelData,
     TargetModelData,
@@ -48,8 +50,10 @@ impl MappingModelData {
                 control_is_enabled: model.control_is_enabled.get(),
                 feedback_is_enabled: model.feedback_is_enabled.get(),
             },
-            prevent_echo_feedback: model.prevent_echo_feedback.get(),
-            send_feedback_after_control: model.send_feedback_after_control.get(),
+            prevent_echo_feedback: model.feedback_send_behavior.get()
+                == FeedbackSendBehavior::PreventEchoFeedback,
+            send_feedback_after_control: model.feedback_send_behavior.get()
+                == FeedbackSendBehavior::SendFeedbackAfterControl,
             activation_condition_data: ActivationConditionData::from_model(
                 &model.activation_condition_model,
             ),
@@ -155,12 +159,17 @@ impl MappingModelData {
             self.enabled_data.feedback_is_enabled,
             with_notification,
         );
+        let feedback_send_behavior = if self.prevent_echo_feedback {
+            // Took precedence if both checkboxes were ticked (was possible in ReaLearn < 2.10.0).
+            FeedbackSendBehavior::PreventEchoFeedback
+        } else if self.send_feedback_after_control {
+            FeedbackSendBehavior::SendFeedbackAfterControl
+        } else {
+            FeedbackSendBehavior::Normal
+        };
         model
-            .prevent_echo_feedback
-            .set_with_optional_notification(self.prevent_echo_feedback, with_notification);
-        model
-            .send_feedback_after_control
-            .set_with_optional_notification(self.send_feedback_after_control, with_notification);
+            .feedback_send_behavior
+            .set_with_optional_notification(feedback_send_behavior, with_notification);
         let _ = model.set_advanced_settings(self.advanced.clone(), with_notification);
     }
 }

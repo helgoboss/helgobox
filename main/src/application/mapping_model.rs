@@ -5,8 +5,8 @@ use crate::application::{
 use crate::base::{prop, Prop};
 use crate::domain::{
     ActivationCondition, CompoundMappingTarget, ExtendedProcessorContext, ExtendedSourceCharacter,
-    GroupId, MainMapping, MappingCompartment, MappingId, ProcessorMappingOptions,
-    QualifiedMappingId, RealearnTarget, ReaperTarget, TargetCharacter,
+    FeedbackSendBehavior, GroupId, MainMapping, MappingCompartment, MappingId,
+    ProcessorMappingOptions, QualifiedMappingId, RealearnTarget, ReaperTarget, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
@@ -26,8 +26,7 @@ pub struct MappingModel {
     pub group_id: Prop<GroupId>,
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
-    pub prevent_echo_feedback: Prop<bool>,
-    pub send_feedback_after_control: Prop<bool>,
+    pub feedback_send_behavior: Prop<FeedbackSendBehavior>,
     pub activation_condition_model: ActivationConditionModel,
     pub source_model: SourceModel,
     pub mode_model: ModeModel,
@@ -74,8 +73,7 @@ impl MappingModel {
             group_id: prop(initial_group_id),
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
-            prevent_echo_feedback: prop(false),
-            send_feedback_after_control: prop(false),
+            feedback_send_behavior: prop(Default::default()),
             activation_condition_model: Default::default(),
             source_model: Default::default(),
             mode_model: Default::default(),
@@ -206,8 +204,7 @@ impl MappingModel {
             .merge(self.target_model.changed())
             .merge(self.control_is_enabled.changed())
             .merge(self.feedback_is_enabled.changed())
-            .merge(self.prevent_echo_feedback.changed())
-            .merge(self.send_feedback_after_control.changed())
+            .merge(self.feedback_send_behavior.changed())
             .merge(
                 self.activation_condition_model
                     .changed_processing_relevant(),
@@ -274,8 +271,7 @@ impl MappingModel {
             target_is_active: false,
             control_is_enabled: group_data.control_is_enabled && self.control_is_enabled.get(),
             feedback_is_enabled: group_data.feedback_is_enabled && self.feedback_is_enabled.get(),
-            prevent_echo_feedback: self.prevent_echo_feedback.get(),
-            send_feedback_after_control: self.send_feedback_after_control.get(),
+            feedback_send_behavior: self.feedback_send_behavior.get(),
         };
         MainMapping::new(
             self.compartment,

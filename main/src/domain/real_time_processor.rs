@@ -1,8 +1,8 @@
 use crate::domain::{
     classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
-    Garbage, GarbageBin, InputMatchResult, InstanceId, LifecycleMidiMessage, LifecyclePhase,
-    MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification, MidiSource,
-    MidiSourceScanner, NormalRealTimeToMainThreadTask, PartialControlMatch,
+    FeedbackSendBehavior, Garbage, GarbageBin, InputMatchResult, InstanceId, LifecycleMidiMessage,
+    LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator, MidiMessageClassification,
+    MidiSource, MidiSourceScanner, NormalRealTimeToMainThreadTask, PartialControlMatch,
     RealTimeCompoundMappingTarget, RealTimeMapping, RealTimeReaperTarget, SendMidiDestination,
     VirtualSourceValue,
 };
@@ -1190,9 +1190,8 @@ fn control_controller_mappings_midi(
                         // control element, "feedback after control" will be sent to all of those,
                         // which is technically not necessary. It would be enough to just send it
                         // to the one that was touched. However, it also doesn't really hurt.
-                        enforce_send_feedback_after_control: m
-                            .options()
-                            .send_feedback_after_control,
+                        enforce_send_feedback_after_control: m.options().feedback_send_behavior
+                            == FeedbackSendBehavior::SendFeedbackAfterControl,
                         mode_control_options: m.mode_control_options(),
                     },
                     caller,
