@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "2.10.0-pre.2"
+version = "2.10.0-pre.3"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -129,8 +129,8 @@ maplit = "1.0.2"
 ascii = "1.0"
 # For using bit flags in the reaper-rs API.
 enumflags2 = { version = "^0.6", features = ["not_literal"] }
-# For detecting undesired deallocation in real-time threads.
-assert_no_alloc = { git = "https://github.com/helgoboss/rust-assert-no-alloc.git", branch = "feature/rust-stable" }
+# For detecting undesired (de)allocation in real-time threads.
+assert_no_alloc = { git = "https://github.com/Windfisch/rust-assert-no-alloc.git", branch = "master" }
 # For making the patch in the root Cargo.toml work also after running `cargo update`.
 webpki = "= 0.21.3"
 # For making the patch in the root Cargo.toml work also after running `cargo update`.
