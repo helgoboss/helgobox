@@ -339,7 +339,6 @@
         "category": "virtual",
         "controlElementType": "button"
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -378,7 +377,6 @@
         "controlElementType": "button",
         "controlElementIndex": 1
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -418,7 +416,6 @@
         "controlElementType": "button",
         "controlElementIndex": 2
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -458,7 +455,6 @@
         "controlElementType": "button",
         "controlElementIndex": 3
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -498,7 +494,6 @@
         "controlElementType": "button",
         "controlElementIndex": 4
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -538,7 +533,6 @@
         "controlElementType": "button",
         "controlElementIndex": 5
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -578,7 +572,6 @@
         "controlElementType": "button",
         "controlElementIndex": 6
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -618,7 +611,6 @@
         "controlElementType": "button",
         "controlElementIndex": 7
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -658,7 +650,6 @@
         "controlElementType": "button",
         "controlElementIndex": 8
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -698,7 +689,6 @@
         "controlElementType": "button",
         "controlElementIndex": 9
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -738,7 +728,6 @@
         "controlElementType": "button",
         "controlElementIndex": 10
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -778,7 +767,6 @@
         "controlElementType": "button",
         "controlElementIndex": 11
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -818,7 +806,6 @@
         "controlElementType": "button",
         "controlElementIndex": 12
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -858,7 +845,6 @@
         "controlElementType": "button",
         "controlElementIndex": 13
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -898,7 +884,6 @@
         "controlElementType": "button",
         "controlElementIndex": 14
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
@@ -938,7 +923,6 @@
         "controlElementType": "button",
         "controlElementIndex": 15
       },
-      "feedbackIsEnabled": false,
       "sendFeedbackAfterControl": true
     },
     {
