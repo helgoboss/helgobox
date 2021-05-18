@@ -96,6 +96,8 @@ impl SourceModel {
             Midi => self.midi_source_type.get().supports_control(),
             Osc => true,
             Virtual => true,
+            // Main use case: Group interaction (follow-only).
+            Never => true,
         }
     }
 
@@ -105,6 +107,7 @@ impl SourceModel {
             Midi => self.midi_source_type.get().supports_feedback(),
             Osc => true,
             Virtual => true,
+            Never => false,
         }
     }
 
@@ -183,6 +186,9 @@ impl SourceModel {
                         .unwrap_or_default(),
                 );
             }
+            Never => {
+                self.category.set(SourceCategory::Never);
+            }
         };
     }
 
@@ -215,6 +221,14 @@ impl SourceModel {
                     DetailedSourceCharacter::PressOnlyButton,
                 ],
             },
+            // Can be anything, depending on the mapping that uses the group interaction.
+            CompoundMappingSource::Never => vec![
+                DetailedSourceCharacter::MomentaryVelocitySensitiveButton,
+                DetailedSourceCharacter::MomentaryOnOffButton,
+                DetailedSourceCharacter::PressOnlyButton,
+                DetailedSourceCharacter::RangeControl,
+                DetailedSourceCharacter::Relative,
+            ],
         }
     }
 
@@ -291,6 +305,7 @@ impl SourceModel {
                 );
                 CompoundMappingSource::Osc(osc_source)
             }
+            Never => CompoundMappingSource::Never,
         }
     }
 
@@ -507,6 +522,7 @@ impl Display for SourceModel {
                 self.create_control_element().to_string().into(),
             ],
             Osc => vec!["OSC".into(), self.osc_address_pattern.get_ref().into()],
+            Never => vec!["None".into()],
         };
         let non_empty_lines: Vec<_> = lines.into_iter().filter(|l| !l.is_empty()).collect();
         write!(f, "{}", non_empty_lines.join("\n"))
@@ -528,6 +544,9 @@ impl Display for SourceModel {
 )]
 #[repr(usize)]
 pub enum SourceCategory {
+    #[serde(rename = "never")]
+    #[display(fmt = "None")]
+    Never,
     #[serde(rename = "midi")]
     #[display(fmt = "MIDI")]
     Midi,

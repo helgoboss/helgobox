@@ -56,7 +56,7 @@ impl RealSource {
         match s {
             Midi(s) => Some(Self::Midi(s)),
             Osc(s) => Some(Self::Osc(s)),
-            Virtual(_) => None,
+            Virtual(_) | Never => None,
         }
     }
 

@@ -843,7 +843,7 @@ impl<'a> MutableMappingPanel<'a> {
             Osc => {
                 self.mapping.source_model.osc_arg_is_relative.set(checked);
             }
-            Virtual => {}
+            Virtual | Never => {}
         };
     }
 
@@ -891,7 +891,7 @@ impl<'a> MutableMappingPanel<'a> {
                     .osc_arg_type_tag
                     .set(i.try_into().expect("invalid OSC type tag"));
             }
-            Virtual => {}
+            Virtual | Never => {}
         }
     }
 
@@ -962,6 +962,7 @@ impl<'a> MutableMappingPanel<'a> {
                     .control_element_id
                     .set_with_initiator(text.parse().unwrap_or_default(), Some(edit_control_id));
             }
+            Never => {}
         };
     }
 
@@ -992,7 +993,7 @@ impl<'a> MutableMappingPanel<'a> {
                         .osc_address_pattern
                         .set_with_initiator(value, Some(edit_control_id));
                 }
-                Virtual => {}
+                Virtual | Never => {}
             }
         }
     }
@@ -2326,6 +2327,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             ),
             Virtual => ("", "ID", "", ""),
             Osc => ("", "Argument", "Type", "Address"),
+            Never => ("", "", "", ""),
         };
         self.view
             .require_control(root::ID_SOURCE_CHANNEL_LABEL)
@@ -2510,7 +2512,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 "14-bit values",
             ),
             Osc => (self.source.osc_arg_is_relative.get(), "Is relative"),
-            Virtual => return,
+            Virtual | Never => return,
         };
         let c = self.view.require_control(root::ID_SOURCE_14_BIT_CHECK_BOX);
         c.set_text(label);
@@ -2553,6 +2555,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
             Osc => format_osc_arg_index(self.source.osc_arg_index.get()),
             Virtual => self.source.control_element_id.get().to_string(),
+            Never => return,
         };
         c.set_text(text)
     }
@@ -2578,7 +2581,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 _ => return,
             },
             Osc => (self.source.osc_address_pattern.get_ref().as_str(), false),
-            Virtual => return,
+            Virtual | Never => return,
         };
         c.set_text(value_text);
         c.set_enabled(!read_only);
@@ -2594,7 +2597,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let (label_text, item_index) = match self.source.category.get() {
             Midi => ("Character", self.source.custom_character.get().into()),
             Osc => ("Type", self.source.osc_arg_type_tag.get().into()),
-            Virtual => return,
+            Virtual | Never => return,
         };
         self.view
             .require_control(root::ID_SOURCE_CHARACTER_LABEL_TEXT)
@@ -4924,7 +4927,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         match self.source.category.get() {
             Midi => b.fill_combo_box_indexed(MidiSourceType::into_enum_iter()),
             Virtual => b.fill_combo_box_indexed(VirtualControlElementType::into_enum_iter()),
-            Osc => {}
+            Osc | Never => {}
         };
     }
 
@@ -4963,7 +4966,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Osc => {
                 combo.fill_combo_box_indexed(OscTypeTag::into_enum_iter());
             }
-            Virtual => {}
+            Virtual | Never => {}
         }
     }
 

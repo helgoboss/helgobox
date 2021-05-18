@@ -10,8 +10,9 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    ControlType, ControlValue, GroupInteraction, MidiSourceValue, ModeControlOptions,
-    ModeControlResult, OscSource, RawMidiEvent, SourceCharacter, Target, UnitValue,
+    format_percentage_without_unit, parse_percentage_without_unit, ControlType, ControlValue,
+    GroupInteraction, MidiSourceValue, ModeControlOptions, ModeControlResult, OscSource,
+    RawMidiEvent, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -20,6 +21,7 @@ use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
+use std::convert::TryInto;
 use std::fmt;
 use std::fmt::Display;
 use std::ops::Range;
@@ -389,7 +391,7 @@ impl MainMapping {
             CompoundMappingSource::Osc(self_source) => {
                 matches!(source, RealSource::Osc(s) if s == self_source)
             }
-            CompoundMappingSource::Virtual(_) => false,
+            CompoundMappingSource::Virtual(_) | CompoundMappingSource::Never => false,
         }
     }
 
@@ -860,6 +862,7 @@ impl MappingCore {
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum CompoundMappingSource {
+    Never,
     Midi(MidiSource),
     Osc(OscSource),
     Virtual(VirtualSource),
@@ -892,6 +895,7 @@ impl CompoundMappingSource {
             Midi(s) => s.format_control_value(value),
             Virtual(s) => s.format_control_value(value),
             Osc(s) => s.format_control_value(value),
+            Never => Ok(format_percentage_without_unit(value.as_absolute()?.get())),
         }
     }
 
@@ -901,6 +905,7 @@ impl CompoundMappingSource {
             Midi(s) => s.parse_control_value(text),
             Virtual(s) => s.parse_control_value(text),
             Osc(s) => s.parse_control_value(text),
+            Never => parse_percentage_without_unit(text)?.try_into(),
         }
     }
 
@@ -910,6 +915,7 @@ impl CompoundMappingSource {
             Midi(s) => ExtendedSourceCharacter::Normal(s.character()),
             Virtual(s) => s.character(),
             Osc(s) => ExtendedSourceCharacter::Normal(s.character()),
+            Never => ExtendedSourceCharacter::VirtualContinuous,
         }
     }
 
@@ -920,6 +926,8 @@ impl CompoundMappingSource {
             Osc(s) => s.feedback(feedback_value).map(SourceFeedbackValue::Osc),
             // This is handled in a special way by consumers.
             Virtual(_) => None,
+            // No feedback for never source.
+            Never => None,
         }
     }
 
@@ -927,7 +935,7 @@ impl CompoundMappingSource {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.consumes(msg),
-            Virtual(_) | Osc(_) => false,
+            Virtual(_) | Osc(_) | Never => false,
         }
     }
 }

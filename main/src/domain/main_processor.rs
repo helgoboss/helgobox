@@ -1918,8 +1918,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     );
                 }
                 SameTargetValue | InverseTargetValue => {
-                    // TODO-high Add None sources (good for group-interaction-follow-only mappings)
-                    //  and None targets (good for group-interaction-lead-only mappings)
                     if !control_was_successful {
                         return;
                     }
