@@ -10,8 +10,8 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    ControlType, ControlValue, GroupInteraction, MidiSourceValue, ModeControlOptions, OscSource,
-    RawMidiEvent, SourceCharacter, Target, UnitValue,
+    ControlType, ControlValue, GroupInteraction, MidiSourceValue, ModeControlOptions,
+    ModeControlResult, OscSource, RawMidiEvent, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -398,34 +398,40 @@ impl MainMapping {
     }
 
     /// This is for timer-triggered control and works like `control_if_enabled`.
-    pub fn poll_if_control_enabled(&mut self, context: ControlContext) -> Option<FeedbackValue> {
-        if !self.control_is_effectively_on() {
-            return None;
-        }
+    pub fn poll_control(&mut self, context: ControlContext) -> MappingControlResult {
         let mut should_send_feedback = false;
+        let mut at_least_one_target_was_reached = false;
         for target in &self.targets {
             let target = if let CompoundMappingTarget::Reaper(t) = target {
                 t
             } else {
                 continue;
             };
-            let final_value = if let Some(v) = self.core.mode.poll(target, context) {
-                v
-            } else {
-                continue;
+            use ModeControlResult::*;
+            match self.core.mode.poll(target, context) {
+                None => {}
+                Some(HitTarget(v)) => {
+                    at_least_one_target_was_reached = true;
+                    // Be graceful here. Don't debug-log errors for now because this is polled.
+                    let _ = target.control(v, context);
+                    // Echo feedback, send feedback after control ... all of that is not important when
+                    // firing triggered by a timer.
+                    if self.should_send_non_auto_feedback_after_control(target) {
+                        should_send_feedback = true;
+                    }
+                }
+                Some(LeaveTargetUntouched(_)) => {
+                    at_least_one_target_was_reached = true;
+                }
             };
-            // Echo feedback, send feedback after control ... all of that is not important when
-            // firing triggered by a timer.
-            // Be graceful here. Don't debug-log errors for now because this is polled.
-            let _ = target.control(final_value, context);
-            if self.should_send_non_auto_feedback_after_control(target) {
-                should_send_feedback = true;
-            }
         }
-        if should_send_feedback {
-            self.feedback(true, context)
-        } else {
-            None
+        MappingControlResult {
+            successful: at_least_one_target_was_reached,
+            feedback_value: if should_send_feedback {
+                self.feedback(true, context)
+            } else {
+                None
+            },
         }
     }
 
@@ -443,7 +449,7 @@ impl MainMapping {
         options: ControlOptions,
         context: ControlContext,
         logger: &slog::Logger,
-    ) -> ControlResult {
+    ) -> MappingControlResult {
         self.control_internal(
             options,
             context,
@@ -470,8 +476,10 @@ impl MainMapping {
         context: ControlContext,
         logger: &slog::Logger,
     ) -> Option<FeedbackValue> {
-        self.control_internal(options, context, logger, |_, _, _, _| Some(value))
-            .feedback_value
+        self.control_internal(options, context, logger, |_, _, _, _| {
+            Some(ModeControlResult::HitTarget(value))
+        })
+        .feedback_value
     }
 
     fn control_internal(
@@ -479,56 +487,64 @@ impl MainMapping {
         options: ControlOptions,
         context: ControlContext,
         logger: &slog::Logger,
-        get_final_value: impl Fn(
+        get_mode_control_result: impl Fn(
             ControlOptions,
             ControlContext,
             &mut Mode,
             &ReaperTarget,
-        ) -> Option<ControlValue>,
-    ) -> ControlResult {
+        ) -> Option<ModeControlResult<ControlValue>>,
+    ) -> MappingControlResult {
         let mut send_feedback = false;
         let mut at_least_one_target_val_was_changed = false;
+        let mut at_least_one_target_was_reached = false;
+        use ModeControlResult::*;
         for target in &self.targets {
             let target = if let CompoundMappingTarget::Reaper(t) = target {
                 t
             } else {
                 continue;
             };
-            let final_value = get_final_value(options, context, &mut self.core.mode, target);
-            if let Some(v) = final_value {
-                at_least_one_target_val_was_changed = true;
-                if self.core.options.prevent_echo_feedback {
-                    self.core.time_of_last_control = Some(Instant::now());
-                }
-                // Be graceful here.
-                if let Err(msg) = target.control(v, context) {
-                    slog::debug!(logger, "Control failed: {}", msg);
-                }
-                if self.should_send_non_auto_feedback_after_control(target) {
+            match get_mode_control_result(options, context, &mut self.core.mode, target) {
+                None => {
+                    // The target value was not changed. If `send_feedback_after_control` is enabled, we
+                    // still send feedback - this can be useful with controllers which insist
+                    // controlling the LED on their own. The feedback sent by ReaLearn
+                    // will fix this self-controlled LED state.
                     send_feedback = true;
                 }
-            } else {
-                // The target value was not changed. If `send_feedback_after_control` is enabled, we
-                // still send feedback - this can be useful with controllers which insist
-                // controlling the LED on their own. The feedback sent by ReaLearn
-                // will fix this self-controlled LED state.
-                send_feedback = true;
+                Some(HitTarget(v)) => {
+                    at_least_one_target_val_was_changed = true;
+                    at_least_one_target_was_reached = true;
+                    if self.core.options.prevent_echo_feedback {
+                        self.core.time_of_last_control = Some(Instant::now());
+                    }
+                    // Be graceful here.
+                    if let Err(msg) = target.control(v, context) {
+                        slog::debug!(logger, "Control failed: {}", msg);
+                    }
+                    if self.should_send_non_auto_feedback_after_control(target) {
+                        send_feedback = true;
+                    }
+                }
+                Some(LeaveTargetUntouched(_)) => {
+                    at_least_one_target_was_reached = true;
+                    send_feedback = true;
+                }
             }
         }
-        let feedback_value = if at_least_one_target_val_was_changed {
-            if send_feedback {
-                self.feedback(true, context)
+        MappingControlResult {
+            successful: at_least_one_target_was_reached,
+            feedback_value: if at_least_one_target_val_was_changed {
+                if send_feedback {
+                    self.feedback(true, context)
+                } else {
+                    None
+                }
+            } else if send_feedback {
+                self.feedback_after_control_if_enabled(options, context)
             } else {
                 None
-            }
-        } else if send_feedback {
-            self.feedback_after_control_if_enabled(options, context)
-        } else {
-            None
-        };
-        ControlResult {
-            successful: at_least_one_target_val_was_changed,
-            feedback_value,
+            },
         }
     }
 
@@ -1439,7 +1455,7 @@ pub fn aggregate_target_values(
     values.map(|v| v.unwrap_or_default()).max()
 }
 
-pub struct ControlResult {
+pub struct MappingControlResult {
     /// `true` if target hit.
     pub successful: bool,
     /// Even if not hit, this can contain a feedback value!

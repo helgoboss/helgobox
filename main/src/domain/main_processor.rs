@@ -50,6 +50,8 @@ pub const ZEROED_PLUGIN_PARAMETERS: ParameterArray = [0.0f32; PLUGIN_PARAMETER_C
 pub struct MainProcessor<EH: DomainEventHandler> {
     basics: Basics<EH>,
     collections: Collections,
+    /// Contains IDs of those mappings who need to be polled as frequently as possible.
+    poll_control_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
 }
 
 #[derive(Debug)]
@@ -87,8 +89,6 @@ struct Collections {
     ///  could be optimized. However, this is what makes the seek target work currently when
     ///  changing cursor position while stopped.
     milli_dependent_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
-    /// Contains IDs of those mappings who need to be polled as frequently as possible.
-    poll_control_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     parameters: ParameterArray,
     previous_target_values: EnumMap<MappingCompartment, HashMap<MappingId, UnitValue>>,
 }
@@ -175,10 +175,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 target_touch_dependent_mappings: Default::default(),
                 beat_dependent_feedback_mappings: Default::default(),
                 milli_dependent_feedback_mappings: Default::default(),
-                poll_control_mappings: Default::default(),
                 parameters: ZEROED_PLUGIN_PARAMETERS,
                 previous_target_values: Default::default(),
             },
+            poll_control_mappings: Default::default(),
         }
     }
 
@@ -298,10 +298,36 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn poll_control(&mut self) {
         for compartment in MappingCompartment::enum_iter() {
-            for id in self.collections.poll_control_mappings[compartment].iter() {
-                if let Some(m) = self.collections.mappings[compartment].get_mut(id) {
-                    let feedback = m.poll_if_control_enabled(self.basics.control_context());
-                    self.send_feedback(FeedbackReason::Normal, feedback);
+            for id in self.poll_control_mappings[compartment].iter() {
+                let needs_group_interaction =
+                    if let Some(m) = self.collections.mappings[compartment].get_mut(id) {
+                        if !m.control_is_effectively_on() {
+                            continue;
+                        }
+                        let result = m.poll_control(self.basics.control_context());
+                        let needs_group_interaction = result.successful
+                            && matches!(
+                                m.group_interaction(),
+                                GroupInteraction::SameTargetValue
+                                    | GroupInteraction::InverseTargetValue
+                            );
+                        self.send_feedback(FeedbackReason::Normal, result.feedback_value);
+                        needs_group_interaction
+                    } else {
+                        false
+                    };
+                if needs_group_interaction {
+                    self.basics.process_group_interaction(
+                        &mut self.collections,
+                        compartment,
+                        *id,
+                        // Control value is not important because we only do target-value
+                        // based group interaction after polling (makes sense because control-value
+                        // based one has been done at control time already.
+                        ControlValue::Absolute(Default::default()),
+                        // We already know that control was successful (checked above).
+                        true,
+                    );
                 }
             }
         }
@@ -311,12 +337,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &mut self,
         compartment: MappingCompartment,
         mapping_id: MappingId,
-        value: ControlValue,
+        control_value: ControlValue,
         options: ControlOptions,
     ) {
         // Resolving mappings with virtual targets is not necessary anymore. It has
         // been done in the real-time processor already.
-        if let Some(m) = self.collections.mappings[compartment].get_mut(&mapping_id) {
+        let (successful, has_group_interaction) = if let Some(m) =
+            self.collections.mappings[compartment].get_mut(&mapping_id)
+        {
             // Most of the time, the main processor won't even receive a MIDI-triggered control
             // instruction from the real-time processor for a mapping for which control is disabled,
             // because the real-time processor doesn't process disabled mappings. But if control is
@@ -328,99 +356,26 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 return;
             }
             let context = self.basics.control_context();
-            let result = m.control_from_mode(value, options, context, &self.basics.logger);
+            let result = m.control_from_mode(control_value, options, context, &self.basics.logger);
             self.basics.send_feedback(
                 &self.collections.mappings_with_virtual_targets,
                 FeedbackReason::Normal,
                 result.feedback_value,
             );
-            // Group interaction
-            let group_id = m.group_id();
-            use GroupInteraction::*;
-            match m.group_interaction() {
-                None => {}
-                SameControl | InverseControl => {
-                    let interaction_value = match m.group_interaction() {
-                        SameControl => value,
-                        InverseControl => value.inverse(),
-                        _ => unreachable!(),
-                    };
-                    self.process_other_mappings(
-                        compartment,
-                        mapping_id,
-                        group_id,
-                        |other_mapping, basics| {
-                            other_mapping
-                                .control_from_mode(
-                                    interaction_value,
-                                    options,
-                                    basics.control_context(),
-                                    &basics.logger,
-                                )
-                                .feedback_value
-                        },
-                    );
-                }
-                SameTargetValue | InverseTargetValue => {
-                    if !result.successful {
-                        return;
-                    }
-                    if let Some(reference_value) = m.current_aggregated_target_value(context) {
-                        let target_value = reference_value.map_to_unit_interval_from(
-                            &m.mode().target_value_interval,
-                            MinIsMaxBehavior::PreferOne,
-                            BASE_EPSILON,
-                        );
-
-                        let interaction_value = match m.group_interaction() {
-                            SameTargetValue => target_value,
-                            InverseTargetValue => target_value.inverse(),
-                            _ => unreachable!(),
-                        };
-                        self.process_other_mappings(
-                            compartment,
-                            mapping_id,
-                            group_id,
-                            |other_mapping, basics| {
-                                let scaled_interaction_value = interaction_value
-                                    .map_from_unit_interval_to(
-                                        &other_mapping.mode().target_value_interval,
-                                    );
-                                other_mapping.control_from_target(
-                                    ControlValue::Absolute(scaled_interaction_value),
-                                    options,
-                                    basics.control_context(),
-                                    &basics.logger,
-                                )
-                            },
-                        );
-                    }
-                }
-            }
+            (
+                result.successful,
+                m.group_interaction() != GroupInteraction::None,
+            )
+        } else {
+            (false, false)
         };
-    }
-
-    fn process_other_mappings(
-        &mut self,
-        compartment: MappingCompartment,
-        mapping_id: MappingId,
-        group_id: GroupId,
-        f: impl Fn(&mut MainMapping, &Basics<EH>) -> Option<FeedbackValue>,
-    ) {
-        let other_mappings =
-            self.collections.mappings[compartment]
-                .values_mut()
-                .filter(|other_m| {
-                    other_m.id() != mapping_id
-                        && other_m.group_id() == group_id
-                        && other_m.control_is_effectively_on()
-                });
-        for other_mapping in other_mappings {
-            let other_feedback = f(other_mapping, &self.basics);
-            self.basics.send_feedback(
-                &self.collections.mappings_with_virtual_targets,
-                FeedbackReason::Normal,
-                other_feedback,
+        if has_group_interaction {
+            self.basics.process_group_interaction(
+                &mut self.collections,
+                compartment,
+                mapping_id,
+                control_value,
+                successful,
             );
         }
     }
@@ -938,7 +893,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.collections.beat_dependent_feedback_mappings[compartment].clear();
         self.collections.milli_dependent_feedback_mappings[compartment].clear();
         self.collections.previous_target_values[compartment].clear();
-        self.collections.poll_control_mappings[compartment].clear();
+        self.poll_control_mappings[compartment].clear();
         // Refresh and splinter real-time mappings
         let real_time_mappings = mappings
             .iter_mut()
@@ -962,7 +917,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.collections.milli_dependent_feedback_mappings[compartment].insert(m.id());
                 }
                 if m.wants_to_be_polled_for_control() {
-                    self.collections.poll_control_mappings[compartment].insert(m.id());
+                    self.poll_control_mappings[compartment].insert(m.id());
                 }
                 m.splinter_real_time_mapping()
             })
@@ -1745,9 +1700,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.collections.previous_target_values[compartment].remove(&mapping.id());
         }
         if mapping.wants_to_be_polled_for_control() {
-            self.collections.poll_control_mappings[compartment].insert(mapping.id());
+            self.poll_control_mappings[compartment].insert(mapping.id());
         } else {
-            self.collections.poll_control_mappings[compartment].remove(&mapping.id());
+            self.poll_control_mappings[compartment].remove(&mapping.id());
         }
         let relevant_map = if mapping.has_virtual_target() {
             self.collections.mappings[compartment].remove(&mapping.id());
@@ -1923,6 +1878,111 @@ impl<EH: DomainEventHandler> Basics<EH> {
             instance_state: &self.instance_state,
             instance_id: &self.instance_id,
             output_logging_enabled: self.output_logging_enabled,
+        }
+    }
+
+    pub fn process_group_interaction(
+        &self,
+        collections: &mut Collections,
+        compartment: MappingCompartment,
+        mapping_id: MappingId,
+        control_value: ControlValue,
+        control_was_successful: bool,
+    ) {
+        if let Some(m) = collections.mappings[compartment].get(&mapping_id) {
+            // Group interaction
+            let group_id = m.group_id();
+            use GroupInteraction::*;
+            match m.group_interaction() {
+                None => {}
+                SameControl | InverseControl => {
+                    let interaction_value = match m.group_interaction() {
+                        SameControl => control_value,
+                        InverseControl => control_value.inverse(),
+                        _ => unreachable!(),
+                    };
+                    self.process_other_mappings(
+                        collections,
+                        compartment,
+                        mapping_id,
+                        group_id,
+                        |other_mapping, basics| {
+                            other_mapping
+                                .control_from_mode(
+                                    interaction_value,
+                                    ControlOptions::default(),
+                                    basics.control_context(),
+                                    &basics.logger,
+                                )
+                                .feedback_value
+                        },
+                    );
+                }
+                SameTargetValue | InverseTargetValue => {
+                    // TODO-high Add None sources (good for group-interaction-follow-only mappings)
+                    //  and None targets (good for group-interaction-lead-only mappings)
+                    if !control_was_successful {
+                        return;
+                    }
+                    let context = self.control_context();
+                    if let Some(reference_value) = m.current_aggregated_target_value(context) {
+                        let target_value = reference_value.map_to_unit_interval_from(
+                            &m.mode().target_value_interval,
+                            MinIsMaxBehavior::PreferOne,
+                            BASE_EPSILON,
+                        );
+
+                        let interaction_value = match m.group_interaction() {
+                            SameTargetValue => target_value,
+                            InverseTargetValue => target_value.inverse(),
+                            _ => unreachable!(),
+                        };
+                        self.process_other_mappings(
+                            collections,
+                            compartment,
+                            mapping_id,
+                            group_id,
+                            |other_mapping, basics| {
+                                let scaled_interaction_value = interaction_value
+                                    .map_from_unit_interval_to(
+                                        &other_mapping.mode().target_value_interval,
+                                    );
+                                other_mapping.control_from_target(
+                                    ControlValue::Absolute(scaled_interaction_value),
+                                    ControlOptions::default(),
+                                    basics.control_context(),
+                                    &basics.logger,
+                                )
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    fn process_other_mappings(
+        &self,
+        collections: &mut Collections,
+        compartment: MappingCompartment,
+        mapping_id: MappingId,
+        group_id: GroupId,
+        f: impl Fn(&mut MainMapping, &Basics<EH>) -> Option<FeedbackValue>,
+    ) {
+        let other_mappings = collections.mappings[compartment]
+            .values_mut()
+            .filter(|other_m| {
+                other_m.id() != mapping_id
+                    && other_m.group_id() == group_id
+                    && other_m.control_is_effectively_on()
+            });
+        for other_mapping in other_mappings {
+            let other_feedback = f(other_mapping, &self);
+            self.send_feedback(
+                &collections.mappings_with_virtual_targets,
+                FeedbackReason::Normal,
+                other_feedback,
+            );
         }
     }
 
