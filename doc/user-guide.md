@@ -2786,7 +2786,10 @@ section [Controller compartment](#controller-compartment) for details.
 In this step you will tell ReaLearn which control element on your controller should control which parameter of your FX 
 plug-in:
 
-1. Add Vital VSTi and a new *empty* ReaLearn instance, preferably side-by-side so that you can see both.
+1. Add Vital VSTi and a new *empty* ReaLearn instance, both as track FX (**not as monitoring FX**), preferably
+   side-by-side so that you can see both.
+    - It's also possible to use monitoring FX but for this particular tutorial it's important to use track FX (otherwise
+      ReaLearn will not ask you if it should make your mappings project-independent in step 3).
 2. In ReaLearn, press *Learn many*.
 3. Move a control element on your controller, change a Vital parameter, move another control element, change another
    Vital parameter ... until you are finished!
