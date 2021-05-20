@@ -73,11 +73,14 @@ impl VirtualSource {
     }
 
     pub fn feedback(&self, feedback_value: UnitValue) -> VirtualSourceValue {
-        VirtualSourceValue::new(self.control_element, ControlValue::Absolute(feedback_value))
+        VirtualSourceValue::new(
+            self.control_element,
+            ControlValue::AbsoluteContinuous(feedback_value),
+        )
     }
 
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
-        let absolute_value = value.as_absolute()?;
+        let absolute_value = value.as_unit_value()?;
         Ok(format_as_percentage_without_unit(absolute_value))
     }
 

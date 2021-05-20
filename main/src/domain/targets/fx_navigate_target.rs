@@ -46,7 +46,7 @@ impl RealearnTarget for FxNavigateTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let fx_index = convert_unit_value_to_fx_index(&self.fx_chain, value.as_absolute()?);
+        let fx_index = convert_unit_value_to_fx_index(&self.fx_chain, value.as_unit_value()?);
         use FxDisplayType::*;
         match fx_index {
             None => match self.display_type {

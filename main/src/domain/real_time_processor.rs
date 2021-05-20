@@ -1240,7 +1240,7 @@ fn process_real_mapping(
             .mode
             .control(value, reaper_target, ())
             .ok_or("mode didn't return control value")?
-            .as_absolute()?;
+            .as_unit_value()?;
         match reaper_target {
             RealTimeReaperTarget::SendMidi(t) => {
                 // This is a type of mapping that we should process right here because we want to

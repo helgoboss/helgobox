@@ -46,7 +46,7 @@ impl RealearnTarget for OscSendTarget {
         let msg = OscMessage {
             addr: self.address_pattern.clone(),
             args: if let Some(desc) = self.arg_descriptor {
-                desc.to_concrete_args(value.as_absolute()?)
+                desc.to_concrete_args(value.as_unit_value()?)
                     .ok_or("sending of this OSC type not supported")?
             } else {
                 vec![]

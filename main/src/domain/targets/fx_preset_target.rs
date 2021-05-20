@@ -46,7 +46,7 @@ impl RealearnTarget for FxPresetTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let preset_index = convert_unit_value_to_preset_index(&self.fx, value.as_absolute()?);
+        let preset_index = convert_unit_value_to_preset_index(&self.fx, value.as_unit_value()?);
         let preset_ref = match preset_index {
             None => FxPresetRef::FactoryPreset,
             Some(i) => FxPresetRef::Preset(i),

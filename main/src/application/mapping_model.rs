@@ -325,7 +325,7 @@ impl<'a> MappingModelWithContext<'a> {
             Normal(MomentaryButton) | Normal(ToggleButton) => {
                 let target = self.target_with_context().resolve_first()?;
                 match mode_type {
-                    AbsoluteMode::Normal | AbsoluteMode::ToggleButtons => {
+                    AbsoluteMode::Normal | AbsoluteMode::Discrete | AbsoluteMode::ToggleButtons => {
                         !target.control_type().is_relative()
                     }
                     AbsoluteMode::IncrementalButtons => {

@@ -56,7 +56,7 @@ impl RealearnTarget for TrackPanTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let pan = Pan::from_normalized_value(value.as_absolute()?.get());
+        let pan = Pan::from_normalized_value(value.as_unit_value()?.get());
         self.track.set_pan(pan);
         Ok(())
     }

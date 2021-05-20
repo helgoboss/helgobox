@@ -47,7 +47,7 @@ impl RealearnTarget for SelectedTrackTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let track_index = convert_unit_value_to_track_index(self.project, value.as_absolute()?);
+        let track_index = convert_unit_value_to_track_index(self.project, value.as_unit_value()?);
         let track = match track_index {
             None => self.project.master_track(),
             Some(i) => self

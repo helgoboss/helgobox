@@ -84,7 +84,7 @@ impl RealearnTarget for FxParameterTarget {
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         // It's okay to just convert this to a REAPER-normalized value. We don't support
         // values above the maximum (or buggy plug-ins).
-        let v = ReaperNormalizedFxParamValue::new(value.as_absolute()?.get());
+        let v = ReaperNormalizedFxParamValue::new(value.as_unit_value()?.get());
         self.param
             .set_reaper_normalized_value(v)
             .map_err(|_| "couldn't set FX parameter value")?;

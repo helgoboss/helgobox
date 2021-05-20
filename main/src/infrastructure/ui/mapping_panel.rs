@@ -4253,7 +4253,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     ) {
         let formatted_value = self
             .source
-            .format_control_value(ControlValue::Absolute(value))
+            .format_control_value(ControlValue::AbsoluteContinuous(value))
             .unwrap_or_else(|_| "".to_string());
         if initiator != Some(edit_control_id) {
             self.view
@@ -5430,7 +5430,7 @@ fn update_target_value(
     for target in targets {
         // If it doesn't work in some cases, so what.
         let res = target.control(
-            ControlValue::Absolute(value),
+            ControlValue::AbsoluteContinuous(value),
             create_control_context(
                 feedback_output,
                 instance_state,

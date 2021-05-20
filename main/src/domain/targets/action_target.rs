@@ -48,7 +48,7 @@ impl RealearnTarget for ActionTarget {
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         match value {
-            ControlValue::Absolute(v) => match self.invocation_type {
+            ControlValue::AbsoluteContinuous(v) => match self.invocation_type {
                 ActionInvocationType::Trigger => {
                     if !v.is_zero() {
                         self.invoke_with_unit_value(v);

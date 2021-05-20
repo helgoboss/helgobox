@@ -32,7 +32,7 @@ impl RealearnTarget for TrackSoloTarget {
                 ReaperPreference => t.solo(),
             }
         };
-        if value.as_absolute()?.is_zero() {
+        if value.as_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, solo_track);
             self.track.unsolo();
         } else {

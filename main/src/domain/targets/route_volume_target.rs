@@ -40,7 +40,7 @@ impl RealearnTarget for RouteVolumeTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let volume = Volume::try_from_soft_normalized_value(value.as_absolute()?.get());
+        let volume = Volume::try_from_soft_normalized_value(value.as_unit_value()?.get());
         self.route
             .set_volume(volume.unwrap_or(Volume::MIN))
             .map_err(|_| "couldn't set route volume")?;

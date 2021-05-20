@@ -28,7 +28,7 @@ impl RealearnTarget for ClipTransportTarget {
 
     fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
         use TransportAction::*;
-        let on = !value.as_absolute()?.is_zero();
+        let on = !value.as_unit_value()?.is_zero();
         let mut instance_state = context.instance_state.borrow_mut();
         match self.action {
             PlayStop => {

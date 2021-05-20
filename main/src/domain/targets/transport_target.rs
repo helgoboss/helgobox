@@ -32,7 +32,7 @@ impl RealearnTarget for TransportTarget {
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         use TransportAction::*;
-        let on = !value.as_absolute()?.is_zero();
+        let on = !value.as_unit_value()?.is_zero();
         match self.action {
             PlayStop => {
                 if on {

@@ -23,7 +23,7 @@ impl RealearnTarget for AllTrackFxEnableTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if value.as_absolute()?.is_zero() {
+        if value.as_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| t.enable_fx());
             self.track.disable_fx();
         } else {

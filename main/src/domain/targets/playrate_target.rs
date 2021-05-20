@@ -57,7 +57,7 @@ impl RealearnTarget for PlayrateTarget {
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         let play_rate =
-            PlayRate::from_normalized_value(NormalizedPlayRate::new(value.as_absolute()?.get()));
+            PlayRate::from_normalized_value(NormalizedPlayRate::new(value.as_unit_value()?.get()));
         self.project.set_play_rate(play_rate);
         Ok(())
     }

@@ -928,7 +928,7 @@ impl CompoundMappingSource {
             Midi(s) => s.format_control_value(value),
             Virtual(s) => s.format_control_value(value),
             Osc(s) => s.format_control_value(value),
-            Never => Ok(format_percentage_without_unit(value.as_absolute()?.get())),
+            Never => Ok(format_percentage_without_unit(value.as_unit_value()?.get())),
         }
     }
 

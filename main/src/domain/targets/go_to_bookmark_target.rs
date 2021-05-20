@@ -34,7 +34,7 @@ impl RealearnTarget for GoToBookmarkTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if !value.as_absolute()?.is_zero() {
+        if !value.as_unit_value()?.is_zero() {
             match self.bookmark_type {
                 BookmarkType::Marker => self
                     .project

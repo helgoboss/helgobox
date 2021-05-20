@@ -24,7 +24,7 @@ impl RealearnTarget for AutomationTouchStateTarget {
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         let mut ctx = BackboneState::target_context().borrow_mut();
-        if value.as_absolute()?.is_zero() {
+        if value.as_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| {
                 ctx.touch_automation_parameter(t.raw(), self.parameter_type)
             });

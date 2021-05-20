@@ -26,7 +26,7 @@ impl RealearnTarget for LoadFxSnapshotTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if !value.as_absolute()?.is_zero() {
+        if !value.as_unit_value()?.is_zero() {
             BackboneState::target_context()
                 .borrow_mut()
                 .load_fx_snapshot(self.fx.clone(), &self.chunk, self.chunk_hash)?

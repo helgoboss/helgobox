@@ -20,7 +20,7 @@ impl RealearnTarget for RouteMuteTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if value.as_absolute()?.is_zero() {
+        if value.as_unit_value()?.is_zero() {
             self.route.unmute();
         } else {
             self.route.mute();

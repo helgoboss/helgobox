@@ -324,7 +324,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         // Control value is not important because we only do target-value
                         // based group interaction after polling (makes sense because control-value
                         // based one has been done at control time already.
-                        ControlValue::Absolute(Default::default()),
+                        ControlValue::AbsoluteContinuous(Default::default()),
                         // We already know that control was successful (checked above).
                         true,
                     );
@@ -1946,7 +1946,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                         &other_mapping.mode().target_value_interval,
                                     );
                                 other_mapping.control_from_target(
-                                    ControlValue::Absolute(scaled_interaction_value),
+                                    ControlValue::AbsoluteContinuous(scaled_interaction_value),
                                     ControlOptions::default(),
                                     basics.control_context(),
                                     &basics.logger,
@@ -2113,7 +2113,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     with_source_feedback,
                     value,
                 } => {
-                    if let ControlValue::Absolute(v) = value.control_value() {
+                    if let ControlValue::AbsoluteContinuous(v) = value.control_value() {
                         for m in mappings_with_virtual_targets
                             .values()
                             .filter(|m| m.feedback_is_effectively_on())
