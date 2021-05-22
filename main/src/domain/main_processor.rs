@@ -1924,7 +1924,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     }
                     let context = self.control_context();
                     if let Some(reference_value) = m.current_aggregated_target_value(context) {
-                        let target_value = reference_value.map_to_unit_interval_from(
+                        let target_value = reference_value.normalize(
                             &m.mode().target_value_interval,
                             MinIsMaxBehavior::PreferOne,
                             BASE_EPSILON,
@@ -1942,9 +1942,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             group_id,
                             |other_mapping, basics| {
                                 let scaled_interaction_value = interaction_value
-                                    .map_from_unit_interval_to(
-                                        &other_mapping.mode().target_value_interval,
-                                    );
+                                    .denormalize(&other_mapping.mode().target_value_interval);
                                 other_mapping.control_from_target(
                                     ControlValue::AbsoluteContinuous(scaled_interaction_value),
                                     ControlOptions::default(),
