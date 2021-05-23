@@ -3,7 +3,7 @@ use crate::domain::{
     parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value, ControlContext,
     RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project};
 use reaper_medium::UndoBehavior;
 
@@ -86,8 +86,9 @@ impl RealearnTarget for TempoTarget {
 impl<'a> Target<'a> for TempoTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(tempo_unit_value(self.project.tempo()))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = tempo_unit_value(self.project.tempo());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

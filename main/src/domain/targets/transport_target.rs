@@ -2,7 +2,7 @@ use crate::domain::{
     format_value_as_on_off, transport_is_enabled_unit_value, AdditionalFeedbackEvent,
     ControlContext, RealearnTarget, TargetCharacter, TransportAction,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -152,7 +152,7 @@ impl RealearnTarget for TransportTarget {
 impl<'a> Target<'a> for TransportTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         use TransportAction::*;
         let play_state = self.project.play_state();
         let value = match self.action {
@@ -164,7 +164,7 @@ impl<'a> Target<'a> for TransportTarget {
             Record => transport_is_enabled_unit_value(play_state.is_recording),
             Repeat => transport_is_enabled_unit_value(self.project.repeat_is_enabled()),
         };
-        Some(value)
+        Some(AbsoluteValue::Continuous(value))
     }
 
     fn control_type(&self) -> ControlType {

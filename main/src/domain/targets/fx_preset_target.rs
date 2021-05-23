@@ -2,7 +2,7 @@ use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
     ControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
 use reaper_medium::FxPresetRef;
 
@@ -91,9 +91,9 @@ impl RealearnTarget for FxPresetTarget {
 impl<'a> Target<'a> for FxPresetTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         let value = fx_preset_unit_value(&self.fx, self.fx.preset_index().ok()?);
-        Some(value)
+        Some(AbsoluteValue::Continuous(value))
     }
 
     fn control_type(&self) -> ControlType {

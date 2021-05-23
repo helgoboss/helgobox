@@ -3681,8 +3681,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                     self.session.instance_id(),
                     self.session.output_logging_enabled.get(),
                 );
-                let value = t.current_value(control_context).unwrap_or(UnitValue::MIN);
-                self.invalidate_target_value_controls_with_value(value);
+                let value = t.current_value(control_context).unwrap_or_default();
+                // TODO-high discrete
+                self.invalidate_target_value_controls_with_value(value.to_unit_value());
                 None
             } else {
                 Some("")

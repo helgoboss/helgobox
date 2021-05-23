@@ -2,7 +2,7 @@ use crate::domain::{
     format_value_as_on_off, global_automation_mode_override_unit_value, ControlContext,
     RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::GlobalAutomationModeOverride;
 
@@ -58,12 +58,12 @@ impl RealearnTarget for AutomationModeOverrideTarget {
 impl<'a> Target<'a> for AutomationModeOverrideTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         let value = global_automation_mode_override_unit_value(
             self.mode_override,
             Reaper::get().global_automation_override(),
         );
-        Some(value)
+        Some(AbsoluteValue::Continuous(value))
     }
 
     fn control_type(&self) -> ControlType {

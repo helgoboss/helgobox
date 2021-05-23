@@ -1,7 +1,7 @@
 use crate::base::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, Pan, PlayRate, Project,
@@ -566,7 +566,7 @@ impl<'a> Target<'a> for ReaperTarget {
     // controlled from real-time processor.
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: ControlContext) -> Option<UnitValue> {
+    fn current_value(&self, context: ControlContext) -> Option<AbsoluteValue> {
         use ReaperTarget::*;
         match self {
             SendOsc { .. } => None,
@@ -613,7 +613,7 @@ impl<'a> Target<'a> for ReaperTarget {
 impl<'a> Target<'a> for RealTimeReaperTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.current_value(()),

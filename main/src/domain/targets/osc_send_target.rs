@@ -2,7 +2,9 @@ use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
     ControlContext, FeedbackOutput, OscDeviceId, OscFeedbackTask, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, OscArgDescriptor, OscTypeTag, Target, UnitValue};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, OscArgDescriptor, OscTypeTag, Target, UnitValue,
+};
 use rosc::OscMessage;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -93,7 +95,7 @@ impl RealearnTarget for OscSendTarget {
 impl<'a> Target<'a> for OscSendTarget {
     type Context = ();
 
-    fn current_value(&self, _context: ()) -> Option<UnitValue> {
+    fn current_value(&self, _context: ()) -> Option<AbsoluteValue> {
         None
     }
 

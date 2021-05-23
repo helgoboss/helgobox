@@ -2,7 +2,7 @@ use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_track_index, selected_track_unit_value,
     ControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper};
 use reaper_medium::{CommandId, MasterTrackBehavior};
 
@@ -103,12 +103,13 @@ impl RealearnTarget for SelectedTrackTarget {
 impl<'a> Target<'a> for SelectedTrackTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         let track_index = self
             .project
             .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)
             .and_then(|t| t.index());
-        Some(selected_track_unit_value(self.project, track_index))
+        let val = selected_track_unit_value(self.project, track_index);
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

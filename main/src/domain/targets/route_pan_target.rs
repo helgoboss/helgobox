@@ -2,7 +2,7 @@ use crate::domain::{
     format_value_as_pan, pan_unit_value, parse_value_from_pan, ControlContext, RealearnTarget,
     TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Pan, Project, Track, TrackRoute};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -85,8 +85,9 @@ impl RealearnTarget for RoutePanTarget {
 impl<'a> Target<'a> for RoutePanTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(pan_unit_value(self.route.pan()))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = pan_unit_value(self.route.pan());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

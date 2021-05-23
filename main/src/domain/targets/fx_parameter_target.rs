@@ -1,6 +1,6 @@
 use crate::domain::ui_util::{fx_parameter_unit_value, parse_unit_value_from_percentage};
 use crate::domain::{AdditionalFeedbackEvent, ControlContext, RealearnTarget, TargetCharacter};
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Track};
 use reaper_medium::{GetParameterStepSizesResult, ReaperNormalizedFxParamValue};
 use std::convert::TryInto;
@@ -154,11 +154,9 @@ impl RealearnTarget for FxParameterTarget {
 impl<'a> Target<'a> for FxParameterTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(fx_parameter_unit_value(
-            &self.param,
-            self.param.reaper_normalized_value(),
-        ))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = fx_parameter_unit_value(&self.param, self.param.reaper_normalized_value());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

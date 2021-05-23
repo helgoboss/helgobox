@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, fx_enable_unit_value, ControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -60,8 +60,10 @@ impl RealearnTarget for FxEnableTarget {
 impl<'a> Target<'a> for FxEnableTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(fx_enable_unit_value(self.fx.is_enabled()))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        Some(AbsoluteValue::Continuous(fx_enable_unit_value(
+            self.fx.is_enabled(),
+        )))
     }
 
     fn control_type(&self) -> ControlType {

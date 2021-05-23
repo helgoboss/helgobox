@@ -3,7 +3,7 @@ use crate::domain::{
     handle_track_exclusivity, track_arm_unit_value, ControlContext, RealearnTarget,
     TargetCharacter, TrackExclusivity,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -65,8 +65,9 @@ impl RealearnTarget for TrackArmTarget {
 impl<'a> Target<'a> for TrackArmTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(track_arm_unit_value(self.track.is_armed(false)))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = track_arm_unit_value(self.track.is_armed(false));
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

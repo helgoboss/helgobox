@@ -2,7 +2,7 @@ use crate::domain::{
     current_value_of_bookmark, format_value_as_on_off, AdditionalFeedbackEvent, ControlContext,
     RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{BookmarkType, ChangeEvent, Project};
 use reaper_medium::{AutoSeekBehavior, BookmarkRef};
 use std::num::NonZeroU32;
@@ -110,14 +110,14 @@ impl RealearnTarget for GoToBookmarkTarget {
 impl<'a> Target<'a> for GoToBookmarkTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         let val = current_value_of_bookmark(
             self.project,
             self.bookmark_type,
             self.index,
             self.project.play_or_edit_cursor_position(),
         );
-        Some(val)
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

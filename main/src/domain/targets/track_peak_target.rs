@@ -2,7 +2,7 @@ use crate::domain::ui_util::{
     format_value_as_db_without_unit, parse_value_from_db, reaper_volume_unit_value,
 };
 use crate::domain::{ControlContext, RealearnTarget, TargetCharacter};
-use helgoboss_learn::{ControlType, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, Target, UnitValue};
 use reaper_high::{Project, Reaper, Track};
 use reaper_medium::{ReaperVolumeValue, TrackAttributeKey};
 
@@ -14,7 +14,7 @@ pub struct TrackPeakTarget {
 impl<'a> Target<'a> for TrackPeakTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: Self::Context) -> Option<UnitValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let reaper = Reaper::get().medium_reaper();
         let channel_count = unsafe {
             reaper.get_media_track_info_value(self.track.raw(), TrackAttributeKey::Nchan) as i32
@@ -29,7 +29,8 @@ impl<'a> Target<'a> for TrackPeakTarget {
         }
         let avg = sum / channel_count as f64;
         let vol = ReaperVolumeValue::new(avg);
-        Some(reaper_volume_unit_value(vol))
+        let val = reaper_volume_unit_value(vol);
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

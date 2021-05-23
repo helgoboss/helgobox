@@ -4,7 +4,7 @@ use crate::domain::{
     parse_value_from_playback_speed_factor, playback_speed_factor_span, playrate_unit_value,
     ControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, PlayRate, Project};
 use reaper_medium::NormalizedPlayRate;
 
@@ -90,8 +90,9 @@ impl RealearnTarget for PlayrateTarget {
 impl<'a> Target<'a> for PlayrateTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(playrate_unit_value(self.project.play_rate()))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = playrate_unit_value(self.project.play_rate());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

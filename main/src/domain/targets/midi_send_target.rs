@@ -3,7 +3,9 @@ use crate::domain::{
     ControlContext, FeedbackAudioHookTask, FeedbackOutput, MidiDestination, RealTimeReaperTarget,
     RealearnTarget, SendMidiDestination, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, RawMidiPattern, Target, UnitValue};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, RawMidiPattern, Target, UnitValue,
+};
 use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -139,7 +141,7 @@ impl RealearnTarget for MidiSendTarget {
 impl<'a> Target<'a> for MidiSendTarget {
     type Context = ();
 
-    fn current_value(&self, _context: ()) -> Option<UnitValue> {
+    fn current_value(&self, _context: ()) -> Option<AbsoluteValue> {
         None
     }
 

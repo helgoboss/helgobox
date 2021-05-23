@@ -2,7 +2,7 @@ use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_fx_index, shown_fx_unit_value,
     ControlContext, FxDisplayType, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, FxChain, Project, Track};
 use reaper_medium::FxChainVisibility;
 
@@ -112,7 +112,7 @@ impl RealearnTarget for FxNavigateTarget {
 impl<'a> Target<'a> for FxNavigateTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         use FxDisplayType::*;
         let fx_index = match self.display_type {
             FloatingWindow => self
@@ -128,7 +128,10 @@ impl<'a> Target<'a> for FxNavigateTarget {
                 }
             }
         };
-        Some(shown_fx_unit_value(&self.fx_chain, fx_index))
+        Some(AbsoluteValue::Continuous(shown_fx_unit_value(
+            &self.fx_chain,
+            fx_index,
+        )))
     }
 
     fn control_type(&self) -> ControlType {

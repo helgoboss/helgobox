@@ -1,7 +1,9 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{ExtendedSourceCharacter, TargetCharacter};
 use ascii::{AsciiStr, AsciiString, ToAsciiChar};
-use helgoboss_learn::{ControlType, ControlValue, SourceCharacter, Target, UnitValue};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, SourceCharacter, Target, UnitValue,
+};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
 use std::fmt::Display;
@@ -34,7 +36,7 @@ impl VirtualTarget {
 impl<'a> Target<'a> for VirtualTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         None
     }
 

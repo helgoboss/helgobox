@@ -3,7 +3,7 @@ use crate::domain::{
     handle_track_exclusivity, touched_unit_value, AdditionalFeedbackEvent, BackboneState,
     ControlContext, RealearnTarget, TargetCharacter, TouchedParameterType, TrackExclusivity,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -72,11 +72,11 @@ impl RealearnTarget for AutomationTouchStateTarget {
 impl<'a> Target<'a> for AutomationTouchStateTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         let is_touched = BackboneState::target_context()
             .borrow()
             .automation_parameter_is_touched(self.track.raw(), self.parameter_type);
-        Some(touched_unit_value(is_touched))
+        Some(AbsoluteValue::Continuous(touched_unit_value(is_touched)))
     }
 
     fn control_type(&self) -> ControlType {

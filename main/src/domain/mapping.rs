@@ -10,9 +10,9 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    format_percentage_without_unit, parse_percentage_without_unit, ControlType, ControlValue,
-    GroupInteraction, MidiSourceValue, ModeControlOptions, ModeControlResult, OscSource,
-    RawMidiEvent, SourceCharacter, Target, UnitValue,
+    format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlType,
+    ControlValue, GroupInteraction, MidiSourceValue, ModeControlOptions, ModeControlResult,
+    OscSource, RawMidiEvent, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -632,7 +632,8 @@ impl MainMapping {
             })
             .max()?;
         self.feedback_given_target_value(
-            combined_target_value,
+            // TODO-high Discrete
+            combined_target_value.to_unit_value(),
             with_projection_feedback,
             !self.core.is_echo(),
         )
@@ -648,11 +649,16 @@ impl MainMapping {
         target: &ReaperTarget,
         context: ControlContext,
     ) -> Option<UnitValue> {
-        target_value.or_else(|| target.current_value(context))
+        // TODO-high discrete
+        target_value.or_else(|| target.current_value(context).map(|v| v.to_unit_value()))
     }
 
     pub fn current_aggregated_target_value(&self, context: ControlContext) -> Option<UnitValue> {
-        let values = self.targets.iter().map(|t| t.current_value(context));
+        // TODO-high discrete
+        let values = self
+            .targets
+            .iter()
+            .map(|t| t.current_value(context).map(|v| v.to_unit_value()));
         aggregate_target_values(values)
     }
 
@@ -670,8 +676,17 @@ impl MainMapping {
         with_projection_feedback: bool,
         with_source_feedback: bool,
     ) -> Option<FeedbackValue> {
-        let mode_value = self.core.mode.feedback(target_value)?;
-        self.feedback_given_mode_value(mode_value, with_projection_feedback, with_source_feedback)
+        // TODO-high discrete
+        let mode_value = self
+            .core
+            .mode
+            .feedback(AbsoluteValue::Continuous(target_value))?;
+        // TODO-high discrete
+        self.feedback_given_mode_value(
+            mode_value.to_unit_value(),
+            with_projection_feedback,
+            with_source_feedback,
+        )
     }
 
     pub fn feedback_given_mode_value(
@@ -1364,7 +1379,7 @@ impl RealearnTarget for CompoundMappingTarget {
 impl<'a> Target<'a> for CompoundMappingTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: ControlContext) -> Option<UnitValue> {
+    fn current_value(&self, context: ControlContext) -> Option<AbsoluteValue> {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.current_value(context),

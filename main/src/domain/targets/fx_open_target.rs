@@ -2,7 +2,7 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, ControlContext, FxDisplayType, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
 use reaper_medium::FxChainVisibility;
 
@@ -77,7 +77,7 @@ impl RealearnTarget for FxOpenTarget {
 impl<'a> Target<'a> for FxOpenTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         use FxDisplayType::*;
         let is_open = match self.display_type {
             FloatingWindow => self.fx.floating_window().is_some(),
@@ -89,7 +89,9 @@ impl<'a> Target<'a> for FxOpenTarget {
                 }
             }
         };
-        Some(convert_bool_to_unit_value(is_open))
+        Some(AbsoluteValue::Continuous(convert_bool_to_unit_value(
+            is_open,
+        )))
     }
 
     fn control_type(&self) -> ControlType {

@@ -2,7 +2,7 @@ use crate::domain::{
     format_value_as_on_off, handle_track_exclusivity, track_automation_mode_unit_value,
     ControlContext, RealearnTarget, TargetCharacter, TrackExclusivity,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
 use reaper_medium::AutomationMode;
 
@@ -82,11 +82,9 @@ impl RealearnTarget for TrackAutomationModeTarget {
 impl<'a> Target<'a> for TrackAutomationModeTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(track_automation_mode_unit_value(
-            self.mode,
-            self.track.automation_mode(),
-        ))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = track_automation_mode_unit_value(self.mode, self.track.automation_mode());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

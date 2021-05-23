@@ -2,7 +2,7 @@ use crate::domain::{
     AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, ControlContext, FeedbackResolution,
     InstanceFeedbackEvent, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipSeekTarget {
@@ -69,14 +69,14 @@ impl RealearnTarget for ClipSeekTarget {
 impl<'a> Target<'a> for ClipSeekTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: ControlContext<'a>) -> Option<UnitValue> {
+    fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let instance_state = context.instance_state.borrow();
         let val = instance_state
             .get_slot(self.slot_index)
             .ok()?
             .position()
             .ok()?;
-        Some(val)
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

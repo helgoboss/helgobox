@@ -2,7 +2,7 @@ use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
 use crate::domain::{ControlContext, RealearnTarget, TargetCharacter};
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, TrackRoute, Volume};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -81,8 +81,9 @@ impl RealearnTarget for RouteVolumeTarget {
 impl<'a> Target<'a> for RouteVolumeTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(volume_unit_value(self.route.volume()))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = volume_unit_value(self.route.volume());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

@@ -3,7 +3,7 @@ use crate::domain::{
     format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
     handle_track_exclusivity, ControlContext, RealearnTarget, TargetCharacter, TrackExclusivity,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
 use reaper_medium::TrackArea;
 
@@ -63,9 +63,10 @@ impl RealearnTarget for TrackShowTarget {
 impl<'a> Target<'a> for TrackShowTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         let is_shown = self.track.is_shown(self.area);
-        Some(convert_bool_to_unit_value(is_shown))
+        let val = convert_bool_to_unit_value(is_shown);
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

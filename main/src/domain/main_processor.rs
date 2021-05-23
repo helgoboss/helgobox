@@ -405,6 +405,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             &self.collections.mappings_with_virtual_targets,
                             &mut |t| {
                                 if let Some(value) = t.current_value(control_context) {
+                                    let value = value.to_unit_value();
                                     match previous_target_values[compartment].entry(*mapping_id) {
                                         Entry::Occupied(mut e) => {
                                             if (e.get().get() - value.get()).abs()
@@ -415,6 +416,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                             } else {
                                                 // Value has changed.
                                                 e.insert(value);
+                                                // TODO-high Here and in similar places we should
+                                                //  return AbsoluteValue.
                                                 (true, Some(value))
                                             }
                                         }

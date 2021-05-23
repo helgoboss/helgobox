@@ -3,7 +3,7 @@ use crate::domain::{
     ClipChangedEvent, ControlContext, InstanceFeedbackEvent, RealearnTarget, SlotPlayOptions,
     TargetCharacter, TransportAction,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -133,7 +133,7 @@ impl RealearnTarget for ClipTransportTarget {
 impl<'a> Target<'a> for ClipTransportTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: ControlContext<'a>) -> Option<UnitValue> {
+    fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let instance_state = context.instance_state.borrow();
         use TransportAction::*;
         let val = match self.action {
@@ -150,7 +150,7 @@ impl<'a> Target<'a> for ClipTransportTarget {
             }
             Record => return None,
         };
-        Some(val)
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

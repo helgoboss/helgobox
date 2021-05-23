@@ -2,7 +2,8 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     ActionInvocationType, AdditionalFeedbackEvent, ControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Fraction, Target, UnitValue};
+use helgoboss_learn::ControlType::AbsoluteContinuous;
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use helgoboss_midi::U14;
 use reaper_high::{Action, ActionCharacter, Project, Reaper};
 use reaper_medium::{ActionValueChange, CommandId, WindowContext};
@@ -107,7 +108,7 @@ impl RealearnTarget for ActionTarget {
 impl<'a> Target<'a> for ActionTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         let val = if let Some(state) = self.action.is_on() {
             // Toggle action: Return toggle state as 0 or 1.
             convert_bool_to_unit_value(state)
@@ -120,7 +121,7 @@ impl<'a> Target<'a> for ActionTarget {
                 UnitValue::MIN
             }
         };
-        Some(val)
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

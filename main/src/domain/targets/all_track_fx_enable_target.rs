@@ -3,7 +3,7 @@ use crate::domain::{
     get_control_type_and_character_for_track_exclusivity, handle_track_exclusivity, ControlContext,
     RealearnTarget, TargetCharacter, TrackExclusivity,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -57,8 +57,9 @@ impl RealearnTarget for AllTrackFxEnableTarget {
 impl<'a> Target<'a> for AllTrackFxEnableTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(all_track_fx_enable_unit_value(self.track.fx_is_enabled()))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = all_track_fx_enable_unit_value(self.track.fx_is_enabled());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {
