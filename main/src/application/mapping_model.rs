@@ -218,6 +218,8 @@ impl MappingModel {
     pub fn base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {
         ModeApplicabilityCheckInput {
             target_is_virtual: self.target_model.is_virtual(),
+            // TODO-high discrete
+            target_supports_discrete_values: false,
             is_feedback: false,
             make_absolute: self.mode_model.make_absolute.get(),
             // Any is okay, will be overwritten.
@@ -325,7 +327,7 @@ impl<'a> MappingModelWithContext<'a> {
             Normal(MomentaryButton) | Normal(ToggleButton) => {
                 let target = self.target_with_context().resolve_first()?;
                 match mode_type {
-                    AbsoluteMode::Normal | AbsoluteMode::Discrete | AbsoluteMode::ToggleButtons => {
+                    AbsoluteMode::Normal | AbsoluteMode::ToggleButtons => {
                         !target.control_type().is_relative()
                     }
                     AbsoluteMode::IncrementalButtons => {

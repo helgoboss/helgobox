@@ -2228,6 +2228,8 @@ impl<'a> ImmutableMappingPanel<'a> {
     ) -> (Option<&str>, Option<&str>) {
         let base_input = ModeApplicabilityCheckInput {
             target_is_virtual: self.mapping.target_model.is_virtual(),
+            // TODO-high discrete
+            target_supports_discrete_values: false,
             is_feedback: false,
             make_absolute: self.mapping.mode_model.make_absolute.get(),
             source_character,

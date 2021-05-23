@@ -323,6 +323,8 @@ impl ModeModel {
             discrete_current_absolute_value: 0,
             previous_absolute_control_value: None,
             discrete_previous_absolute_control_value: None,
+            // TODO-high discrete
+            use_discrete_processing: false,
         }
     }
 }
