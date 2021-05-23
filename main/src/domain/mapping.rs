@@ -12,7 +12,7 @@ use enum_map::Enum;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlType,
     ControlValue, GroupInteraction, MidiSourceValue, ModeControlOptions, ModeControlResult,
-    OscSource, RawMidiEvent, SourceCharacter, Target, UnitValue,
+    ModeFeedbackOptions, OscSource, RawMidiEvent, SourceCharacter, Target, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -676,11 +676,14 @@ impl MainMapping {
         with_projection_feedback: bool,
         with_source_feedback: bool,
     ) -> Option<FeedbackValue> {
+        let options = ModeFeedbackOptions {
+            source_is_virtual: self.core.source.is_virtual(),
+        };
         // TODO-high discrete
         let mode_value = self
             .core
             .mode
-            .feedback(AbsoluteValue::Continuous(target_value))?;
+            .feedback_with_options(AbsoluteValue::Continuous(target_value), options)?;
         // TODO-high discrete
         self.feedback_given_mode_value(
             mode_value.to_unit_value(),
@@ -985,6 +988,10 @@ impl CompoundMappingSource {
             Midi(s) => s.consumes(msg),
             Virtual(_) | Osc(_) | Never => false,
         }
+    }
+
+    pub fn is_virtual(&self) -> bool {
+        matches!(self, CompoundMappingSource::Virtual(_))
     }
 }
 
@@ -1481,7 +1488,11 @@ fn match_partially(
     // TODO-medium If we want to support fire after timeout and turbo for mappings with
     //  virtual targets one day, we need to poll this in real-time processor and OSC
     //  processing, too!
-    let transformed_control_value = core.mode.control(control_value, target, ())?;
+    let res =
+        core.mode
+            .control_with_options(control_value, target, (), ModeControlOptions::default())?;
+    let transformed_control_value: Option<ControlValue> = res.into();
+    let transformed_control_value = transformed_control_value?;
     if core.options.feedback_send_behavior == FeedbackSendBehavior::PreventEchoFeedback {
         core.time_of_last_control = Some(Instant::now());
     }
