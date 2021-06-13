@@ -40,7 +40,7 @@ impl RealearnTarget for TrackVolumeTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let volume = Volume::try_from_soft_normalized_value(value.as_unit_value()?.get());
+        let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
         self.track.set_volume(volume.unwrap_or(Volume::MIN));
         Ok(())
     }
@@ -61,11 +61,13 @@ impl RealearnTarget for TrackVolumeTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::TrackVolumeChanged(e) if e.track == self.track => (
                 true,
-                Some(volume_unit_value(Volume::from_reaper_value(e.new_value))),
+                Some(AbsoluteValue::Continuous(volume_unit_value(
+                    Volume::from_reaper_value(e.new_value),
+                ))),
             ),
             _ => (false, None),
         }

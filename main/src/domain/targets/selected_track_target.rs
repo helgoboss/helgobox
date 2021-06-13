@@ -89,15 +89,12 @@ impl RealearnTarget for SelectedTrackTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::TrackSelectedChanged(e)
                 if e.new_value && e.track.project() == self.project =>
             {
-                (
-                    true,
-                    Some(selected_track_unit_value(self.project, e.track.index())),
-                )
+                (true, Some(self.value_for(e.track.index())))
             }
             _ => (false, None),
         }
@@ -113,21 +110,24 @@ impl<'a> Target<'a> for SelectedTrackTarget {
     type Context = ();
 
     fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
-        let track_count = self.project.track_count();
-        // Because we count "<Master track>" as a possible value, this is equal.
-        let max_value = track_count;
         let track_index = self
             .project
             .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)
             .and_then(|t| t.index());
-        let actual_value = track_index.map(|i| i + 1).unwrap_or(0);
-        Some(AbsoluteValue::Discrete(Fraction::new(
-            actual_value,
-            max_value,
-        )))
+        Some(self.value_for(track_index))
     }
 
     fn control_type(&self) -> ControlType {
         self.control_type_and_character().0
+    }
+}
+
+impl SelectedTrackTarget {
+    fn value_for(&self, track_index: Option<u32>) -> AbsoluteValue {
+        let track_count = self.project.track_count();
+        // Because we count "<Master track>" as a possible value, this is equal.
+        let max_value = track_count;
+        let actual_value = track_index.map(|i| i + 1).unwrap_or(0);
+        AbsoluteValue::Discrete(Fraction::new(actual_value, max_value))
     }
 }

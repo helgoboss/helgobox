@@ -26,7 +26,7 @@ impl RealearnTarget for LoadFxSnapshotTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if !value.as_unit_value()?.is_zero() {
+        if !value.to_unit_value()?.is_zero() {
             BackboneState::target_context()
                 .borrow_mut()
                 .load_fx_snapshot(self.fx.clone(), &self.chunk, self.chunk_hash)?
@@ -53,7 +53,7 @@ impl RealearnTarget for LoadFxSnapshotTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             // We can't provide a value from the event itself because it's on/off depending on
             // the mappings which use the FX snapshot target with that FX and which chunk (hash)

@@ -23,7 +23,7 @@ impl RealearnTarget for FxOpenTarget {
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         use FxDisplayType::*;
-        if value.as_unit_value()?.is_zero() {
+        if value.to_unit_value()?.is_zero() {
             match self.display_type {
                 FloatingWindow => {
                     self.fx.hide_floating_window();
@@ -65,7 +65,7 @@ impl RealearnTarget for FxOpenTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::FxOpened(e) if e.fx == self.fx => (true, None),
             ChangeEvent::FxClosed(e) if e.fx == self.fx => (true, None),

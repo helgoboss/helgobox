@@ -81,7 +81,9 @@ impl RealearnTarget for MidiSendTarget {
     fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
         // We arrive here only if controlled via OSC. Sending MIDI in response to incoming
         // MIDI messages is handled directly in the real-time processor.
-        let raw_midi_event = self.pattern.to_concrete_midi_event(value.as_unit_value()?);
+        let raw_midi_event = self
+            .pattern
+            .to_concrete_midi_event(value.to_absolute_value()?);
         match self.destination {
             SendMidiDestination::FxOutput => Err("OSC => MIDI FX output not supported"),
             SendMidiDestination::FeedbackOutput => {

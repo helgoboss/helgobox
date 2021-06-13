@@ -53,7 +53,7 @@ impl RealearnTarget for TrackWidthTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let width = Width::from_normalized_value(value.as_unit_value()?.get());
+        let width = Width::from_normalized_value(value.to_unit_value()?.get());
         self.track.set_width(width);
         Ok(())
     }
@@ -62,14 +62,14 @@ impl RealearnTarget for TrackWidthTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::TrackPanChanged(e) if e.track == self.track => (
                 true,
                 match e.new_value {
-                    AvailablePanValue::Complete(v) => v
-                        .width()
-                        .map(|width| width_unit_value(Width::from_reaper_value(width))),
+                    AvailablePanValue::Complete(v) => v.width().map(|width| {
+                        AbsoluteValue::Continuous(width_unit_value(Width::from_reaper_value(width)))
+                    }),
                     AvailablePanValue::Incomplete(_) => None,
                 },
             ),

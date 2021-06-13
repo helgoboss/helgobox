@@ -34,7 +34,7 @@ impl RealearnTarget for TrackAutomationModeTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if value.as_unit_value()?.is_zero() {
+        if value.to_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| {
                 t.set_automation_mode(self.mode)
             });
@@ -68,11 +68,14 @@ impl RealearnTarget for TrackAutomationModeTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::TrackAutomationModeChanged(e) if e.track == self.track => (
                 true,
-                Some(track_automation_mode_unit_value(self.mode, e.new_value)),
+                Some(AbsoluteValue::Continuous(track_automation_mode_unit_value(
+                    self.mode,
+                    e.new_value,
+                ))),
             ),
             _ => (false, None),
         }

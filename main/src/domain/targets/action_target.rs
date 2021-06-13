@@ -91,7 +91,7 @@ impl RealearnTarget for ActionTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             // We can't provide a value from the event itself because the action hooks don't
             // pass values.

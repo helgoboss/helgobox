@@ -5,7 +5,7 @@ use crate::domain::{
     TargetCharacter, TrackExclusivity,
 };
 use enum_dispatch::enum_dispatch;
-use helgoboss_learn::{ControlType, ControlValue, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
 use reaper_medium::CommandId;
 use std::convert::TryInto;
@@ -133,7 +133,7 @@ pub trait RealearnTarget {
         &self,
         evt: &ChangeEvent,
         control_context: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         let (_, _) = (evt, control_context);
         (false, None)
     }
@@ -141,7 +141,7 @@ pub trait RealearnTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         let _ = evt;
         (false, None)
     }
@@ -149,7 +149,7 @@ pub trait RealearnTarget {
     fn value_changed_from_instance_feedback_event(
         &self,
         evt: &InstanceFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         let _ = evt;
         (false, None)
     }

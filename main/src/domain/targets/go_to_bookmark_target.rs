@@ -34,7 +34,7 @@ impl RealearnTarget for GoToBookmarkTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if !value.as_unit_value()?.is_zero() {
+        if !value.to_unit_value()?.is_zero() {
             match self.bookmark_type {
                 BookmarkType::Marker => self
                     .project
@@ -80,7 +80,7 @@ impl RealearnTarget for GoToBookmarkTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         // Handled both from control-surface and non-control-surface callbacks.
         match evt {
             ChangeEvent::BookmarksChanged(e) if e.project == self.project => (true, None),
@@ -91,7 +91,7 @@ impl RealearnTarget for GoToBookmarkTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             AdditionalFeedbackEvent::BeatChanged(e) if e.project == self.project => {
                 let v = current_value_of_bookmark(
@@ -100,7 +100,7 @@ impl RealearnTarget for GoToBookmarkTarget {
                     self.index,
                     e.new_value,
                 );
-                (true, Some(v))
+                (true, Some(AbsoluteValue::Continuous(v)))
             }
             _ => (false, None),
         }

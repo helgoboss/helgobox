@@ -19,7 +19,7 @@ impl RealearnTarget for FxEnableTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if value.as_unit_value()?.is_zero() {
+        if value.to_unit_value()?.is_zero() {
             self.fx.disable();
         } else {
             self.fx.enable();
@@ -47,11 +47,12 @@ impl RealearnTarget for FxEnableTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::FxEnabledChanged(e) if e.fx == self.fx => {
-                (true, Some(fx_enable_unit_value(e.new_value)))
-            }
+            ChangeEvent::FxEnabledChanged(e) if e.fx == self.fx => (
+                true,
+                Some(AbsoluteValue::Continuous(fx_enable_unit_value(e.new_value))),
+            ),
             _ => (false, None),
         }
     }

@@ -104,7 +104,7 @@ impl RealearnTarget for FxNavigateTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::FxOpened(e) if e.fx.chain() == &self.fx_chain => (true, None),
             ChangeEvent::FxClosed(e) if e.fx.chain() == &self.fx_chain => (true, None),

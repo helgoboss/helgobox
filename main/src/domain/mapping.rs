@@ -501,13 +501,29 @@ impl MainMapping {
     /// functions. If `send_feedback_after_control` is on, this might return feedback.
     pub fn control_from_target(
         &mut self,
-        value: ControlValue,
+        value: AbsoluteValue,
         options: ControlOptions,
         context: ControlContext,
         logger: &slog::Logger,
+        inverse: bool,
     ) -> Option<FeedbackValue> {
-        self.control_internal(options, context, logger, |_, _, _, _| {
-            Some(ModeControlResult::HitTarget(value))
+        self.control_internal(options, context, logger, |_, _, mode, target| {
+            let mut v = value;
+            let control_type = target.control_type();
+            // This is very similar to the mode logic, but just a small subset.
+            if inverse {
+                let normalized_max = control_type
+                    .discrete_max()
+                    .map(|m| mode.discrete_target_value_interval.normalize_to_min(m));
+                v = v.inverse(normalized_max);
+            }
+            v = v.denormalize(
+                &mode.target_value_interval,
+                &mode.discrete_target_value_interval,
+                mode.use_discrete_processing,
+                control_type.discrete_max(),
+            );
+            Some(ModeControlResult::HitTarget(ControlValue::from_absolute(v)))
         })
         .feedback_value
     }
@@ -632,8 +648,7 @@ impl MainMapping {
             })
             .max()?;
         self.feedback_given_target_value(
-            // TODO-high Discrete
-            combined_target_value.to_unit_value(),
+            combined_target_value,
             with_projection_feedback,
             !self.core.is_echo(),
         )
@@ -645,20 +660,18 @@ impl MainMapping {
 
     pub fn given_or_current_value(
         &self,
-        target_value: Option<UnitValue>,
+        target_value: Option<AbsoluteValue>,
         target: &ReaperTarget,
         context: ControlContext,
-    ) -> Option<UnitValue> {
-        // TODO-high discrete
-        target_value.or_else(|| target.current_value(context).map(|v| v.to_unit_value()))
+    ) -> Option<AbsoluteValue> {
+        target_value.or_else(|| target.current_value(context))
     }
 
-    pub fn current_aggregated_target_value(&self, context: ControlContext) -> Option<UnitValue> {
-        // TODO-high discrete
-        let values = self
-            .targets
-            .iter()
-            .map(|t| t.current_value(context).map(|v| v.to_unit_value()));
+    pub fn current_aggregated_target_value(
+        &self,
+        context: ControlContext,
+    ) -> Option<AbsoluteValue> {
+        let values = self.targets.iter().map(|t| t.current_value(context));
         aggregate_target_values(values)
     }
 
@@ -672,7 +685,7 @@ impl MainMapping {
 
     pub fn feedback_given_target_value(
         &self,
-        target_value: UnitValue,
+        target_value: AbsoluteValue,
         with_projection_feedback: bool,
         with_source_feedback: bool,
     ) -> Option<FeedbackValue> {
@@ -680,22 +693,16 @@ impl MainMapping {
             source_is_virtual: self.core.source.is_virtual(),
             max_discrete_source_value: self.core.source.max_discrete_value(),
         };
-        // TODO-high discrete
         let mode_value = self
             .core
             .mode
-            .feedback_with_options(AbsoluteValue::Continuous(target_value), options)?;
-        // TODO-high discrete
-        self.feedback_given_mode_value(
-            mode_value.to_unit_value(),
-            with_projection_feedback,
-            with_source_feedback,
-        )
+            .feedback_with_options(target_value, options)?;
+        self.feedback_given_mode_value(mode_value, with_projection_feedback, with_source_feedback)
     }
 
     pub fn feedback_given_mode_value(
         &self,
-        mode_value: UnitValue,
+        mode_value: AbsoluteValue,
         with_projection_feedback: bool,
         with_source_feedback: bool,
     ) -> Option<FeedbackValue> {
@@ -712,7 +719,7 @@ impl MainMapping {
     pub fn zero_feedback(&self) -> Option<FeedbackValue> {
         // TODO-medium  "Unused" and "zero" could be a difference for projection so we should
         //  have different values for that (at the moment it's not though).
-        self.feedback_given_mode_value(UnitValue::MIN, true, true)
+        self.feedback_given_mode_value(AbsoluteValue::Continuous(UnitValue::MIN), true, true)
     }
 
     fn feedback_after_control_if_enabled(
@@ -933,7 +940,7 @@ impl QualifiedSource {
             self.compartment,
             self.id,
             &self.source,
-            UnitValue::MIN,
+            AbsoluteValue::Continuous(UnitValue::MIN),
             true,
             true,
         )
@@ -947,7 +954,7 @@ impl CompoundMappingSource {
             Midi(s) => s.format_control_value(value),
             Virtual(s) => s.format_control_value(value),
             Osc(s) => s.format_control_value(value),
-            Never => Ok(format_percentage_without_unit(value.as_unit_value()?.get())),
+            Never => Ok(format_percentage_without_unit(value.to_unit_value()?.get())),
         }
     }
 
@@ -971,11 +978,13 @@ impl CompoundMappingSource {
         }
     }
 
-    pub fn feedback(&self, feedback_value: UnitValue) -> Option<SourceFeedbackValue> {
+    pub fn feedback(&self, feedback_value: AbsoluteValue) -> Option<SourceFeedbackValue> {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.feedback(feedback_value).map(SourceFeedbackValue::Midi),
-            Osc(s) => s.feedback(feedback_value).map(SourceFeedbackValue::Osc),
+            Osc(s) => s
+                .feedback(feedback_value.to_unit_value())
+                .map(SourceFeedbackValue::Osc),
             // This is handled in a special way by consumers.
             Virtual(_) => None,
             // No feedback for never source.
@@ -999,6 +1008,8 @@ impl CompoundMappingSource {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.max_discrete_value(),
+            // TODO-medium OSC will also support discrete values as soon as we allow integers and
+            //  configuring max values
             Virtual(_) | Osc(_) | Never => None,
         }
     }
@@ -1019,7 +1030,7 @@ impl FeedbackValue {
         compartment: MappingCompartment,
         id: MappingId,
         source: &CompoundMappingSource,
-        mode_value: UnitValue,
+        mode_value: AbsoluteValue,
         with_projection_feedback: bool,
         with_source_feedback: bool,
     ) -> Option<FeedbackValue> {
@@ -1036,7 +1047,7 @@ impl FeedbackValue {
             let projection = if with_projection_feedback
                 && compartment == MappingCompartment::ControllerMappings
             {
-                Some(ProjectionFeedbackValue::new(id, mode_value))
+                Some(ProjectionFeedbackValue::new(id, mode_value.to_unit_value()))
             } else {
                 None
             };
@@ -1345,7 +1356,7 @@ impl RealearnTarget for CompoundMappingTarget {
         &self,
         evt: &ChangeEvent,
         control_context: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.process_change_event(evt, control_context),
@@ -1356,7 +1367,7 @@ impl RealearnTarget for CompoundMappingTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.value_changed_from_additional_feedback_event(evt),
@@ -1367,7 +1378,7 @@ impl RealearnTarget for CompoundMappingTarget {
     fn value_changed_from_instance_feedback_event(
         &self,
         evt: &InstanceFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.value_changed_from_instance_feedback_event(evt),
@@ -1522,8 +1533,8 @@ pub(crate) enum ControlMode {
 /// Supposed to be used to aggregate values of all resolved targets of one mapping into one single
 /// value. At the moment we just take the maximum.
 pub fn aggregate_target_values(
-    values: impl Iterator<Item = Option<UnitValue>>,
-) -> Option<UnitValue> {
+    values: impl Iterator<Item = Option<AbsoluteValue>>,
+) -> Option<AbsoluteValue> {
     values.map(|v| v.unwrap_or_default()).max()
 }
 

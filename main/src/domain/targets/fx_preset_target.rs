@@ -84,7 +84,7 @@ impl RealearnTarget for FxPresetTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::FxPresetChanged(e) if e.fx == self.fx => (true, None),
             _ => (false, None),

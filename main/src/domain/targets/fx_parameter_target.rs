@@ -84,7 +84,7 @@ impl RealearnTarget for FxParameterTarget {
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         // It's okay to just convert this to a REAPER-normalized value. We don't support
         // values above the maximum (or buggy plug-ins).
-        let v = ReaperNormalizedFxParamValue::new(value.as_unit_value()?.get());
+        let v = ReaperNormalizedFxParamValue::new(value.to_unit_value()?.get());
         self.param
             .set_reaper_normalized_value(v)
             .map_err(|_| "couldn't set FX parameter value")?;
@@ -111,14 +111,17 @@ impl RealearnTarget for FxParameterTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         if self.poll_for_feedback {
             return (false, None);
         }
         match evt {
             ChangeEvent::FxParameterValueChanged(e) if e.parameter == self.param => (
                 true,
-                Some(fx_parameter_unit_value(&e.parameter, e.new_value)),
+                Some(AbsoluteValue::Continuous(fx_parameter_unit_value(
+                    &e.parameter,
+                    e.new_value,
+                ))),
             ),
             _ => (false, None),
         }
@@ -127,7 +130,7 @@ impl RealearnTarget for FxParameterTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         if self.poll_for_feedback {
             return (false, None);
         }
@@ -137,7 +140,10 @@ impl RealearnTarget for FxParameterTarget {
             {
                 (
                     true,
-                    Some(fx_parameter_unit_value(&e.parameter, e.new_value)),
+                    Some(AbsoluteValue::Continuous(fx_parameter_unit_value(
+                        &e.parameter,
+                        e.new_value,
+                    ))),
                 )
             }
             _ => (false, None),

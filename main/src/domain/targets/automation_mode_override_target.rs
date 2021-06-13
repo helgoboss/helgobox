@@ -25,7 +25,7 @@ impl RealearnTarget for AutomationModeOverrideTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if value.as_unit_value()?.is_zero() {
+        if value.to_unit_value()?.is_zero() {
             Reaper::get().set_global_automation_override(None);
         } else {
             Reaper::get().set_global_automation_override(self.mode_override);
@@ -41,13 +41,12 @@ impl RealearnTarget for AutomationModeOverrideTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::GlobalAutomationOverrideChanged(e) => (
                 true,
-                Some(global_automation_mode_override_unit_value(
-                    self.mode_override,
-                    e.new_value,
+                Some(AbsoluteValue::Continuous(
+                    global_automation_mode_override_unit_value(self.mode_override, e.new_value),
                 )),
             ),
             _ => (false, None),

@@ -56,7 +56,7 @@ impl RealearnTarget for TrackPanTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let pan = Pan::from_normalized_value(value.as_unit_value()?.get());
+        let pan = Pan::from_normalized_value(value.to_unit_value()?.get());
         self.track.set_pan(pan);
         Ok(())
     }
@@ -65,14 +65,16 @@ impl RealearnTarget for TrackPanTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::TrackPanChanged(e) if e.track == self.track => (true, {
                 let pan = match e.new_value {
                     AvailablePanValue::Complete(v) => v.main_pan(),
                     AvailablePanValue::Incomplete(pan) => pan,
                 };
-                Some(pan_unit_value(Pan::from_reaper_value(pan)))
+                Some(AbsoluteValue::Continuous(pan_unit_value(
+                    Pan::from_reaper_value(pan),
+                )))
             }),
             _ => (false, None),
         }

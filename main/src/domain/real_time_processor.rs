@@ -1243,7 +1243,7 @@ fn process_real_mapping(
             .into();
         let v = control_value
             .ok_or("target already has desired value")?
-            .as_unit_value()?;
+            .to_absolute_value()?;
         match reaper_target {
             RealTimeReaperTarget::SendMidi(t) => {
                 // This is a type of mapping that we should process right here because we want to

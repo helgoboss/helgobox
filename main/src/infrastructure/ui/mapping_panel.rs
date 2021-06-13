@@ -6,8 +6,8 @@ use crate::infrastructure::ui::{
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    check_mode_applicability, AbsoluteMode, ButtonUsage, ControlValue, DetailedSourceCharacter,
-    EncoderUsage, FireMode, GroupInteraction, MidiClockTransportMessage,
+    check_mode_applicability, AbsoluteMode, AbsoluteValue, ButtonUsage, ControlValue,
+    DetailedSourceCharacter, EncoderUsage, FireMode, GroupInteraction, MidiClockTransportMessage,
     ModeApplicabilityCheckInput, ModeParameter, OscTypeTag, OutOfRangeBehavior,
     SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
 };
@@ -446,7 +446,7 @@ impl MappingPanel {
     pub fn notify_target_value_changed(
         self: SharedView<Self>,
         target: &[CompoundMappingTarget],
-        new_value: UnitValue,
+        new_value: AbsoluteValue,
     ) {
         self.invoke_programmatically(|| {
             invalidate_target_controls_free(
@@ -459,7 +459,8 @@ impl MappingPanel {
                 self.view
                     .require_control(root::ID_TARGET_VALUE_EDIT_CONTROL),
                 self.view.require_control(root::ID_TARGET_VALUE_TEXT),
-                new_value,
+                // TODO-medium Maybe we want to display discrete values at some point.
+                new_value.to_unit_value(),
                 None,
                 root::ID_TARGET_VALUE_EDIT_CONTROL,
                 true,

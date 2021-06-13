@@ -32,7 +32,7 @@ impl RealearnTarget for TransportTarget {
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         use TransportAction::*;
-        let on = !value.as_unit_value()?.is_zero();
+        let on = !value.to_unit_value()?.is_zero();
         match self.action {
             PlayStop => {
                 if on {
@@ -88,44 +88,53 @@ impl RealearnTarget for TransportTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         use ChangeEvent::*;
         use TransportAction::*;
         match self.action {
             PlayStop | PlayPause => match evt {
                 PlayStateChanged(e) if e.project == self.project => (
                     true,
-                    Some(transport_is_enabled_unit_value(e.new_value.is_playing)),
+                    Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
+                        e.new_value.is_playing,
+                    ))),
                 ),
                 _ => (false, None),
             },
             Stop => match evt {
                 PlayStateChanged(e) if e.project == self.project => (
                     true,
-                    Some(transport_is_enabled_unit_value(
+                    Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
                         !e.new_value.is_playing && !e.new_value.is_paused,
-                    )),
+                    ))),
                 ),
                 _ => (false, None),
             },
             Pause => match evt {
                 PlayStateChanged(e) if e.project == self.project => (
                     true,
-                    Some(transport_is_enabled_unit_value(e.new_value.is_paused)),
+                    Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
+                        e.new_value.is_paused,
+                    ))),
                 ),
                 _ => (false, None),
             },
             Record => match evt {
                 PlayStateChanged(e) if e.project == self.project => (
                     true,
-                    Some(transport_is_enabled_unit_value(e.new_value.is_recording)),
+                    Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
+                        e.new_value.is_recording,
+                    ))),
                 ),
                 _ => (false, None),
             },
             Repeat => match evt {
-                RepeatStateChanged(e) if e.project == self.project => {
-                    (true, Some(transport_is_enabled_unit_value(e.new_value)))
-                }
+                RepeatStateChanged(e) if e.project == self.project => (
+                    true,
+                    Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
+                        e.new_value,
+                    ))),
+                ),
                 _ => (false, None),
             },
         }
@@ -134,7 +143,7 @@ impl RealearnTarget for TransportTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         if self.action == TransportAction::Repeat {
             return (false, None);
         }

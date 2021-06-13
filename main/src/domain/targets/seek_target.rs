@@ -19,7 +19,7 @@ impl RealearnTarget for SeekTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let value = value.as_unit_value()?;
+        let value = value.to_unit_value()?;
         let info = get_seek_info(self.project, self.options);
         let desired_pos_within_range = value.get() * info.length();
         let desired_pos = info.start_pos.get() + desired_pos_within_range;
@@ -44,11 +44,11 @@ impl RealearnTarget for SeekTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             AdditionalFeedbackEvent::BeatChanged(e) if e.project == self.project => {
                 let v = current_value_of_seek(self.project, self.options, e.new_value);
-                (true, Some(v))
+                (true, Some(AbsoluteValue::Continuous(v)))
             }
             _ => (false, None),
         }

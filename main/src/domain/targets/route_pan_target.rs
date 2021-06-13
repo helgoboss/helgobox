@@ -44,7 +44,7 @@ impl RealearnTarget for RoutePanTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let pan = Pan::from_normalized_value(value.as_unit_value()?.get());
+        let pan = Pan::from_normalized_value(value.to_unit_value()?.get());
         self.route
             .set_pan(pan)
             .map_err(|_| "couldn't set route pan")?;
@@ -71,11 +71,13 @@ impl RealearnTarget for RoutePanTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::TrackRoutePanChanged(e) if e.route == self.route => (
                 true,
-                Some(pan_unit_value(Pan::from_reaper_value(e.new_value))),
+                Some(AbsoluteValue::Continuous(pan_unit_value(
+                    Pan::from_reaper_value(e.new_value),
+                ))),
             ),
             _ => (false, None),
         }

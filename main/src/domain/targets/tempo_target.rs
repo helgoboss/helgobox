@@ -55,7 +55,7 @@ impl RealearnTarget for TempoTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let tempo = reaper_high::Tempo::from_normalized_value(value.as_unit_value()?.get());
+        let tempo = reaper_high::Tempo::from_normalized_value(value.to_unit_value()?.get());
         self.project.set_tempo(tempo, UndoBehavior::OmitUndoPoint);
         Ok(())
     }
@@ -72,11 +72,13 @@ impl RealearnTarget for TempoTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::MasterTempoChanged(e) if e.project == self.project => (
                 true,
-                Some(tempo_unit_value(reaper_high::Tempo::from_bpm(e.new_value))),
+                Some(AbsoluteValue::Continuous(tempo_unit_value(
+                    reaper_high::Tempo::from_bpm(e.new_value),
+                ))),
             ),
             _ => (false, None),
         }

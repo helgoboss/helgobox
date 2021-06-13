@@ -14,8 +14,8 @@ use crate::domain::{
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
-    ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior, ModeControlOptions,
-    OscSource, RawMidiEvent, Target, UnitValue, BASE_EPSILON, FEEDBACK_EPSILON,
+    AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
+    ModeControlOptions, OscSource, RawMidiEvent, Target, UnitValue, BASE_EPSILON, FEEDBACK_EPSILON,
 };
 
 use crate::domain::ui_util::{
@@ -90,7 +90,7 @@ struct Collections {
     ///  changing cursor position while stopped.
     milli_dependent_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     parameters: ParameterArray,
-    previous_target_values: EnumMap<MappingCompartment, HashMap<MappingId, UnitValue>>,
+    previous_target_values: EnumMap<MappingCompartment, HashMap<MappingId, AbsoluteValue>>,
 }
 
 #[derive(Debug)]
@@ -405,10 +405,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             &self.collections.mappings_with_virtual_targets,
                             &mut |t| {
                                 if let Some(value) = t.current_value(control_context) {
-                                    let value = value.to_unit_value();
                                     match previous_target_values[compartment].entry(*mapping_id) {
                                         Entry::Occupied(mut e) => {
-                                            if (e.get().get() - value.get()).abs()
+                                            if (e.get().to_unit_value().get()
+                                                - value.to_unit_value().get())
+                                            .abs()
                                                 <= FEEDBACK_EPSILON
                                             {
                                                 // Value hasn't changed significantly.
@@ -416,8 +417,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                             } else {
                                                 // Value has changed.
                                                 e.insert(value);
-                                                // TODO-high Here and in similar places we should
-                                                //  return AbsoluteValue.
                                                 (true, Some(value))
                                             }
                                         }
@@ -1135,7 +1134,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// avoid a redundant query.
     fn process_feedback_related_reaper_event(
         &self,
-        mut f: impl Fn(&ReaperTarget) -> (bool, Option<UnitValue>),
+        mut f: impl Fn(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {
         for compartment in MappingCompartment::enum_iter() {
             // Mappings with virtual targets don't need to be considered here because they don't
@@ -1150,7 +1149,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         compartment: MappingCompartment,
         m: &MainMapping,
-        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<UnitValue>),
+        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {
         self.basics
             .process_feedback_related_reaper_event_for_mapping(
@@ -1927,30 +1926,26 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     }
                     let context = self.control_context();
                     if let Some(reference_value) = m.current_aggregated_target_value(context) {
-                        let target_value = reference_value.normalize(
+                        let normalized_target_value = reference_value.normalize(
                             &m.mode().target_value_interval,
+                            &m.mode().discrete_target_value_interval,
                             MinIsMaxBehavior::PreferOne,
+                            m.mode().use_discrete_processing,
                             BASE_EPSILON,
                         );
-
-                        let interaction_value = match m.group_interaction() {
-                            SameTargetValue => target_value,
-                            InverseTargetValue => target_value.inverse(),
-                            _ => unreachable!(),
-                        };
+                        let inverse = m.group_interaction() == InverseTargetValue;
                         self.process_other_mappings(
                             collections,
                             compartment,
                             mapping_id,
                             group_id,
                             |other_mapping, basics| {
-                                let scaled_interaction_value = interaction_value
-                                    .denormalize(&other_mapping.mode().target_value_interval);
                                 other_mapping.control_from_target(
-                                    ControlValue::AbsoluteContinuous(scaled_interaction_value),
+                                    normalized_target_value,
                                     ControlOptions::default(),
                                     basics.control_context(),
                                     &basics.logger,
+                                    inverse,
                                 )
                             },
                         );
@@ -1990,12 +1985,12 @@ impl<EH: DomainEventHandler> Basics<EH> {
         compartment: MappingCompartment,
         m: &MainMapping,
         mappings_with_virtual_targets: &HashMap<MappingId, MainMapping>,
-        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<UnitValue>),
+        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {
         // It's enough if one of the resolved targets is affected. Then we are going to need the
         // values of all of them!
         let mut at_least_one_target_is_affected = false;
-        let new_values: Vec<(&ReaperTarget, Option<UnitValue>)> = m
+        let new_values: Vec<(&ReaperTarget, Option<AbsoluteValue>)> = m
             .targets()
             .iter()
             .filter_map(|target| {
@@ -2114,7 +2109,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     with_source_feedback,
                     value,
                 } => {
-                    if let ControlValue::AbsoluteContinuous(v) = value.control_value() {
+                    if let Ok(v) = value.control_value().to_absolute_value() {
                         for m in mappings_with_virtual_targets
                             .values()
                             .filter(|m| m.feedback_is_effectively_on())

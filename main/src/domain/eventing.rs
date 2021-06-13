@@ -2,7 +2,7 @@ use crate::domain::{
     CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId, MidiSource,
     ParameterArray, ProjectionFeedbackValue, SourceFeedbackValue,
 };
-use helgoboss_learn::{OscSource, UnitValue};
+use helgoboss_learn::{AbsoluteValue, OscSource, UnitValue};
 use std::collections::HashSet;
 use std::fmt::Debug;
 
@@ -29,7 +29,7 @@ pub struct TargetValueChangedEvent<'a> {
     pub compartment: MappingCompartment,
     pub mapping_id: MappingId,
     pub targets: &'a [CompoundMappingTarget],
-    pub new_value: UnitValue,
+    pub new_value: AbsoluteValue,
 }
 
 pub trait DomainEventHandler: Debug {

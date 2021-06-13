@@ -25,7 +25,7 @@ impl RealearnTarget for TrackSelectionTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if value.as_unit_value()?.is_zero() {
+        if value.to_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| t.select());
             self.track.unselect();
         } else if self.exclusivity == TrackExclusivity::ExclusiveAll {
@@ -67,11 +67,14 @@ impl RealearnTarget for TrackSelectionTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::TrackSelectedChanged(e) if e.track == self.track => {
-                (true, Some(track_selected_unit_value(e.new_value)))
-            }
+            ChangeEvent::TrackSelectedChanged(e) if e.track == self.track => (
+                true,
+                Some(AbsoluteValue::Continuous(track_selected_unit_value(
+                    e.new_value,
+                ))),
+            ),
             _ => (false, None),
         }
     }

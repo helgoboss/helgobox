@@ -32,7 +32,7 @@ impl RealearnTarget for TrackSoloTarget {
                 ReaperPreference => t.solo(),
             }
         };
-        if value.as_unit_value()?.is_zero() {
+        if value.to_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, solo_track);
             self.track.unsolo();
         } else {
@@ -62,11 +62,14 @@ impl RealearnTarget for TrackSoloTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::TrackSoloChanged(e) if e.track == self.track => {
-                (true, Some(track_solo_unit_value(e.new_value)))
-            }
+            ChangeEvent::TrackSoloChanged(e) if e.track == self.track => (
+                true,
+                Some(AbsoluteValue::Continuous(track_solo_unit_value(
+                    e.new_value,
+                ))),
+            ),
             _ => (false, None),
         }
     }
