@@ -678,6 +678,7 @@ impl MainMapping {
     ) -> Option<FeedbackValue> {
         let options = ModeFeedbackOptions {
             source_is_virtual: self.core.source.is_virtual(),
+            max_discrete_source_value: self.core.source.max_discrete_value(),
         };
         // TODO-high discrete
         let mode_value = self
@@ -992,6 +993,14 @@ impl CompoundMappingSource {
 
     pub fn is_virtual(&self) -> bool {
         matches!(self, CompoundMappingSource::Virtual(_))
+    }
+
+    pub fn max_discrete_value(&self) -> Option<u32> {
+        use CompoundMappingSource::*;
+        match self {
+            Midi(s) => s.max_discrete_value(),
+            Virtual(_) | Osc(_) | Never => None,
+        }
     }
 }
 

@@ -591,9 +591,12 @@ impl<'a> Target<'a> for ReaperTarget {
             AutomationModeOverride(t) => t.current_value(()),
             FxEnable(t) => t.current_value(()),
             FxOpen(t) => t.current_value(()),
+            // Discrete
             FxPreset(t) => t.current_value(()),
             LoadFxSnapshot(t) => t.current_value(()),
+            // Discrete
             SelectedTrack(t) => t.current_value(()),
+            // Discrete
             FxNavigate(t) => t.current_value(()),
             AllTrackFxEnable(t) => t.current_value(()),
             Transport(t) => t.current_value(()),

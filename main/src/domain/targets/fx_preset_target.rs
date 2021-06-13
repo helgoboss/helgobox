@@ -2,7 +2,7 @@ use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
     ControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
 use reaper_medium::FxPresetRef;
 
@@ -46,7 +46,16 @@ impl RealearnTarget for FxPresetTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let preset_index = convert_unit_value_to_preset_index(&self.fx, value.as_unit_value()?);
+        let preset_index = match value.to_absolute_value()? {
+            AbsoluteValue::Continuous(v) => convert_unit_value_to_preset_index(&self.fx, v),
+            AbsoluteValue::Discrete(f) => {
+                if f.actual() == 0 {
+                    None
+                } else {
+                    Some(f.actual() - 1)
+                }
+            }
+        };
         let preset_ref = match preset_index {
             None => FxPresetRef::FactoryPreset,
             Some(i) => FxPresetRef::Preset(i),
@@ -92,8 +101,15 @@ impl<'a> Target<'a> for FxPresetTarget {
     type Context = ();
 
     fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
-        let value = fx_preset_unit_value(&self.fx, self.fx.preset_index().ok()?);
-        Some(AbsoluteValue::Continuous(value))
+        let preset_count = self.fx.preset_count().ok()?;
+        // Because we count "<No preset>" as a possible value, this is equal.
+        let max_value = preset_count;
+        let preset_index = self.fx.preset_index().ok()?;
+        let actual_value = preset_index.map(|i| i + 1).unwrap_or(0);
+        Some(AbsoluteValue::Discrete(Fraction::new(
+            actual_value,
+            max_value,
+        )))
     }
 
     fn control_type(&self) -> ControlType {

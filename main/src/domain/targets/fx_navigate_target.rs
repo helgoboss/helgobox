@@ -2,7 +2,7 @@ use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_fx_index, shown_fx_unit_value,
     ControlContext, FxDisplayType, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use reaper_high::{ChangeEvent, FxChain, Project, Track};
 use reaper_medium::FxChainVisibility;
 
@@ -46,7 +46,16 @@ impl RealearnTarget for FxNavigateTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let fx_index = convert_unit_value_to_fx_index(&self.fx_chain, value.as_unit_value()?);
+        let fx_index = match value.to_absolute_value()? {
+            AbsoluteValue::Continuous(v) => convert_unit_value_to_fx_index(&self.fx_chain, v),
+            AbsoluteValue::Discrete(f) => {
+                if f.actual() == 0 {
+                    None
+                } else {
+                    Some(f.actual() - 1)
+                }
+            }
+        };
         use FxDisplayType::*;
         match fx_index {
             None => match self.display_type {
@@ -113,6 +122,9 @@ impl<'a> Target<'a> for FxNavigateTarget {
     type Context = ();
 
     fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let fx_count = self.fx_chain.fx_count();
+        // Because we count "<No FX>" as a possible value, this is equal.
+        let max_value = fx_count;
         use FxDisplayType::*;
         let fx_index = match self.display_type {
             FloatingWindow => self
@@ -128,9 +140,10 @@ impl<'a> Target<'a> for FxNavigateTarget {
                 }
             }
         };
-        Some(AbsoluteValue::Continuous(shown_fx_unit_value(
-            &self.fx_chain,
-            fx_index,
+        let actual_value = fx_index.map(|i| i + 1).unwrap_or(0);
+        Some(AbsoluteValue::Discrete(Fraction::new(
+            actual_value,
+            max_value,
         )))
     }
 
