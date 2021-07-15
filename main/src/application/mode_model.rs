@@ -173,6 +173,7 @@ impl ModeModel {
     }
 
     /// Creates a mode reflecting this model's current values
+    #[allow(clippy::if_same_then_else)]
     pub fn create_mode(
         &self,
         base_input: ModeApplicabilityCheckInput,
@@ -208,7 +209,7 @@ impl ModeModel {
                 full_unit_interval()
             },
             discrete_source_value_interval: if is_relevant(ModeParameter::SourceMinMax) {
-                // TODO-high
+                // TODO-high-discrete Use dedicated discrete source interval
                 full_discrete_interval()
             } else {
                 full_discrete_interval()
@@ -219,7 +220,7 @@ impl ModeModel {
                 full_unit_interval()
             },
             discrete_target_value_interval: if is_relevant(ModeParameter::TargetMinMax) {
-                // TODO-high
+                // TODO-high-discrete Use dedicated discrete target interval
                 full_discrete_interval()
             } else {
                 full_discrete_interval()
@@ -246,7 +247,7 @@ impl ModeModel {
                 full_unit_interval()
             },
             discrete_jump_interval: if is_relevant(ModeParameter::JumpMinMax) {
-                // TODO-high
+                // TODO-high Use dedicated discrete jump interval
                 full_discrete_interval()
             } else {
                 full_discrete_interval()
@@ -323,7 +324,7 @@ impl ModeModel {
             discrete_current_absolute_value: 0,
             previous_absolute_control_value: None,
             discrete_previous_absolute_control_value: None,
-            // TODO-high discrete
+            // TODO-high-discrete Use discrete IF both source and target support it AND enabled
             use_discrete_processing: false,
         }
     }

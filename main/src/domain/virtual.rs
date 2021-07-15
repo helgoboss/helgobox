@@ -7,7 +7,6 @@ use helgoboss_learn::{
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
 use std::fmt::Display;
-use std::iter::FromIterator;
 use std::str::FromStr;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
@@ -173,7 +172,7 @@ impl SmallAsciiString {
             .chars()
             .filter(|c| c.is_ascii_alphanumeric() || c.is_ascii_punctuation())
             .map(|c| c.to_ascii_char().unwrap());
-        let ascii_string = AsciiString::from_iter(fixed_text);
+        let ascii_string: AsciiString = fixed_text.collect();
         AsciiString::from(&ascii_string.as_slice()[..Self::MAX_LENGTH.min(ascii_string.len())])
     }
 

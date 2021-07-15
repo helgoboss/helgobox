@@ -2,7 +2,7 @@ use crate::domain::{
     CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId, MidiSource,
     ParameterArray, ProjectionFeedbackValue, SourceFeedbackValue,
 };
-use helgoboss_learn::{AbsoluteValue, OscSource, UnitValue};
+use helgoboss_learn::{AbsoluteValue, OscSource};
 use std::collections::HashSet;
 use std::fmt::Debug;
 

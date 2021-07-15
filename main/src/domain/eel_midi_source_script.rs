@@ -1,5 +1,5 @@
 use crate::base::eel;
-use helgoboss_learn::{AbsoluteValue, MidiSourceScript, RawMidiEvent, UnitValue};
+use helgoboss_learn::{AbsoluteValue, MidiSourceScript, RawMidiEvent};
 
 use std::sync::Arc;
 

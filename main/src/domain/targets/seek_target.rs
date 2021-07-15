@@ -2,7 +2,7 @@ use crate::domain::{
     current_value_of_seek, get_seek_info, AdditionalFeedbackEvent, ControlContext, RealearnTarget,
     SeekOptions, TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use reaper_high::Project;
 use reaper_medium::{PositionInSeconds, SetEditCurPosOptions};
 

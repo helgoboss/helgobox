@@ -3,7 +3,7 @@ use crate::domain::{
     ControlContext, FeedbackOutput, OscDeviceId, OscFeedbackTask, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{
-    AbsoluteValue, ControlType, ControlValue, OscArgDescriptor, OscTypeTag, Target, UnitValue,
+    AbsoluteValue, ControlType, ControlValue, OscArgDescriptor, OscTypeTag, Target,
 };
 use rosc::OscMessage;
 

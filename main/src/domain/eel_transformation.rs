@@ -1,6 +1,5 @@
 use crate::base::eel;
-use helgoboss_learn::{Transformation, UnitValue};
-use std::convert::TryInto;
+use helgoboss_learn::Transformation;
 
 use std::sync::Arc;
 

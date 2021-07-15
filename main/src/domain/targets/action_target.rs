@@ -2,7 +2,6 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     ActionInvocationType, AdditionalFeedbackEvent, ControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::ControlType::AbsoluteContinuous;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use helgoboss_midi::U14;
 use reaper_high::{Action, ActionCharacter, Project, Reaper};

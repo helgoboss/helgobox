@@ -15,7 +15,7 @@ use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
     AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
-    ModeControlOptions, OscSource, RawMidiEvent, Target, UnitValue, BASE_EPSILON, FEEDBACK_EPSILON,
+    ModeControlOptions, OscSource, RawMidiEvent, Target, BASE_EPSILON, FEEDBACK_EPSILON,
 };
 
 use crate::domain::ui_util::{
@@ -458,15 +458,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let mut instance_state = self.basics.instance_state.borrow_mut();
         for i in 0..CLIP_SLOT_COUNT {
             for event in instance_state.poll_slot(i).into_iter() {
-                if matches!(&event, ClipChangedEvent::ClipPositionChanged(_)) {
+                let is_position_change = matches!(&event, ClipChangedEvent::ClipPositionChanged(_));
+                let instance_event = InstanceFeedbackEvent::ClipChanged {
+                    slot_index: i,
+                    event,
+                };
+                if is_position_change {
                     // Position changed. This happens very frequently when a clip is playing.
                     // Mappings with slot seek targets are in the beat-dependent feedback
                     // mapping set, not in the milli-dependent one (because we don't want to
                     // query their feedback value more than once in one main loop cycle).
-                    let instance_event = InstanceFeedbackEvent::ClipChanged {
-                        slot_index: i,
-                        event,
-                    };
                     for compartment in MappingCompartment::enum_iter() {
                         for mapping_id in
                             self.collections.beat_dependent_feedback_mappings[compartment].iter()
@@ -487,10 +488,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                 } else {
                     // Other property of clip changed.
-                    let instance_event = InstanceFeedbackEvent::ClipChanged {
-                        slot_index: i,
-                        event,
-                    };
                     self.process_feedback_related_reaper_event(|target| {
                         target.value_changed_from_instance_feedback_event(&instance_event)
                     });
@@ -533,7 +530,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         ));
                         if m.has_reaper_target() && m.has_resolved_successfully() {
                             if m.feedback_is_effectively_on() {
-                                // TODO-high Is this executed too frequently and maybe
+                                // TODO-medium Is this executed too frequently and maybe
                                 // even sends redundant feedback!?
                                 m.feedback(true, self.basics.control_context())
                             } else {
