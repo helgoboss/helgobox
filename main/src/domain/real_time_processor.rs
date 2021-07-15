@@ -1235,12 +1235,15 @@ fn process_real_mapping(
         mapping.resolved_target.as_ref()
     {
         // Must be processed here in real-time processor.
-        let v = mapping
+        let control_value: Option<ControlValue> = mapping
             .core
             .mode
-            .control(value, reaper_target, ())
+            .control_with_options(value, reaper_target, (), options.mode_control_options)
             .ok_or("mode didn't return control value")?
-            .as_absolute()?;
+            .into();
+        let v = control_value
+            .ok_or("target already has desired value")?
+            .to_absolute_value()?;
         match reaper_target {
             RealTimeReaperTarget::SendMidi(t) => {
                 // This is a type of mapping that we should process right here because we want to

@@ -2,7 +2,7 @@ use crate::domain::{
     AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, ControlContext, FeedbackResolution,
     InstanceFeedbackEvent, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipSeekTarget {
@@ -16,7 +16,7 @@ impl RealearnTarget for ClipSeekTarget {
     }
 
     fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
-        let value = value.as_absolute()?;
+        let value = value.to_unit_value()?;
         let mut instance_state = context.instance_state.borrow_mut();
         instance_state.seek_slot(self.slot_index, value)?;
         Ok(())
@@ -31,7 +31,7 @@ impl RealearnTarget for ClipSeekTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         // If feedback resolution is high, we use the special ClipChangedEvent to do our job
         // (in order to not lock mutex of playing clips more than once per main loop cycle).
         if self.feedback_resolution == FeedbackResolution::Beat
@@ -45,7 +45,7 @@ impl RealearnTarget for ClipSeekTarget {
     fn value_changed_from_instance_feedback_event(
         &self,
         evt: &InstanceFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         // When feedback resolution is beat, we only react to the main timeline beat changes.
         if self.feedback_resolution != FeedbackResolution::High {
             return (false, None);
@@ -55,9 +55,11 @@ impl RealearnTarget for ClipSeekTarget {
                 slot_index: si,
                 event,
             } if *si == self.slot_index => match event {
-                ClipChangedEvent::ClipPositionChanged(new_position) => (true, Some(*new_position)),
+                ClipChangedEvent::ClipPositionChanged(new_position) => {
+                    (true, Some(AbsoluteValue::Continuous(*new_position)))
+                }
                 ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped) => {
-                    (true, Some(UnitValue::MIN))
+                    (true, Some(AbsoluteValue::Continuous(UnitValue::MIN)))
                 }
                 _ => (false, None),
             },
@@ -69,14 +71,14 @@ impl RealearnTarget for ClipSeekTarget {
 impl<'a> Target<'a> for ClipSeekTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: ControlContext<'a>) -> Option<UnitValue> {
+    fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let instance_state = context.instance_state.borrow();
         let val = instance_state
             .get_slot(self.slot_index)
             .ok()?
             .position()
             .ok()?;
-        Some(val)
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

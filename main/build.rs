@@ -136,6 +136,7 @@ mod codegen {
             .raw_line("#![allow(non_camel_case_types)]")
             .raw_line("#![allow(non_snake_case)]")
             .raw_line("#![allow(dead_code)]")
+            .raw_line("#![allow(deref_nullptr)]")
             .whitelist_function("NSEEL_.*")
             .parse_callbacks(Box::new(bindgen::CargoCallbacks));
         if let Some(stdlib) = util::determine_cpp_stdlib() {

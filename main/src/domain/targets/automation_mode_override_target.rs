@@ -2,7 +2,7 @@ use crate::domain::{
     format_value_as_on_off, global_automation_mode_override_unit_value, ControlContext,
     RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::GlobalAutomationModeOverride;
 
@@ -25,7 +25,7 @@ impl RealearnTarget for AutomationModeOverrideTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if value.as_absolute()?.is_zero() {
+        if value.to_unit_value()?.is_zero() {
             Reaper::get().set_global_automation_override(None);
         } else {
             Reaper::get().set_global_automation_override(self.mode_override);
@@ -41,13 +41,12 @@ impl RealearnTarget for AutomationModeOverrideTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::GlobalAutomationOverrideChanged(e) => (
                 true,
-                Some(global_automation_mode_override_unit_value(
-                    self.mode_override,
-                    e.new_value,
+                Some(AbsoluteValue::Continuous(
+                    global_automation_mode_override_unit_value(self.mode_override, e.new_value),
                 )),
             ),
             _ => (false, None),
@@ -58,12 +57,12 @@ impl RealearnTarget for AutomationModeOverrideTarget {
 impl<'a> Target<'a> for AutomationModeOverrideTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         let value = global_automation_mode_override_unit_value(
             self.mode_override,
             Reaper::get().global_automation_override(),
         );
-        Some(value)
+        Some(AbsoluteValue::Continuous(value))
     }
 
     fn control_type(&self) -> ControlType {

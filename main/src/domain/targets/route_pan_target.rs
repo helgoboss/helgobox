@@ -2,7 +2,7 @@ use crate::domain::{
     format_value_as_pan, pan_unit_value, parse_value_from_pan, ControlContext, RealearnTarget,
     TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Pan, Project, Track, TrackRoute};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -44,7 +44,7 @@ impl RealearnTarget for RoutePanTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let pan = Pan::from_normalized_value(value.as_absolute()?.get());
+        let pan = Pan::from_normalized_value(value.to_unit_value()?.get());
         self.route
             .set_pan(pan)
             .map_err(|_| "couldn't set route pan")?;
@@ -71,11 +71,13 @@ impl RealearnTarget for RoutePanTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::TrackRoutePanChanged(e) if e.route == self.route => (
                 true,
-                Some(pan_unit_value(Pan::from_reaper_value(e.new_value))),
+                Some(AbsoluteValue::Continuous(pan_unit_value(
+                    Pan::from_reaper_value(e.new_value),
+                ))),
             ),
             _ => (false, None),
         }
@@ -85,8 +87,9 @@ impl RealearnTarget for RoutePanTarget {
 impl<'a> Target<'a> for RoutePanTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(pan_unit_value(self.route.pan()))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = pan_unit_value(self.route.pan());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

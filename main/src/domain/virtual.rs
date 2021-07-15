@@ -1,11 +1,12 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{ExtendedSourceCharacter, TargetCharacter};
 use ascii::{AsciiStr, AsciiString, ToAsciiChar};
-use helgoboss_learn::{ControlType, ControlValue, SourceCharacter, Target, UnitValue};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, SourceCharacter, Target, UnitValue,
+};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
 use std::fmt::Display;
-use std::iter::FromIterator;
 use std::str::FromStr;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
@@ -34,7 +35,7 @@ impl VirtualTarget {
 impl<'a> Target<'a> for VirtualTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         None
     }
 
@@ -72,12 +73,15 @@ impl VirtualSource {
         Some(value.control_value)
     }
 
-    pub fn feedback(&self, feedback_value: UnitValue) -> VirtualSourceValue {
-        VirtualSourceValue::new(self.control_element, ControlValue::Absolute(feedback_value))
+    pub fn feedback(&self, feedback_value: AbsoluteValue) -> VirtualSourceValue {
+        VirtualSourceValue::new(
+            self.control_element,
+            ControlValue::from_absolute(feedback_value),
+        )
     }
 
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
-        let absolute_value = value.as_absolute()?;
+        let absolute_value = value.to_unit_value()?;
         Ok(format_as_percentage_without_unit(absolute_value))
     }
 
@@ -168,7 +172,7 @@ impl SmallAsciiString {
             .chars()
             .filter(|c| c.is_ascii_alphanumeric() || c.is_ascii_punctuation())
             .map(|c| c.to_ascii_char().unwrap());
-        let ascii_string = AsciiString::from_iter(fixed_text);
+        let ascii_string: AsciiString = fixed_text.collect();
         AsciiString::from(&ascii_string.as_slice()[..Self::MAX_LENGTH.min(ascii_string.len())])
     }
 

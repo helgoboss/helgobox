@@ -5,7 +5,7 @@ use crate::domain::ui_util::{
 use crate::domain::{
     ClipChangedEvent, ControlContext, InstanceFeedbackEvent, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::Volume;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -35,7 +35,7 @@ impl RealearnTarget for ClipVolumeTarget {
     }
 
     fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
-        let volume = Volume::try_from_soft_normalized_value(value.as_absolute()?.get());
+        let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
         let mut instance_state = context.instance_state.borrow_mut();
         instance_state.set_volume(
             self.slot_index,
@@ -53,12 +53,17 @@ impl RealearnTarget for ClipVolumeTarget {
     fn value_changed_from_instance_feedback_event(
         &self,
         evt: &InstanceFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             InstanceFeedbackEvent::ClipChanged {
                 slot_index: si,
                 event: ClipChangedEvent::ClipVolumeChanged(new_value),
-            } if *si == self.slot_index => (true, Some(reaper_volume_unit_value(*new_value))),
+            } if *si == self.slot_index => (
+                true,
+                Some(AbsoluteValue::Continuous(reaper_volume_unit_value(
+                    *new_value,
+                ))),
+            ),
             _ => (false, None),
         }
     }
@@ -67,10 +72,10 @@ impl RealearnTarget for ClipVolumeTarget {
 impl<'a> Target<'a> for ClipVolumeTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: ControlContext<'a>) -> Option<UnitValue> {
+    fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let instance_state = context.instance_state.borrow();
         let volume = instance_state.get_slot(self.slot_index).ok()?.volume();
-        Some(reaper_volume_unit_value(volume))
+        Some(AbsoluteValue::Continuous(reaper_volume_unit_value(volume)))
     }
 
     fn control_type(&self) -> ControlType {

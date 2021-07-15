@@ -3,7 +3,7 @@ use crate::domain::{
     handle_track_exclusivity, track_solo_unit_value, ControlContext, RealearnTarget, SoloBehavior,
     TargetCharacter, TrackExclusivity,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
 use reaper_medium::SoloMode;
 
@@ -32,7 +32,7 @@ impl RealearnTarget for TrackSoloTarget {
                 ReaperPreference => t.solo(),
             }
         };
-        if value.as_absolute()?.is_zero() {
+        if value.to_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, solo_track);
             self.track.unsolo();
         } else {
@@ -62,11 +62,14 @@ impl RealearnTarget for TrackSoloTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::TrackSoloChanged(e) if e.track == self.track => {
-                (true, Some(track_solo_unit_value(e.new_value)))
-            }
+            ChangeEvent::TrackSoloChanged(e) if e.track == self.track => (
+                true,
+                Some(AbsoluteValue::Continuous(track_solo_unit_value(
+                    e.new_value,
+                ))),
+            ),
             _ => (false, None),
         }
     }
@@ -75,8 +78,9 @@ impl RealearnTarget for TrackSoloTarget {
 impl<'a> Target<'a> for TrackSoloTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(track_solo_unit_value(self.track.is_solo()))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = track_solo_unit_value(self.track.is_solo());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

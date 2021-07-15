@@ -2,7 +2,7 @@ use crate::domain::{
     current_value_of_bookmark, format_value_as_on_off, AdditionalFeedbackEvent, ControlContext,
     RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{BookmarkType, ChangeEvent, Project};
 use reaper_medium::{AutoSeekBehavior, BookmarkRef};
 use std::num::NonZeroU32;
@@ -34,7 +34,7 @@ impl RealearnTarget for GoToBookmarkTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if !value.as_absolute()?.is_zero() {
+        if !value.to_unit_value()?.is_zero() {
             match self.bookmark_type {
                 BookmarkType::Marker => self
                     .project
@@ -80,7 +80,7 @@ impl RealearnTarget for GoToBookmarkTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         // Handled both from control-surface and non-control-surface callbacks.
         match evt {
             ChangeEvent::BookmarksChanged(e) if e.project == self.project => (true, None),
@@ -91,7 +91,7 @@ impl RealearnTarget for GoToBookmarkTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             AdditionalFeedbackEvent::BeatChanged(e) if e.project == self.project => {
                 let v = current_value_of_bookmark(
@@ -100,7 +100,7 @@ impl RealearnTarget for GoToBookmarkTarget {
                     self.index,
                     e.new_value,
                 );
-                (true, Some(v))
+                (true, Some(AbsoluteValue::Continuous(v)))
             }
             _ => (false, None),
         }
@@ -110,14 +110,14 @@ impl RealearnTarget for GoToBookmarkTarget {
 impl<'a> Target<'a> for GoToBookmarkTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         let val = current_value_of_bookmark(
             self.project,
             self.bookmark_type,
             self.index,
             self.project.play_or_edit_cursor_position(),
         );
-        Some(val)
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

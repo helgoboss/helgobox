@@ -2,10 +2,10 @@ use crate::base::{prop, Prop};
 use crate::domain::{EelTransformation, Mode, OutputVariable};
 
 use helgoboss_learn::{
-    check_mode_applicability, full_unit_interval, AbsoluteMode, ButtonUsage,
-    DetailedSourceCharacter, DiscreteIncrement, EncoderUsage, FireMode, GroupInteraction, Interval,
-    ModeApplicabilityCheckInput, ModeParameter, OutOfRangeBehavior, PressDurationProcessor,
-    SoftSymmetricUnitValue, TakeoverMode, UnitValue,
+    check_mode_applicability, full_discrete_interval, full_unit_interval, AbsoluteMode,
+    ButtonUsage, DetailedSourceCharacter, DiscreteIncrement, EncoderUsage, FireMode,
+    GroupInteraction, Interval, ModeApplicabilityCheckInput, ModeParameter, OutOfRangeBehavior,
+    PressDurationProcessor, SoftSymmetricUnitValue, TakeoverMode, UnitValue,
 };
 
 use rxrust::prelude::*;
@@ -173,6 +173,7 @@ impl ModeModel {
     }
 
     /// Creates a mode reflecting this model's current values
+    #[allow(clippy::if_same_then_else)]
     pub fn create_mode(
         &self,
         base_input: ModeApplicabilityCheckInput,
@@ -207,10 +208,22 @@ impl ModeModel {
             } else {
                 full_unit_interval()
             },
+            discrete_source_value_interval: if is_relevant(ModeParameter::SourceMinMax) {
+                // TODO-high-discrete Use dedicated discrete source interval
+                full_discrete_interval()
+            } else {
+                full_discrete_interval()
+            },
             target_value_interval: if is_relevant(ModeParameter::TargetMinMax) {
                 self.target_value_interval.get()
             } else {
                 full_unit_interval()
+            },
+            discrete_target_value_interval: if is_relevant(ModeParameter::TargetMinMax) {
+                // TODO-high-discrete Use dedicated discrete target interval
+                full_discrete_interval()
+            } else {
+                full_discrete_interval()
             },
             step_count_interval: Interval::new(
                 min_step_count,
@@ -232,6 +245,12 @@ impl ModeModel {
                 self.jump_interval.get()
             } else {
                 full_unit_interval()
+            },
+            discrete_jump_interval: if is_relevant(ModeParameter::JumpMinMax) {
+                // TODO-high Use dedicated discrete jump interval
+                full_discrete_interval()
+            } else {
+                full_discrete_interval()
             },
             press_duration_processor: PressDurationProcessor::new(
                 if is_relevant(ModeParameter::FireMode) {
@@ -302,7 +321,11 @@ impl ModeModel {
                 false
             },
             current_absolute_value: UnitValue::MIN,
+            discrete_current_absolute_value: 0,
             previous_absolute_control_value: None,
+            discrete_previous_absolute_control_value: None,
+            // TODO-high-discrete Use discrete IF both source and target support it AND enabled
+            use_discrete_processing: false,
         }
     }
 }

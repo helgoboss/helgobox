@@ -2,7 +2,7 @@ use crate::domain::{
     current_value_of_seek, get_seek_info, AdditionalFeedbackEvent, ControlContext, RealearnTarget,
     SeekOptions, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use reaper_high::Project;
 use reaper_medium::{PositionInSeconds, SetEditCurPosOptions};
 
@@ -19,7 +19,7 @@ impl RealearnTarget for SeekTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let value = value.as_absolute()?;
+        let value = value.to_unit_value()?;
         let info = get_seek_info(self.project, self.options);
         let desired_pos_within_range = value.get() * info.length();
         let desired_pos = info.start_pos.get() + desired_pos_within_range;
@@ -44,11 +44,11 @@ impl RealearnTarget for SeekTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             AdditionalFeedbackEvent::BeatChanged(e) if e.project == self.project => {
                 let v = current_value_of_seek(self.project, self.options, e.new_value);
-                (true, Some(v))
+                (true, Some(AbsoluteValue::Continuous(v)))
             }
             _ => (false, None),
         }
@@ -58,13 +58,13 @@ impl RealearnTarget for SeekTarget {
 impl<'a> Target<'a> for SeekTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         let val = current_value_of_seek(
             self.project,
             self.options,
             self.project.play_or_edit_cursor_position(),
         );
-        Some(val)
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

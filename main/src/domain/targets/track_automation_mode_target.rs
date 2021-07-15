@@ -2,7 +2,7 @@ use crate::domain::{
     format_value_as_on_off, handle_track_exclusivity, track_automation_mode_unit_value,
     ControlContext, RealearnTarget, TargetCharacter, TrackExclusivity,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
 use reaper_medium::AutomationMode;
 
@@ -34,7 +34,7 @@ impl RealearnTarget for TrackAutomationModeTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if value.as_absolute()?.is_zero() {
+        if value.to_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| {
                 t.set_automation_mode(self.mode)
             });
@@ -68,11 +68,14 @@ impl RealearnTarget for TrackAutomationModeTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::TrackAutomationModeChanged(e) if e.track == self.track => (
                 true,
-                Some(track_automation_mode_unit_value(self.mode, e.new_value)),
+                Some(AbsoluteValue::Continuous(track_automation_mode_unit_value(
+                    self.mode,
+                    e.new_value,
+                ))),
             ),
             _ => (false, None),
         }
@@ -82,11 +85,9 @@ impl RealearnTarget for TrackAutomationModeTarget {
 impl<'a> Target<'a> for TrackAutomationModeTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(track_automation_mode_unit_value(
-            self.mode,
-            self.track.automation_mode(),
-        ))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = track_automation_mode_unit_value(self.mode, self.track.automation_mode());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

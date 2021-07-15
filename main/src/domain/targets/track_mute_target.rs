@@ -3,7 +3,7 @@ use crate::domain::{
     handle_track_exclusivity, mute_unit_value, ControlContext, RealearnTarget, TargetCharacter,
     TrackExclusivity,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -22,7 +22,7 @@ impl RealearnTarget for TrackMuteTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if value.as_absolute()?.is_zero() {
+        if value.to_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| t.mute());
             self.track.unmute();
         } else {
@@ -52,11 +52,12 @@ impl RealearnTarget for TrackMuteTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::TrackMuteChanged(e) if e.track == self.track => {
-                (true, Some(mute_unit_value(e.new_value)))
-            }
+            ChangeEvent::TrackMuteChanged(e) if e.track == self.track => (
+                true,
+                Some(AbsoluteValue::Continuous(mute_unit_value(e.new_value))),
+            ),
             _ => (false, None),
         }
     }
@@ -65,8 +66,9 @@ impl RealearnTarget for TrackMuteTarget {
 impl<'a> Target<'a> for TrackMuteTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(mute_unit_value(self.track.is_muted()))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = mute_unit_value(self.track.is_muted());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

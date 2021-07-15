@@ -3,7 +3,7 @@ use crate::domain::{
     ClipChangedEvent, ControlContext, InstanceFeedbackEvent, RealearnTarget, SlotPlayOptions,
     TargetCharacter, TransportAction,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -28,7 +28,7 @@ impl RealearnTarget for ClipTransportTarget {
 
     fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
         use TransportAction::*;
-        let on = !value.as_absolute()?.is_zero();
+        let on = !value.to_unit_value()?.is_zero();
         let mut instance_state = context.instance_state.borrow_mut();
         match self.action {
             PlayStop => {
@@ -88,7 +88,7 @@ impl RealearnTarget for ClipTransportTarget {
         &self,
         evt: &ChangeEvent,
         context: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         // Feedback handled from instance-scoped feedback events.
         if let ChangeEvent::PlayStateChanged(e) = evt {
             let mut instance_state = context.instance_state.borrow_mut();
@@ -100,7 +100,7 @@ impl RealearnTarget for ClipTransportTarget {
     fn value_changed_from_instance_feedback_event(
         &self,
         evt: &InstanceFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             InstanceFeedbackEvent::ClipChanged {
                 slot_index: si,
@@ -111,16 +111,22 @@ impl RealearnTarget for ClipTransportTarget {
                     PlayStop | PlayPause | Stop | Pause => match event {
                         ClipChangedEvent::PlayStateChanged(new_state) => (
                             true,
-                            Some(clip_play_state_unit_value(self.action, *new_state)),
+                            Some(AbsoluteValue::Continuous(clip_play_state_unit_value(
+                                self.action,
+                                *new_state,
+                            ))),
                         ),
                         _ => (false, None),
                     },
                     // Not supported at the moment.
                     Record => (false, None),
                     Repeat => match event {
-                        ClipChangedEvent::ClipRepeatChanged(new_state) => {
-                            (true, Some(transport_is_enabled_unit_value(*new_state)))
-                        }
+                        ClipChangedEvent::ClipRepeatChanged(new_state) => (
+                            true,
+                            Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
+                                *new_state,
+                            ))),
+                        ),
                         _ => (false, None),
                     },
                 }
@@ -133,7 +139,7 @@ impl RealearnTarget for ClipTransportTarget {
 impl<'a> Target<'a> for ClipTransportTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: ControlContext<'a>) -> Option<UnitValue> {
+    fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let instance_state = context.instance_state.borrow();
         use TransportAction::*;
         let val = match self.action {
@@ -150,7 +156,7 @@ impl<'a> Target<'a> for ClipTransportTarget {
             }
             Record => return None,
         };
-        Some(val)
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

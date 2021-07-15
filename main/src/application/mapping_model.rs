@@ -218,6 +218,8 @@ impl MappingModel {
     pub fn base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {
         ModeApplicabilityCheckInput {
             target_is_virtual: self.target_model.is_virtual(),
+            // TODO-high-discrete Enable (also taking source into consideration!)
+            target_supports_discrete_values: false,
             is_feedback: false,
             make_absolute: self.mode_model.make_absolute.get(),
             // Any is okay, will be overwritten.

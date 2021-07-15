@@ -14,8 +14,8 @@ use crate::domain::{
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
-    ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior, ModeControlOptions,
-    OscSource, RawMidiEvent, Target, UnitValue, BASE_EPSILON, FEEDBACK_EPSILON,
+    AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
+    ModeControlOptions, OscSource, RawMidiEvent, Target, BASE_EPSILON, FEEDBACK_EPSILON,
 };
 
 use crate::domain::ui_util::{
@@ -90,7 +90,7 @@ struct Collections {
     ///  changing cursor position while stopped.
     milli_dependent_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
     parameters: ParameterArray,
-    previous_target_values: EnumMap<MappingCompartment, HashMap<MappingId, UnitValue>>,
+    previous_target_values: EnumMap<MappingCompartment, HashMap<MappingId, AbsoluteValue>>,
 }
 
 #[derive(Debug)]
@@ -324,7 +324,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         // Control value is not important because we only do target-value
                         // based group interaction after polling (makes sense because control-value
                         // based one has been done at control time already.
-                        ControlValue::Absolute(Default::default()),
+                        ControlValue::AbsoluteContinuous(Default::default()),
                         // We already know that control was successful (checked above).
                         true,
                     );
@@ -407,7 +407,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 if let Some(value) = t.current_value(control_context) {
                                     match previous_target_values[compartment].entry(*mapping_id) {
                                         Entry::Occupied(mut e) => {
-                                            if (e.get().get() - value.get()).abs()
+                                            if (e.get().to_unit_value().get()
+                                                - value.to_unit_value().get())
+                                            .abs()
                                                 <= FEEDBACK_EPSILON
                                             {
                                                 // Value hasn't changed significantly.
@@ -456,15 +458,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let mut instance_state = self.basics.instance_state.borrow_mut();
         for i in 0..CLIP_SLOT_COUNT {
             for event in instance_state.poll_slot(i).into_iter() {
-                if matches!(&event, ClipChangedEvent::ClipPositionChanged(_)) {
+                let is_position_change = matches!(&event, ClipChangedEvent::ClipPositionChanged(_));
+                let instance_event = InstanceFeedbackEvent::ClipChanged {
+                    slot_index: i,
+                    event,
+                };
+                if is_position_change {
                     // Position changed. This happens very frequently when a clip is playing.
                     // Mappings with slot seek targets are in the beat-dependent feedback
                     // mapping set, not in the milli-dependent one (because we don't want to
                     // query their feedback value more than once in one main loop cycle).
-                    let instance_event = InstanceFeedbackEvent::ClipChanged {
-                        slot_index: i,
-                        event,
-                    };
                     for compartment in MappingCompartment::enum_iter() {
                         for mapping_id in
                             self.collections.beat_dependent_feedback_mappings[compartment].iter()
@@ -485,10 +488,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                 } else {
                     // Other property of clip changed.
-                    let instance_event = InstanceFeedbackEvent::ClipChanged {
-                        slot_index: i,
-                        event,
-                    };
                     self.process_feedback_related_reaper_event(|target| {
                         target.value_changed_from_instance_feedback_event(&instance_event)
                     });
@@ -531,7 +530,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         ));
                         if m.has_reaper_target() && m.has_resolved_successfully() {
                             if m.feedback_is_effectively_on() {
-                                // TODO-high Is this executed too frequently and maybe
+                                // TODO-medium Is this executed too frequently and maybe
                                 // even sends redundant feedback!?
                                 m.feedback(true, self.basics.control_context())
                             } else {
@@ -1132,7 +1131,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// avoid a redundant query.
     fn process_feedback_related_reaper_event(
         &self,
-        mut f: impl Fn(&ReaperTarget) -> (bool, Option<UnitValue>),
+        mut f: impl Fn(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {
         for compartment in MappingCompartment::enum_iter() {
             // Mappings with virtual targets don't need to be considered here because they don't
@@ -1147,7 +1146,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         compartment: MappingCompartment,
         m: &MainMapping,
-        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<UnitValue>),
+        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {
         self.basics
             .process_feedback_related_reaper_event_for_mapping(
@@ -1924,32 +1923,26 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     }
                     let context = self.control_context();
                     if let Some(reference_value) = m.current_aggregated_target_value(context) {
-                        let target_value = reference_value.map_to_unit_interval_from(
+                        let normalized_target_value = reference_value.normalize(
                             &m.mode().target_value_interval,
+                            &m.mode().discrete_target_value_interval,
                             MinIsMaxBehavior::PreferOne,
+                            m.mode().use_discrete_processing,
                             BASE_EPSILON,
                         );
-
-                        let interaction_value = match m.group_interaction() {
-                            SameTargetValue => target_value,
-                            InverseTargetValue => target_value.inverse(),
-                            _ => unreachable!(),
-                        };
+                        let inverse = m.group_interaction() == InverseTargetValue;
                         self.process_other_mappings(
                             collections,
                             compartment,
                             mapping_id,
                             group_id,
                             |other_mapping, basics| {
-                                let scaled_interaction_value = interaction_value
-                                    .map_from_unit_interval_to(
-                                        &other_mapping.mode().target_value_interval,
-                                    );
                                 other_mapping.control_from_target(
-                                    ControlValue::Absolute(scaled_interaction_value),
+                                    normalized_target_value,
                                     ControlOptions::default(),
                                     basics.control_context(),
                                     &basics.logger,
+                                    inverse,
                                 )
                             },
                         );
@@ -1989,12 +1982,12 @@ impl<EH: DomainEventHandler> Basics<EH> {
         compartment: MappingCompartment,
         m: &MainMapping,
         mappings_with_virtual_targets: &HashMap<MappingId, MainMapping>,
-        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<UnitValue>),
+        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {
         // It's enough if one of the resolved targets is affected. Then we are going to need the
         // values of all of them!
         let mut at_least_one_target_is_affected = false;
-        let new_values: Vec<(&ReaperTarget, Option<UnitValue>)> = m
+        let new_values: Vec<(&ReaperTarget, Option<AbsoluteValue>)> = m
             .targets()
             .iter()
             .filter_map(|target| {
@@ -2113,7 +2106,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     with_source_feedback,
                     value,
                 } => {
-                    if let ControlValue::Absolute(v) = value.control_value() {
+                    if let Ok(v) = value.control_value().to_absolute_value() {
                         for m in mappings_with_virtual_targets
                             .values()
                             .filter(|m| m.feedback_is_effectively_on())

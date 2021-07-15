@@ -6,8 +6,8 @@ use crate::infrastructure::ui::{
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    check_mode_applicability, AbsoluteMode, ButtonUsage, ControlValue, DetailedSourceCharacter,
-    EncoderUsage, FireMode, GroupInteraction, MidiClockTransportMessage,
+    check_mode_applicability, AbsoluteMode, AbsoluteValue, ButtonUsage, ControlValue,
+    DetailedSourceCharacter, EncoderUsage, FireMode, GroupInteraction, MidiClockTransportMessage,
     ModeApplicabilityCheckInput, ModeParameter, OscTypeTag, OutOfRangeBehavior,
     SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
 };
@@ -446,7 +446,7 @@ impl MappingPanel {
     pub fn notify_target_value_changed(
         self: SharedView<Self>,
         target: &[CompoundMappingTarget],
-        new_value: UnitValue,
+        new_value: AbsoluteValue,
     ) {
         self.invoke_programmatically(|| {
             invalidate_target_controls_free(
@@ -2228,6 +2228,8 @@ impl<'a> ImmutableMappingPanel<'a> {
     ) -> (Option<&str>, Option<&str>) {
         let base_input = ModeApplicabilityCheckInput {
             target_is_virtual: self.mapping.target_model.is_virtual(),
+            // TODO-high-discrete Set correctly
+            target_supports_discrete_values: false,
             is_feedback: false,
             make_absolute: self.mapping.mode_model.make_absolute.get(),
             source_character,
@@ -3681,7 +3683,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     self.session.instance_id(),
                     self.session.output_logging_enabled.get(),
                 );
-                let value = t.current_value(control_context).unwrap_or(UnitValue::MIN);
+                let value = t.current_value(control_context).unwrap_or_default();
                 self.invalidate_target_value_controls_with_value(value);
                 None
             } else {
@@ -3705,7 +3707,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
     }
 
-    fn invalidate_target_value_controls_with_value(&self, value: UnitValue) {
+    fn invalidate_target_value_controls_with_value(&self, value: AbsoluteValue) {
         self.invalidate_target_controls_internal(
             root::ID_TARGET_VALUE_SLIDER_CONTROL,
             root::ID_TARGET_VALUE_EDIT_CONTROL,
@@ -4253,7 +4255,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     ) {
         let formatted_value = self
             .source
-            .format_control_value(ControlValue::Absolute(value))
+            .format_control_value(ControlValue::AbsoluteContinuous(value))
             .unwrap_or_else(|_| "".to_string());
         if initiator != Some(edit_control_id) {
             self.view
@@ -4270,7 +4272,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_VALUE_EDIT_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_VALUE_TEXT,
-            self.mode.target_value_interval.get_ref().min_val(),
+            AbsoluteValue::Continuous(self.mode.target_value_interval.get_ref().min_val()),
             initiator,
         );
     }
@@ -4280,7 +4282,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MAX_TARGET_VALUE_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_VALUE_EDIT_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
-            self.mode.target_value_interval.get_ref().max_val(),
+            AbsoluteValue::Continuous(self.mode.target_value_interval.get_ref().max_val()),
             initiator,
         );
     }
@@ -4290,7 +4292,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         slider_control_id: u32,
         edit_control_id: u32,
         value_text_control_id: u32,
-        value: UnitValue,
+        value: AbsoluteValue,
         initiator: Option<u32>,
     ) {
         invalidate_target_controls_free(
@@ -4328,7 +4330,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MIN_TARGET_JUMP_SLIDER_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL,
             root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
-            self.mode.jump_interval.get_ref().min_val(),
+            AbsoluteValue::Continuous(self.mode.jump_interval.get_ref().min_val()),
             initiator,
         );
     }
@@ -4338,7 +4340,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL,
             root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
-            self.mode.jump_interval.get_ref().max_val(),
+            AbsoluteValue::Continuous(self.mode.jump_interval.get_ref().max_val()),
             initiator,
         );
     }
@@ -5430,7 +5432,7 @@ fn update_target_value(
     for target in targets {
         // If it doesn't work in some cases, so what.
         let res = target.control(
-            ControlValue::Absolute(value),
+            ControlValue::AbsoluteContinuous(value),
             create_control_context(
                 feedback_output,
                 instance_state,
@@ -5487,11 +5489,13 @@ fn invalidate_target_controls_free(
     slider_control: Window,
     edit_control: Window,
     value_text_control: Window,
-    value: UnitValue,
+    value: AbsoluteValue,
     initiator: Option<u32>,
     edit_control_id: u32,
     set_text_only_if_edit_control_not_focused: bool,
 ) {
+    // TODO-high-discrete Handle discrete value in a better way.
+    let value = value.to_unit_value();
     let (edit_text, value_text) = match real_target {
         Some(target) => {
             let edit_text = if target.character() == TargetCharacter::Discrete {

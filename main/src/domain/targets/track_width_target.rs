@@ -3,7 +3,7 @@ use crate::domain::ui_util::{
     parse_from_double_percentage, parse_from_symmetric_percentage,
 };
 use crate::domain::{width_unit_value, ControlContext, PanExt, RealearnTarget, TargetCharacter};
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{AvailablePanValue, ChangeEvent, Project, Track, Width};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -53,7 +53,7 @@ impl RealearnTarget for TrackWidthTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let width = Width::from_normalized_value(value.as_absolute()?.get());
+        let width = Width::from_normalized_value(value.to_unit_value()?.get());
         self.track.set_width(width);
         Ok(())
     }
@@ -62,14 +62,14 @@ impl RealearnTarget for TrackWidthTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::TrackPanChanged(e) if e.track == self.track => (
                 true,
                 match e.new_value {
-                    AvailablePanValue::Complete(v) => v
-                        .width()
-                        .map(|width| width_unit_value(Width::from_reaper_value(width))),
+                    AvailablePanValue::Complete(v) => v.width().map(|width| {
+                        AbsoluteValue::Continuous(width_unit_value(Width::from_reaper_value(width)))
+                    }),
                     AvailablePanValue::Incomplete(_) => None,
                 },
             ),
@@ -81,8 +81,9 @@ impl RealearnTarget for TrackWidthTarget {
 impl<'a> Target<'a> for TrackWidthTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(width_unit_value(self.track.width()))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = width_unit_value(self.track.width());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

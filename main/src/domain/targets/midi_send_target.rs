@@ -3,7 +3,9 @@ use crate::domain::{
     ControlContext, FeedbackAudioHookTask, FeedbackOutput, MidiDestination, RealTimeReaperTarget,
     RealearnTarget, SendMidiDestination, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, RawMidiPattern, Target, UnitValue};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, RawMidiPattern, Target, UnitValue,
+};
 use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -79,7 +81,9 @@ impl RealearnTarget for MidiSendTarget {
     fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
         // We arrive here only if controlled via OSC. Sending MIDI in response to incoming
         // MIDI messages is handled directly in the real-time processor.
-        let raw_midi_event = self.pattern.to_concrete_midi_event(value.as_absolute()?);
+        let raw_midi_event = self
+            .pattern
+            .to_concrete_midi_event(value.to_absolute_value()?);
         match self.destination {
             SendMidiDestination::FxOutput => Err("OSC => MIDI FX output not supported"),
             SendMidiDestination::FeedbackOutput => {
@@ -139,7 +143,7 @@ impl RealearnTarget for MidiSendTarget {
 impl<'a> Target<'a> for MidiSendTarget {
     type Context = ();
 
-    fn current_value(&self, _context: ()) -> Option<UnitValue> {
+    fn current_value(&self, _context: ()) -> Option<AbsoluteValue> {
         None
     }
 

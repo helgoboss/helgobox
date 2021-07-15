@@ -2,7 +2,7 @@ use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_track_index, selected_track_unit_value,
     ControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper};
 use reaper_medium::{CommandId, MasterTrackBehavior};
 
@@ -47,7 +47,16 @@ impl RealearnTarget for SelectedTrackTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        let track_index = convert_unit_value_to_track_index(self.project, value.as_absolute()?);
+        let track_index = match value.to_absolute_value()? {
+            AbsoluteValue::Continuous(v) => convert_unit_value_to_track_index(self.project, v),
+            AbsoluteValue::Discrete(f) => {
+                if f.actual() == 0 {
+                    None
+                } else {
+                    Some(f.actual() - 1)
+                }
+            }
+        };
         let track = match track_index {
             None => self.project.master_track(),
             Some(i) => self
@@ -80,15 +89,12 @@ impl RealearnTarget for SelectedTrackTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             ChangeEvent::TrackSelectedChanged(e)
                 if e.new_value && e.track.project() == self.project =>
             {
-                (
-                    true,
-                    Some(selected_track_unit_value(self.project, e.track.index())),
-                )
+                (true, Some(self.value_for(e.track.index())))
             }
             _ => (false, None),
         }
@@ -103,15 +109,25 @@ impl RealearnTarget for SelectedTrackTarget {
 impl<'a> Target<'a> for SelectedTrackTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         let track_index = self
             .project
             .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)
             .and_then(|t| t.index());
-        Some(selected_track_unit_value(self.project, track_index))
+        Some(self.value_for(track_index))
     }
 
     fn control_type(&self) -> ControlType {
         self.control_type_and_character().0
+    }
+}
+
+impl SelectedTrackTarget {
+    fn value_for(&self, track_index: Option<u32>) -> AbsoluteValue {
+        let track_count = self.project.track_count();
+        // Because we count "<Master track>" as a possible value, this is equal.
+        let max_value = track_count;
+        let actual_value = track_index.map(|i| i + 1).unwrap_or(0);
+        AbsoluteValue::Discrete(Fraction::new(actual_value, max_value))
     }
 }

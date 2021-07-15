@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, fx_enable_unit_value, ControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -19,7 +19,7 @@ impl RealearnTarget for FxEnableTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if value.as_absolute()?.is_zero() {
+        if value.to_unit_value()?.is_zero() {
             self.fx.disable();
         } else {
             self.fx.enable();
@@ -47,11 +47,12 @@ impl RealearnTarget for FxEnableTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::FxEnabledChanged(e) if e.fx == self.fx => {
-                (true, Some(fx_enable_unit_value(e.new_value)))
-            }
+            ChangeEvent::FxEnabledChanged(e) if e.fx == self.fx => (
+                true,
+                Some(AbsoluteValue::Continuous(fx_enable_unit_value(e.new_value))),
+            ),
             _ => (false, None),
         }
     }
@@ -60,8 +61,10 @@ impl RealearnTarget for FxEnableTarget {
 impl<'a> Target<'a> for FxEnableTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(fx_enable_unit_value(self.fx.is_enabled()))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        Some(AbsoluteValue::Continuous(fx_enable_unit_value(
+            self.fx.is_enabled(),
+        )))
     }
 
     fn control_type(&self) -> ControlType {

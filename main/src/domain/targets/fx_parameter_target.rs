@@ -1,6 +1,6 @@
 use crate::domain::ui_util::{fx_parameter_unit_value, parse_unit_value_from_percentage};
 use crate::domain::{AdditionalFeedbackEvent, ControlContext, RealearnTarget, TargetCharacter};
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Track};
 use reaper_medium::{GetParameterStepSizesResult, ReaperNormalizedFxParamValue};
 use std::convert::TryInto;
@@ -84,7 +84,7 @@ impl RealearnTarget for FxParameterTarget {
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         // It's okay to just convert this to a REAPER-normalized value. We don't support
         // values above the maximum (or buggy plug-ins).
-        let v = ReaperNormalizedFxParamValue::new(value.as_absolute()?.get());
+        let v = ReaperNormalizedFxParamValue::new(value.to_unit_value()?.get());
         self.param
             .set_reaper_normalized_value(v)
             .map_err(|_| "couldn't set FX parameter value")?;
@@ -111,14 +111,17 @@ impl RealearnTarget for FxParameterTarget {
         &self,
         evt: &ChangeEvent,
         _: ControlContext,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         if self.poll_for_feedback {
             return (false, None);
         }
         match evt {
             ChangeEvent::FxParameterValueChanged(e) if e.parameter == self.param => (
                 true,
-                Some(fx_parameter_unit_value(&e.parameter, e.new_value)),
+                Some(AbsoluteValue::Continuous(fx_parameter_unit_value(
+                    &e.parameter,
+                    e.new_value,
+                ))),
             ),
             _ => (false, None),
         }
@@ -127,7 +130,7 @@ impl RealearnTarget for FxParameterTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         if self.poll_for_feedback {
             return (false, None);
         }
@@ -137,7 +140,10 @@ impl RealearnTarget for FxParameterTarget {
             {
                 (
                     true,
-                    Some(fx_parameter_unit_value(&e.parameter, e.new_value)),
+                    Some(AbsoluteValue::Continuous(fx_parameter_unit_value(
+                        &e.parameter,
+                        e.new_value,
+                    ))),
                 )
             }
             _ => (false, None),
@@ -154,11 +160,9 @@ impl RealearnTarget for FxParameterTarget {
 impl<'a> Target<'a> for FxParameterTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
-        Some(fx_parameter_unit_value(
-            &self.param,
-            self.param.reaper_normalized_value(),
-        ))
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+        let val = fx_parameter_unit_value(&self.param, self.param.reaper_normalized_value());
+        Some(AbsoluteValue::Continuous(val))
     }
 
     fn control_type(&self) -> ControlType {

@@ -2,7 +2,7 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     AdditionalFeedbackEvent, BackboneState, ControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, Project, Track};
 use std::rc::Rc;
 
@@ -26,7 +26,7 @@ impl RealearnTarget for LoadFxSnapshotTarget {
     }
 
     fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
-        if !value.as_absolute()?.is_zero() {
+        if !value.to_unit_value()?.is_zero() {
             BackboneState::target_context()
                 .borrow_mut()
                 .load_fx_snapshot(self.fx.clone(), &self.chunk, self.chunk_hash)?
@@ -53,7 +53,7 @@ impl RealearnTarget for LoadFxSnapshotTarget {
     fn value_changed_from_additional_feedback_event(
         &self,
         evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<UnitValue>) {
+    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             // We can't provide a value from the event itself because it's on/off depending on
             // the mappings which use the FX snapshot target with that FX and which chunk (hash)
@@ -67,12 +67,14 @@ impl RealearnTarget for LoadFxSnapshotTarget {
 impl<'a> Target<'a> for LoadFxSnapshotTarget {
     type Context = ();
 
-    fn current_value(&self, _: ()) -> Option<UnitValue> {
+    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
         let is_loaded = BackboneState::target_context()
             .borrow()
             .current_fx_snapshot_chunk_hash(&self.fx)
             == Some(self.chunk_hash);
-        Some(convert_bool_to_unit_value(is_loaded))
+        Some(AbsoluteValue::Continuous(convert_bool_to_unit_value(
+            is_loaded,
+        )))
     }
 
     fn control_type(&self) -> ControlType {
