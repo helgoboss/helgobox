@@ -83,3 +83,6 @@ pub use targets::*;
 
 mod group;
 pub use group::*;
+
+mod midi_types;
+pub use midi_types::*;
