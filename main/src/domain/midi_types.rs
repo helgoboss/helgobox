@@ -1,26 +1,26 @@
 use reaper_medium::{Hz, MidiFrameOffset};
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct MidiEvent<T> {
+pub struct Event<T> {
     offset: SampleOffset,
-    msg: T,
+    payload: T,
 }
 
-impl<T: Copy> MidiEvent<T> {
+impl<T: Copy> Event<T> {
     pub fn without_offset(msg: T) -> Self {
         Self::new(SampleOffset::ZERO, msg)
     }
 
-    pub fn new(offset: SampleOffset, msg: T) -> Self {
-        Self { offset, msg }
+    pub fn new(offset: SampleOffset, payload: T) -> Self {
+        Self { offset, payload }
     }
 
     pub fn offset(&self) -> SampleOffset {
         self.offset
     }
 
-    pub fn msg(&self) -> T {
-        self.msg
+    pub fn payload(&self) -> T {
+        self.payload
     }
 }
 

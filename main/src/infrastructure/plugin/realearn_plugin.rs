@@ -5,7 +5,7 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 use super::RealearnEditor;
 use crate::base::Global;
 use crate::domain::{
-    ControlMainTask, FeedbackRealTimeTask, InstanceId, InstanceState, MainProcessor, MidiEvent,
+    ControlMainTask, Event, FeedbackRealTimeTask, InstanceId, InstanceState, MainProcessor,
     NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask, ProcessorContext,
     RealTimeProcessorLocker, RealTimeSender, SampleOffset, SharedRealTimeProcessor,
     PLUGIN_PARAMETER_COUNT,
@@ -39,7 +39,6 @@ use crate::base::notification;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
-use vst::event::Event;
 use vst::host::Host;
 
 const NORMAL_REAL_TIME_TASK_QUEUE_SIZE: usize = 1000;
@@ -225,7 +224,7 @@ impl Plugin for RealearnPlugin {
                 let transport_is_starting =
                     !self.was_playing_in_last_cycle && self.is_now_playing();
                 for e in events.events() {
-                    if let Event::Midi(me) = e {
+                    if let vst::event::Event::Midi(me) = e {
                         fn to_short(me: vst::event::MidiEvent) -> Option<RawShortMessage> {
                             use std::convert::TryInto;
                             RawShortMessage::from_bytes((
@@ -259,7 +258,7 @@ impl Plugin for RealearnPlugin {
                         self.real_time_processor
                             .lock_recover()
                             .process_incoming_midi_from_vst(
-                                MidiEvent::new(offset, msg),
+                                Event::new(offset, msg),
                                 is_reaper_generated,
                                 &self.host,
                             );
