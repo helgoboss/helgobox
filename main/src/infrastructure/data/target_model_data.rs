@@ -969,14 +969,14 @@ fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
             }
         }
         TrackRouteData {
-            selector_type: Some(TrackRouteSelectorType::ByIndex),
+            selector_type: Some(TrackRouteSelectorType::ByIndex) | None,
             r#type: t,
-            index: Some(i),
+            index: i,
             ..
         } => TrackRoutePropValues {
             selector_type: TrackRouteSelectorType::ByIndex,
             r#type: *t,
-            index: *i,
+            index: i.unwrap_or(0),
             ..Default::default()
         },
         TrackRouteData {
