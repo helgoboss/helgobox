@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-05-18 (v2.10.0-pre.2)</code></td>
+  <td><code>2021-07-17 (v2.10.0-pre.3)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -853,24 +853,29 @@ This section provides the following mapping-related settings and functions:
   feedback for this mapping.
 - **Active:** This dropdown controls so-called conditional activation of mappings. See the
   [Conditional activation](#conditional-activation) section below.
-- **Prevent echo feedback:** This checkbox mainly exists for motorized faders that don't like
-  getting feedback while being moved. If checked, ReaLearn won't send feedback if the target value
-  change was caused by incoming source events of this mapping. However, it will still send feedback
-  if the target value change was caused by something else, e.g. a mouse action within REAPER itself.
-- **Send feedback after control:** This checkbox mainly exists for "fixing" controllers which allow
-  their LEDs to be controlled via incoming MIDI/OSC *but at the same time* insist on controlling these 
-  LEDs themselves. For example, some Behringer X-Touch Compact buttons exhibit this behavior in MIDI mode. 
-  This can lead to wrong LED states which don't reflect the actual state in REAPER.
-  If this checkbox is not checked (the normal case and recommended for most controllers), ReaLearn 
-  will send feedback to the controller *only* if the target value has changed. For example, if you
-  use a button to toggle a target value on and off, the target value will change only when pressing
-  the button, not when releasing it. As a consequence, feedback will be sent only when pressing the
-  button, not when releasing it. However, if this checkbox is checked, ReaLearn will send feedback
-  even after releasing the button - although the target value has not been changed by it. Another
-  case where this option comes in handy is if you use a target which doesn't support proper feedback
-  because REAPER doesn't notify ReaLearn about value changes (e.g. "Track FX all enable"). By
-  checking this checkbox, ReaLearn will send feedback whenever the target value change was caused
-  by ReaLearn itself, which improves the situation at least a bit.
+- **Feedback:** 
+    - **Normal:** Makes ReaLearn send feedback whenever the target value changes. This is the recommended
+      option in most cases.
+    - **Prevent echo feedback:** This option mainly exists for motorized faders that don't like
+      getting feedback while being moved. If checked, ReaLearn won't send feedback if the target value
+      change was caused by incoming source events of this mapping. However, it will still send feedback
+      if the target value change was caused by something else, e.g. a mouse action within REAPER itself.
+    - **Send feedback after control:** This checkbox mainly exists for "fixing" controllers which allow
+      their LEDs to be controlled via incoming MIDI/OSC *but at the same time* insist on controlling these 
+      LEDs themselves. For example, some Behringer X-Touch Compact buttons exhibit this behavior in MIDI mode. 
+      This can lead to wrong LED states which don't reflect the actual state in REAPER.
+      If this option is not selected (the normal case and recommended for most controllers), ReaLearn 
+      will send feedback to the controller *only* if the target value has changed. For example, if you
+      use a button to toggle a target value on and off, the target value will change only when pressing
+      the button, not when releasing it. As a consequence, feedback will be sent only when pressing the
+      button, not when releasing it. However, if this option is selected, ReaLearn will send feedback
+      even after releasing the button - although the target value has not been changed by it. Another
+      case where this option comes in handy is if you use a target which doesn't support proper feedback
+      because REAPER doesn't notify ReaLearn about value changes (e.g. "Track FX all enable") and you have
+      "Poll for feedback" disabled. By choosing this option, ReaLearn will send feedback whenever the target value
+      change was caused by ReaLearn itself, which improves the situation at least a bit.
+- **Show in projection:** When unticked, this mapping will not show up in the [Projection](#companion-app). 
+  Useful e.g. for feedback-only mappings or buttons with multiple assignments.
 - **Advanced settings:** This button is for experts. There are some advanced mapping-related settings in
   ReaLearn that are not adjustable via its graphical user interface but only by writing text-based configuration.
   Pressing this button should open a small window in which you can write the configuration for this mapping.
