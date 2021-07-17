@@ -16,7 +16,6 @@ pub struct MidiSendTarget {
 
 impl RealearnTarget for MidiSendTarget {
     fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
-        dbg!(&self.pattern);
         match self.pattern.step_size() {
             None => (
                 ControlType::AbsoluteContinuousRetriggerable,
