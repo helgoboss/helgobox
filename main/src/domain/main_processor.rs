@@ -4,12 +4,13 @@ use crate::domain::{
     ControlMode, DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
     FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
     FeedbackSendBehavior, FeedbackValue, GroupId, InstanceFeedbackEvent,
-    InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping, MappingActivationEffect,
-    MappingCompartment, MappingId, MidiDestination, MidiSource, NormalRealTimeTask, OscDeviceId,
-    OscFeedbackTask, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
-    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperTarget,
-    SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
-    TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
+    InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping, MainSourceMessage,
+    MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
+    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedSource,
+    RealFeedbackValue, RealSource, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
+    RealearnTarget, ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString,
+    SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue,
+    CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -1169,6 +1170,25 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics.control_input == ControlInput::Osc(*device_id)
     }
 
+    pub fn process_reaper_message(&mut self, msg: &ReaperMessage) {
+        if self.basics.control_mode != ControlMode::Controlling {
+            return;
+        }
+        if self.basics.input_logging_enabled {
+            log_control_input(&self.basics.instance_id, msg.to_string());
+        }
+        if !self.control_is_effectively_enabled() {
+            return;
+        }
+        let msg = MainSourceMessage::Reaper(msg);
+        self.basics.control_virtual_mappings(
+            &mut self.collections.mappings_with_virtual_targets,
+            &mut self.collections.mappings[MappingCompartment::MainMappings],
+            msg,
+        );
+        self.control_non_virtual_mappings(msg);
+    }
+
     pub fn process_incoming_osc_packet(&mut self, packet: &OscPacket) {
         if self.basics.input_logging_enabled {
             match self.basics.control_mode {
@@ -1195,12 +1215,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         match self.basics.control_mode {
             ControlMode::Controlling => {
                 if self.control_is_effectively_enabled() {
-                    self.basics.control_virtual_mappings_osc(
+                    let msg = MainSourceMessage::Osc(msg);
+                    self.basics.control_virtual_mappings(
                         &mut self.collections.mappings_with_virtual_targets,
                         &mut self.collections.mappings[MappingCompartment::MainMappings],
                         msg,
                     );
-                    self.control_non_virtual_mappings_osc(msg);
+                    self.control_non_virtual_mappings(msg);
                 }
             }
             ControlMode::LearningSource {
@@ -1219,28 +1240,26 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn control_non_virtual_mappings_osc(&mut self, msg: &OscMessage) {
+    fn control_non_virtual_mappings(&mut self, msg: MainSourceMessage) {
         for compartment in MappingCompartment::enum_iter() {
             for m in self.collections.mappings[compartment]
                 .values_mut()
                 .filter(|m| m.control_is_effectively_on())
             {
-                if let CompoundMappingSource::Osc(s) = m.source() {
-                    if let Some(control_value) = s.control(msg) {
-                        let feedback = m
-                            .control_from_mode(
-                                control_value,
-                                ControlOptions::default(),
-                                self.basics.control_context(),
-                                &self.basics.logger,
-                            )
-                            .feedback_value;
-                        self.basics.send_feedback(
-                            &self.collections.mappings_with_virtual_targets,
-                            FeedbackReason::Normal,
-                            feedback,
-                        );
-                    }
+                if let Some(control_value) = m.control(msg) {
+                    let feedback = m
+                        .control_from_mode(
+                            control_value,
+                            ControlOptions::default(),
+                            self.basics.control_context(),
+                            &self.basics.logger,
+                        )
+                        .feedback_value;
+                    self.basics.send_feedback(
+                        &self.collections.mappings_with_virtual_targets,
+                        FeedbackReason::Normal,
+                        feedback,
+                    );
                 }
             }
         }
@@ -2048,19 +2067,19 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
-    pub fn control_virtual_mappings_osc(
+    pub fn control_virtual_mappings(
         &self,
         mappings_with_virtual_targets: &mut HashMap<MappingId, MainMapping>,
         // Contains mappings with virtual sources
         main_mappings: &mut HashMap<MappingId, MainMapping>,
-        msg: &OscMessage,
+        msg: MainSourceMessage,
     ) {
         // Control
         let source_values: Vec<_> = mappings_with_virtual_targets
             .values_mut()
             .filter(|m| m.control_is_effectively_on())
             .flat_map(|m| {
-                if let Some(virtual_source_value) = m.control_osc_virtualizing(msg) {
+                if let Some(virtual_source_value) = m.control_virtualizing(msg) {
                     self.control_main_mappings_virtual(
                         main_mappings,
                         virtual_source_value,

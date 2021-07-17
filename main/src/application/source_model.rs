@@ -1,7 +1,8 @@
 use crate::base::{prop, Prop};
 use crate::domain::{
     CompoundMappingSource, EelMidiSourceScript, ExtendedSourceCharacter, MappingCompartment,
-    MidiSource, VirtualControlElement, VirtualControlElementId, VirtualSource, VirtualTarget,
+    MidiSource, ReaperSource, VirtualControlElement, VirtualControlElementId, VirtualSource,
+    VirtualTarget,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -38,6 +39,8 @@ pub struct SourceModel {
     pub osc_arg_index: Prop<Option<u32>>,
     pub osc_arg_type_tag: Prop<OscTypeTag>,
     pub osc_arg_is_relative: Prop<bool>,
+    // REAPER
+    pub reaper_source_type: Prop<ReaperSourceType>,
     // Virtual
     pub control_element_type: Prop<VirtualControlElementType>,
     pub control_element_id: Prop<VirtualControlElementId>,
@@ -47,14 +50,14 @@ impl Default for SourceModel {
     fn default() -> Self {
         Self {
             category: prop(SourceCategory::Midi),
-            midi_source_type: prop(MidiSourceType::ControlChangeValue),
-            control_element_type: prop(VirtualControlElementType::Multi),
+            midi_source_type: prop(Default::default()),
+            control_element_type: prop(Default::default()),
             control_element_id: prop(Default::default()),
             channel: prop(None),
             midi_message_number: prop(None),
             parameter_number_message_number: prop(None),
-            custom_character: prop(SourceCharacter::RangeElement),
-            midi_clock_transport_message: prop(MidiClockTransportMessage::Start),
+            custom_character: prop(Default::default()),
+            midi_clock_transport_message: prop(Default::default()),
             is_registered: prop(Some(false)),
             is_14_bit: prop(Some(false)),
             raw_midi_pattern: prop("".to_owned()),
@@ -63,6 +66,7 @@ impl Default for SourceModel {
             osc_arg_index: prop(Some(0)),
             osc_arg_type_tag: prop(Default::default()),
             osc_arg_is_relative: prop(false),
+            reaper_source_type: prop(Default::default()),
         }
     }
 }
@@ -94,8 +98,7 @@ impl SourceModel {
         use SourceCategory::*;
         match self.category.get() {
             Midi => self.midi_source_type.get().supports_control(),
-            Osc => true,
-            Virtual => true,
+            Osc | Virtual | Reaper => true,
             // Main use case: Group interaction (follow-only).
             Never => true,
         }
@@ -105,9 +108,8 @@ impl SourceModel {
         use SourceCategory::*;
         match self.category.get() {
             Midi => self.midi_source_type.get().supports_feedback(),
-            Osc => true,
-            Virtual => true,
-            Never => false,
+            Osc | Virtual => true,
+            Reaper | Never => false,
         }
     }
 
@@ -186,6 +188,11 @@ impl SourceModel {
                         .unwrap_or_default(),
                 );
             }
+            Reaper(s) => {
+                self.category.set(SourceCategory::Reaper);
+                self.reaper_source_type
+                    .set(ReaperSourceType::from_source(s));
+            }
             Never => {
                 self.category.set(SourceCategory::Never);
             }
@@ -221,6 +228,7 @@ impl SourceModel {
                     DetailedSourceCharacter::PressOnlyButton,
                 ],
             },
+            CompoundMappingSource::Reaper(s) => s.possible_detailed_characters(),
             // Can be anything, depending on the mapping that uses the group interaction.
             CompoundMappingSource::Never => vec![
                 DetailedSourceCharacter::MomentaryVelocitySensitiveButton,
@@ -305,6 +313,13 @@ impl SourceModel {
                 );
                 CompoundMappingSource::Osc(osc_source)
             }
+            Reaper => {
+                use ReaperSourceType::*;
+                let reaper_source = match self.reaper_source_type.get() {
+                    MidiDeviceChanges => ReaperSource::MidiDeviceChanges,
+                };
+                CompoundMappingSource::Reaper(reaper_source)
+            }
             Never => CompoundMappingSource::Never,
         }
     }
@@ -320,7 +335,7 @@ impl SourceModel {
 
     pub fn supports_type(&self) -> bool {
         use SourceCategory::*;
-        matches!(self.category.get(), Midi | Virtual)
+        matches!(self.category.get(), Midi | Virtual | Reaper)
     }
 
     pub fn supports_channel(&self) -> bool {
@@ -522,6 +537,12 @@ impl Display for SourceModel {
                 self.create_control_element().to_string().into(),
             ],
             Osc => vec!["OSC".into(), self.osc_address_pattern.get_ref().into()],
+            Reaper => {
+                use ReaperSourceType::*;
+                match self.reaper_source_type.get() {
+                    MidiDeviceChanges => vec!["MIDI device changes".into()],
+                }
+            }
             Never => vec!["None".into()],
         };
         let non_empty_lines: Vec<_> = lines.into_iter().filter(|l| !l.is_empty()).collect();
@@ -553,6 +574,9 @@ pub enum SourceCategory {
     #[serde(rename = "osc")]
     #[display(fmt = "OSC (experimental)")]
     Osc,
+    #[serde(rename = "reaper")]
+    #[display(fmt = "REAPER")]
+    Reaper,
     #[serde(rename = "virtual")]
     #[display(fmt = "Virtual")]
     Virtual,
@@ -728,6 +752,43 @@ impl VirtualControlElementType {
         }
     }
 }
+
+/// Type of a REAPER source
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum ReaperSourceType {
+    #[serde(rename = "midi-device-changes")]
+    #[display(fmt = "MIDI device changes")]
+    MidiDeviceChanges,
+}
+
+impl Default for ReaperSourceType {
+    fn default() -> Self {
+        ReaperSourceType::MidiDeviceChanges
+    }
+}
+
+impl ReaperSourceType {
+    pub fn from_source(source: &ReaperSource) -> Self {
+        use ReaperSource::*;
+        match source {
+            MidiDeviceChanges => Self::MidiDeviceChanges,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

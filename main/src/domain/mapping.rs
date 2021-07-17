@@ -2,9 +2,9 @@ use crate::domain::{
     ActivationChange, ActivationCondition, AdditionalFeedbackEvent, ControlContext, ControlOptions,
     ExtendedProcessorContext, FeedbackResolution, GroupId, InstanceFeedbackEvent,
     MappingActivationEffect, MidiSource, Mode, ParameterArray, ParameterSlice, RealSource,
-    RealTimeReaperTarget, RealearnTarget, ReaperTarget, TargetCharacter, TrackExclusivity,
-    UnresolvedReaperTarget, VirtualControlElement, VirtualSource, VirtualSourceValue,
-    VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget,
+    TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
+    VirtualSource, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -411,6 +411,7 @@ impl MainMapping {
         &self.core.source
     }
 
+    /// Checks if this mapping has the given real source. Used for taking over sources.
     pub fn has_this_real_source(&self, source: &RealSource) -> bool {
         match &self.core.source {
             CompoundMappingSource::Midi(self_source) => {
@@ -418,6 +419,9 @@ impl MainMapping {
             }
             CompoundMappingSource::Osc(self_source) => {
                 matches!(source, RealSource::Osc(s) if s == self_source)
+            }
+            CompoundMappingSource::Reaper(self_source) => {
+                matches!(source, RealSource::Reaper(s) if s == self_source)
             }
             CompoundMappingSource::Virtual(_) | CompoundMappingSource::Never => false,
         }
@@ -742,21 +746,31 @@ impl MainMapping {
         }
     }
 
-    pub fn control_osc_virtualizing(&mut self, msg: &OscMessage) -> Option<VirtualSourceValue> {
+    pub fn control(&mut self, msg: MainSourceMessage) -> Option<ControlValue> {
+        match (msg, &self.core.source) {
+            (MainSourceMessage::Osc(m), CompoundMappingSource::Osc(s)) => s.control(m),
+            (MainSourceMessage::Reaper(m), CompoundMappingSource::Reaper(s)) => s.control(m),
+            _ => None,
+        }
+    }
+
+    pub fn control_virtualizing(&mut self, msg: MainSourceMessage) -> Option<VirtualSourceValue> {
         if self.targets.is_empty() {
             return None;
         }
-        let control_value = if let CompoundMappingSource::Osc(s) = &self.core.source {
-            s.control(msg)?
-        } else {
-            return None;
-        };
+        let control_value = self.control(msg)?;
         // First target is enough because this does nothing yet.
         match self.targets.first()? {
             CompoundMappingTarget::Virtual(t) => match_partially(&mut self.core, t, control_value),
             CompoundMappingTarget::Reaper(_) => None,
         }
     }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum MainSourceMessage<'a> {
+    Osc(&'a OscMessage),
+    Reaper(&'a ReaperMessage),
 }
 
 #[derive(Debug)]
@@ -925,6 +939,7 @@ pub enum CompoundMappingSource {
     Midi(MidiSource),
     Osc(OscSource),
     Virtual(VirtualSource),
+    Reaper(ReaperSource),
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -954,6 +969,7 @@ impl CompoundMappingSource {
             Midi(s) => s.format_control_value(value),
             Virtual(s) => s.format_control_value(value),
             Osc(s) => s.format_control_value(value),
+            Reaper(s) => s.format_control_value(value),
             Never => Ok(format_percentage_without_unit(value.to_unit_value()?.get())),
         }
     }
@@ -964,6 +980,7 @@ impl CompoundMappingSource {
             Midi(s) => s.parse_control_value(text),
             Virtual(s) => s.parse_control_value(text),
             Osc(s) => s.parse_control_value(text),
+            Reaper(s) => s.parse_control_value(text),
             Never => parse_percentage_without_unit(text)?.try_into(),
         }
     }
@@ -974,6 +991,7 @@ impl CompoundMappingSource {
             Midi(s) => ExtendedSourceCharacter::Normal(s.character()),
             Virtual(s) => s.character(),
             Osc(s) => ExtendedSourceCharacter::Normal(s.character()),
+            Reaper(s) => ExtendedSourceCharacter::Normal(s.character()),
             Never => ExtendedSourceCharacter::VirtualContinuous,
         }
     }
@@ -988,7 +1006,7 @@ impl CompoundMappingSource {
             // This is handled in a special way by consumers.
             Virtual(_) => None,
             // No feedback for never source.
-            Never => None,
+            Reaper(_) | Never => None,
         }
     }
 
@@ -996,7 +1014,7 @@ impl CompoundMappingSource {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.consumes(msg),
-            Virtual(_) | Osc(_) | Never => false,
+            Reaper(_) | Virtual(_) | Osc(_) | Never => false,
         }
     }
 
@@ -1010,7 +1028,7 @@ impl CompoundMappingSource {
             Midi(s) => s.max_discrete_value(),
             // TODO-medium OSC will also support discrete values as soon as we allow integers and
             //  configuring max values
-            Virtual(_) | Osc(_) | Never => None,
+            Reaper(_) | Virtual(_) | Osc(_) | Never => None,
         }
     }
 }

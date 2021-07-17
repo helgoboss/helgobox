@@ -1,6 +1,6 @@
 use crate::domain::{
     CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId, MidiSource,
-    ParameterArray, ProjectionFeedbackValue, SourceFeedbackValue,
+    ParameterArray, ProjectionFeedbackValue, ReaperSource, SourceFeedbackValue,
 };
 use helgoboss_learn::{AbsoluteValue, OscSource};
 use std::collections::HashSet;
@@ -40,6 +40,7 @@ pub trait DomainEventHandler: Debug {
 pub enum RealSource {
     Midi(MidiSource),
     Osc(OscSource),
+    Reaper(ReaperSource),
 }
 
 impl RealSource {
@@ -48,6 +49,7 @@ impl RealSource {
         match self {
             Midi(s) => CompoundMappingSource::Midi(s),
             Osc(s) => CompoundMappingSource::Osc(s),
+            Reaper(s) => CompoundMappingSource::Reaper(s),
         }
     }
 
@@ -56,6 +58,7 @@ impl RealSource {
         match s {
             Midi(s) => Some(Self::Midi(s)),
             Osc(s) => Some(Self::Osc(s)),
+            Reaper(s) => Some(Self::Reaper(s)),
             Virtual(_) | Never => None,
         }
     }

@@ -30,8 +30,8 @@ use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
     get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label,
     AutomationModeOverrideType, BookmarkAnchorType, MappingModel, MidiSourceType, ModeModel,
-    RealearnAutomationMode, RealearnTrackArea, ReaperTargetType, Session, SharedMapping,
-    SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
+    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, ReaperTargetType, Session,
+    SharedMapping, SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
     TargetModelWithContext, TrackRouteSelectorType, VirtualControlElementType,
     VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
 };
@@ -845,7 +845,7 @@ impl<'a> MutableMappingPanel<'a> {
             Osc => {
                 self.mapping.source_model.osc_arg_is_relative.set(checked);
             }
-            Virtual | Never => {}
+            Reaper | Virtual | Never => {}
         };
     }
 
@@ -893,7 +893,7 @@ impl<'a> MutableMappingPanel<'a> {
                     .osc_arg_type_tag
                     .set(i.try_into().expect("invalid OSC type tag"));
             }
-            Virtual | Never => {}
+            Reaper | Virtual | Never => {}
         }
     }
 
@@ -918,6 +918,11 @@ impl<'a> MutableMappingPanel<'a> {
                 .source_model
                 .midi_source_type
                 .set(i.try_into().expect("invalid MIDI source type")),
+            Reaper => self
+                .mapping
+                .source_model
+                .reaper_source_type
+                .set(i.try_into().expect("invalid REAPER source type")),
             Virtual => self
                 .mapping
                 .source_model
@@ -964,7 +969,7 @@ impl<'a> MutableMappingPanel<'a> {
                     .control_element_id
                     .set_with_initiator(text.parse().unwrap_or_default(), Some(edit_control_id));
             }
-            Never => {}
+            Reaper | Never => {}
         };
     }
 
@@ -995,7 +1000,7 @@ impl<'a> MutableMappingPanel<'a> {
                         .osc_address_pattern
                         .set_with_initiator(value, Some(edit_control_id));
                 }
-                Virtual | Never => {}
+                Reaper | Virtual | Never => {}
             }
         }
     }
@@ -2334,7 +2339,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             ),
             Virtual => ("", "ID", "", ""),
             Osc => ("", "Argument", "Type", "Address"),
-            Never => ("", "", "", ""),
+            Reaper | Never => ("", "", "", ""),
         };
         self.view
             .require_control(root::ID_SOURCE_CHANNEL_LABEL)
@@ -2462,6 +2467,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         let item_index = match self.source.category.get() {
             Midi => self.source.midi_source_type.get().into(),
+            Reaper => self.source.reaper_source_type.get().into(),
             Virtual => self.source.control_element_type.get().into(),
             _ => return,
         };
@@ -2519,7 +2525,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 "14-bit values",
             ),
             Osc => (self.source.osc_arg_is_relative.get(), "Is relative"),
-            Virtual | Never => return,
+            Reaper | Virtual | Never => return,
         };
         let c = self.view.require_control(root::ID_SOURCE_14_BIT_CHECK_BOX);
         c.set_text(label);
@@ -2562,7 +2568,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
             Osc => format_osc_arg_index(self.source.osc_arg_index.get()),
             Virtual => self.source.control_element_id.get().to_string(),
-            Never => return,
+            Reaper | Never => return,
         };
         c.set_text(text)
     }
@@ -2588,7 +2594,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 _ => return,
             },
             Osc => (self.source.osc_address_pattern.get_ref().as_str(), false),
-            Virtual | Never => return,
+            Reaper | Virtual | Never => return,
         };
         c.set_text(value_text);
         c.set_enabled(!read_only);
@@ -2604,7 +2610,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let (label_text, item_index) = match self.source.category.get() {
             Midi => ("Character", self.source.custom_character.get().into()),
             Osc => ("Type", self.source.osc_arg_type_tag.get().into()),
-            Virtual | Never => return,
+            Reaper | Virtual | Never => return,
         };
         self.view
             .require_control(root::ID_SOURCE_CHARACTER_LABEL_TEXT)
@@ -4938,6 +4944,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         match self.source.category.get() {
             Midi => b.fill_combo_box_indexed(MidiSourceType::into_enum_iter()),
+            Reaper => b.fill_combo_box_indexed(ReaperSourceType::into_enum_iter()),
             Virtual => b.fill_combo_box_indexed(VirtualControlElementType::into_enum_iter()),
             Osc | Never => {}
         };
@@ -4978,7 +4985,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             Osc => {
                 combo.fill_combo_box_indexed(OscTypeTag::into_enum_iter());
             }
-            Virtual | Never => {}
+            Reaper | Virtual | Never => {}
         }
     }
 

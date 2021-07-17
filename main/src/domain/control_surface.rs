@@ -1,10 +1,10 @@
 use crate::base::Global;
 use crate::domain::{
-    ActivationChange, BackboneState, CompoundMappingSource, DeviceControlInput,
-    DeviceFeedbackOutput, DomainEventHandler, EelTransformation, FeedbackOutput, InstanceId,
-    LifecycleMidiData, MainProcessor, OscDeviceId, OscInputDevice, RealSource,
-    RealTimeCompoundMappingTarget, RealTimeMapping, ReaperTarget, SharedRealTimeProcessor,
-    SourceFeedbackValue, TouchedParameterType,
+    ActivationChange, BackboneState, CompoundMappingSource, DeviceChangeDetector,
+    DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, EelTransformation,
+    FeedbackOutput, InstanceId, LifecycleMidiData, MainProcessor, OscDeviceId, OscInputDevice,
+    RealSource, RealTimeCompoundMappingTarget, RealTimeMapping, ReaperMessage, ReaperTarget,
+    SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{OscSource, RawMidiEvent};
@@ -52,6 +52,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     state: State,
     osc_input_devices: Vec<OscInputDevice>,
     garbage_receiver: crossbeam_channel::Receiver<Garbage>,
+    device_change_detector: DeviceChangeDetector,
 }
 
 #[derive(Debug)]
@@ -174,6 +175,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         metrics_enabled: bool,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
+        let mut device_change_detector = DeviceChangeDetector::new();
+        // Prevent change messages to be sent on load by polling one time and ignoring result.
+        device_change_detector.poll_for_midi_input_device_changes();
+        device_change_detector.poll_for_midi_output_device_changes();
         Self {
             logger: logger.clone(),
             change_detection_middleware: ChangeDetectionMiddleware::new(),
@@ -200,6 +205,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             state: State::Normal,
             osc_input_devices: vec![],
             garbage_receiver,
+            device_change_detector,
         }
     }
 
@@ -230,11 +236,25 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn run_internal(&mut self) {
-        // Run middlewares
         self.main_task_middleware.run();
         self.future_middleware.run();
         self.rx_middleware.run();
-        // Process main tasks
+        self.process_main_tasks();
+        self.process_server_tasks();
+        self.process_incoming_additional_feedback();
+        self.process_instance_orchestration_events();
+        self.emit_beats_as_feedback_events();
+        self.emit_device_changes_as_reaper_source_messages();
+        self.process_incoming_osc_messages();
+        self.run_main_processors();
+        if self.metrics_enabled {
+            self.process_metrics();
+        }
+        self.drop_garbage();
+        self.counter += 1;
+    }
+
+    fn process_main_tasks(&mut self) {
         for t in self
             .main_task_receiver
             .try_iter()
@@ -265,7 +285,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        // Process server tasks
+    }
+
+    fn process_server_tasks(&mut self) {
         for t in self
             .server_task_receiver
             .try_iter()
@@ -284,7 +306,37 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        // Process incoming additional feedback
+    }
+
+    fn drop_garbage(&mut self) {
+        for garbage in self.garbage_receiver.try_iter().take(GARBAGE_BULK_SIZE) {
+            let _ = garbage;
+        }
+    }
+
+    fn process_metrics(&mut self) {
+        // Roughly every 10 seconds
+        if self.counter % (30 * 10) == 0 {
+            self.meter_middleware.warn_about_critical_metrics();
+        }
+    }
+
+    fn run_main_processors(&mut self) {
+        match &self.state {
+            State::Normal => {
+                for p in &mut self.main_processors {
+                    p.run_all();
+                }
+            }
+            State::LearningSource(_) | State::LearningTarget(_) => {
+                for p in &mut self.main_processors {
+                    p.run_essential();
+                }
+            }
+        }
+    }
+
+    fn process_incoming_additional_feedback(&mut self) {
         for event in self
             .additional_feedback_event_receiver
             .try_iter()
@@ -303,7 +355,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 p.process_additional_feedback_event(&event)
             }
         }
-        // Process instance orchestration events
+    }
+
+    fn process_instance_orchestration_events(&mut self) {
         for event in self
             .instance_orchestration_event_receiver
             .try_iter()
@@ -377,7 +431,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        // Emit beats as feedback events
+    }
+
+    fn emit_beats_as_feedback_events(&mut self) {
         for project in Reaper::get().projects() {
             let reference_pos = if project.is_playing() {
                 project.play_position_latency_compensated()
@@ -394,34 +450,30 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        // OSC
-        self.process_incoming_osc_messages();
-        // Main processors
-        match &self.state {
-            State::Normal => {
-                for p in &mut self.main_processors {
-                    p.run_all();
+    }
+
+    fn emit_device_changes_as_reaper_source_messages(&mut self) {
+        // Check roughly every 2 seconds
+        if self.counter % (30 * 2) == 0 {
+            let midi_in_diff = self
+                .device_change_detector
+                .poll_for_midi_input_device_changes();
+            let midi_out_diff = self
+                .device_change_detector
+                .poll_for_midi_output_device_changes();
+            let mut msgs = Vec::with_capacity(2);
+            if !midi_in_diff.added_devices.is_empty() || !midi_out_diff.added_devices.is_empty() {
+                msgs.push(ReaperMessage::MidiDevicesConnected);
+            }
+            if !midi_in_diff.removed_devices.is_empty() || !midi_out_diff.removed_devices.is_empty()
+            {
+                msgs.push(ReaperMessage::MidiDevicesDisconnected);
+            }
+            for p in &mut self.main_processors {
+                for msg in &msgs {
+                    p.process_reaper_message(msg);
                 }
             }
-            State::LearningSource(_) | State::LearningTarget(_) => {
-                for p in &mut self.main_processors {
-                    p.run_essential();
-                }
-            }
-        }
-        // Metrics
-        if self.metrics_enabled {
-            // Roughly every 10 seconds
-            if self.counter == 30 * 10 {
-                self.meter_middleware.warn_about_critical_metrics();
-                self.counter = 0;
-            } else {
-                self.counter += 1;
-            }
-        }
-        // Garbage drop
-        for garbage in self.garbage_receiver.try_iter().take(GARBAGE_BULK_SIZE) {
-            let _ = garbage;
         }
     }
 
