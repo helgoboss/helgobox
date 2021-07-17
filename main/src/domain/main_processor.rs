@@ -6,11 +6,11 @@ use crate::domain::{
     FeedbackSendBehavior, FeedbackValue, GroupId, InstanceFeedbackEvent,
     InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping, MainSourceMessage,
     MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
-    NormalRealTimeTask, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedSource,
-    RealFeedbackValue, RealSource, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
-    RealearnTarget, ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString,
-    SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue,
-    CLIP_SLOT_COUNT,
+    NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
+    ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
+    RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperMessage, ReaperTarget,
+    SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
+    TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -52,7 +52,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     basics: Basics<EH>,
     collections: Collections,
     /// Contains IDs of those mappings who need to be polled as frequently as possible.
-    poll_control_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
+    poll_control_mappings: EnumMap<MappingCompartment, OrderedMappingIdSet>,
 }
 
 #[derive(Debug)]
@@ -77,19 +77,19 @@ struct Basics<EH: DomainEventHandler> {
 #[derive(Debug)]
 struct Collections {
     /// Contains mappings without virtual targets.
-    mappings: EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
+    mappings: EnumMap<MappingCompartment, OrderedMappingMap<MainMapping>>,
     /// Contains mappings with virtual targets.
-    mappings_with_virtual_targets: HashMap<MappingId, MainMapping>,
+    mappings_with_virtual_targets: OrderedMappingMap<MainMapping>,
     /// Contains IDs of those mappings which should be refreshed as soon as a target is touched.
     /// At the moment only "Last touched" targets.
-    target_touch_dependent_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
+    target_touch_dependent_mappings: EnumMap<MappingCompartment, OrderedMappingIdSet>,
     /// Contains IDs of those mappings whose feedback might change depending on the current beat.
-    beat_dependent_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
+    beat_dependent_feedback_mappings: EnumMap<MappingCompartment, OrderedMappingIdSet>,
     /// Contains IDs of those mappings whose feedback might change depending on the current milli.
     /// TODO-low The mappings in there are polled regularly (even if main timeline is not playing).
     ///  could be optimized. However, this is what makes the seek target work currently when
     ///  changing cursor position while stopped.
-    milli_dependent_feedback_mappings: EnumMap<MappingCompartment, HashSet<MappingId>>,
+    milli_dependent_feedback_mappings: EnumMap<MappingCompartment, OrderedMappingIdSet>,
     parameters: ParameterArray,
     previous_target_values: EnumMap<MappingCompartment, HashMap<MappingId, AbsoluteValue>>,
 }
@@ -2000,7 +2000,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         &self,
         compartment: MappingCompartment,
         m: &MainMapping,
-        mappings_with_virtual_targets: &HashMap<MappingId, MainMapping>,
+        mappings_with_virtual_targets: &OrderedMappingMap<MainMapping>,
         f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {
         // It's enough if one of the resolved targets is affected. Then we are going to need the
@@ -2069,9 +2069,9 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
     pub fn control_virtual_mappings(
         &self,
-        mappings_with_virtual_targets: &mut HashMap<MappingId, MainMapping>,
+        mappings_with_virtual_targets: &mut OrderedMappingMap<MainMapping>,
         // Contains mappings with virtual sources
-        main_mappings: &mut HashMap<MappingId, MainMapping>,
+        main_mappings: &mut OrderedMappingMap<MainMapping>,
         msg: MainSourceMessage,
     ) {
         // Control
@@ -2114,7 +2114,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
     /// Sends both direct and virtual-source feedback.
     pub fn send_feedback(
         &self,
-        mappings_with_virtual_targets: &HashMap<MappingId, MainMapping>,
+        mappings_with_virtual_targets: &OrderedMappingMap<MainMapping>,
         feedback_reason: FeedbackReason,
         feedback_values: impl IntoIterator<Item = FeedbackValue>,
     ) {
@@ -2276,7 +2276,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
     fn control_main_mappings_virtual(
         &self,
-        main_mappings: &mut HashMap<MappingId, MainMapping>,
+        main_mappings: &mut OrderedMappingMap<MainMapping>,
         value: VirtualSourceValue,
         options: ControlOptions,
     ) -> Vec<FeedbackValue> {
@@ -2305,8 +2305,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
 
 /// Includes virtual mappings if the controller mapping compartment is queried.
 fn all_mappings_in_compartment_mut<'a>(
-    mappings: &'a mut EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
-    mappings_with_virtual_targets: &'a mut HashMap<MappingId, MainMapping>,
+    mappings: &'a mut EnumMap<MappingCompartment, OrderedMappingMap<MainMapping>>,
+    mappings_with_virtual_targets: &'a mut OrderedMappingMap<MainMapping>,
     compartment: MappingCompartment,
 ) -> impl Iterator<Item = &'a mut MainMapping> {
     mappings[compartment].values_mut().chain(
@@ -2318,8 +2318,8 @@ fn all_mappings_in_compartment_mut<'a>(
 }
 
 fn get_normal_or_virtual_target_mapping_mut<'a>(
-    mappings: &'a mut EnumMap<MappingCompartment, HashMap<MappingId, MainMapping>>,
-    mappings_with_virtual_targets: &'a mut HashMap<MappingId, MainMapping>,
+    mappings: &'a mut EnumMap<MappingCompartment, OrderedMappingMap<MainMapping>>,
+    mappings_with_virtual_targets: &'a mut OrderedMappingMap<MainMapping>,
     compartment: MappingCompartment,
     id: MappingId,
 ) -> Option<&'a mut MainMapping> {

@@ -21,6 +21,7 @@ use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::fmt;
 use std::fmt::Display;
@@ -1617,3 +1618,6 @@ fn target_is_effectively_active(
         false
     }
 }
+
+pub type OrderedMappingMap<T> = HashMap<MappingId, T>;
+pub type OrderedMappingIdSet = HashSet<MappingId>;

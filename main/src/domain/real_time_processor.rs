@@ -3,8 +3,8 @@ use crate::domain::{
     Event, FeedbackSendBehavior, Garbage, GarbageBin, InputMatchResult, InstanceId,
     LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator,
     MidiMessageClassification, MidiSource, MidiSourceScanner, NormalRealTimeToMainThreadTask,
-    PartialControlMatch, RealTimeCompoundMappingTarget, RealTimeMapping, RealTimeReaperTarget,
-    SampleOffset, SendMidiDestination, VirtualSourceValue,
+    OrderedMappingMap, PartialControlMatch, RealTimeCompoundMappingTarget, RealTimeMapping,
+    RealTimeReaperTarget, SampleOffset, SendMidiDestination, VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{
@@ -36,7 +36,7 @@ pub struct RealTimeProcessor {
     control_mode: ControlMode,
     midi_control_input: MidiControlInput,
     midi_feedback_output: Option<MidiDestination>,
-    mappings: EnumMap<MappingCompartment, HashMap<MappingId, RealTimeMapping>>,
+    mappings: EnumMap<MappingCompartment, OrderedMappingMap<RealTimeMapping>>,
     let_matched_events_through: bool,
     let_unmatched_events_through: bool,
     // State
@@ -1185,9 +1185,9 @@ pub enum MidiDestination {
 fn control_controller_mappings_midi(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     // Mappings with virtual targets
-    controller_mappings: &mut HashMap<MappingId, RealTimeMapping>,
+    controller_mappings: &mut OrderedMappingMap<RealTimeMapping>,
     // Mappings with virtual sources
-    main_mappings: &mut HashMap<MappingId, RealTimeMapping>,
+    main_mappings: &mut OrderedMappingMap<RealTimeMapping>,
     value_event: Event<&MidiSourceValue<RawShortMessage>>,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
@@ -1363,7 +1363,7 @@ fn forward_control_to_main_processor(
 /// Returns whether this source value matched one of the mappings.
 fn control_main_mappings_virtual(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
-    main_mappings: &mut HashMap<MappingId, RealTimeMapping>,
+    main_mappings: &mut OrderedMappingMap<RealTimeMapping>,
     value_event: Event<VirtualSourceValue>,
     options: ControlOptions,
     caller: Caller,
