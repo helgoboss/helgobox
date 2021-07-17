@@ -77,7 +77,11 @@ impl RealearnTarget for MidiSendTarget {
         ""
     }
 
-    fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+    fn control(
+        &mut self,
+        value: ControlValue,
+        context: ControlContext,
+    ) -> Result<(), &'static str> {
         // We arrive here only if controlled via OSC. Sending MIDI in response to incoming
         // MIDI messages is handled directly in the real-time processor.
         let raw_midi_event = self

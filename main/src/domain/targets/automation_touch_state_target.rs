@@ -22,7 +22,7 @@ impl RealearnTarget for AutomationTouchStateTarget {
         format_value_as_on_off(value).to_string()
     }
 
-    fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         let mut ctx = BackboneState::target_context().borrow_mut();
         if value.to_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| {

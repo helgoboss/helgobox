@@ -39,7 +39,7 @@ impl RealearnTarget for TrackVolumeTarget {
         format_value_as_db(value)
     }
 
-    fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
         self.track.set_volume(volume.unwrap_or(Volume::MIN));
         Ok(())

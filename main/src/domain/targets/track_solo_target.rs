@@ -23,7 +23,7 @@ impl RealearnTarget for TrackSoloTarget {
         format_value_as_on_off(value).to_string()
     }
 
-    fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         let solo_track = |t: &Track| {
             use SoloBehavior::*;
             match self.behavior {

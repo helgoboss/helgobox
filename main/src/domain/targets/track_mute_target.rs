@@ -21,7 +21,7 @@ impl RealearnTarget for TrackMuteTarget {
         format_value_as_on_off(value).to_string()
     }
 
-    fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         if value.to_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| t.mute());
             self.track.unmute();

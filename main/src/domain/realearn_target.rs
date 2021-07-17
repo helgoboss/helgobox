@@ -96,7 +96,11 @@ pub trait RealearnTarget {
             self.value_unit()
         )
     }
-    fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+    fn control(
+        &mut self,
+        value: ControlValue,
+        context: ControlContext,
+    ) -> Result<(), &'static str> {
         let (_, _) = (value, context);
         Err("not supported")
     }

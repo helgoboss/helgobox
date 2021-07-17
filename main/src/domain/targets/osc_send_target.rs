@@ -44,7 +44,11 @@ impl RealearnTarget for OscSendTarget {
         }
     }
 
-    fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+    fn control(
+        &mut self,
+        value: ControlValue,
+        context: ControlContext,
+    ) -> Result<(), &'static str> {
         let msg = OscMessage {
             addr: self.address_pattern.clone(),
             args: if let Some(desc) = self.arg_descriptor {

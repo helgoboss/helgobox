@@ -45,7 +45,7 @@ impl RealearnTarget for FxNavigateTarget {
         }
     }
 
-    fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         let fx_index = match value.to_absolute_value()? {
             AbsoluteValue::Continuous(v) => convert_unit_value_to_fx_index(&self.fx_chain, v),
             AbsoluteValue::Discrete(f) => {

@@ -33,7 +33,7 @@ impl RealearnTarget for GoToBookmarkTarget {
         format_value_as_on_off(value).to_string()
     }
 
-    fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         if !value.to_unit_value()?.is_zero() {
             match self.bookmark_type {
                 BookmarkType::Marker => self

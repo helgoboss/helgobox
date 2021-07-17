@@ -43,7 +43,7 @@ impl RealearnTarget for RoutePanTarget {
         format_value_as_pan(value)
     }
 
-    fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         let pan = Pan::from_normalized_value(value.to_unit_value()?.get());
         self.route
             .set_pan(pan)

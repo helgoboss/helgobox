@@ -26,7 +26,11 @@ impl RealearnTarget for ClipTransportTarget {
         format_value_as_on_off(value).to_string()
     }
 
-    fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+    fn control(
+        &mut self,
+        value: ControlValue,
+        context: ControlContext,
+    ) -> Result<(), &'static str> {
         use TransportAction::*;
         let on = !value.to_unit_value()?.is_zero();
         let mut instance_state = context.instance_state.borrow_mut();

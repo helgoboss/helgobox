@@ -128,9 +128,20 @@ pub struct MainMapping {
     targets: Vec<CompoundMappingTarget>,
     activation_condition_1: ActivationCondition,
     activation_condition_2: ActivationCondition,
+    activation_state: ActivationState,
+    extension: MappingExtension,
+}
+
+#[derive(Default, Debug)]
+struct ActivationState {
     is_active_1: bool,
     is_active_2: bool,
-    extension: MappingExtension,
+}
+
+impl ActivationState {
+    pub fn is_active(&self) -> bool {
+        self.is_active_1 && self.is_active_2
+    }
 }
 
 impl MainMapping {
@@ -163,8 +174,7 @@ impl MainMapping {
             targets: vec![],
             activation_condition_1,
             activation_condition_2,
-            is_active_1: false,
-            is_active_2: false,
+            activation_state: Default::default(),
             extension,
         }
     }
@@ -229,19 +239,14 @@ impl MainMapping {
     }
 
     pub fn has_reaper_target(&self) -> bool {
-        self.unresolved_reaper_target().is_some()
+        matches!(
+            self.unresolved_target,
+            Some(UnresolvedCompoundMappingTarget::Reaper(_))
+        )
     }
 
     pub fn has_resolved_successfully(&self) -> bool {
         !self.targets.is_empty()
-    }
-
-    pub fn unresolved_reaper_target(&self) -> Option<&UnresolvedReaperTarget> {
-        if let Some(UnresolvedCompoundMappingTarget::Reaper(t)) = self.unresolved_target.as_ref() {
-            Some(t)
-        } else {
-            None
-        }
     }
 
     /// Returns `Some` if this affects the mapping's activation state in any way.
@@ -288,12 +293,12 @@ impl MainMapping {
         activation_effect: MappingActivationEffect,
     ) -> Option<ActivationChange> {
         let was_active_before = self.is_active();
-        self.is_active_1 = activation_effect
+        self.activation_state.is_active_1 = activation_effect
             .active_1_effect
-            .unwrap_or(self.is_active_1);
-        self.is_active_2 = activation_effect
+            .unwrap_or(self.activation_state.is_active_1);
+        self.activation_state.is_active_2 = activation_effect
             .active_2_effect
-            .unwrap_or(self.is_active_2);
+            .unwrap_or(self.activation_state.is_active_2);
         let now_is_active = self.is_active();
         if now_is_active == was_active_before {
             return None;
@@ -362,8 +367,8 @@ impl MainMapping {
     pub fn update_activation(&mut self, params: &ParameterArray) -> Option<ActivationChange> {
         let sliced_params = self.core.compartment.slice_params(params);
         let was_active_before = self.is_active();
-        self.is_active_1 = self.activation_condition_1.is_fulfilled(sliced_params);
-        self.is_active_2 = self.activation_condition_2.is_fulfilled(sliced_params);
+        self.activation_state.is_active_1 = self.activation_condition_1.is_fulfilled(sliced_params);
+        self.activation_state.is_active_2 = self.activation_condition_2.is_fulfilled(sliced_params);
         let now_is_active = self.is_active();
         if now_is_active == was_active_before {
             return None;
@@ -376,22 +381,19 @@ impl MainMapping {
     }
 
     pub fn is_active(&self) -> bool {
-        self.is_active_1 && self.is_active_2
+        self.activation_state.is_active()
     }
 
     fn is_effectively_active(&self) -> bool {
-        self.is_active() && self.target_is_effectively_active()
+        is_effectively_active(
+            &self.core.options,
+            &self.activation_state,
+            self.unresolved_target.as_ref(),
+        )
     }
 
     fn target_is_effectively_active(&self) -> bool {
-        if self.core.options.target_is_active {
-            return true;
-        }
-        if let Some(t) = self.unresolved_reaper_target() {
-            t.is_always_active()
-        } else {
-            false
-        }
+        target_is_effectively_active(&self.core.options, self.unresolved_target.as_ref())
     }
 
     pub fn is_effectively_on(&self) -> bool {
@@ -404,7 +406,11 @@ impl MainMapping {
     }
 
     pub fn feedback_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.core.options.feedback_is_enabled
+        feedback_is_effectively_on(
+            &self.core.options,
+            &self.activation_state,
+            self.unresolved_target.as_ref(),
+        )
     }
 
     pub fn source(&self) -> &CompoundMappingSource {
@@ -435,7 +441,7 @@ impl MainMapping {
     pub fn poll_control(&mut self, context: ControlContext) -> MappingControlResult {
         let mut should_send_feedback = false;
         let mut at_least_one_target_was_reached = false;
-        for target in &self.targets {
+        for target in &mut self.targets {
             let target = if let CompoundMappingTarget::Reaper(t) = target {
                 t
             } else {
@@ -450,7 +456,12 @@ impl MainMapping {
                     let _ = target.control(v, context);
                     // Echo feedback, send feedback after control ... all of that is not important when
                     // firing triggered by a timer.
-                    if self.should_send_non_auto_feedback_after_control(target) {
+                    if should_send_non_auto_feedback_after_control(
+                        target,
+                        &self.core.options,
+                        &self.activation_state,
+                        self.unresolved_target.as_ref(),
+                    ) {
                         should_send_feedback = true;
                     }
                 }
@@ -548,7 +559,7 @@ impl MainMapping {
         let mut at_least_one_target_val_was_changed = false;
         let mut at_least_one_target_was_reached = false;
         use ModeControlResult::*;
-        for target in &self.targets {
+        for target in &mut self.targets {
             let target = if let CompoundMappingTarget::Reaper(t) = target {
                 t
             } else {
@@ -574,7 +585,12 @@ impl MainMapping {
                     if let Err(msg) = target.control(v, context) {
                         slog::debug!(logger, "Control failed: {}", msg);
                     }
-                    if self.should_send_non_auto_feedback_after_control(target) {
+                    if should_send_non_auto_feedback_after_control(
+                        target,
+                        &self.core.options,
+                        &self.activation_state,
+                        self.unresolved_target.as_ref(),
+                    ) {
                         send_feedback = true;
                     }
                 }
@@ -597,29 +613,6 @@ impl MainMapping {
             } else {
                 None
             },
-        }
-    }
-
-    /// Not usable for mappings with virtual targets.
-    fn should_send_non_auto_feedback_after_control(&self, target: &ReaperTarget) -> bool {
-        if target.supports_automatic_feedback() {
-            // The target value was changed and that triggered feedback. Therefore we don't
-            // need to send it here a second time (even if `send_feedback_after_control` is
-            // enabled). This happens in the majority of cases.
-            false
-        } else {
-            // The target value was changed but the target doesn't support feedback. If
-            // `send_feedback_after_control` is enabled, we at least send feedback after we
-            // know it has been changed. What a virtual control mapping says shouldn't be relevant
-            // here because this is about the target supporting feedback, not about the controller
-            // needing the "Send feedback after control" workaround. Therefore we don't forward
-            // any "enforce" options.
-            // TODO-low Wouldn't it be better to always send feedback in this situation? But that
-            //  could the user let believe that it actually works while in reality it's not "true"
-            //  feedback that is independent from control. So an opt-in is maybe the right thing.
-            self.core.options.feedback_send_behavior
-                == FeedbackSendBehavior::SendFeedbackAfterControl
-                && self.feedback_is_effectively_on()
         }
     }
 
@@ -1298,7 +1291,11 @@ impl RealearnTarget for CompoundMappingTarget {
         }
     }
 
-    fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+    fn control(
+        &mut self,
+        value: ControlValue,
+        context: ControlContext,
+    ) -> Result<(), &'static str> {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.control(value, context),
@@ -1561,4 +1558,62 @@ pub struct MappingControlResult {
     pub successful: bool,
     /// Even if not hit, this can contain a feedback value!
     pub feedback_value: Option<FeedbackValue>,
+}
+
+/// Not usable for mappings with virtual targets.
+fn should_send_non_auto_feedback_after_control(
+    target: &ReaperTarget,
+    options: &ProcessorMappingOptions,
+    activation_state: &ActivationState,
+    unresolved_target: Option<&UnresolvedCompoundMappingTarget>,
+) -> bool {
+    if target.supports_automatic_feedback() {
+        // The target value was changed and that triggered feedback. Therefore we don't
+        // need to send it here a second time (even if `send_feedback_after_control` is
+        // enabled). This happens in the majority of cases.
+        false
+    } else {
+        // The target value was changed but the target doesn't support feedback. If
+        // `send_feedback_after_control` is enabled, we at least send feedback after we
+        // know it has been changed. What a virtual control mapping says shouldn't be relevant
+        // here because this is about the target supporting feedback, not about the controller
+        // needing the "Send feedback after control" workaround. Therefore we don't forward
+        // any "enforce" options.
+        // TODO-low Wouldn't it be better to always send feedback in this situation? But that
+        //  could the user let believe that it actually works while in reality it's not "true"
+        //  feedback that is independent from control. So an opt-in is maybe the right thing.
+        options.feedback_send_behavior == FeedbackSendBehavior::SendFeedbackAfterControl
+            && feedback_is_effectively_on(options, activation_state, unresolved_target)
+    }
+}
+
+fn feedback_is_effectively_on(
+    options: &ProcessorMappingOptions,
+    activation_state: &ActivationState,
+    unresolved_target: Option<&UnresolvedCompoundMappingTarget>,
+) -> bool {
+    is_effectively_active(options, activation_state, unresolved_target)
+        && options.feedback_is_enabled
+}
+
+fn is_effectively_active(
+    options: &ProcessorMappingOptions,
+    activation_state: &ActivationState,
+    unresolved_target: Option<&UnresolvedCompoundMappingTarget>,
+) -> bool {
+    activation_state.is_active() && target_is_effectively_active(options, unresolved_target)
+}
+
+fn target_is_effectively_active(
+    options: &ProcessorMappingOptions,
+    unresolved_target: Option<&UnresolvedCompoundMappingTarget>,
+) -> bool {
+    if options.target_is_active {
+        return true;
+    }
+    if let Some(UnresolvedCompoundMappingTarget::Reaper(t)) = unresolved_target {
+        t.is_always_active()
+    } else {
+        false
+    }
 }

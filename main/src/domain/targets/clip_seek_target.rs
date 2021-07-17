@@ -15,7 +15,11 @@ impl RealearnTarget for ClipSeekTarget {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
 
-    fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+    fn control(
+        &mut self,
+        value: ControlValue,
+        context: ControlContext,
+    ) -> Result<(), &'static str> {
         let value = value.to_unit_value()?;
         let mut instance_state = context.instance_state.borrow_mut();
         instance_state.seek_slot(self.slot_index, value)?;

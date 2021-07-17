@@ -18,7 +18,7 @@ impl RealearnTarget for SeekTarget {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
 
-    fn control(&self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         let value = value.to_unit_value()?;
         let info = get_seek_info(self.project, self.options);
         let desired_pos_within_range = value.get() * info.length();

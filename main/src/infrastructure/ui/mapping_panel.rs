@@ -5245,7 +5245,7 @@ impl View for MappingPanel {
             }
             s if s == sliders.target_value => {
                 if let Ok((
-                    targets,
+                    mut targets,
                     feedback_output,
                     instance_state,
                     instance_id,
@@ -5260,7 +5260,7 @@ impl View for MappingPanel {
                     )
                 }) {
                     update_target_value(
-                        &targets,
+                        &mut targets,
                         s.slider_unit_value(),
                         feedback_output,
                         &instance_state,
@@ -5324,7 +5324,7 @@ impl View for MappingPanel {
             }
             root::ID_TARGET_VALUE_EDIT_CONTROL => {
                 let (
-                    targets,
+                    mut targets,
                     value,
                     feedback_output,
                     instance_state,
@@ -5344,7 +5344,7 @@ impl View for MappingPanel {
                     )
                 });
                 update_target_value(
-                    &targets,
+                    &mut targets,
                     value,
                     feedback_output,
                     &instance_state,
@@ -5429,7 +5429,7 @@ enum PositiveOrSymmetricUnitValue {
 }
 
 fn update_target_value(
-    targets: &[CompoundMappingTarget],
+    targets: &mut [CompoundMappingTarget],
     value: UnitValue,
     feedback_output: Option<FeedbackOutput>,
     instance_state: &SharedInstanceState,
