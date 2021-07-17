@@ -71,8 +71,12 @@ jobs:
       - name: Strip debug symbols from Linux binary
         if: matrix.os == 'ubuntu-latest'
         run: |
-          cp target/${{ matrix.target }}/release/librealearn.so target/${{ matrix.target }}/release/librealearn-debug.so
-          strip target/${{ matrix.target }}/release/librealearn.so
+          cp target/${{ matrix.target }}/release/${{ matrix.lib-file-name }} target/${{ matrix.target }}/release/librealearn-debug.so
+          strip target/${{ matrix.target }}/release/${{ matrix.lib-file-name }}
+      - name: Strip debug symbols from macOS binary
+        if: matrix.os == 'macos-latest'
+        run: |
+          strip -u -r target/${{ matrix.target }}/release/${{ matrix.lib-file-name }}
       - name: Upload plug-in to artifact
         uses: actions/upload-artifact@v2
         with:
