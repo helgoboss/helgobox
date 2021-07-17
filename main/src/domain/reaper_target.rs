@@ -569,7 +569,7 @@ impl<'a> Target<'a> for ReaperTarget {
     fn current_value(&self, context: ControlContext) -> Option<AbsoluteValue> {
         use ReaperTarget::*;
         match self {
-            SendOsc { .. } => None,
+            SendOsc(t) => t.current_value(()),
             SendMidi(t) => t.current_value(()),
             TrackPeak(t) => t.current_value(context),
             Action(t) => t.current_value(()),

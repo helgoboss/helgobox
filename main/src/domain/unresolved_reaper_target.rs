@@ -461,11 +461,11 @@ impl UnresolvedReaperTarget {
                 address_pattern,
                 arg_descriptor,
                 device_id,
-            } => vec![ReaperTarget::SendOsc(OscSendTarget {
-                address_pattern: address_pattern.clone(),
-                arg_descriptor: *arg_descriptor,
-                device_id: *device_id,
-            })],
+            } => vec![ReaperTarget::SendOsc(OscSendTarget::new(
+                address_pattern.clone(),
+                *arg_descriptor,
+                *device_id,
+            ))],
             ClipTransport {
                 track_descriptor,
                 slot_index,

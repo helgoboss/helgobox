@@ -9,9 +9,38 @@ use rosc::OscMessage;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct OscSendTarget {
-    pub address_pattern: String,
-    pub arg_descriptor: Option<OscArgDescriptor>,
-    pub device_id: Option<OscDeviceId>,
+    address_pattern: String,
+    arg_descriptor: Option<OscArgDescriptor>,
+    device_id: Option<OscDeviceId>,
+    // For making basic toggle/relative control possible.
+    artificial_value: AbsoluteValue,
+}
+
+impl OscSendTarget {
+    pub fn new(
+        address_pattern: String,
+        arg_descriptor: Option<OscArgDescriptor>,
+        device_id: Option<OscDeviceId>,
+    ) -> Self {
+        Self {
+            address_pattern,
+            arg_descriptor,
+            device_id,
+            artificial_value: Default::default(),
+        }
+    }
+
+    pub fn address_pattern(&self) -> &str {
+        &self.address_pattern
+    }
+
+    pub fn arg_descriptor(&self) -> Option<OscArgDescriptor> {
+        self.arg_descriptor
+    }
+
+    pub fn device_id(&self) -> Option<OscDeviceId> {
+        self.device_id
+    }
 }
 
 impl RealearnTarget for OscSendTarget {
@@ -49,10 +78,11 @@ impl RealearnTarget for OscSendTarget {
         value: ControlValue,
         context: ControlContext,
     ) -> Result<(), &'static str> {
+        let value = value.to_unit_value()?;
         let msg = OscMessage {
             addr: self.address_pattern.clone(),
             args: if let Some(desc) = self.arg_descriptor {
-                desc.to_concrete_args(value.to_unit_value()?)
+                desc.to_concrete_args(value)
                     .ok_or("sending of this OSC type not supported")?
             } else {
                 vec![]
@@ -80,11 +110,8 @@ impl RealearnTarget for OscSendTarget {
             .osc_feedback_task_sender
             .try_send(OscFeedbackTask::new(effective_dev_id, msg))
             .unwrap();
+        self.artificial_value = AbsoluteValue::Continuous(value);
         Ok(())
-    }
-
-    fn can_report_current_value(&self) -> bool {
-        false
     }
 
     fn is_available(&self) -> bool {
@@ -100,7 +127,7 @@ impl<'a> Target<'a> for OscSendTarget {
     type Context = ();
 
     fn current_value(&self, _context: ()) -> Option<AbsoluteValue> {
-        None
+        Some(self.artificial_value)
     }
 
     fn control_type(&self) -> ControlType {

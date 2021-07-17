@@ -12,8 +12,8 @@ use std::convert::TryInto;
 pub struct MidiSendTarget {
     pattern: RawMidiPattern,
     destination: SendMidiDestination,
-    // For making relative control possible.
-    current_value: AbsoluteValue,
+    // For making basic toggle/relative control possible.
+    artificial_value: AbsoluteValue,
 }
 
 impl MidiSendTarget {
@@ -22,7 +22,7 @@ impl MidiSendTarget {
         Self {
             pattern,
             destination,
-            current_value: AbsoluteValue::Discrete(Fraction::new(0, max_discrete_value as _)),
+            artificial_value: AbsoluteValue::Discrete(Fraction::new(0, max_discrete_value as _)),
         }
     }
 
@@ -34,8 +34,8 @@ impl MidiSendTarget {
         self.destination
     }
 
-    pub fn set_current_value(&mut self, value: AbsoluteValue) {
-        self.current_value = value;
+    pub fn set_artificial_value(&mut self, value: AbsoluteValue) {
+        self.artificial_value = value;
     }
 }
 
@@ -136,13 +136,9 @@ impl RealearnTarget for MidiSendTarget {
             }
         };
         if result.is_ok() {
-            self.current_value = value;
+            self.artificial_value = value;
         }
         result
-    }
-
-    fn can_report_current_value(&self) -> bool {
-        false
     }
 
     fn is_available(&self) -> bool {
@@ -175,7 +171,7 @@ impl<'a> Target<'a> for MidiSendTarget {
     type Context = ();
 
     fn current_value(&self, _context: ()) -> Option<AbsoluteValue> {
-        Some(self.current_value)
+        Some(self.artificial_value)
     }
 
     fn control_type(&self) -> ControlType {

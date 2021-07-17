@@ -1325,7 +1325,7 @@ fn process_real_mapping(
                     _ => false,
                 };
                 if successful {
-                    t.set_current_value(v);
+                    t.set_artificial_value(v);
                 }
                 Ok(())
             }
