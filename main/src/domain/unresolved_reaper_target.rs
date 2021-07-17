@@ -1224,6 +1224,14 @@ impl VirtualTrack {
                 let index = context.context().track()?.index()?;
                 Some(index as f64)
             }
+            "selected_track_index" => {
+                let index = context
+                    .context()
+                    .project_or_current_project()
+                    .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)?
+                    .index()?;
+                Some(index as f64)
+            }
             _ => None,
         });
         result.round().max(0.0) as u32
