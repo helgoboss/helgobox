@@ -1254,7 +1254,7 @@ fn process_real_mapping(
     output_logging_enabled: bool,
 ) -> Result<(), &'static str> {
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
-        mapping.resolved_target.as_ref()
+        mapping.resolved_target.as_mut()
     {
         // Must be processed here in real-time processor.
         let control_value: Option<ControlValue> = mapping
@@ -1276,16 +1276,16 @@ fn process_real_mapping(
                 // This is a type of mapping that we should process right here because we want to
                 // send a MIDI message and this needs to happen in the audio thread.
                 // Going to the main thread and back would be such a waste!
-                let raw_midi_event = t.pattern.to_concrete_midi_event(v);
+                let raw_midi_event = t.pattern().to_concrete_midi_event(v);
                 let midi_destination = match caller {
-                    Caller::Vst(_) => match t.destination {
+                    Caller::Vst(_) => match t.destination() {
                         SendMidiDestination::FxOutput => Some(MidiDestination::FxOutput),
                         SendMidiDestination::FeedbackOutput => {
                             Some(midi_feedback_output.ok_or("no feedback output set")?)
                         }
                     },
                     Caller::AudioHook => {
-                        match t.destination {
+                        match t.destination() {
                             SendMidiDestination::FxOutput => {
                                 // Control input = Device | Destination = FX output.
                                 // Not supported currently. It could be by introducing a new
@@ -1308,19 +1308,25 @@ fn process_real_mapping(
                             .unwrap();
                     });
                 }
-                match midi_destination {
+                let successful = match midi_destination {
                     Some(MidiDestination::FxOutput) => {
                         send_raw_midi_to_fx_output(&raw_midi_event, value_event.offset(), caller);
+                        true
                     }
-                    Some(MidiDestination::Device(dev_id)) => {
-                        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
+                    Some(MidiDestination::Device(dev_id)) => MidiOutputDevice::new(dev_id)
+                        .with_midi_output(|mo| {
                             if let Some(mo) = mo {
                                 mo.send_msg(&raw_midi_event, SendMidiTime::Instantly);
+                                true
+                            } else {
+                                false
                             }
-                        });
-                    }
-                    _ => {}
+                        }),
+                    _ => false,
                 };
+                if successful {
+                    t.set_current_value(v);
+                }
                 Ok(())
             }
         }

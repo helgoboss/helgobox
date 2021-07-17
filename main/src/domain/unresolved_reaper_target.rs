@@ -453,10 +453,10 @@ impl UnresolvedReaperTarget {
             SendMidi {
                 pattern,
                 destination,
-            } => vec![ReaperTarget::SendMidi(MidiSendTarget {
-                pattern: pattern.clone(),
-                destination: *destination,
-            })],
+            } => vec![ReaperTarget::SendMidi(MidiSendTarget::new(
+                pattern.clone(),
+                *destination,
+            ))],
             SendOsc {
                 address_pattern,
                 arg_descriptor,

@@ -4,14 +4,39 @@ use crate::domain::{
     RealearnTarget, SendMidiDestination, TargetCharacter,
 };
 use helgoboss_learn::{
-    AbsoluteValue, ControlType, ControlValue, RawMidiPattern, Target, UnitValue,
+    AbsoluteValue, ControlType, ControlValue, Fraction, RawMidiPattern, Target, UnitValue,
 };
 use std::convert::TryInto;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MidiSendTarget {
-    pub pattern: RawMidiPattern,
-    pub destination: SendMidiDestination,
+    pattern: RawMidiPattern,
+    destination: SendMidiDestination,
+    // For making relative control possible.
+    current_value: AbsoluteValue,
+}
+
+impl MidiSendTarget {
+    pub fn new(pattern: RawMidiPattern, destination: SendMidiDestination) -> Self {
+        let max_discrete_value = pattern.max_discrete_value();
+        Self {
+            pattern,
+            destination,
+            current_value: AbsoluteValue::Discrete(Fraction::new(0, max_discrete_value as _)),
+        }
+    }
+
+    pub fn pattern(&self) -> &RawMidiPattern {
+        &self.pattern
+    }
+
+    pub fn destination(&self) -> SendMidiDestination {
+        self.destination
+    }
+
+    pub fn set_current_value(&mut self, value: AbsoluteValue) {
+        self.current_value = value;
+    }
 }
 
 impl RealearnTarget for MidiSendTarget {
@@ -82,12 +107,11 @@ impl RealearnTarget for MidiSendTarget {
         value: ControlValue,
         context: ControlContext,
     ) -> Result<(), &'static str> {
+        let value = value.to_absolute_value()?;
         // We arrive here only if controlled via OSC. Sending MIDI in response to incoming
         // MIDI messages is handled directly in the real-time processor.
-        let raw_midi_event = self
-            .pattern
-            .to_concrete_midi_event(value.to_absolute_value()?);
-        match self.destination {
+        let raw_midi_event = self.pattern.to_concrete_midi_event(value);
+        let result = match self.destination {
             SendMidiDestination::FxOutput => Err("OSC => MIDI FX output not supported"),
             SendMidiDestination::FeedbackOutput => {
                 let feedback_output = context.feedback_output.ok_or("no feedback output set")?;
@@ -110,7 +134,11 @@ impl RealearnTarget for MidiSendTarget {
                     Err("feedback output is not a MIDI device")
                 }
             }
+        };
+        if result.is_ok() {
+            self.current_value = value;
         }
+        result
     }
 
     fn can_report_current_value(&self) -> bool {
@@ -147,7 +175,7 @@ impl<'a> Target<'a> for MidiSendTarget {
     type Context = ();
 
     fn current_value(&self, _context: ()) -> Option<AbsoluteValue> {
-        None
+        Some(self.current_value)
     }
 
     fn control_type(&self) -> ControlType {
