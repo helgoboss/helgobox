@@ -1576,6 +1576,8 @@ dependencies = [
 [[package]]
 name = "indexmap"
 version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc633605454125dec4b66843673f01c7df2b89479b32e0ed634e43a91cff62a5"
 dependencies = [
  "autocfg 1.0.1",
  "hashbrown",
@@ -1584,8 +1586,7 @@ dependencies = [
 [[package]]
 name = "indexmap"
 version = "1.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc633605454125dec4b66843673f01c7df2b89479b32e0ed634e43a91cff62a5"
+source = "git+https://github.com/helgoboss/indexmap?branch=feature/clion-workaround#e687dd2c52a1631f28fe57fb61a11ed0e7ab55d9"
 dependencies = [
  "autocfg 1.0.1",
  "hashbrown",
@@ -2786,7 +2787,7 @@ dependencies = [
  "hostname",
  "hyper",
  "image",
- "indexmap 1.7.0",
+ "indexmap 1.7.0 (git+https://github.com/helgoboss/indexmap?branch=feature/clion-workaround)",
  "itertools",
  "lazycell",
  "maplit",

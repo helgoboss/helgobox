@@ -543,11 +543,8 @@ impl UnresolvedReaperTarget {
     ///   when the target is resolved again. Matter for some targets (but usually not).
     pub fn can_be_affected_by_change_events(&self) -> bool {
         use UnresolvedReaperTarget::*;
-        match self {
-            // We don't want those to be refreshed because they maintain an artificial value.
-            SendMidi { .. } | SendOsc { .. } => false,
-            _ => true,
-        }
+        // We don't want those to be refreshed because they maintain an artificial value.
+        !matches!(self, SendMidi { .. } | SendOsc { .. })
     }
 
     /// Should return true if the target should be refreshed (reresolved) on parameter changes.

@@ -138,7 +138,7 @@ hyper = "= 0.13.9"
 # For being able to cleanly implement targets in separate files without needing to resort to dynamic dispatch.
 enum_dispatch = "0.3.6"
 # For processing mappings in user-defined order
-indexmap = { path = "../../indexmap", features = ["std"] }
+indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/clion-workaround", features = ["std"] }
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
