@@ -360,6 +360,14 @@ impl MainMapping {
         &mut self,
         context: ExtendedProcessorContext,
     ) -> (bool, Option<ActivationChange>) {
+        match self.unresolved_target.as_ref() {
+            None => return (false, None),
+            Some(t) => {
+                if !t.can_be_affected_by_change_events() {
+                    return (false, None);
+                }
+            }
+        }
         let was_effectively_active_before = self.target_is_effectively_active();
         let (targets, is_active) = self.resolve_target(context);
         let target_changed = targets != self.targets;
@@ -1162,6 +1170,14 @@ impl UnresolvedCompoundMappingTarget {
             (Virtual(_), CompoundMappingTarget::Virtual(_)) => true,
             _ => unreachable!(),
         })
+    }
+
+    pub fn can_be_affected_by_change_events(&self) -> bool {
+        use UnresolvedCompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.can_be_affected_by_change_events(),
+            Virtual(_) => false,
+        }
     }
 
     /// `None` means that no polling is necessary for feedback because we are notified via events.

@@ -533,6 +533,23 @@ impl UnresolvedReaperTarget {
         true
     }
 
+    /// Should return true if the target should be refreshed (reresolved) on changes such as track
+    /// selection etc. (search for "is_potential_static_change_event" and
+    /// "is_potential_dynamic_change_event"). If in doubt or too lazy to make a distinction
+    /// depending on the selector, better return true! It has effect on two things:
+    /// - Performance: Not refreshing is cheaper (but resolving is generally fast so this shouldn't
+    ///   matter)
+    /// - Target state: If the resolved target contains state, it's going to be disappear when
+    ///   the target is resolved again. Might matter for some targets.
+    pub fn can_be_affected_by_change_events(&self) -> bool {
+        use UnresolvedReaperTarget::*;
+        match self {
+            // We don't want those to be refreshed because they maintain an artificial value.
+            SendMidi { .. } | SendOsc { .. } => false,
+            _ => true,
+        }
+    }
+
     /// Should return true if the target should be refreshed (reresolved) on parameter changes.
     /// Usually true for all targets that use `<Dynamic>` selector.
     pub fn can_be_affected_by_parameters(&self) -> bool {
