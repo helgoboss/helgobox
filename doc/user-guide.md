@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-07-17 (v2.10.0-pre.3)</code></td>
+  <td><code>2021-07-19 (v2.10.0-pre.4)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -671,6 +671,20 @@ compartment:
 
 ![Group panel](images/screenshot-group-panel.png)
 
+Since ReaLearn 2.10.0, mappings are processed from top to button, exactly in the order in which they are defined
+within the corresponding compartment. This matters if you want to map multiple targets to one button and
+the order of execution matters.
+
+**Important:** There's an exception. ReaLearn's processing of its own VST parameters is always deferred.
+- That means changing a ReaLearn parameter in one mapping and relying on it in the next
+  one (in terms of conditional activation or in a `<Dynamic>` expression), will not work!
+- You can work around that by delaying execution of the next mapping via [fire mode](#for-buttons-control-only) but
+  that's a dirty hack. ReaLearn's parameters are not supposed to be used that way!
+- Imagine a railway: ReaLearn's targets can be considered as trains. Triggering a target means moving the train forward.
+  ReaLearn's parameters can be considered as railway switches. Changing a parameter means setting a course. 
+  The course needs to be set in advance, at least one step before! Not at the same time as moving the train over the
+  switch.
+
 #### Controller compartment
 
 By default, ReaLearn shows the list of main mappings. If you switch to the *controller* compartment, you will see the
@@ -1051,6 +1065,7 @@ Sources share the following common settings and functions:
       not supposed to be controlled directly but only via *group interaction* (see section [Tuning](#tuning)).
     - **MIDI:** Incoming MIDI events.
     - **OSC:** Incoming OSC events.
+    - **REAPER:** Events that can occur within REAPER.
     - **Virtual:** Invocations of virtual control elements (coming from virtual controller mappings). This source
       category is available for main mappings only. 
 - **Type:** Let's you choose the source type. Available types depend on the selected category.
@@ -1382,6 +1397,15 @@ OSC sources allow configuration of the following aspects:
   increments/decrements instead of absolute values, e.g. jog wheels. When you enable this checkbox, ReaLearn will
   treat each received *1* value as an increment and *0* value a decrement.
 
+##### Category "REAPER"
+
+###### MIDI device changes
+
+This source emits a value of 100% whenever any MIDI device is connected and 0% whenever any MIDI device is
+disconnected. You can map this to the REAPER action "Reset all MIDI devices" to achieve true plug and play
+of MIDI devices (provided the corresponding device has been enabled at least once in REAPER's MIDI device
+preferences).
+
 ##### Category "Virtual"
 
 As pointed out before, *virtual* sources exist in order to decouple your mappings from the actual
@@ -1486,8 +1510,9 @@ object selectors. We use the example of tracks but the same applies to all other
       mathematical expression whose result should be a *track index* (the first track in the project has index 0).
       You can access the values of ReaLearn's internal parameters by using the variables `p1` to `p100`. All of them
       are normalized floating point values, that means they are decimal numbers between `0.0` and `1.0`. In dynamic
-      *track* selectors, there's also `this_track_index`, which resolves to the current zero-rooted index of the track
-      on which this ReaLearn instance is located. Please note
+      *track* selectors, there's also `this_track_index` (which resolves to the zero-rooted index of the track
+      on which this ReaLearn instance is located) and `selected_track_index` (which resolves to the zero-rooted index
+      of the first currently selected track within the containing project). Please note
       that the expression language is *not EEL* - this is a notable difference to ReaLearn's control/feedback
       transformation and EEL activation condition text fields! The expression language used here just
       provides very basic mathematical operations like addition (`+/-`), multiplication (`*`) etc. and it also
