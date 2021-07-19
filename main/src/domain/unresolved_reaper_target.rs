@@ -511,8 +511,8 @@ impl UnresolvedReaperTarget {
     ///
     /// Targets conditions are for example "track selected" or "FX focused".
     pub fn conditions_are_met(&self, target: &ReaperTarget) -> bool {
-        let (track_descriptor, fx_descriptor) = self.descriptors();
-        if let Some(desc) = track_descriptor {
+        let descriptors = self.unpack_descriptors();
+        if let Some(desc) = descriptors.track {
             if desc.enable_only_if_track_selected {
                 if let Some(track) = target.track() {
                     if !track.is_selected() {
@@ -521,7 +521,7 @@ impl UnresolvedReaperTarget {
                 }
             }
         }
-        if let Some(desc) = fx_descriptor {
+        if let Some(desc) = descriptors.fx {
             if desc.enable_only_if_fx_has_focus {
                 if let Some(fx) = target.fx() {
                     if !fx.window_has_focus() {
@@ -533,15 +533,46 @@ impl UnresolvedReaperTarget {
         true
     }
 
+    /// Should return true if the target should be refreshed (reresolved) on parameter changes.
+    /// Usually true for all targets that use `<Dynamic>` selector.
     pub fn can_be_affected_by_parameters(&self) -> bool {
-        let descriptors = self.descriptors();
-        match descriptors.0 {
-            None => false,
-            Some(td) => matches!(&td.track, VirtualTrack::Dynamic(_)),
+        let descriptors = self.unpack_descriptors();
+        if let Some(desc) = descriptors.track {
+            if matches!(&desc.track, VirtualTrack::Dynamic(_)) {
+                return true;
+            }
         }
+        if let Some(desc) = descriptors.fx {
+            if matches!(
+                &desc.fx,
+                VirtualFx::ChainFx {
+                    chain_fx: VirtualChainFx::Dynamic(_),
+                    ..
+                }
+            ) {
+                return true;
+            }
+        }
+        if let Some(desc) = descriptors.route {
+            if matches!(
+                &desc.route,
+                VirtualTrackRoute {
+                    selector: TrackRouteSelector::Dynamic(_),
+                    ..
+                }
+            ) {
+                return true;
+            }
+        }
+        if let Some(desc) = descriptors.fx_param {
+            if matches!(&desc.fx_parameter, VirtualFxParameter::Dynamic(_)) {
+                return true;
+            }
+        }
+        false
     }
 
-    fn descriptors(&self) -> (Option<&TrackDescriptor>, Option<&FxDescriptor>) {
+    fn unpack_descriptors(&self) -> Descriptors {
         use UnresolvedReaperTarget::*;
         match self {
             Action { .. }
@@ -556,20 +587,24 @@ impl UnresolvedReaperTarget {
             | AutomationModeOverride { .. }
             | SendMidi { .. }
             | SendOsc { .. }
-            | GoToBookmark { .. } => (None, None),
+            | GoToBookmark { .. } => Default::default(),
             FxOpen { fx_descriptor, .. }
             | FxEnable { fx_descriptor }
             | FxPreset { fx_descriptor }
-            | LoadFxPreset { fx_descriptor, .. } => {
-                (Some(&fx_descriptor.track_descriptor), Some(fx_descriptor))
-            }
+            | LoadFxPreset { fx_descriptor, .. } => Descriptors {
+                track: Some(&fx_descriptor.track_descriptor),
+                fx: Some(fx_descriptor),
+                ..Default::default()
+            },
             FxParameter {
                 fx_parameter_descriptor,
                 ..
-            } => (
-                Some(&fx_parameter_descriptor.fx_descriptor.track_descriptor),
-                Some(&fx_parameter_descriptor.fx_descriptor),
-            ),
+            } => Descriptors {
+                track: Some(&fx_parameter_descriptor.fx_descriptor.track_descriptor),
+                fx: Some(&fx_parameter_descriptor.fx_descriptor),
+                fx_param: Some(fx_parameter_descriptor),
+                ..Default::default()
+            },
             TrackVolume { track_descriptor }
             | TrackPeak { track_descriptor }
             | TrackPan { track_descriptor }
@@ -600,13 +635,23 @@ impl UnresolvedReaperTarget {
             }
             | AutomationTouchState {
                 track_descriptor, ..
-            } => (Some(track_descriptor), None),
+            } => Descriptors {
+                track: Some(track_descriptor),
+                ..Default::default()
+            },
             TrackSendVolume { descriptor }
             | TrackSendPan { descriptor }
-            | TrackSendMute { descriptor, .. } => (Some(&descriptor.track_descriptor), None),
+            | TrackSendMute { descriptor, .. } => Descriptors {
+                track: Some(&descriptor.track_descriptor),
+                route: Some(descriptor),
+                ..Default::default()
+            },
             ClipTransport {
                 track_descriptor, ..
-            } => (track_descriptor.as_ref(), None),
+            } => Descriptors {
+                track: track_descriptor.as_ref(),
+                ..Default::default()
+            },
         }
     }
 
@@ -1758,4 +1803,12 @@ fn find_route_by_name(
             .typed_sends(SendPartnerType::HardwareOutput)
             .find(matcher),
     }
+}
+
+#[derive(Default)]
+struct Descriptors<'a> {
+    track: Option<&'a TrackDescriptor>,
+    fx: Option<&'a FxDescriptor>,
+    route: Option<&'a TrackRouteDescriptor>,
+    fx_param: Option<&'a FxParameterDescriptor>,
 }
