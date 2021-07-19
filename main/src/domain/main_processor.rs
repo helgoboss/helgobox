@@ -357,7 +357,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 return;
             }
             let context = self.basics.control_context();
-            let result = m.control_from_mode(control_value, options, context, &self.basics.logger);
+            let result = m.control_from_mode(
+                control_value,
+                options,
+                context,
+                &self.basics.logger,
+                ExtendedProcessorContext::new(&self.basics.context, &self.collections.parameters),
+            );
             self.basics.send_feedback(
                 &self.collections.mappings_with_virtual_targets,
                 FeedbackReason::Normal,
@@ -1183,6 +1189,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             &mut self.collections.mappings_with_virtual_targets,
             &mut self.collections.mappings[MappingCompartment::MainMappings],
             msg,
+            &self.collections.parameters,
         );
         self.control_non_virtual_mappings(msg);
     }
@@ -1218,6 +1225,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         &mut self.collections.mappings_with_virtual_targets,
                         &mut self.collections.mappings[MappingCompartment::MainMappings],
                         msg,
+                        &self.collections.parameters,
                     );
                     self.control_non_virtual_mappings(msg);
                 }
@@ -1240,6 +1248,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn control_non_virtual_mappings(&mut self, msg: MainSourceMessage) {
         for compartment in MappingCompartment::enum_iter() {
+            let mut enforce_target_refresh = false;
             for m in self.collections.mappings[compartment]
                 .values_mut()
                 .filter(|m| m.control_is_effectively_on())
@@ -1248,11 +1257,19 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let feedback = m
                         .control_from_mode(
                             control_value,
-                            ControlOptions::default(),
+                            ControlOptions {
+                                enforce_target_refresh,
+                                ..Default::default()
+                            },
                             self.basics.control_context(),
                             &self.basics.logger,
+                            ExtendedProcessorContext::new(
+                                &self.basics.context,
+                                &self.collections.parameters,
+                            ),
                         )
                         .feedback_value;
+                    enforce_target_refresh = true;
                     self.basics.send_feedback(
                         &self.collections.mappings_with_virtual_targets,
                         FeedbackReason::Normal,
@@ -1827,6 +1844,12 @@ pub enum ControlMainTask {
 pub struct ControlOptions {
     pub enforce_send_feedback_after_control: bool,
     pub mode_control_options: ModeControlOptions,
+    /// Set this flag if this control operation is part of processing multiple mappings within one
+    /// transaction.
+    /// Reason: Possibly triggered change events (e.g. change of selected track) will result in
+    /// refreshing all targets *after* the transaction, which might be to late if the user relies on
+    /// mapping order! Setting `refresh_target` will enforce refreshing (without updating cache).
+    pub enforce_target_refresh: bool,
 }
 
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
@@ -1925,13 +1948,19 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         compartment,
                         mapping_id,
                         group_id,
-                        |other_mapping, basics| {
+                        |other_mapping, basics, parameters| {
                             other_mapping
                                 .control_from_mode(
                                     interaction_value,
-                                    ControlOptions::default(),
+                                    ControlOptions {
+                                        // Previous mappings in this transaction could affect
+                                        // subsequent mappings!
+                                        enforce_target_refresh: true,
+                                        ..Default::default()
+                                    },
                                     basics.control_context(),
                                     &basics.logger,
+                                    ExtendedProcessorContext::new(&basics.context, parameters),
                                 )
                                 .feedback_value
                         },
@@ -1956,13 +1985,19 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             compartment,
                             mapping_id,
                             group_id,
-                            |other_mapping, basics| {
+                            |other_mapping, basics, parameters| {
                                 other_mapping.control_from_target(
                                     normalized_target_value,
-                                    ControlOptions::default(),
+                                    ControlOptions {
+                                        // Previous mappings in this transaction could affect
+                                        // subsequent mappings!
+                                        enforce_target_refresh: true,
+                                        ..Default::default()
+                                    },
                                     basics.control_context(),
                                     &basics.logger,
                                     inverse,
+                                    ExtendedProcessorContext::new(&self.context, parameters),
                                 )
                             },
                         );
@@ -1978,7 +2013,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         compartment: MappingCompartment,
         mapping_id: MappingId,
         group_id: GroupId,
-        f: impl Fn(&mut MainMapping, &Basics<EH>) -> Option<FeedbackValue>,
+        f: impl Fn(&mut MainMapping, &Basics<EH>, &ParameterArray) -> Option<FeedbackValue>,
     ) {
         let other_mappings = collections.mappings[compartment]
             .values_mut()
@@ -1988,7 +2023,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     && other_m.control_is_effectively_on()
             });
         for other_mapping in other_mappings {
-            let other_feedback = f(other_mapping, &self);
+            let other_feedback = f(other_mapping, &self, &collections.parameters);
             self.send_feedback(
                 &collections.mappings_with_virtual_targets,
                 FeedbackReason::Normal,
@@ -2074,6 +2109,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         // Contains mappings with virtual sources
         main_mappings: &mut OrderedMappingMap<MainMapping>,
         msg: MainSourceMessage,
+        parameters: &ParameterArray,
     ) {
         // Control
         let source_values: Vec<_> = mappings_with_virtual_targets
@@ -2097,7 +2133,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             enforce_send_feedback_after_control: m.options().feedback_send_behavior
                                 == FeedbackSendBehavior::SendFeedbackAfterControl,
                             mode_control_options: m.mode_control_options(),
+                            // Not yet important at this point because one virtual target can't
+                            // affect a subsequent one.
+                            enforce_target_refresh: false,
                         },
+                        parameters,
                     )
                 } else {
                     vec![]
@@ -2280,22 +2320,29 @@ impl<EH: DomainEventHandler> Basics<EH> {
         main_mappings: &mut OrderedMappingMap<MainMapping>,
         value: VirtualSourceValue,
         options: ControlOptions,
+        parameters: &ParameterArray,
     ) -> Vec<FeedbackValue> {
         // Controller mappings can't have virtual sources, so for now we only need to check
         // main mappings.
+        let mut enforce_target_refresh = false;
         main_mappings
             .values_mut()
             .filter(|m| m.control_is_effectively_on())
             .filter_map(|m| {
                 if let CompoundMappingSource::Virtual(s) = &m.source() {
                     let control_value = s.control(&value)?;
-                    m.control_from_mode(
+                    let result = m.control_from_mode(
                         control_value,
-                        options,
+                        ControlOptions {
+                            enforce_target_refresh,
+                            ..options
+                        },
                         self.control_context(),
                         &self.logger,
-                    )
-                    .feedback_value
+                        ExtendedProcessorContext::new(&self.context, parameters),
+                    );
+                    enforce_target_refresh = true;
+                    result.feedback_value
                 } else {
                     None
                 }

@@ -513,11 +513,13 @@ impl MainMapping {
         options: ControlOptions,
         context: ControlContext,
         logger: &slog::Logger,
+        processor_context: ExtendedProcessorContext,
     ) -> MappingControlResult {
         self.control_internal(
             options,
             context,
             logger,
+            processor_context,
             |options, context, mode, target| {
                 mode.control_with_options(
                     source_value,
@@ -540,25 +542,32 @@ impl MainMapping {
         context: ControlContext,
         logger: &slog::Logger,
         inverse: bool,
+        processor_context: ExtendedProcessorContext,
     ) -> Option<FeedbackValue> {
-        self.control_internal(options, context, logger, |_, _, mode, target| {
-            let mut v = value;
-            let control_type = target.control_type();
-            // This is very similar to the mode logic, but just a small subset.
-            if inverse {
-                let normalized_max = control_type
-                    .discrete_max()
-                    .map(|m| mode.discrete_target_value_interval.normalize_to_min(m));
-                v = v.inverse(normalized_max);
-            }
-            v = v.denormalize(
-                &mode.target_value_interval,
-                &mode.discrete_target_value_interval,
-                mode.use_discrete_processing,
-                control_type.discrete_max(),
-            );
-            Some(ModeControlResult::HitTarget(ControlValue::from_absolute(v)))
-        })
+        self.control_internal(
+            options,
+            context,
+            logger,
+            processor_context,
+            |_, _, mode, target| {
+                let mut v = value;
+                let control_type = target.control_type();
+                // This is very similar to the mode logic, but just a small subset.
+                if inverse {
+                    let normalized_max = control_type
+                        .discrete_max()
+                        .map(|m| mode.discrete_target_value_interval.normalize_to_min(m));
+                    v = v.inverse(normalized_max);
+                }
+                v = v.denormalize(
+                    &mode.target_value_interval,
+                    &mode.discrete_target_value_interval,
+                    mode.use_discrete_processing,
+                    control_type.discrete_max(),
+                );
+                Some(ModeControlResult::HitTarget(ControlValue::from_absolute(v)))
+            },
+        )
         .feedback_value
     }
 
@@ -567,6 +576,7 @@ impl MainMapping {
         options: ControlOptions,
         context: ControlContext,
         logger: &slog::Logger,
+        processor_context: ExtendedProcessorContext,
         get_mode_control_result: impl Fn(
             ControlOptions,
             ControlContext,
@@ -578,7 +588,24 @@ impl MainMapping {
         let mut at_least_one_target_val_was_changed = false;
         let mut at_least_one_target_was_reached = false;
         use ModeControlResult::*;
-        for target in &mut self.targets {
+        let mut fresh_targets = if options.enforce_target_refresh {
+            let (targets, conditions_are_met) = self.resolve_target(processor_context);
+            if !conditions_are_met {
+                return MappingControlResult {
+                    successful: false,
+                    feedback_value: None,
+                };
+            }
+            targets
+        } else {
+            vec![]
+        };
+        let actual_targets = if options.enforce_target_refresh {
+            &mut fresh_targets
+        } else {
+            &mut self.targets
+        };
+        for target in actual_targets {
             let target = if let CompoundMappingTarget::Reaper(t) = target {
                 t
             } else {

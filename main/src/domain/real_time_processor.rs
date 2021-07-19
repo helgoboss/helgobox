@@ -839,7 +839,10 @@ impl RealTimeProcessor {
                         &self.control_main_task_sender,
                         compartment,
                         Event::new(source_value_event.offset(), control_value),
-                        ControlOptions::default(),
+                        ControlOptions {
+                            enforce_target_refresh: matched,
+                            ..Default::default()
+                        },
                         caller,
                         self.midi_feedback_output,
                         self.output_logging_enabled,
@@ -1194,6 +1197,7 @@ fn control_controller_mappings_midi(
     output_logging_enabled: bool,
 ) -> bool {
     let mut matched = false;
+    let mut enforce_target_refresh = false;
     for m in controller_mappings
         .values_mut()
         .filter(|m| m.control_is_effectively_on())
@@ -1215,6 +1219,9 @@ fn control_controller_mappings_midi(
                         enforce_send_feedback_after_control: m.options().feedback_send_behavior
                             == FeedbackSendBehavior::SendFeedbackAfterControl,
                         mode_control_options: m.mode_control_options(),
+                        // Not important yet at this point because virtual targets can't affect
+                        // subsequent virtual targets.
+                        enforce_target_refresh: false,
                     },
                     caller,
                     midi_feedback_output,
@@ -1226,11 +1233,16 @@ fn control_controller_mappings_midi(
                         sender,
                         MappingCompartment::ControllerMappings,
                         Event::new(value_event.offset(), control_value),
-                        ControlOptions::default(),
+                        ControlOptions {
+                            enforce_target_refresh,
+                            ..Default::default()
+                        },
                         caller,
                         midi_feedback_output,
                         output_logging_enabled,
                     );
+                    // We do this only for transactions of *real* targets matches.
+                    enforce_target_refresh = true;
                     true
                 }
             };
@@ -1384,7 +1396,10 @@ fn control_main_mappings_virtual(
                     sender,
                     MappingCompartment::MainMappings,
                     Event::new(value_event.offset(), control_value),
-                    options,
+                    ControlOptions {
+                        enforce_target_refresh: matched,
+                        ..options
+                    },
                     caller,
                     midi_feedback_output,
                     output_logging_enabled,
