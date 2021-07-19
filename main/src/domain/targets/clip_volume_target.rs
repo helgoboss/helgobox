@@ -34,11 +34,7 @@ impl RealearnTarget for ClipVolumeTarget {
         format_value_as_db(value)
     }
 
-    fn control(
-        &mut self,
-        value: ControlValue,
-        context: ControlContext,
-    ) -> Result<(), &'static str> {
+    fn hit(&mut self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
         let mut instance_state = context.instance_state.borrow_mut();
         instance_state.set_volume(

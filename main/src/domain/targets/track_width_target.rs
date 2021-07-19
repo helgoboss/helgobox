@@ -52,7 +52,7 @@ impl RealearnTarget for TrackWidthTarget {
         Some(&self.track)
     }
 
-    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         let width = Width::from_normalized_value(value.to_unit_value()?.get());
         self.track.set_width(width);
         Ok(())

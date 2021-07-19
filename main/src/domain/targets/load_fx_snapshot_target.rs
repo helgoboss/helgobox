@@ -25,7 +25,7 @@ impl RealearnTarget for LoadFxSnapshotTarget {
         "".to_owned()
     }
 
-    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         if !value.to_unit_value()?.is_zero() {
             BackboneState::target_context()
                 .borrow_mut()

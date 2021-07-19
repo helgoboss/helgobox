@@ -46,7 +46,7 @@ impl RealearnTarget for ActionTarget {
         "".to_owned()
     }
 
-    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         match value {
             ControlValue::AbsoluteContinuous(v) => match self.invocation_type {
                 ActionInvocationType::Trigger => {

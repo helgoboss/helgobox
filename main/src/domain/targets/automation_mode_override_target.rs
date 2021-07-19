@@ -24,7 +24,7 @@ impl RealearnTarget for AutomationModeOverrideTarget {
         format_value_as_on_off(value).to_string()
     }
 
-    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         if value.to_unit_value()?.is_zero() {
             Reaper::get().set_global_automation_override(None);
         } else {

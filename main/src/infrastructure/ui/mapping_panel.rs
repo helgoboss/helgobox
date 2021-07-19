@@ -5438,7 +5438,7 @@ fn update_target_value(
 ) {
     for target in targets {
         // If it doesn't work in some cases, so what.
-        let res = target.control(
+        let res = target.hit(
             ControlValue::AbsoluteContinuous(value),
             create_control_context(
                 feedback_output,

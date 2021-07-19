@@ -46,7 +46,7 @@ impl RealearnTarget for SelectedTrackTarget {
         }
     }
 
-    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         let track_index = match value.to_absolute_value()? {
             AbsoluteValue::Continuous(v) => convert_unit_value_to_track_index(self.project, v),
             AbsoluteValue::Discrete(f) => {

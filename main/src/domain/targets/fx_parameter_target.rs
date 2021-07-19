@@ -81,7 +81,7 @@ impl RealearnTarget for FxParameterTarget {
             .unwrap_or_else(|_| self.format_value_generic(value))
     }
 
-    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         // It's okay to just convert this to a REAPER-normalized value. We don't support
         // values above the maximum (or buggy plug-ins).
         let v = ReaperNormalizedFxParamValue::new(value.to_unit_value()?.get());

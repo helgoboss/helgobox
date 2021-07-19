@@ -455,7 +455,7 @@ impl MainMapping {
                 Some(HitTarget(v)) => {
                     at_least_one_target_was_reached = true;
                     // Be graceful here. Don't debug-log errors for now because this is polled.
-                    let _ = target.control(v, context);
+                    let _ = target.hit(v, context);
                     // Echo feedback, send feedback after control ... all of that is not important when
                     // firing triggered by a timer.
                     if should_send_non_auto_feedback_after_control(
@@ -584,7 +584,7 @@ impl MainMapping {
                         self.core.time_of_last_control = Some(Instant::now());
                     }
                     // Be graceful here.
-                    if let Err(msg) = target.control(v, context) {
+                    if let Err(msg) = target.hit(v, context) {
                         slog::debug!(logger, "Control failed: {}", msg);
                     }
                     if should_send_non_auto_feedback_after_control(
@@ -1293,14 +1293,10 @@ impl RealearnTarget for CompoundMappingTarget {
         }
     }
 
-    fn control(
-        &mut self,
-        value: ControlValue,
-        context: ControlContext,
-    ) -> Result<(), &'static str> {
+    fn hit(&mut self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.control(value, context),
+            Reaper(t) => t.hit(value, context),
             Virtual(_) => Err("not supported for virtual targets"),
         }
     }

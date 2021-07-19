@@ -45,7 +45,7 @@ impl RealearnTarget for FxPresetTarget {
         }
     }
 
-    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         let preset_index = match value.to_absolute_value()? {
             AbsoluteValue::Continuous(v) => convert_unit_value_to_preset_index(&self.fx, v),
             AbsoluteValue::Discrete(f) => {

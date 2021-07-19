@@ -73,11 +73,7 @@ impl RealearnTarget for OscSendTarget {
         }
     }
 
-    fn control(
-        &mut self,
-        value: ControlValue,
-        context: ControlContext,
-    ) -> Result<(), &'static str> {
+    fn hit(&mut self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
         let value = value.to_unit_value()?;
         let msg = OscMessage {
             addr: self.address_pattern.clone(),

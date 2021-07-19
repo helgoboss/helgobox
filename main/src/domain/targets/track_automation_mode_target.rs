@@ -33,7 +33,7 @@ impl RealearnTarget for TrackAutomationModeTarget {
         format_value_as_on_off(value).to_string()
     }
 
-    fn control(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
         if value.to_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| {
                 t.set_automation_mode(self.mode)
