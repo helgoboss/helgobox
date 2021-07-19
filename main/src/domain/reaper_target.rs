@@ -295,7 +295,7 @@ impl ReaperTarget {
             .merge(rx.hardware_output_send_count_changed().map_to(()))
     }
 
-    pub fn is_potential_static_change_event(evt: &ChangeEvent) -> bool {
+    pub fn is_potential_change_event(evt: &ChangeEvent) -> bool {
         use ChangeEvent::*;
         matches!(
             evt,
@@ -312,6 +312,7 @@ impl ReaperTarget {
                 | ReceiveCountChanged(_)
                 | TrackSendCountChanged(_)
                 | HardwareOutputSendCountChanged(_)
+                | TrackSelectedChanged(_)
         )
     }
 
@@ -328,11 +329,6 @@ impl ReaperTarget {
     ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         let rx = Global::control_surface_rx();
         rx.track_selected_changed().map_to(())
-    }
-
-    pub fn is_potential_dynamic_change_event(evt: &ChangeEvent) -> bool {
-        use ChangeEvent::*;
-        matches!(evt, TrackSelectedChanged(_))
     }
 
     /// This is eventually going to replace Rx (touched method), at least for domain layer.

@@ -1092,9 +1092,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn process_control_surface_change_event(&self, event: &ChangeEvent) {
-        if ReaperTarget::is_potential_static_change_event(event)
-            || ReaperTarget::is_potential_dynamic_change_event(event)
-        {
+        if ReaperTarget::is_potential_change_event(event) {
             // Handle dynamic target changes and target activation depending on REAPER state.
             //
             // Whenever anything changes that just affects the main processor targets, resync all

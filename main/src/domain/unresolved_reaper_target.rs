@@ -534,13 +534,13 @@ impl UnresolvedReaperTarget {
     }
 
     /// Should return true if the target should be refreshed (reresolved) on changes such as track
-    /// selection etc. (search for "is_potential_static_change_event" and
-    /// "is_potential_dynamic_change_event"). If in doubt or too lazy to make a distinction
-    /// depending on the selector, better return true! It has effect on two things:
-    /// - Performance: Not refreshing is cheaper (but resolving is generally fast so this shouldn't
-    ///   matter)
-    /// - Target state: If the resolved target contains state, it's going to be disappear when
-    ///   the target is resolved again. Might matter for some targets.
+    /// selection etc. (see [`ReaperTarget::is_potential_change_event`]). If in doubt or too lazy to
+    /// make a distinction depending on the selector, better return true! This makes sure things
+    /// stay up-to-date. Doing an unnecessary refreshment can have the following effects:
+    /// - Slightly reduce performance: Not refreshing is of course cheaper (but resolving is
+    ///   generally fast so this shouldn't matter)
+    /// - Removes target state: If the resolved target contains state, it's going to be disappear
+    ///   when the target is resolved again. Matter for some targets (but usually not).
     pub fn can_be_affected_by_change_events(&self) -> bool {
         use UnresolvedReaperTarget::*;
         match self {
