@@ -17,11 +17,12 @@ use helgoboss_learn::{
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use indexmap::map::IndexMap;
+use indexmap::set::IndexSet;
 use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
-use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::fmt;
 use std::fmt::Display;
@@ -1619,5 +1620,5 @@ fn target_is_effectively_active(
     }
 }
 
-pub type OrderedMappingMap<T> = HashMap<MappingId, T>;
-pub type OrderedMappingIdSet = HashSet<MappingId>;
+pub type OrderedMappingMap<T> = IndexMap<MappingId, T>;
+pub type OrderedMappingIdSet = IndexSet<MappingId>;

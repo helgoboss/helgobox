@@ -1,9 +1,9 @@
 use crate::domain::{
     CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId, MidiSource,
-    OrderedMappingIdSet, ParameterArray, ProjectionFeedbackValue, ReaperSource,
-    SourceFeedbackValue,
+    ParameterArray, ProjectionFeedbackValue, ReaperSource, SourceFeedbackValue,
 };
 use helgoboss_learn::{AbsoluteValue, OscSource};
+use std::collections::HashSet;
 use std::fmt::Debug;
 
 /// An event which is sent to upper layers and processed there
@@ -13,7 +13,7 @@ pub enum DomainEvent<'a> {
         source: RealSource,
         allow_virtual_sources: bool,
     },
-    UpdatedOnMappings(OrderedMappingIdSet),
+    UpdatedOnMappings(HashSet<MappingId>),
     UpdatedParameter {
         index: u32,
         value: f32,

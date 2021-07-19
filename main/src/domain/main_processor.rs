@@ -396,7 +396,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         for compartment in MappingCompartment::enum_iter() {
             for mapping_id in self.collections.milli_dependent_feedback_mappings[compartment].iter()
             {
-                if let Some(m) = self.collections.mappings[compartment].get(&mapping_id) {
+                if let Some(m) = self.collections.mappings[compartment].get(mapping_id) {
                     let previous_target_values = &mut self.collections.previous_target_values;
                     let control_context = self.basics.control_context();
                     self.basics
@@ -473,7 +473,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         for mapping_id in
                             self.collections.beat_dependent_feedback_mappings[compartment].iter()
                         {
-                            if let Some(m) = self.collections.mappings[compartment].get(&mapping_id)
+                            if let Some(m) = self.collections.mappings[compartment].get(mapping_id)
                             {
                                 self.process_feedback_related_reaper_event_for_mapping(
                                     compartment,
@@ -520,29 +520,29 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             for mapping_id in self.collections.target_touch_dependent_mappings[compartment].iter() {
                 // Virtual targets are not candidates for "Last touched" so we don't
                 // need to consider them here.
-                let fb =
-                    if let Some(m) = self.collections.mappings[compartment].get_mut(&mapping_id) {
-                        // We don't need to track activation updates because this target
-                        // is always on. Switching off is not necessary since the last
-                        // touched target can never be "unset".
-                        m.refresh_target(ExtendedProcessorContext::new(
-                            &self.basics.context,
-                            &self.collections.parameters,
-                        ));
-                        if m.has_reaper_target() && m.has_resolved_successfully() {
-                            if m.feedback_is_effectively_on() {
-                                // TODO-medium Is this executed too frequently and maybe
-                                // even sends redundant feedback!?
-                                m.feedback(true, self.basics.control_context())
-                            } else {
-                                None
-                            }
+                let fb = if let Some(m) = self.collections.mappings[compartment].get_mut(mapping_id)
+                {
+                    // We don't need to track activation updates because this target
+                    // is always on. Switching off is not necessary since the last
+                    // touched target can never be "unset".
+                    m.refresh_target(ExtendedProcessorContext::new(
+                        &self.basics.context,
+                        &self.collections.parameters,
+                    ));
+                    if m.has_reaper_target() && m.has_resolved_successfully() {
+                        if m.feedback_is_effectively_on() {
+                            // TODO-medium Is this executed too frequently and maybe
+                            // even sends redundant feedback!?
+                            m.feedback(true, self.basics.control_context())
                         } else {
                             None
                         }
                     } else {
                         None
-                    };
+                    }
+                } else {
+                    None
+                };
                 self.send_feedback(FeedbackReason::Normal, fb);
             }
         }
@@ -1072,7 +1072,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 for mapping_id in
                     self.collections.beat_dependent_feedback_mappings[compartment].iter()
                 {
-                    if let Some(m) = self.collections.mappings[compartment].get(&mapping_id) {
+                    if let Some(m) = self.collections.mappings[compartment].get(mapping_id) {
                         self.process_feedback_related_reaper_event_for_mapping(
                             compartment,
                             m,
@@ -1703,32 +1703,35 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if mapping.needs_refresh_when_target_touched() {
             self.collections.target_touch_dependent_mappings[compartment].insert(mapping.id());
         } else {
-            self.collections.target_touch_dependent_mappings[compartment].remove(&mapping.id());
+            self.collections.target_touch_dependent_mappings[compartment]
+                .shift_remove(&mapping.id());
         }
         let influence = mapping.feedback_resolution();
         if influence == Some(FeedbackResolution::Beat) {
             self.collections.beat_dependent_feedback_mappings[compartment].insert(mapping.id());
         } else {
-            self.collections.beat_dependent_feedback_mappings[compartment].remove(&mapping.id());
+            self.collections.beat_dependent_feedback_mappings[compartment]
+                .shift_remove(&mapping.id());
         }
         if influence == Some(FeedbackResolution::High) {
             self.collections.milli_dependent_feedback_mappings[compartment].insert(mapping.id());
         } else {
-            self.collections.milli_dependent_feedback_mappings[compartment].remove(&mapping.id());
+            self.collections.milli_dependent_feedback_mappings[compartment]
+                .shift_remove(&mapping.id());
             self.collections.previous_target_values[compartment].remove(&mapping.id());
         }
         if mapping.wants_to_be_polled_for_control() {
             self.poll_control_mappings[compartment].insert(mapping.id());
         } else {
-            self.poll_control_mappings[compartment].remove(&mapping.id());
+            self.poll_control_mappings[compartment].shift_remove(&mapping.id());
         }
         let relevant_map = if mapping.has_virtual_target() {
-            self.collections.mappings[compartment].remove(&mapping.id());
+            self.collections.mappings[compartment].shift_remove(&mapping.id());
             &mut self.collections.mappings_with_virtual_targets
         } else {
             self.collections
                 .mappings_with_virtual_targets
-                .remove(&mapping.id());
+                .shift_remove(&mapping.id());
             &mut self.collections.mappings[compartment]
         };
         relevant_map.insert(mapping.id(), *mapping);

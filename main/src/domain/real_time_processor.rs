@@ -14,7 +14,6 @@ use helgoboss_midi::{
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{Hz, MidiInputDeviceId, MidiOutputDeviceId, SendMidiTime};
 use slog::{debug, trace};
-use std::collections::HashMap;
 
 use crate::base::Global;
 use assert_no_alloc::permit_alloc;
@@ -84,8 +83,8 @@ impl RealTimeProcessor {
             normal_main_task_sender,
             control_main_task_sender,
             mappings: enum_map! {
-                ControllerMappings => HashMap::with_capacity(1000),
-                MainMappings => HashMap::with_capacity(5000),
+                ControllerMappings => ordered_map_with_capacity(1000),
+                MainMappings => ordered_map_with_capacity(5000),
             },
             let_matched_events_through: false,
             let_unmatched_events_through: false,
@@ -213,11 +212,12 @@ impl RealTimeProcessor {
                         );
                     }
                     // Clear existing mappings (without deallocating)
-                    for (_, m) in self.mappings[compartment].drain() {
+                    for (_, m) in self.mappings[compartment].drain(..) {
                         self.garbage_bin.dispose_real_time_mapping(m);
                     }
                     // Set
-                    self.mappings[compartment].extend(mappings.drain(..).map(|m| (m.id(), m)));
+                    let drained_mappings = mappings.drain(..).map(|m| (m.id(), m));
+                    self.mappings[compartment].extend(drained_mappings);
                     self.garbage_bin
                         .dispose(Garbage::RealTimeMappings(mappings));
                     // Handle activation MIDI
@@ -1410,4 +1410,13 @@ fn send_raw_midi_to_fx_output(data: &RawMidiEvent, offset: SampleOffset, caller:
     let event = build_sysex_midi_vst_event(data.bytes(), offset);
     let events = build_vst_events(&event as *const _ as _);
     host.process_events(&events);
+}
+
+fn ordered_map_with_capacity<T>(cap: usize) -> OrderedMappingMap<T> {
+    let mut map = OrderedMappingMap::with_capacity(cap);
+    // This is a workaround for an indexmap bug which allocates space for entries on the
+    // first extend/reserve call although it should have been done already when creating
+    // it via with_capacity. Remember: We must not allocate in real-time thread!
+    map.reserve(0);
+    map
 }
