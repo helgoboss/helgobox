@@ -898,7 +898,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let real_time_mappings = mappings
             .iter_mut()
             .map(|m| {
-                m.refresh_all(ExtendedProcessorContext::new(
+                m.init_target_and_activation(ExtendedProcessorContext::new(
                     &self.basics.context,
                     &self.collections.parameters,
                 ));
@@ -1613,7 +1613,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             mapping.id()
         );
         // Refresh
-        mapping.refresh_all(ExtendedProcessorContext::new(
+        mapping.init_target_and_activation(ExtendedProcessorContext::new(
             &self.basics.context,
             &self.collections.parameters,
         ));

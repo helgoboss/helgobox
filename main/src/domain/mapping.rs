@@ -312,9 +312,27 @@ impl MainMapping {
         Some(update)
     }
 
-    pub fn refresh_all(&mut self, context: ExtendedProcessorContext) {
-        self.refresh_target(context);
+    pub fn init_target_and_activation(&mut self, context: ExtendedProcessorContext) {
+        let (targets, is_active) = self.resolve_target(context);
+        self.targets = targets;
+        self.core.options.target_is_active = is_active;
         self.update_activation(&context.params());
+    }
+
+    fn resolve_target(
+        &self,
+        context: ExtendedProcessorContext,
+    ) -> (Vec<CompoundMappingTarget>, bool) {
+        match self.unresolved_target.as_ref() {
+            None => (vec![], false),
+            Some(t) => match t.resolve(context, self.core.compartment).ok() {
+                None => (vec![], false),
+                Some(resolved_targets) => {
+                    let met = t.conditions_are_met(&resolved_targets);
+                    (resolved_targets, met)
+                }
+            },
+        }
     }
 
     pub fn needs_refresh_when_target_touched(&self) -> bool {
@@ -336,23 +354,14 @@ impl MainMapping {
         self.core.mode.wants_to_be_polled()
     }
 
-    /// The boolean tells if the resolved target changed in some way, the activation change says if
-    /// activation changed from off to on or on to off.
+    /// The boolean return value tells if the resolved target changed in some way, the activation
+    /// change says if activation changed from off to on or on to off.
     pub fn refresh_target(
         &mut self,
         context: ExtendedProcessorContext,
     ) -> (bool, Option<ActivationChange>) {
         let was_effectively_active_before = self.target_is_effectively_active();
-        let (targets, is_active) = match self.unresolved_target.as_ref() {
-            None => (vec![], false),
-            Some(t) => match t.resolve(context, self.core.compartment).ok() {
-                None => (vec![], false),
-                Some(resolved_targets) => {
-                    let met = t.conditions_are_met(&resolved_targets);
-                    (resolved_targets, met)
-                }
-            },
-        };
+        let (targets, is_active) = self.resolve_target(context);
         let target_changed = targets != self.targets;
         self.targets = targets;
         self.core.options.target_is_active = is_active;
