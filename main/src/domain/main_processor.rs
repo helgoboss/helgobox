@@ -1973,10 +1973,10 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     let context = self.control_context();
                     if let Some(reference_value) = m.current_aggregated_target_value(context) {
                         let normalized_target_value = reference_value.normalize(
-                            &m.mode().target_value_interval,
-                            &m.mode().discrete_target_value_interval,
+                            &m.mode().settings().target_value_interval,
+                            &m.mode().settings().discrete_target_value_interval,
                             MinIsMaxBehavior::PreferOne,
-                            m.mode().use_discrete_processing,
+                            m.mode().settings().use_discrete_processing,
                             BASE_EPSILON,
                         );
                         let inverse = m.group_interaction() == InverseTargetValue;

@@ -554,15 +554,17 @@ impl MainMapping {
                 let control_type = target.control_type();
                 // This is very similar to the mode logic, but just a small subset.
                 if inverse {
-                    let normalized_max = control_type
-                        .discrete_max()
-                        .map(|m| mode.discrete_target_value_interval.normalize_to_min(m));
+                    let normalized_max = control_type.discrete_max().map(|m| {
+                        mode.settings()
+                            .discrete_target_value_interval
+                            .normalize_to_min(m)
+                    });
                     v = v.inverse(normalized_max);
                 }
                 v = v.denormalize(
-                    &mode.target_value_interval,
-                    &mode.discrete_target_value_interval,
-                    mode.use_discrete_processing,
+                    &mode.settings().target_value_interval,
+                    &mode.settings().discrete_target_value_interval,
+                    mode.settings().use_discrete_processing,
                     control_type.discrete_max(),
                 );
                 Some(ModeControlResult::HitTarget(ControlValue::from_absolute(v)))
@@ -967,7 +969,7 @@ impl MappingCore {
 
     fn mode_control_options(&self) -> ModeControlOptions {
         ModeControlOptions {
-            enforce_rotate: self.mode.rotate,
+            enforce_rotate: self.mode.settings().rotate,
         }
     }
 }

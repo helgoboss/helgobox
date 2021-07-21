@@ -664,12 +664,9 @@ impl GarbageBin {
         // enum size get too large.
         self.dispose(Garbage::LifecycleMidiData(m.lifecycle_midi_data));
         self.dispose(Garbage::ResolvedTarget(m.resolved_target));
-        self.dispose(Garbage::EelTransformation(
-            m.core.mode.control_transformation,
-        ));
-        self.dispose(Garbage::EelTransformation(
-            m.core.mode.feedback_transformation,
-        ));
+        let settings = m.core.mode.into_settings();
+        self.dispose(Garbage::EelTransformation(settings.control_transformation));
+        self.dispose(Garbage::EelTransformation(settings.feedback_transformation));
         self.dispose(Garbage::MappingSource(m.core.source));
     }
 }

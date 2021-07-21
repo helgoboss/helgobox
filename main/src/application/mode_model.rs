@@ -4,8 +4,8 @@ use crate::domain::{EelTransformation, Mode, OutputVariable};
 use helgoboss_learn::{
     check_mode_applicability, full_discrete_interval, full_unit_interval, AbsoluteMode,
     ButtonUsage, DetailedSourceCharacter, DiscreteIncrement, EncoderUsage, FireMode,
-    GroupInteraction, Interval, ModeApplicabilityCheckInput, ModeParameter, OutOfRangeBehavior,
-    PressDurationProcessor, SoftSymmetricUnitValue, TakeoverMode, UnitValue,
+    GroupInteraction, Interval, ModeApplicabilityCheckInput, ModeParameter, ModeSettings,
+    OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue,
 };
 
 use rxrust::prelude::*;
@@ -197,7 +197,7 @@ impl ModeModel {
             is_relevant(ModeParameter::StepSizeMax) || is_relevant(ModeParameter::SpeedMax);
         let min_step_count = convert_to_step_count(self.step_interval.get_ref().min_val());
         let min_step_size = self.step_interval.get_ref().min_val().abs();
-        Mode {
+        Mode::new(ModeSettings {
             absolute_mode: if is_relevant(ModeParameter::AbsoluteMode) {
                 self.r#type.get()
             } else {
@@ -252,15 +252,13 @@ impl ModeModel {
             } else {
                 full_discrete_interval()
             },
-            press_duration_processor: PressDurationProcessor::new(
-                if is_relevant(ModeParameter::FireMode) {
-                    self.fire_mode.get()
-                } else {
-                    FireMode::default()
-                },
-                self.press_duration_interval.get(),
-                self.turbo_rate.get(),
-            ),
+            fire_mode: if is_relevant(ModeParameter::FireMode) {
+                self.fire_mode.get()
+            } else {
+                FireMode::default()
+            },
+            press_duration_interval: self.press_duration_interval.get(),
+            turbo_rate: self.turbo_rate.get(),
             takeover_mode: if is_relevant(ModeParameter::TakeoverMode) {
                 self.takeover_mode.get()
             } else {
@@ -286,7 +284,6 @@ impl ModeModel {
             } else {
                 false
             },
-            increment_counter: 0,
             round_target_value: if is_relevant(ModeParameter::RoundTargetValue) {
                 self.round_target_value.get()
             } else {
@@ -320,13 +317,9 @@ impl ModeModel {
             } else {
                 false
             },
-            current_absolute_value: UnitValue::MIN,
-            discrete_current_absolute_value: 0,
-            previous_absolute_control_value: None,
-            discrete_previous_absolute_control_value: None,
             // TODO-high-discrete Use discrete IF both source and target support it AND enabled
             use_discrete_processing: false,
-        }
+        })
     }
 }
 
