@@ -4,9 +4,10 @@ use crate::application::{
 };
 use crate::base::{prop, Prop};
 use crate::domain::{
-    ActivationCondition, CompoundMappingTarget, ExtendedProcessorContext, ExtendedSourceCharacter,
-    FeedbackSendBehavior, GroupId, MainMapping, MappingCompartment, MappingId,
-    ProcessorMappingOptions, QualifiedMappingId, RealearnTarget, ReaperTarget, TargetCharacter,
+    ActivationCondition, CompoundMappingSource, CompoundMappingTarget, ExtendedProcessorContext,
+    ExtendedSourceCharacter, FeedbackSendBehavior, GroupId, MainMapping, MappingCompartment,
+    MappingId, Mode, ProcessorMappingOptions, QualifiedMappingId, RealearnTarget, ReaperTarget,
+    TargetCharacter, UnresolvedCompoundMappingTarget,
 };
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
@@ -262,17 +263,29 @@ impl MappingModel {
         )
     }
 
+    fn create_source(&self) -> CompoundMappingSource {
+        self.source_model.create_source()
+    }
+
+    fn create_mode(&self) -> Mode {
+        let possible_source_characters = self.source_model.possible_detailed_characters();
+        self.mode_model.create_mode(
+            self.base_mode_applicability_check_input(),
+            &possible_source_characters,
+        )
+    }
+
+    fn create_target(&self) -> Option<UnresolvedCompoundMappingTarget> {
+        self.target_model.create_target().ok()
+    }
+
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
     pub fn create_main_mapping(&self, group_data: GroupData) -> MainMapping {
         let id = self.id;
-        let source = self.source_model.create_source();
-        let possible_source_characters = self.source_model.possible_detailed_characters();
-        let mode = self.mode_model.create_mode(
-            self.base_mode_applicability_check_input(),
-            &possible_source_characters,
-        );
-        let unresolved_target = self.target_model.create_target().ok();
+        let source = self.create_source();
+        let mode = self.create_mode();
+        let unresolved_target = self.create_target();
         let activation_condition = self
             .activation_condition_model
             .create_activation_condition();
@@ -395,9 +408,14 @@ impl<'a> MappingModelWithContext<'a> {
     }
 
     pub fn uses_step_counts(&self) -> bool {
-        if self.mapping.mode_model.make_absolute.get() {
+        let mode = self.mapping.create_mode();
+        if mode.settings().convert_relative_to_absolute {
             // If we convert increments to absolute values, we want step sizes of course.
             return false;
+        }
+        if !mode.settings().target_value_sequence.is_empty() {
+            // If we have a target value sequence, we are discrete all the way!
+            return true;
         }
         let target = match self.target_with_context().resolve_first().ok() {
             None => return false,
