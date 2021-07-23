@@ -9,7 +9,7 @@ use helgoboss_learn::{
     check_mode_applicability, AbsoluteMode, AbsoluteValue, ButtonUsage, ControlValue,
     DetailedSourceCharacter, EncoderUsage, FireMode, GroupInteraction, MidiClockTransportMessage,
     ModeApplicabilityCheckInput, ModeParameter, OscTypeTag, OutOfRangeBehavior,
-    SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
+    SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue, ValueSequence,
 };
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use reaper_high::{
@@ -1288,6 +1288,25 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
+    fn update_mode_target_value_sequence(&mut self) {
+        self.update_mode_hint(ModeParameter::TargetValueSequence);
+        let text = self
+            .view
+            .require_control(root::ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL)
+            .text()
+            .unwrap_or_else(|_| "".to_string());
+        let sequence = if let Some(t) = self.first_resolved_target() {
+            ValueSequence::parse(&t, &text)
+        } else {
+            text.parse()
+        };
+        let sequence = sequence.unwrap_or_default();
+        self.mapping
+            .mode_model
+            .target_value_sequence
+            .set_with_initiator(sequence, Some(root::ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL));
+    }
+
     fn update_mode_eel_control_transformation(&mut self) {
         self.update_mode_hint(ModeParameter::ControlTransformation);
         let value = self
@@ -2240,6 +2259,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             source_character,
             absolute_mode: self.mapping.mode_model.r#type.get(),
             mode_parameter,
+            target_value_sequence_is_set: !self
+                .mapping
+                .mode_model
+                .target_value_sequence
+                .get_ref()
+                .is_empty(),
         };
         let control = ModeApplicabilityCheckInput {
             is_feedback: false,
@@ -3976,6 +4001,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_button_usage_combo_box();
         self.invalidate_mode_encoder_usage_combo_box();
         self.invalidate_mode_reverse_check_box();
+        self.invalidate_mode_target_value_sequence_edit_control(None);
         self.invalidate_mode_eel_control_transformation_edit_control(None);
         self.invalidate_mode_eel_feedback_transformation_edit_control(None);
     }
@@ -4057,6 +4083,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                     root::ID_MODE_GROUP_INTERACTION_COMBO_BOX,
                 ],
             );
+            let show_target_value_sequence =
+                is_relevant(ModeParameter::TargetValueSequence) && real_target.is_some();
+            self.enable_if(
+                show_target_value_sequence,
+                &[
+                    root::ID_SETTINGS_TARGET_SEQUENCE_LABEL_TEXT,
+                    root::ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL,
+                ],
+            );
             let show_target_min_max =
                 is_relevant(ModeParameter::TargetMinMax) && real_target.is_some();
             self.enable_if(
@@ -4080,14 +4115,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                     root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL,
                     root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
                 ],
-            );
-            self.enable_if(
-                show_source_min_max
-                    || show_reverse
-                    || show_out_of_range_behavior
-                    || show_target_min_max
-                    || show_feedback_transformation,
-                &[root::ID_MODE_ALL_GROUP_BOX],
             );
         }
         // For knobs/faders and buttons
@@ -4597,6 +4624,21 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_checked(self.mode.reverse.get());
     }
 
+    fn invalidate_mode_target_value_sequence_edit_control(&self, initiator: Option<u32>) {
+        if initiator == Some(root::ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL) {
+            return;
+        }
+        let sequence = self.mode.target_value_sequence.get_ref();
+        let formatted = if let Some(t) = self.first_resolved_target() {
+            sequence.displayable(&t).to_string()
+        } else {
+            sequence.to_string()
+        };
+        self.view
+            .require_control(root::ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL)
+            .set_text(formatted);
+    }
+
     fn invalidate_mode_eel_control_transformation_edit_control(&self, initiator: Option<u32>) {
         if initiator == Some(root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL) {
             return;
@@ -4899,6 +4941,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel.when(mode.reverse.changed(), |view, _| {
             view.invalidate_mode_reverse_check_box();
         });
+        self.panel.when(
+            mode.target_value_sequence.changed_with_initiator(),
+            |view, initiator| {
+                view.invalidate_mode_target_value_sequence_edit_control(initiator);
+            },
+        );
         self.panel.when(
             mode.eel_control_transformation.changed_with_initiator(),
             |view, initiator| {
@@ -5306,6 +5354,9 @@ impl View for MappingPanel {
                 view.write(|p| p.update_source_pattern());
             }
             // Mode
+            root::ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL => {
+                view.write(|p| p.update_mode_target_value_sequence());
+            }
             root::ID_MODE_EEL_CONTROL_TRANSFORMATION_EDIT_CONTROL => {
                 view.write(|p| p.update_mode_eel_control_transformation());
             }

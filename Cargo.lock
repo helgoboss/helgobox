@@ -743,12 +743,12 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.12.4"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f2c43f534ea4b0b049015d00269734195e6d3f0f6635cb692251aca6f9f8b3c"
+checksum = "757c0ded2af11d8e739c4daea1ac623dd1624b06c844cf3f5a39f1bdbd99bb12"
 dependencies = [
- "darling_core 0.12.4",
- "darling_macro 0.12.4",
+ "darling_core 0.13.0",
+ "darling_macro 0.13.0",
 ]
 
 [[package]]
@@ -767,9 +767,9 @@ dependencies = [
 
 [[package]]
 name = "darling_core"
-version = "0.12.4"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e91455b86830a1c21799d94524df0845183fa55bafd9aa137b01c7d1065fa36"
+checksum = "2c34d8efb62d0c2d7f60ece80f75e5c63c1588ba68032740494b0b9a996466e3"
 dependencies = [
  "fnv",
  "ident_case",
@@ -792,11 +792,11 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.12.4"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29b5acf0dea37a7f66f7b25d2c5e93fd46f8f6968b1a5d7a3e02e97768afc95a"
+checksum = "ade7bff147130fe5e6d39f089c6bd49ec0250f35d70b2eebf72afdfc919f15cc"
 dependencies = [
- "darling_core 0.12.4",
+ "darling_core 0.13.0",
  "quote 1.0.9",
  "syn 1.0.71",
 ]
@@ -1358,7 +1358,7 @@ dependencies = [
  "byteorder",
  "crossbeam-channel",
  "flate2",
- "nom 6.1.2",
+ "nom 6.2.1",
  "num-traits",
 ]
 
@@ -1407,6 +1407,7 @@ dependencies = [
  "helgoboss-midi",
  "lazycell",
  "logos",
+ "nom 6.2.1",
  "num",
  "num_enum 0.5.1",
  "partial-min-max",
@@ -1414,6 +1415,7 @@ dependencies = [
  "rosc",
  "serde",
  "serde_repr",
+ "serde_with",
 ]
 
 [[package]]
@@ -1987,9 +1989,9 @@ dependencies = [
 
 [[package]]
 name = "nom"
-version = "6.1.2"
+version = "6.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7413f999671bd4745a7b624bd370a569fb6bc574b23c83a3c5ed2e453f3d5e2"
+checksum = "9c5c51b9083a3c620fa67a2a635d1ce7d95b897e957d6b28ff9a5da960a103a6"
 dependencies = [
  "bitvec",
  "funty",
@@ -2753,7 +2755,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.10.0-pre.4"
+version = "2.10.0-pre.5"
 dependencies = [
  "ascii",
  "askama",
@@ -2815,7 +2817,6 @@ dependencies = [
  "serde_json",
  "serde_prometheus",
  "serde_repr",
- "serde_with",
  "serde_yaml",
  "slog",
  "slog-stdlog",
@@ -3232,9 +3233,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "1.8.1"
+version = "1.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26b0b98f61935da47683bf5c46b965ce1642ef1db78860b8a1defb68bf1b5b43"
+checksum = "1ad9fdbb69badc8916db738c25efd04f0a65297d26c2f8de4b62e57b8c12bc72"
 dependencies = [
  "rustversion",
  "serde",
@@ -3243,11 +3244,11 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "1.4.1"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e48b35457e9d855d3dc05ef32a73e0df1e2c0fd72c38796a4ee909160c8eeec2"
+checksum = "e1569374bd54623ec8bd592cf22ba6e03c0f177ff55fbc8c29a49e296e7adecf"
 dependencies = [
- "darling 0.12.4",
+ "darling 0.13.0",
  "proc-macro2 1.0.26",
  "quote 1.0.9",
  "syn 1.0.71",

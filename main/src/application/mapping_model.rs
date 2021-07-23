@@ -227,6 +227,11 @@ impl MappingModel {
             absolute_mode: self.mode_model.r#type.get(),
             // Any is okay, will be overwritten.
             mode_parameter: ModeParameter::TargetMinMax,
+            target_value_sequence_is_set: !self
+                .mode_model
+                .target_value_sequence
+                .get_ref()
+                .is_empty(),
         }
     }
 

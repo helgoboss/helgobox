@@ -7,7 +7,7 @@ use crate::domain::{
     SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
-use helgoboss_learn::{OscSource, RawMidiEvent};
+use helgoboss_learn::{ModeGarbage, OscSource, RawMidiEvent};
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware, Fx,
     FxParameter, MainTaskMiddleware, MeterMiddleware, Project, Reaper,
@@ -55,13 +55,12 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     device_change_detector: DeviceChangeDetector,
 }
 
-#[derive(Debug)]
 pub enum Garbage {
     RawMidiEvent(Box<RawMidiEvent>),
     RealTimeProcessor(SharedRealTimeProcessor),
     LifecycleMidiData(LifecycleMidiData),
     ResolvedTarget(Option<RealTimeCompoundMappingTarget>),
-    EelTransformation(Option<EelTransformation>),
+    Mode(ModeGarbage<EelTransformation>),
     MappingSource(CompoundMappingSource),
     RealTimeMappings(Vec<RealTimeMapping>),
     BoxedRealTimeMapping(Box<Option<RealTimeMapping>>),
@@ -664,9 +663,8 @@ impl GarbageBin {
         // enum size get too large.
         self.dispose(Garbage::LifecycleMidiData(m.lifecycle_midi_data));
         self.dispose(Garbage::ResolvedTarget(m.resolved_target));
-        let settings = m.core.mode.into_settings();
-        self.dispose(Garbage::EelTransformation(settings.control_transformation));
-        self.dispose(Garbage::EelTransformation(settings.feedback_transformation));
+        let mode_garbage = m.core.mode.recycle();
+        self.dispose(Garbage::Mode(mode_garbage));
         self.dispose(Garbage::MappingSource(m.core.source));
     }
 }

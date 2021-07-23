@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "2.10.0-pre.4"
+version = "2.10.0-pre.5"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -28,7 +28,7 @@ swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
 helgoboss-midi = { version = "0.2", features = ["serde", "serde_repr"] }
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
-helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_repr", "reaper-low"] }
+helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_repr", "serde_with", "reaper-low"] }
 c_str_macro = "1.0.2"
 vst = "0.2.1"
 rxrust = { git = "https://github.com/rxRust/rxRust", branch = "master" }
@@ -111,8 +111,6 @@ bytesize = "1.0.1"
 seahash = "4.1.0"
 # For OSC
 rosc = "0.5.1"
-# For being able to (de)serialize using FromStr
-serde_with = "1.6.4"
 # For letting the user edit advanced mapping settings
 edit = { git = "https://github.com/helgoboss/edit", branch = "realearn" }
 # For parsing/formatting advanced mapping settings

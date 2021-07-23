@@ -5,7 +5,7 @@ use helgoboss_learn::{
     check_mode_applicability, full_discrete_interval, full_unit_interval, AbsoluteMode,
     ButtonUsage, DetailedSourceCharacter, DiscreteIncrement, EncoderUsage, FireMode,
     GroupInteraction, Interval, ModeApplicabilityCheckInput, ModeParameter, ModeSettings,
-    OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue,
+    OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue, ValueSequence,
 };
 
 use rxrust::prelude::*;
@@ -51,6 +51,7 @@ pub struct ModeModel {
     pub rotate: Prop<bool>,
     pub make_absolute: Prop<bool>,
     pub group_interaction: Prop<GroupInteraction>,
+    pub target_value_sequence: Prop<ValueSequence>,
 }
 
 impl Default for ModeModel {
@@ -78,6 +79,7 @@ impl Default for ModeModel {
             rotate: prop(false),
             make_absolute: prop(false),
             group_interaction: prop(Default::default()),
+            target_value_sequence: prop(Default::default()),
         }
     }
 }
@@ -118,6 +120,8 @@ impl ModeModel {
         self.rotate.set(def.rotate.get());
         self.make_absolute.set(def.make_absolute.get());
         self.group_interaction.set(def.group_interaction.get());
+        self.target_value_sequence
+            .set(def.target_value_sequence.get_ref().clone());
         self.reverse.set(def.reverse.get());
         self.step_interval.set(def.step_interval.get());
         self.press_duration_interval
@@ -147,6 +151,7 @@ impl ModeModel {
             .merge(self.turbo_rate.changed())
             .merge(self.make_absolute.changed())
             .merge(self.group_interaction.changed())
+            .merge(self.target_value_sequence.changed())
     }
 
     pub fn mode_parameter_is_relevant(
@@ -247,7 +252,7 @@ impl ModeModel {
                 full_unit_interval()
             },
             discrete_jump_interval: if is_relevant(ModeParameter::JumpMinMax) {
-                // TODO-high Use dedicated discrete jump interval
+                // TODO-high-discrete Use dedicated discrete jump interval
                 full_discrete_interval()
             } else {
                 full_discrete_interval()
@@ -319,6 +324,11 @@ impl ModeModel {
             },
             // TODO-high-discrete Use discrete IF both source and target support it AND enabled
             use_discrete_processing: false,
+            target_value_sequence: if is_relevant(ModeParameter::TargetValueSequence) {
+                self.target_value_sequence.get_ref().clone()
+            } else {
+                Default::default()
+            },
         })
     }
 }

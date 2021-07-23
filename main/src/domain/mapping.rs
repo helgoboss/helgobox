@@ -13,6 +13,7 @@ use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlType,
     ControlValue, GroupInteraction, MidiSourceValue, ModeControlOptions, ModeControlResult,
     ModeFeedbackOptions, OscSource, RawMidiEvent, SourceCharacter, Target, UnitValue,
+    ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -320,7 +321,7 @@ impl MainMapping {
     }
 
     fn resolve_target(
-        &self,
+        &mut self,
         context: ExtendedProcessorContext,
     ) -> (Vec<CompoundMappingTarget>, bool) {
         match self.unresolved_target.as_ref() {
@@ -328,6 +329,9 @@ impl MainMapping {
             Some(t) => match t.resolve(context, self.core.compartment).ok() {
                 None => (vec![], false),
                 Some(resolved_targets) => {
+                    if let Some(t) = resolved_targets.first() {
+                        self.core.mode.update_from_target(t);
+                    }
                     let met = t.conditions_are_met(&resolved_targets);
                     (resolved_targets, met)
                 }
@@ -1240,6 +1244,26 @@ impl CompoundMappingTarget {
 pub enum RealTimeCompoundMappingTarget {
     Reaper(RealTimeReaperTarget),
     Virtual(VirtualTarget),
+}
+
+impl ValueFormatter for CompoundMappingTarget {
+    fn format_value(&self, value: UnitValue, f: &mut Formatter) -> fmt::Result {
+        f.write_str(&self.format_value_without_unit(value))
+    }
+
+    fn format_step(&self, value: UnitValue, f: &mut Formatter) -> fmt::Result {
+        f.write_str(&self.format_step_size_without_unit(value))
+    }
+}
+
+impl ValueParser for CompoundMappingTarget {
+    fn parse_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+        self.parse_as_value(text)
+    }
+
+    fn parse_step(&self, text: &str) -> Result<UnitValue, &'static str> {
+        self.parse_as_step_size(text)
+    }
 }
 
 impl RealearnTarget for CompoundMappingTarget {
