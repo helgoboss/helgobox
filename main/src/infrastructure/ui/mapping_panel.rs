@@ -463,6 +463,7 @@ impl MappingPanel {
                 None,
                 root::ID_TARGET_VALUE_EDIT_CONTROL,
                 true,
+                false,
             );
         });
     }
@@ -1163,7 +1164,7 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn update_mode_min_jump_from_edit_control(&mut self) {
         let value = self
-            .get_value_from_target_edit_control(root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL)
+            .get_step_size_from_target_edit_control(root::ID_SETTINGS_MIN_TARGET_JUMP_EDIT_CONTROL)
             .unwrap_or(UnitValue::MIN);
         self.mapping
             .mode_model
@@ -1176,7 +1177,7 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn update_mode_max_jump_from_edit_control(&mut self) {
         let value = self
-            .get_value_from_target_edit_control(root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL)
+            .get_step_size_from_target_edit_control(root::ID_SETTINGS_MAX_TARGET_JUMP_EDIT_CONTROL)
             .unwrap_or(UnitValue::MAX);
         self.mapping
             .mode_model
@@ -3745,6 +3746,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_TARGET_VALUE_TEXT,
             value,
             None,
+            false,
         )
     }
 
@@ -4307,6 +4309,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MIN_TARGET_VALUE_TEXT,
             AbsoluteValue::Continuous(self.mode.target_value_interval.get_ref().min_val()),
             initiator,
+            false,
         );
     }
 
@@ -4317,6 +4320,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MAX_TARGET_VALUE_TEXT,
             AbsoluteValue::Continuous(self.mode.target_value_interval.get_ref().max_val()),
             initiator,
+            false,
         );
     }
 
@@ -4327,6 +4331,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         value_text_control_id: u32,
         value: AbsoluteValue,
         initiator: Option<u32>,
+        use_step_sizes: bool,
     ) {
         invalidate_target_controls_free(
             // It's okay to use the first resolved target only because we use it solely to gather
@@ -4339,23 +4344,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             initiator,
             edit_control_id,
             false,
+            use_step_sizes,
         );
-    }
-
-    fn get_text_right_to_step_size_edit_control(
-        &self,
-        t: &CompoundMappingTarget,
-        step_size: UnitValue,
-    ) -> String {
-        if t.hide_formatted_step_size() {
-            t.step_size_unit().to_string()
-        } else {
-            format!(
-                "{}  {}",
-                t.step_size_unit(),
-                t.format_step_size_without_unit(step_size)
-            )
-        }
     }
 
     fn invalidate_mode_min_jump_controls(&self, initiator: Option<u32>) {
@@ -4365,6 +4355,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MIN_TARGET_JUMP_VALUE_TEXT,
             AbsoluteValue::Continuous(self.mode.jump_interval.get_ref().min_val()),
             initiator,
+            true,
         );
     }
 
@@ -4375,6 +4366,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             root::ID_SETTINGS_MAX_TARGET_JUMP_VALUE_TEXT,
             AbsoluteValue::Continuous(self.mode.jump_interval.get_ref().max_val()),
             initiator,
+            true,
         );
     }
 
@@ -4496,8 +4488,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     // "{size} {unit}"
                     let pos_value = value.clamp_to_positive_unit_interval();
                     let edit_text = target.format_step_size_without_unit(pos_value);
-                    let value_text =
-                        self.get_text_right_to_step_size_edit_control(target, pos_value);
+                    let value_text = get_text_right_to_step_size_edit_control(target, pos_value);
                     (
                         PositiveOrSymmetricUnitValue::Positive(pos_value),
                         edit_text,
@@ -5551,21 +5542,31 @@ fn invalidate_target_controls_free(
     initiator: Option<u32>,
     edit_control_id: u32,
     set_text_only_if_edit_control_not_focused: bool,
+    use_step_sizes: bool,
 ) {
     // TODO-high-discrete Handle discrete value in a better way.
     let value = value.to_unit_value();
     let (edit_text, value_text) = match real_target {
         Some(target) => {
-            let edit_text = if target.character() == TargetCharacter::Discrete {
-                target
+            if target.character() == TargetCharacter::Discrete {
+                let edit_text = target
                     .convert_unit_value_to_discrete_value(value)
                     .map(|v| v.to_string())
-                    .unwrap_or_else(|_| "".to_string())
+                    .unwrap_or_else(|_| "".to_string());
+                (edit_text, "".to_string())
             } else {
-                target.format_value_without_unit(value)
-            };
-            let value_text = get_text_right_to_target_edit_control(&target, value);
-            (edit_text, value_text)
+                let edit_text = if use_step_sizes {
+                    target.format_step_size_without_unit(value)
+                } else {
+                    target.format_value_without_unit(value)
+                };
+                let value_text = if use_step_sizes {
+                    get_text_right_to_step_size_edit_control(&target, value)
+                } else {
+                    get_text_right_to_target_edit_control(&target, value)
+                };
+                (edit_text, value_text)
+            }
         }
         None => ("".to_string(), "".to_string()),
     };
@@ -5587,6 +5588,21 @@ fn get_text_right_to_target_edit_control(t: &CompoundMappingTarget, value: UnitV
         t.format_value(value)
     } else {
         format!("{}  {}", t.value_unit(), t.format_value(value))
+    }
+}
+
+fn get_text_right_to_step_size_edit_control(
+    t: &CompoundMappingTarget,
+    step_size: UnitValue,
+) -> String {
+    if t.hide_formatted_step_size() {
+        t.step_size_unit().to_string()
+    } else {
+        format!(
+            "{}  {}",
+            t.step_size_unit(),
+            t.format_step_size_without_unit(step_size)
+        )
     }
 }
 
