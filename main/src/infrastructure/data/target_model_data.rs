@@ -5,7 +5,7 @@ use reaper_high::{BookmarkType, Fx, Guid, Reaper};
 use crate::application::{
     AutomationModeOverrideType, BookmarkAnchorType, FxParameterPropValues, FxPropValues,
     FxSnapshot, RealearnAutomationMode, RealearnTrackArea, ReaperTargetType, TargetCategory,
-    TargetModel, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
+    TargetModel, TargetUnit, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
     VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_some_default};
@@ -27,6 +27,8 @@ use std::convert::TryInto;
 pub struct TargetModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub category: TargetCategory,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub unit: TargetUnit,
     // reaper_type would be a better name but we need backwards compatibility
     #[serde(default, skip_serializing_if = "is_default")]
     pub r#type: ReaperTargetType,
@@ -125,6 +127,7 @@ impl TargetModelData {
     pub fn from_model(model: &TargetModel) -> Self {
         Self {
             category: model.category.get(),
+            unit: model.unit.get(),
             r#type: model.r#type.get(),
             command_name: model
                 .action
@@ -203,6 +206,9 @@ impl TargetModelData {
         model
             .category
             .set_with_optional_notification(final_category, with_notification);
+        model
+            .unit
+            .set_with_optional_notification(self.unit, with_notification);
         model
             .r#type
             .set_with_optional_notification(self.r#type, with_notification);

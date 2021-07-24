@@ -6,10 +6,11 @@ use crate::infrastructure::ui::{
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    check_mode_applicability, AbsoluteMode, AbsoluteValue, ButtonUsage, ControlValue,
-    DetailedSourceCharacter, EncoderUsage, FireMode, GroupInteraction, MidiClockTransportMessage,
-    ModeApplicabilityCheckInput, ModeParameter, OscTypeTag, OutOfRangeBehavior,
-    SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue, ValueSequence,
+    check_mode_applicability, format_percentage_without_unit, AbsoluteMode, AbsoluteValue,
+    ButtonUsage, ControlValue, DetailedSourceCharacter, EncoderUsage, FireMode, GroupInteraction,
+    MidiClockTransportMessage, ModeApplicabilityCheckInput, ModeParameter, OscTypeTag,
+    OutOfRangeBehavior, PercentIo, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target,
+    UnitValue, ValueSequence,
 };
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use reaper_high::{
@@ -32,7 +33,7 @@ use crate::application::{
     AutomationModeOverrideType, BookmarkAnchorType, MappingModel, MidiSourceType, ModeModel,
     RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, ReaperTargetType, Session,
     SharedMapping, SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
-    TargetModelWithContext, TrackRouteSelectorType, VirtualControlElementType,
+    TargetModelWithContext, TargetUnit, TrackRouteSelectorType, VirtualControlElementType,
     VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
 };
 use crate::base::Global;
@@ -50,6 +51,7 @@ use crate::domain::{
 };
 use itertools::Itertools;
 
+use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::ui::util::open_in_browser;
 use std::collections::HashMap;
@@ -464,6 +466,9 @@ impl MappingPanel {
                 root::ID_TARGET_VALUE_EDIT_CONTROL,
                 true,
                 false,
+                self.displayed_mapping()
+                    .map(|m| m.borrow().target_model.unit.get())
+                    .unwrap_or_default(),
             );
         });
     }
@@ -1140,13 +1145,19 @@ impl<'a> MutableMappingPanel<'a> {
     fn get_value_from_target_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
         let target = self.first_resolved_target()?;
         let text = self.view.require_control(edit_control_id).text().ok()?;
-        target.parse_as_value(text.as_str()).ok()
+        match self.mapping.target_model.unit.get() {
+            TargetUnit::Native => target.parse_as_value(text.as_str()).ok(),
+            TargetUnit::Percent => parse_unit_value_from_percentage(&text).ok(),
+        }
     }
 
     fn get_step_size_from_target_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
         let target = self.first_resolved_target()?;
         let text = self.view.require_control(edit_control_id).text().ok()?;
-        target.parse_as_step_size(text.as_str()).ok()
+        match self.mapping.target_model.unit.get() {
+            TargetUnit::Native => target.parse_as_step_size(text.as_str()).ok(),
+            TargetUnit::Percent => parse_unit_value_from_percentage(&text).ok(),
+        }
     }
 
     fn update_mode_max_target_value_from_edit_control(&mut self) {
@@ -1296,10 +1307,15 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL)
             .text()
             .unwrap_or_else(|_| "".to_string());
-        let sequence = if let Some(t) = self.first_resolved_target() {
-            ValueSequence::parse(&t, &text)
-        } else {
-            text.parse()
+        let sequence = match self.mapping.target_model.unit.get() {
+            TargetUnit::Native => {
+                if let Some(t) = self.first_resolved_target() {
+                    ValueSequence::parse(&t, &text)
+                } else {
+                    ValueSequence::parse(&PercentIo, &text)
+                }
+            }
+            TargetUnit::Percent => ValueSequence::parse(&PercentIo, &text),
         };
         let sequence = sequence.unwrap_or_default();
         self.mapping
@@ -1602,6 +1618,15 @@ impl<'a> MutableMappingPanel<'a> {
             },
             TargetCategory::Virtual => {}
         }
+    }
+
+    fn handle_target_unit_button_press(&mut self) {
+        use TargetUnit::*;
+        let next_unit = match self.mapping.target_model.unit.get() {
+            Native => Percent,
+            Percent => Native,
+        };
+        self.mapping.target_model.unit.set(next_unit);
     }
 
     fn update_target_category(&mut self) {
@@ -3731,6 +3756,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 root::ID_TARGET_VALUE_LABEL_TEXT,
                 root::ID_TARGET_VALUE_SLIDER_CONTROL,
                 root::ID_TARGET_VALUE_EDIT_CONTROL,
+                root::ID_TARGET_UNIT_BUTTON,
             ],
         );
         value_text.set_enabled(error.is_none());
@@ -3747,7 +3773,33 @@ impl<'a> ImmutableMappingPanel<'a> {
             value,
             None,
             false,
-        )
+        );
+        self.invalidate_target_unit_button();
+    }
+
+    fn invalidate_target_unit_button(&self) {
+        let unit = self.mapping.target_model.unit.get();
+        let (value_unit, step_size_unit) = match unit {
+            TargetUnit::Native => self
+                .first_resolved_target()
+                .map(|t| {
+                    let vu = t.value_unit();
+                    let vu = if vu.is_empty() { None } else { Some(vu) };
+                    let su = t.step_size_unit();
+                    let su = if su.is_empty() { None } else { Some(su) };
+                    (vu, su)
+                })
+                .unwrap_or((None, None)),
+            TargetUnit::Percent => (Some("%"), Some("%")),
+        };
+        let text = format!(
+            "{} ({})",
+            value_unit.unwrap_or("-"),
+            step_size_unit.unwrap_or("-")
+        );
+        self.view
+            .require_control(root::ID_TARGET_UNIT_BUTTON)
+            .set_text(text);
     }
 
     fn invalidate_target_learn_button(&self) {
@@ -4345,6 +4397,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             edit_control_id,
             false,
             use_step_sizes,
+            self.target.unit.get(),
         );
     }
 
@@ -4620,10 +4673,15 @@ impl<'a> ImmutableMappingPanel<'a> {
             return;
         }
         let sequence = self.mode.target_value_sequence.get_ref();
-        let formatted = if let Some(t) = self.first_resolved_target() {
-            sequence.displayable(&t).to_string()
-        } else {
-            sequence.to_string()
+        let formatted = match self.target.unit.get() {
+            TargetUnit::Native => {
+                if let Some(t) = self.first_resolved_target() {
+                    sequence.displayable(&t).to_string()
+                } else {
+                    sequence.displayable(&PercentIo).to_string()
+                }
+            }
+            TargetUnit::Percent => sequence.displayable(&PercentIo).to_string(),
         };
         self.view
             .require_control(root::ID_MODE_TARGET_SEQUENCE_EDIT_CONTROL)
@@ -4663,6 +4721,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_help();
             },
         );
+        self.panel.when(target.unit.changed(), |view, _| {
+            view.invalidate_target_value_controls();
+            view.invalidate_mode_controls();
+        });
         self.panel.when(
             target
                 .track_type
@@ -5184,6 +5246,7 @@ impl View for MappingPanel {
             root::ID_TARGET_LINE_4_BUTTON => {
                 let _ = self.handle_target_line_4_button_press();
             }
+            root::ID_TARGET_UNIT_BUTTON => self.write(|p| p.handle_target_unit_button_press()),
             _ => unreachable!(),
         }
     }
@@ -5543,6 +5606,7 @@ fn invalidate_target_controls_free(
     edit_control_id: u32,
     set_text_only_if_edit_control_not_focused: bool,
     use_step_sizes: bool,
+    unit: TargetUnit,
 ) {
     // TODO-high-discrete Handle discrete value in a better way.
     let value = value.to_unit_value();
@@ -5555,17 +5619,24 @@ fn invalidate_target_controls_free(
                     .unwrap_or_else(|_| "".to_string());
                 (edit_text, "".to_string())
             } else {
-                let edit_text = if use_step_sizes {
-                    target.format_step_size_without_unit(value)
-                } else {
-                    target.format_value_without_unit(value)
-                };
-                let value_text = if use_step_sizes {
-                    get_text_right_to_step_size_edit_control(&target, value)
-                } else {
-                    get_text_right_to_target_edit_control(&target, value)
-                };
-                (edit_text, value_text)
+                match unit {
+                    TargetUnit::Native => {
+                        if use_step_sizes {
+                            (
+                                target.format_step_size_without_unit(value),
+                                get_text_right_to_step_size_edit_control(&target, value),
+                            )
+                        } else {
+                            (
+                                target.format_value_without_unit(value),
+                                get_text_right_to_target_edit_control(&target, value),
+                            )
+                        }
+                    }
+                    TargetUnit::Percent => {
+                        (format_percentage_without_unit(value.get()), "%".to_owned())
+                    }
+                }
             }
         }
         None => ("".to_string(), "".to_string()),

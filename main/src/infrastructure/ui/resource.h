@@ -205,6 +205,7 @@
 #define ID_SETTINGS_MODE_LABEL                  40122
 #define ID_MODE_RELATIVE_GROUP_BOX              40123
 #define ID_MODE_KNOB_FADER_GROUP_BOX            40124
+#define ID_TARGET_UNIT_BUTTON                   40125
 #define ID_MODE_BUTTON_GROUP_BOX                40126
 #define ID_TARGET_LINE_3_LABEL_2                40127
 #define ID_MODE_GROUP_INTERACTION_LABEL_TEXT    40128

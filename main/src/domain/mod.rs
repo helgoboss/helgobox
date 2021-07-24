@@ -55,7 +55,7 @@ pub use conditional_activation::*;
 mod eventing;
 pub use eventing::*;
 
-mod ui_util;
+pub mod ui_util;
 
 mod realearn_target_context;
 pub use realearn_target_context::*;

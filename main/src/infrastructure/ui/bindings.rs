@@ -207,6 +207,7 @@ pub mod root {
     pub const ID_SETTINGS_MODE_LABEL: u32 = 40122;
     pub const ID_MODE_RELATIVE_GROUP_BOX: u32 = 40123;
     pub const ID_MODE_KNOB_FADER_GROUP_BOX: u32 = 40124;
+    pub const ID_TARGET_UNIT_BUTTON: u32 = 40125;
     pub const ID_MODE_BUTTON_GROUP_BOX: u32 = 40126;
     pub const ID_TARGET_LINE_3_LABEL_2: u32 = 40127;
     pub const ID_MODE_GROUP_INTERACTION_LABEL_TEXT: u32 = 40128;

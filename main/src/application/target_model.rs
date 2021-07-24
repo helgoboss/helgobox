@@ -39,6 +39,7 @@ use wildmatch::WildMatch;
 pub struct TargetModel {
     // # For all targets
     pub category: Prop<TargetCategory>,
+    pub unit: Prop<TargetUnit>,
     // # For virtual targets
     pub control_element_type: Prop<VirtualControlElementType>,
     pub control_element_id: Prop<VirtualControlElementId>,
@@ -130,6 +131,7 @@ impl Default for TargetModel {
     fn default() -> Self {
         Self {
             category: prop(TargetCategory::default()),
+            unit: prop(Default::default()),
             control_element_type: prop(VirtualControlElementType::default()),
             control_element_id: prop(Default::default()),
             r#type: prop(ReaperTargetType::FxParameter),
@@ -460,6 +462,7 @@ impl TargetModel {
     pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.category
             .changed()
+            .merge(self.unit.changed())
             .merge(self.r#type.changed())
             .merge(self.action.changed())
             .merge(self.action_invocation_type.changed())
@@ -2390,5 +2393,32 @@ pub enum AutomationModeOverrideType {
 impl Default for AutomationModeOverrideType {
     fn default() -> Self {
         Self::Bypass
+    }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    IntoEnumIterator,
+    Serialize,
+    Deserialize,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum TargetUnit {
+    #[serde(rename = "native")]
+    Native,
+    #[serde(rename = "percent")]
+    Percent,
+}
+
+impl Default for TargetUnit {
+    fn default() -> Self {
+        Self::Native
     }
 }
