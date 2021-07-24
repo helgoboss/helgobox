@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-07-19 (v2.10.0-pre.4)</code></td>
+  <td><code>2021-07-24 (v2.10.0-pre.5)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -1479,6 +1479,14 @@ All REAPER targets additionally have this:
 
 - **Value:** Reflects the current value of this mapping target and lets you change it.
     - If the target can't be resolved at the moment, it will show "Target currently inactive!".
+- **Unit button:** On the right side of the current value you will see a button with a label such as `1. dB (%)`.
+  This button displays the currently selected unit which is used for displaying and entering target values. The
+  number in the parentheses denotes the unit which is used for displaying and entering target step sizes. Clicking
+  the button switches between the units. Currently there are two options:
+    - **1. Use native target units**: Uses the target-specific unit, e.g. dB for volume targets. If the target
+      doesn't have any specific units, it will displayed as `1. - (-)`.
+    - **2. Use percentages**: Uses percentages for everything, which can be nice to get a uniform way of
+      displaying/entering values instead of having to deal with the sometimes clunky target-specific units.
 
 
 Targets that need a track, FX, FX parameter or send/receive have dropdowns that let you choose how you want to address 
@@ -2068,11 +2076,6 @@ a capable and convenient MIDI → MIDI and OSC → MIDI converter.
   Please read about it there!
 - **Pick!:** Provides many predefined patterns. Just pick one here, set the destination to "Feedback output" and
   add a "ReaControlMIDI" FX below to see which messages ReaLearn sends.
-  
-Remarks:
-
-- The incoming value *must* be absolute. If you use a relative encoder, you need to use *Make absolute* to turn it into
-  an absolute value.
 
 ###### Clip: Volume
 
@@ -2090,11 +2093,6 @@ it will encode the incoming absolute control value as that argument (after it ha
     - ***Specific device:*** Sends the OSC message to a specific device. 
 - **Address** and **Argument**: This corresponds to the identically named settings of [OSC sources](#category-osc).
   Check that section for details.
-
-Remarks:
-
-- The incoming value *must* be absolute. If you use a relative encoder, you need to use *Make absolute* to turn it into
-  an absolute value.
 
 ##### Category "Virtual"
 
@@ -2144,6 +2142,22 @@ The following elements are relevant for all kinds of sources, both in *control* 
 
 These are relevant for the control direction only:
 
+- **Target values:** Allows you to define a specific sequence of target values. This is a very powerful feature because
+  you not only can enter single values but also ranges with customizable step sizes! Plus, it has support for true
+  relative control. All values are entered comma-separated and using the unit chosen in the [target section](#target). 
+  Just click the unit button to switch between the native target unit and percentages. Examples:
+    - `-20, -14, -12, -6, -3.5, 0`: Enter this sequence for a volume target with target unit switched to dB. When you
+      move your knob or rotary encoder or press a button using *Incremental buttons*  mode, ReaLearn will step through
+      the entered dB values for you.
+    - `10 - 30, 50 - 70 (5), 80 - 90 (2)`: Enter this sequence for a target with a continuous value range and target
+      unit switched to %. It will first step in 1% steps from 10% to 30%, then in 2% steps from 50% to 70% and finally
+      from 80% to 90% in 2% steps. At the moment it's important that the numbers and the range dash are separated by
+      spaces!
+    - `20, 10, 10, -5, 8`: When using absolute control, even duplicate values and direction changes are respected, as
+      seen in this value sequence. However, true relative control naturally supports continuous sequences only. So if
+      you have a rotary encoder that sends relative messages (hopefully!) or use incremental buttons, the sequence will 
+      be stepped through in a continuous manner (-5, 8, 10, 20). The benefit as always: No parameter jumps! If you want
+      to use non-continuous sequences with encoders or incremental buttons, you can always use *Make absolute*!
 - **Group interaction:** Lets you control not just *this* mapping but also *all other mappings in the same mapping
    group*. Very powerful feature! Hint: If you just want to control *other* mappings and not *this* mapping, just pick
    a target that doesn't have any effect, for example an unused internal ReaLearn compartment parameter
@@ -2320,14 +2334,15 @@ can be converted to relative values - rotary encoders and buttons. They don't af
   already reached its maximum value.
     - If this flag is enabled for controller mappings which have a virtual target, every main mapping controlled by
       that virtual control element will *rotate* - even if the main mapping itself doesn't have *rotate* enabled.
-- **Make absolute:** Check this box if you want to emulate an absolute control element with a relative encoder.
+- **Make absolute:** Check this box if you want to emulate an absolute control element with a relative encoder
+  or with -/+ (incremental) buttons.
   This is useful if you have configured your controller to be relative all the way (which is good!) but you want
   to use a control transformation EEL formula - which is not possible if you change the target with relative
   increments. It works by keeping an internal absolute value, incrementing or decrementing it accordingly and
   then processing it just like normal absolute control values. By checking this box:
     - You lose the possibility to be perfectly free of parameter jumps (but you can try to mitigate that loss by 
       using the jump settings).
-    - You gain support for control-direction EEL transformation and source range.
+    - You gain support for control-direction EEL transformation, non-continuous target value sequences and source range.
     - You can still use some of the relative-only features: Step size and rotate!
   
 
