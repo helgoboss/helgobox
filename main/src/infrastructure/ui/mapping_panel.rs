@@ -3747,7 +3747,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 Some("")
             }
         } else {
-            Some("Target currently inactive!")
+            Some("Target inactive!")
         };
         let value_text = self.view.require_control(root::ID_TARGET_VALUE_TEXT);
         self.show_if(
@@ -3793,7 +3793,8 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetUnit::Percent => (Some("%"), Some("%")),
         };
         let text = format!(
-            "{} ({})",
+            "{}. {} ({})",
+            usize::from(unit) + 1,
             value_unit.unwrap_or("-"),
             step_size_unit.unwrap_or("-")
         );
@@ -5611,34 +5612,28 @@ fn invalidate_target_controls_free(
     // TODO-high-discrete Handle discrete value in a better way.
     let value = value.to_unit_value();
     let (edit_text, value_text) = match real_target {
-        Some(target) => {
-            if target.character() == TargetCharacter::Discrete {
-                let edit_text = target
-                    .convert_unit_value_to_discrete_value(value)
-                    .map(|v| v.to_string())
-                    .unwrap_or_else(|_| "".to_string());
-                (edit_text, "".to_string())
-            } else {
-                match unit {
-                    TargetUnit::Native => {
-                        if use_step_sizes {
-                            (
-                                target.format_step_size_without_unit(value),
-                                get_text_right_to_step_size_edit_control(&target, value),
-                            )
-                        } else {
-                            (
-                                target.format_value_without_unit(value),
-                                get_text_right_to_target_edit_control(&target, value),
-                            )
-                        }
-                    }
-                    TargetUnit::Percent => {
-                        (format_percentage_without_unit(value.get()), "%".to_owned())
-                    }
+        Some(target) => match unit {
+            TargetUnit::Native => {
+                if target.character() == TargetCharacter::Discrete {
+                    let edit_text = target
+                        .convert_unit_value_to_discrete_value(value)
+                        .map(|v| v.to_string())
+                        .unwrap_or_else(|_| "".to_string());
+                    (edit_text, "".to_string())
+                } else if use_step_sizes {
+                    (
+                        target.format_step_size_without_unit(value),
+                        get_text_right_to_step_size_edit_control(&target, value),
+                    )
+                } else {
+                    (
+                        target.format_value_without_unit(value),
+                        get_text_right_to_target_edit_control(&target, value),
+                    )
                 }
             }
-        }
+            TargetUnit::Percent => (format_percentage_without_unit(value.get()), "%".to_owned()),
+        },
         None => ("".to_string(), "".to_string()),
     };
     slider_control.set_slider_unit_value(value);

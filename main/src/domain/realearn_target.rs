@@ -62,11 +62,21 @@ pub trait RealearnTarget {
     }
     /// Formats the given value without unit.
     fn format_value_without_unit(&self, value: UnitValue) -> String {
-        format_as_percentage_without_unit(value)
+        self.format_as_discrete_or_percentage(value)
     }
     /// Formats the given step size without unit.
     fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
-        format_as_percentage_without_unit(step_size)
+        self.format_as_discrete_or_percentage(step_size)
+    }
+    /// Reusable function
+    fn format_as_discrete_or_percentage(&self, value: UnitValue) -> String {
+        if self.character() == TargetCharacter::Discrete {
+            self.convert_unit_value_to_discrete_value(value)
+                .map(|v| v.to_string())
+                .unwrap_or_default()
+        } else {
+            format_as_percentage_without_unit(value)
+        }
     }
     /// If this returns true, a value will not be printed (e.g. because it's already in the edit
     /// field).
@@ -79,10 +89,18 @@ pub trait RealearnTarget {
         false
     }
     fn value_unit(&self) -> &'static str {
-        "%"
+        if self.character() == TargetCharacter::Discrete {
+            ""
+        } else {
+            "%"
+        }
     }
     fn step_size_unit(&self) -> &'static str {
-        "%"
+        if self.character() == TargetCharacter::Discrete {
+            ""
+        } else {
+            "%"
+        }
     }
     /// Formats the value completely (including a possible unit).
     fn format_value(&self, value: UnitValue) -> String {

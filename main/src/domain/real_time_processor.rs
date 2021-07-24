@@ -145,8 +145,16 @@ impl RealTimeProcessor {
             .is_ok()
         {
             // Requesting a full resync was successful so we can safely discard accumulated tasks.
-            let discarded_normal_task_count = self.normal_task_receiver.try_iter().count();
-            let discarded_feedback_task_count = self.feedback_task_receiver.try_iter().count();
+            let discarded_normal_task_count = self
+                .normal_task_receiver
+                .try_iter()
+                .map(|t| self.garbage_bin.dispose(Garbage::NormalRealTimeTask(t)))
+                .count();
+            let discarded_feedback_task_count = self
+                .feedback_task_receiver
+                .try_iter()
+                .map(|t| self.garbage_bin.dispose(Garbage::FeedbackRealTimeTask(t)))
+                .count();
             permit_alloc(|| {
                 debug!(
                     self.logger,

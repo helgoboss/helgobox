@@ -2,9 +2,10 @@ use crate::base::Global;
 use crate::domain::{
     ActivationChange, BackboneState, CompoundMappingSource, DeviceChangeDetector,
     DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, EelTransformation,
-    FeedbackOutput, InstanceId, LifecycleMidiData, MainProcessor, OscDeviceId, OscInputDevice,
-    RealSource, RealTimeCompoundMappingTarget, RealTimeMapping, ReaperMessage, ReaperTarget,
-    SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
+    FeedbackOutput, FeedbackRealTimeTask, InstanceId, LifecycleMidiData, MainProcessor,
+    NormalRealTimeTask, OscDeviceId, OscInputDevice, RealSource, RealTimeCompoundMappingTarget,
+    RealTimeMapping, ReaperMessage, ReaperTarget, SharedRealTimeProcessor, SourceFeedbackValue,
+    TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{ModeGarbage, OscSource, RawMidiEvent};
@@ -65,6 +66,8 @@ pub enum Garbage {
     RealTimeMappings(Vec<RealTimeMapping>),
     BoxedRealTimeMapping(Box<Option<RealTimeMapping>>),
     ActivationChanges(Vec<ActivationChange>),
+    NormalRealTimeTask(NormalRealTimeTask),
+    FeedbackRealTimeTask(FeedbackRealTimeTask),
 }
 
 #[derive(Debug)]
