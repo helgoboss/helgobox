@@ -2142,7 +2142,7 @@ The following elements are relevant for all kinds of sources, both in *control* 
 
 These are relevant for the control direction only:
 
-- **Target values:** Allows you to define a specific sequence of target values. This is a very powerful feature because
+- **Value sequence:** Allows you to define a specific sequence of target values. This is a very powerful feature because
   you not only can enter single values but also ranges with customizable step sizes! Plus, it has support for true
   relative control. All values are entered comma-separated and using the unit chosen in the [target section](#target). 
   Just click the unit button to switch between the native target unit and percentages. Examples:
