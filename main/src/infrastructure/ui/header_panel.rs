@@ -1711,7 +1711,7 @@ impl HeaderPanel {
             MappingCompartment::ControllerMappings => {
                 let preset_manager = App::get().controller_preset_manager();
                 let mut controller_preset = preset_manager
-                    .find_by_id(&preset_id)
+                    .find_by_id(preset_id)
                     .ok_or("controller preset not found")?;
                 controller_preset.update_realearn_data(
                     default_group,
@@ -1726,7 +1726,7 @@ impl HeaderPanel {
             MappingCompartment::MainMappings => {
                 let preset_manager = App::get().main_preset_manager();
                 let mut main_preset = preset_manager
-                    .find_by_id(&preset_id)
+                    .find_by_id(preset_id)
                     .ok_or("main preset not found")?;
                 main_preset.update_data(default_group, groups, mappings, parameter_settings);
                 preset_manager.borrow_mut().update_preset(main_preset)?;

@@ -37,7 +37,7 @@ impl RealearnTarget for RouteMuteTarget {
     }
 
     fn track(&self) -> Option<&Track> {
-        Some(&self.route.track())
+        Some(self.route.track())
     }
 
     fn route(&self) -> Option<&TrackRoute> {

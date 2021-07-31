@@ -293,7 +293,7 @@ impl App {
                 list_of_recently_focused_fx.borrow_mut().feed(fx);
             });
         let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
-            &App::logger(),
+            App::logger(),
             uninit_state.control_surface_main_task_receiver,
             uninit_state.control_surface_server_task_receiver,
             uninit_state.additional_feedback_event_receiver,
@@ -814,7 +814,7 @@ impl App {
                     Some(t) => t,
                 };
                 App::get()
-                    .start_learning_source_for_target(MappingCompartment::MainMappings, &target);
+                    .start_learning_source_for_target(MappingCompartment::MainMappings, target);
             },
             ActionKind::NotToggleable,
         );

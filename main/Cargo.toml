@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "2.10.0-pre.5"
+version = "2.10.0-pre.6"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -142,9 +142,13 @@ indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/cl
 # For detecting the Windows version (to determine whether special charactes can be displayed)
 sys-info = "0.7"
 
+[dev-dependencies]
+# For comparing floating point numbers in tests
+approx = "0.3.2"
+
 [build-dependencies]
 # For making Git commit hash available to code
-built = { git = "https://github.com/helgoboss/built", branch = "bugfix/issue-36-cfg-wrong", features = ["git2", "chrono"] }
+built = { version = "0.5.1", features = ["git2", "chrono"] }
 # For generating bindings (for dialog resource IDs and EEL functions)
 bindgen = "0.52.0"
 # For compiling EEL and SWELL dialog resources

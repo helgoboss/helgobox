@@ -109,7 +109,7 @@ impl RealearnTarget for ClipTransportTarget {
                 use TransportAction::*;
                 match self.action {
                     PlayStop | PlayPause | Stop | Pause => match event {
-                        ClipChangedEvent::PlayStateChanged(new_state) => (
+                        ClipChangedEvent::PlayState(new_state) => (
                             true,
                             Some(AbsoluteValue::Continuous(clip_play_state_unit_value(
                                 self.action,
@@ -121,7 +121,7 @@ impl RealearnTarget for ClipTransportTarget {
                     // Not supported at the moment.
                     Record => (false, None),
                     Repeat => match event {
-                        ClipChangedEvent::ClipRepeatChanged(new_state) => (
+                        ClipChangedEvent::ClipRepeat(new_state) => (
                             true,
                             Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
                                 *new_state,

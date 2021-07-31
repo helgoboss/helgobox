@@ -190,7 +190,7 @@ impl ModeModel {
             self.mode_parameter_is_relevant(
                 mode_parameter,
                 base_input,
-                &possible_source_characters,
+                possible_source_characters,
                 true,
                 true,
             )

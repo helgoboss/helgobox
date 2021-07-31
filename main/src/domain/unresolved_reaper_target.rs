@@ -1560,7 +1560,7 @@ impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
                 {
                     f.write_str(&get_track_label(&t))
                 } else {
-                    f.write_str(&get_non_present_virtual_track_label(&self.virtual_track))
+                    f.write_str(&get_non_present_virtual_track_label(self.virtual_track))
                 }
             }
         }
@@ -1633,7 +1633,7 @@ pub fn get_fx(
             impl<'a, T> MaybeOwned<'a, T> {
                 fn get(&self) -> &T {
                     match self {
-                        MaybeOwned::Owned(o) => &o,
+                        MaybeOwned::Owned(o) => o,
                         MaybeOwned::Borrowed(b) => b,
                     }
                 }
@@ -1795,8 +1795,8 @@ fn find_route_by_related_track(
     route_type: TrackRouteType,
 ) -> Result<Option<TrackRoute>, TrackRouteResolveError> {
     let option = match route_type {
-        TrackRouteType::Send => main_track.find_send_by_destination_track(&related_track),
-        TrackRouteType::Receive => main_track.find_receive_by_source_track(&related_track),
+        TrackRouteType::Send => main_track.find_send_by_destination_track(related_track),
+        TrackRouteType::Receive => main_track.find_receive_by_source_track(related_track),
         TrackRouteType::HardwareOutput => {
             return Err(TrackRouteResolveError::InvalidRoute);
         }

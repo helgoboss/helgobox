@@ -465,7 +465,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let mut instance_state = self.basics.instance_state.borrow_mut();
         for i in 0..CLIP_SLOT_COUNT {
             for event in instance_state.poll_slot(i).into_iter() {
-                let is_position_change = matches!(&event, ClipChangedEvent::ClipPositionChanged(_));
+                let is_position_change = matches!(&event, ClipChangedEvent::ClipPosition(_));
                 let instance_event = InstanceFeedbackEvent::ClipChanged {
                     slot_index: i,
                     event,
@@ -573,6 +573,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
+    // https://github.com/rust-lang/rust-clippy/issues/6066
+    #[allow(clippy::needless_collect)]
     fn update_single_parameter(&mut self, index: u32, value: f32) {
         debug!(
             self.basics.logger,
@@ -1291,7 +1293,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Send feedback
         self.handle_feedback_after_having_updated_particular_mappings(
             compartment,
-            &unused_sources,
+            unused_sources,
             changed_mappings,
         );
         // Communicate activation changes to real-time processor
@@ -2023,7 +2025,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     && other_m.control_is_effectively_on()
             });
         for other_mapping in other_mappings {
-            let other_feedback = f(other_mapping, &self, &collections.parameters);
+            let other_feedback = f(other_mapping, self, &collections.parameters);
             self.send_feedback(
                 &collections.mappings_with_virtual_targets,
                 FeedbackReason::Normal,
@@ -2032,6 +2034,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
+    // https://github.com/rust-lang/rust-clippy/issues/6066
+    #[allow(clippy::needless_collect)]
     pub fn process_feedback_related_reaper_event_for_mapping(
         &self,
         compartment: MappingCompartment,

@@ -55,10 +55,10 @@ impl RealearnTarget for ClipSeekTarget {
                 slot_index: si,
                 event,
             } if *si == self.slot_index => match event {
-                ClipChangedEvent::ClipPositionChanged(new_position) => {
+                ClipChangedEvent::ClipPosition(new_position) => {
                     (true, Some(AbsoluteValue::Continuous(*new_position)))
                 }
-                ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped) => {
+                ClipChangedEvent::PlayState(ClipPlayState::Stopped) => {
                     (true, Some(AbsoluteValue::Continuous(UnitValue::MIN)))
                 }
                 _ => (false, None),

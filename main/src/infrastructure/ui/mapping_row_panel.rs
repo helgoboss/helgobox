@@ -80,14 +80,14 @@ impl MappingRowPanel {
     }
 
     fn invalidate_all_controls(&self, mapping: &MappingModel) {
-        self.invalidate_name_labels(&mapping);
-        self.invalidate_source_label(&mapping);
-        self.invalidate_target_label(&mapping);
-        self.invalidate_learn_source_button(&mapping);
-        self.invalidate_learn_target_button(&mapping);
-        self.invalidate_control_check_box(&mapping);
-        self.invalidate_feedback_check_box(&mapping);
-        self.invalidate_on_indicator(&mapping);
+        self.invalidate_name_labels(mapping);
+        self.invalidate_source_label(mapping);
+        self.invalidate_target_label(mapping);
+        self.invalidate_learn_source_button(mapping);
+        self.invalidate_learn_target_button(mapping);
+        self.invalidate_control_check_box(mapping);
+        self.invalidate_feedback_check_box(mapping);
+        self.invalidate_on_indicator(mapping);
         self.invalidate_button_enabled_states();
     }
 

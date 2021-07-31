@@ -110,6 +110,7 @@ extern "C" fn NSEEL_HOSTSTUB_LeaveMutex() {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_abs_diff_eq;
 
     #[test]
     fn basics() {
@@ -126,7 +127,7 @@ mod tests {
             y.get()
         };
         // Then
-        assert_eq!(y_result, 43.0);
+        assert_abs_diff_eq!(y_result, 43.0);
     }
 
     #[test]
@@ -144,8 +145,8 @@ mod tests {
             vm.get_mem_slice(0, 3)
         };
         // Then
-        assert_eq!(slice[0], 43.0);
-        assert_eq!(slice[1], 44.0);
-        assert_eq!(slice[2], 47.0);
+        assert_abs_diff_eq!(slice[0], 43.0);
+        assert_abs_diff_eq!(slice[1], 44.0);
+        assert_abs_diff_eq!(slice[2], 47.0);
     }
 }

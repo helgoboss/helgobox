@@ -432,7 +432,7 @@ impl MappingRowsPanel {
             } else {
                 // Both filter is active and displayed group.
                 // Try filter while ignoring group.
-                if Self::filtered_mappings(&session, &main_state, compartment, true).count() == 0 {
+                if Self::filtered_mappings(session, main_state, compartment, true).count() == 0 {
                     EmptyMappingListCase::GroupAndFilterSetFilterIsProblem
                 } else {
                     EmptyMappingListCase::GroupAndFilterSetGroupIsProblem

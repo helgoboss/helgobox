@@ -102,7 +102,7 @@ impl PresetData for ControllerPresetData {
             mappings: preset
                 .mappings()
                 .iter()
-                .map(|m| MappingModelData::from_model(&m))
+                .map(|m| MappingModelData::from_model(m))
                 .collect(),
             parameters: preset.parameters().clone(),
             name: preset.name().to_string(),

@@ -255,7 +255,7 @@ impl ClipSlot {
     }
 
     pub fn play_state_changed_event(&self) -> ClipChangedEvent {
-        ClipChangedEvent::PlayStateChanged(self.play_state())
+        ClipChangedEvent::PlayState(self.play_state())
     }
 
     fn fill_with_source(&mut self, source: OwnedSource) -> Result<(), &'static str> {
@@ -321,7 +321,7 @@ impl ClipSlot {
     }
 
     pub fn repeat_changed_event(&self) -> ClipChangedEvent {
-        ClipChangedEvent::ClipRepeatChanged(self.descriptor.repeat)
+        ClipChangedEvent::ClipRepeat(self.descriptor.repeat)
     }
 
     pub fn toggle_repeat(&mut self) -> ClipChangedEvent {
@@ -336,7 +336,7 @@ impl ClipSlot {
     }
 
     pub fn volume_changed_event(&self) -> ClipChangedEvent {
-        ClipChangedEvent::ClipVolumeChanged(self.descriptor.volume)
+        ClipChangedEvent::ClipVolume(self.descriptor.volume)
     }
 
     pub fn set_volume(&mut self, volume: ReaperVolumeValue) -> ClipChangedEvent {
@@ -362,7 +362,7 @@ impl ClipSlot {
             .map_err(|_| "source has no length")?;
         let real_pos = PositionInSeconds::new(position.get() * length.get());
         guard.set_cur_pos(real_pos);
-        Ok(ClipChangedEvent::ClipPositionChanged(position))
+        Ok(ClipChangedEvent::ClipPosition(position))
     }
 
     fn start_transition(&mut self) -> State {
@@ -751,7 +751,7 @@ impl PlayingState {
                     // active (e.g. respond to position changes) - which can't be good.
                     (
                         self.stop(reg, true, false),
-                        Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped)),
+                        Some(ClipChangedEvent::PlayState(ClipPlayState::Stopped)),
                     )
                 } else {
                     (Ok(State::Playing(self)), None)
@@ -765,14 +765,14 @@ impl PlayingState {
                 };
                 (
                     Ok(State::Playing(next_playing_state)),
-                    Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Playing)),
+                    Some(ClipChangedEvent::PlayState(ClipPlayState::Playing)),
                 )
             }
             _ => (Ok(State::Playing(self)), None),
         };
         let final_event = event.unwrap_or_else(|| {
             let position = calculate_proportional_position(current_pos, length);
-            ClipChangedEvent::ClipPositionChanged(position)
+            ClipChangedEvent::ClipPosition(position)
         });
         (next_state, Some(final_event))
     }
@@ -926,7 +926,7 @@ impl CustomPcmSource for DecoratedPcmSource {
         use DecoratedPcmSourceState::*;
         match self.state {
             Normal => unsafe {
-                self.inner.get_samples(&args.block);
+                self.inner.get_samples(args.block);
             },
             AllNotesOffRequested => {
                 send_all_notes_off(&args);

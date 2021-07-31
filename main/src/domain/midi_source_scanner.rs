@@ -514,7 +514,7 @@ mod tests {
         }
 
         fn guess(values: &[u8]) -> SourceCharacter {
-            let u7_values: Vec<_> = values.into_iter().map(|v| u7(*v)).collect();
+            let u7_values: Vec<_> = values.iter().map(|v| u7(*v)).collect();
             guess_custom_character(&u7_values)
         }
     }

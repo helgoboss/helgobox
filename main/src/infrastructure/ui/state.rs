@@ -151,7 +151,7 @@ impl fmt::Display for SearchExpression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = self.0.to_string();
         let s = s.strip_prefix('*').unwrap_or(&s);
-        let s = s.strip_suffix('*').unwrap_or(&s);
+        let s = s.strip_suffix('*').unwrap_or(s);
         f.write_str(s)
     }
 }

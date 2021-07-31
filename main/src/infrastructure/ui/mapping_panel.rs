@@ -600,7 +600,7 @@ impl MappingPanel {
         let mut p = MutableMappingPanel {
             session: &session,
             mapping: &mut mapping,
-            shared_mapping: &shared_mapping,
+            shared_mapping,
             panel: &self,
             view: &self.view,
         };
@@ -5623,12 +5623,12 @@ fn invalidate_target_controls_free(
                 } else if use_step_sizes {
                     (
                         target.format_step_size_without_unit(value),
-                        get_text_right_to_step_size_edit_control(&target, value),
+                        get_text_right_to_step_size_edit_control(target, value),
                     )
                 } else {
                     (
                         target.format_value_without_unit(value),
-                        get_text_right_to_target_edit_control(&target, value),
+                        get_text_right_to_target_edit_control(target, value),
                     )
                 }
             }

@@ -16,11 +16,11 @@ impl<'a> ExtendedProcessorContext<'a> {
     }
 
     pub fn context(&self) -> &'a ProcessorContext {
-        &self.context
+        self.context
     }
 
     pub fn params(&self) -> &'a ParameterArray {
-        &self.params
+        self.params
     }
 }
 

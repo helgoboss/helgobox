@@ -310,7 +310,7 @@ impl SessionData {
         );
         // Mappings
         let context = session.context().clone();
-        let extended_context = ExtendedProcessorContext::new(&context, &params);
+        let extended_context = ExtendedProcessorContext::new(&context, params);
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
             session.set_mappings_without_notification(
                 compartment,

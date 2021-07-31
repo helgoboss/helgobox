@@ -218,7 +218,7 @@ impl RealearnServer {
             ],
         )
         .expect("invalid URL")
-        .into_string()
+        .into()
     }
 
     pub fn local_ip(&self) -> Option<IpAddr> {

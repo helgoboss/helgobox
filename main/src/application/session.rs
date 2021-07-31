@@ -712,7 +712,7 @@ impl Session {
                             .changed()
                             .merge(mapping.target_model.changed()),
                     )
-                    .with(Rc::downgrade(&shared_mapping))
+                    .with(Rc::downgrade(shared_mapping))
                     .do_sync(move |mapping, _| {
                         // Parameter values are not important for mode auto correction because
                         // dynamic targets don't really profit from it anyway. Therefore just
@@ -1466,7 +1466,7 @@ impl Session {
             .mappings_are_dirty(id, &self.mappings[compartment])
             || self.controller_preset_manager.groups_are_dirty(
                 id,
-                &self.default_group(compartment),
+                self.default_group(compartment),
                 &self.groups[compartment],
             )
             || self.controller_preset_manager.parameter_settings_are_dirty(
@@ -1644,16 +1644,14 @@ impl Session {
         // If we import JSON from clipboard, we might stumble upon duplicate mapping IDs. Fix those!
         // This is a feature for power users.
         let mut used_ids = HashSet::new();
-        let fixed_mappings: Vec<_> = mappings
-            .map(|mut m| {
-                if used_ids.contains(&m.id()) {
-                    m.set_id_without_notification(MappingId::random());
-                } else {
-                    used_ids.insert(m.id());
-                }
-                m
-            })
-            .collect();
+        let fixed_mappings = mappings.map(|mut m| {
+            if used_ids.contains(&m.id()) {
+                m.set_id_without_notification(MappingId::random());
+            } else {
+                used_ids.insert(m.id());
+            }
+            m
+        });
         self.mappings[compartment] = fixed_mappings.into_iter().map(share_mapping).collect();
     }
 

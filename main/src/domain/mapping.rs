@@ -317,7 +317,7 @@ impl MainMapping {
         let (targets, is_active) = self.resolve_target(context);
         self.targets = targets;
         self.core.options.target_is_active = is_active;
-        self.update_activation(&context.params());
+        self.update_activation(context.params());
     }
 
     fn resolve_target(
@@ -932,7 +932,7 @@ impl RealTimeMapping {
             return None;
         }
         let control_value = if let CompoundMappingSource::Midi(s) = &self.core.source {
-            s.control(&source_value)?
+            s.control(source_value)?
         } else {
             return None;
         };

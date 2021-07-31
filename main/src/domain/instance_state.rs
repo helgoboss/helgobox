@@ -202,8 +202,8 @@ pub enum InstanceFeedbackEvent {
 
 #[derive(Debug)]
 pub enum ClipChangedEvent {
-    PlayStateChanged(ClipPlayState),
-    ClipVolumeChanged(ReaperVolumeValue),
-    ClipRepeatChanged(bool),
-    ClipPositionChanged(UnitValue),
+    PlayState(ClipPlayState),
+    ClipVolume(ReaperVolumeValue),
+    ClipRepeat(bool),
+    ClipPosition(UnitValue),
 }
