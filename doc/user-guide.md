@@ -1,7 +1,7 @@
 <table class="table">
 <tr>
   <td>Last update of text:</td>
-  <td><code>2021-07-24 (v2.10.0-pre.5)</code></td>
+  <td><code>2021-08-01 (v2.10.0-pre.6)</code></td>
 </tr>
 <tr>
   <td>Last update of relevant screenshots:</td>
@@ -12,14 +12,14 @@
 ## Table of Contents
 
 1. [Quick start](#quick-start)
-1. [Introduction](#introduction)
-1. [Basics](#basics)
-1. [Reference](#reference)
-1. [Companion app](#companion-app)
-1. [Tutorials](#tutorials)
-1. [Frequently asked questions (FAQ)](#faq)
-1. [Tested controllers](#tested-controllers)
-1. [Additional presets](#additional-presets)
+2. [Introduction](#introduction)
+3. [Basics](#basics)
+4. [Reference](#reference)
+5. [Companion app](#companion-app)
+6. [Tutorials](#tutorials)
+7. [Frequently asked questions (FAQ)](#faq)
+8. [Tested controllers](#tested-controllers)
+9. [Additional presets](#additional-presets)
 
 ## Quick start
 
