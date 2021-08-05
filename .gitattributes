@@ -1,0 +1,4 @@
+* text=auto
+
+# REAPER projects always seem to use CRLF
+*.RPP text eol=crlf
