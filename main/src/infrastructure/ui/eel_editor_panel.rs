@@ -125,6 +125,6 @@ impl View for EelEditorPanel {
 
 fn help() {
     open_in_browser(
-        "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md#script-source",
+        "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#script-source",
     );
 }

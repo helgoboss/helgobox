@@ -1855,7 +1855,7 @@ impl HeaderPanel {
     }
 
     fn open_user_guide_online(&self) {
-        open_in_browser("https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md");
+        open_in_browser("https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc");
     }
 
     fn donate(&self) {

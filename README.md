@@ -46,7 +46,7 @@ and REAPER for Windows 64-bit because then it's important to use two separate VS
 A complete user guide for the latest release is available as 
 [PDF](https://github.com/helgoboss/realearn/releases/latest/download/realearn-user-guide.pdf) and
 [HTML (website)](https://www.helgoboss.org/projects/realearn/user-guide). The user guide of the latest not-yet-released version is available as 
-[HTML (GitHub)](https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md).
+[HTML (GitHub)](https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc).
 
 We also have an [introduction video](https://www.youtube.com/watch?v=dUPyqYaIkYA). Watch 2 minutes to get a first
 impression and stay tuned if you are interested in the details.
