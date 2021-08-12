@@ -2223,11 +2223,18 @@ _feedback_ direction, not in _control_ direction.
 * *Out-of-range behavior:* This determines ReaLearn's behavior if the source value is not within
  "Source Min/Max" or the target value not within "Target Min/Max". There are these variants:
 
-| | Control direction (absolute mode only) | Feedback direction |
- |—————-|———————————————————————————————————————————————————————————————————————————————-|———————————————————————————————————————————————————————————————————————————————-|
- | *Min or max* | If the source value is &lt; "Source Min", ReaLearn will behave as if "Source Min" was received (or 0% if min = max).<br><br>If the source value is &gt; "Source Max", ReaLearn will behave as if "Source Max" was received (or 100% if min = max). | If the target value is &lt; "Target Min", ReaLearn will behave as if "Target Min" was detected (or 0% if min = max).<br><br>If the target value is &gt; "Target Max", ReaLearn will behave as if "Target Max" was detected (or 100% if min = max). |
- | *Min* | ReaLearn will behave as if "Source Min" was received (or 0% if min = max). | ReaLearn will behave as if "Target Min" was detected (or 0% if min = max). Useful for getting radio-button-like feedback. |
- | *Ignore* | Target value won't be touched. | No feedback will be sent. |
+|===
+| | *Control direction (absolute mode only)* | *Feedback direction*
+| *Min or max* | If the source value is < _Source Min_, ReaLearn will behave as if _Source Min_ was received (or 0% if _Source Min_ = _Source Max_).
+
+If the source value is > _Source Max_, ReaLearn will behave as if _Source Max_ was received (or 100% if _Source Min_ = _Source Max_). | If the target value is < _Target Min_, ReaLearn will behave as if _Target Min_ was detected (or 0% if _Target Min = _Target Max_).
+
+If the target value is > _Target Max_, ReaLearn will behave as if _Target Max_ was detected (or 100% if _Target Min_ = _Target Max_).
+
+ | *Min* | ReaLearn will behave as if _Source Min_ was received (or 0% if _Source Min_ = _Source Max_). | ReaLearn will behave as if _Target Min_ was detected (or 0% if _Target Min_ = _Target Max_). Useful for getting radio-button-like feedback.
+
+ | *Ignore* | Target value won't be touched. | No feedback will be sent.
+|===
 
 ===== For knobs/faders and buttons (control only)
 
