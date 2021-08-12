@@ -38,7 +38,7 @@ Here's a step-by-step guide to help you get started with ReaLearn and a MIDI con
 . Press _Learn target_ and move e.g. the volume fader of a track.
 . Now your control element should control the track volume.
 
-If you want to get the most out of your controller and learn about all of ReaLearn's cool features, please read on. 
+If you want to get the most out of your controller and learn about all of ReaLearn's cool features, please read on.
 
 == Introduction
 
@@ -666,6 +666,7 @@ within the corresponding compartment. This matters if you want to map multiple t
 the order of execution matters.
 
 *Important:* There's an exception. ReaLearn's processing of its own VST parameters is always deferred.
+
 - That means changing a ReaLearn parameter in one mapping and relying on it in the next
  one (in terms of conditional activation or in a `&lt;Dynamic&gt;` expression), will not work!
 - You can work around that by delaying execution of the next mapping via <<for-buttons-control-only,fire mode>> but
@@ -1230,6 +1231,7 @@ If you enter this and feedback is set up correctly, this system-exclusive messag
 whenever the target value changes.
 
 Remarks:
+
 - You can check if the correct messages are sent by setting ReaLearn's feedback output to `&lt;FX output&gt;` and slapping
  a ReaControlMIDI FX right below it. In ReaControlMIDI, press "Show log" and enable "Log sysex". Now
  change the target value and you should see messages appearing the log.
@@ -1252,6 +1254,7 @@ This is equivalent to the first example (`6B` in hexadecimal notation is the sam
 notation).
 
 Remarks:
+
 - Between the brackets, each digit represents one bit. The left bit is the most significant one.
 - Spaces between the two nibbles (4 bits) can be omitted.
 
@@ -1297,6 +1300,7 @@ F0 00 20 6B 7F 42 02 00 10 [00nm lkji] [hgfe dcba] F7
 ----
 
 Remarks:
+
 - The highest resolution currently supported is 16 bit (= 65536 different values).
 - You can put these letter bits anywhere in the pattern (but only within bytes that use binary notation).
 
@@ -2091,7 +2095,7 @@ it will encode the incoming absolute control value as that argument (after it ha
 
 This is exactly the counterpart of the possible virtual sources. Choosing a virtual target here is like
 placing cables between a control element and all corresponding main mappings that use this
-virtual control element as source. 
+virtual control element as source.
 
 ==== Tuning
 
@@ -2930,6 +2934,7 @@ The following basic setup hints are usually valid, no matter the specific contro
 * If there are issues, consult the <<troubleshooting,Troubleshooting>> section in the first part of this guide.
 
 Consider the following general usage hints:
+
 - If the device supports visual feedback and different LED colors, the LED color often depends on the target value and
  can be manually adjusted using "Source Min/Max" in the "Tuning" section of the mapping.
 
