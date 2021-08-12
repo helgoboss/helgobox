@@ -1,6 +1,8 @@
 = ReaLearn user guide
 :toc:
+:toclevels: 3
 :sectnums:
+:sectnumlevels: 2
 
 |===
 |Last update of text: |`2021-08-01 (v2.10.0-pre.6)`
