@@ -1,6 +1,6 @@
 = ReaLearn user guide
 :toc:
-:toclevels: 3
+:toclevels: 2
 :sectnums:
 :sectnumlevels: 2
 
