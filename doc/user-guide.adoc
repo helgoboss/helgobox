@@ -216,6 +216,7 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 * At this point the mapping should not be greyed out anymore because it's complete and enabled.
 . Now you should be able to control the touched target with your control element.
 
+[#troubleshooting]
 ==== Troubleshooting
 
 If REAPER crashes when scanning for plug-ins and the crash message shows something like `reaper_host64`
@@ -392,6 +393,7 @@ So far we've covered the basics. Now let's look into everything in detail.
 
 === Main panel
 
+[#header-panel]
 ==== Header panel
 
 The header panel provides the following user interface elements, no matter if the _main_ or
@@ -676,6 +678,7 @@ the order of execution matters.
  The course needs to be set in advance, at least one step before! Not at the same time as moving the train over the
  switch.
 
+[#controller-compartment]
 ==== Controller compartment
 
 By default, ReaLearn shows the list of main mappings. If you switch to the _controller_ compartment, you will see the
@@ -818,6 +821,7 @@ which allows you access to the following functionality:
 * *Copy part:* Copies just a part of the mapping (source, mode or target).
 * *Move to group:* lets you move this mapping to another mapping group.
 
+[#mapping-panel]
 === Mapping panel
 
 At this point it's important to understand some basics about how ReaLearn processes incoming control
@@ -847,6 +851,7 @@ Feedback (from REAPER to controller) works in a similar fashion but is restricte
 control values. Even if the source is relative (e.g. an encoder), ReaLearn will always emit absolute
 feedback, because relative feedback doesn't make sense.
 
+[#mapping]
 ==== Mapping
 
 This section provides the following mapping-related settings and functions:
@@ -898,6 +903,7 @@ This section provides the following mapping-related settings and functions:
 * *Find in mapping list:* Scrolls the mapping rows panel so that the corresponding mapping row for
  this mapping gets visible.
 
+[#conditional-activation]
 ==== Conditional activation
 
 Conditional activation allows you to dynamically enable or disable this mapping based on the state of
@@ -1073,6 +1079,7 @@ All types in the MIDI category have the following UI elements in common:
 
 The remaining UI elements in this section depend on the chosen source type.
 
+[#cc-value-source]
 ====== CC value source
 
 This source reacts to incoming MIDI control-change messages.
@@ -1208,6 +1215,7 @@ and stop messages which can be sent by some DAWs and MIDI devices.
 
 * *Message:* The specific transport message to which this source should react.
 
+[#raw-midi-source]
 ====== Raw MIDI source
 
 This source primarily deals with system-exclusive MIDI messages. It only supports feedback direction at the moment
@@ -1344,6 +1352,7 @@ This behaves like pitch wheel (because the pattern describes exactly the way how
 E0 [0gfe dcba] [0nml kjih]
 ----
 
+[#script-source]
 ====== Script source
 
 This source is feedback-only and exists for enabling more complex feedback use cases such as controlling LCD displays.
@@ -1378,6 +1387,7 @@ msg_size = 3;
 2[] = y * 64; 
 ----
 
+[#category-osc]
 ===== Category "OSC"
 
 OSC sources allow configuration of the following aspects:
@@ -1456,6 +1466,7 @@ Represents a control element that distinguishes between two possible states only
 Please note that velocity-sensitive keys should be exposed as "Multi", not as "Button" - unless you know for sure that
 you are not interested in the velocity sensitivity.
 
+[#target]
 ==== Target
 
 A target is a thing that is supposed to be controlled. The following settings and functions are
@@ -1627,6 +1638,7 @@ in all cases:
 
 All other UI elements in this section depend on the chosen target type.
 
+[#global-last-touched]
 ====== Global: Last touched
 
 This will control whatever target has been last touched in REAPER. It's similar to the built-in REAPER action
@@ -1644,6 +1656,7 @@ otherwise removes the override.
  automation mode.
 * *Mode:* Here you can pick the desired automation mode if _Behavior_ is _Override_.
 
+[#project-invoke-reaper-action]
 ====== Project: Invoke REAPER action
 
 Triggers or sets the value of a particular REAPER action in the main section.
@@ -1761,6 +1774,7 @@ Sets REAPER's master playrate.
 
 *Attention:* This target doesn't currently work if the project containing ReaLearn is not the active project tab.
 
+[#project-set-tempo]
 ====== Project: Set tempo
 
 Sets REAPER's master tempo.
@@ -1832,6 +1846,7 @@ a single LED to build a clipping indicator:
 
 At the moment this target only reports peak volume, not RMS.
 
+[#track-selectunselect]
 ====== Track: Select/unselect
 
 Selects the track if the incoming absolute control value is greater than 0%, otherwise unselects the
@@ -1886,6 +1901,7 @@ Shows the track if the incoming absolute control value is greater than 0%, other
 
 * *Area:* Lets you decide if you want it to show/hide in the track control panel or the mixer.
 
+[#track-solounsolo]
 ====== Track: Solo/unsolo
 
 Soloes the track if the incoming absolute control value is greater than 0%, otherwise unsoloes the
@@ -1910,11 +1926,13 @@ To be used with endless rotary encoders or previous/next-style "Incremental butt
 * *Display:* Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating
  window.
 
+[#fx-enabledisable]
 ====== FX: Enable/disable
 
 Enables the FX instance if the incoming absolute control value is greater than 0%, otherwise
 disables it.
 
+[#fx-load-snapshot]
 ====== FX: Load snapshot
 
 Restores a certain state of a particular FX. Before using this target, you need to take a snapshot of the desired FX
@@ -1928,6 +1946,7 @@ Please note that some plug-ins have _very large_ states. Therefore you should ke
 will be displayed once you take the snapshot. ReaLearn's own state will grow with every new snapshot mapping, so this
 can quickly add up and make REAPER/ReaLearn slow!
 
+[#fx-navigate-between-presets]
 ====== FX: Navigate between presets
 
 Steps through FX presets.
@@ -1950,6 +1969,7 @@ Makes the FX instance visible if the incoming control value is greater than 0%, 
 * *Display:* Here you can decide if you want to display the FX as part of the FX chain or in a dedicated floating
  window.
 
+[#fx-set-parameter-value]
 ====== FX: Set parameter value
 
 Sets the value of a particular track FX parameter.
@@ -2056,6 +2076,7 @@ guaranteed :) But of course it's not only about fun, it can also be very useful 
 ** *Beat:* Every beat. Only works if REAPER's main timeline is playing.
 ** *Fast:* As fast as possible.
 
+[#midi-send-message]
 ====== MIDI: Send message
 
 Sends arbitrary MIDI messages (also sys-ex!) in response to incoming messages. This target turns ReaLearn into
@@ -2078,6 +2099,7 @@ a capable and convenient MIDI → MIDI and OSC → MIDI converter.
 
 Lets you set the slot's volume.
 
+[#osc-send-message]
 ====== OSC: Send message
 
 Sends OSC messages with up to one argument in response to incoming messages. This target turns ReaLearn into
@@ -2097,6 +2119,7 @@ This is exactly the counterpart of the possible virtual sources. Choosing a virt
 placing cables between a control element and all corresponding main mappings that use this
 virtual control element as source.
 
+[#tuning]
 ==== Tuning
 
 As mentioned before, the tuning section defines the glue between a source and a target. It's divided into
@@ -2339,6 +2362,7 @@ will have absolutely no effect on the incrementation/decrementation amount. If y
 ** You gain support for control-direction EEL transformation, non-continuous target value sequences and source range.
 ** You can still use some of the relative-only features: Step size and rotate!
 
+[#for-buttons-control-only]
 ===== For buttons (control only)
 
 The following UI elements make sense for button-like control elements only (keys, pads, buttons,
@@ -2430,6 +2454,7 @@ In order to find these actions, open REAPER's _Actions_ menu, choose _Show actio
  mappings. That shouldn't be necessary most of the time because ReaLearn usually sends feedback automatically, but
  there are situations when it might come in handy.
 
+[#advanced-settings]
 === Advanced settings
 
 This section describes the _Advanced settings_ feature of the mapping panel (see section <<mapping,Mapping>>) in more
@@ -2494,6 +2519,7 @@ In this section you will find examples that cover all currently supported config
 paste the stuff you need to the text editor, remove the parts that you don't need and adjust the rest. Comments (lines
 starting with `#`) will be removed automatically.
 
+[#mapping-lifecycle-actions]
 ===== Mapping lifecycle actions
 
 ReaLearn allows you to define MIDI messages to be sent to the feedback output whenever a mapping turns active or
@@ -2572,6 +2598,7 @@ on_activate:
 
 ReaLearn will ignore any unknown properties.
 
+[#companion-app]
 == Companion app
 
 This section is about the _ReaLearn Companion_ app, which is a separate software that powers ReaLearn's
@@ -2668,6 +2695,7 @@ You can enlarge the scene by slightly moving a control element out of the scene.
 automatically have more space at your disposal. The scene will always be as big as the imaginary rectangle from the
 top-left control element to the bottom-right control element!
 
+[#tutorials]
 == Tutorials
 
 The screenshots in this section are slightly out of date. If you feel like contributing to the project, this is an
@@ -2883,6 +2911,7 @@ There's no definitive answer to that, it all depends on what you want. Here are 
 ** If you want ReaLearn to only receive MIDI messages that originate from live playing and ignore MIDI that
  originates from track MIDI items, put it on the input FX chain of that track.
 
+[#tested-controllers]
 == Tested controllers
 
 ReaLearn strives to support any general-purpose MIDI/OSC controller out there. However, there are some things
@@ -2941,6 +2970,7 @@ Consider the following general usage hints:
 *Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack repository! Using an existing preset
 might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).*
 
+[#dj-techtools-midi-fighter-twister]
 === DJ TechTools "Midi Fighter Twister"
 
 This controller works very well with ReaLearn, including feedback and LED color selection. Special feedback features
@@ -3220,7 +3250,7 @@ and sets the other unchanged values to `Nil`.
 ==== Presets
 
 There are no ReaLearn controller presets for TouchOSC layouts yet. Although technically possible in exactly the same way
-as with controller presets for MIDI devices, OSC layouts are very custom so I'm not sure if it would make much sense to
+as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to
 create presets. Time will show.
 
 === OSC/PILOT
@@ -3237,7 +3267,7 @@ Works both for control and feedback.
 === Behringer X32
 
 I haven't tried this device myself but users reported that its OSC implementation can't deal with OSC bundles, only with
-OSC messages. Therefore you need to untick "Can deal with bundles" in the OSC device configuration.
+OSC messages. Therefore, you need to untick "Can deal with bundles" in the OSC device configuration.
 
 === Behringer XR18
 
@@ -3269,7 +3299,7 @@ of this standard as …
 . which MIDI messages they send and receive
 . and which _effect_ the control elements should have on the DAW.
 
-It's no magic, it's mostly just an agreement on which MIDI messages to use - which is very useful because this agreement
+It's not magic, it's mostly just an agreement on which MIDI messages to use - which is very useful because this agreement
 is what makes it possible that different DAW controllers of all kinds of manufacturers can instantly work with any DAW
 that supports the Mackie Control protocol.
 
@@ -3281,14 +3311,14 @@ mapping of MIDI messages to those virtual control elements (2) only! It's not ab
 control your track volume (3)! In order to get an effect, you need to choose a suitable main preset or build some main
 custom mappings yourself (it's very easy because that's what ReaLearn is all about!).
 
-Besides getting descriptive control element naming (e.g. `play` or `stop`), using this preset should give you instant
-compatibility with some of the main presets available on the Helgoboss ReaPack repository.
+In addition to getting descriptive control element naming (e.g. `play` or `stop`), using this preset should give you instant
+compatibility with some main presets available on the Helgoboss ReaPack repository.
 
 When you create _main_ mappings using this controller preset, you can - as always - use the "Learn" function. However,
-Mackie-compatible controllers often have LCD displays, which you can of course not learn because they are not control
+Mackie-compatible controllers often have LCDs, which you can of course not learn because they are not control
 elements. They can only display things, so they only support the _feedback_ direction. Here's how you use them:
 
-* *Assignment 7-segment display*: At the moment, this is the only LCD display supported by this controller preset.
+* *Assignment 7-segment display*: At the moment, this is the only LCD supported by this controller preset.
  It allows you to display the numbers between `00` and `99`. Use a virtual source with type _Multi_ and ID
  `lcd/assignment`. Use an arbitrary feedback-enabled target to make it display the value as percentage. As with
  all kind of feedback (also motorized faders and LEDs), you can use e.g. the mapping's _Source/Target Min/Max_ settings
@@ -3308,7 +3338,7 @@ access to all kinds of interesting control scenarios with potentially very diffe
 
 Speaking of _freely_. Of course, this only works as long as controller and main presets share the same philosophy
 and virtual control element naming/numbering. _A controller preset is not automagically compatible with a main preset!_
-As you can imagine, there are far too many different types of controllers and control scenarios out there to make this
+As you can imagine, there are far too many types of controllers and control scenarios out there to make this
 work in all cases. However, ReaLearn provides many means to get close to this ideal.
 
 In order to make it easier for users to know which main presets are compatible with which controller presets, ReaLearn
@@ -3321,7 +3351,7 @@ is in the process of introducing so-called domains. For now, the following domai
 The general idea is:
 
 * Controller presets _cover_ domains.
-** E.g. the Akai APC Key 25 has control elements of all of the mentioned domains.
+** E.g. the Akai APC Key 25 has control elements of all the mentioned domains.
 * A controller should not double-expose one single control element under different virtual control element names.
 * Main presets _support_ domains.
 ** E.g. they could assign a track volume change to both the numbered multi control element 5 ("Numbered" domain) and
