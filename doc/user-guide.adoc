@@ -2708,7 +2708,7 @@ top-left control element to the bottom-right control element!
 The screenshots in this section are slightly out of date. If you feel like contributing to the project, this is an
 area where you could help.
 
-=== 1. Using conditional activation to implement banks/pages
+=== Using conditional activation to implement banks/pages
 
 Users often ask if it's possible to do control surface bank-style mapping in order to switch to a completely
 different set of mappings with the press of a button. Yes, it is! It's done using the _conditional activation_ feature
@@ -2819,7 +2819,7 @@ take the time and digest this for a while, you will realize that you can do almo
 the "Mapping", "Parameter" and "Activation condition" concepts. This scenario is just one of many. Just see the next
 tutorial to understand why.
 
-=== 2. Like tutorial 1, but with previous/next buttons
+=== Like tutorial 1, but with previous/next buttons
 
 Now let's assume you don't want 2 buttons where each button should activate one particular bank but you want
 previous/next buttons to switch between the banks. Do everything as in tutorial 1 with the exception of step 5.
@@ -2836,7 +2836,7 @@ The "Previous group" mapping then looks like this:
 
 image:images/tutorial-2-step-5.jpg[Step 5]
 
-=== 3. Using "Auto-load" to control whatever plug-in is currently in focus
+=== Using "Auto-load" to control whatever plug-in is currently in focus
 
 This one seems to be a very popular use case: To create a dedicated set of mappings for a specific FX plug-in and load
 these mappings whenever focusing that plug-in on the screen. The easiest way to do this is to use the "Auto-load"
