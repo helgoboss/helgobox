@@ -1,13 +1,15 @@
 {
   "id": "I3iqzlfV",
-  "sendFeedbackOnlyIfArmed": true,
   "controlDeviceId": "62",
+  "feedbackDeviceId": "fx-output",
   "controllerMappings": [
     {
       "id": "134104a5-8eb1-4a07-b8a9-b65d0a8f74d3",
       "name": "1",
       "source": {
-        "type": 2
+        "type": 1,
+        "channel": 0,
+        "number": 64
       },
       "mode": {},
       "target": {

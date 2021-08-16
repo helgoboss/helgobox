@@ -141,8 +141,6 @@ indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/cl
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
 sys-info = "0.7"
-
-[dev-dependencies]
 # For comparing floating point numbers in tests
 approx = "0.3.2"
 

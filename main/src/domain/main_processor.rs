@@ -111,6 +111,7 @@ struct Channels {
     osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
     additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
     instance_orchestration_event_sender: crossbeam_channel::Sender<InstanceOrchestrationEvent>,
+    integration_test_feedback_sender: Option<crossbeam_channel::Sender<SourceFeedbackValue>>,
 }
 
 impl<EH: DomainEventHandler> MainProcessor<EH> {
@@ -168,6 +169,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     osc_feedback_task_sender,
                     additional_feedback_event_sender,
                     instance_orchestration_event_sender,
+                    integration_test_feedback_sender: None,
                 },
             },
             collections: Collections {
@@ -797,6 +799,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         ..self.basic_io_changed_event()
                     };
                     self.send_io_update(event).unwrap();
+                }
+                UseIntegrationTestFeedbackSender(sender) => {
+                    self.basics.channels.integration_test_feedback_sender = Some(sender);
                 }
             }
         }
@@ -1786,6 +1791,7 @@ pub enum NormalMainTask {
     },
     DisableControl,
     ReturnToControlMode,
+    UseIntegrationTestFeedbackSender(crossbeam_channel::Sender<SourceFeedbackValue>),
 }
 
 /// A task which is sent from time to time from real-time to main processor.
@@ -2214,56 +2220,61 @@ impl<EH: DomainEventHandler> Basics<EH> {
             feedback_reason,
             source_feedback_value
         );
-        match source_feedback_value {
-            SourceFeedbackValue::Midi(v) => {
-                if let FeedbackOutput::Midi(midi_output) = feedback_output {
-                    match midi_output {
-                        MidiDestination::FxOutput => {
-                            if self.output_logging_enabled {
-                                log_feedback_output(
-                                    &self.instance_id,
-                                    format_midi_source_value(&v),
-                                );
+        if let Some(test_sender) = self.channels.integration_test_feedback_sender.as_ref() {
+            // Test receiver could already be gone (if the test didn't wait long enough).
+            let _ = test_sender.send(source_feedback_value);
+        } else {
+            match source_feedback_value {
+                SourceFeedbackValue::Midi(v) => {
+                    if let FeedbackOutput::Midi(midi_output) = feedback_output {
+                        match midi_output {
+                            MidiDestination::FxOutput => {
+                                if self.output_logging_enabled {
+                                    log_feedback_output(
+                                        &self.instance_id,
+                                        format_midi_source_value(&v),
+                                    );
+                                }
+                                self.channels
+                                    .feedback_real_time_task_sender
+                                    .send(FeedbackRealTimeTask::FxOutputFeedback(v))
+                                    .unwrap();
                             }
-                            self.channels
-                                .feedback_real_time_task_sender
-                                .send(FeedbackRealTimeTask::FxOutputFeedback(v))
-                                .unwrap();
-                        }
-                        MidiDestination::Device(dev_id) => {
-                            // We send to the audio hook in this case (the default case) because there's
-                            // only one audio hook (not one per instance as with real-time processors),
-                            // so it can guarantee us a globally deterministic order. This is necessary
-                            // to achieve "eventual feedback consistency" by using instance
-                            // orchestration techniques in the main thread. If
-                            // we don't do that, we can prepare the most perfect
-                            // feedback ordering in the backbone control surface (main
-                            // thread, in order to support multiple instances with the same device) ...
-                            // it won't be useful at all if the real-time processors send the feedback
-                            // in the order of instance instantiation.
-                            if self.output_logging_enabled {
-                                log_feedback_output(
-                                    &self.instance_id,
-                                    format_midi_source_value(&v),
-                                );
+                            MidiDestination::Device(dev_id) => {
+                                // We send to the audio hook in this case (the default case) because there's
+                                // only one audio hook (not one per instance as with real-time processors),
+                                // so it can guarantee us a globally deterministic order. This is necessary
+                                // to achieve "eventual feedback consistency" by using instance
+                                // orchestration techniques in the main thread. If
+                                // we don't do that, we can prepare the most perfect
+                                // feedback ordering in the backbone control surface (main
+                                // thread, in order to support multiple instances with the same device) ...
+                                // it won't be useful at all if the real-time processors send the feedback
+                                // in the order of instance instantiation.
+                                if self.output_logging_enabled {
+                                    log_feedback_output(
+                                        &self.instance_id,
+                                        format_midi_source_value(&v),
+                                    );
+                                }
+                                self.channels
+                                    .feedback_audio_hook_task_sender
+                                    .send(FeedbackAudioHookTask::MidiDeviceFeedback(dev_id, v))
+                                    .unwrap();
                             }
-                            self.channels
-                                .feedback_audio_hook_task_sender
-                                .send(FeedbackAudioHookTask::MidiDeviceFeedback(dev_id, v))
-                                .unwrap();
                         }
                     }
                 }
-            }
-            SourceFeedbackValue::Osc(msg) => {
-                if let FeedbackOutput::Osc(dev_id) = feedback_output {
-                    if self.output_logging_enabled {
-                        log_feedback_output(&self.instance_id, format_osc_message(&msg));
+                SourceFeedbackValue::Osc(msg) => {
+                    if let FeedbackOutput::Osc(dev_id) = feedback_output {
+                        if self.output_logging_enabled {
+                            log_feedback_output(&self.instance_id, format_osc_message(&msg));
+                        }
+                        self.channels
+                            .osc_feedback_task_sender
+                            .try_send(OscFeedbackTask::new(dev_id, msg))
+                            .unwrap();
                     }
-                    self.channels
-                        .osc_feedback_task_sender
-                        .try_send(OscFeedbackTask::new(dev_id, msg))
-                        .unwrap();
                 }
             }
         }

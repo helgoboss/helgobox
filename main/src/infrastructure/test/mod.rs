@@ -1,13 +1,17 @@
 use crate::base::Global;
-use crate::domain::PLUGIN_PARAMETER_COUNT;
-use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
+use crate::domain::{SourceFeedbackValue, PLUGIN_PARAMETER_COUNT};
+use crate::infrastructure::plugin::{App, SET_STATE_PARAM_NAME};
+use approx::assert_abs_diff_eq;
+use helgoboss_learn::{MidiSourceValue, FEEDBACK_EPSILON};
 use helgoboss_midi::test_util::*;
 use helgoboss_midi::ShortMessage;
-use reaper_high::{ActionKind, Fx, FxParameter, Reaper};
+use reaper_high::{ActionKind, Fx, FxParameter, Reaper, Track};
 use reaper_medium::{Db, StuffMidiMessageTarget};
 use std::ffi::CString;
 use std::future::Future;
 use tokio::time::Duration;
+use MidiSourceValue::Plain;
+use SourceFeedbackValue::Midi;
 
 pub fn register_test_action() {
     Reaper::get().register_action(
@@ -82,132 +86,207 @@ async fn millis(amount: u64) {
     futures_timer::Delay::new(Duration::from_millis(amount)).await;
 }
 
-async fn setup() -> Fx {
+async fn setup() -> RealearnTestInstance {
     // When
     let reaper = Reaper::get();
     let project = reaper.create_empty_project_in_new_tab();
     let track = project.add_track();
-    let realearn = track
+    let fx = track
         .normal_fx_chain()
         .add_fx_by_original_name("ReaLearn (Helgoboss)")
         .expect("couldn't find ReaLearn plug-in");
     // Then
-    assert_eq!(realearn.parameter_count(), PLUGIN_PARAMETER_COUNT + 2);
-    assert_eq!(realearn.name().to_str(), "VSTi: ReaLearn (Helgoboss)");
+    assert_eq!(fx.parameter_count(), PLUGIN_PARAMETER_COUNT + 2);
+    assert_eq!(fx.name().to_str(), "VSTi: ReaLearn (Helgoboss)");
     moment().await;
-    realearn
+    let session = App::get()
+        .find_session_by_containing_fx(&fx)
+        .expect("couldn't find session associated with ReaLearn FX instance");
+    let (feedback_sender, feedback_receiver) = crossbeam_channel::unbounded();
+    session
+        .borrow()
+        .use_integration_test_feedback_sender(feedback_sender);
+    RealearnTestInstance {
+        fx,
+        feedback_receiver,
+    }
+}
+
+struct RealearnTestInstance {
+    fx: Fx,
+    feedback_receiver: crossbeam_channel::Receiver<SourceFeedbackValue>,
+}
+
+impl RealearnTestInstance {
+    /// Returns the containing track.
+    pub fn track(&self) -> &Track {
+        self.fx.track().unwrap()
+    }
+
+    /// Returns the ReaLearn VST parameter at the given index.
+    pub fn parameter_by_index(&self, index: u32) -> FxParameter {
+        self.fx.parameter_by_index(index)
+    }
+
+    /// Returns all recorded feedback and removes it from the list.
+    fn pop_feedback(&self) -> Vec<SourceFeedbackValue> {
+        self.feedback_receiver.try_iter().collect()
+    }
 }
 
 async fn basics() {
     // Given
     let realearn = setup().await;
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
     load_realearn_preset(&realearn, include_str!("presets/basics.json"));
-    let realearn_track = realearn.track().unwrap();
-    assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::MINUS_INF);
-    }
-    {
-        // When
-        send_midi(note_on(0, 127, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::TWELVE_DB);
-    }
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 91)))]
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))]
+    );
+    // When
+    send_midi(note_on(0, 64, 127)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::TWELVE_DB);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 127)))]
+    );
 }
 
 async fn basics_controller_compartment() {
     // Given
     let realearn = setup().await;
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
     load_realearn_preset(
         &realearn,
         include_str!("presets/basics-controller-compartment.json"),
     );
-    let realearn_track = realearn.track().unwrap();
-    assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::MINUS_INF);
-    }
-    {
-        // When
-        send_midi(note_on(0, 127, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::TWELVE_DB);
-    }
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 91)))]
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))]
+    );
+    // When
+    send_midi(note_on(0, 64, 127)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::TWELVE_DB);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 127)))]
+    );
 }
 
 async fn virtual_mapping() {
     // Given
     let realearn = setup().await;
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
     load_realearn_preset(&realearn, include_str!("presets/virtual.json"));
-    let realearn_track = realearn.track().unwrap();
-    assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::MINUS_INF);
-    }
-    {
-        // When
-        send_midi(note_on(0, 127, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::TWELVE_DB);
-    }
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 91)))]
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))]
+    );
+    // When
+    send_midi(note_on(0, 64, 127)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::TWELVE_DB);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 127)))]
+    );
 }
 
 /// Tests that non-existing track ID doesn't cause errors.
 async fn track_by_id() {
     // Given
     let realearn = setup().await;
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
     load_realearn_preset(&realearn, include_str!("presets/track-by-id.json"));
-    let realearn_track = realearn.track().unwrap();
-    assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    }
-    let track_2 = realearn_track.project().add_track();
     moment().await;
+    // Then
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    let track_2 = realearn.track().project().add_track();
+    moment().await;
+    // Then
     assert_eq!(track_2.volume().db(), Db::ZERO_DB);
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-        assert_eq!(track_2.volume().db(), Db::ZERO_DB);
-    }
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(track_2.volume().db(), Db::ZERO_DB);
+    assert_eq!(realearn.pop_feedback(), vec![]);
 }
 
 async fn track_by_position() {
     // Given
     let realearn = setup().await;
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
     load_realearn_preset(&realearn, include_str!("presets/track-by-position.json"));
-    let realearn_track = realearn.track().unwrap();
-    assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    }
-    let track_2 = realearn_track.project().add_track();
     moment().await;
+    // Then
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
+    let track_2 = realearn.track().project().add_track();
+    moment().await;
+    // Then
     assert_eq!(track_2.volume().db(), Db::ZERO_DB);
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-        assert_eq!(track_2.volume().db(), Db::MINUS_INF);
-    }
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 91)))]
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(track_2.volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))]
+    );
 }
 
 async fn fx_by_position() {
@@ -218,33 +297,65 @@ async fn fx_by_position() {
     let delay = chain.add_fx_by_original_name("ReaDelay (Cockos)").unwrap();
     let eq = chain.add_fx_by_original_name("ReaEQ (Cockos)").unwrap();
     let synth = chain.add_fx_by_original_name("ReaSynth (Cockos)").unwrap();
-    load_realearn_preset(&realearn, include_str!("presets/fx-by-position.json"));
     fn is_zero(param: FxParameter) -> bool {
         param.reaper_normalized_value().get() == 0.0
     }
     assert!(!is_zero(eq.parameter_by_index(1)));
     assert!(!is_zero(synth.parameter_by_index(1)));
     assert!(!is_zero(delay.parameter_by_index(1)));
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert!(is_zero(eq.parameter_by_index(1)));
-    }
-    {
-        // When
-        chain.remove_fx(&eq).unwrap();
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert!(is_zero(synth.parameter_by_index(1)));
-    }
-    {
-        // When
-        chain.move_fx(&delay, 1).unwrap();
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert!(is_zero(delay.parameter_by_index(1)));
-    }
+    // When
+    load_realearn_preset(&realearn, include_str!("presets/fx-by-position.json"));
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            Midi(Plain(note_on(0, 64, 64))),
+            Midi(Plain(note_on(0, 64, 64)))
+        ]
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert!(is_zero(eq.parameter_by_index(1)));
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0))),]
+    );
+    // When
+    chain.remove_fx(&eq).unwrap();
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        // Zero because ReaSynth Release parameter is roughly at zero by default.
+        vec![Midi(Plain(note_on(0, 64, 0))),]
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert!(is_zero(synth.parameter_by_index(1)));
+    assert_eq!(
+        realearn.pop_feedback(),
+        // Zero because now really totally zero.
+        vec![Midi(Plain(note_on(0, 64, 0))),]
+    );
+    // When
+    chain.move_fx(&delay, 1).unwrap();
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 64))),]
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert!(is_zero(delay.parameter_by_index(1)));
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0))),]
+    );
 }
 
 async fn fx_by_name() {
@@ -255,33 +366,52 @@ async fn fx_by_name() {
     let delay = chain.add_fx_by_original_name("ReaDelay (Cockos)").unwrap();
     let eq = chain.add_fx_by_original_name("ReaEQ (Cockos)").unwrap();
     let synth = chain.add_fx_by_original_name("ReaSynth (Cockos)").unwrap();
-    load_realearn_preset(&realearn, include_str!("presets/fx-by-name.json"));
     fn is_zero(param: FxParameter) -> bool {
         param.reaper_normalized_value().get() == 0.0
     }
     assert!(!is_zero(eq.parameter_by_index(1)));
     assert!(!is_zero(synth.parameter_by_index(1)));
     assert!(!is_zero(delay.parameter_by_index(1)));
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert!(is_zero(eq.parameter_by_index(1)));
-    }
-    {
-        // When
-        chain.remove_fx(&eq).unwrap();
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert!(!is_zero(synth.parameter_by_index(1)));
-    }
-    {
-        // When
-        chain.move_fx(&delay, 1).unwrap();
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert!(!is_zero(delay.parameter_by_index(1)));
-    }
+    // When
+    load_realearn_preset(&realearn, include_str!("presets/fx-by-name.json"));
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            Midi(Plain(note_on(0, 64, 64))),
+            Midi(Plain(note_on(0, 64, 64)))
+        ]
+    );
+    // When
+    send_midi(note_on(0, 64, 10)).await;
+    // Then
+    assert_abs_diff_eq!(
+        eq.parameter_by_index(1).reaper_normalized_value().get(),
+        10.0 / 127.0,
+        epsilon = FEEDBACK_EPSILON
+    );
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 10))),]
+    );
+    // When
+    chain.remove_fx(&eq).unwrap();
+    moment().await;
+    // Then
+    // TODO-high Why no "gone" feedback?
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert!(!is_zero(synth.parameter_by_index(1)));
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    chain.move_fx(&delay, 1).unwrap();
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert!(!is_zero(delay.parameter_by_index(1)));
+    assert_eq!(realearn.pop_feedback(), vec![]);
 }
 
 async fn fx_by_id() {
@@ -293,184 +423,265 @@ async fn fx_by_id() {
     let eq = chain.add_fx_by_original_name("ReaEQ (Cockos)").unwrap();
     let eq_guid_string = eq.guid().unwrap().to_string_without_braces();
     let synth = chain.add_fx_by_original_name("ReaSynth (Cockos)").unwrap();
-    load_realearn_preset(
-        &realearn,
-        &include_str!("presets/fx-by-id.json").replace("$EQ_GUID", &eq_guid_string),
-    );
     fn is_zero(param: FxParameter) -> bool {
         param.reaper_normalized_value().get() == 0.0
     }
     assert!(!is_zero(eq.parameter_by_index(1)));
     assert!(!is_zero(synth.parameter_by_index(1)));
     assert!(!is_zero(delay.parameter_by_index(1)));
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert!(is_zero(eq.parameter_by_index(1)));
-    }
-    {
-        // When
-        chain.remove_fx(&eq).unwrap();
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert!(!is_zero(synth.parameter_by_index(1)));
-    }
-    {
-        // When
-        chain.move_fx(&delay, 1).unwrap();
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert!(!is_zero(delay.parameter_by_index(1)));
-    }
+    // When
+    load_realearn_preset(
+        &realearn,
+        &include_str!("presets/fx-by-id.json").replace("$EQ_GUID", &eq_guid_string),
+    );
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            Midi(Plain(note_on(0, 64, 64))),
+            Midi(Plain(note_on(0, 64, 64)))
+        ]
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert!(is_zero(eq.parameter_by_index(1)));
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0))),]
+    );
+    // When
+    chain.remove_fx(&eq).unwrap();
+    moment().await;
+    // Then
+    // TODO-high Why no "gone" feedback?
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert!(!is_zero(synth.parameter_by_index(1)));
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    chain.move_fx(&delay, 1).unwrap();
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert!(!is_zero(delay.parameter_by_index(1)));
+    assert_eq!(realearn.pop_feedback(), vec![]);
 }
 
 async fn track_by_name() {
     // Given
     let realearn = setup().await;
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
     load_realearn_preset(&realearn, include_str!("presets/track-by-name.json"));
-    let realearn_track = realearn.track().unwrap();
-    assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    }
-    let track_2 = realearn_track.project().add_track();
     moment().await;
+    // Then
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    let track_2 = realearn.track().project().add_track();
+    moment().await;
+    // Then
     assert_eq!(track_2.volume().db(), Db::ZERO_DB);
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-        assert_eq!(track_2.volume().db(), Db::ZERO_DB);
-    }
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(track_2.volume().db(), Db::ZERO_DB);
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
     track_2.set_name("Find me!");
     moment().await;
+    // Then
     assert_eq!(track_2.volume().db(), Db::ZERO_DB);
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-        assert_eq!(track_2.volume().db(), Db::MINUS_INF);
-    }
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 91)))]
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(track_2.volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))]
+    );
 }
 
 async fn conditional_activation_modifiers() {
     // Given
     let realearn = setup().await;
+    // When
     load_realearn_preset(&realearn, include_str!("presets/modifier-condition.json"));
-    let realearn_track = realearn.track().unwrap();
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    }
-    {
-        // When
-        realearn
-            .parameter_by_index(82)
-            .set_reaper_normalized_value(0.5)
-            .unwrap();
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::MINUS_INF);
-    }
-    {
-        // When
-        realearn
-            .parameter_by_index(13)
-            .set_reaper_normalized_value(1.0)
-            .unwrap();
-        send_midi(note_on(0, 127, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::MINUS_INF);
-    }
-    {
-        // When
-        realearn
-            .parameter_by_index(13)
-            .set_reaper_normalized_value(0.0)
-            .unwrap();
-        send_midi(note_on(0, 127, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::TWELVE_DB);
-    }
+    moment().await;
+    // Then
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    realearn
+        .parameter_by_index(82)
+        .set_reaper_normalized_value(0.5)
+        .unwrap();
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 91)))]
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))]
+    );
+    // When
+    realearn
+        .parameter_by_index(13)
+        .set_reaper_normalized_value(1.0)
+        .unwrap();
+    moment().await;
+    // Then
+    // TODO-high Why no "gone" feedback?
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 127)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    realearn
+        .parameter_by_index(13)
+        .set_reaper_normalized_value(0.0)
+        .unwrap();
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        // Zero because of value
+        vec![Midi(Plain(note_on(0, 64, 0)))]
+    );
+    // When
+    send_midi(note_on(0, 64, 127)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::TWELVE_DB);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 127)))]
+    );
 }
 
 async fn conditional_activation_program() {
     // Given
     let realearn = setup().await;
+    // When
     load_realearn_preset(&realearn, include_str!("presets/program-condition.json"));
-    let realearn_track = realearn.track().unwrap();
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    }
-    {
-        // When
-        realearn
-            .parameter_by_index(82)
-            .set_reaper_normalized_value(0.4)
-            .unwrap();
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    }
-    {
-        // When
-        realearn
-            .parameter_by_index(82)
-            .set_reaper_normalized_value(0.5)
-            .unwrap();
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::MINUS_INF);
-    }
+    moment().await;
+    // Then
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    realearn
+        .parameter_by_index(82)
+        .set_reaper_normalized_value(0.4)
+        .unwrap();
+    moment().await;
+    // Then
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    realearn
+        .parameter_by_index(82)
+        .set_reaper_normalized_value(0.5)
+        .unwrap();
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 91)))]
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))]
+    );
 }
 
 async fn conditional_activation_eel() {
     // Given
     let realearn = setup().await;
+    // When
     load_realearn_preset(&realearn, include_str!("presets/eel-condition.json"));
-    let realearn_track = realearn.track().unwrap();
-    {
-        // When
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    }
-    {
-        // When
-        realearn
-            .parameter_by_index(66)
-            .set_reaper_normalized_value(0.3)
-            .unwrap();
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::ZERO_DB);
-    }
-    {
-        // When
-        realearn
-            .parameter_by_index(66)
-            .set_reaper_normalized_value(0.6)
-            .unwrap();
-        send_midi(note_on(0, 0, 100)).await;
-        // Then
-        assert_eq!(realearn_track.volume().db(), Db::MINUS_INF);
-    }
+    moment().await;
+    // Then
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    realearn
+        .parameter_by_index(66)
+        .set_reaper_normalized_value(0.3)
+        .unwrap();
+    moment().await;
+    // Then
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    realearn
+        .parameter_by_index(66)
+        .set_reaper_normalized_value(0.6)
+        .unwrap();
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 91)))]
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))]
+    );
 }
 
-fn load_realearn_preset(realearn: &Fx, json: &str) {
+fn load_realearn_preset(realearn: &RealearnTestInstance, json: &str) {
     let preset_c_string = CString::new(json).expect("couldn't convert preset into c string");
     realearn
+        .fx
         .set_named_config_param(SET_STATE_PARAM_NAME, &preset_c_string.into_bytes_with_nul())
         .unwrap();
 }

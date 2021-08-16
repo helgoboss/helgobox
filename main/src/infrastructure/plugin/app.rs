@@ -751,6 +751,13 @@ impl App {
         })
     }
 
+    pub fn find_session_by_containing_fx(&self, fx: &Fx) -> Option<SharedSession> {
+        self.find_session(|session| {
+            let session = session.borrow();
+            session.context().containing_fx() == fx
+        })
+    }
+
     pub fn register_session(&self, session: WeakSession) {
         let mut sessions = self.sessions.borrow_mut();
         debug!(Reaper::get().logger(), "Registering new session...");

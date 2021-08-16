@@ -10,9 +10,9 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackOutput, GroupId, InstanceId, MainMapping, MappingCompartment,
     MappingId, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
     ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
-    RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, TargetValueChangedEvent,
-    VirtualControlElementId, VirtualFx, VirtualSource, VirtualTrack, COMPARTMENT_PARAMETER_COUNT,
-    ZEROED_PLUGIN_PARAMETERS,
+    RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue,
+    TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualTrack,
+    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::{enum_map, EnumMap};
@@ -1785,6 +1785,19 @@ impl Session {
 
     pub fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
         self.ui.show_mapping(compartment, mapping_id);
+    }
+
+    /// Makes the main processor send feedback to the given sender instead of the configured
+    /// feedback output.
+    ///
+    /// Good for checking produced feedback when doing integration testing.
+    pub fn use_integration_test_feedback_sender(
+        &self,
+        sender: crossbeam_channel::Sender<SourceFeedbackValue>,
+    ) {
+        self.normal_main_task_sender
+            .try_send(NormalMainTask::UseIntegrationTestFeedbackSender(sender))
+            .unwrap();
     }
 
     /// Notifies listeners async that something in a mapping list has changed.
