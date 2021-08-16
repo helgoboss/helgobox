@@ -16,29 +16,32 @@ Here's a step-by-step guide to help you get started with ReaLearn and a MIDI con
 . Start REAPER.
 . If you haven't already done it, https://github.com/helgoboss/realearn#installation[install ReaLearn via ReaPack].
 . Make sure your MIDI controller is enabled in Options → Preferences… → Audio → MIDI Devices
-** For the MIDI input device (control), tick "Enable input from this device" and untick
+  * For the MIDI input device (control), tick "Enable input from this device" and untick
  "Enable input for control messages".
-** For the MIDI output device (feedback), tick "Enabled output to this device".
+  * For the MIDI output device (feedback), tick "Enable output to this device".
 . Check if there's an existing controller preset for your MIDI controller (this is optional but can make things
  easier).
-** Extensions → ReaPack → Browse packages…
-** Type "realearn controller" in the _Filter_ field.
-** You should see a list of ReaLearn controller presets.
-** If you find your controller in the list, right-click it, choose install and press OK.
-. Create a new REAPER project or open an existing one.
-. Right-click the track control panel and choose "Insert virtual instrument on new track…".
-. Choose "VSTi: ReaLearn (Helgoboss)"
-. Select your controller's MIDI device as _Control input_ and _Feedback output_ (if you have a controller
+  * Extensions → ReaPack → Browse packages…
+  * Type "realearn controller" in the _Filter_ field.
+  * You should see a list of ReaLearn controller presets.
+  * If you find your controller in the list, right-click it, choose install and press OK.
+. Fire up an instance of ReaLearn
+  * If you want your mappings to be specific to a particular project, create a new REAPER project or open an existing one. Right-click the track control panel and choose "Insert virtual instrument on new track…".
+  * If you want your mappings to be automatically available in each of your projects, open REAPER's global monitoring FX chain (View → Monitoring FX) instead.
+  * Then choose "VSTi: ReaLearn (Helgoboss)"
+. Configure the ReaLearn instance
+  * Select your controller's MIDI device as _Control input_ and _Feedback output_ (if you have a controller
  that supports MIDI feedback).
-. If you have downloaded a controller preset:
-** Switch to "Controller compartment" and select the desired preset right next to it.
-** This should fill the list below with so-called _controller mappings_.
-** When you are done, switch back to the "Main compartment".
-. Add a first mapping by pressing the _Add one_ button.
-** A mapping appears that's still inactive (indicated by the grey text color).
-. Press _Learn source_ and move a control element on your MIDI controller.
-. Press _Learn target_ and move e.g. the volume fader of a track.
-. Now your control element should control the track volume.
+  * If you have downloaded a controller preset:
+    - Switch to "Controller compartment" and select the desired preset right next to it.
+    - This should fill the list below with so-called _controller mappings_.
+    - When you are done, switch back to the "Main compartment".
+. Add and learn your first mapping
+  * Add a first mapping by pressing the _Add one_ button.
+    - A mapping appears that's still inactive (indicated by the grey text color).
+  * Press _Learn source_ and move a control element on your MIDI controller.
+  * Press _Learn target_ and move e.g. the volume fader of a track.
+  * Now your control element should control the track volume.
 
 If you want to get the most out of your controller and learn about all of ReaLearn's cool features, please read on.
 
@@ -73,7 +76,7 @@ job at that.
 
 ReaLearn's approach is quite different: It gives you total control on which control element operates which REAPER
 parameter and provides you with a _learn_ function which allows you build your own control mappings quickly
-and intuitively without writing configuration files. All of that on a _per-instance_ basis. That's right, the mappings
+and intuitively without writing configuration files. All of that on a _per-instance_ basis. That's right, by default, the mappings
 are saved as part of the ReaLearn instance and therefore as part of your REAPER project. No need to pollute your global
 control mappings just for the needs of one project!
 
