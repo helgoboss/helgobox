@@ -1,0 +1,22 @@
+{
+  "id": "I3iqzlfV",
+  "controlDeviceId": "62",
+  "feedbackDeviceId": "fx-output",
+  "mappings": [
+    {
+      "id": "134104a5-8eb1-4a07-b8a9-b65d0a8f74d3",
+      "name": "1",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 64
+      },
+      "mode": {
+        "type": 2
+      },
+      "target": {
+        "type": 5
+      }
+    }
+  ]
+}

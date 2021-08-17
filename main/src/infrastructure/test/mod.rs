@@ -39,6 +39,27 @@ impl Test {
 
     pub async fn test(&mut self) {
         self.step("Basics", basics()).await;
+        self.step("Toggle mode", toggle_mode()).await;
+        self.step(
+            "Send feedback after control - Normal mode - Arm",
+            send_feedback_after_control_normal_mode_arm(),
+        )
+        .await;
+        self.step(
+            "Send feedback after control - Toggle mode - Arm",
+            send_feedback_after_control_toggle_mode_arm(),
+        )
+        .await;
+        self.step(
+            "#396 - Send feedback after control",
+            issue_396_send_feedback_after_control(),
+        )
+        .await;
+        self.step(
+            "Send feedback after control - Normal mode - Volume",
+            send_feedback_after_control_normal_mode_volume(),
+        )
+        .await;
         self.step(
             "Basics in controller compartment",
             basics_controller_compartment(),
@@ -144,7 +165,21 @@ async fn basics() {
     // Then
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 91)))]
+        vec![Midi(Plain(note_on(0, 64, 91)))],
+        "feedback should be sent after loading preset"
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(
+        realearn.track().volume().db(),
+        Db::MINUS_INF,
+        "NOTE OFF should turn down volume completely"
+    );
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "feedback should be sent on target value change"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -152,7 +187,8 @@ async fn basics() {
     assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0)))]
+        vec![],
+        "no feedback should be sent if target value not changed"
     );
     // When
     send_midi(note_on(0, 64, 127)).await;
@@ -160,7 +196,285 @@ async fn basics() {
     assert_eq!(realearn.track().volume().db(), Db::TWELVE_DB);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 127)))]
+        vec![Midi(Plain(note_on(0, 64, 127)))],
+        "feedback should be sent on target value change"
+    );
+}
+
+async fn toggle_mode() {
+    // Given
+    let realearn = setup().await;
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
+    load_realearn_preset(&realearn, include_str!("presets/toggle-mode.json"));
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "feedback should be sent after loading preset"
+    );
+    // When
+    send_midi(note_on(0, 64, 127)).await;
+    // Then
+    assert!(realearn.track().is_armed(false));
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            Midi(Plain(note_on(0, 64, 127))),
+            // More than necessary
+            Midi(Plain(note_on(0, 64, 127))),
+        ],
+        "feedback should be sent on target value change"
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert!(realearn.track().is_armed(false));
+    assert_eq!(realearn.pop_feedback(), vec![]);
+    // When
+    send_midi(note_on(0, 64, 127)).await;
+    // Then
+    assert!(!realearn.track().is_armed(false));
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            Midi(Plain(note_on(0, 64, 0))),
+            // More than necessary
+            Midi(Plain(note_on(0, 64, 0))),
+        ],
+        "feedback should be sent on target value change"
+    );
+}
+
+async fn send_feedback_after_control_toggle_mode_arm() {
+    // Given
+    let realearn = setup().await;
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
+    load_realearn_preset(
+        &realearn,
+        include_str!("presets/send-feedback-after-control-toggle-mode-arm.json"),
+    );
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "feedback should be sent after loading preset"
+    );
+    // When
+    send_midi(note_on(0, 64, 127)).await;
+    // Then
+    assert!(realearn.track().is_armed(false));
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            Midi(Plain(note_on(0, 64, 127))),
+            // More than necessary
+            Midi(Plain(note_on(0, 64, 127))),
+            // One more because of #396 change
+            Midi(Plain(note_on(0, 64, 127))),
+        ],
+        "feedback should be sent on target value change"
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert!(realearn.track().is_armed(false));
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 127)))],
+        "should send feedback even if target value not changed"
+    );
+}
+
+async fn send_feedback_after_control_normal_mode_arm() {
+    // Given
+    let realearn = setup().await;
+    assert!(!realearn.track().is_armed(false));
+    // When
+    load_realearn_preset(
+        &realearn,
+        include_str!("presets/send-feedback-after-control-normal-mode-arm.json"),
+    );
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "feedback should be sent after loading preset"
+    );
+    // When
+    send_midi(note_on(0, 64, 127)).await;
+    // Then
+    assert!(realearn.track().is_armed(false));
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            Midi(Plain(note_on(0, 64, 127))),
+            // More than necessary
+            Midi(Plain(note_on(0, 64, 127))),
+            // One more because of #396 change
+            Midi(Plain(note_on(0, 64, 127))),
+        ],
+        "feedback should be sent on target value change"
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert!(!realearn.track().is_armed(false));
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            Midi(Plain(note_on(0, 64, 0))),
+            // More than necessary
+            Midi(Plain(note_on(0, 64, 0))),
+            // One more because of #396 change
+            Midi(Plain(note_on(0, 64, 0))),
+        ],
+        "feedback should be sent on target value change"
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert!(!realearn.track().is_armed(false));
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "should send feedback even if target value not changed"
+    );
+}
+
+async fn issue_396_send_feedback_after_control() {
+    // Given
+    let realearn = setup().await;
+    assert_eq!(
+        realearn
+            .parameter_by_index(0)
+            .reaper_normalized_value()
+            .get(),
+        0.0
+    );
+    // When
+    load_realearn_preset(
+        &realearn,
+        include_str!("presets/issue-396-send-feedback-after-control.json"),
+    );
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn
+            .parameter_by_index(0)
+            .reaper_normalized_value()
+            .get(),
+        0.5,
+        "initial parameter value in preset should be respected"
+    );
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            // Even though the initial parameter value is 0.50, the feedback is zero because
+            // target min/max is set to 0.01 and out-of-range behavior to "Min".
+            Midi(Plain(note_on(0, 64, 0))),
+            // More than necessary
+            Midi(Plain(note_on(0, 64, 0))),
+        ],
+        "feedback should be sent after loading preset"
+    );
+    // When
+    send_midi(note_on(0, 64, 127)).await;
+    // Then
+    assert_abs_diff_eq!(
+        realearn
+            .parameter_by_index(0)
+            .reaper_normalized_value()
+            .get(),
+        // Because target min/max is set to 0.01
+        0.01,
+        epsilon = FEEDBACK_EPSILON
+    );
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            Midi(Plain(note_on(0, 64, 127))),
+            // One more because of #396 change
+            Midi(Plain(note_on(0, 64, 127))),
+        ],
+        "maximum feedback value should be sent because target has changed to exactly target min/max"
+    );
+    // When
+    send_midi(note_on(0, 64, 127)).await;
+    // Then
+    assert_abs_diff_eq!(
+        realearn
+            .parameter_by_index(0)
+            .reaper_normalized_value()
+            .get(),
+        // Because target min/max is (still) set to 0.01
+        0.01,
+        epsilon = FEEDBACK_EPSILON
+    );
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 127)))],
+        "should send feedback even if target value not changed (after another NOTE ON)"
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_abs_diff_eq!(
+        realearn
+            .parameter_by_index(0)
+            .reaper_normalized_value()
+            .get(),
+        // Because target min/max is (still) set to 0.01
+        0.01,
+        epsilon = FEEDBACK_EPSILON
+    );
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 127))),],
+        "should send feedback even if target value not changed (after NOTE OFF)"
+    );
+}
+async fn send_feedback_after_control_normal_mode_volume() {
+    // Given
+    let realearn = setup().await;
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
+    load_realearn_preset(
+        &realearn,
+        include_str!("presets/send-feedback-after-control-normal-mode-volume.json"),
+    );
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 91)))],
+        "feedback should be sent after loading preset"
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            Midi(Plain(note_on(0, 64, 0))),
+            // One more because of #396 change
+            Midi(Plain(note_on(0, 64, 0)))
+        ],
+        "feedback should be sent on target value change"
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "feedback should be sent even if value still same"
     );
 }
 
@@ -177,7 +491,8 @@ async fn basics_controller_compartment() {
     // Then
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 91)))]
+        vec![Midi(Plain(note_on(0, 64, 91)))],
+        "feedback should be sent after loading preset"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -185,7 +500,8 @@ async fn basics_controller_compartment() {
     assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0)))]
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "feedback should be sent on target value change"
     );
     // When
     send_midi(note_on(0, 64, 127)).await;
@@ -193,7 +509,8 @@ async fn basics_controller_compartment() {
     assert_eq!(realearn.track().volume().db(), Db::TWELVE_DB);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 127)))]
+        vec![Midi(Plain(note_on(0, 64, 127)))],
+        "feedback should be sent on target value change"
     );
 }
 
@@ -207,7 +524,8 @@ async fn virtual_mapping() {
     // Then
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 91)))]
+        vec![Midi(Plain(note_on(0, 64, 91)))],
+        "feedback should be sent after loading preset"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -215,7 +533,8 @@ async fn virtual_mapping() {
     assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0)))]
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "feedback should be sent on target value change"
     );
     // When
     send_midi(note_on(0, 64, 127)).await;
@@ -223,7 +542,8 @@ async fn virtual_mapping() {
     assert_eq!(realearn.track().volume().db(), Db::TWELVE_DB);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 127)))]
+        vec![Midi(Plain(note_on(0, 64, 127)))],
+        "feedback should be sent on target value change"
     );
 }
 
@@ -236,7 +556,11 @@ async fn track_by_id() {
     load_realearn_preset(&realearn, include_str!("presets/track-by-id.json"));
     moment().await;
     // Then
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent after loading preset because target track doesn't exist yet"
+    );
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
@@ -264,7 +588,11 @@ async fn track_by_position() {
     load_realearn_preset(&realearn, include_str!("presets/track-by-position.json"));
     moment().await;
     // Then
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent after loading preset because target track doesn't exist yet"
+    );
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
@@ -276,7 +604,8 @@ async fn track_by_position() {
     assert_eq!(track_2.volume().db(), Db::ZERO_DB);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 91)))]
+        vec![Midi(Plain(note_on(0, 64, 91)))],
+        "feedback should be sent because track appears at targeted position"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -285,7 +614,8 @@ async fn track_by_position() {
     assert_eq!(track_2.volume().db(), Db::MINUS_INF);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0)))]
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "feedback should be sent on target value change"
     );
 }
 
@@ -312,7 +642,8 @@ async fn fx_by_position() {
         vec![
             Midi(Plain(note_on(0, 64, 64))),
             Midi(Plain(note_on(0, 64, 64)))
-        ]
+        ],
+        "feedback should be sent after loading preset"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -320,7 +651,8 @@ async fn fx_by_position() {
     assert!(is_zero(eq.parameter_by_index(1)));
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0))),]
+        vec![Midi(Plain(note_on(0, 64, 0))),],
+        "feedback should be sent on target value change"
     );
     // When
     chain.remove_fx(&eq).unwrap();
@@ -329,7 +661,8 @@ async fn fx_by_position() {
     assert_eq!(
         realearn.pop_feedback(),
         // Zero because ReaSynth Release parameter is roughly at zero by default.
-        vec![Midi(Plain(note_on(0, 64, 0))),]
+        vec![Midi(Plain(note_on(0, 64, 0))),],
+        "feedback should be sent when ReaSynth FX appears at targeted position because of removal"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -337,8 +670,9 @@ async fn fx_by_position() {
     assert!(is_zero(synth.parameter_by_index(1)));
     assert_eq!(
         realearn.pop_feedback(),
-        // Zero because now really totally zero.
-        vec![Midi(Plain(note_on(0, 64, 0))),]
+        // Zero because now totally zero.
+        vec![Midi(Plain(note_on(0, 64, 0))),],
+        "feedback should be sent on target value change"
     );
     // When
     chain.move_fx(&delay, 1).unwrap();
@@ -346,7 +680,8 @@ async fn fx_by_position() {
     // Then
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 64))),]
+        vec![Midi(Plain(note_on(0, 64, 64))),],
+        "feedback should be sent when ReaDelay FX appears at targeted position because of reorder"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -354,7 +689,8 @@ async fn fx_by_position() {
     assert!(is_zero(delay.parameter_by_index(1)));
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0))),]
+        vec![Midi(Plain(note_on(0, 64, 0))),],
+        "feedback should be sent on target value change"
     );
 }
 
@@ -381,7 +717,8 @@ async fn fx_by_name() {
         vec![
             Midi(Plain(note_on(0, 64, 64))),
             Midi(Plain(note_on(0, 64, 64)))
-        ]
+        ],
+        "feedback should be sent after loading preset"
     );
     // When
     send_midi(note_on(0, 64, 10)).await;
@@ -393,7 +730,8 @@ async fn fx_by_name() {
     );
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 10))),]
+        vec![Midi(Plain(note_on(0, 64, 10))),],
+        "feedback should be sent on target value change"
     );
     // When
     chain.remove_fx(&eq).unwrap();
@@ -405,13 +743,21 @@ async fn fx_by_name() {
     send_midi(note_on(0, 64, 0)).await;
     // Then
     assert!(!is_zero(synth.parameter_by_index(1)));
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if target value not changed"
+    );
     // When
     chain.move_fx(&delay, 1).unwrap();
     send_midi(note_on(0, 64, 0)).await;
     // Then
     assert!(!is_zero(delay.parameter_by_index(1)));
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if target value not changed"
+    );
 }
 
 async fn fx_by_id() {
@@ -441,7 +787,8 @@ async fn fx_by_id() {
         vec![
             Midi(Plain(note_on(0, 64, 64))),
             Midi(Plain(note_on(0, 64, 64)))
-        ]
+        ],
+        "feedback should be sent after loading preset"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -449,7 +796,8 @@ async fn fx_by_id() {
     assert!(is_zero(eq.parameter_by_index(1)));
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0))),]
+        vec![Midi(Plain(note_on(0, 64, 0))),],
+        "feedback should be sent on target value change"
     );
     // When
     chain.remove_fx(&eq).unwrap();
@@ -461,13 +809,21 @@ async fn fx_by_id() {
     send_midi(note_on(0, 64, 0)).await;
     // Then
     assert!(!is_zero(synth.parameter_by_index(1)));
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if target value not changed"
+    );
     // When
     chain.move_fx(&delay, 1).unwrap();
     send_midi(note_on(0, 64, 0)).await;
     // Then
     assert!(!is_zero(delay.parameter_by_index(1)));
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if target value not changed"
+    );
 }
 
 async fn track_by_name() {
@@ -478,24 +834,40 @@ async fn track_by_name() {
     load_realearn_preset(&realearn, include_str!("presets/track-by-name.json"));
     moment().await;
     // Then
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent after loading preset because target track doesn't exist yet"
+    );
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
     assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if target value not changed"
+    );
     // When
     let track_2 = realearn.track().project().add_track();
     moment().await;
     // Then
     assert_eq!(track_2.volume().db(), Db::ZERO_DB);
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if track added and target track doesn't exist yet"
+    );
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
     assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
     assert_eq!(track_2.volume().db(), Db::ZERO_DB);
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if target value not changed"
+    );
     // When
     track_2.set_name("Find me!");
     moment().await;
@@ -503,7 +875,8 @@ async fn track_by_name() {
     assert_eq!(track_2.volume().db(), Db::ZERO_DB);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 91)))]
+        vec![Midi(Plain(note_on(0, 64, 91)))],
+        "feedback should be sent if track with targeted name appears"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -512,7 +885,8 @@ async fn track_by_name() {
     assert_eq!(track_2.volume().db(), Db::MINUS_INF);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0)))]
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "feedback should be sent on target value change"
     );
 }
 
@@ -523,12 +897,20 @@ async fn conditional_activation_modifiers() {
     load_realearn_preset(&realearn, include_str!("presets/modifier-condition.json"));
     moment().await;
     // Then
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent after loading preset because activation condition not yet met"
+    );
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
     assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if target value not changed"
+    );
     // When
     realearn
         .parameter_by_index(82)
@@ -538,7 +920,8 @@ async fn conditional_activation_modifiers() {
     // Then
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 91)))]
+        vec![Midi(Plain(note_on(0, 64, 91))),],
+        "feedback should be sent as soon as activation condition is met"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -546,7 +929,8 @@ async fn conditional_activation_modifiers() {
     assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0)))]
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "feedback should be sent on target value change"
     );
     // When
     realearn
@@ -561,7 +945,11 @@ async fn conditional_activation_modifiers() {
     send_midi(note_on(0, 64, 127)).await;
     // Then
     assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if target value not changed"
+    );
     // When
     realearn
         .parameter_by_index(13)
@@ -572,7 +960,8 @@ async fn conditional_activation_modifiers() {
     assert_eq!(
         realearn.pop_feedback(),
         // Zero because of value
-        vec![Midi(Plain(note_on(0, 64, 0)))]
+        vec![Midi(Plain(note_on(0, 64, 0))),],
+        "feedback should be sent as soon as activation condition is met"
     );
     // When
     send_midi(note_on(0, 64, 127)).await;
@@ -580,7 +969,8 @@ async fn conditional_activation_modifiers() {
     assert_eq!(realearn.track().volume().db(), Db::TWELVE_DB);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 127)))]
+        vec![Midi(Plain(note_on(0, 64, 127)))],
+        "feedback should be sent on target value change"
     );
 }
 
@@ -591,12 +981,20 @@ async fn conditional_activation_program() {
     load_realearn_preset(&realearn, include_str!("presets/program-condition.json"));
     moment().await;
     // Then
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent after loading preset because activation condition not yet met"
+    );
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
     assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if target value not changed"
+    );
     // When
     realearn
         .parameter_by_index(82)
@@ -604,12 +1002,20 @@ async fn conditional_activation_program() {
         .unwrap();
     moment().await;
     // Then
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if parameter changed but activation condition not yet met"
+    );
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
     assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if target value not changed"
+    );
     // When
     realearn
         .parameter_by_index(82)
@@ -619,7 +1025,8 @@ async fn conditional_activation_program() {
     // Then
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 91)))]
+        vec![Midi(Plain(note_on(0, 64, 91)))],
+        "feedback should be sent as soon as activation condition is met"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -627,7 +1034,8 @@ async fn conditional_activation_program() {
     assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0)))]
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "feedback should be sent on target value change"
     );
 }
 
@@ -638,12 +1046,20 @@ async fn conditional_activation_eel() {
     load_realearn_preset(&realearn, include_str!("presets/eel-condition.json"));
     moment().await;
     // Then
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent after loading preset because activation condition not yet met"
+    );
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
     assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if target value not changed"
+    );
     // When
     realearn
         .parameter_by_index(66)
@@ -651,12 +1067,20 @@ async fn conditional_activation_eel() {
         .unwrap();
     moment().await;
     // Then
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if parameter changed but activation condition not yet met"
+    );
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
     assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![],
+        "no feedback should be sent if target value not changed"
+    );
     // When
     realearn
         .parameter_by_index(66)
@@ -666,7 +1090,8 @@ async fn conditional_activation_eel() {
     // Then
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 91)))]
+        vec![Midi(Plain(note_on(0, 64, 91))),],
+        "feedback should be sent as soon as activation condition is met"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -674,7 +1099,8 @@ async fn conditional_activation_eel() {
     assert_eq!(realearn.track().volume().db(), Db::MINUS_INF);
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0)))]
+        vec![Midi(Plain(note_on(0, 64, 0)))],
+        "feedback should be sent on target value change"
     );
 }
 

@@ -479,7 +479,7 @@ impl MainMapping {
                     let _ = target.hit(v, context);
                     // Echo feedback, send feedback after control ... all of that is not important when
                     // firing triggered by a timer.
-                    if should_send_non_auto_feedback_after_control(
+                    if should_send_manual_feedback_after_control(
                         target,
                         &self.core.options,
                         &self.activation_state,
@@ -590,8 +590,8 @@ impl MainMapping {
             &ReaperTarget,
         ) -> Option<ModeControlResult<ControlValue>>,
     ) -> MappingControlResult {
-        let mut send_feedback = false;
-        let mut at_least_one_target_val_was_changed = false;
+        let mut send_manual_feedback = false;
+        let mut at_least_one_relevant_target_exists = false;
         let mut at_least_one_target_was_reached = false;
         use ModeControlResult::*;
         let mut fresh_targets = if options.enforce_target_refresh {
@@ -617,16 +617,16 @@ impl MainMapping {
             } else {
                 continue;
             };
+            at_least_one_relevant_target_exists = true;
             match get_mode_control_result(options, context, &mut self.core.mode, target) {
                 None => {
-                    // The target value was not changed. If `send_feedback_after_control` is enabled, we
-                    // still send feedback - this can be useful with controllers which insist
+                    // The incoming source value doesn't reach the target because the source value
+                    // was filtered out. If `send_feedback_after_control` is enabled, we
+                    // still send feedback - this can be useful with controllers which insist on
                     // controlling the LED on their own. The feedback sent by ReaLearn
                     // will fix this self-controlled LED state.
-                    send_feedback = true;
                 }
                 Some(HitTarget(v)) => {
-                    at_least_one_target_val_was_changed = true;
                     at_least_one_target_was_reached = true;
                     if self.core.options.feedback_send_behavior
                         == FeedbackSendBehavior::PreventEchoFeedback
@@ -637,31 +637,54 @@ impl MainMapping {
                     if let Err(msg) = target.hit(v, context) {
                         slog::debug!(logger, "Control failed: {}", msg);
                     }
-                    if should_send_non_auto_feedback_after_control(
+                    if should_send_manual_feedback_after_control(
                         target,
                         &self.core.options,
                         &self.activation_state,
                         self.unresolved_target.as_ref(),
                     ) {
-                        send_feedback = true;
+                        send_manual_feedback = true;
                     }
                 }
                 Some(LeaveTargetUntouched(_)) => {
+                    // The target already has the desired value.
+                    // If `send_feedback_after_control` is enabled, we still send feedback - this
+                    // can be useful with controllers which insist on controlling the LED on their
+                    // own. The feedback sent by ReaLearn will fix this self-controlled LED state.
                     at_least_one_target_was_reached = true;
-                    send_feedback = true;
                 }
             }
         }
         MappingControlResult {
             successful: at_least_one_target_was_reached,
-            feedback_value: if at_least_one_target_val_was_changed {
-                if send_feedback {
+            feedback_value: if at_least_one_relevant_target_exists {
+                if send_manual_feedback {
                     self.feedback(true, context)
                 } else {
-                    None
+                    // Before #396, we only sent "feedback after control" if the target was not hit at all.
+                    // Reasoning was that if the target was hit, there must have been a value change
+                    // (because we usually don't hit a target if it already has the desired value)
+                    // and this value change would cause automatic feedback anyway. Then it wouldn't
+                    // be necessary to send additional manual feedback.
+                    //
+                    // But this conclusion is wrong in some cases:
+                    // 1. The target value might be very, very close to the desired value but not
+                    //    the same. The target would be hit then (for being safe) but no feedback
+                    //    might be generated because the difference might be insignificant regarding
+                    //    our FEEDBACK_EPSILON (checked when polling feedback). This also depends a
+                    //    bit on how the target interprets super-tiny value changes.
+                    // 2. If we have a retriggerable target, we would always hit it, even if its
+                    //    value wouldn't change.
+                    //
+                    // The new strategy is: Better redundant feedback messages than omitting
+                    // important ones. This is just a workaround for weird controllers anyway!
+                    // At the very least they should be able to cope with a few more feedback
+                    // messages.
+                    // TODO-bkl-medium we could optimize this in future by checking
+                    //  significance of the difference within the mapping (should be easy now that
+                    //  we have mutable access to self here).
+                    self.feedback_after_control_if_enabled(options, context)
                 }
-            } else if send_feedback {
-                self.feedback_after_control_if_enabled(options, context)
             } else {
                 None
             },
@@ -1630,14 +1653,15 @@ pub fn aggregate_target_values(
 }
 
 pub struct MappingControlResult {
-    /// `true` if target hit.
+    /// `true` if target hit or almost hit but left untouched because it already has desired value.
+    /// `false` e.g. if source message filtered out (e.g. because of button filter) or no target.
     pub successful: bool,
     /// Even if not hit, this can contain a feedback value!
     pub feedback_value: Option<FeedbackValue>,
 }
 
 /// Not usable for mappings with virtual targets.
-fn should_send_non_auto_feedback_after_control(
+fn should_send_manual_feedback_after_control(
     target: &ReaperTarget,
     options: &ProcessorMappingOptions,
     activation_state: &ActivationState,
