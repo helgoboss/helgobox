@@ -349,7 +349,7 @@ async fn send_feedback_after_control_normal_mode_arm() {
 async fn issue_396_send_feedback_after_control() {
     // Given
     let realearn = setup().await;
-    assert_eq!(
+    assert_abs_diff_eq!(
         realearn
             .parameter_by_index(0)
             .reaper_normalized_value()
@@ -363,7 +363,7 @@ async fn issue_396_send_feedback_after_control() {
     );
     moment().await;
     // Then
-    assert_eq!(
+    assert_abs_diff_eq!(
         realearn
             .parameter_by_index(0)
             .reaper_normalized_value()
