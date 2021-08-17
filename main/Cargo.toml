@@ -137,12 +137,12 @@ hyper = "= 0.13.9"
 enum_dispatch = "0.3.6"
 # For processing mappings in user-defined order
 indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/clion-workaround", features = ["std"] }
+# For comparing floating point numbers in tests
+approx = "0.3.2"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
 sys-info = "0.7"
-# For comparing floating point numbers in tests
-approx = "0.3.2"
 
 [build-dependencies]
 # For making Git commit hash available to code
