@@ -497,6 +497,14 @@ fn serialize_fx(fx: FxPropValues) -> FxData {
             is_input_fx: fx.is_input_fx,
             expression: None,
         },
+        AllByName => FxData {
+            anchor: Some(VirtualFxType::AllByName),
+            index: None,
+            guid: None,
+            name: Some(fx.name),
+            is_input_fx: fx.is_input_fx,
+            expression: None,
+        },
         ByIndex => FxData {
             anchor: Some(VirtualFxType::ByIndex),
             index: Some(fx.index),

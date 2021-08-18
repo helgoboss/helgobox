@@ -2187,7 +2187,7 @@ fn make_mapping_project_independent(mapping: &SharedMapping, context: ExtendedPr
                 let refers_to_project = target.fx_type.get().refers_to_project();
                 if refers_to_project {
                     let target_with_context = target.with_context(context, compartment);
-                    let virtual_fx = if target_with_context.fx().ok().as_ref()
+                    let virtual_fx = if target_with_context.first_fx().ok().as_ref()
                         == Some(context.context().containing_fx())
                     {
                         // This is ourselves!

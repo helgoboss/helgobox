@@ -1916,7 +1916,7 @@ impl<'a> MutableMappingPanel<'a> {
                         .set(i.try_into().expect("invalid transport action"));
                 }
                 ReaperTargetType::FxParameter => {
-                    if let Ok(fx) = self.target_with_context().fx() {
+                    if let Ok(fx) = self.target_with_context().first_fx() {
                         let i = combo.selected_combo_box_item_index();
                         let param = fx.parameter_by_index(i as _);
                         self.mapping.target_model.param_index.set(i as _);
@@ -2051,7 +2051,7 @@ impl<'a> MutableMappingPanel<'a> {
                             .fx_expression
                             .set_with_initiator(expression, Some(edit_control_id));
                     }
-                    VirtualFxType::ByName => {
+                    VirtualFxType::ByName | VirtualFxType::AllByName => {
                         let name = control.text().unwrap_or_default();
                         self.mapping
                             .target_model
@@ -3154,7 +3154,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                             let index = self.target.fx_index.get();
                             (index + 1).to_string()
                         }
-                        VirtualFxType::ByName => self.target.fx_name.get_ref().clone(),
+                        VirtualFxType::ByName | VirtualFxType::AllByName => {
+                            self.target.fx_name.get_ref().clone()
+                        }
                         _ => {
                             control.hide();
                             return;
@@ -3376,8 +3378,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                             if let Some(VirtualFx::ChainFx { chain_fx, .. }) =
                                 self.target.virtual_fx()
                             {
-                                if let Ok(fx) =
-                                    chain_fx.resolve(&chain, context, self.mapping.compartment())
+                                if let Some(fx) = chain_fx
+                                    .resolve(&chain, context, self.mapping.compartment())
+                                    .ok()
+                                    .and_then(|fxs| fxs.into_iter().next())
                                 {
                                     combo
                                         .select_combo_box_item_by_index(fx.index() as _)
@@ -3471,7 +3475,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     if let Ok(fx) = self
                         .target
                         .with_context(context, self.mapping.compartment())
-                        .fx()
+                        .first_fx()
                     {
                         combo.fill_combo_box_indexed(fx_parameter_combo_box_entries(&fx));
                         let param_index = self.target.param_index.get();

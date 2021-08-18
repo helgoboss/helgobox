@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::application::VirtualControlElementType;
 use crate::domain::{
-    find_bookmark, get_fx, get_fx_param, get_non_present_virtual_route_label, get_track_route,
+    find_bookmark, get_fx_param, get_fxs, get_non_present_virtual_route_label, get_track_route,
     ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment,
     OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination,
@@ -217,7 +217,7 @@ impl TargetModel {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<FxSnapshot, &'static str> {
-        let fx = self.with_context(context, compartment).fx()?;
+        let fx = self.with_context(context, compartment).first_fx()?;
         let fx_info = fx.info()?;
         let fx_snapshot = FxSnapshot {
             fx_type: if fx_info.sub_type_expression.is_empty() {
@@ -240,7 +240,7 @@ impl TargetModel {
         if !self.supports_fx() {
             return;
         }
-        if let Ok(actual_fx) = self.with_context(context, compartment).fx() {
+        if let Ok(actual_fx) = self.with_context(context, compartment).first_fx() {
             let new_virtual_fx = match self.virtual_fx() {
                 Some(virtual_fx) => {
                     match virtual_fx {
@@ -608,7 +608,14 @@ impl TargetModel {
         let fx = match self.fx_type.get() {
             Focused | This => return None,
             ById => VirtualChainFx::ById(self.fx_id.get()?, Some(self.fx_index.get())),
-            ByName => VirtualChainFx::ByName(WildMatch::new(self.fx_name.get_ref())),
+            ByName => VirtualChainFx::ByName {
+                wild_match: WildMatch::new(self.fx_name.get_ref()),
+                allow_multiple: false,
+            },
+            AllByName => VirtualChainFx::ByName {
+                wild_match: WildMatch::new(self.fx_name.get_ref()),
+                allow_multiple: true,
+            },
             ByIndex => VirtualChainFx::ByIndex(self.fx_index.get()),
             ByIdOrIndex => VirtualChainFx::ByIdOrIndex(self.fx_id.get(), self.fx_index.get()),
             Dynamic => {
@@ -1198,12 +1205,15 @@ impl<'a> TargetModelWithContext<'a> {
             .unwrap_or(false)
     }
     // Returns an error if the FX doesn't exist.
-    pub fn fx(&self) -> Result<Fx, &'static str> {
-        get_fx(
+    pub fn first_fx(&self) -> Result<Fx, &'static str> {
+        get_fxs(
             self.context,
             &self.target.fx_descriptor()?,
             self.compartment,
-        )
+        )?
+        .into_iter()
+        .next()
+        .ok_or("resolves to empty FX list")
     }
 
     pub fn project(&self) -> Project {
@@ -1255,7 +1265,10 @@ impl<'a> TargetModelWithContext<'a> {
     }
 
     fn fx_label(&self) -> Cow<str> {
-        get_virtual_fx_label(self.fx().ok().as_ref(), self.target.virtual_fx().as_ref())
+        get_virtual_fx_label(
+            self.first_fx().ok().as_ref(),
+            self.target.virtual_fx().as_ref(),
+        )
     }
 
     fn fx_param_label(&self) -> Cow<str> {
@@ -2031,6 +2044,8 @@ pub enum VirtualFxType {
     #[display(fmt = "By name")]
     #[serde(rename = "name")]
     ByName,
+    #[display(fmt = "All by name")]
+    AllByName,
     #[display(fmt = "By position")]
     #[serde(rename = "index")]
     ByIndex,
@@ -2056,7 +2071,13 @@ impl VirtualFxType {
                 match chain_fx {
                     Dynamic(_) => Self::Dynamic,
                     ById(_, _) => Self::ById,
-                    ByName(_) => Self::ByName,
+                    ByName { allow_multiple, .. } => {
+                        if *allow_multiple {
+                            Self::AllByName
+                        } else {
+                            Self::ByName
+                        }
+                    }
                     ByIndex(_) => Self::ByIndex,
                     ByIdOrIndex(_, _) => Self::ByIdOrIndex,
                 }

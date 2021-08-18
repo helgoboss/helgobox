@@ -363,13 +363,13 @@ async fn issue_396_send_feedback_after_control() {
     );
     moment().await;
     // Then
+    // Initial parameter value in preset should be respected
     assert_abs_diff_eq!(
         realearn
             .parameter_by_index(0)
             .reaper_normalized_value()
             .get(),
-        0.5,
-        "initial parameter value in preset should be respected"
+        0.5
     );
     assert_eq!(
         realearn.pop_feedback(),

@@ -337,19 +337,26 @@ impl UnresolvedReaperTarget {
                     },
                 )]
             }
-            FxEnable { fx_descriptor } => vec![ReaperTarget::FxEnable(FxEnableTarget {
-                fx: get_fx(context, fx_descriptor, compartment)?,
-            })],
+            FxEnable { fx_descriptor } => get_fxs(context, fx_descriptor, compartment)?
+                .into_iter()
+                .map(|fx| ReaperTarget::FxEnable(FxEnableTarget { fx }))
+                .collect(),
             FxOpen {
                 fx_descriptor,
                 display_type,
-            } => vec![ReaperTarget::FxOpen(FxOpenTarget {
-                fx: get_fx(context, fx_descriptor, compartment)?,
-                display_type: *display_type,
-            })],
-            FxPreset { fx_descriptor } => vec![ReaperTarget::FxPreset(FxPresetTarget {
-                fx: get_fx(context, fx_descriptor, compartment)?,
-            })],
+            } => get_fxs(context, fx_descriptor, compartment)?
+                .into_iter()
+                .map(|fx| {
+                    ReaperTarget::FxOpen(FxOpenTarget {
+                        fx,
+                        display_type: *display_type,
+                    })
+                })
+                .collect(),
+            FxPreset { fx_descriptor } => get_fxs(context, fx_descriptor, compartment)?
+                .into_iter()
+                .map(|fx| ReaperTarget::FxPreset(FxPresetTarget { fx }))
+                .collect(),
             SelectedTrack {
                 scroll_arrange_view,
                 scroll_mixer,
@@ -392,11 +399,16 @@ impl UnresolvedReaperTarget {
             LoadFxPreset {
                 fx_descriptor,
                 chunk,
-            } => vec![ReaperTarget::LoadFxSnapshot(LoadFxSnapshotTarget {
-                fx: get_fx(context, fx_descriptor, compartment)?,
-                chunk: chunk.clone(),
-                chunk_hash: hash_util::calculate_non_crypto_hash(chunk),
-            })],
+            } => get_fxs(context, fx_descriptor, compartment)?
+                .into_iter()
+                .map(|fx| {
+                    ReaperTarget::LoadFxSnapshot(LoadFxSnapshotTarget {
+                        fx,
+                        chunk: chunk.clone(),
+                        chunk_hash: hash_util::calculate_non_crypto_hash(chunk),
+                    })
+                })
+                .collect(),
             LastTouched => {
                 let last_touched_target = BackboneState::get()
                     .last_touched_target()
@@ -1344,7 +1356,10 @@ pub enum VirtualChainFx {
     ///
     /// The index is just used as performance hint, not as fallback.
     ById(Guid, Option<u32>),
-    ByName(WildMatch),
+    ByName {
+        wild_match: WildMatch,
+        allow_multiple: bool,
+    },
     ByIndex(u32),
     /// This is the old default.
     ///
@@ -1362,7 +1377,15 @@ impl fmt::Display for VirtualChainFx {
             ById(guid, _) => {
                 write!(f, "{}", guid.to_string_without_braces())
             }
-            ByName(name) => write!(f, "\"{}\"", name),
+            ByName {
+                wild_match,
+                allow_multiple,
+            } => write!(
+                f,
+                "\"{}\"{}",
+                wild_match,
+                if *allow_multiple { " (all)" } else { "" }
+            ),
             ByIdOrIndex(None, i) | ByIndex(i) => write!(f, "{}", i + 1),
             ByIdOrIndex(Some(guid), i) => {
                 write!(f, "{} ({})", guid.to_string_without_braces(), i + 1)
@@ -1423,56 +1446,64 @@ impl VirtualChainFx {
         fx_chain: &FxChain,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> Result<Fx, FxResolveError> {
+    ) -> Result<Vec<Fx>, FxResolveError> {
         use VirtualChainFx::*;
-        let fx = match self {
+        let fxs = match self {
             Dynamic(evaluator) => {
                 let index = Self::evaluate_to_fx_index(evaluator, context, compartment);
-                get_index_based_fx_on_chain(fx_chain, index).map_err(|_| {
+                let single = get_index_based_fx_on_chain(fx_chain, index).map_err(|_| {
                     FxResolveError::FxNotFound {
                         guid: None,
                         name: None,
                         index: Some(index),
                     }
-                })?
+                })?;
+                vec![single]
             }
-            ById(guid, index) => get_guid_based_fx_by_guid_on_chain_with_index_hint(
-                fx_chain, guid, *index,
-            )
-            .map_err(|_| FxResolveError::FxNotFound {
-                guid: Some(*guid),
-                name: None,
-                index: None,
-            })?,
-            ByName(name) => {
-                find_fx_by_name(fx_chain, name).ok_or_else(|| FxResolveError::FxNotFound {
-                    guid: None,
-                    name: Some(name.clone()),
-                    index: None,
-                })?
+            ById(guid, index) => {
+                let single =
+                    get_guid_based_fx_by_guid_on_chain_with_index_hint(fx_chain, guid, *index)
+                        .map_err(|_| FxResolveError::FxNotFound {
+                            guid: Some(*guid),
+                            name: None,
+                            index: None,
+                        })?;
+                vec![single]
             }
+            ByName {
+                wild_match,
+                allow_multiple,
+            } => find_fxs_by_name(fx_chain, wild_match)
+                .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
+                .collect(),
             ByIndex(index) | ByIdOrIndex(None, index) => {
-                get_index_based_fx_on_chain(fx_chain, *index).map_err(|_| {
+                let single = get_index_based_fx_on_chain(fx_chain, *index).map_err(|_| {
                     FxResolveError::FxNotFound {
                         guid: None,
                         name: None,
                         index: Some(*index),
                     }
-                })?
+                })?;
+                vec![single]
             }
             ByIdOrIndex(Some(guid), index) => {
                 // Track by GUID because target relates to a very particular FX
-                get_guid_based_fx_by_guid_on_chain_with_index_hint(fx_chain, guid, Some(*index))
-                    // Fall back to index-based
-                    .or_else(|_| get_index_based_fx_on_chain(fx_chain, *index))
-                    .map_err(|_| FxResolveError::FxNotFound {
-                        guid: Some(*guid),
-                        name: None,
-                        index: Some(*index),
-                    })?
+                let single = get_guid_based_fx_by_guid_on_chain_with_index_hint(
+                    fx_chain,
+                    guid,
+                    Some(*index),
+                )
+                // Fall back to index-based
+                .or_else(|_| get_index_based_fx_on_chain(fx_chain, *index))
+                .map_err(|_| FxResolveError::FxNotFound {
+                    guid: Some(*guid),
+                    name: None,
+                    index: Some(*index),
+                })?;
+                vec![single]
             }
         };
-        Ok(fx)
+        Ok(fxs)
     }
 
     pub fn calculated_fx_index(
@@ -1518,14 +1549,16 @@ impl VirtualChainFx {
     pub fn name(&self) -> Option<String> {
         use VirtualChainFx::*;
         match self {
-            ByName(name) => Some(name.to_string()),
+            ByName { wild_match, .. } => Some(wild_match.to_string()),
             _ => None,
         }
     }
 }
 
-fn find_fx_by_name(chain: &FxChain, name: &WildMatch) -> Option<Fx> {
-    chain.fxs().find(|fx| name.matches(fx.name().to_str()))
+fn find_fxs_by_name<'a>(chain: &'a FxChain, name: &'a WildMatch) -> impl Iterator<Item = Fx> + 'a {
+    chain
+        .fxs()
+        .filter(move |fx| name.matches(fx.name().to_str()))
 }
 
 #[derive(Clone, Debug, Display, Error)]
@@ -1597,31 +1630,38 @@ pub fn get_fx_param(
     fx_parameter_descriptor: &FxParameterDescriptor,
     compartment: MappingCompartment,
 ) -> Result<FxParameter, &'static str> {
-    let fx = get_fx(context, &fx_parameter_descriptor.fx_descriptor, compartment)?;
+    let fx = get_fxs(context, &fx_parameter_descriptor.fx_descriptor, compartment)?
+        .into_iter()
+        .next()
+        .ok_or("no FX resolved")?;
     fx_parameter_descriptor
+        // TODO-low Support multiple FXs
         .fx_parameter
         .resolve(&fx, context, compartment)
         .map_err(|_| "parameter doesn't exist")
 }
 
 // Returns an error if the FX doesn't exist.
-pub fn get_fx(
+pub fn get_fxs(
     context: ExtendedProcessorContext,
     descriptor: &FxDescriptor,
     compartment: MappingCompartment,
-) -> Result<Fx, &'static str> {
+) -> Result<Vec<Fx>, &'static str> {
     match &descriptor.fx {
         VirtualFx::This => {
             let fx = context.context().containing_fx();
             if fx.is_available() {
-                Ok(fx.clone())
+                Ok(vec![fx.clone()])
             } else {
                 Err("this FX not available anymore")
             }
         }
-        VirtualFx::Focused => Reaper::get()
-            .focused_fx()
-            .ok_or("couldn't get (last) focused FX"),
+        VirtualFx::Focused => {
+            let single = Reaper::get()
+                .focused_fx()
+                .ok_or("couldn't get (last) focused FX")?;
+            Ok(vec![single])
+        }
         VirtualFx::ChainFx {
             is_input_fx,
             chain_fx,
@@ -1729,7 +1769,7 @@ pub fn get_fx_chain(
     compartment: MappingCompartment,
 ) -> Result<FxChain, &'static str> {
     let track = get_effective_tracks(context, track, compartment)?
-        // TODO-medium Support multiple tracks
+        // TODO-low Support multiple tracks
         .into_iter()
         .next()
         .ok_or("no track resolved")?;
