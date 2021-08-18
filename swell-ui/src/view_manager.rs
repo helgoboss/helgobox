@@ -259,12 +259,23 @@ unsafe extern "C" fn view_dialog_proc(
                     }
                 }
                 raw::WM_CTLCOLORSTATIC => {
-                    let brush = view.control_color_static(wparam as raw::HDC, lparam as raw::HWND);
+                    let brush = view.control_color_static(
+                        wparam as raw::HDC,
+                        Window::new(lparam as raw::HWND)
+                            .expect("WM_CTLCOLORSTATIC control is null"),
+                    );
                     brush as _
                 }
                 raw::WM_CTLCOLORDLG => {
                     let brush = view.control_color_dialog(wparam as raw::HDC, lparam as raw::HWND);
                     brush as _
+                }
+                raw::WM_TIMER => {
+                    if view.timer(wparam) {
+                        0
+                    } else {
+                        1
+                    }
                 }
                 _ => 0,
             }

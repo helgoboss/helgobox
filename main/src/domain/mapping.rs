@@ -1133,7 +1133,11 @@ impl FeedbackValue {
             let projection = if with_projection_feedback
                 && compartment == MappingCompartment::ControllerMappings
             {
-                Some(ProjectionFeedbackValue::new(id, mode_value.to_unit_value()))
+                Some(ProjectionFeedbackValue::new(
+                    compartment,
+                    id,
+                    mode_value.to_unit_value(),
+                ))
             } else {
                 None
             };
@@ -1175,15 +1179,20 @@ impl RealFeedbackValue {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct ProjectionFeedbackValue {
+    pub compartment: MappingCompartment,
     pub mapping_id: MappingId,
     pub value: UnitValue,
 }
 
 impl ProjectionFeedbackValue {
-    pub fn new(mapping_id: MappingId, value: UnitValue) -> Self {
-        Self { mapping_id, value }
+    pub fn new(compartment: MappingCompartment, mapping_id: MappingId, value: UnitValue) -> Self {
+        Self {
+            compartment,
+            mapping_id,
+            value,
+        }
     }
 }
 

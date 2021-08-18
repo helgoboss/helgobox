@@ -120,3 +120,4 @@ modules.xml
 # End of https://www.gitignore.io/api/visualstudiocode
 
 **/*.rpp-bak
+.vs/

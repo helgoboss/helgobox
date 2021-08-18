@@ -6,7 +6,7 @@
 #define SWELL_PROVIDED_BY_APP
 
 // Some preparation for dialog generation.
-#include "resource.h"
+#include "msvc/Resource.h"
 #include "../../../lib/WDL/WDL/swell/swell.h"
 #include "../../../lib/WDL/WDL/swell/swell-dlggen.h"
 #define AUTOCHECKBOX CHECKBOX

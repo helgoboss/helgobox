@@ -5,11 +5,11 @@ use crate::domain::{
     FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
     FeedbackSendBehavior, FeedbackValue, GroupId, InstanceFeedbackEvent,
     InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping, MainSourceMessage,
-    MappingActivationEffect, MappingCompartment, MappingId, MidiDestination, MidiSource,
-    NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask,
-    ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
-    RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperMessage, ReaperTarget,
-    SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
+    MappingActivationEffect, MappingCompartment, MappingId, MappingMatchedEvent, MidiDestination,
+    MidiSource, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId,
+    OscFeedbackTask, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
+    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperMessage,
+    ReaperTarget, SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
     TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
@@ -358,6 +358,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             if !m.control_is_effectively_on() {
                 return;
             }
+            self.basics.notify_mapping_matched(compartment, mapping_id);
             let context = self.basics.control_context();
             let result = m.control_from_mode(
                 control_value,
@@ -1261,6 +1262,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .filter(|m| m.control_is_effectively_on())
             {
                 if let Some(control_value) = m.control(msg) {
+                    self.basics.notify_mapping_matched(compartment, m.id());
                     let feedback = m
                         .control_from_mode(
                             control_value,
@@ -1931,6 +1933,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
+    pub fn notify_mapping_matched(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+        self.event_handler
+            .handle_event(DomainEvent::MappingMatched(MappingMatchedEvent::new(
+                compartment,
+                mapping_id,
+            )));
+    }
+
     pub fn process_group_interaction(
         &self,
         collections: &mut Collections,
@@ -2127,6 +2137,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             .filter(|m| m.control_is_effectively_on())
             .flat_map(|m| {
                 if let Some(virtual_source_value) = m.control_virtualizing(msg) {
+                    self.notify_mapping_matched(MappingCompartment::ControllerMappings, m.id());
                     self.control_main_mappings_virtual(
                         main_mappings,
                         virtual_source_value,

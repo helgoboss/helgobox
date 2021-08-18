@@ -21,7 +21,23 @@ pub enum DomainEvent<'a> {
     UpdatedAllParameters(Box<ParameterArray>),
     TargetValueChanged(TargetValueChangedEvent<'a>),
     ProjectionFeedback(ProjectionFeedbackValue),
+    MappingMatched(MappingMatchedEvent),
     FullResyncRequested,
+}
+
+#[derive(Debug)]
+pub struct MappingMatchedEvent {
+    pub compartment: MappingCompartment,
+    pub mapping_id: MappingId,
+}
+
+impl MappingMatchedEvent {
+    pub fn new(compartment: MappingCompartment, mapping_id: MappingId) -> Self {
+        MappingMatchedEvent {
+            compartment,
+            mapping_id,
+        }
+    }
 }
 
 #[derive(Debug)]

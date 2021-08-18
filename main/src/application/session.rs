@@ -8,11 +8,11 @@ use crate::base::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlInput, DomainEvent, DomainEventHandler,
     ExtendedProcessorContext, FeedbackOutput, GroupId, InstanceId, MainMapping, MappingCompartment,
-    MappingId, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
-    ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
-    RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue,
-    TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualTrack,
-    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    MappingId, MappingMatchedEvent, MidiControlInput, MidiDestination, NormalMainTask,
+    NormalRealTimeTask, OscDeviceId, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
+    QualifiedMappingId, RealSource, RealTimeSender, RealearnTarget, ReaperTarget,
+    SharedInstanceState, SourceFeedbackValue, TargetValueChangedEvent, VirtualControlElementId,
+    VirtualFx, VirtualSource, VirtualTrack, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::{enum_map, EnumMap};
@@ -37,6 +37,7 @@ pub trait SessionUi {
     fn target_value_changed(&self, event: TargetValueChangedEvent);
     fn parameters_changed(&self, session: &Session);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
+    fn mapping_matched(&self, event: MappingMatchedEvent);
 }
 
 /// This represents the user session with one ReaLearn instance.
@@ -2060,7 +2061,7 @@ impl DomainEventHandler for WeakSession {
                 // particular case of reentrancy (because of a quirk in REAPER related to master
                 // tempo notification, https://github.com/helgoboss/realearn/issues/199). If the
                 // target value slider is not updated then ... so what.
-                if let Ok(s) = session.try_borrow_mut() {
+                if let Ok(s) = session.try_borrow() {
                     s.ui.target_value_changed(e);
                 }
             }
@@ -2080,6 +2081,11 @@ impl DomainEventHandler for WeakSession {
             ProjectionFeedback(value) => {
                 if let Ok(s) = session.try_borrow() {
                     s.ui.send_projection_feedback(&s, value);
+                }
+            }
+            MappingMatched(event) => {
+                if let Ok(s) = session.try_borrow() {
+                    s.ui.mapping_matched(event);
                 }
             }
         }

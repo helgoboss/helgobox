@@ -12,7 +12,8 @@ use std::cell::{Cell, RefCell};
 use crate::application::{Session, SessionUi, WeakSession};
 use crate::base::when;
 use crate::domain::{
-    MappingCompartment, MappingId, ProjectionFeedbackValue, TargetValueChangedEvent,
+    MappingCompartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
+    TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::send_projection_feedback_to_subscribed_clients;
@@ -152,6 +153,12 @@ impl MainPanel {
         }
     }
 
+    fn handle_matched_mapping(&self, event: MappingMatchedEvent) {
+        if let Some(data) = self.active_data.borrow() {
+            data.panel_manager.borrow().handle_matched_mapping(event);
+        }
+    }
+
     fn handle_changed_parameters(&self, session: &Session) {
         if let Some(data) = self.active_data.borrow() {
             data.panel_manager
@@ -217,6 +224,10 @@ impl SessionUi for Weak<MainPanel> {
 
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue) {
         let _ = send_projection_feedback_to_subscribed_clients(session.id(), value);
+    }
+
+    fn mapping_matched(&self, event: MappingMatchedEvent) {
+        upgrade_panel(self).handle_matched_mapping(event);
     }
 }
 

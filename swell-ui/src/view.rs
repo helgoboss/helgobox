@@ -165,12 +165,9 @@ pub trait View {
     /// WM_CTLCOLORSTATIC
     ///
     /// Can return a custom background brush for painting that control.
-    fn control_color_static(
-        self: SharedView<Self>,
-        hdc: raw::HDC,
-        _hwnd: raw::HWND,
-    ) -> raw::HBRUSH {
+    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, window: Window) -> raw::HBRUSH {
         let _ = hdc;
+        let _ = window;
         null_mut()
     }
 
@@ -186,6 +183,14 @@ pub trait View {
         null_mut()
     }
 
+    /// Timer with the given ID fires.
+    ///
+    /// Should return `true` if processed.
+    fn timer(&self, id: usize) -> bool {
+        let _ = id;
+        false
+    }
+
     /// Called whenever the DialogProc (not WindowProc!!!) is called, before any other callback
     /// method.
     ///
@@ -193,11 +198,15 @@ pub trait View {
     /// methods should be called accordingly.
     fn process_raw(
         &self,
-        _window: Window,
-        _msg: raw::UINT,
-        _wparam: raw::WPARAM,
-        _lparam: raw::LPARAM,
+        window: Window,
+        msg: raw::UINT,
+        wparam: raw::WPARAM,
+        lparam: raw::LPARAM,
     ) -> Option<raw::INT_PTR> {
+        let _ = window;
+        let _ = msg;
+        let _ = wparam;
+        let _ = lparam;
         None
     }
 

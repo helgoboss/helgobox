@@ -668,7 +668,7 @@ impl View for MappingRowPanel {
         let _ = self.open_context_menu(location);
     }
 
-    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
+    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: Window) -> raw::HBRUSH {
         util::view::control_color_static_default(hdc, util::view::mapping_row_background_brush())
     }
 

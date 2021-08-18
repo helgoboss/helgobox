@@ -1,7 +1,7 @@
 use crate::base::{notification, when, Prop};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{
-    EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
+    util, EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
 };
 
 use enum_iterator::IntoEnumIterator;
@@ -24,7 +24,7 @@ use std::convert::TryInto;
 
 use std::iter;
 
-use std::ptr::null;
+use std::ptr::{null, null_mut};
 use std::rc::Rc;
 
 use crate::application::{
@@ -53,9 +53,9 @@ use itertools::Itertools;
 
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::infrastructure::plugin::App;
-use crate::infrastructure::ui::util::open_in_browser;
+use crate::infrastructure::ui::util::{open_in_browser, MatchIndicatorState};
 use std::collections::HashMap;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use swell_ui::{
     DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
@@ -68,13 +68,14 @@ pub struct MappingPanel {
     main_panel: WeakView<MainPanel>,
     mapping_header_panel: SharedView<MappingHeaderPanel>,
     is_invoked_programmatically: Cell<bool>,
-    sliders: RefCell<Option<Sliders>>,
+    window_cache: RefCell<Option<WindowCache>>,
     yaml_editor: RefCell<Option<SharedView<YamlEditorPanel>>>,
     eel_editor: RefCell<Option<SharedView<EelEditorPanel>>>,
     last_touched_mode_parameter: RefCell<Prop<Option<ModeParameter>>>,
     last_touched_source_character: RefCell<Prop<Option<DetailedSourceCharacter>>>,
     // Fires when a mapping is about to change or the panel is hidden.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
+    match_indicator_state: Cell<MatchIndicatorState>,
 }
 
 struct ImmutableMappingPanel<'a> {
@@ -96,7 +97,7 @@ struct MutableMappingPanel<'a> {
 }
 
 #[derive(Debug)]
-struct Sliders {
+struct WindowCache {
     mode_min_target_value: Window,
     mode_max_target_value: Window,
     mode_min_source_value: Window,
@@ -123,13 +124,18 @@ impl MappingPanel {
                 None,
             )),
             is_invoked_programmatically: false.into(),
-            sliders: None.into(),
+            window_cache: None.into(),
             yaml_editor: Default::default(),
             eel_editor: Default::default(),
             last_touched_mode_parameter: Default::default(),
             last_touched_source_character: Default::default(),
             party_is_over_subject: Default::default(),
+            match_indicator_state: Default::default(),
         }
+    }
+
+    fn source_match_indicator_control(&self) -> Window {
+        self.view.require_control(root::ID_MAPPING_ACTIVATION_LABEL)
     }
 
     fn toggle_learn_source(&self) {
@@ -445,6 +451,12 @@ impl MappingPanel {
         );
     }
 
+    pub fn notify_mapping_matched(self: SharedView<Self>) {
+        self.match_indicator_state
+            .set(MatchIndicatorState::OnRequested);
+        self.source_match_indicator_control().redraw();
+    }
+
     pub fn notify_target_value_changed(
         self: SharedView<Self>,
         target: &[CompoundMappingTarget],
@@ -613,7 +625,7 @@ impl MappingPanel {
 
     fn memorize_all_slider_controls(&self) {
         let view = &self.view;
-        let sliders = Sliders {
+        let sliders = WindowCache {
             mode_min_target_value: view
                 .require_control(root::ID_SETTINGS_MIN_TARGET_VALUE_SLIDER_CONTROL),
             mode_max_target_value: view
@@ -632,7 +644,7 @@ impl MappingPanel {
             mode_max_jump: view.require_control(root::ID_SETTINGS_MAX_TARGET_JUMP_SLIDER_CONTROL),
             target_value: view.require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL),
         };
-        self.sliders.replace(Some(sliders));
+        self.window_cache.replace(Some(sliders));
     }
 
     fn party_is_over(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
@@ -5196,7 +5208,7 @@ impl View for MappingPanel {
     }
 
     fn closed(self: SharedView<Self>, _window: Window) {
-        self.sliders.replace(None);
+        self.window_cache.replace(None);
     }
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
@@ -5316,7 +5328,7 @@ impl View for MappingPanel {
 
     fn slider_moved(self: SharedView<Self>, slider: Window) {
         let cloned_self = self.clone();
-        let sliders = cloned_self.sliders.borrow();
+        let sliders = cloned_self.window_cache.borrow();
         let sliders = sliders.as_ref().expect("sliders not set");
         match slider {
             // Mode
@@ -5488,7 +5500,42 @@ impl View for MappingPanel {
         });
         false
     }
+
+    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, window: Window) -> raw::HBRUSH {
+        if window != self.source_match_indicator_control() {
+            return null_mut();
+        }
+        let current_state = self.match_indicator_state.get();
+        use MatchIndicatorState::*;
+        let brush = match current_state {
+            Off => None,
+            OnRequested => {
+                self.match_indicator_state.set(On);
+                self.view
+                    .require_window()
+                    .set_timer(SOURCE_MATCH_INDICATOR_TIMER_ID, Duration::from_millis(50));
+                Some(util::view::match_indicator_brush())
+            }
+            On => Some(util::view::match_indicator_brush()),
+        };
+        brush.unwrap_or(null_mut())
+    }
+
+    fn timer(&self, id: usize) -> bool {
+        if id == SOURCE_MATCH_INDICATOR_TIMER_ID {
+            self.view
+                .require_window()
+                .kill_timer(SOURCE_MATCH_INDICATOR_TIMER_ID);
+            self.match_indicator_state.set(MatchIndicatorState::Off);
+            self.source_match_indicator_control().redraw();
+            true
+        } else {
+            false
+        }
+    }
 }
+
+const SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 570;
 
 trait WindowExt {
     fn slider_unit_value(&self) -> UnitValue;

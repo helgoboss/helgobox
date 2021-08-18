@@ -68,7 +68,7 @@ fn compile_eel() {
 fn compile_dialogs() {
     // Make RC file SWELL-compatible.
     // ResEdit uses WS_CHILDWINDOW but SWELL understands WS_CHILD only. Rename it.
-    let modified_rc_content = std::fs::read_to_string("src/infrastructure/ui/realearn.rc")
+    let modified_rc_content = std::fs::read_to_string("src/infrastructure/ui/msvc/msvc.rc")
         .expect("couldn't read RC file")
         .replace("WS_CHILDWINDOW", "WS_CHILD");
     std::fs::write("../target/realearn.modified.rc", modified_rc_content)
@@ -113,7 +113,7 @@ fn embed_dialog_resources() {
             std::env::set_var(key, value);
         }
     }
-    embed_resource::compile("src/infrastructure/ui/realearn.rc");
+    embed_resource::compile("src/infrastructure/ui/msvc/msvc.rc");
 }
 
 #[cfg(feature = "generate")]
