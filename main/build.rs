@@ -66,11 +66,17 @@ fn compile_eel() {
 /// Compiles dialog windows using SWELL's dialog generator (too obscure to be ported to Rust)
 #[cfg(target_family = "unix")]
 fn compile_dialogs() {
+    use std::io::Read;
     // Make RC file SWELL-compatible.
     // ResEdit uses WS_CHILDWINDOW but SWELL understands WS_CHILD only. Rename it.
-    let modified_rc_content = std::fs::read_to_string("src/infrastructure/ui/msvc/msvc.rc")
-        .expect("couldn't read RC file")
-        .replace("WS_CHILDWINDOW", "WS_CHILD");
+    let mut rc_file =
+        std::fs::File::open("src/infrastructure/ui/msvc/msvc.rc").expect("couldn't find msvc.rc");
+    let mut rc_buf = vec![];
+    rc_file
+        .read_to_end(&mut rc_buf)
+        .expect("couldn't read msvc.rc");
+    let (original_rc_content, ..) = encoding_rs::UTF_16LE.decode(&rc_buf);
+    let modified_rc_content = original_rc_content.replace("WS_CHILDWINDOW", "WS_CHILD");
     std::fs::write("../target/realearn.modified.rc", modified_rc_content)
         .expect("couldn't write modified RC file");
     // Use PHP to translate SWELL-compatible RC file to C++

@@ -9,13 +9,9 @@
 #include "msvc/Resource.h"
 #include "../../../lib/WDL/WDL/swell/swell.h"
 #include "../../../lib/WDL/WDL/swell/swell-dlggen.h"
-#define AUTOCHECKBOX CHECKBOX
-#define TRACKBAR_CLASS "msctls_trackbar32"
 #define CBS_HASSTRINGS 0
 #define WS_EX_LEFT
 #define WC_COMBOBOX "ComboBox"
-#define WC_BUTTON "Button"
-#define WC_STATIC "Static"
 #define SS_WORDELLIPSIS 0
 
 // This is the result of the dialog RC file conversion (via PHP script).

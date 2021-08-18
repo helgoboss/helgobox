@@ -1,8 +1,8 @@
 SWELL_DEFINE_MENU_RESOURCE_BEGIN(IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU)
     POPUP "Header panel add-many-controller-mappings menu"
-    BEGIN
-        MENUITEM "Multis (faders, knobs, encoders, ...)", IDM_MULTIS
-        MENUITEM "Buttons", IDM_BUTTONS
+BEGIN
+    MENUITEM "Multis (faders, knobs, encoders, ...)", IDM_MULTIS
+    MENUITEM "Buttons",                     IDM_BUTTONS
     END
 SWELL_DEFINE_MENU_RESOURCE_END(IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU)
 
