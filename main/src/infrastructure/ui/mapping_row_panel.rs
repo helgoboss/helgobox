@@ -256,9 +256,11 @@ impl MappingRowPanel {
         self.view
             .require_control(root::ID_DOWN_BUTTON)
             .set_text(symbols::arrow_down_symbol().to_string());
-        self.view
-            .require_control(root::IDC_MAPPING_ROW_MATCHED_INDICATOR_TEXT)
-            .set_text(symbols::indicator_symbol().to_string());
+        let indicator = self
+            .view
+            .require_control(root::IDC_MAPPING_ROW_MATCHED_INDICATOR_TEXT);
+        indicator.set_text(symbols::indicator_symbol().to_string());
+        indicator.disable();
     }
 
     fn invalidate_control_check_box(&self, mapping: &MappingModel) {

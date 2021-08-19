@@ -645,9 +645,11 @@ impl MappingPanel {
             target_value: view.require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL),
         };
         self.window_cache.replace(Some(sliders));
-        self.view
-            .require_control(root::IDC_MAPPING_MATCHED_INDICATOR_TEXT)
-            .set_text(symbols::indicator_symbol());
+        let indicator = self
+            .view
+            .require_control(root::IDC_MAPPING_MATCHED_INDICATOR_TEXT);
+        indicator.set_text(symbols::indicator_symbol());
+        indicator.disable();
     }
 
     fn party_is_over(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
