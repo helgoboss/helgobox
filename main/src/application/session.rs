@@ -2222,7 +2222,7 @@ fn make_mapping_project_independent(mapping: &SharedMapping, context: ExtendedPr
                     None
                 };
                 if let Some(t) = new_virtual_track {
-                    target.set_virtual_track(t);
+                    target.set_virtual_track(t, Some(context.context()));
                 }
             }
         }

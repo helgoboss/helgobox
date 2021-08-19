@@ -184,11 +184,23 @@ impl TargetModelData {
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut TargetModel, compartment: MappingCompartment) {
-        self.apply_to_model_flexible(model, None, Some(App::version()), true, compartment);
+    pub fn apply_to_model(
+        &self,
+        model: &mut TargetModel,
+        compartment: MappingCompartment,
+        context: ExtendedProcessorContext,
+    ) {
+        self.apply_to_model_flexible(
+            model,
+            Some(context),
+            Some(App::version()),
+            true,
+            compartment,
+        );
     }
 
-    /// The context is necessary only if there's the possibility of loading data saved with
+    /// The context - if available - will be used to resolve some track/FX properties for UI
+    /// convenience. The context is necessary if there's the possibility of loading data saved with
     /// ReaLearn < 1.12.0.
     pub fn apply_to_model_flexible(
         &self,
@@ -245,7 +257,11 @@ impl TargetModelData {
             .action_invocation_type
             .set_with_optional_notification(invocation_type, with_notification);
         let track_prop_values = deserialize_track(&self.track_data);
-        model.set_track(track_prop_values, with_notification);
+        model.set_track_from_prop_values(
+            track_prop_values,
+            with_notification,
+            context.map(|c| c.context()),
+        );
         model
             .enable_only_if_track_selected
             .set_with_optional_notification(

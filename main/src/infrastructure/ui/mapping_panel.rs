@@ -30,11 +30,12 @@ use std::rc::Rc;
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
     get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label,
-    AutomationModeOverrideType, BookmarkAnchorType, MappingModel, MidiSourceType, ModeModel,
-    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, ReaperTargetType, Session,
-    SharedMapping, SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
-    TargetModelWithContext, TargetUnit, TrackRouteSelectorType, VirtualControlElementType,
-    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
+    AutomationModeOverrideType, BookmarkAnchorType, ConcreteTrackInstruction, MappingModel,
+    MidiSourceType, ModeModel, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType,
+    ReaperTargetType, Session, SharedMapping, SharedSession, SourceCategory, SourceModel,
+    TargetCategory, TargetModel, TargetModelWithContext, TargetUnit, TrackRouteSelectorType,
+    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
+    WeakSession,
 };
 use crate::base::Global;
 use crate::domain::{
@@ -1704,7 +1705,9 @@ impl<'a> MutableMappingPanel<'a> {
                         .selected_combo_box_item_index()
                         .try_into()
                         .unwrap_or_default();
-                    self.mapping.target_model.track_type.set(track_type);
+                    self.mapping
+                        .target_model
+                        .set_track_type_from_ui(track_type, self.session.context());
                 }
                 _ => {}
             },
@@ -1779,8 +1782,9 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_target_line_2_combo_box_2_change(&mut self) {
-        let combo_id = root::ID_TARGET_LINE_2_COMBO_BOX_2;
-        let combo = self.view.require_control(combo_id);
+        let combo = self
+            .view
+            .require_control(root::ID_TARGET_LINE_2_COMBO_BOX_2);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::GoToBookmark => {
@@ -1827,19 +1831,10 @@ impl<'a> MutableMappingPanel<'a> {
                     let project = self.session.context().project_or_current_project();
                     let i = combo.selected_combo_box_item_index();
                     if let Some(track) = project.track_by_index(i as _) {
-                        self.mapping
-                            .target_model
-                            .track_id
-                            .set_with_initiator(Some(*track.guid()), Some(combo_id));
-                        // We also set index and name so that we can easily switch between types.
-                        self.mapping
-                            .target_model
-                            .track_index
-                            .set_without_notification(i as _);
-                        self.mapping
-                            .target_model
-                            .track_name
-                            .set_without_notification(track.name().unwrap().into_string());
+                        self.mapping.target_model.set_concrete_track(
+                            ConcreteTrackInstruction::ByIdWithTrack(track),
+                            true,
+                        );
                     }
                 }
                 _ => {}
@@ -1849,9 +1844,8 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_target_line_3_combo_box_2_change(&mut self) {
-        let combo = self
-            .view
-            .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_2);
+        let combo_id = root::ID_TARGET_LINE_3_COMBO_BOX_2;
+        let combo = self.view.require_control(combo_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_fx() => {
@@ -1863,17 +1857,11 @@ impl<'a> MutableMappingPanel<'a> {
                         };
                         let i = combo.selected_combo_box_item_index();
                         if let Some(fx) = chain.fx_by_index(i as _) {
-                            self.mapping.target_model.fx_id.set(fx.guid());
-                            // We also set index and name so that we can easily switch between
-                            // types.
-                            self.mapping
-                                .target_model
-                                .fx_index
-                                .set_without_notification(i as _);
-                            self.mapping
-                                .target_model
-                                .fx_name
-                                .set_without_notification(fx.name().into_string());
+                            self.mapping.target_model.set_fx_by_id(
+                                Some(i as _),
+                                &fx,
+                                Some(combo_id),
+                            );
                         }
                     }
                 }

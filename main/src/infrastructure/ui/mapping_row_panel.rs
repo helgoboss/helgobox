@@ -778,7 +778,7 @@ pub fn paste_object_in_place(
     match obj {
         ClipboardObject::Mapping(mut m) => {
             m.group_id = group_id;
-            m.apply_to_model(&mut mapping);
+            m.apply_to_model(&mut mapping, session.extended_context());
         }
         ClipboardObject::Source(s) => {
             s.apply_to_model(&mut mapping.source_model, compartment);
@@ -787,7 +787,11 @@ pub fn paste_object_in_place(
             m.apply_to_model(&mut mapping.mode_model);
         }
         ClipboardObject::Target(t) => {
-            t.apply_to_model(&mut mapping.target_model, compartment);
+            t.apply_to_model(
+                &mut mapping.target_model,
+                compartment,
+                session.extended_context(),
+            );
         }
         ClipboardObject::Mappings(_) => return Err("can't paste a list of mappings in place"),
     };
@@ -811,11 +815,14 @@ pub fn paste_mappings(
     } else {
         session.mapping_count(compartment)
     };
-    let new_mappings = mapping_datas.into_iter().map(|mut data| {
-        data.group_id = group_id;
-        data.to_model(compartment)
-    });
-    session.insert_mappings_at(compartment, index + 1, new_mappings);
+    let new_mappings: Vec<_> = mapping_datas
+        .into_iter()
+        .map(|mut data| {
+            data.group_id = group_id;
+            data.to_model(compartment, session.extended_context())
+        })
+        .collect();
+    session.insert_mappings_at(compartment, index + 1, new_mappings.into_iter());
     Ok(())
 }
 

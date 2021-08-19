@@ -124,12 +124,7 @@ impl PresetData for MainPresetData {
             self.mappings
                 .iter()
                 .map(|m| {
-                    m.to_model_flexible(
-                        compartment,
-                        None,
-                        &migration_descriptor,
-                        self.version.as_ref(),
-                    )
+                    m.to_model_for_preset(compartment, &migration_descriptor, self.version.as_ref())
                 })
                 .collect(),
             self.parameters.clone(),

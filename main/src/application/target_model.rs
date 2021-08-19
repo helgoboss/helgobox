@@ -267,21 +267,71 @@ impl TargetModel {
         }
     }
 
-    pub fn set_virtual_track(&mut self, track: VirtualTrack) {
-        self.set_track(TrackPropValues::from_virtual_track(track), true);
+    pub fn set_virtual_track(&mut self, track: VirtualTrack, context: Option<&ProcessorContext>) {
+        self.set_track_from_prop_values(TrackPropValues::from_virtual_track(track), true, context);
     }
 
-    pub fn set_track(&mut self, track: TrackPropValues, with_notification: bool) {
+    pub fn set_track_type_from_ui(
+        &mut self,
+        track_type: VirtualTrackType,
+        context: &ProcessorContext,
+    ) {
+        use VirtualTrackType::*;
+        match track_type {
+            This => self.set_concrete_track(
+                ConcreteTrackInstruction::ThisWithoutTrack(Some(context)),
+                true,
+            ),
+            ById => self.set_concrete_track(
+                ConcreteTrackInstruction::ByIdWithoutTrack {
+                    id: None,
+                    context: Some(context),
+                },
+                true,
+            ),
+            _ => self.track_type.set(track_type),
+        }
+    }
+
+    pub fn set_track_from_prop_values(
+        &mut self,
+        track: TrackPropValues,
+        with_notification: bool,
+        context: Option<&ProcessorContext>,
+    ) {
         self.track_type
             .set_with_optional_notification(track.r#type, with_notification);
-        self.track_id
-            .set_with_optional_notification(track.id, with_notification);
-        self.track_name
-            .set_with_optional_notification(track.name, with_notification);
-        self.track_index
-            .set_with_optional_notification(track.index, with_notification);
         self.track_expression
             .set_with_optional_notification(track.expression, with_notification);
+        use VirtualTrackType::*;
+        match track.r#type {
+            This => self.set_concrete_track(
+                ConcreteTrackInstruction::ThisWithoutTrack(context),
+                with_notification,
+            ),
+            ById => self.set_concrete_track(
+                ConcreteTrackInstruction::ByIdWithoutTrack {
+                    id: track.id,
+                    context,
+                },
+                with_notification,
+            ),
+            ByName | AllByName => {
+                self.track_name
+                    .set_with_optional_notification(track.name, with_notification);
+            }
+            ByIndex => {
+                self.track_index
+                    .set_with_optional_notification(track.index, with_notification);
+            }
+            ByIdOrName => {
+                self.track_id
+                    .set_with_optional_notification(track.id, with_notification);
+                self.track_name
+                    .set_with_optional_notification(track.name, with_notification);
+            }
+            Selected | AllSelected | Dynamic | Master => {}
+        }
     }
 
     pub fn set_virtual_route(&mut self, route: VirtualTrackRoute) {
@@ -350,6 +400,40 @@ impl TargetModel {
             .set_with_optional_notification(options.feedback_resolution, with_notification);
     }
 
+    /// Sets the track to one of the concrete types ById or This, also setting other important
+    /// properties for UI convenience.
+    pub fn set_concrete_track(
+        &mut self,
+        instruction: ConcreteTrackInstruction,
+        with_notification: bool,
+    ) {
+        let resolved = instruction.resolve();
+        self.track_type
+            .set_with_optional_notification(resolved.virtual_track_type(), with_notification);
+        if let Some(id) = resolved.id() {
+            self.track_id
+                .set_with_optional_notification(Some(id), with_notification);
+        }
+        // We also set index and name so that we can easily switch between types.
+        if let Some(i) = resolved.index() {
+            self.track_index
+                .set_with_optional_notification(i, with_notification);
+        }
+        if let Some(name) = resolved.name() {
+            self.track_name
+                .set_with_optional_notification(name, with_notification);
+        }
+    }
+
+    pub fn set_fx_by_id(&mut self, index: Option<u32>, fx: &Fx, initiator: Option<u32>) {
+        self.fx_id.set_with_initiator(fx.guid(), initiator);
+        // We also set index and name so that we can easily switch between types.
+        self.fx_index
+            .set_without_notification(index.unwrap_or_default());
+        self.fx_name
+            .set_without_notification(fx.name().into_string());
+    }
+
     pub fn seek_options(&self) -> SeekOptions {
         SeekOptions {
             use_time_selection: self.use_time_selection.get(),
@@ -376,9 +460,9 @@ impl TargetModel {
                 // convention and ours).
                 context.project_or_current_project().master_track()
             };
-            self.set_virtual_track(virtualize_track(track, context));
+            self.set_virtual_track(virtualize_track(&track, context), Some(context));
         } else if let Some(track) = target.track() {
-            self.set_virtual_track(virtualize_track(track.clone(), context));
+            self.set_virtual_track(virtualize_track(&track, context), Some(context));
         }
         if let Some(send) = target.route() {
             let virtual_route = virtualize_route(send, context);
@@ -1852,12 +1936,12 @@ impl Default for TargetCategory {
     }
 }
 
-fn virtualize_track(track: Track, context: &ProcessorContext) -> VirtualTrack {
+fn virtualize_track(track: &Track, context: &ProcessorContext) -> VirtualTrack {
     let own_track = context
         .track()
         .cloned()
         .unwrap_or_else(|| context.project_or_current_project().master_track());
-    if own_track == track {
+    if own_track == *track {
         VirtualTrack::This
     } else if track.is_master_track() {
         VirtualTrack::Master
@@ -2441,5 +2525,74 @@ pub enum TargetUnit {
 impl Default for TargetUnit {
     fn default() -> Self {
         Self::Native
+    }
+}
+
+#[derive(Debug)]
+pub enum ConcreteTrackInstruction<'a> {
+    /// If the context is not available, other track properties won't get set.
+    ThisWithoutTrack(Option<&'a ProcessorContext>),
+    /// If the context is not available, other track properties won't get set.
+    ByIdWithoutTrack {
+        id: Option<Guid>,
+        context: Option<&'a ProcessorContext>,
+    },
+    ByIdWithTrack(Track),
+}
+
+impl<'a> ConcreteTrackInstruction<'a> {
+    pub fn resolve(self) -> ResolvedConcreteTrackInstruction<'a> {
+        use ConcreteTrackInstruction::*;
+        ResolvedConcreteTrackInstruction {
+            track: match &self {
+                ThisWithoutTrack(context) => context.and_then(|c| c.track().cloned()),
+                ByIdWithoutTrack {
+                    id: Some(id),
+                    context,
+                } => context.and_then(|c| {
+                    let t = c.project_or_current_project().track_by_guid(id);
+                    if t.is_available() {
+                        Some(t)
+                    } else {
+                        None
+                    }
+                }),
+                ByIdWithTrack(t) => Some(t.clone()),
+                _ => None,
+            },
+            instruction: self,
+        }
+    }
+}
+
+pub struct ResolvedConcreteTrackInstruction<'a> {
+    instruction: ConcreteTrackInstruction<'a>,
+    track: Option<Track>,
+}
+
+impl<'a> ResolvedConcreteTrackInstruction<'a> {
+    pub fn virtual_track_type(&self) -> VirtualTrackType {
+        use ConcreteTrackInstruction::*;
+        match &self.instruction {
+            ThisWithoutTrack(_) => VirtualTrackType::This,
+            ByIdWithoutTrack { .. } | ByIdWithTrack(_) => VirtualTrackType::ById,
+        }
+    }
+
+    pub fn id(&self) -> Option<Guid> {
+        use ConcreteTrackInstruction::*;
+        match &self.instruction {
+            ThisWithoutTrack(context) => Some(*(*context)?.track()?.guid()),
+            ByIdWithoutTrack { id, .. } => *id,
+            ByIdWithTrack(track) => Some(*track.guid()),
+        }
+    }
+
+    pub fn name(&self) -> Option<String> {
+        Some(self.track.as_ref()?.name()?.into_string())
+    }
+
+    pub fn index(&self) -> Option<u32> {
+        Some(self.track.as_ref()?.index()?)
     }
 }

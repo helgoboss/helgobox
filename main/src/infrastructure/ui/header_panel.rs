@@ -686,11 +686,14 @@ impl HeaderPanel {
         let compartment = main_state.active_compartment.get();
         let session = self.session();
         let mut session = session.borrow_mut();
-        let new_mappings = mapping_datas.into_iter().map(|mut data| {
-            data.group_id = group_id;
-            data.to_model(compartment)
-        });
-        session.replace_mappings_of_group(compartment, group_id, new_mappings);
+        let new_mappings: Vec<_> = mapping_datas
+            .into_iter()
+            .map(|mut data| {
+                data.group_id = group_id;
+                data.to_model(compartment, session.extended_context())
+            })
+            .collect();
+        session.replace_mappings_of_group(compartment, group_id, new_mappings.into_iter());
     }
 
     fn toggle_learn_source_filter(&self) {

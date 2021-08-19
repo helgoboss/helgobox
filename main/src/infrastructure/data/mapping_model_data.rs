@@ -64,16 +64,38 @@ impl MappingModelData {
         }
     }
 
-    pub fn to_model(&self, compartment: MappingCompartment) -> MappingModel {
+    pub fn to_model(
+        &self,
+        compartment: MappingCompartment,
+        context: ExtendedProcessorContext,
+    ) -> MappingModel {
         self.to_model_flexible(
             compartment,
-            None,
+            Some(context),
             &MigrationDescriptor::default(),
             Some(App::version()),
         )
     }
 
-    /// The context is necessary only if there's the possibility of loading data saved with
+    /// Use this for integrating the resulting model into a preset.
+    pub fn to_model_for_preset(
+        &self,
+        compartment: MappingCompartment,
+        migration_descriptor: &MigrationDescriptor,
+        preset_version: Option<&Version>,
+    ) -> MappingModel {
+        self.to_model_flexible(
+            compartment,
+            // We don't need the context because additional track/FX properties don't
+            // need to be resolved when just creating a preset.
+            None,
+            migration_descriptor,
+            preset_version,
+        )
+    }
+
+    /// The context - if available - will be used to resolve some track/FX properties for UI
+    /// convenience. The context is necessary if there's the possibility of loading data saved with
     /// ReaLearn < 1.12.0.
     pub fn to_model_flexible(
         &self,
@@ -97,10 +119,10 @@ impl MappingModelData {
 
     /// This is for realtime mapping modification (with notification, no ID changes), e.g. for copy
     /// & paste within one ReaLearn version.
-    pub fn apply_to_model(&self, model: &mut MappingModel) {
+    pub fn apply_to_model(&self, model: &mut MappingModel, context: ExtendedProcessorContext) {
         self.apply_to_model_internal(
             model,
-            None,
+            Some(context),
             &MigrationDescriptor::default(),
             Some(App::version()),
             true,
@@ -108,7 +130,8 @@ impl MappingModelData {
         );
     }
 
-    /// The context is necessary only if there's the possibility of loading data saved with
+    /// The context - if available - will be used to resolve some track/FX properties for UI
+    /// convenience. The context is necessary if there's the possibility of loading data saved with
     /// ReaLearn < 1.12.0.
     fn apply_to_model_internal(
         &self,
