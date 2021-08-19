@@ -1,7 +1,7 @@
 use crate::base::{notification, when, Prop};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{
-    util, EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
+    EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
 };
 
 use enum_iterator::IntoEnumIterator;
@@ -24,7 +24,7 @@ use std::convert::TryInto;
 
 use std::iter;
 
-use std::ptr::{null, null_mut};
+use std::ptr::null;
 use std::rc::Rc;
 
 use crate::application::{
@@ -53,7 +53,7 @@ use itertools::Itertools;
 
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::infrastructure::plugin::App;
-use crate::infrastructure::ui::util::open_in_browser;
+use crate::infrastructure::ui::util::{open_in_browser, symbols};
 use std::collections::HashMap;
 use std::time::Duration;
 use swell_ui::{
@@ -75,7 +75,6 @@ pub struct MappingPanel {
     last_touched_source_character: RefCell<Prop<Option<DetailedSourceCharacter>>>,
     // Fires when a mapping is about to change or the panel is hidden.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
-    source_match_reported: Cell<bool>,
 }
 
 struct ImmutableMappingPanel<'a> {
@@ -130,12 +129,12 @@ impl MappingPanel {
             last_touched_mode_parameter: Default::default(),
             last_touched_source_character: Default::default(),
             party_is_over_subject: Default::default(),
-            source_match_reported: Default::default(),
         }
     }
 
     fn source_match_indicator_control(&self) -> Window {
-        self.view.require_control(root::ID_SOURCE_GROUP_BOX_LABEL)
+        self.view
+            .require_control(root::IDC_MAPPING_MATCHED_INDICATOR_TEXT)
     }
 
     fn toggle_learn_source(&self) {
@@ -452,15 +451,10 @@ impl MappingPanel {
     }
 
     pub fn handle_matched_mapping(self: SharedView<Self>) {
-        self.source_match_reported.set(true);
-        let ctrl = self.source_match_indicator_control();
-        ctrl.set_text("Source *");
-        // TODO-high Maybe not necessary anymore because we set the text!
-        ctrl.redraw();
-        self.view.require_window().set_timer(
-            PANEL_SOURCE_MATCH_INDICATOR_TIMER_ID,
-            Duration::from_millis(50),
-        );
+        self.source_match_indicator_control().enable();
+        self.view
+            .require_window()
+            .set_timer(SOURCE_MATCH_INDICATOR_TIMER_ID, Duration::from_millis(50));
     }
 
     pub fn handle_changed_target_value(
@@ -629,7 +623,7 @@ impl MappingPanel {
         self.is_invoked_programmatically.get()
     }
 
-    fn memorize_all_slider_controls(&self) {
+    fn init_controls(&self) {
         let view = &self.view;
         let sliders = WindowCache {
             mode_min_target_value: view
@@ -651,6 +645,9 @@ impl MappingPanel {
             target_value: view.require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL),
         };
         self.window_cache.replace(Some(sliders));
+        self.view
+            .require_control(root::IDC_MAPPING_MATCHED_INDICATOR_TEXT)
+            .set_text(symbols::indicator_symbol());
     }
 
     fn party_is_over(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
@@ -5203,7 +5200,7 @@ impl View for MappingPanel {
     }
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
-        self.memorize_all_slider_controls();
+        self.init_controls();
         self.mapping_header_panel.clone().open(window);
         true
     }
@@ -5507,27 +5504,12 @@ impl View for MappingPanel {
         false
     }
 
-    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, window: Window) -> raw::HBRUSH {
-        if window != self.source_match_indicator_control() {
-            return null_mut();
-        }
-        if self.source_match_reported.get() {
-            util::view::match_indicator_brush()
-        } else {
-            null_mut()
-        }
-    }
-
     fn timer(&self, id: usize) -> bool {
-        if id == PANEL_SOURCE_MATCH_INDICATOR_TIMER_ID {
+        if id == SOURCE_MATCH_INDICATOR_TIMER_ID {
             self.view
                 .require_window()
-                .kill_timer(PANEL_SOURCE_MATCH_INDICATOR_TIMER_ID);
-            let ctrl = self.source_match_indicator_control();
-            ctrl.set_text("Source");
-            // TODO-high Maybe not necessary anymore because we set the text.
-            ctrl.redraw();
-            self.source_match_reported.set(false);
+                .kill_timer(SOURCE_MATCH_INDICATOR_TIMER_ID);
+            self.source_match_indicator_control().disable();
             true
         } else {
             false
@@ -5535,7 +5517,7 @@ impl View for MappingPanel {
     }
 }
 
-const PANEL_SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 570;
+const SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 570;
 
 trait WindowExt {
     fn slider_unit_value(&self) -> UnitValue;

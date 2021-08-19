@@ -161,6 +161,7 @@ mod codegen {
         let bindings = bindgen::Builder::default()
             .header("src/infrastructure/ui/wrapper.hpp")
             .whitelist_var("ID_.*")
+            .whitelist_var("IDC_.*")
             .whitelist_var("IDM_.*")
             .whitelist_var("IDR_.*")
             .enable_cxx_namespaces()

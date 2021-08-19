@@ -12,7 +12,6 @@ use reaper_low::raw;
 use rxrust::prelude::*;
 use slog::debug;
 use std::cmp;
-use std::time::Duration;
 
 use crate::application::{Session, SharedMapping, SharedSession, WeakSession};
 use crate::domain::{MappingCompartment, MappingId, MappingMatchedEvent};

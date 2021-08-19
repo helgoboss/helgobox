@@ -444,7 +444,8 @@ impl RealTimeProcessor {
         if let MidiControlInput::Device(dev_id) = self.midi_control_input {
             MidiInputDevice::new(dev_id).with_midi_input(|mi| {
                 if let Some(mi) = mi {
-                    for evt in mi.get_read_buf().enum_items(0) {
+                    let event_list = mi.get_read_buf();
+                    for evt in event_list.enum_items(0) {
                         // Current control mode is checked further down the callstack. No need to
                         // check it here.
                         // Frame offset is given in 1/1024000 of a second, *not* sample frames!

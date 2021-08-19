@@ -4,6 +4,8 @@
 pub mod root {
     #[allow(unused_imports)]
     use self::super::root;
+    pub const IDC_STATIC: i32 = -1;
+    pub const IDC_MYICON: u32 = 2;
     pub const ID_HEADER_PANEL: u32 = 119;
     pub const ID_MAIN_PANEL: u32 = 120;
     pub const ID_MAPPING_PANEL: u32 = 121;
@@ -216,4 +218,6 @@ pub mod root {
     pub const ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX: u32 = 40130;
     pub const ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX: u32 = 40131;
     pub const ID_SOURCE_GROUP_BOX_LABEL: u32 = 40132;
+    pub const IDC_MAPPING_MATCHED_INDICATOR_TEXT: u32 = 40133;
+    pub const IDC_MAPPING_ROW_MATCHED_INDICATOR_TEXT: u32 = 40134;
 }
