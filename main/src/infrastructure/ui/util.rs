@@ -123,7 +123,6 @@ pub mod view {
     use swell_ui::Window;
 
     const SHADED_WHITE: (u8, u8, u8) = (248, 248, 248);
-    const ORANGE: (u8, u8, u8) = (255, 87, 34);
 
     pub fn control_color_static_default(hdc: raw::HDC, brush: Option<raw::HBRUSH>) -> raw::HBRUSH {
         unsafe {
@@ -142,11 +141,6 @@ pub mod view {
         Some(brush as _)
     }
 
-    pub fn match_indicator_brush() -> raw::HBRUSH {
-        static BRUSH: Lazy<isize> = Lazy::new(create_match_indicator_brush);
-        *BRUSH as _
-    }
-
     /// Use with care! Should be freed after use.
     fn create_mapping_row_background_brush() -> Option<isize> {
         if Window::dark_mode_is_enabled() {
@@ -154,11 +148,6 @@ pub mod view {
         } else {
             Some(create_brush(SHADED_WHITE))
         }
-    }
-
-    /// Use with care! Should be freed after use.
-    fn create_match_indicator_brush() -> isize {
-        create_brush(ORANGE)
     }
 
     /// Use with care! Should be freed after use.

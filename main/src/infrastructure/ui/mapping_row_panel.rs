@@ -2,9 +2,7 @@ use crate::application::{
     MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory, WeakSession,
 };
 use crate::base::when;
-use crate::domain::{
-    GroupId, MappingCompartment, MappingId, MappingMatchedEvent, QualifiedMappingId, ReaperTarget,
-};
+use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget};
 
 use crate::infrastructure::data::{
     MappingModelData, ModeModelData, SourceModelData, TargetModelData,
@@ -69,7 +67,7 @@ impl MappingRowPanel {
         }
     }
 
-    pub fn handle_matched_mapping(&self, event: MappingMatchedEvent) {
+    pub fn handle_matched_mapping(&self) {
         self.source_match_indicator_control().enable();
         self.view
             .require_window()

@@ -68,7 +68,7 @@ impl MappingRowsPanel {
         }
         for row in &self.rows {
             if row.mapping_id() == Some(event.mapping_id) {
-                row.handle_matched_mapping(event);
+                row.handle_matched_mapping();
             }
         }
     }
