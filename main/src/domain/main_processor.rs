@@ -2188,17 +2188,17 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     value,
                 } => {
                     if let Ok(v) = value.control_value().to_absolute_value() {
-                        for m in mappings_with_virtual_targets
-                            .values()
-                            .filter(|m| m.feedback_is_effectively_on())
-                        {
+                        // At this point we still include controller mappings for which feedback
+                        // is explicitly not enabled (not supported by controller) in order to
+                        // support at least projection feedback (#414)!
+                        for m in mappings_with_virtual_targets.values() {
                             if let Some(t) = m.virtual_target() {
                                 if t.control_element() == value.control_element() {
                                     if let Some(FeedbackValue::Real(final_feedback_value)) = m
                                         .feedback_given_target_value(
                                             v,
                                             with_projection_feedback,
-                                            with_source_feedback,
+                                            with_source_feedback && m.feedback_is_enabled(),
                                         )
                                     {
                                         self.send_direct_feedback(

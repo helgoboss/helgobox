@@ -2,16 +2,12 @@
 // Von Microsoft Visual C++ generierte Includedatei.
 // Verwendet durch msvc.rc
 //
-#define IDC_STATIC                      -1
-#define IDC_MYICON                      2
-#define IDD_WINDOWSPROJECT1_DIALOG      102
 #define ID_HEADER_PANEL                 119
 #define ID_MAIN_PANEL                   120
 #define ID_MAPPING_PANEL                121
 #define ID_MAPPING_ROW_PANEL            122
 #define ID_MAPPING_ROWS_PANEL           123
 #define ID_MESSAGE_PANEL                126
-#define IDR_MAINFRAME                   128
 #define IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU 129
 #define ID_SHARED_GROUP_MAPPING_PANEL   132
 #define ID_GROUP_PANEL                  134
@@ -216,7 +212,6 @@
 #define ID_MODE_GROUP_INTERACTION_COMBO_BOX 40129
 #define ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX 40130
 #define ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX 40131
-#define ID_SOURCE_GROUP_BOX_LABEL       40132
 #define IDC_MAPPING_MATCHED_INDICATOR_TEXT 40133
 #define IDC_MAPPING_ROW_MATCHED_INDICATOR_TEXT 40134
 

@@ -428,6 +428,10 @@ impl MainMapping {
         self.is_effectively_active() && self.core.options.control_is_enabled
     }
 
+    pub fn feedback_is_enabled(&self) -> bool {
+        self.core.options.feedback_is_enabled
+    }
+
     pub fn feedback_is_effectively_on(&self) -> bool {
         feedback_is_effectively_on(
             &self.core.options,
