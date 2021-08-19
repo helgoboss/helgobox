@@ -206,11 +206,11 @@ I use Visual C++ 2019 resource editor to edit this file as part of the solution
 
 ### Test
 
-Yes, there are test but there should be more. While ReaLearn's basic building blocks
+Yes, there are tests but there should be more. While ReaLearn's basic building blocks
 [helgoboss-learn](https://github.com/helgoboss/helgoboss-learn) and [reaper-rs](https://github.com/helgoboss/reaper-rs)
-are tested pretty thoroughly, ReaLearn itself has room for improvement in that aspect. There's a built-in integration
-test, launchable via action `[developer] ReaLearn: Run integration test`. In future, it would be nice to run this
-integration test during continuous integration, just like in *reaper-rs*.
+are tested pretty thoroughly, ReaLearn itself has room for improvement in that aspect. There's a growing built-in 
+integration test, launchable via action `[developer] ReaLearn: Run integration test`. In future, it would be nice to run
+this integration test during continuous integration, just like in *reaper-rs*.
 
 ### Log
 
