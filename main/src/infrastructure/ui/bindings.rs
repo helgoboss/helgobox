@@ -10,6 +10,7 @@ pub mod root {
     pub const ID_MAPPING_ROW_PANEL: u32 = 122;
     pub const ID_MAPPING_ROWS_PANEL: u32 = 123;
     pub const ID_MESSAGE_PANEL: u32 = 126;
+    pub const IDR_MAINFRAME: u32 = 128;
     pub const IDR_HEADER_PANEL_ADD_MANY_CONTROLLER_MAPPINGS_MENU: u32 = 129;
     pub const ID_SHARED_GROUP_MAPPING_PANEL: u32 = 132;
     pub const ID_GROUP_PANEL: u32 = 134;
@@ -214,4 +215,5 @@ pub mod root {
     pub const ID_MODE_GROUP_INTERACTION_COMBO_BOX: u32 = 40129;
     pub const ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX: u32 = 40130;
     pub const ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX: u32 = 40131;
+    pub const ID_SOURCE_GROUP_BOX_LABEL: u32 = 40132;
 }

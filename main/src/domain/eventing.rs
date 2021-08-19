@@ -25,7 +25,7 @@ pub enum DomainEvent<'a> {
     FullResyncRequested,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct MappingMatchedEvent {
     pub compartment: MappingCompartment,
     pub mapping_id: MappingId,

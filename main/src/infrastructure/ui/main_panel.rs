@@ -156,6 +156,7 @@ impl MainPanel {
     fn handle_matched_mapping(&self, event: MappingMatchedEvent) {
         if let Some(data) = self.active_data.borrow() {
             data.panel_manager.borrow().handle_matched_mapping(event);
+            data.mapping_rows_panel.handle_matched_mapping(event);
         }
     }
 

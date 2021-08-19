@@ -29,13 +29,13 @@ impl IndependentPanelManager {
 
     pub fn handle_changed_target_value(&self, event: TargetValueChangedEvent) {
         self.do_with_mapping_panel(event.compartment, event.mapping_id, |p| {
-            p.notify_target_value_changed(event.targets, event.new_value)
+            p.handle_changed_target_value(event.targets, event.new_value)
         });
     }
 
     pub fn handle_matched_mapping(&self, event: MappingMatchedEvent) {
         self.do_with_mapping_panel(event.compartment, event.mapping_id, |p| {
-            p.notify_mapping_matched();
+            p.handle_matched_mapping();
         });
     }
 

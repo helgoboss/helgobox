@@ -1,5 +1,4 @@
 use reaper_high::Reaper;
-use std::time::Instant;
 use swell_ui::{DialogUnits, Dimensions, Window};
 
 /// The optimal size of the main panel in dialog units.
@@ -179,17 +178,4 @@ pub fn open_in_text_editor(
             .alert("ReaLearn", format!("Couldn't obtain text:\n\n{}", msg));
         "couldn't obtain text"
     })
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum MatchIndicatorState {
-    Off,
-    OnRequested,
-    On,
-}
-
-impl Default for MatchIndicatorState {
-    fn default() -> Self {
-        Self::Off
-    }
 }

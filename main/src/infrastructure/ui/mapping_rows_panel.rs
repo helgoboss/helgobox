@@ -1,21 +1,21 @@
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 
-use reaper_high::Reaper;
-use reaper_low::raw;
-
 use crate::base::when;
 use crate::infrastructure::ui::{
     bindings::root, get_object_from_clipboard, paste_mappings, util, ClipboardObject,
     IndependentPanelManager, MainState, MappingRowPanel, SharedIndependentPanelManager,
     SharedMainState,
 };
+use reaper_high::Reaper;
+use reaper_low::raw;
 use rxrust::prelude::*;
 use slog::debug;
 use std::cmp;
+use std::time::Duration;
 
 use crate::application::{Session, SharedMapping, SharedSession, WeakSession};
-use crate::domain::{MappingCompartment, MappingId};
+use crate::domain::{MappingCompartment, MappingId, MappingMatchedEvent};
 use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -61,6 +61,17 @@ impl MappingRowsPanel {
 
     fn session(&self) -> SharedSession {
         self.session.upgrade().expect("session gone")
+    }
+
+    pub fn handle_matched_mapping(&self, event: MappingMatchedEvent) {
+        if event.compartment != self.active_compartment() {
+            return;
+        }
+        for row in &self.rows {
+            if row.mapping_id() == Some(event.mapping_id) {
+                row.handle_matched_mapping(event);
+            }
+        }
     }
 
     /// Also opens main panel, clears filters and switches compartment if necessary.

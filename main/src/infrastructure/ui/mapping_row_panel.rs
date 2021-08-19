@@ -2,7 +2,9 @@ use crate::application::{
     MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory, WeakSession,
 };
 use crate::base::when;
-use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget};
+use crate::domain::{
+    GroupId, MappingCompartment, MappingId, MappingMatchedEvent, QualifiedMappingId, ReaperTarget,
+};
 
 use crate::infrastructure::data::{
     MappingModelData, ModeModelData, SourceModelData, TargetModelData,
@@ -20,9 +22,10 @@ use reaper_high::Reaper;
 use reaper_low::raw;
 use rxrust::prelude::*;
 use slog::debug;
-use std::cell::{Ref, RefCell};
+use std::cell::{Cell, Ref, RefCell};
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
+use std::time::Duration;
 use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 pub type SharedIndependentPanelManager = Rc<RefCell<IndependentPanelManager>>;
@@ -44,6 +47,7 @@ pub struct MappingRowPanel {
     // Fires when a mapping is about to change.
     party_is_over_subject: RefCell<LocalSubject<'static, (), ()>>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
+    source_match_reported: Cell<bool>,
 }
 
 impl MappingRowPanel {
@@ -63,7 +67,27 @@ impl MappingRowPanel {
             mapping: None.into(),
             panel_manager,
             is_last_row,
+            source_match_reported: Default::default(),
         }
+    }
+
+    pub fn handle_matched_mapping(&self, event: MappingMatchedEvent) {
+        self.source_match_reported.set(true);
+        self.source_match_indicator_control().set_text("*");
+        self.view.require_window().set_timer(
+            ROW_SOURCE_MATCH_INDICATOR_TIMER_ID,
+            Duration::from_millis(50),
+        );
+    }
+
+    fn source_match_indicator_control(&self) -> Window {
+        self.view.require_control(root::ID_MAPPING_ROW_GROUP_LABEL)
+    }
+
+    pub fn mapping_id(&self) -> Option<MappingId> {
+        let mapping = self.optional_mapping()?;
+        let mapping = mapping.borrow();
+        Some(mapping.id())
     }
 
     pub fn set_mapping(self: &SharedView<Self>, mapping: Option<SharedMapping>) {
@@ -675,6 +699,19 @@ impl View for MappingRowPanel {
     fn control_color_dialog(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
         util::view::control_color_dialog_default(hdc, util::view::mapping_row_background_brush())
     }
+
+    fn timer(&self, id: usize) -> bool {
+        if id == ROW_SOURCE_MATCH_INDICATOR_TIMER_ID {
+            self.view
+                .require_window()
+                .kill_timer(ROW_SOURCE_MATCH_INDICATOR_TIMER_ID);
+            self.source_match_indicator_control().set_text("");
+            self.source_match_reported.set(false);
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl Drop for MappingRowPanel {
@@ -782,3 +819,5 @@ pub fn paste_mappings(
     session.insert_mappings_at(compartment, index + 1, new_mappings);
     Ok(())
 }
+
+const ROW_SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 571;
