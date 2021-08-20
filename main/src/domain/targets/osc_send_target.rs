@@ -1,6 +1,7 @@
 use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
-    ControlContext, FeedbackOutput, OscDeviceId, OscFeedbackTask, RealearnTarget, TargetCharacter,
+    ControlContext, FeedbackOutput, HitInstructionReturnValue, OscDeviceId, OscFeedbackTask,
+    RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, OscArgDescriptor, OscTypeTag, Target,
@@ -73,7 +74,11 @@ impl RealearnTarget for OscSendTarget {
         }
     }
 
-    fn hit(&mut self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        context: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_unit_value()?;
         let msg = OscMessage {
             addr: self.address_pattern.clone(),
@@ -107,7 +112,7 @@ impl RealearnTarget for OscSendTarget {
             .try_send(OscFeedbackTask::new(effective_dev_id, msg))
             .unwrap();
         self.artificial_value = AbsoluteValue::Continuous(value);
-        Ok(())
+        Ok(None)
     }
 
     fn is_available(&self) -> bool {

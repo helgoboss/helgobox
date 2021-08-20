@@ -1,5 +1,6 @@
 use crate::domain::{
-    format_value_as_on_off, mute_unit_value, ControlContext, RealearnTarget, TargetCharacter,
+    format_value_as_on_off, mute_unit_value, ControlContext, HitInstructionReturnValue,
+    RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track, TrackRoute};
@@ -19,13 +20,17 @@ impl RealearnTarget for RouteMuteTarget {
         format_value_as_on_off(value).to_string()
     }
 
-    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        _: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         if value.to_unit_value()?.is_zero() {
             self.route.unmute();
         } else {
             self.route.mute();
         }
-        Ok(())
+        Ok(None)
     }
 
     fn is_available(&self) -> bool {

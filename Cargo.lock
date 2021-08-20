@@ -2780,7 +2780,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.10.0-pre.9"
+version = "2.10.0-pre.10"
 dependencies = [
  "approx",
  "ascii",

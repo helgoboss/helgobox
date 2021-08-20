@@ -1,7 +1,7 @@
 use crate::domain::ui_util::{format_raw_midi_event, log_target_output};
 use crate::domain::{
-    ControlContext, FeedbackAudioHookTask, FeedbackOutput, MidiDestination, RealTimeReaperTarget,
-    RealearnTarget, SendMidiDestination, TargetCharacter,
+    ControlContext, FeedbackAudioHookTask, FeedbackOutput, HitInstructionReturnValue,
+    MidiDestination, RealTimeReaperTarget, RealearnTarget, SendMidiDestination, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, RawMidiPattern, Target, UnitValue,
@@ -102,7 +102,11 @@ impl RealearnTarget for MidiSendTarget {
         ""
     }
 
-    fn hit(&mut self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        context: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_absolute_value()?;
         // We arrive here only if controlled via OSC. Sending MIDI in response to incoming
         // MIDI messages is handled directly in the real-time processor.
@@ -125,7 +129,7 @@ impl RealearnTarget for MidiSendTarget {
                             Box::new(raw_midi_event),
                         ))
                         .unwrap();
-                    Ok(())
+                    Ok(None)
                 } else {
                     Err("feedback output is not a MIDI device")
                 }

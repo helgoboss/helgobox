@@ -1,6 +1,6 @@
 use crate::domain::{
     format_value_as_on_off, transport_is_enabled_unit_value, AdditionalFeedbackEvent,
-    ControlContext, RealearnTarget, TargetCharacter, TransportAction,
+    ControlContext, HitInstructionReturnValue, RealearnTarget, TargetCharacter, TransportAction,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper};
@@ -30,7 +30,11 @@ impl RealearnTarget for TransportTarget {
         format_value_as_on_off(value).to_string()
     }
 
-    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        _: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         use TransportAction::*;
         let on = !value.to_unit_value()?.is_zero();
         match self.action {
@@ -73,7 +77,7 @@ impl RealearnTarget for TransportTarget {
                 }
             }
         };
-        Ok(())
+        Ok(None)
     }
 
     fn is_available(&self) -> bool {

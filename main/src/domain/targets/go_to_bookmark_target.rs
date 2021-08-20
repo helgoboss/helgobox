@@ -1,6 +1,6 @@
 use crate::domain::{
     current_value_of_bookmark, format_value_as_on_off, AdditionalFeedbackEvent, ControlContext,
-    RealearnTarget, TargetCharacter,
+    HitInstructionReturnValue, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{BookmarkType, ChangeEvent, Project};
@@ -33,7 +33,11 @@ impl RealearnTarget for GoToBookmarkTarget {
         format_value_as_on_off(value).to_string()
     }
 
-    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        _: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         if !value.to_unit_value()?.is_zero() {
             match self.bookmark_type {
                 BookmarkType::Marker => self
@@ -65,7 +69,7 @@ impl RealearnTarget for GoToBookmarkTarget {
                 }
             }
         }
-        Ok(())
+        Ok(None)
     }
 
     fn is_available(&self) -> bool {

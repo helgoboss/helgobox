@@ -1,6 +1,6 @@
 use crate::domain::{
-    current_value_of_seek, get_seek_info, AdditionalFeedbackEvent, ControlContext, RealearnTarget,
-    SeekOptions, TargetCharacter,
+    current_value_of_seek, get_seek_info, AdditionalFeedbackEvent, ControlContext,
+    HitInstructionReturnValue, RealearnTarget, SeekOptions, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use reaper_high::Project;
@@ -18,7 +18,11 @@ impl RealearnTarget for SeekTarget {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
 
-    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        _: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_unit_value()?;
         let info = get_seek_info(self.project, self.options);
         let desired_pos_within_range = value.get() * info.length();
@@ -30,7 +34,7 @@ impl RealearnTarget for SeekTarget {
                 seek_play: self.options.seek_play,
             },
         );
-        Ok(())
+        Ok(None)
     }
 
     fn is_available(&self) -> bool {

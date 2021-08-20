@@ -1,6 +1,6 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
-    ControlContext, RealearnTarget, TargetCharacter,
+    ControlContext, HitInstructionReturnValue, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
@@ -45,7 +45,11 @@ impl RealearnTarget for FxPresetTarget {
         }
     }
 
-    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        _: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         let preset_index = match value.to_absolute_value()? {
             AbsoluteValue::Continuous(v) => convert_unit_value_to_preset_index(&self.fx, v),
             AbsoluteValue::Discrete(f) => {
@@ -61,7 +65,7 @@ impl RealearnTarget for FxPresetTarget {
             Some(i) => FxPresetRef::Preset(i),
         };
         self.fx.activate_preset(preset_ref);
-        Ok(())
+        Ok(None)
     }
 
     fn is_available(&self) -> bool {

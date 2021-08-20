@@ -1,6 +1,7 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    AdditionalFeedbackEvent, BackboneState, ControlContext, RealearnTarget, TargetCharacter,
+    AdditionalFeedbackEvent, BackboneState, ControlContext, HitInstructionReturnValue,
+    RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, Project, Track};
@@ -25,13 +26,17 @@ impl RealearnTarget for LoadFxSnapshotTarget {
         "".to_owned()
     }
 
-    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        _: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         if !value.to_unit_value()?.is_zero() {
             BackboneState::target_context()
                 .borrow_mut()
                 .load_fx_snapshot(self.fx.clone(), &self.chunk, self.chunk_hash)?
         }
-        Ok(())
+        Ok(None)
     }
 
     fn is_available(&self) -> bool {

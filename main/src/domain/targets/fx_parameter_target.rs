@@ -1,5 +1,8 @@
 use crate::domain::ui_util::{fx_parameter_unit_value, parse_unit_value_from_percentage};
-use crate::domain::{AdditionalFeedbackEvent, ControlContext, RealearnTarget, TargetCharacter};
+use crate::domain::{
+    AdditionalFeedbackEvent, ControlContext, HitInstructionReturnValue, RealearnTarget,
+    TargetCharacter,
+};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Track};
 use reaper_medium::{GetParameterStepSizesResult, ReaperNormalizedFxParamValue};
@@ -81,14 +84,18 @@ impl RealearnTarget for FxParameterTarget {
             .unwrap_or_else(|_| self.format_value_generic(value))
     }
 
-    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        _: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         // It's okay to just convert this to a REAPER-normalized value. We don't support
         // values above the maximum (or buggy plug-ins).
         let v = ReaperNormalizedFxParamValue::new(value.to_unit_value()?.get());
         self.param
             .set_reaper_normalized_value(v)
             .map_err(|_| "couldn't set FX parameter value")?;
-        Ok(())
+        Ok(None)
     }
 
     fn is_available(&self) -> bool {

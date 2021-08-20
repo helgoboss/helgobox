@@ -1,9 +1,9 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, AdditionalFeedbackEvent, ControlContext, ControlOptions,
-    ExtendedProcessorContext, FeedbackResolution, GroupId, InstanceFeedbackEvent,
-    MappingActivationEffect, MidiSource, Mode, ParameterArray, ParameterSlice, RealSource,
-    RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget,
-    TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
+    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
+    InstanceFeedbackEvent, MappingActivationEffect, MidiSource, Mode, ParameterArray,
+    ParameterSlice, RealSource, RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource,
+    ReaperTarget, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
     VirtualSource, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
@@ -1407,7 +1407,11 @@ impl RealearnTarget for CompoundMappingTarget {
         }
     }
 
-    fn hit(&mut self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        context: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.hit(value, context),

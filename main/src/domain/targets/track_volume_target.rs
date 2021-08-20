@@ -1,7 +1,7 @@
 use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
-use crate::domain::{ControlContext, RealearnTarget, TargetCharacter};
+use crate::domain::{ControlContext, HitInstructionReturnValue, RealearnTarget, TargetCharacter};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, Volume};
 
@@ -39,10 +39,14 @@ impl RealearnTarget for TrackVolumeTarget {
         format_value_as_db(value)
     }
 
-    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        _: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
         self.track.set_volume(volume.unwrap_or(Volume::MIN));
-        Ok(())
+        Ok(None)
     }
 
     fn is_available(&self) -> bool {

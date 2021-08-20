@@ -3,7 +3,8 @@ use crate::domain::ui_util::{
     reaper_volume_unit_value,
 };
 use crate::domain::{
-    ClipChangedEvent, ControlContext, InstanceFeedbackEvent, RealearnTarget, TargetCharacter,
+    ClipChangedEvent, ControlContext, HitInstructionReturnValue, InstanceFeedbackEvent,
+    RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::Volume;
@@ -34,14 +35,18 @@ impl RealearnTarget for ClipVolumeTarget {
         format_value_as_db(value)
     }
 
-    fn hit(&mut self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        context: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
         let mut instance_state = context.instance_state.borrow_mut();
         instance_state.set_volume(
             self.slot_index,
             volume.unwrap_or(Volume::MIN).reaper_value(),
         )?;
-        Ok(())
+        Ok(None)
     }
 
     fn is_available(&self) -> bool {

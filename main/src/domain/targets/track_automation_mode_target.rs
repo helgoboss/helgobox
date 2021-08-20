@@ -1,6 +1,6 @@
 use crate::domain::{
     format_value_as_on_off, handle_track_exclusivity, track_automation_mode_unit_value,
-    ControlContext, RealearnTarget, TargetCharacter, TrackExclusivity,
+    ControlContext, HitInstructionReturnValue, RealearnTarget, TargetCharacter, TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -33,7 +33,11 @@ impl RealearnTarget for TrackAutomationModeTarget {
         format_value_as_on_off(value).to_string()
     }
 
-    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        _: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         if value.to_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| {
                 t.set_automation_mode(self.mode)
@@ -45,7 +49,7 @@ impl RealearnTarget for TrackAutomationModeTarget {
             });
             self.track.set_automation_mode(self.mode);
         }
-        Ok(())
+        Ok(None)
     }
 
     fn is_available(&self) -> bool {

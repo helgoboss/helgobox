@@ -13,7 +13,7 @@ use reaper_medium::{
 };
 use rxrust::prelude::*;
 
-use crate::domain::RealearnTarget;
+use crate::domain::{HitInstructionReturnValue, RealearnTarget};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -50,16 +50,6 @@ pub enum TargetCharacter {
 ///
 /// Unlike TargetModel, the real target has everything resolved already (e.g. track and FX) and
 /// is immutable.
-//
-// When adding a new target type, please proceed like this:
-//
-// 1. Recompile and see what fails.
-//      - Yes, we basically let the compiler write our to-do list :)
-//      - For this to work, we must take care not to use `_` when doing pattern matching on
-//        `ReaperTarget`, but instead mention each variant explicitly.
-// 2. One situation where this doesn't work is when we use `matches!`. So after that, just search
-//    for occurrences of `matches!` in this file and do what needs to be done!
-// 3. To not miss anything, look for occurrences of `TrackVolume` (as a good example).
 #[enum_dispatch]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ReaperTarget {

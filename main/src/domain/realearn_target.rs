@@ -114,7 +114,11 @@ pub trait RealearnTarget {
             self.value_unit()
         )
     }
-    fn hit(&mut self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        context: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         let (_, _) = (value, context);
         Err("not supported")
     }
@@ -202,3 +206,6 @@ pub struct ControlContext<'a> {
     pub instance_id: &'a InstanceId,
     pub output_logging_enabled: bool,
 }
+
+pub type HitInstructionReturnValue = Option<Box<dyn HitInstruction>>;
+pub trait HitInstruction {}

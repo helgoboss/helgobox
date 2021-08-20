@@ -1,6 +1,6 @@
 use crate::domain::{
-    format_value_as_pan, pan_unit_value, parse_value_from_pan, ControlContext, RealearnTarget,
-    TargetCharacter,
+    format_value_as_pan, pan_unit_value, parse_value_from_pan, ControlContext,
+    HitInstructionReturnValue, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Pan, Project, Track, TrackRoute};
@@ -43,12 +43,16 @@ impl RealearnTarget for RoutePanTarget {
         format_value_as_pan(value)
     }
 
-    fn hit(&mut self, value: ControlValue, _: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        _: ControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         let pan = Pan::from_normalized_value(value.to_unit_value()?.get());
         self.route
             .set_pan(pan)
             .map_err(|_| "couldn't set route pan")?;
-        Ok(())
+        Ok(None)
     }
 
     fn is_available(&self) -> bool {
