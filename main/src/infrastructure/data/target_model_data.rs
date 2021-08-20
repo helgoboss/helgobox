@@ -555,10 +555,18 @@ fn serialize_fx_parameter(param: FxParameterPropValues) -> FxParameterData {
             name: Some(param.name),
             expression: None,
         },
-        ByIndex => FxParameterData {
+        ById => FxParameterData {
             // Before 2.8.0 we didn't have a type and this was the default ... let's leave it
             // at that.
             r#type: None,
+            index: param.index,
+            name: None,
+            expression: None,
+        },
+        ByIndex => FxParameterData {
+            // Before 2.8.0 we didn't have a type and this was the default ... let's leave it
+            // at that.
+            r#type: Some(param.r#type),
             index: param.index,
             name: None,
             expression: None,
@@ -945,7 +953,7 @@ fn deserialize_fx_parameter(param_data: &FxParameterData) -> FxParameterPropValu
             index: i,
             ..
         } => FxParameterPropValues {
-            r#type: VirtualFxParameterType::ByIndex,
+            r#type: VirtualFxParameterType::ById,
             index: *i,
             ..Default::default()
         },
@@ -962,6 +970,15 @@ fn deserialize_fx_parameter(param_data: &FxParameterData) -> FxParameterPropValu
         } => FxParameterPropValues {
             r#type: VirtualFxParameterType::Dynamic,
             expression: e.clone(),
+            ..Default::default()
+        },
+        FxParameterData {
+            r#type: Some(VirtualFxParameterType::ByIndex),
+            index: i,
+            ..
+        } => FxParameterPropValues {
+            r#type: VirtualFxParameterType::ByIndex,
+            index: *i,
             ..Default::default()
         },
         _ => FxParameterPropValues::default(),

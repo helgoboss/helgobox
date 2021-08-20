@@ -601,7 +601,7 @@ impl TargetModel {
                 self.action_invocation_type.set(t.invocation_type);
             }
             FxParameter(t) => {
-                self.param_type.set(VirtualFxParameterType::ByIndex);
+                self.param_type.set(VirtualFxParameterType::ById);
                 self.param_index.set(t.param.index());
             }
             Transport(t) => {
@@ -902,6 +902,7 @@ impl TargetModel {
         use VirtualFxParameterType::*;
         let param = match self.param_type.get() {
             ByName => VirtualFxParameter::ByName(WildMatch::new(self.param_name.get_ref())),
+            ById => VirtualFxParameter::ById(self.param_index.get()),
             ByIndex => VirtualFxParameter::ByIndex(self.param_index.get()),
             Dynamic => {
                 let evaluator =
@@ -1379,8 +1380,7 @@ impl<'a> TargetModelFormatMultiLine<'a> {
         };
         use VirtualFxParameter::*;
         match virtual_param {
-            // TODO-medium #425
-            ByIndex(_) => {
+            ById(_) => {
                 if let Ok(p) = self.resolve_fx_param() {
                     get_fx_param_label(Some(&p), p.index())
                 } else {
@@ -2363,14 +2363,17 @@ pub enum VirtualFxParameterType {
     #[display(fmt = "By name")]
     #[serde(rename = "name")]
     ByName,
-    #[display(fmt = "By position")]
+    #[display(fmt = "By ID")]
     #[serde(rename = "index")]
+    ById,
+    #[display(fmt = "By position")]
+    #[serde(rename = "index-manual")]
     ByIndex,
 }
 
 impl Default for VirtualFxParameterType {
     fn default() -> Self {
-        Self::ByIndex
+        Self::ById
     }
 }
 
@@ -2381,6 +2384,7 @@ impl VirtualFxParameterType {
             Dynamic(_) => Self::Dynamic,
             ByName(_) => Self::ByName,
             ByIndex(_) => Self::ByIndex,
+            ById(_) => Self::ById,
         }
     }
 }

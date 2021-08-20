@@ -2118,6 +2118,7 @@ impl<'a> MutableMappingPanel<'a> {
                             .param_index
                             .set_with_initiator(index, Some(edit_control_id));
                     }
+                    VirtualFxParameterType::ById => {}
                 },
                 t if t.supports_send() => match self.mapping.target_model.route_selector_type.get()
                 {
@@ -3100,16 +3101,18 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::FxParameter => {
                     let text = match self.target.param_type.get() {
                         VirtualFxParameterType::Dynamic => {
-                            self.target.param_expression.get_ref().clone()
+                            Some(self.target.param_expression.get_ref().clone())
                         }
-                        VirtualFxParameterType::ByName => self.target.param_name.get_ref().clone(),
-                        _ => {
-                            control.hide();
-                            return;
+                        VirtualFxParameterType::ByName => {
+                            Some(self.target.param_name.get_ref().clone())
                         }
+                        VirtualFxParameterType::ByIndex => {
+                            let index = self.target.param_index.get();
+                            Some((index + 1).to_string())
+                        }
+                        VirtualFxParameterType::ById => None,
                     };
-                    control.set_text(text);
-                    control.show();
+                    control.set_text_or_hide(text);
                 }
                 t if t.supports_send() => {
                     let text = match self.target.route_selector_type.get() {
@@ -3479,7 +3482,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .unwrap();
                 }
                 ReaperTargetType::FxParameter
-                    if self.target.param_type.get() == VirtualFxParameterType::ByIndex =>
+                    if self.target.param_type.get() == VirtualFxParameterType::ById =>
                 {
                     combo.show();
                     let context = self.session.extended_context();

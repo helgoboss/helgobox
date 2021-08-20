@@ -984,6 +984,7 @@ pub enum VirtualTrack {
 pub enum VirtualFxParameter {
     Dynamic(Box<ExpressionEvaluator>),
     ByName(WildMatch),
+    ById(u32),
     ByIndex(u32),
 }
 
@@ -1007,7 +1008,7 @@ impl VirtualFxParameter {
                     name: Some(name.clone()),
                     index: None,
                 }),
-            ByIndex(i) => resolve_parameter_by_index(fx, *i),
+            ByIndex(i) | ById(i) => resolve_parameter_by_index(fx, *i),
         }
     }
 
@@ -1040,7 +1041,7 @@ impl VirtualFxParameter {
     pub fn index(&self) -> Option<u32> {
         use VirtualFxParameter::*;
         match self {
-            ByIndex(i) => Some(*i),
+            ByIndex(i) | ById(i) => Some(*i),
             _ => None,
         }
     }
@@ -1060,7 +1061,7 @@ impl fmt::Display for VirtualFxParameter {
         match self {
             Dynamic(_) => f.write_str("<Dynamic>"),
             ByName(name) => write!(f, "\"{}\"", name),
-            ByIndex(i) => write!(f, "#{}", i + 1),
+            ByIndex(i) | ById(i) => write!(f, "#{}", i + 1),
         }
     }
 }
