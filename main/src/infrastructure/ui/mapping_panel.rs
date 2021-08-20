@@ -30,12 +30,12 @@ use std::rc::Rc;
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
     get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label,
-    AutomationModeOverrideType, BookmarkAnchorType, ConcreteTrackInstruction, MappingModel,
-    MidiSourceType, ModeModel, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType,
-    ReaperTargetType, Session, SharedMapping, SharedSession, SourceCategory, SourceModel,
-    TargetCategory, TargetModel, TargetModelWithContext, TargetUnit, TrackRouteSelectorType,
-    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
-    WeakSession,
+    AutomationModeOverrideType, BookmarkAnchorType, ConcreteFxInstruction,
+    ConcreteTrackInstruction, MappingModel, MidiSourceType, ModeModel, RealearnAutomationMode,
+    RealearnTrackArea, ReaperSourceType, ReaperTargetType, Session, SharedMapping, SharedSession,
+    SourceCategory, SourceModel, TargetCategory, TargetModel, TargetModelWithContext, TargetUnit,
+    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
+    VirtualTrackType, WeakSession,
 };
 use crate::base::Global;
 use crate::domain::{
@@ -1730,7 +1730,11 @@ impl<'a> MutableMappingPanel<'a> {
                         .selected_combo_box_item_index()
                         .try_into()
                         .unwrap_or_default();
-                    self.mapping.target_model.fx_type.set(fx_type);
+                    self.mapping.target_model.set_fx_type_from_ui(
+                        fx_type,
+                        self.session.extended_context(),
+                        self.mapping.compartment(),
+                    );
                 }
                 t if t.supports_send() => {
                     let i = combo.selected_combo_box_item_index();
@@ -1857,11 +1861,9 @@ impl<'a> MutableMappingPanel<'a> {
                         };
                         let i = combo.selected_combo_box_item_index();
                         if let Some(fx) = chain.fx_by_index(i as _) {
-                            self.mapping.target_model.set_fx_by_id(
-                                Some(i as _),
-                                &fx,
-                                Some(combo_id),
-                            );
+                            self.mapping
+                                .target_model
+                                .set_concrete_fx(ConcreteFxInstruction::ByIdWithFx(fx), true);
                         }
                     }
                 }

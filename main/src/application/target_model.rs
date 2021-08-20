@@ -262,7 +262,7 @@ impl TargetModel {
                 None => None,
             };
             if let Some(virtual_fx) = new_virtual_fx {
-                self.set_virtual_fx(virtual_fx);
+                self.set_virtual_fx(virtual_fx, context, compartment);
             }
         }
     }
@@ -290,6 +290,33 @@ impl TargetModel {
                 true,
             ),
             _ => self.track_type.set(track_type),
+        }
+    }
+
+    pub fn set_fx_type_from_ui(
+        &mut self,
+        fx_type: VirtualFxType,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) {
+        use VirtualFxType::*;
+        match fx_type {
+            This => self.set_concrete_fx(
+                ConcreteFxInstruction::ThisWithoutFx(Some(context.context())),
+                true,
+            ),
+            ById => self.set_concrete_fx(
+                ConcreteFxInstruction::ByIdWithoutFx {
+                    is_input_fx: None,
+                    id: None,
+                    track: self
+                        .with_context(context, compartment)
+                        .first_effective_track()
+                        .ok(),
+                },
+                true,
+            ),
+            _ => self.fx_type.set(fx_type),
         }
     }
 
@@ -353,23 +380,67 @@ impl TargetModel {
             .set_with_optional_notification(route.expression, with_notification);
     }
 
-    pub fn set_virtual_fx(&mut self, fx: VirtualFx) {
-        self.set_fx(FxPropValues::from_virtual_fx(fx), true);
+    pub fn set_virtual_fx(
+        &mut self,
+        fx: VirtualFx,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) {
+        self.set_fx_from_prop_values(
+            FxPropValues::from_virtual_fx(fx),
+            true,
+            Some(context),
+            compartment,
+        );
     }
 
-    pub fn set_fx(&mut self, fx: FxPropValues, with_notification: bool) {
+    pub fn set_fx_from_prop_values(
+        &mut self,
+        fx: FxPropValues,
+        with_notification: bool,
+        context: Option<ExtendedProcessorContext>,
+        compartment: MappingCompartment,
+    ) {
         self.fx_type
             .set_with_optional_notification(fx.r#type, with_notification);
-        self.fx_is_input_fx
-            .set_with_optional_notification(fx.is_input_fx, with_notification);
-        self.fx_id
-            .set_with_optional_notification(fx.id, with_notification);
-        self.fx_name
-            .set_with_optional_notification(fx.name, with_notification);
-        self.fx_index
-            .set_with_optional_notification(fx.index, with_notification);
         self.fx_expression
             .set_with_optional_notification(fx.expression, with_notification);
+        self.fx_is_input_fx
+            .set_with_optional_notification(fx.is_input_fx, with_notification);
+        use VirtualFxType::*;
+        match fx.r#type {
+            This => self.set_concrete_fx(
+                ConcreteFxInstruction::ThisWithoutFx(context.map(|c| c.context())),
+                with_notification,
+            ),
+            ById => self.set_concrete_fx(
+                ConcreteFxInstruction::ByIdWithoutFx {
+                    is_input_fx: Some(fx.is_input_fx),
+                    id: fx.id,
+                    track: context.and_then(|c| {
+                        self.with_context(c, compartment)
+                            .first_effective_track()
+                            .ok()
+                    }),
+                },
+                with_notification,
+            ),
+            ByName | AllByName => {
+                self.fx_name
+                    .set_with_optional_notification(fx.name, with_notification);
+            }
+            ByIndex => {
+                self.fx_index
+                    .set_with_optional_notification(fx.index, with_notification);
+            }
+            ByIdOrIndex => {
+                self.fx_id
+                    .set_with_optional_notification(fx.id, with_notification);
+                self.fx_index
+                    .set_with_optional_notification(fx.index, with_notification);
+            }
+            Dynamic | Focused => {}
+        }
     }
 
     pub fn set_fx_parameter(&mut self, param: FxParameterPropValues, with_notification: bool) {
@@ -425,13 +496,29 @@ impl TargetModel {
         }
     }
 
-    pub fn set_fx_by_id(&mut self, index: Option<u32>, fx: &Fx, initiator: Option<u32>) {
-        self.fx_id.set_with_initiator(fx.guid(), initiator);
+    /// Sets the FX to one of the concrete types (ById only for now), also setting other important
+    /// properties for UI convenience.
+    pub fn set_concrete_fx(&mut self, instruction: ConcreteFxInstruction, with_notification: bool) {
+        let resolved = instruction.resolve();
+        self.fx_type
+            .set_with_optional_notification(resolved.virtual_fx_type(), with_notification);
+        if let Some(id) = resolved.id() {
+            self.fx_id
+                .set_with_optional_notification(Some(id), with_notification);
+        }
         // We also set index and name so that we can easily switch between types.
-        self.fx_index
-            .set_without_notification(index.unwrap_or_default());
-        self.fx_name
-            .set_without_notification(fx.name().into_string());
+        if let Some(i) = resolved.index() {
+            self.fx_index
+                .set_with_optional_notification(i, with_notification);
+        }
+        if let Some(name) = resolved.name() {
+            self.fx_name
+                .set_with_optional_notification(name, with_notification);
+        }
+        if let Some(is_input_fx) = resolved.is_input_fx() {
+            self.fx_is_input_fx
+                .set_with_optional_notification(is_input_fx, with_notification);
+        }
     }
 
     pub fn seek_options(&self) -> SeekOptions {
@@ -446,13 +533,19 @@ impl TargetModel {
         }
     }
 
-    pub fn apply_from_target(&mut self, target: &ReaperTarget, context: &ProcessorContext) {
+    pub fn apply_from_target(
+        &mut self,
+        target: &ReaperTarget,
+        extended_context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) {
+        let context = extended_context.context();
         use ReaperTarget::*;
         self.category.set(TargetCategory::Reaper);
         self.r#type.set(ReaperTargetType::from_target(target));
         if let Some(actual_fx) = target.fx() {
             let virtual_fx = virtualize_fx(actual_fx, context);
-            self.set_virtual_fx(virtual_fx);
+            self.set_virtual_fx(virtual_fx, extended_context, compartment);
             let track = if let Some(track) = actual_fx.track() {
                 track.clone()
             } else {
@@ -2548,15 +2641,15 @@ impl<'a> ConcreteTrackInstruction<'a> {
                 ThisWithoutTrack(context) => context.and_then(|c| c.track().cloned()),
                 ByIdWithoutTrack {
                     id: Some(id),
-                    context,
-                } => context.and_then(|c| {
+                    context: Some(c),
+                } => {
                     let t = c.project_or_current_project().track_by_guid(id);
                     if t.is_available() {
                         Some(t)
                     } else {
                         None
                     }
-                }),
+                }
                 ByIdWithTrack(t) => Some(t.clone()),
                 _ => None,
             },
@@ -2582,9 +2675,8 @@ impl<'a> ResolvedConcreteTrackInstruction<'a> {
     pub fn id(&self) -> Option<Guid> {
         use ConcreteTrackInstruction::*;
         match &self.instruction {
-            ThisWithoutTrack(context) => Some(*(*context)?.track()?.guid()),
             ByIdWithoutTrack { id, .. } => *id,
-            ByIdWithTrack(track) => Some(*track.guid()),
+            _ => Some(self.track.as_ref()?.guid().clone()),
         }
     }
 
@@ -2594,5 +2686,88 @@ impl<'a> ResolvedConcreteTrackInstruction<'a> {
 
     pub fn index(&self) -> Option<u32> {
         Some(self.track.as_ref()?.index()?)
+    }
+}
+
+#[derive(Debug)]
+pub enum ConcreteFxInstruction<'a> {
+    /// If the context is not available, other FX properties won't get set.
+    ThisWithoutFx(Option<&'a ProcessorContext>),
+    /// If the context is not available, other FX properties won't get set.
+    ByIdWithoutFx {
+        is_input_fx: Option<bool>,
+        id: Option<Guid>,
+        track: Option<Track>,
+    },
+    ByIdWithFx(Fx),
+}
+
+impl<'a> ConcreteFxInstruction<'a> {
+    pub fn resolve(self) -> ResolvedConcreteFxInstruction<'a> {
+        use ConcreteFxInstruction::*;
+        ResolvedConcreteFxInstruction {
+            fx: match &self {
+                ThisWithoutFx(context) => context.map(|c| c.containing_fx().clone()),
+                ByIdWithoutFx {
+                    is_input_fx: Some(is_input_fx),
+                    id: Some(id),
+                    track: Some(t),
+                } => {
+                    let chain = if *is_input_fx {
+                        t.input_fx_chain()
+                    } else {
+                        t.normal_fx_chain()
+                    };
+                    let fx = chain.fx_by_guid(id);
+                    if fx.is_available() {
+                        Some(fx)
+                    } else {
+                        None
+                    }
+                }
+                ByIdWithFx(fx) => Some(fx.clone()),
+                _ => None,
+            },
+            instruction: self,
+        }
+    }
+}
+
+pub struct ResolvedConcreteFxInstruction<'a> {
+    instruction: ConcreteFxInstruction<'a>,
+    fx: Option<Fx>,
+}
+
+impl<'a> ResolvedConcreteFxInstruction<'a> {
+    pub fn virtual_fx_type(&self) -> VirtualFxType {
+        use ConcreteFxInstruction::*;
+        match self.instruction {
+            ThisWithoutFx(_) => VirtualFxType::This,
+            ByIdWithoutFx { .. } | ByIdWithFx(_) => VirtualFxType::ById,
+        }
+    }
+
+    pub fn is_input_fx(&self) -> Option<bool> {
+        use ConcreteFxInstruction::*;
+        match &self.instruction {
+            ByIdWithoutFx { is_input_fx, .. } => *is_input_fx,
+            _ => Some(self.fx.as_ref()?.is_input_fx()),
+        }
+    }
+
+    pub fn id(&self) -> Option<Guid> {
+        use ConcreteFxInstruction::*;
+        match &self.instruction {
+            ByIdWithoutFx { id, .. } => id.clone(),
+            _ => self.fx.as_ref()?.guid(),
+        }
+    }
+
+    pub fn name(&self) -> Option<String> {
+        Some(self.fx.as_ref()?.name().into_string())
+    }
+
+    pub fn index(&self) -> Option<u32> {
+        Some(self.fx.as_ref()?.index())
     }
 }

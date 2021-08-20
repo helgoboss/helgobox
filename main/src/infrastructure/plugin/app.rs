@@ -977,10 +977,11 @@ impl App {
             self.find_first_relevant_session_with_source(compartment, &real_source)
         {
             // There's already a mapping with that source. Change target of that mapping.
-            mapping
-                .borrow_mut()
-                .target_model
-                .apply_from_target(&reaper_target, session.borrow().context());
+            mapping.borrow_mut().target_model.apply_from_target(
+                &reaper_target,
+                session.borrow().extended_context(),
+                compartment,
+            );
             (session, mapping)
         } else {
             // There's no mapping with that source yet. Add it to the previously determined first
@@ -997,7 +998,7 @@ impl App {
                     s.create_compound_source(real_source.into_unqualified_real_source(), true);
                 m.source_model.apply_from_source(&compound_source);
                 m.target_model
-                    .apply_from_target(&reaper_target, s.context());
+                    .apply_from_target(&reaper_target, s.extended_context(), compartment);
                 drop(m);
                 mapping
             };

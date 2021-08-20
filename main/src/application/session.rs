@@ -784,10 +784,13 @@ impl Session {
         }
         if let Some(qualified_id) = self.mapping_which_learns_target.replace(None) {
             if let Some((_, mapping)) = self.find_mapping_and_index_by_qualified_id(qualified_id) {
-                mapping
-                    .borrow_mut()
-                    .target_model
-                    .apply_from_target(target, &self.context);
+                let mut mapping = mapping.borrow_mut();
+                let compartment = mapping.compartment();
+                mapping.target_model.apply_from_target(
+                    target,
+                    self.extended_context(),
+                    compartment,
+                );
             }
         }
     }
@@ -1773,9 +1776,11 @@ impl Session {
                     GroupId::default(),
                     VirtualControlElementType::Multi,
                 );
-                m.borrow_mut()
-                    .target_model
-                    .apply_from_target(target, &self.context);
+                m.borrow_mut().target_model.apply_from_target(
+                    target,
+                    self.extended_context(),
+                    compartment,
+                );
                 m
             }
             Some(m) => m.clone(),
@@ -2201,7 +2206,7 @@ fn make_mapping_project_independent(mapping: &SharedMapping, context: ExtendedPr
                     } else {
                         VirtualFx::Focused
                     };
-                    target.set_virtual_fx(virtual_fx);
+                    target.set_virtual_fx(virtual_fx, context, compartment);
                     true
                 } else {
                     false

@@ -274,7 +274,7 @@ impl TargetModelData {
             context.map(|c| (c, compartment)),
             &virtual_track,
         );
-        model.set_fx(fx_prop_values, with_notification);
+        model.set_fx_from_prop_values(fx_prop_values, with_notification, context, compartment);
         model
             .enable_only_if_fx_has_focus
             .set_with_optional_notification(self.enable_only_if_fx_has_focus, with_notification);
