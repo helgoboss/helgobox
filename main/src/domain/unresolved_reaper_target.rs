@@ -24,7 +24,6 @@ use reaper_high::{
 };
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, MasterTrackBehavior, TrackArea,
-    TrackLocation,
 };
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
@@ -896,7 +895,7 @@ impl fmt::Display for VirtualTrackRoute {
             Dynamic(_) => f.write_str("<Dynamic>"),
             ById(id) => write!(f, "{}", id.to_string_without_braces()),
             ByName(name) => write!(f, "\"{}\"", name),
-            ByIndex(i) => write!(f, "{}", i + 1),
+            ByIndex(i) => write!(f, "#{}", i + 1),
         }
     }
 }
@@ -1061,7 +1060,7 @@ impl fmt::Display for VirtualFxParameter {
         match self {
             Dynamic(_) => f.write_str("<Dynamic>"),
             ByName(name) => write!(f, "\"{}\"", name),
-            ByIndex(i) => write!(f, "{}", i + 1),
+            ByIndex(i) => write!(f, "#{}", i + 1),
         }
     }
 }
@@ -1146,7 +1145,7 @@ impl fmt::Display for VirtualTrack {
                 wild_match,
                 if *allow_multiple { " (all)" } else { "" }
             ),
-            ByIndex(i) => write!(f, "{}", i + 1),
+            ByIndex(i) => write!(f, "#{}", i + 1),
         }
     }
 }
@@ -1162,6 +1161,26 @@ pub enum VirtualFx {
         is_input_fx: bool,
         chain_fx: VirtualChainFx,
     },
+}
+
+impl fmt::Display for VirtualFx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use VirtualFx::*;
+        match self {
+            This => f.write_str("<This>"),
+            Focused => f.write_str("<Focused>"),
+            ChainFx {
+                chain_fx,
+                is_input_fx,
+            } => {
+                chain_fx.fmt(f)?;
+                if *is_input_fx {
+                    f.write_str(" (input FX)")?;
+                }
+                Ok(())
+            }
+        }
+    }
 }
 
 impl VirtualFx {
@@ -1308,18 +1327,6 @@ impl VirtualTrack {
         result.round().max(0.0) as u32
     }
 
-    pub fn with_context<'a>(
-        &'a self,
-        context: ExtendedProcessorContext<'a>,
-        compartment: MappingCompartment,
-    ) -> VirtualTrackWithContext<'a> {
-        VirtualTrackWithContext {
-            virtual_track: self,
-            context,
-            compartment,
-        }
-    }
-
     pub fn id(&self) -> Option<Guid> {
         use VirtualTrack::*;
         match self {
@@ -1386,7 +1393,7 @@ impl fmt::Display for VirtualChainFx {
                 wild_match,
                 if *allow_multiple { " (all)" } else { "" }
             ),
-            ByIdOrIndex(None, i) | ByIndex(i) => write!(f, "{}", i + 1),
+            ByIdOrIndex(None, i) | ByIndex(i) => write!(f, "#{}", i + 1),
             ByIdOrIndex(Some(guid), i) => {
                 write!(f, "{} ({})", guid.to_string_without_braces(), i + 1)
             }
@@ -1571,57 +1578,12 @@ pub enum FxResolveError {
     },
 }
 
-pub struct VirtualTrackWithContext<'a> {
-    virtual_track: &'a VirtualTrack,
-    context: ExtendedProcessorContext<'a>,
-    compartment: MappingCompartment,
-}
-
-impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use VirtualTrack::*;
-        match self.virtual_track {
-            This | Selected { .. } | Master | ByName { .. } | Dynamic(_) => {
-                write!(f, "{}", self.virtual_track)
-            }
-            _ => {
-                if let Some(t) = self
-                    .virtual_track
-                    .resolve(self.context, self.compartment)
-                    .ok()
-                    .and_then(|tracks| tracks.into_iter().next())
-                {
-                    f.write_str(&get_track_label(&t))
-                } else {
-                    f.write_str(&get_non_present_virtual_track_label(self.virtual_track))
-                }
-            }
-        }
-    }
-}
-
 pub fn get_non_present_virtual_track_label(track: &VirtualTrack) -> String {
     format!("<Not present> ({})", track)
 }
 
 pub fn get_non_present_virtual_route_label(route: &VirtualTrackRoute) -> String {
     format!("<Not present> ({})", route)
-}
-
-fn get_track_label(track: &Track) -> String {
-    match track.location() {
-        TrackLocation::MasterTrack => "<Master track>".into(),
-        TrackLocation::NormalTrack(i) => {
-            let position = i + 1;
-            let name = track.name().expect("non-master track must have name");
-            let name = name.to_str();
-            if name.is_empty() {
-                position.to_string()
-            } else {
-                format!("{}. {}", position, name)
-            }
-        }
-    }
 }
 
 // Returns an error if that param (or FX) doesn't exist.

@@ -1,5 +1,6 @@
 use crate::application::{
-    MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory, WeakSession,
+    MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory,
+    TargetModelFormatMultiLine, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget};
@@ -203,10 +204,9 @@ impl MappingRowPanel {
             // Prevent error on project close
             return;
         }
-        let target_model_string = mapping
-            .target_model
-            .with_context(context, mapping.compartment())
-            .to_string();
+        let target_model_string =
+            TargetModelFormatMultiLine::new(&mapping.target_model, context, mapping.compartment())
+                .to_string();
         self.view
             .require_window()
             .require_control(root::ID_MAPPING_ROW_TARGET_LABEL_TEXT)

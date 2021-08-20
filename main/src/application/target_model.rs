@@ -13,10 +13,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::application::VirtualControlElementType;
 use crate::domain::{
-    find_bookmark, get_fx_param, get_fxs, get_non_present_virtual_route_label, get_track_route,
-    ActionInvocationType, CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext,
-    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment,
-    OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination,
+    find_bookmark, get_fx_param, get_fxs, get_non_present_virtual_route_label,
+    get_non_present_virtual_track_label, get_track_route, ActionInvocationType,
+    CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext, FeedbackResolution,
+    FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment, OscDeviceId,
+    ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination,
     SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity,
     TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement,
@@ -27,7 +28,8 @@ use serde_repr::*;
 use std::borrow::Cow;
 
 use reaper_medium::{
-    AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackArea, TrackSendDirection,
+    AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackArea, TrackLocation,
+    TrackSendDirection,
 };
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -1179,12 +1181,15 @@ impl TargetModel {
     }
 }
 
-impl fmt::Display for TargetModel {
+pub struct TargetModelFormatVeryShort<'a>(pub &'a TargetModel);
+
+impl<'a> Display for TargetModelFormatVeryShort<'a> {
+    /// Produces a short single-line name which is for example used to derive the automatic name.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.category.get() {
+        match self.0.category.get() {
             TargetCategory::Reaper => {
                 use ReaperTargetType::*;
-                let tt = self.r#type.get();
+                let tt = self.0.r#type.get();
                 match tt {
                     Tempo | Playrate | SelectedTrack | LastTouched | Seek | TrackArm | TrackPan
                     | TrackWidth | TrackVolume | TrackPeak | TrackShow | TrackSolo | FxNavigate
@@ -1192,30 +1197,35 @@ impl fmt::Display for TargetModel {
                     | FxOpen | FxParameter | TrackSendMute | TrackSendPan | TrackSendVolume
                     | LoadFxSnapshot | SendMidi | SendOsc => f.write_str(tt.short_name()),
                     ClipTransport | ClipSeek | ClipVolume => {
-                        write!(f, "{}: Slot {}", tt.short_name(), self.slot_index.get() + 1)
+                        write!(
+                            f,
+                            "{}: Slot {}",
+                            tt.short_name(),
+                            self.0.slot_index.get() + 1
+                        )
                     }
-                    Action => match self.action().ok() {
-                        None => write!(f, "Action {}", self.command_id_label()),
+                    Action => match self.0.action().ok() {
+                        None => write!(f, "Action {}", self.0.command_id_label()),
                         Some(a) => f.write_str(a.name().to_str()),
                     },
                     AutomationModeOverride => {
                         write!(f, "{}: ", tt.short_name())?;
                         use AutomationModeOverrideType::*;
-                        let ovr_type = self.automation_mode_override_type.get();
+                        let ovr_type = self.0.automation_mode_override_type.get();
                         match ovr_type {
                             None | Bypass => write!(f, "{}", ovr_type),
-                            Override => write!(f, "{}", self.track_automation_mode.get()),
+                            Override => write!(f, "{}", self.0.track_automation_mode.get()),
                         }
                     }
                     Transport => {
-                        write!(f, "{}", self.transport_action.get())
+                        write!(f, "{}", self.0.transport_action.get())
                     }
                     GoToBookmark => {
-                        let type_label = match self.bookmark_type.get() {
+                        let type_label = match self.0.bookmark_type.get() {
                             BookmarkType::Marker => "Marker",
                             BookmarkType::Region => "Region",
                         };
-                        let bm_prefix = match self.bookmark_anchor_type.get() {
+                        let bm_prefix = match self.0.bookmark_anchor_type.get() {
                             BookmarkAnchorType::Id => "",
                             BookmarkAnchorType::Index => "#",
                         };
@@ -1224,31 +1234,273 @@ impl fmt::Display for TargetModel {
                             "Go to {} {}{}",
                             type_label,
                             bm_prefix,
-                            self.bookmark_ref.get()
+                            self.0.bookmark_ref.get()
                         )
                     }
                     TrackAutomationMode => write!(
                         f,
                         "{}: {}",
                         tt.short_name(),
-                        self.track_automation_mode.get()
+                        self.0.track_automation_mode.get()
                     ),
                     AutomationTouchState => write!(
                         f,
                         "{}: {}",
                         tt.short_name(),
-                        self.touched_parameter_type.get()
+                        self.0.touched_parameter_type.get()
                     ),
                 }
             }
-            TargetCategory::Virtual => match self.control_element_id.get() {
+            TargetCategory::Virtual => match self.0.control_element_id.get() {
                 VirtualControlElementId::Indexed(i) => {
-                    write!(f, "{} {}", self.control_element_type.get(), i + 1)
+                    write!(f, "{} {}", self.0.control_element_type.get(), i + 1)
                 }
                 VirtualControlElementId::Named(n) => {
-                    write!(f, "{} ({})", n, self.control_element_type.get())
+                    write!(f, "{} ({})", n, self.0.control_element_type.get())
                 }
             },
+        }
+    }
+}
+
+pub struct TargetModelFormatMultiLine<'a> {
+    target: &'a TargetModel,
+    context: ExtendedProcessorContext<'a>,
+    compartment: MappingCompartment,
+}
+
+impl<'a> TargetModelFormatMultiLine<'a> {
+    pub fn new(
+        target: &'a TargetModel,
+        context: ExtendedProcessorContext<'a>,
+        compartment: MappingCompartment,
+    ) -> Self {
+        TargetModelFormatMultiLine {
+            target,
+            context,
+            compartment,
+        }
+    }
+
+    fn track_label(&self) -> String {
+        let virtual_track = self.target.virtual_track();
+        let virtual_track = match virtual_track.as_ref() {
+            None => return TARGET_UNDEFINED_LABEL.into(),
+            Some(t) => t,
+        };
+        use VirtualTrack::*;
+        match virtual_track {
+            ById(_) | ByIdOrName(_, _) => {
+                if let Ok(t) = self.target_with_context().first_effective_track() {
+                    get_track_label(&t)
+                } else {
+                    get_non_present_virtual_track_label(virtual_track)
+                }
+            }
+            _ => virtual_track.to_string(),
+        }
+    }
+
+    fn route_label(&self) -> Cow<str> {
+        let virtual_route = self.target.virtual_track_route().ok();
+        let virtual_route = match virtual_route.as_ref() {
+            None => return TARGET_UNDEFINED_LABEL.into(),
+            Some(r) => r,
+        };
+        use TrackRouteSelector::*;
+        match &virtual_route.selector {
+            ById(_) => {
+                if let Ok(r) = self.resolve_track_route() {
+                    get_route_label(&r)
+                } else {
+                    get_non_present_virtual_route_label(virtual_route).into()
+                }
+            }
+            _ => virtual_route.to_string().into(),
+        }
+    }
+
+    fn fx_label(&self) -> Cow<str> {
+        let virtual_fx = self.target.virtual_fx();
+        let virtual_fx = match virtual_fx.as_ref() {
+            None => return TARGET_UNDEFINED_LABEL.into(),
+            Some(f) => f,
+        };
+        match virtual_fx {
+            VirtualFx::ChainFx { chain_fx, .. } => {
+                use VirtualChainFx::*;
+                match chain_fx {
+                    ById(_, _) | ByIdOrIndex(_, _) => get_optional_fx_label(
+                        chain_fx,
+                        self.target_with_context().first_fx().ok().as_ref(),
+                    )
+                    .into(),
+                    _ => virtual_fx.to_string().into(),
+                }
+            }
+            _ => virtual_fx.to_string().into(),
+        }
+    }
+
+    fn fx_param_label(&self) -> Cow<str> {
+        let virtual_param = self.target.virtual_fx_parameter();
+        let virtual_param = match virtual_param.as_ref() {
+            None => return TARGET_UNDEFINED_LABEL.into(),
+            Some(p) => p,
+        };
+        use VirtualFxParameter::*;
+        match virtual_param {
+            // TODO-medium #425
+            ByIndex(_) => {
+                if let Ok(p) = self.resolve_fx_param() {
+                    get_fx_param_label(Some(&p), p.index())
+                } else {
+                    format!("<Not present> ({})", virtual_param).into()
+                }
+            }
+            _ => virtual_param.to_string().into(),
+        }
+    }
+
+    fn bookmark_label(&self) -> String {
+        // TODO-medium We should do this similar to the other target objects and introduce a
+        //  virtual struct.
+        let bookmark_type = self.target.bookmark_type.get();
+        {
+            let anchor_type = self.target.bookmark_anchor_type.get();
+            let bookmark_ref = self.target.bookmark_ref.get();
+            let res = find_bookmark(
+                self.context.context().project_or_current_project(),
+                bookmark_type,
+                anchor_type,
+                bookmark_ref,
+            );
+            if let Ok(res) = res {
+                get_bookmark_label(
+                    res.index_within_type,
+                    res.basic_info.id,
+                    &res.bookmark.name(),
+                )
+            } else {
+                get_non_present_bookmark_label(anchor_type, bookmark_ref)
+            }
+        }
+    }
+
+    // Returns an error if that send (or track) doesn't exist.
+    pub fn resolve_track_route(&self) -> Result<TrackRoute, &'static str> {
+        get_track_route(
+            self.context,
+            &self.target.track_route_descriptor()?,
+            self.compartment,
+        )
+    }
+
+    // Returns an error if that param (or FX) doesn't exist.
+    fn resolve_fx_param(&self) -> Result<FxParameter, &'static str> {
+        get_fx_param(
+            self.context,
+            &self.target.fx_parameter_descriptor()?,
+            self.compartment,
+        )
+    }
+
+    fn target_with_context(&self) -> TargetModelWithContext<'a> {
+        self.target.with_context(self.context, self.compartment)
+    }
+}
+
+impl<'a> Display for TargetModelFormatMultiLine<'a> {
+    /// Produces a multi-line description of the target.
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use TargetCategory::*;
+        match self.target.category.get() {
+            Reaper => {
+                use ReaperTargetType::*;
+                let tt = self.target.r#type.get();
+                match tt {
+                    Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi | SendOsc => {
+                        write!(f, "{}", tt)
+                    }
+                    ClipTransport | ClipSeek | ClipVolume => {
+                        write!(f, "{}", tt)
+                    }
+                    Action => write!(
+                        f,
+                        "{}\n{}\n{}",
+                        tt,
+                        self.target.command_id_label(),
+                        self.target.action_name_label()
+                    ),
+                    FxParameter => write!(
+                        f,
+                        "{}\nTrack {}\nFX {}\nParam {}",
+                        tt,
+                        self.track_label(),
+                        self.fx_label(),
+                        self.fx_param_label()
+                    ),
+                    TrackVolume | TrackPeak | TrackPan | TrackWidth | TrackArm | TrackSelection
+                    | TrackMute | TrackSolo | TrackShow | FxNavigate | AllTrackFxEnable => {
+                        write!(f, "{}\nTrack {}", tt, self.track_label())
+                    }
+                    TrackAutomationMode => {
+                        write!(
+                            f,
+                            "{}\nTrack {}\n{}",
+                            tt,
+                            self.track_label(),
+                            self.target.track_automation_mode.get()
+                        )
+                    }
+                    TrackSendVolume | TrackSendPan | TrackSendMute => write!(
+                        f,
+                        "{}\nTrack {}\n{} {}",
+                        tt,
+                        self.track_label(),
+                        self.target.route_type.get(),
+                        self.route_label()
+                    ),
+                    FxOpen | FxEnable | FxPreset => write!(
+                        f,
+                        "{}\nTrack {}\nFX {}",
+                        tt,
+                        self.track_label(),
+                        self.fx_label(),
+                    ),
+                    Transport => write!(f, "{}\n{}", tt, self.target.transport_action.get()),
+                    AutomationModeOverride => {
+                        write!(
+                            f,
+                            "{}\n{}",
+                            tt,
+                            self.target.automation_mode_override_type.get()
+                        )
+                    }
+                    LoadFxSnapshot => write!(
+                        f,
+                        "{}\n{}",
+                        tt,
+                        self.target
+                            .fx_snapshot
+                            .get_ref()
+                            .as_ref()
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| "-".to_owned())
+                    ),
+                    AutomationTouchState => write!(
+                        f,
+                        "{}\nTrack {}\n{}",
+                        tt,
+                        self.track_label(),
+                        self.target.touched_parameter_type.get()
+                    ),
+                    GoToBookmark => {
+                        write!(f, "{}\n{}", tt, self.bookmark_label())
+                    }
+                }
+            }
+            Virtual => write!(f, "Virtual\n{}", self.target.create_control_element()),
         }
     }
 }
@@ -1269,59 +1521,13 @@ pub fn get_fx_param_label(fx_param: Option<&FxParameter>, index: u32) -> Cow<'st
     }
 }
 
-pub fn get_route_label(route: &TrackRoute) -> Cow<'static, str> {
+fn get_route_label(route: &TrackRoute) -> Cow<'static, str> {
     format!("{}. {}", route.index() + 1, route.name().to_str()).into()
-}
-
-pub fn get_virtual_fx_label(fx: Option<&Fx>, virtual_fx: Option<&VirtualFx>) -> Cow<'static, str> {
-    let virtual_fx = match virtual_fx {
-        None => return "<None>".into(),
-        Some(f) => f,
-    };
-    match virtual_fx {
-        VirtualFx::This => "<This>".into(),
-        VirtualFx::Focused => "<Focused>".into(),
-        VirtualFx::ChainFx { chain_fx, .. } => get_optional_fx_label(chain_fx, fx).into(),
-    }
-}
-
-pub fn get_virtual_fx_param_label(
-    fx_param: Option<&FxParameter>,
-    virtual_fx_param: Option<&VirtualFxParameter>,
-) -> Cow<'static, str> {
-    let virtual_fx_param = match virtual_fx_param {
-        None => return "<None>".into(),
-        Some(f) => f,
-    };
-    match virtual_fx_param {
-        VirtualFxParameter::Dynamic(_) => "<Dynamic>".into(),
-        _ => match fx_param {
-            None => format!("<Not present> ({})", virtual_fx_param).into(),
-            Some(p) => get_fx_param_label(Some(p), p.index()),
-        },
-    }
-}
-
-pub fn get_virtual_route_label(
-    route: Option<&TrackRoute>,
-    virtual_route: Option<&VirtualTrackRoute>,
-) -> Cow<'static, str> {
-    let virtual_route = match virtual_route {
-        None => return "<None>".into(),
-        Some(r) => r,
-    };
-    match virtual_route.selector {
-        TrackRouteSelector::Dynamic(_) => "<Dynamic>".into(),
-        _ => match route {
-            None => get_non_present_virtual_route_label(virtual_route).into(),
-            Some(r) => get_route_label(r),
-        },
-    }
 }
 
 pub fn get_optional_fx_label(virtual_chain_fx: &VirtualChainFx, fx: Option<&Fx>) -> String {
     match virtual_chain_fx {
-        VirtualChainFx::Dynamic(_) => "<Dynamic>".to_string(),
+        VirtualChainFx::Dynamic(_) => virtual_chain_fx.to_string(),
         _ => match fx {
             None => format!("<Not present> ({})", virtual_chain_fx),
             Some(fx) => get_fx_label(fx.index(), fx),
@@ -1407,173 +1613,6 @@ impl<'a> TargetModelWithContext<'a> {
             .next()
             .ok_or("resolved to empty track list")
     }
-
-    // Returns an error if that send (or track) doesn't exist.
-    pub fn track_route(&self) -> Result<TrackRoute, &'static str> {
-        get_track_route(
-            self.context,
-            &self.target.track_route_descriptor()?,
-            self.compartment,
-        )
-    }
-
-    // Returns an error if that param (or FX) doesn't exist.
-    fn fx_param(&self) -> Result<FxParameter, &'static str> {
-        get_fx_param(
-            self.context,
-            &self.target.fx_parameter_descriptor()?,
-            self.compartment,
-        )
-    }
-
-    fn route_type_label(&self) -> &'static str {
-        match self.target.route_type.get() {
-            TrackRouteType::Send => "Send",
-            TrackRouteType::Receive => "Receive",
-            TrackRouteType::HardwareOutput => "Output",
-        }
-    }
-
-    fn route_label(&self) -> Cow<str> {
-        get_virtual_route_label(
-            self.track_route().ok().as_ref(),
-            self.target.virtual_track_route().ok().as_ref(),
-        )
-    }
-
-    fn fx_label(&self) -> Cow<str> {
-        get_virtual_fx_label(
-            self.first_fx().ok().as_ref(),
-            self.target.virtual_fx().as_ref(),
-        )
-    }
-
-    fn fx_param_label(&self) -> Cow<str> {
-        get_virtual_fx_param_label(
-            self.fx_param().ok().as_ref(),
-            self.target.virtual_fx_parameter().as_ref(),
-        )
-    }
-
-    fn track_label(&self) -> String {
-        if let Some(t) = self.target.virtual_track() {
-            t.with_context(self.context, self.compartment).to_string()
-        } else {
-            "<Undefined>".to_owned()
-        }
-    }
-}
-
-impl<'a> Display for TargetModelWithContext<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        use TargetCategory::*;
-        match self.target.category.get() {
-            Reaper => {
-                use ReaperTargetType::*;
-                let tt = self.target.r#type.get();
-                match tt {
-                    Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi | SendOsc => {
-                        write!(f, "{}", tt)
-                    }
-                    ClipTransport | ClipSeek | ClipVolume => {
-                        write!(f, "{}", tt)
-                    }
-                    Action => write!(
-                        f,
-                        "{}\n{}\n{}",
-                        tt,
-                        self.target.command_id_label(),
-                        self.target.action_name_label()
-                    ),
-                    FxParameter => write!(
-                        f,
-                        "{}\nTrack {}\nFX {}\nParam {}",
-                        tt,
-                        self.track_label(),
-                        self.fx_label(),
-                        self.fx_param_label()
-                    ),
-                    TrackVolume | TrackPeak | TrackPan | TrackWidth | TrackArm | TrackSelection
-                    | TrackMute | TrackSolo | TrackShow | FxNavigate | AllTrackFxEnable => {
-                        write!(f, "{}\nTrack {}", tt, self.track_label())
-                    }
-                    TrackAutomationMode => {
-                        write!(
-                            f,
-                            "{}\nTrack {}\n{}",
-                            tt,
-                            self.track_label(),
-                            self.target.track_automation_mode.get()
-                        )
-                    }
-                    TrackSendVolume | TrackSendPan | TrackSendMute => write!(
-                        f,
-                        "{}\nTrack {}\n{} {}",
-                        tt,
-                        self.track_label(),
-                        self.route_type_label(),
-                        self.route_label()
-                    ),
-                    FxOpen | FxEnable | FxPreset => write!(
-                        f,
-                        "{}\nTrack {}\nFX {}",
-                        tt,
-                        self.track_label(),
-                        self.fx_label(),
-                    ),
-                    Transport => write!(f, "{}\n{}", tt, self.target.transport_action.get()),
-                    AutomationModeOverride => write!(
-                        f,
-                        "{}\n{}",
-                        tt,
-                        self.target.automation_mode_override_type.get()
-                    ),
-                    LoadFxSnapshot => write!(
-                        f,
-                        "{}\n{}",
-                        tt,
-                        self.target
-                            .fx_snapshot
-                            .get_ref()
-                            .as_ref()
-                            .map(|s| s.to_string())
-                            .unwrap_or_else(|| "-".to_owned())
-                    ),
-                    AutomationTouchState => write!(
-                        f,
-                        "{}\nTrack {}\n{}",
-                        tt,
-                        self.track_label(),
-                        self.target.touched_parameter_type.get()
-                    ),
-                    GoToBookmark => {
-                        let bookmark_type = self.target.bookmark_type.get();
-                        let detail_label = {
-                            let anchor_type = self.target.bookmark_anchor_type.get();
-                            let bookmark_ref = self.target.bookmark_ref.get();
-                            let res = find_bookmark(
-                                self.project(),
-                                bookmark_type,
-                                anchor_type,
-                                bookmark_ref,
-                            );
-                            if let Ok(res) = res {
-                                get_bookmark_label(
-                                    res.index_within_type,
-                                    res.basic_info.id,
-                                    &res.bookmark.name(),
-                                )
-                            } else {
-                                get_non_present_bookmark_label(anchor_type, bookmark_ref)
-                            }
-                        };
-                        write!(f, "{}\n{}", tt, detail_label)
-                    }
-                }
-            }
-            Virtual => write!(f, "Virtual\n{}", self.target.create_control_element()),
-        }
-    }
 }
 
 pub fn get_bookmark_label(index_within_type: u32, id: BookmarkId, name: &str) -> String {
@@ -1591,6 +1630,9 @@ pub fn get_non_present_bookmark_label(
 }
 
 /// Type of a target
+///
+/// Display implementation produces single-line medium-length names that are supposed to be shown
+/// e.g. in the dropdown.
 #[derive(
     Clone,
     Copy,
@@ -1938,6 +1980,9 @@ impl ReaperTargetType {
         }
     }
 
+    /// Produces a shorter name than the Display implementation.
+    ///
+    /// For example, it doesn't contain the leading context information.
     pub fn short_name(&self) -> &'static str {
         use ReaperTargetType::*;
         match self {
@@ -2769,5 +2814,23 @@ impl<'a> ResolvedConcreteFxInstruction<'a> {
 
     pub fn index(&self) -> Option<u32> {
         Some(self.fx.as_ref()?.index())
+    }
+}
+
+const TARGET_UNDEFINED_LABEL: &str = "<Undefined>";
+
+fn get_track_label(track: &Track) -> String {
+    match track.location() {
+        TrackLocation::MasterTrack => "<Master track>".into(),
+        TrackLocation::NormalTrack(i) => {
+            let position = i + 1;
+            let name = track.name().expect("non-master track must have name");
+            let name = name.to_str();
+            if name.is_empty() {
+                position.to_string()
+            } else {
+                format!("{}. {}", position, name)
+            }
+        }
     }
 }

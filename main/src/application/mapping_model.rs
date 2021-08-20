@@ -1,6 +1,6 @@
 use crate::application::{
     convert_factor_to_unit_value, ActivationConditionModel, MappingExtensionModel, ModeModel,
-    SourceModel, TargetCategory, TargetModel, TargetModelWithContext,
+    SourceModel, TargetCategory, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
 };
 use crate::base::{prop, Prop};
 use crate::domain::{
@@ -99,7 +99,7 @@ impl MappingModel {
 
     pub fn effective_name(&self) -> String {
         if self.name.get_ref().is_empty() {
-            self.target_model.to_string()
+            TargetModelFormatVeryShort(&self.target_model).to_string()
         } else {
             self.name.get_ref().clone()
         }
