@@ -637,32 +637,33 @@ impl TargetModel {
                         .set(RealearnAutomationMode::from_reaper(am));
                 }
             },
-            SendMidi { .. }
-            | SendOsc { .. }
-            | TrackVolume { .. }
-            | TrackPeak { .. }
-            | TrackRouteVolume { .. }
-            | TrackPan { .. }
-            | TrackWidth { .. }
-            | TrackArm { .. }
-            | TrackSelection { .. }
-            | TrackMute { .. }
-            | TrackShow { .. }
-            | TrackRoutePan { .. }
-            | TrackRouteMute { .. }
-            | Tempo { .. }
-            | Playrate { .. }
-            | FxEnable { .. }
-            | FxOpen { .. }
-            | FxNavigate { .. }
-            | FxPreset { .. }
-            | SelectedTrack { .. }
-            | AllTrackFxEnable { .. }
-            | LoadFxSnapshot { .. }
-            | ClipTransport { .. }
-            | ClipSeek { .. }
-            | ClipVolume { .. }
-            | Seek { .. } => {}
+            SendMidi(_)
+            | SendOsc(_)
+            | TrackVolume(_)
+            | TrackPeak(_)
+            | TrackRouteVolume(_)
+            | TrackPan(_)
+            | TrackWidth(_)
+            | TrackArm(_)
+            | TrackSelection(_)
+            | TrackMute(_)
+            | TrackShow(_)
+            | TrackRoutePan(_)
+            | TrackRouteMute(_)
+            | Tempo(_)
+            | Playrate(_)
+            | FxEnable(_)
+            | FxOpen(_)
+            | FxNavigate(_)
+            | FxPreset(_)
+            | SelectedTrack(_)
+            | AllTrackFxEnable(_)
+            | LoadFxSnapshot(_)
+            | ClipTransport(_)
+            | ClipSeek(_)
+            | ClipVolume(_)
+            | Seek(_)
+            | LoadMappingSnapshot(_) => {}
         };
     }
 
@@ -1081,6 +1082,7 @@ impl TargetModel {
                     ClipVolume => UnresolvedReaperTarget::ClipVolume {
                         slot_index: self.slot_index.get(),
                     },
+                    LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot,
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }
@@ -1225,7 +1227,9 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                     | TrackWidth | TrackVolume | TrackPeak | TrackShow | TrackSolo | FxNavigate
                     | FxEnable | TrackMute | AllTrackFxEnable | TrackSelection | FxPreset
                     | FxOpen | FxParameter | TrackSendMute | TrackSendPan | TrackSendVolume
-                    | LoadFxSnapshot | SendMidi | SendOsc => f.write_str(tt.short_name()),
+                    | LoadFxSnapshot | SendMidi | SendOsc | LoadMappingSnapshot => {
+                        f.write_str(tt.short_name())
+                    }
                     ClipTransport | ClipSeek | ClipVolume => {
                         write!(
                             f,
@@ -1448,7 +1452,8 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                 use ReaperTargetType::*;
                 let tt = self.target.r#type.get();
                 match tt {
-                    Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi | SendOsc => {
+                    Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi | SendOsc
+                    | LoadMappingSnapshot => {
                         write!(f, "{}", tt)
                     }
                     ClipTransport | ClipSeek | ClipVolume => {
@@ -1763,6 +1768,10 @@ pub enum ReaperTargetType {
     SendMidi = 29,
     #[display(fmt = "OSC: Send message")]
     SendOsc = 30,
+
+    // ReaLearn targets
+    #[display(fmt = "ReaLearn: Load mapping snapshot")]
+    LoadMappingSnapshot = 35,
 }
 
 impl Default for ReaperTargetType {
@@ -1809,6 +1818,7 @@ impl ReaperTargetType {
             ClipTransport { .. } => ReaperTargetType::ClipTransport,
             ClipSeek { .. } => ReaperTargetType::ClipSeek,
             ClipVolume { .. } => ReaperTargetType::ClipVolume,
+            LoadMappingSnapshot { .. } => ReaperTargetType::LoadMappingSnapshot,
         }
     }
 
@@ -1845,7 +1855,8 @@ impl ReaperTargetType {
             | SendOsc
             | AutomationModeOverride
             | ClipSeek
-            | ClipVolume => false,
+            | ClipVolume
+            | LoadMappingSnapshot => false,
         }
     }
 
@@ -1897,7 +1908,8 @@ impl ReaperTargetType {
             | ClipTransport
             | ClipSeek
             | ClipVolume
-            | FxNavigate => false,
+            | FxNavigate
+            | LoadMappingSnapshot => false,
         }
     }
 
@@ -1946,7 +1958,8 @@ impl ReaperTargetType {
             | ClipTransport
             | ClipSeek
             | ClipVolume
-            | FxNavigate => false,
+            | FxNavigate
+            | LoadMappingSnapshot => false,
         }
     }
 
@@ -1981,7 +1994,8 @@ impl ReaperTargetType {
             | ClipTransport
             | ClipSeek
             | ClipVolume
-            | FxNavigate => false,
+            | FxNavigate
+            | LoadMappingSnapshot => false,
         }
     }
 
@@ -2050,6 +2064,7 @@ impl ReaperTargetType {
             ClipTransport => "Clip transport",
             ClipSeek => "Clip seek",
             ClipVolume => "Clip volume",
+            LoadMappingSnapshot => "Load mapping snapshot",
         }
     }
 }

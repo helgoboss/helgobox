@@ -1,8 +1,8 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{
     AdditionalFeedbackEvent, FeedbackAudioHookTask, FeedbackOutput, InstanceFeedbackEvent,
-    InstanceId, OscFeedbackTask, RealTimeReaperTarget, RealTimeSender, SharedInstanceState,
-    TargetCharacter, TrackExclusivity,
+    InstanceId, MainMapping, OrderedMappingMap, OscFeedbackTask, RealTimeReaperTarget,
+    RealTimeSender, SharedInstanceState, TargetCharacter, TrackExclusivity,
 };
 use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, UnitValue};
@@ -208,4 +208,12 @@ pub struct ControlContext<'a> {
 }
 
 pub type HitInstructionReturnValue = Option<Box<dyn HitInstruction>>;
-pub trait HitInstruction {}
+
+pub trait HitInstruction {
+    fn execute(&self, context: HitInstructionContext);
+}
+
+pub struct HitInstructionContext<'a> {
+    pub mappings: &'a mut OrderedMappingMap<MainMapping>,
+    pub control_context: ControlContext<'a>,
+}

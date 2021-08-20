@@ -99,3 +99,6 @@ pub use track_solo_target::*;
 
 mod track_automation_mode_target;
 pub use track_automation_mode_target::*;
+
+mod load_mapping_snapshot_target;
+pub use load_mapping_snapshot_target::*;

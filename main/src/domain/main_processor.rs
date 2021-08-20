@@ -3,7 +3,7 @@ use crate::domain::{
     ClipChangedEvent, CompoundMappingSource, CompoundMappingTarget, ControlContext, ControlInput,
     ControlMode, DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
     FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
-    FeedbackSendBehavior, FeedbackValue, GroupId, InstanceFeedbackEvent,
+    FeedbackSendBehavior, FeedbackValue, GroupId, HitInstructionContext, InstanceFeedbackEvent,
     InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping, MainSourceMessage,
     MappingActivationEffect, MappingCompartment, MappingId, MappingMatchedEvent, MidiDestination,
     MidiSource, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId,
@@ -345,7 +345,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     ) {
         // Resolving mappings with virtual targets is not necessary anymore. It has
         // been done in the real-time processor already.
-        let (successful, has_group_interaction) = if let Some(m) =
+        let (successful, has_group_interaction, hit_instruction) = if let Some(m) =
             self.collections.mappings[compartment].get_mut(&mapping_id)
         {
             // Most of the time, the main processor won't even receive a MIDI-triggered control
@@ -375,10 +375,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             (
                 result.successful,
                 m.group_interaction() != GroupInteraction::None,
+                result.hit_instruction,
             )
         } else {
-            (false, false)
+            (false, false, None)
         };
+        if let Some(hi) = hit_instruction {
+            hi.execute(HitInstructionContext {
+                mappings: &mut self.collections.mappings[compartment],
+                control_context: self.basics.control_context(),
+            });
+        }
         if has_group_interaction {
             self.basics.process_group_interaction(
                 &mut self.collections,
@@ -912,10 +919,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let real_time_mappings = mappings
             .iter_mut()
             .map(|m| {
-                m.init_target_and_activation(ExtendedProcessorContext::new(
-                    &self.basics.context,
-                    &self.collections.parameters,
-                ));
+                m.init_target_and_activation(
+                    ExtendedProcessorContext::new(
+                        &self.basics.context,
+                        &self.collections.parameters,
+                    ),
+                    self.basics.control_context(),
+                );
                 if m.feedback_is_effectively_on() {
                     // Mark source as used
                     unused_sources.remove(&m.qualified_source());
@@ -1263,6 +1273,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             {
                 if let Some(control_value) = m.control(msg) {
                     self.basics.notify_mapping_matched(compartment, m.id());
+                    // TODO-high Execute hit instruction
                     let feedback = m
                         .control_from_mode(
                             control_value,
@@ -1637,10 +1648,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             mapping.id()
         );
         // Refresh
-        mapping.init_target_and_activation(ExtendedProcessorContext::new(
-            &self.basics.context,
-            &self.collections.parameters,
-        ));
+        mapping.init_target_and_activation(
+            ExtendedProcessorContext::new(&self.basics.context, &self.collections.parameters),
+            self.basics.control_context(),
+        );
         // Sync to real-time processor
         self.basics
             .channels
@@ -1967,6 +1978,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         mapping_id,
                         group_id,
                         |other_mapping, basics, parameters| {
+                            // TODO-high Execute hit instruction
                             other_mapping
                                 .control_from_mode(
                                     interaction_value,
@@ -2004,6 +2016,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             mapping_id,
                             group_id,
                             |other_mapping, basics, parameters| {
+                                // TODO-high Execute hit instruction
                                 other_mapping.control_from_target(
                                     normalized_target_value,
                                     ControlOptions {
@@ -2357,6 +2370,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             .filter_map(|m| {
                 if let CompoundMappingSource::Virtual(s) = &m.source() {
                     let control_value = s.control(&value)?;
+                    // TODO-high Execute hit instruction
                     let result = m.control_from_mode(
                         control_value,
                         ControlOptions {

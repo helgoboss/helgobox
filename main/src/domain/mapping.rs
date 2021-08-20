@@ -133,6 +133,7 @@ pub struct MainMapping {
     activation_condition_2: ActivationCondition,
     activation_state: ActivationState,
     extension: MappingExtension,
+    initial_target_value_snapshot: Option<AbsoluteValue>,
 }
 
 #[derive(Default, Debug)]
@@ -179,6 +180,7 @@ impl MainMapping {
             activation_condition_2,
             activation_state: Default::default(),
             extension,
+            initial_target_value_snapshot: None,
         }
     }
 
@@ -313,11 +315,24 @@ impl MainMapping {
         Some(update)
     }
 
-    pub fn init_target_and_activation(&mut self, context: ExtendedProcessorContext) {
+    pub fn init_target_and_activation(
+        &mut self,
+        context: ExtendedProcessorContext,
+        control_context: ControlContext,
+    ) {
         let (targets, is_active) = self.resolve_target(context);
         self.targets = targets;
         self.core.options.target_is_active = is_active;
         self.update_activation(context.params());
+        self.initial_target_value_snapshot = self.current_aggregated_target_value(control_context);
+    }
+
+    pub fn hit_target_with_initial_value_snapshot(&mut self, control_context: ControlContext) {
+        if let Some(inital_value) = self.initial_target_value_snapshot {
+            for t in &mut self.targets {
+                t.hit(ControlValue::from_absolute(inital_value), control_context);
+            }
+        }
     }
 
     fn resolve_target(
@@ -468,6 +483,7 @@ impl MainMapping {
     pub fn poll_control(&mut self, context: ControlContext) -> MappingControlResult {
         let mut should_send_feedback = false;
         let mut at_least_one_target_was_reached = false;
+        let mut hit_instruction = None;
         for target in &mut self.targets {
             let target = if let CompoundMappingTarget::Reaper(t) = target {
                 t
@@ -480,7 +496,14 @@ impl MainMapping {
                 Some(HitTarget(v)) => {
                     at_least_one_target_was_reached = true;
                     // Be graceful here. Don't debug-log errors for now because this is polled.
-                    let _ = target.hit(v, context);
+                    // TODO-high Execute hit instruction
+                    if let Ok(hi) = target.hit(v, context) {
+                        // For now the first hit instruction wins (at the moment we don't have
+                        // multi-targets in which multiple targets send hit instructions anyway).
+                        if hit_instruction.is_none() {
+                            hit_instruction = hi;
+                        }
+                    }
                     // Echo feedback, send feedback after control ... all of that is not important when
                     // firing triggered by a timer.
                     if should_send_manual_feedback_after_control(
@@ -504,6 +527,7 @@ impl MainMapping {
             } else {
                 None
             },
+            hit_instruction,
         }
     }
 
@@ -515,6 +539,7 @@ impl MainMapping {
     ///
     /// Don't execute in real-time processor because this executes REAPER main-thread-only
     /// functions. If `send_feedback_after_control` is on, this might return feedback.
+    #[must_use]
     pub fn control_from_mode(
         &mut self,
         source_value: ControlValue,
@@ -543,6 +568,7 @@ impl MainMapping {
     ///
     /// Don't execute in real-time processor because this executes REAPER main-thread-only
     /// functions. If `send_feedback_after_control` is on, this might return feedback.
+    #[must_use]
     pub fn control_from_target(
         &mut self,
         value: AbsoluteValue,
@@ -581,6 +607,7 @@ impl MainMapping {
         .feedback_value
     }
 
+    #[must_use]
     fn control_internal(
         &mut self,
         options: ControlOptions,
@@ -597,6 +624,7 @@ impl MainMapping {
         let mut send_manual_feedback = false;
         let mut at_least_one_relevant_target_exists = false;
         let mut at_least_one_target_was_reached = false;
+        let mut hit_instruction = None;
         use ModeControlResult::*;
         let mut fresh_targets = if options.enforce_target_refresh {
             let (targets, conditions_are_met) = self.resolve_target(processor_context);
@@ -604,6 +632,7 @@ impl MainMapping {
                 return MappingControlResult {
                     successful: false,
                     feedback_value: None,
+                    hit_instruction: None,
                 };
             }
             targets
@@ -638,8 +667,15 @@ impl MainMapping {
                         self.core.time_of_last_control = Some(Instant::now());
                     }
                     // Be graceful here.
-                    if let Err(msg) = target.hit(v, context) {
-                        slog::debug!(logger, "Control failed: {}", msg);
+                    match target.hit(v, context) {
+                        // For now the first hit instruction wins (at the moment we don't have
+                        // multi-targets in which multiple targets send hit instructions anyway).
+                        Ok(hi) => {
+                            if hit_instruction.is_none() {
+                                hit_instruction = hi;
+                            }
+                        }
+                        Err(msg) => slog::debug!(logger, "Control failed: {}", msg),
                     }
                     if should_send_manual_feedback_after_control(
                         target,
@@ -692,6 +728,7 @@ impl MainMapping {
             } else {
                 None
             },
+            hit_instruction,
         }
     }
 
@@ -1675,6 +1712,7 @@ pub struct MappingControlResult {
     pub successful: bool,
     /// Even if not hit, this can contain a feedback value!
     pub feedback_value: Option<FeedbackValue>,
+    pub hit_instruction: HitInstructionReturnValue,
 }
 
 /// Not usable for mappings with virtual targets.

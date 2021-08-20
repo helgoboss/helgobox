@@ -5,13 +5,14 @@ use crate::domain::{
     AutomationTouchStateTarget, BackboneState, ClipSeekTarget, ClipTransportTarget,
     ClipVolumeTarget, ExtendedProcessorContext, FeedbackResolution, FxDisplayType, FxEnableTarget,
     FxNavigateTarget, FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget,
-    LoadFxSnapshotTarget, MappingCompartment, MidiSendTarget, OscDeviceId, OscSendTarget,
-    ParameterSlice, PlayrateTarget, RealearnTarget, ReaperTarget, RouteMuteTarget, RoutePanTarget,
-    RouteVolumeTarget, SeekOptions, SeekTarget, SelectedTrackTarget, SendMidiDestination,
-    SlotPlayOptions, SoloBehavior, TempoTarget, TouchedParameterType, TrackArmTarget,
-    TrackAutomationModeTarget, TrackExclusivity, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
-    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
+    LoadFxSnapshotTarget, LoadMappingSnapshotTarget, MappingCompartment, MidiSendTarget,
+    OscDeviceId, OscSendTarget, ParameterSlice, PlayrateTarget, RealearnTarget, ReaperTarget,
+    RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekOptions, SeekTarget,
+    SelectedTrackTarget, SendMidiDestination, SlotPlayOptions, SoloBehavior, TempoTarget,
+    TouchedParameterType, TrackArmTarget, TrackAutomationModeTarget, TrackExclusivity,
+    TrackMuteTarget, TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget,
+    TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget, TransportAction, TransportTarget,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -171,6 +172,7 @@ pub enum UnresolvedReaperTarget {
     ClipVolume {
         slot_index: usize,
     },
+    LoadMappingSnapshot,
 }
 
 impl UnresolvedReaperTarget {
@@ -514,6 +516,9 @@ impl UnresolvedReaperTarget {
             ClipVolume { slot_index } => vec![ReaperTarget::ClipVolume(ClipVolumeTarget {
                 slot_index: *slot_index,
             })],
+            LoadMappingSnapshot => vec![ReaperTarget::LoadMappingSnapshot(
+                LoadMappingSnapshotTarget {},
+            )],
         };
         Ok(resolved_targets)
     }
@@ -612,7 +617,8 @@ impl UnresolvedReaperTarget {
             | AutomationModeOverride { .. }
             | SendMidi { .. }
             | SendOsc { .. }
-            | GoToBookmark { .. } => Default::default(),
+            | GoToBookmark { .. }
+            | LoadMappingSnapshot => Default::default(),
             FxOpen { fx_descriptor, .. }
             | FxEnable { fx_descriptor }
             | FxPreset { fx_descriptor }
@@ -709,7 +715,8 @@ impl UnresolvedReaperTarget {
             | SendOsc { .. }
             | ClipTransport { .. }
             | ClipVolume { .. }
-            | AutomationTouchState { .. } => return None,
+            | AutomationTouchState { .. }
+            | LoadMappingSnapshot => return None,
             AllTrackFxEnable {
                 poll_for_feedback, ..
             }

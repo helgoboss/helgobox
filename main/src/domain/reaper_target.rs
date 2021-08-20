@@ -13,7 +13,7 @@ use reaper_medium::{
 };
 use rxrust::prelude::*;
 
-use crate::domain::{HitInstructionReturnValue, RealearnTarget};
+use crate::domain::{HitInstructionReturnValue, LoadMappingSnapshotTarget, RealearnTarget};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -87,6 +87,7 @@ pub enum ReaperTarget {
     ClipTransport(ClipTransportTarget),
     ClipSeek(ClipSeekTarget),
     ClipVolume(ClipVolumeTarget),
+    LoadMappingSnapshot(LoadMappingSnapshotTarget),
 }
 
 #[derive(
@@ -592,6 +593,7 @@ impl<'a> Target<'a> for ReaperTarget {
             ClipTransport(t) => t.current_value(context),
             ClipSeek(t) => t.current_value(context),
             ClipVolume(t) => t.current_value(context),
+            LoadMappingSnapshot(t) => t.current_value(()),
         }
     }
 
