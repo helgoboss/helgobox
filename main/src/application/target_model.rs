@@ -277,12 +277,15 @@ impl TargetModel {
         &mut self,
         track_type: VirtualTrackType,
         context: &ProcessorContext,
+        initiator: Option<u32>,
     ) {
         use VirtualTrackType::*;
         match track_type {
             This => self.set_concrete_track(
                 ConcreteTrackInstruction::ThisWithoutTrack(Some(context)),
                 true,
+                false,
+                initiator,
             ),
             ById => self.set_concrete_track(
                 ConcreteTrackInstruction::ByIdWithoutTrack {
@@ -290,6 +293,8 @@ impl TargetModel {
                     context: Some(context),
                 },
                 true,
+                false,
+                initiator,
             ),
             _ => self.track_type.set(track_type),
         }
@@ -306,6 +311,7 @@ impl TargetModel {
             This => self.set_concrete_fx(
                 ConcreteFxInstruction::ThisWithoutFx(Some(context.context())),
                 true,
+                false,
             ),
             ById => self.set_concrete_fx(
                 ConcreteFxInstruction::ByIdWithoutFx {
@@ -317,6 +323,7 @@ impl TargetModel {
                         .ok(),
                 },
                 true,
+                false,
             ),
             _ => self.fx_type.set(fx_type),
         }
@@ -336,14 +343,20 @@ impl TargetModel {
         match track.r#type {
             This => self.set_concrete_track(
                 ConcreteTrackInstruction::ThisWithoutTrack(context),
+                // Already notified above
+                false,
                 with_notification,
+                None,
             ),
             ById => self.set_concrete_track(
                 ConcreteTrackInstruction::ByIdWithoutTrack {
                     id: track.id,
                     context,
                 },
+                // Already notified above
+                false,
                 with_notification,
+                None,
             ),
             ByName | AllByName => {
                 self.track_name
@@ -413,6 +426,8 @@ impl TargetModel {
         match fx.r#type {
             This => self.set_concrete_fx(
                 ConcreteFxInstruction::ThisWithoutFx(context.map(|c| c.context())),
+                // Already notified above
+                false,
                 with_notification,
             ),
             ById => self.set_concrete_fx(
@@ -425,6 +440,8 @@ impl TargetModel {
                             .ok()
                     }),
                 },
+                // Already notified above
+                false,
                 with_notification,
             ),
             ByName | AllByName => {
@@ -478,48 +495,60 @@ impl TargetModel {
     pub fn set_concrete_track(
         &mut self,
         instruction: ConcreteTrackInstruction,
-        with_notification: bool,
+        notify_about_type_change: bool,
+        notify_about_id_change: bool,
+        initiator: Option<u32>,
     ) {
         let resolved = instruction.resolve();
         self.track_type
-            .set_with_optional_notification(resolved.virtual_track_type(), with_notification);
+            .set_with_optional_notification_and_initiator(
+                resolved.virtual_track_type(),
+                notify_about_type_change,
+                initiator,
+            );
         if let Some(id) = resolved.id() {
-            self.track_id
-                .set_with_optional_notification(Some(id), with_notification);
+            self.track_id.set_with_optional_notification_and_initiator(
+                Some(id),
+                notify_about_id_change,
+                initiator,
+            );
         }
         // We also set index and name so that we can easily switch between types.
         if let Some(i) = resolved.index() {
-            self.track_index
-                .set_with_optional_notification(i, with_notification);
+            self.track_index.set_without_notification(i);
         }
         if let Some(name) = resolved.name() {
-            self.track_name
-                .set_with_optional_notification(name, with_notification);
+            self.track_name.set_without_notification(name);
         }
     }
 
     /// Sets the FX to one of the concrete types (ById only for now), also setting other important
     /// properties for UI convenience.
-    pub fn set_concrete_fx(&mut self, instruction: ConcreteFxInstruction, with_notification: bool) {
+    pub fn set_concrete_fx(
+        &mut self,
+        instruction: ConcreteFxInstruction,
+        notify_about_type_and_input_fx_change: bool,
+        notify_about_id_change: bool,
+    ) {
         let resolved = instruction.resolve();
-        self.fx_type
-            .set_with_optional_notification(resolved.virtual_fx_type(), with_notification);
+        self.fx_type.set_with_optional_notification(
+            resolved.virtual_fx_type(),
+            notify_about_type_and_input_fx_change,
+        );
+        if let Some(is_input_fx) = resolved.is_input_fx() {
+            self.fx_is_input_fx
+                .set_with_optional_notification(is_input_fx, notify_about_type_and_input_fx_change);
+        }
         if let Some(id) = resolved.id() {
             self.fx_id
-                .set_with_optional_notification(Some(id), with_notification);
+                .set_with_optional_notification(Some(id), notify_about_id_change);
         }
         // We also set index and name so that we can easily switch between types.
         if let Some(i) = resolved.index() {
-            self.fx_index
-                .set_with_optional_notification(i, with_notification);
+            self.fx_index.set_without_notification(i);
         }
         if let Some(name) = resolved.name() {
-            self.fx_name
-                .set_with_optional_notification(name, with_notification);
-        }
-        if let Some(is_input_fx) = resolved.is_input_fx() {
-            self.fx_is_input_fx
-                .set_with_optional_notification(is_input_fx, with_notification);
+            self.fx_name.set_without_notification(name);
         }
     }
 

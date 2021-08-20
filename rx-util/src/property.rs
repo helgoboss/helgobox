@@ -157,6 +157,19 @@ where
         }
     }
 
+    pub fn set_with_optional_notification_and_initiator(
+        &mut self,
+        value: T,
+        with_notification: bool,
+        initiator: Option<I>,
+    ) {
+        if with_notification {
+            self.set_with_initiator(value, initiator);
+        } else {
+            self.set_without_notification(value);
+        }
+    }
+
     /// Like `set` but returns old value.
     pub fn replace(&mut self, value: T) -> T {
         let old_value = self.value.clone();

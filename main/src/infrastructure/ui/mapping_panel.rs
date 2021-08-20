@@ -1678,9 +1678,8 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_target_line_2_combo_box_1_change(&mut self) {
-        let combo = self
-            .view
-            .require_control(root::ID_TARGET_LINE_2_COMBO_BOX_1);
+        let combo_id = root::ID_TARGET_LINE_2_COMBO_BOX_1;
+        let combo = self.view.require_control(combo_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::GoToBookmark => {
@@ -1705,9 +1704,11 @@ impl<'a> MutableMappingPanel<'a> {
                         .selected_combo_box_item_index()
                         .try_into()
                         .unwrap_or_default();
-                    self.mapping
-                        .target_model
-                        .set_track_type_from_ui(track_type, self.session.context());
+                    self.mapping.target_model.set_track_type_from_ui(
+                        track_type,
+                        self.session.context(),
+                        Some(combo_id),
+                    );
                 }
                 _ => {}
             },
@@ -1786,9 +1787,8 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn handle_target_line_2_combo_box_2_change(&mut self) {
-        let combo = self
-            .view
-            .require_control(root::ID_TARGET_LINE_2_COMBO_BOX_2);
+        let combo_id = root::ID_TARGET_LINE_2_COMBO_BOX_2;
+        let combo = self.view.require_control(combo_id);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::GoToBookmark => {
@@ -1837,7 +1837,9 @@ impl<'a> MutableMappingPanel<'a> {
                     if let Some(track) = project.track_by_index(i as _) {
                         self.mapping.target_model.set_concrete_track(
                             ConcreteTrackInstruction::ByIdWithTrack(track),
+                            false,
                             true,
+                            Some(combo_id),
                         );
                     }
                 }
@@ -1861,9 +1863,11 @@ impl<'a> MutableMappingPanel<'a> {
                         };
                         let i = combo.selected_combo_box_item_index();
                         if let Some(fx) = chain.fx_by_index(i as _) {
-                            self.mapping
-                                .target_model
-                                .set_concrete_fx(ConcreteFxInstruction::ByIdWithFx(fx), true);
+                            self.mapping.target_model.set_concrete_fx(
+                                ConcreteFxInstruction::ByIdWithFx(fx),
+                                false,
+                                true,
+                            );
                         }
                     }
                 }
