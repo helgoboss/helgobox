@@ -2183,7 +2183,7 @@ These are relevant for the control direction only:
  you have a rotary encoder that sends relative messages (hopefully!) or use incremental buttons, the sequence will
  be stepped through in a continuous manner (-5, 8, 10, 20). The benefit as always: No parameter jumps! If you want
  to use non-continuous sequences with encoders or incremental buttons, you can always use _Make absolute_!
-[#group-interaction]
+[[group-interaction]]
 * *Group interaction:* Lets you control not just _this_ mapping but also _all other mappings in the same mapping
  group_. Very powerful feature! Hint: If you just want to control _other_ mappings and not _this_ mapping, just pick
  a target that doesn't have any effect, for example an unused internal ReaLearn compartment parameter
