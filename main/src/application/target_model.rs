@@ -282,13 +282,13 @@ impl TargetModel {
         use VirtualTrackType::*;
         match track_type {
             This => self.set_concrete_track(
-                ConcreteTrackInstruction::ThisWithoutTrack(Some(context)),
+                ConcreteTrackInstruction::This(Some(context)),
                 true,
                 false,
                 initiator,
             ),
             ById => self.set_concrete_track(
-                ConcreteTrackInstruction::ByIdWithoutTrack {
+                ConcreteTrackInstruction::ById {
                     id: None,
                     context: Some(context),
                 },
@@ -309,12 +309,12 @@ impl TargetModel {
         use VirtualFxType::*;
         match fx_type {
             This => self.set_concrete_fx(
-                ConcreteFxInstruction::ThisWithoutFx(Some(context.context())),
+                ConcreteFxInstruction::This(Some(context.context())),
                 true,
                 false,
             ),
             ById => self.set_concrete_fx(
-                ConcreteFxInstruction::ByIdWithoutFx {
+                ConcreteFxInstruction::ById {
                     is_input_fx: None,
                     id: None,
                     track: self
@@ -342,14 +342,14 @@ impl TargetModel {
         use VirtualTrackType::*;
         match track.r#type {
             This => self.set_concrete_track(
-                ConcreteTrackInstruction::ThisWithoutTrack(context),
+                ConcreteTrackInstruction::This(context),
                 // Already notified above
                 false,
                 with_notification,
                 None,
             ),
             ById => self.set_concrete_track(
-                ConcreteTrackInstruction::ByIdWithoutTrack {
+                ConcreteTrackInstruction::ById {
                     id: track.id,
                     context,
                 },
@@ -425,13 +425,13 @@ impl TargetModel {
         use VirtualFxType::*;
         match fx.r#type {
             This => self.set_concrete_fx(
-                ConcreteFxInstruction::ThisWithoutFx(context.map(|c| c.context())),
+                ConcreteFxInstruction::This(context.map(|c| c.context())),
                 // Already notified above
                 false,
                 with_notification,
             ),
             ById => self.set_concrete_fx(
-                ConcreteFxInstruction::ByIdWithoutFx {
+                ConcreteFxInstruction::ById {
                     is_input_fx: Some(fx.is_input_fx),
                     id: fx.id,
                     track: context.and_then(|c| {
@@ -586,7 +586,7 @@ impl TargetModel {
             };
             self.set_virtual_track(virtualize_track(&track, context), Some(context));
         } else if let Some(track) = target.track() {
-            self.set_virtual_track(virtualize_track(&track, context), Some(context));
+            self.set_virtual_track(virtualize_track(track, context), Some(context));
         }
         if let Some(send) = target.route() {
             let virtual_route = virtualize_route(send, context);
@@ -2707,9 +2707,9 @@ impl Default for TargetUnit {
 #[derive(Debug)]
 pub enum ConcreteTrackInstruction<'a> {
     /// If the context is not available, other track properties won't get set.
-    ThisWithoutTrack(Option<&'a ProcessorContext>),
+    This(Option<&'a ProcessorContext>),
     /// If the context is not available, other track properties won't get set.
-    ByIdWithoutTrack {
+    ById {
         id: Option<Guid>,
         context: Option<&'a ProcessorContext>,
     },
@@ -2721,8 +2721,8 @@ impl<'a> ConcreteTrackInstruction<'a> {
         use ConcreteTrackInstruction::*;
         ResolvedConcreteTrackInstruction {
             track: match &self {
-                ThisWithoutTrack(context) => context.and_then(|c| c.track().cloned()),
-                ByIdWithoutTrack {
+                This(context) => context.and_then(|c| c.track().cloned()),
+                ById {
                     id: Some(id),
                     context: Some(c),
                 } => {
@@ -2750,16 +2750,16 @@ impl<'a> ResolvedConcreteTrackInstruction<'a> {
     pub fn virtual_track_type(&self) -> VirtualTrackType {
         use ConcreteTrackInstruction::*;
         match &self.instruction {
-            ThisWithoutTrack(_) => VirtualTrackType::This,
-            ByIdWithoutTrack { .. } | ByIdWithTrack(_) => VirtualTrackType::ById,
+            This(_) => VirtualTrackType::This,
+            ById { .. } | ByIdWithTrack(_) => VirtualTrackType::ById,
         }
     }
 
     pub fn id(&self) -> Option<Guid> {
         use ConcreteTrackInstruction::*;
         match &self.instruction {
-            ByIdWithoutTrack { id, .. } => *id,
-            _ => Some(self.track.as_ref()?.guid().clone()),
+            ById { id, .. } => *id,
+            _ => Some(*self.track.as_ref()?.guid()),
         }
     }
 
@@ -2768,16 +2768,16 @@ impl<'a> ResolvedConcreteTrackInstruction<'a> {
     }
 
     pub fn index(&self) -> Option<u32> {
-        Some(self.track.as_ref()?.index()?)
+        self.track.as_ref()?.index()
     }
 }
 
 #[derive(Debug)]
 pub enum ConcreteFxInstruction<'a> {
     /// If the context is not available, other FX properties won't get set.
-    ThisWithoutFx(Option<&'a ProcessorContext>),
+    This(Option<&'a ProcessorContext>),
     /// If the context is not available, other FX properties won't get set.
-    ByIdWithoutFx {
+    ById {
         is_input_fx: Option<bool>,
         id: Option<Guid>,
         track: Option<Track>,
@@ -2790,8 +2790,8 @@ impl<'a> ConcreteFxInstruction<'a> {
         use ConcreteFxInstruction::*;
         ResolvedConcreteFxInstruction {
             fx: match &self {
-                ThisWithoutFx(context) => context.map(|c| c.containing_fx().clone()),
-                ByIdWithoutFx {
+                This(context) => context.map(|c| c.containing_fx().clone()),
+                ById {
                     is_input_fx: Some(is_input_fx),
                     id: Some(id),
                     track: Some(t),
@@ -2825,15 +2825,15 @@ impl<'a> ResolvedConcreteFxInstruction<'a> {
     pub fn virtual_fx_type(&self) -> VirtualFxType {
         use ConcreteFxInstruction::*;
         match self.instruction {
-            ThisWithoutFx(_) => VirtualFxType::This,
-            ByIdWithoutFx { .. } | ByIdWithFx(_) => VirtualFxType::ById,
+            This(_) => VirtualFxType::This,
+            ById { .. } | ByIdWithFx(_) => VirtualFxType::ById,
         }
     }
 
     pub fn is_input_fx(&self) -> Option<bool> {
         use ConcreteFxInstruction::*;
         match &self.instruction {
-            ByIdWithoutFx { is_input_fx, .. } => *is_input_fx,
+            ById { is_input_fx, .. } => *is_input_fx,
             _ => Some(self.fx.as_ref()?.is_input_fx()),
         }
     }
@@ -2841,7 +2841,7 @@ impl<'a> ResolvedConcreteFxInstruction<'a> {
     pub fn id(&self) -> Option<Guid> {
         use ConcreteFxInstruction::*;
         match &self.instruction {
-            ByIdWithoutFx { id, .. } => id.clone(),
+            ById { id, .. } => *id,
             _ => self.fx.as_ref()?.guid(),
         }
     }

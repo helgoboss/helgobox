@@ -677,6 +677,8 @@ impl HeaderPanel {
             .collect()
     }
 
+    // https://github.com/rust-lang/rust-clippy/issues/6066
+    #[allow(clippy::needless_collect)]
     fn paste_replace_all_in_group(&self, mapping_datas: Vec<MappingModelData>) {
         let main_state = self.main_state.borrow();
         let group_id = main_state

@@ -799,6 +799,8 @@ pub fn paste_object_in_place(
 }
 
 /// If `below_mapping_id` not given, it's added at the end.
+// https://github.com/rust-lang/rust-clippy/issues/6066
+#[allow(clippy::needless_collect)]
 pub fn paste_mappings(
     mapping_datas: Vec<MappingModelData>,
     session: SharedSession,
