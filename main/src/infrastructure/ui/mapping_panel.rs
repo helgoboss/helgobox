@@ -3375,41 +3375,47 @@ impl<'a> ImmutableMappingPanel<'a> {
                         VirtualFxType::ById | VirtualFxType::ByIdOrIndex
                     ) {
                         combo.show();
-                        let context = self.session.extended_context();
-                        if let Ok(track) = self
-                            .target
-                            .with_context(context, self.mapping.compartment())
-                            .first_effective_track()
-                        {
-                            // Fill
-                            let chain = if self.target.fx_is_input_fx.get() {
-                                track.input_fx_chain()
-                            } else {
-                                track.normal_fx_chain()
-                            };
-                            combo.fill_combo_box_indexed(fx_combo_box_entries(&chain));
-                            // Set
-                            if let Some(VirtualFx::ChainFx { chain_fx, .. }) =
-                                self.target.virtual_fx()
+                        if self.target.track_type.get().is_sticky() {
+                            let context = self.session.extended_context();
+                            if let Ok(track) = self
+                                .target
+                                .with_context(context, self.mapping.compartment())
+                                .first_effective_track()
                             {
-                                if let Some(fx) = chain_fx
-                                    .resolve(&chain, context, self.mapping.compartment())
-                                    .ok()
-                                    .and_then(|fxs| fxs.into_iter().next())
-                                {
-                                    combo
-                                        .select_combo_box_item_by_index(fx.index() as _)
-                                        .unwrap();
+                                // Fill
+                                let chain = if self.target.fx_is_input_fx.get() {
+                                    track.input_fx_chain()
                                 } else {
-                                    combo.select_new_combo_box_item(get_optional_fx_label(
-                                        &chain_fx, None,
-                                    ));
+                                    track.normal_fx_chain()
+                                };
+                                combo.fill_combo_box_indexed(fx_combo_box_entries(&chain));
+                                // Set
+                                if let Some(VirtualFx::ChainFx { chain_fx, .. }) =
+                                    self.target.virtual_fx()
+                                {
+                                    if let Some(fx) = chain_fx
+                                        .resolve(&chain, context, self.mapping.compartment())
+                                        .ok()
+                                        .and_then(|fxs| fxs.into_iter().next())
+                                    {
+                                        combo
+                                            .select_combo_box_item_by_index(fx.index() as _)
+                                            .unwrap();
+                                    } else {
+                                        combo.select_new_combo_box_item(get_optional_fx_label(
+                                            &chain_fx, None,
+                                        ));
+                                    }
+                                } else {
+                                    combo.select_new_combo_box_item("<None>");
                                 }
                             } else {
-                                combo.select_new_combo_box_item("<None>");
+                                combo.select_only_combo_box_item("<Requires track>");
                             }
                         } else {
-                            combo.select_only_combo_box_item("<Requires track>");
+                            combo.select_only_combo_box_item(
+                                "Use 'By ID' only if track is 'By ID' as well!",
+                            );
                         }
                     } else {
                         combo.hide();
