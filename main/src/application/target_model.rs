@@ -2261,7 +2261,7 @@ impl VirtualTrackType {
 
     pub fn is_sticky(&self) -> bool {
         use VirtualTrackType::*;
-        matches!(self, ByIdOrName | ById)
+        matches!(self, ByIdOrName | ById | This)
     }
 
     pub fn track_selected_condition_makes_sense(&self) -> bool {
