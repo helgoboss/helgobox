@@ -5,7 +5,7 @@
 :sectnumlevels: 2
 
 |===
-|Last update of text: |`2021-08-01 (v2.10.0-pre.6)`
+|Last update of text: |`2021-08-20 (v2.10.0-pre.9)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -804,6 +804,7 @@ _on_ only if the following is true:
 
 If a mapping is _off_, it doesn't have any effect.
 
+* *●:* This indicator at the very left of the mapping row lights on incoming control messages  whenever they match the mapping source. Attention: This doesn't necessarily mean that the message will reach the target (although it often does). There are certain settings in the <<tuning>> section which allow you to filter messages even they matched the source (e.g. the _Source Min/Max_).
 * *Up / Down:* Use these buttons to move this mapping up or down the list.
 * *→ / ←:* Use these checkboxes to enable/disable control and/or feedback for this mapping.
 * *Edit:* Opens the mapping panel for this mapping.
@@ -1602,7 +1603,7 @@ Only available for targets that work on a send/receive:
  same as _By position_ because hardware outputs don't have unique IDs.
 * *Send/Receive/Output:* This lets you choose the actual send/receive/output.
 
-Only available for targets associated with a particular FX instance:
+Options available for targets associated with a particular FX instance:
 
 * *FX:* The FX instance associated with this target. ReaLearn will search for the FX in the output or input FX chain
  of the above selected track. In addition to the common selectors, the following ones are available:
@@ -1610,6 +1611,9 @@ Only available for targets associated with a particular FX instance:
  usage of the conditional activation or `&lt;Dynamic&gt;` features (especially important if you want to create reusable
  presets that make use of these features).
 ** *&lt;Focused&gt;*: Currently or last focused FX. _Track_ and _Input FX_ settings are ignored.
+** *By ID:* Lets you pick a specific FX in the FX chain. Renaming the FX or moving it within the FX chain is fine - ReaLearn will still keep controlling exactly this FX. Please note that this only makes sense if you address the containing track _By ID_ as well.
+** *By name:* Lets you address the FX by its name in the FX chain. Just as with tracks, you can use wildcards to have a blurry search.
+** *All by name:* Allows you to use wildcards (see _By name_ selector) to make FX targets do their thing on all matching FX instances instead of only the first one.
 ** *By ID or position:* This refers to the FX by its unique ID with its position as fallback. This was the default
  behavior for ReaLearn versions up to 1.11.0 and is just kept for compatibility reasons.
 * *Input FX:* If unchecked, the _FX_ dropdown will show FX instances in the track's normal FX
@@ -1979,9 +1983,7 @@ Makes the FX instance visible if the incoming control value is greater than 0%, 
 
 Sets the value of a particular track FX parameter.
 
-* *Parameter:* The parameter to be controlled. The _ID_ selector is not supported because FX parameters don't have
- unique IDs. That's not an issue though because most FX plug-ins have a fixed set of parameters with stable positions.
- That's why _By position_ is the default selector.
+* *Parameter:* The parameter to be controlled. Please note that both the _By ID_ selector and the _By Position_ selector address the FX by its position in the FX chain. The difference between the two is that _By ID_ shows a dropdown containing the available parameters and _By Position_ lets you enter the position as a number in a text field. Latter is useful if at the time of choosing the position, the FX is not available.
 
 ====== Send: Mute/unmute
 
