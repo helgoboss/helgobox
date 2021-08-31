@@ -5,12 +5,13 @@ use crate::domain::{
     FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
     FeedbackSendBehavior, FeedbackValue, GroupId, HitInstructionContext, InstanceFeedbackEvent,
     InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping, MainSourceMessage,
-    MappingActivationEffect, MappingCompartment, MappingId, MappingMatchedEvent, MidiDestination,
-    MidiSource, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId,
-    OscFeedbackTask, ProcessorContext, QualifiedSource, RealFeedbackValue, RealSource,
-    RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperMessage,
-    ReaperTarget, SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
-    TargetValueChangedEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
+    MappingActivationEffect, MappingCompartment, MappingControlResult, MappingId,
+    MappingMatchedEvent, MidiDestination, MidiSource, NormalRealTimeTask, OrderedMappingIdSet,
+    OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedSource,
+    RealFeedbackValue, RealSource, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
+    RealearnTarget, ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString,
+    SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue,
+    CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -278,7 +279,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     value,
                     options,
                 } => {
-                    self.control(compartment, mapping_id, value, options);
+                    let _ = self.control(compartment, mapping_id, value, options);
                 }
                 LogControlInput {
                     value,
@@ -302,52 +303,65 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn poll_control(&mut self) {
         for compartment in MappingCompartment::enum_iter() {
             for id in self.poll_control_mappings[compartment].iter() {
-                let needs_group_interaction =
+                let (control_result, group_interaction) =
                     if let Some(m) = self.collections.mappings[compartment].get_mut(id) {
                         if !m.control_is_effectively_on() {
                             continue;
                         }
-                        let result = m.poll_control(self.basics.control_context());
-                        let needs_group_interaction = result.successful
-                            && matches!(
-                                m.group_interaction(),
-                                GroupInteraction::SameTargetValue
-                                    | GroupInteraction::InverseTargetValue
-                            );
-                        self.send_feedback(FeedbackReason::Normal, result.feedback_value);
-                        needs_group_interaction
+                        let mut control_result = m.poll_control(self.basics.control_context());
+                        self.basics.send_feedback(
+                            &self.collections.mappings_with_virtual_targets,
+                            FeedbackReason::Normal,
+                            control_result.feedback_value.take(),
+                        );
+                        (control_result, m.group_interaction())
                     } else {
-                        false
+                        continue;
                     };
-                if needs_group_interaction {
-                    self.basics.process_group_interaction(
-                        &mut self.collections,
-                        compartment,
-                        *id,
-                        // Control value is not important because we only do target-value
-                        // based group interaction after polling (makes sense because control-value
-                        // based one has been done at control time already.
-                        ControlValue::AbsoluteContinuous(Default::default()),
-                        // We already know that control was successful (checked above).
-                        true,
+
+                // We only do target-value based group interaction after polling
+                // (makes sense because control-value based one has been done at control
+                // time already).
+                let needs_group_interaction = control_result.successful
+                    && matches!(
+                        group_interaction,
+                        GroupInteraction::SameTargetValue | GroupInteraction::InverseTargetValue
                     );
-                }
+                control_mapping_stage_two(
+                    &self.basics,
+                    &mut self.collections,
+                    compartment,
+                    control_result,
+                    if needs_group_interaction {
+                        GroupInteractionProcessing::On(GroupInteractionInput {
+                            mapping_id: *id,
+                            // Control value is not important because we only do target-value
+                            // based group interaction.
+                            control_value: ControlValue::AbsoluteContinuous(Default::default()),
+                            group_interaction,
+                        })
+                    } else {
+                        GroupInteractionProcessing::Off
+                    },
+                );
             }
         }
     }
 
+    /// Processes incoming control messages from the real-time processor.
     fn control(
         &mut self,
         compartment: MappingCompartment,
         mapping_id: MappingId,
         control_value: ControlValue,
         options: ControlOptions,
-    ) {
+    ) -> Result<(), &'static str> {
         // Resolving mappings with virtual targets is not necessary anymore. It has
         // been done in the real-time processor already.
-        let (successful, has_group_interaction, hit_instruction) = if let Some(m) =
-            self.collections.mappings[compartment].get_mut(&mapping_id)
-        {
+        let (control_result, group_interaction) = {
+            let m = self.collections.mappings[compartment]
+                .get_mut(&mapping_id)
+                .ok_or("mapping not found")?;
             // Most of the time, the main processor won't even receive a MIDI-triggered control
             // instruction from the real-time processor for a mapping for which control is disabled,
             // because the real-time processor doesn't process disabled mappings. But if control is
@@ -356,45 +370,32 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // there might be a short amount of time where we still receive control statements. We
             // filter them here.
             if !m.control_is_effectively_on() {
-                return;
+                return Ok(());
             }
-            self.basics.notify_mapping_matched(compartment, mapping_id);
-            let context = self.basics.control_context();
-            let result = m.control_from_mode(
+            let control_result = control_mapping_stage_one(
+                &self.basics,
+                &self.collections.parameters,
+                m,
                 control_value,
                 options,
-                context,
-                &self.basics.logger,
-                ExtendedProcessorContext::new(&self.basics.context, &self.collections.parameters),
+                ManualFeedbackProcessing::On {
+                    mappings_with_virtual_targets: &self.collections.mappings_with_virtual_targets,
+                },
             );
-            self.basics.send_feedback(
-                &self.collections.mappings_with_virtual_targets,
-                FeedbackReason::Normal,
-                result.feedback_value,
-            );
-            (
-                result.successful,
-                m.group_interaction() != GroupInteraction::None,
-                result.hit_instruction,
-            )
-        } else {
-            (false, false, None)
+            (control_result, m.group_interaction())
         };
-        if let Some(hi) = hit_instruction {
-            hi.execute(HitInstructionContext {
-                mappings: &mut self.collections.mappings[compartment],
-                control_context: self.basics.control_context(),
-            });
-        }
-        if has_group_interaction {
-            self.basics.process_group_interaction(
-                &mut self.collections,
-                compartment,
+        control_mapping_stage_two(
+            &self.basics,
+            &mut self.collections,
+            compartment,
+            control_result,
+            GroupInteractionProcessing::On(GroupInteractionInput {
                 mapping_id,
                 control_value,
-                successful,
-            );
-        }
+                group_interaction,
+            }),
+        );
+        Ok(())
     }
 
     /// This should be regularly called by the control surface, even during global target learning.
@@ -1203,13 +1204,24 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             return;
         }
         let msg = MainSourceMessage::Reaper(msg);
-        self.basics.control_virtual_mappings(
-            &mut self.collections.mappings_with_virtual_targets,
-            &mut self.collections.mappings[MappingCompartment::MainMappings],
-            msg,
-            &self.collections.parameters,
-        );
-        self.control_non_virtual_mappings(msg);
+        let results = self
+            .basics
+            .process_controller_mappings_with_virtual_targets(
+                &mut self.collections.mappings_with_virtual_targets,
+                &mut self.collections.mappings[MappingCompartment::MainMappings],
+                msg,
+                &self.collections.parameters,
+            );
+        for r in results {
+            control_mapping_stage_two(
+                &self.basics,
+                &mut self.collections,
+                r.compartment,
+                r.control_result,
+                GroupInteractionProcessing::On(r.group_interaction_input),
+            )
+        }
+        self.process_mappings_with_real_targets(msg);
     }
 
     pub fn process_incoming_osc_packet(&mut self, packet: &OscPacket) {
@@ -1239,13 +1251,24 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             ControlMode::Controlling => {
                 if self.control_is_effectively_enabled() {
                     let msg = MainSourceMessage::Osc(msg);
-                    self.basics.control_virtual_mappings(
-                        &mut self.collections.mappings_with_virtual_targets,
-                        &mut self.collections.mappings[MappingCompartment::MainMappings],
-                        msg,
-                        &self.collections.parameters,
-                    );
-                    self.control_non_virtual_mappings(msg);
+                    let results = self
+                        .basics
+                        .process_controller_mappings_with_virtual_targets(
+                            &mut self.collections.mappings_with_virtual_targets,
+                            &mut self.collections.mappings[MappingCompartment::MainMappings],
+                            msg,
+                            &self.collections.parameters,
+                        );
+                    for r in results {
+                        control_mapping_stage_two(
+                            &self.basics,
+                            &mut self.collections,
+                            r.compartment,
+                            r.control_result,
+                            GroupInteractionProcessing::On(r.group_interaction_input),
+                        )
+                    }
+                    self.process_mappings_with_real_targets(msg);
                 }
             }
             ControlMode::LearningSource {
@@ -1264,38 +1287,57 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn control_non_virtual_mappings(&mut self, msg: MainSourceMessage) {
+    /// Controls mappings with real targets in *both* compartments.
+    fn process_mappings_with_real_targets(&mut self, msg: MainSourceMessage) {
         for compartment in MappingCompartment::enum_iter() {
             let mut enforce_target_refresh = false;
+            // Search for 958 to know why we use a for loop here instead of collect().
+            let mut results = vec![];
             for m in self.collections.mappings[compartment]
                 .values_mut()
                 .filter(|m| m.control_is_effectively_on())
             {
-                if let Some(control_value) = m.control(msg) {
-                    self.basics.notify_mapping_matched(compartment, m.id());
-                    // TODO-high Execute hit instruction
-                    let feedback = m
-                        .control_from_mode(
-                            control_value,
-                            ControlOptions {
-                                enforce_target_refresh,
-                                ..Default::default()
-                            },
-                            self.basics.control_context(),
-                            &self.basics.logger,
-                            ExtendedProcessorContext::new(
-                                &self.basics.context,
-                                &self.collections.parameters,
-                            ),
-                        )
-                        .feedback_value;
-                    enforce_target_refresh = true;
-                    self.basics.send_feedback(
-                        &self.collections.mappings_with_virtual_targets,
-                        FeedbackReason::Normal,
-                        feedback,
-                    );
-                }
+                let control_value = if let Some(cv) = m.control(msg) {
+                    cv
+                } else {
+                    continue;
+                };
+                let options = ControlOptions {
+                    enforce_target_refresh,
+                    ..Default::default()
+                };
+                let control_result = control_mapping_stage_one(
+                    &self.basics,
+                    &self.collections.parameters,
+                    m,
+                    control_value,
+                    options,
+                    ManualFeedbackProcessing::On {
+                        mappings_with_virtual_targets: &self
+                            .collections
+                            .mappings_with_virtual_targets,
+                    },
+                );
+                enforce_target_refresh = true;
+                let extended_control_result = ExtendedMappingControlResult {
+                    control_result,
+                    compartment,
+                    group_interaction_input: GroupInteractionInput {
+                        mapping_id: m.id(),
+                        group_interaction: m.group_interaction(),
+                        control_value,
+                    },
+                };
+                results.push(extended_control_result);
+            }
+            for r in results {
+                control_mapping_stage_two(
+                    &self.basics,
+                    &mut self.collections,
+                    r.compartment,
+                    r.control_result,
+                    GroupInteractionProcessing::On(r.group_interaction_input),
+                )
             }
         }
     }
@@ -1978,21 +2020,20 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         mapping_id,
                         group_id,
                         |other_mapping, basics, parameters| {
-                            // TODO-high Execute hit instruction
-                            other_mapping
-                                .control_from_mode(
-                                    interaction_value,
-                                    ControlOptions {
-                                        // Previous mappings in this transaction could affect
-                                        // subsequent mappings!
-                                        enforce_target_refresh: true,
-                                        ..Default::default()
-                                    },
-                                    basics.control_context(),
-                                    &basics.logger,
-                                    ExtendedProcessorContext::new(&basics.context, parameters),
-                                )
-                                .feedback_value
+                            let options = ControlOptions {
+                                // Previous mappings in this transaction could affect
+                                // subsequent mappings!
+                                enforce_target_refresh: true,
+                                ..Default::default()
+                            };
+                            control_mapping_stage_one(
+                                basics,
+                                parameters,
+                                other_mapping,
+                                interaction_value,
+                                options,
+                                ManualFeedbackProcessing::Off,
+                            )
                         },
                     );
                 }
@@ -2016,7 +2057,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             mapping_id,
                             group_id,
                             |other_mapping, basics, parameters| {
-                                // TODO-high Execute hit instruction
                                 other_mapping.control_from_target(
                                     normalized_target_value,
                                     ControlOptions {
@@ -2044,7 +2084,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         compartment: MappingCompartment,
         mapping_id: MappingId,
         group_id: GroupId,
-        f: impl Fn(&mut MainMapping, &Basics<EH>, &ParameterArray) -> Option<FeedbackValue>,
+        f: impl Fn(&mut MainMapping, &Basics<EH>, &ParameterArray) -> MappingControlResult,
     ) {
         let other_mappings = collections.mappings[compartment]
             .values_mut()
@@ -2053,13 +2093,27 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     && other_m.group_id() == group_id
                     && other_m.control_is_effectively_on()
             });
+        // Interestingly, we can't use closures like for_each or filter_map here in the same way
+        // (fails with mutable + immutable borrow error). So we use a for loop and fill the
+        // result vector manually.
+        // TODO-low Rust question 958: Figure out the difference to the for loop.
+        let mut hit_instructions = vec![];
         for other_mapping in other_mappings {
-            let other_feedback = f(other_mapping, self, &collections.parameters);
+            let other_control_result = f(other_mapping, self, &collections.parameters);
             self.send_feedback(
                 &collections.mappings_with_virtual_targets,
                 FeedbackReason::Normal,
-                other_feedback,
+                other_control_result.feedback_value,
             );
+            if let Some(hi) = other_control_result.hit_instruction {
+                hit_instructions.push(hi);
+            }
+        }
+        for hi in hit_instructions {
+            hi.execute(HitInstructionContext {
+                mappings: &mut collections.mappings[compartment],
+                control_context: self.control_context(),
+            });
         }
     }
 
@@ -2136,22 +2190,26 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
-    pub fn control_virtual_mappings(
+    /// Processes (controller) mappings with virtual targets.
+    ///
+    /// This also includes controlling the (main) mappings with corresponding virtual sources.
+    #[must_use]
+    pub fn process_controller_mappings_with_virtual_targets(
         &self,
         mappings_with_virtual_targets: &mut OrderedMappingMap<MainMapping>,
         // Contains mappings with virtual sources
         main_mappings: &mut OrderedMappingMap<MainMapping>,
         msg: MainSourceMessage,
         parameters: &ParameterArray,
-    ) {
+    ) -> Vec<ExtendedMappingControlResult> {
         // Control
-        let source_values: Vec<_> = mappings_with_virtual_targets
+        let mut extended_control_results: Vec<_> = mappings_with_virtual_targets
             .values_mut()
             .filter(|m| m.control_is_effectively_on())
             .flat_map(|m| {
                 if let Some(virtual_source_value) = m.control_virtualizing(msg) {
                     self.notify_mapping_matched(MappingCompartment::ControllerMappings, m.id());
-                    self.control_main_mappings_virtual(
+                    self.process_main_mappings_with_virtual_sources(
                         main_mappings,
                         virtual_source_value,
                         ControlOptions {
@@ -2182,8 +2240,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
         self.send_feedback(
             mappings_with_virtual_targets,
             FeedbackReason::Normal,
-            source_values,
+            extended_control_results
+                .iter_mut()
+                .filter_map(|r| r.control_result.feedback_value.take()),
         );
+        extended_control_results
     }
 
     /// Sends both direct and virtual-source feedback.
@@ -2354,13 +2415,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
-    fn control_main_mappings_virtual(
+    /// Processes main mappings with virtual sources.
+    fn process_main_mappings_with_virtual_sources(
         &self,
         main_mappings: &mut OrderedMappingMap<MainMapping>,
         value: VirtualSourceValue,
         options: ControlOptions,
         parameters: &ParameterArray,
-    ) -> Vec<FeedbackValue> {
+    ) -> Vec<ExtendedMappingControlResult> {
         // Controller mappings can't have virtual sources, so for now we only need to check
         // main mappings.
         let mut enforce_target_refresh = false;
@@ -2370,19 +2432,29 @@ impl<EH: DomainEventHandler> Basics<EH> {
             .filter_map(|m| {
                 if let CompoundMappingSource::Virtual(s) = &m.source() {
                     let control_value = s.control(&value)?;
-                    // TODO-high Execute hit instruction
-                    let result = m.control_from_mode(
+                    let options = ControlOptions {
+                        enforce_target_refresh,
+                        ..options
+                    };
+                    let control_result = control_mapping_stage_one(
+                        self,
+                        parameters,
+                        m,
                         control_value,
-                        ControlOptions {
-                            enforce_target_refresh,
-                            ..options
-                        },
-                        self.control_context(),
-                        &self.logger,
-                        ExtendedProcessorContext::new(&self.context, parameters),
+                        options,
+                        ManualFeedbackProcessing::Off,
                     );
                     enforce_target_refresh = true;
-                    result.feedback_value
+                    let extended_control_result = ExtendedMappingControlResult {
+                        control_result,
+                        compartment: m.compartment(),
+                        group_interaction_input: GroupInteractionInput {
+                            mapping_id: m.id(),
+                            group_interaction: m.group_interaction(),
+                            control_value,
+                        },
+                    };
+                    Some(extended_control_result)
                 } else {
                     None
                 }
@@ -2449,4 +2521,96 @@ pub enum InputMatchResult {
     Unmatched,
     #[display(fmt = "matched")]
     Matched,
+}
+
+/// Executes stage one of a typical mapping control invocation.
+///
+/// Takes care of:
+///
+/// 1. Notifying that mapping matched
+/// 2. Controlling with given control value (probably produced by source) starting from mode.
+/// 3. Sending "Send feedback after control" feedback (if enabled).
+fn control_mapping_stage_one<EH: DomainEventHandler>(
+    basics: &Basics<EH>,
+    parameters: &ParameterArray,
+    m: &mut MainMapping,
+    control_value: ControlValue,
+    options: ControlOptions,
+    feedback_handling: ManualFeedbackProcessing,
+) -> MappingControlResult {
+    basics.notify_mapping_matched(m.compartment(), m.id());
+    let mut control_result = m.control_from_mode(
+        control_value,
+        options,
+        basics.control_context(),
+        &basics.logger,
+        ExtendedProcessorContext::new(&basics.context, parameters),
+    );
+    if let ManualFeedbackProcessing::On {
+        mappings_with_virtual_targets,
+    } = feedback_handling
+    {
+        basics.send_feedback(
+            mappings_with_virtual_targets,
+            FeedbackReason::Normal,
+            control_result.feedback_value.take(),
+        );
+    }
+    control_result
+}
+
+/// Executes stage two of a typical mapping control invocation.
+///
+/// Takes care of:
+///
+/// 1. Executing a possible hit instruction.
+/// 2. Processing group interaction (if enabled).
+fn control_mapping_stage_two<EH: DomainEventHandler>(
+    basics: &Basics<EH>,
+    collections: &mut Collections,
+    compartment: MappingCompartment,
+    control_result: MappingControlResult,
+    group_interaction_processing: GroupInteractionProcessing,
+) {
+    if let Some(hi) = control_result.hit_instruction {
+        hi.execute(HitInstructionContext {
+            mappings: &mut collections.mappings[compartment],
+            control_context: basics.control_context(),
+        });
+    }
+    if let GroupInteractionProcessing::On(input) = group_interaction_processing {
+        if input.group_interaction != GroupInteraction::None {
+            basics.process_group_interaction(
+                collections,
+                compartment,
+                input.mapping_id,
+                input.control_value,
+                control_result.successful,
+            );
+        }
+    }
+}
+
+enum ManualFeedbackProcessing<'a> {
+    Off,
+    On {
+        mappings_with_virtual_targets: &'a OrderedMappingMap<MainMapping>,
+    },
+}
+
+enum GroupInteractionProcessing {
+    Off,
+    On(GroupInteractionInput),
+}
+
+struct ExtendedMappingControlResult {
+    control_result: MappingControlResult,
+    compartment: MappingCompartment,
+    group_interaction_input: GroupInteractionInput,
+}
+
+struct GroupInteractionInput {
+    mapping_id: MappingId,
+    group_interaction: GroupInteraction,
+    control_value: ControlValue,
 }

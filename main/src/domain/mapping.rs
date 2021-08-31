@@ -192,6 +192,10 @@ impl MainMapping {
         }
     }
 
+    pub fn compartment(&self) -> MappingCompartment {
+        self.core.compartment
+    }
+
     pub fn id(&self) -> MappingId {
         self.core.id
     }
@@ -330,7 +334,12 @@ impl MainMapping {
     pub fn hit_target_with_initial_value_snapshot(&mut self, control_context: ControlContext) {
         if let Some(inital_value) = self.initial_target_value_snapshot {
             for t in &mut self.targets {
-                t.hit(ControlValue::from_absolute(inital_value), control_context);
+                // We don't trigger hit instructions here because it's not necessary at
+                // the moment. We use hit instructions only for "Load mapping snapshot" target,
+                // which won't participate in snapshotting anyway because it doesn't report a
+                // current value. As soon as we have targets that use hit instructions AND take
+                // part in snapshotting, we should implement this. My guess: Never.
+                let _ = t.hit(ControlValue::from_absolute(inital_value), control_context);
             }
         }
     }
@@ -479,7 +488,7 @@ impl MainMapping {
         &self.targets
     }
 
-    /// This is for timer-triggered control and works like `control_if_enabled`.
+    /// This is for timer-triggered control (e.g. "Fire after delay").
     pub fn poll_control(&mut self, context: ControlContext) -> MappingControlResult {
         let mut should_send_feedback = false;
         let mut at_least_one_target_was_reached = false;
@@ -496,7 +505,6 @@ impl MainMapping {
                 Some(HitTarget(v)) => {
                     at_least_one_target_was_reached = true;
                     // Be graceful here. Don't debug-log errors for now because this is polled.
-                    // TODO-high Execute hit instruction
                     if let Ok(hi) = target.hit(v, context) {
                         // For now the first hit instruction wins (at the moment we don't have
                         // multi-targets in which multiple targets send hit instructions anyway).
@@ -577,7 +585,7 @@ impl MainMapping {
         logger: &slog::Logger,
         inverse: bool,
         processor_context: ExtendedProcessorContext,
-    ) -> Option<FeedbackValue> {
+    ) -> MappingControlResult {
         self.control_internal(
             options,
             context,
@@ -604,7 +612,6 @@ impl MainMapping {
                 Some(ModeControlResult::HitTarget(ControlValue::from_absolute(v)))
             },
         )
-        .feedback_value
     }
 
     #[must_use]
