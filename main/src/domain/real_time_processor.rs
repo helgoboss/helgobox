@@ -138,6 +138,22 @@ impl RealTimeProcessor {
         self.run_from_audio_hook_control_and_learn();
     }
 
+    pub fn midi_control_input(&self) -> MidiControlInput {
+        self.midi_control_input
+    }
+
+    pub fn control_is_globally_enabled(&self) -> bool {
+        self.control_is_globally_enabled
+    }
+
+    /// This should be called by audio hook in normal mode whenever it receives a MIDI message that
+    /// is relevant *for this ReaLearn instance* (the input device is not checked again).
+    ///
+    /// Returns whether this message matched.
+    pub fn process_incoming_midi_from_audio_hook(&mut self, event: Event<RawShortMessage>) -> bool {
+        self.process_incoming_midi(event, Caller::AudioHook)
+    }
+
     fn request_full_sync_and_discard_tasks_if_successful(&mut self) {
         if self
             .normal_main_task_sender
@@ -440,25 +456,6 @@ impl RealTimeProcessor {
     /// This should *not* be called by the global audio hook when it's globally learning sources
     /// because we want to pause controlling in that case!
     fn run_from_audio_hook_control_and_learn(&mut self) {
-        // Read MIDI events if MIDI control input set to device
-        if let MidiControlInput::Device(dev_id) = self.midi_control_input {
-            MidiInputDevice::new(dev_id).with_midi_input(|mi| {
-                if let Some(mi) = mi {
-                    let event_list = mi.get_read_buf();
-                    for evt in event_list.enum_items(0) {
-                        // Current control mode is checked further down the callstack. No need to
-                        // check it here.
-                        // Frame offset is given in 1/1024000 of a second, *not* sample frames!
-                        let offset =
-                            SampleOffset::from_frame_offset(evt.frame_offset(), self.sample_rate);
-                        self.process_incoming_midi(
-                            Event::new(offset, evt.message().to_other()),
-                            Caller::AudioHook,
-                        );
-                    }
-                }
-            });
-        }
         match self.control_mode {
             ControlMode::Disabled => {}
             ControlMode::Controlling => {
@@ -605,13 +602,15 @@ impl RealTimeProcessor {
         });
     }
 
-    fn process_incoming_midi(&mut self, event: Event<RawShortMessage>, caller: Caller) {
+    /// Returns if this MIDI event matched somehow.
+    fn process_incoming_midi(&mut self, event: Event<RawShortMessage>, caller: Caller) -> bool {
         use MidiMessageClassification::*;
         match classify_midi_message(event.payload()) {
             Normal => self.process_incoming_midi_normal(event, caller),
             Ignored => {
                 // ReaLearn doesn't process those. Forward them if user wants it.
                 self.process_unmatched_short(event, caller);
+                false
             }
             Timing => {
                 // Timing clock messages are treated special (calculates BPM).
@@ -619,8 +618,12 @@ impl RealTimeProcessor {
                 if self.control_is_globally_enabled {
                     if let Some(bpm) = self.midi_clock_calculator.feed(event.offset()) {
                         let source_value = MidiSourceValue::<RawShortMessage>::Tempo(bpm);
-                        self.control_midi(Event::new(event.offset(), &source_value), caller);
+                        self.control_midi(Event::new(event.offset(), &source_value), caller)
+                    } else {
+                        false
                     }
+                } else {
+                    false
                 }
             }
         }
@@ -631,7 +634,13 @@ impl RealTimeProcessor {
     /// - (N)RPN messages
     /// - 14-bit CC messages
     /// - Short MIDI messaages
-    fn process_incoming_midi_normal(&mut self, event: Event<RawShortMessage>, caller: Caller) {
+    ///
+    /// Returns whether the event somehow matched.
+    fn process_incoming_midi_normal(
+        &mut self,
+        event: Event<RawShortMessage>,
+        caller: Caller,
+    ) -> bool {
         match self.control_mode {
             ControlMode::Controlling => {
                 if self.control_is_globally_enabled {
@@ -646,15 +655,25 @@ impl RealTimeProcessor {
                     // single messages can't be used anymore! Otherwise it would be
                     // confusing. They are consumed. That's the reason why
                     // we do the consumption check at a later state.
-                    self.process_incoming_midi_normal_plain(event, caller);
-                    if let Some(nrpn_msg) = self.nrpn_scanner.feed(&event.payload()) {
-                        let nrpn_event = Event::new(event.offset(), nrpn_msg);
-                        self.process_incoming_midi_normal_nrpn(nrpn_event, caller);
-                    }
-                    if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&event.payload()) {
-                        let cc14_event = Event::new(event.offset(), cc14_msg);
-                        self.process_incoming_midi_normal_cc14(cc14_event, caller);
-                    }
+                    let matched_or_consumed_plain =
+                        self.process_incoming_midi_normal_plain(event, caller);
+                    let matched_nrpn =
+                        if let Some(nrpn_msg) = self.nrpn_scanner.feed(&event.payload()) {
+                            let nrpn_event = Event::new(event.offset(), nrpn_msg);
+                            self.process_incoming_midi_normal_nrpn(nrpn_event, caller)
+                        } else {
+                            false
+                        };
+                    let matched_cc14 =
+                        if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&event.payload()) {
+                            let cc14_event = Event::new(event.offset(), cc14_msg);
+                            self.process_incoming_midi_normal_cc14(cc14_event, caller)
+                        } else {
+                            false
+                        };
+                    matched_or_consumed_plain || matched_nrpn || matched_cc14
+                } else {
+                    false
                 }
             }
             ControlMode::LearningSource {
@@ -667,26 +686,30 @@ impl RealTimeProcessor {
                 if let Some(source) = self.midi_source_scanner.feed_short(event.payload(), None) {
                     self.learn_source(source, allow_virtual_sources);
                 }
+                true
             }
-            ControlMode::Disabled => {}
-        };
+            ControlMode::Disabled => {
+                // "Disabled" means we use this for global learning! We consider this therefore as
+                // matched.
+                true
+            }
+        }
     }
 
+    /// Returns whether this message matched.
     fn process_incoming_midi_normal_nrpn(
         &mut self,
         event: Event<ParameterNumberMessage>,
         caller: Caller,
-    ) {
+    ) -> bool {
         let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(event.payload());
         let matched = self.control_midi(Event::new(event.offset(), &source_value), caller);
         if self.input_logging_enabled {
             self.log_control_input(source_value, false, matched);
         }
-        if self.midi_control_input != MidiControlInput::FxInput {
-            return;
-        }
-        if (matched && self.let_matched_events_through)
-            || (!matched && self.let_unmatched_events_through)
+        if self.midi_control_input == MidiControlInput::FxInput
+            && ((matched && self.let_matched_events_through)
+                || (!matched && self.let_unmatched_events_through))
         {
             for m in event
                 .payload()
@@ -697,6 +720,7 @@ impl RealTimeProcessor {
                 self.send_short_midi_to_fx_output(Event::new(event.offset(), *m), caller);
             }
         }
+        matched
     }
 
     fn log_control_input(
@@ -742,21 +766,20 @@ impl RealTimeProcessor {
         );
     }
 
+    /// Returns whether this message matched.
     fn process_incoming_midi_normal_cc14(
         &mut self,
         event: Event<ControlChange14BitMessage>,
         caller: Caller,
-    ) {
+    ) -> bool {
         let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(event.payload());
         let matched = self.control_midi(Event::new(event.offset(), &source_value), caller);
         if self.input_logging_enabled {
             self.log_control_input(source_value, false, matched);
         }
-        if self.midi_control_input != MidiControlInput::FxInput {
-            return;
-        }
-        if (matched && self.let_matched_events_through)
-            || (!matched && self.let_unmatched_events_through)
+        if self.midi_control_input == MidiControlInput::FxInput
+            && ((matched && self.let_matched_events_through)
+                || (!matched && self.let_unmatched_events_through))
         {
             for m in event
                 .payload()
@@ -767,13 +790,16 @@ impl RealTimeProcessor {
                 self.send_short_midi_to_fx_output(short_event, caller);
             }
         }
+        matched
     }
 
+    /// Returns whether this message matched or was at least consumed
+    /// (e.g. as part of a NRPN message).
     fn process_incoming_midi_normal_plain(
         &mut self,
         event: Event<RawShortMessage>,
         caller: Caller,
-    ) {
+    ) -> bool {
         let source_value = MidiSourceValue::Plain(event.payload());
         if self.is_consumed_by_at_least_one_source(event.payload()) {
             if self.input_logging_enabled {
@@ -783,7 +809,7 @@ impl RealTimeProcessor {
             // e.g. (N)RPN or 14-bit CCs. If we reach this point, the incoming message
             // could potentially match one of the (N)RPN or 14-bit CC mappings in the list
             // and therefore doesn't qualify anymore as a candidate for normal CC sources.
-            return;
+            return true;
         }
         let matched = self.control_midi(Event::new(event.offset(), &source_value), caller);
         if self.input_logging_enabled {
@@ -794,6 +820,7 @@ impl RealTimeProcessor {
         } else {
             self.process_unmatched_short(event, caller);
         }
+        matched
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &RealTimeMapping> {

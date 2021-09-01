@@ -1,11 +1,11 @@
 use crate::domain::{
-    classify_midi_message, Garbage, GarbageBin, InstanceId, MidiMessageClassification, MidiSource,
-    MidiSourceScanner, RealTimeProcessor,
+    classify_midi_message, Event, Garbage, GarbageBin, InstanceId, MidiControlInput,
+    MidiMessageClassification, MidiSource, MidiSourceScanner, RealTimeProcessor, SampleOffset,
 };
 use assert_no_alloc::*;
 use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage, ShortMessage};
-use reaper_high::{MidiOutputDevice, Reaper};
+use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
     SendMidiTime,
@@ -141,14 +141,19 @@ impl OnAudioBuffer for RealearnAudioHook {
             // Process depending on state
             match &mut self.state {
                 AudioHookState::Normal => {
-                    // 1. Call real-time processors.
+                    // 1a. Drive real-time processors and determine used MIDI devices "on the go".
                     //
                     // Calling the real-time processor *before* processing its remove task has
-                    // the benefit, that it can still do some final work (e.g. clearing
+                    // the benefit that it can still do some final work (e.g. clearing
                     // LEDs by sending zero feedback) before it's removed. That's also
                     // one of the reasons why we remove the real-time processor async by
                     // sending a message. It's okay if it's around for one cycle after a
                     // plug-in instance has unloaded (only the case if not the last instance).
+                    //
+                    // We know the maximum number of MIDI input devices is 63.
+                    const DEV_COUNT: u8 = 63;
+                    let mut midi_dev_id_is_used = [false; DEV_COUNT as usize];
+                    let mut midi_devs_used_at_all = false;
                     for (_, p) in self.real_time_processors.iter() {
                         // Since 1.12.0, we "drive" each plug-in instance's real-time processor
                         // primarily by the global audio hook. See https://github.com/helgoboss/realearn/issues/84 why this is
@@ -156,8 +161,51 @@ impl OnAudioBuffer for RealearnAudioHook {
                         // to be able to send MIDI to <FX output> and to
                         // stop doing so synchronously if the plug-in is
                         // gone.
-                        p.lock_recover()
-                            .run_from_audio_hook_all(args.len as _, might_be_rebirth);
+                        let mut guard = p.lock_recover();
+                        if !guard.control_is_globally_enabled() {
+                            continue;
+                        }
+                        guard.run_from_audio_hook_all(args.len as _, might_be_rebirth);
+                        if let MidiControlInput::Device(dev_id) = guard.midi_control_input() {
+                            midi_dev_id_is_used[dev_id.get() as usize] = true;
+                            midi_devs_used_at_all = true;
+                        }
+                    }
+                    // 1b. Forward MIDI events from MIDI devices to ReaLearn instances and filter
+                    //     them globally if desired by the instance.
+                    if midi_devs_used_at_all {
+                        for dev_id in 0..DEV_COUNT {
+                            if !midi_dev_id_is_used[dev_id as usize] {
+                                continue;
+                            }
+                            let dev_id = MidiInputDeviceId::new(dev_id);
+                            MidiInputDevice::new(dev_id).with_midi_input(|mi| {
+                                if let Some(mi) = mi {
+                                    let event_list = mi.get_read_buf();
+                                    for evt in event_list.enum_items(0) {
+                                        // Current control mode is checked further down the callstack. No need to
+                                        // check it here.
+                                        // Frame offset is given in 1/1024000 of a second, *not* sample frames!
+                                        let offset = SampleOffset::from_frame_offset(
+                                            evt.frame_offset(),
+                                            args.srate,
+                                        );
+                                        let event = Event::new(offset, evt.message().to_other());
+                                        let mut matched = false;
+                                        for (_, p) in self.real_time_processors.iter() {
+                                            let mut guard = p.lock_recover();
+                                            if !guard.control_is_globally_enabled() {
+                                                continue;
+                                            }
+                                            if guard.process_incoming_midi_from_audio_hook(event) {
+                                                matched = true;
+                                            }
+                                        }
+                                    }
+                                    // event_list.delete_item(0);
+                                }
+                            });
+                        }
                     }
                 }
                 AudioHookState::LearningSource {
