@@ -1,10 +1,12 @@
 use crate::application::{
-    empty_parameter_settings, GroupModel, MainPresetAutoLoadMode, ParameterSetting, Session,
+    empty_parameter_settings, reaper_supports_global_midi_filter, GroupModel,
+    MainPresetAutoLoadMode, ParameterSetting, Session,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiDestination, OscDeviceId,
-    ParameterArray, QualifiedSlotDescriptor, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    ControlInput, ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiDestination,
+    OscDeviceId, ParameterArray, QualifiedSlotDescriptor, COMPARTMENT_PARAMETER_COUNT,
+    ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
@@ -253,12 +255,6 @@ impl SessionData {
             session.id.set_without_notification(id.clone())
         };
         session
-            .let_matched_events_through
-            .set_without_notification(self.let_matched_events_through);
-        session
-            .let_unmatched_events_through
-            .set_without_notification(self.let_unmatched_events_through);
-        session
             .auto_correct_settings
             .set(self.always_auto_detect_mode);
         session.lives_on_upper_floor.set(self.lives_on_upper_floor);
@@ -277,6 +273,35 @@ impl SessionData {
         session
             .osc_output_device_id
             .set_without_notification(osc_feedback_output);
+        // Let events through or not
+        {
+            let is_old_preset = self
+                .version
+                .as_ref()
+                .map(|v| v < &Version::parse("2.10.0-pre.10").unwrap())
+                .unwrap_or(true);
+            let (matched, unmatched) = if is_old_preset && session.control_input().is_midi_device()
+            {
+                // Old presets using MIDI device input didn't support global MIDI filtering. For
+                // backward compatibility, make sure that all messages are let through then!
+                (true, true)
+            } else if reaper_supports_global_midi_filter() {
+                // This is a new preset and REAPER supports global MIDI filtering.
+                (
+                    self.let_matched_events_through,
+                    self.let_unmatched_events_through,
+                )
+            } else {
+                // This is a new preset but REAPER doesn't support global MIDI filtering.
+                (true, true)
+            };
+            session
+                .let_matched_events_through
+                .set_without_notification(matched);
+            session
+                .let_unmatched_events_through
+                .set_without_notification(unmatched);
+        }
         // Groups
         let get_final_default_group =
             |def_group: Option<&GroupModelData>, compartment: MappingCompartment| {

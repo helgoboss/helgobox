@@ -16,6 +16,14 @@ impl ControlInput {
             _ => None,
         }
     }
+
+    pub fn is_midi_device(self) -> bool {
+        matches!(self, ControlInput::Midi(MidiControlInput::Device(_)))
+    }
+
+    pub fn is_midi(self) -> bool {
+        matches!(self, ControlInput::Midi(_))
+    }
 }
 
 impl Default for ControlInput {

@@ -11,7 +11,7 @@ use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
 };
-use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
+use reaper_high::{MidiOutputDevice, Reaper};
 use reaper_medium::{Hz, MidiInputDeviceId, MidiOutputDeviceId, SendMidiTime};
 use slog::{debug, trace};
 
@@ -149,9 +149,12 @@ impl RealTimeProcessor {
     /// This should be called by audio hook in normal mode whenever it receives a MIDI message that
     /// is relevant *for this ReaLearn instance* (the input device is not checked again).
     ///
-    /// Returns whether this message matched.
+    /// Returns whether this message should be filtered out from the global MIDI stream.
     pub fn process_incoming_midi_from_audio_hook(&mut self, event: Event<RawShortMessage>) -> bool {
-        self.process_incoming_midi(event, Caller::AudioHook)
+        let matched = self.process_incoming_midi(event, Caller::AudioHook);
+        let let_through = (matched && self.let_matched_events_through)
+            || (!matched && self.let_unmatched_events_through);
+        !let_through
     }
 
     fn request_full_sync_and_discard_tasks_if_successful(&mut self) {

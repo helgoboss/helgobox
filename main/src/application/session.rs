@@ -29,7 +29,7 @@ use std::fmt::Debug;
 
 use helgoboss_midi::Channel;
 use itertools::Itertools;
-use reaper_medium::{MidiInputDeviceId, RecordingInput};
+use reaper_medium::{MidiInputDeviceId, ReaperVersion, RecordingInput};
 use std::rc::{Rc, Weak};
 
 pub trait SessionUi {
@@ -2233,4 +2233,10 @@ fn make_mapping_project_independent(mapping: &SharedMapping, context: ExtendedPr
         }
         TargetCategory::Virtual => {}
     }
+}
+
+pub fn reaper_supports_global_midi_filter() -> bool {
+    let v = Reaper::get().version().to_string();
+    let v_without_arch = v.split('/').next().unwrap();
+    v_without_arch >= "6.35+dev0831"
 }

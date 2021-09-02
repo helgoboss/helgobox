@@ -16,8 +16,9 @@ use slog::debug;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
-    ControllerPreset, FxId, MainPreset, MainPresetAutoLoadMode, ParameterSetting, Preset,
-    PresetManager, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    reaper_supports_global_midi_filter, ControllerPreset, FxId, MainPreset, MainPresetAutoLoadMode,
+    ParameterSetting, Preset, PresetManager, SharedMapping, SharedSession,
+    VirtualControlElementType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
@@ -871,11 +872,17 @@ impl HeaderPanel {
             .require_control(root::ID_LET_UNMATCHED_EVENTS_THROUGH_CHECK_BOX);
         let session = self.session();
         let session = session.borrow();
-        let show = session.control_input() == ControlInput::Midi(MidiControlInput::FxInput);
-        label.set_visible(show);
-        matched_box.set_visible(show);
-        unmatched_box.set_visible(show);
-        if show {
+        let controls = [label, matched_box, unmatched_box];
+        let visible = session.control_input().is_midi();
+        for c in controls {
+            c.set_visible(visible);
+        }
+        if visible {
+            let enabled = session.control_input() == ControlInput::Midi(MidiControlInput::FxInput)
+                || reaper_supports_global_midi_filter();
+            for c in controls {
+                c.set_enabled(enabled);
+            }
             matched_box.set_checked(session.let_matched_events_through.get());
             unmatched_box.set_checked(session.let_unmatched_events_through.get());
         }
@@ -1907,6 +1914,11 @@ impl HeaderPanel {
                 view.invalidate_let_through_controls();
                 let shared_session = view.session();
                 let mut session = shared_session.borrow_mut();
+                if session.control_input().is_midi_device() && !reaper_supports_global_midi_filter()
+                {
+                    session.let_matched_events_through.set(true);
+                    session.let_unmatched_events_through.set(true);
+                }
                 if session.auto_correct_settings.get() {
                     let osc_control_input = session.osc_input_device_id.get();
                     let midi_control_input = session.midi_control_input.get();
