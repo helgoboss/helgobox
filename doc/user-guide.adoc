@@ -5,7 +5,7 @@
 :sectnumlevels: 2
 
 |===
-|Last update of text: |`2021-08-20 (v2.10.0-pre.9)`
+|Last update of text: |`2021-09-02 (v2.10.0-pre.10)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -441,13 +441,18 @@ _controller_ compartment is shown:
  element is mapped to which target parameter. If you want to use this feature, just click this button
  and you will see detailed instructions on how to set this up. In order to use this feature, you need the
  _ReaLearn Companion_ app, which has a <<companion-app,dedicated section>> in this user guide.
-* *Let through:* If _Control input_ is set to `&lt;FX input&gt;`, ReaLearn by default "eats" incoming MIDI events for
- which there's at least one enabled mapping source. In other words, it doesn't forward MIDI events which are used to
- control a target parameter. Unmatched MIDI events, however, are forwarded to ReaLearn's FX output. This default
- setting usually makes much sense if you put the ReaLearn FX in front of another instrument FX. Use these checkboxes
- to change that behavior. If _Control input_ is set to something other than `&lt;FX input&gt;`, MIDI events coming from
- _FX input_ are _always_ forwarded. MIDI events captured from a MIDI or OSC device input are never forwarded
- to ReaLearn's FX output.
+* *Let through:* ReaLearn by default "eats" incoming MIDI events for
+which there's at least one active mapping with that source. In other words, it doesn't forward MIDI events which are used to control a target parameter. However, unmatched MIDI events are forwarded! You can change this using these checkboxes. E.g. you can tick "Matched events" if you want to forward even matched events. The exact behavior differs depending on what you choose as _control input_:
+** _Control input_ = `&lt;FX input&gt;`
+*** Here, MIDI events arrive from ReaLearn's FX input. If they get forwarded, they get forwarded to the FX output, usually to the plug-in which is located right below ReaLearn FX. The default setting often makes much sense here, especially if you put ReaLearn right above another instrument plug-in.
+** _Control input_ = _some real MIDI hardware device_
+*** Here, MIDI events arrive directly from the MIDI hardware device. If they get forwarded, they get forwarded to REAPER's tracks as they would usually do without ReaLearn. If they don't get forwarded, it means they get filtered and will never make it to the tracks. ReaLearn completely eats them, globally! That means, ReaLearn can act as global MIDI filter.
+*** Please note, with control input set to a real MIDI device, MIDI events coming from _FX input_ are _always_ forwarded to the FX output.
+*** Also, MIDI events captured from a real MIDI device input are *never* forwarded to ReaLearn's FX output.
++
+TIP: This global MIDI filter feature is only available in REAPER v6.36+.
+** _Control input_ = _some OSC device_
+*** You won't see the checkboxes because they don't make sense for OSC.
 * *Show:* This lets you choose which mapping compartment is displayed. A compartment is basically a list of mappings
  that can be saved as independent preset. Initially, ReaLearn shows the so-called "Main compartment" which contains
  the so-called "Main mappings" - the bread and butter of ReaLearn. However, there's another interesting compartment,
@@ -2119,6 +2124,13 @@ it will encode the incoming absolute control value as that argument (after it ha
 ** *_Specific device:_* Sends the OSC message to a specific device.
 * *Address* and *Argument*: This corresponds to the identically named settings of <<category-osc,OSC sources>>.
  Check that section for details.
+
+====== Realearn: Load mapping snapshot
+
+NOTE: Work in progress!
+
+At the moment, this target simply restores the initial target values for each mapping in this ReaLearn instances.
+In future, it will be able to do much more.
 
 ===== Category "Virtual"
 
