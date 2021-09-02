@@ -29,7 +29,7 @@ use std::fmt::Debug;
 
 use helgoboss_midi::Channel;
 use itertools::Itertools;
-use reaper_medium::{MidiInputDeviceId, ReaperVersion, RecordingInput};
+use reaper_medium::{MidiInputDeviceId, RecordingInput};
 use std::rc::{Rc, Weak};
 
 pub trait SessionUi {

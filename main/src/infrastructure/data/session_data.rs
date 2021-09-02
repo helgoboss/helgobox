@@ -4,9 +4,8 @@ use crate::application::{
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    ControlInput, ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiDestination,
-    OscDeviceId, ParameterArray, QualifiedSlotDescriptor, COMPARTMENT_PARAMETER_COUNT,
-    ZEROED_PLUGIN_PARAMETERS,
+    ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiDestination, OscDeviceId,
+    ParameterArray, QualifiedSlotDescriptor, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,

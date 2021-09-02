@@ -175,7 +175,7 @@ impl RealearnAudioHook {
         // sending a message. It's okay if it's around for one cycle after a
         // plug-in instance has unloaded (only the case if not the last instance).
         //
-        let mut midi_dev_id_is_used = [false; MIDI_INPUT_DEV_COUNT as usize];
+        let mut midi_dev_id_is_used = [false; MidiInputDeviceId::MAX_DEVICE_COUNT as usize];
         let mut midi_devs_used_at_all = false;
         for (_, p) in self.real_time_processors.iter() {
             // Since 1.12.0, we "drive" each plug-in instance's real-time processor
@@ -204,9 +204,9 @@ impl RealearnAudioHook {
     fn distribute_midi_events_to_processors(
         &mut self,
         args: &OnAudioBufferArgs,
-        midi_dev_id_is_used: &[bool; MIDI_INPUT_DEV_COUNT as usize],
+        midi_dev_id_is_used: &[bool; MidiInputDeviceId::MAX_DEVICE_COUNT as usize],
     ) {
-        for dev_id in 0..MIDI_INPUT_DEV_COUNT {
+        for dev_id in 0..MidiInputDeviceId::MAX_DEVICE_COUNT {
             if !midi_dev_id_is_used[dev_id as usize] {
                 continue;
             }
@@ -323,7 +323,3 @@ impl RealTimeProcessorLocker for SharedRealTimeProcessor {
         }
     }
 }
-
-/// We know the maximum number of MIDI input devices is 63.
-// TODO-high Expose this number in reaper-rs.
-const MIDI_INPUT_DEV_COUNT: u8 = 63;
