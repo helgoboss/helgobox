@@ -197,7 +197,7 @@ impl RealearnAudioHook {
         // 1b. Forward MIDI events from MIDI devices to ReaLearn instances and filter
         //     them globally if desired by the instance.
         if midi_devs_used_at_all {
-            self.distribute_midi_events_to_processors(args, &mut midi_dev_id_is_used);
+            self.distribute_midi_events_to_processors(args, &midi_dev_id_is_used);
         }
     }
 

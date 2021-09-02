@@ -2019,6 +2019,7 @@ impl ReaperTargetType {
             TrackSendMute | AllTrackFxEnable | TrackShow => "Automatic feedback via polling only",
             TrackPeak => "Feedback only, no control",
             SendMidi => "Group interaction not supported",
+            LoadMappingSnapshot => "Work in progress",
             _ => "",
         }
     }
