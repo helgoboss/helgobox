@@ -18,6 +18,7 @@ use helgoboss_learn::{
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use crate::base::notification;
 use indexmap::map::IndexMap;
 use indexmap::set::IndexSet;
 use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
@@ -125,6 +126,7 @@ impl MappingExtension {
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
+    name: String,
     /// Is `Some` if the user-provided target data is complete.
     unresolved_target: Option<UnresolvedCompoundMappingTarget>,
     /// Is non-empty if the target resolved successfully.
@@ -154,6 +156,7 @@ impl MainMapping {
         compartment: MappingCompartment,
         id: MappingId,
         group_id: GroupId,
+        name: String,
         source: CompoundMappingSource,
         mode: Mode,
         group_interaction: GroupInteraction,
@@ -174,6 +177,7 @@ impl MainMapping {
                 options,
                 time_of_last_control: None,
             },
+            name,
             unresolved_target,
             targets: vec![],
             activation_condition_1,
@@ -502,10 +506,10 @@ impl MainMapping {
             use ModeControlResult::*;
             match self.core.mode.poll(target, context) {
                 None => {}
-                Some(HitTarget(v)) => {
+                Some(HitTarget { value, .. }) => {
                     at_least_one_target_was_reached = true;
                     // Be graceful here. Don't debug-log errors for now because this is polled.
-                    if let Ok(hi) = target.hit(v, context) {
+                    if let Ok(hi) = target.hit(value, context) {
                         // For now the first hit instruction wins (at the moment we don't have
                         // multi-targets in which multiple targets send hit instructions anyway).
                         if hit_instruction.is_none() {
@@ -609,7 +613,9 @@ impl MainMapping {
                     mode.settings().use_discrete_processing,
                     control_type.discrete_max(),
                 );
-                Some(ModeControlResult::HitTarget(ControlValue::from_absolute(v)))
+                Some(ModeControlResult::hit_target(ControlValue::from_absolute(
+                    v,
+                )))
             },
         )
     }
@@ -666,7 +672,17 @@ impl MainMapping {
                     // controlling the LED on their own. The feedback sent by ReaLearn
                     // will fix this self-controlled LED state.
                 }
-                Some(HitTarget(v)) => {
+                Some(HitTarget { value, stuck_state }) => {
+                    if let Some(s) = stuck_state {
+                        notification::warn(format!(
+                            "The target of mapping \"{}\" seems to got stuck \
+                            (desired value was {} but stayed unchanged at {}). \
+                            Please consider increasing the step size!",
+                            self.name,
+                            s.previously_desired_target_value.get(),
+                            s.previous_result_target_value.get()
+                        ));
+                    }
                     at_least_one_target_was_reached = true;
                     if self.core.options.feedback_send_behavior
                         == FeedbackSendBehavior::PreventEchoFeedback
@@ -674,7 +690,7 @@ impl MainMapping {
                         self.core.time_of_last_control = Some(Instant::now());
                     }
                     // Be graceful here.
-                    match target.hit(v, context) {
+                    match target.hit(value, context) {
                         // For now the first hit instruction wins (at the moment we don't have
                         // multi-targets in which multiple targets send hit instructions anyway).
                         Ok(hi) => {

@@ -119,7 +119,7 @@ impl SourceModelData {
                 Some(v) => match v.try_into() {
                     Ok(number) => Some(number),
                     Err(_) => {
-                        notification::warn("MIDI message number too high");
+                        notification::warn("MIDI message number too high".to_string());
                         None
                     }
                 },

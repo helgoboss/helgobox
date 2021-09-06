@@ -136,7 +136,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         })?;
         if data.was_saved_with_newer_version() {
             notification::warn(
-                "The preset that is about to load was saved with a newer version of ReaLearn. Things might not work as expected. Even more importantly: Saving the preset might result in loss of the data that was saved with the new ReaLearn version! Please consider upgrading your ReaLearn installation to the latest version.",
+                "The preset that is about to load was saved with a newer version of ReaLearn. Things might not work as expected. Even more importantly: Saving the preset might result in loss of the data that was saved with the new ReaLearn version! Please consider upgrading your ReaLearn installation to the latest version.".to_string(),
             );
         }
         Ok(data.to_model(id))

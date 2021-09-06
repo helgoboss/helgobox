@@ -232,7 +232,7 @@ impl TargetModelData {
                 Ok(command_id_int) => match command_id_int.try_into() {
                     Ok(command_id) => Some(reaper.main_section().action_by_command_id(command_id)),
                     Err(_) => {
-                        notification::warn(&format!("Invalid command ID {}", command_id_int));
+                        notification::warn(format!("Invalid command ID {}", command_id_int));
                         None
                     }
                 },

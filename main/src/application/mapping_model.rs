@@ -300,6 +300,7 @@ impl MappingModel {
             self.compartment,
             id,
             self.group_id.get(),
+            self.name.get_ref().clone(),
             source,
             mode,
             self.mode_model.group_interaction.get(),
