@@ -1544,8 +1544,9 @@ pub fn get_fx_param_label(fx_param: Option<&FxParameter>, index: u32) -> Cow<'st
     match fx_param {
         None => format!("{}. <Not present>", position).into(),
         Some(p) => {
-            let name = p.name();
-            let name = name.to_str();
+            let name = p.name().into_inner();
+            // Parameter names are not reliably UTF-8-encoded (e.g. "JS: Stereo Width")
+            let name = name.to_string_lossy();
             if name.is_empty() {
                 position.to_string().into()
             } else {

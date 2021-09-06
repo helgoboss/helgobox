@@ -1935,7 +1935,8 @@ impl<'a> MutableMappingPanel<'a> {
                         self.mapping
                             .target_model
                             .param_name
-                            .set(param.name().into_string());
+                            // Parameter names are not reliably UTF-8-encoded (e.g. "JS: Stereo Width")
+                            .set(param.name().into_inner().to_string_lossy().to_string());
                     }
                 }
                 t if t.supports_track_exclusivity() => {
