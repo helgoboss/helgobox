@@ -30,7 +30,7 @@ use std::ops::Deref;
 pub struct SessionData {
     // Since ReaLearn 1.12.0-pre18
     #[serde(default, skip_serializing_if = "is_default")]
-    version: Option<Version>,
+    pub version: Option<Version>,
     // Since ReaLearn 1.12.0-pre?
     #[serde(default, skip_serializing_if = "is_default")]
     id: Option<String>,
@@ -125,10 +125,6 @@ impl Default for SessionData {
 }
 
 impl SessionData {
-    pub fn was_saved_with_newer_version(&self) -> bool {
-        App::given_version_is_newer_than_app_version(self.version.as_ref())
-    }
-
     pub fn from_model(session: &Session, parameters: &ParameterArray) -> SessionData {
         let from_mappings = |compartment| {
             session

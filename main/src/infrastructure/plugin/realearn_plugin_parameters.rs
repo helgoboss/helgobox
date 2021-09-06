@@ -10,6 +10,7 @@ use crate::domain::{
     MappingCompartment, ParameterArray, ParameterMainTask, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::SessionData;
+use crate::infrastructure::plugin::App;
 use std::rc::Rc;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use vst::plugin::PluginParameters;
@@ -77,10 +78,18 @@ impl RealearnPluginParameters {
         // Update session
         let shared_session = self.session().expect("session should exist already");
         let mut session = shared_session.borrow_mut();
-        if session_data.was_saved_with_newer_version() {
-            notification::warn(
-                "The session that is about to load was saved with a newer version of ReaLearn. Things might not work as expected. Even more importantly: Saving might result in loss of the data that was saved with the new ReaLearn version! Please consider upgrading your ReaLearn installation to the latest version.".to_string(),
-            );
+        if let Some(v) = session_data.version.as_ref() {
+            if App::version() < v {
+                notification::warn(format!(
+                    "The session that is about to load was saved with ReaLearn {}, which is \
+                         newer than the installed version {}. Things might not work as expected. \
+                         Even more importantly: Saving might result in loss of the data that was \
+                         saved with the new ReaLearn version! Please consider upgrading your \
+                         ReaLearn installation to the latest version.",
+                    v,
+                    App::version()
+                ));
+            }
         }
         let parameters = session_data.parameters_as_array();
         if let Err(e) = session_data.apply_to_model(&mut session, &parameters) {

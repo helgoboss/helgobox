@@ -141,7 +141,7 @@ impl PresetData for ControllerPresetData {
         self.id = None;
     }
 
-    fn was_saved_with_newer_version(&self) -> bool {
-        App::given_version_is_newer_than_app_version(self.version.as_ref())
+    fn version(&self) -> Option<&Version> {
+        self.version.as_ref()
     }
 }

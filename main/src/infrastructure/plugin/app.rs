@@ -179,14 +179,6 @@ impl App {
         &VALUE
     }
 
-    pub fn given_version_is_newer_than_app_version(version: Option<&Version>) -> bool {
-        if let Some(v) = version {
-            Self::version() < v
-        } else {
-            false
-        }
-    }
-
     fn new(config: AppConfig) -> App {
         let (main_sender, main_receiver) =
             crossbeam_channel::bounded(CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE);

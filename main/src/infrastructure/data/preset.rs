@@ -4,8 +4,10 @@ use crate::application::{
 use crate::infrastructure::data::{GroupModelData, MappingModelData};
 
 use crate::base::notification;
+use crate::infrastructure::plugin::App;
 use reaper_high::Reaper;
 use rxrust::prelude::*;
+use semver::Version;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -62,7 +64,13 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 Some(path)
             });
         self.presets = preset_file_paths
-            .filter_map(|p| Self::load_preset(p).ok())
+            .filter_map(|p| match Self::load_preset(p) {
+                Ok(p) => Some(p),
+                Err(msg) => {
+                    notification::warn(msg);
+                    None
+                }
+            })
             .collect();
         self.presets
             .sort_unstable_by_key(|p| p.name().to_lowercase());
@@ -119,25 +127,38 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     }
 
     fn load_preset(path: impl AsRef<Path>) -> Result<P, String> {
+        let path = path.as_ref();
         let id = path
-            .as_ref()
             .file_stem()
-            .ok_or_else(|| "preset file must have stem because it makes up the ID".to_string())?
+            .ok_or_else(|| {
+                format!(
+                    "Preset file \"{}\" only has an extension but not a name. \
+                    The name is necessary because it makes up the preset ID.",
+                    path.display()
+                )
+            })?
             .to_string_lossy()
             .to_string();
-        let json =
-            fs::read_to_string(&path).map_err(|_| "couldn't read preset file".to_string())?;
+        let json = fs::read_to_string(&path)
+            .map_err(|_| format!("Couldn't read preset file \"{}\".", path.display()))?;
         let data: PD = serde_json::from_str(&json).map_err(|e| {
             format!(
-                "Preset file {:?} isn't valid. Details:\n\n{}",
-                path.as_ref(),
+                "Preset file {} isn't valid. Details:\n\n{}",
+                path.display(),
                 e
             )
         })?;
-        if data.was_saved_with_newer_version() {
-            notification::warn(
-                "The preset that is about to load was saved with a newer version of ReaLearn. Things might not work as expected. Even more importantly: Saving the preset might result in loss of the data that was saved with the new ReaLearn version! Please consider upgrading your ReaLearn installation to the latest version.".to_string(),
-            );
+        if let Some(v) = data.version() {
+            if App::version() < v {
+                let msg = format!(
+                    "Skipped loading of preset \"{}\" because it has been saved with \
+                         ReaLearn {}, which is newer than the installed version {}.",
+                    path.display(),
+                    v,
+                    App::version()
+                );
+                return Err(msg);
+            }
         }
         Ok(data.to_model(id))
     }
@@ -246,5 +267,5 @@ pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {
 
     fn clear_id(&mut self);
 
-    fn was_saved_with_newer_version(&self) -> bool;
+    fn version(&self) -> Option<&Version>;
 }
