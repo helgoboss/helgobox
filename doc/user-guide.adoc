@@ -3005,6 +3005,43 @@ potential of ReaLearn can't be used.
 
 * *Akai APC Key 25*
 
+=== Arturia KeyLab MkII
+
+Instructions and preset for this device have been contributed by Baldwin Dumortier.
+
+==== Preparation
+
+The device itself:
+
+* Change the relative mode to mode 1 (in the midi editor or with on-board preset editor). It corresponds to relative mode 2 of ReaLearn.
+* Change all the buttons and pads to gate (which is momentary).
+* Change the options "global > pad led" to "on trig" (otherwise it has conflicts with pad light feedback). I don't know how to do this with the software preset editor, but you can do this with the onboard/embedded preset editor in the global settings of the KeyLab.
+
+REAPER and ReaLearn:
+
+* KeyLab has 3 modes of operation : Analog Lab, DAW and User.
+** To make it work, you should use 2 ReaLearn instances:
+*** One for DAW mode:
+**** Control input : KeyLab Mk2
+**** Feedback output: MIDIOUT2 (KeyLab Mk2)
+**** Controller preset: Mackie Control
+*** One for User mode (with user preset set as above):
+**** Control input: MIDIIN (KeyLab Mk2)
+**** Feedback output: MIDIOUT2 (KeyLab Mk2)
+**** Controller preset: KeyLab Mk2
+
+The reason is that transport buttons only works with MCU and that you can't use both the Reaper native MCU  with MIDIOUT2 port and set the feedback in ReaLearn to MIDIOUT2 (KeyLab Mk2) port at the same time ... but you can with ReaLearn MCU.
+
+About the name of the preset:
+
+- DAW buttons are the 10 buttons above transport buttons.
+- Fader buttons are the buttons below the faders.
+- Bank A/B defines the bank when switching with part1/next; part2/previous and live/bank button in User mode.
+
+==== Presets
+
+* *Arturia KeyLab MkII*
+
 === Arturia MiniLab mkII
 
 This keyboard works, including its relative encoders and since ReaLearn v2.6.0 also feedback via
