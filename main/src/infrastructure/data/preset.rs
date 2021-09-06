@@ -152,7 +152,12 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             if App::version() < v {
                 let msg = format!(
                     "Skipped loading of preset \"{}\" because it has been saved with \
-                         ReaLearn {}, which is newer than the installed version {}.",
+                         ReaLearn {}, which is newer than the installed version {}. \
+                         Please update your ReaLearn version. If this is not an option for you and \
+                         it's a factory preset installed from ReaPack, go back to an older version \
+                         of that preset and pin it so that future ReaPack synchronization won't \
+                         automatically update that preset. Alternatively, make your own copy of \
+                         the preset and uninstall the factory preset.",
                     path.display(),
                     v,
                     App::version()
