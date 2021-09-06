@@ -1480,8 +1480,7 @@ you are not interested in the velocity sensitivity.
 [#target]
 ==== Target
 
-A target is a thing that is supposed to be controlled. The following settings and functions are
-shared among all targets:
+A target is a thing that is supposed to be controlled. The following settings and functions are shared among all targets:
 
 * *Learn:* Starts or stops learning the target of this mapping.
 * *Go there:* If applicable, pressing this button makes the target of this mapping visible in
@@ -1489,14 +1488,14 @@ shared among all targets:
  displayed.
 * *Type:*
 ** *Left dropdown:* Lets you choose the target category.
-*** *REAPER:* Targets that are about changing something in REAPER.
+*** *Real:* Targets that are about actually changing something "real", e.g. in REAPER or ReaLearn itself.
 *** *Virtual:* Targets that invoke virtual control elements. This source
  category is available for controller mappings only.
 ** *Right dropdown:* Lets you choose a target type within that category.
 
-===== Category "REAPER"
+===== Category "Real"
 
-All REAPER targets additionally have this:
+All real targets additionally have this:
 
 * *Value:* Reflects the current value of this mapping target and lets you change it.
 ** If the target can't be resolved at the moment, it will show "Target currently inactive!".

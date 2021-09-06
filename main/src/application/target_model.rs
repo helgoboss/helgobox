@@ -2087,7 +2087,7 @@ impl ReaperTargetType {
 #[repr(usize)]
 pub enum TargetCategory {
     #[serde(rename = "reaper")]
-    #[display(fmt = "REAPER")]
+    #[display(fmt = "Real")]
     Reaper,
     #[serde(rename = "virtual")]
     #[display(fmt = "Virtual")]
