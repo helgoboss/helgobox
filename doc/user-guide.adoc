@@ -3007,7 +3007,7 @@ potential of ReaLearn can't be used.
 
 === Arturia KeyLab MkII
 
-Instructions and preset for this device have been contributed by Baldwin Dumortier.
+Instructions and preset for this device have been contributed by dissofiddle.
 
 ==== Preparation
 

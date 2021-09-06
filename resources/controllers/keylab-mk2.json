@@ -1052,6 +1052,30 @@
       "feedbackIsEnabled": false
     },
     {
+      "id": "35c7bb56-2085-4b62-8258-ae706749b2aa",
+      "name": "daw button 1 feedback",
+      "source": {
+        "type": 10,
+        "channel": 0,
+        "number": 8,
+        "isRegistered": false,
+        "is14Bit": false,
+        "rawMidiPattern": "F0 00 20 6B 7F 42 02 00 10 60 [0gfe dcba] F7",
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 16,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      },
+      "controlIsEnabled": false
+    },
+    {
       "id": "90d46fc3-359e-4966-ab34-7b685e8a52e7",
       "name": "daw button 2",
       "source": {
@@ -1076,6 +1100,30 @@
         "oscArgIndex": 0
       },
       "feedbackIsEnabled": false
+    },
+    {
+      "id": "0cae730b-3ee6-4263-be6f-9b2193df4200",
+      "name": "daw button 2 feedback",
+      "source": {
+        "type": 10,
+        "channel": 0,
+        "number": 8,
+        "isRegistered": false,
+        "is14Bit": false,
+        "rawMidiPattern": "F0 00 20 6B 7F 42 02 00 10 61 [0gfe dcba] F7",
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 17,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      },
+      "controlIsEnabled": false
     },
     {
       "id": "3bf96812-2c29-4b33-a33f-1bbfe7cdd78f",
@@ -1104,6 +1152,30 @@
       "feedbackIsEnabled": false
     },
     {
+      "id": "690a3cd8-8c6d-4884-8dda-13750f0e4817",
+      "name": "daw button 3 feedback",
+      "source": {
+        "type": 10,
+        "channel": 0,
+        "number": 8,
+        "isRegistered": false,
+        "is14Bit": false,
+        "rawMidiPattern": "F0 00 20 6B 7F 42 02 00 10 62 [0gfe dcba] F7",
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 18,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      },
+      "controlIsEnabled": false
+    },
+    {
       "id": "3ba29dec-2456-419d-a374-3a7432bb3c29",
       "name": "daw button 4",
       "source": {
@@ -1128,6 +1200,30 @@
         "oscArgIndex": 0
       },
       "feedbackIsEnabled": false
+    },
+    {
+      "id": "f4b14b46-1396-4426-818b-906c41f3c4d9",
+      "name": "daw button 4 feedback",
+      "source": {
+        "type": 10,
+        "channel": 0,
+        "number": 8,
+        "isRegistered": false,
+        "is14Bit": false,
+        "rawMidiPattern": "F0 00 20 6B 7F 42 02 00 10 63 [0gfe dcba] F7",
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 19,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      },
+      "controlIsEnabled": false
     },
     {
       "id": "cf44ab0e-bac1-48dd-9e2a-bd1c019c80db",
@@ -1156,6 +1252,30 @@
       "feedbackIsEnabled": false
     },
     {
+      "id": "ef4d64a0-801c-440e-98c6-288120d5a125",
+      "name": "daw button 5 feedback",
+      "source": {
+        "type": 10,
+        "channel": 0,
+        "number": 8,
+        "isRegistered": false,
+        "is14Bit": false,
+        "rawMidiPattern": "F0 00 20 6B 7F 42 02 00 10 64 [0gfe dcba] F7",
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 20,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      },
+      "controlIsEnabled": false
+    },
+    {
       "id": "be72880c-9ed1-460b-b176-c9a0f8c7c5a0",
       "name": "daw button 6",
       "source": {
@@ -1180,6 +1300,30 @@
         "oscArgIndex": 0
       },
       "feedbackIsEnabled": false
+    },
+    {
+      "id": "b6f073ca-9308-42ee-a783-076a531cebc1",
+      "name": "daw button 6 feedback",
+      "source": {
+        "type": 10,
+        "channel": 0,
+        "number": 8,
+        "isRegistered": false,
+        "is14Bit": false,
+        "rawMidiPattern": "F0 00 20 6B 7F 42 02 00 10 65 [0gfe dcba] F7",
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 21,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      },
+      "controlIsEnabled": false
     },
     {
       "id": "898cf71c-76ad-405f-8e6c-7014590561e5",
@@ -1208,6 +1352,30 @@
       "feedbackIsEnabled": false
     },
     {
+      "id": "512ae2fe-0e75-410b-89cc-059c73b4b18c",
+      "name": "daw button 7 feedback",
+      "source": {
+        "type": 10,
+        "channel": 0,
+        "number": 8,
+        "isRegistered": false,
+        "is14Bit": false,
+        "rawMidiPattern": "F0 00 20 6B 7F 42 02 00 10 66 [0gfe dcba] F7",
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 22,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      },
+      "controlIsEnabled": false
+    },
+    {
       "id": "3641b1bd-9aad-4f9c-b677-6d50e36992b8",
       "name": "daw button 8",
       "source": {
@@ -1232,6 +1400,30 @@
         "oscArgIndex": 0
       },
       "feedbackIsEnabled": false
+    },
+    {
+      "id": "0758a17c-4cf4-4815-b39d-4110fcb34289",
+      "name": "daw button 8 feedback",
+      "source": {
+        "type": 10,
+        "channel": 0,
+        "number": 8,
+        "isRegistered": false,
+        "is14Bit": false,
+        "rawMidiPattern": "F0 00 20 6B 7F 42 02 00 10 67 [0gfe dcba] F7",
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 23,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      },
+      "controlIsEnabled": false
     },
     {
       "id": "c899119a-8fd0-4aee-b50f-b3e72cc7cbfc",
@@ -1260,6 +1452,30 @@
       "feedbackIsEnabled": false
     },
     {
+      "id": "266cc0f8-68aa-4a4a-8446-82db1cc589e1",
+      "name": "daw button 9 feedback",
+      "source": {
+        "type": 10,
+        "channel": 0,
+        "number": 8,
+        "isRegistered": false,
+        "is14Bit": false,
+        "rawMidiPattern": "F0 00 20 6B 7F 42 02 00 10 68 [0gfe dcba] F7",
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 24,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      },
+      "controlIsEnabled": false
+    },
+    {
       "id": "99bcd32b-51a8-41c1-ae85-a9dbe0dfb93f",
       "name": "daw button 10",
       "source": {
@@ -1284,6 +1500,30 @@
         "oscArgIndex": 0
       },
       "feedbackIsEnabled": false
+    },
+    {
+      "id": "9d39790d-65da-45a5-83a8-f07580f6e292",
+      "name": "daw button 10 feedback",
+      "source": {
+        "type": 10,
+        "channel": 0,
+        "number": 8,
+        "isRegistered": false,
+        "is14Bit": false,
+        "rawMidiPattern": "F0 00 20 6B 7F 42 02 00 10 69 [0gfe dcba] F7",
+        "oscArgIndex": 0
+      },
+      "mode": {},
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": 25,
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true
+      },
+      "controlIsEnabled": false
     },
     {
       "id": "e5ac2ed3-607c-474c-b62c-c87af4ce68f9",
