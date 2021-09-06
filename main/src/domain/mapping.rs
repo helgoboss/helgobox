@@ -18,7 +18,6 @@ use helgoboss_learn::{
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::base::notification;
 use indexmap::map::IndexMap;
 use indexmap::set::IndexSet;
 use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
@@ -672,17 +671,7 @@ impl MainMapping {
                     // controlling the LED on their own. The feedback sent by ReaLearn
                     // will fix this self-controlled LED state.
                 }
-                Some(HitTarget { value, stuck_state }) => {
-                    if let Some(s) = stuck_state {
-                        notification::warn(format!(
-                            "The target of mapping \"{}\" seems to got stuck \
-                            (desired value was {} but stayed unchanged at {}). \
-                            Please consider increasing the step size!",
-                            self.name,
-                            s.previously_desired_target_value.get(),
-                            s.previous_result_target_value.get()
-                        ));
-                    }
+                Some(HitTarget { value }) => {
                     at_least_one_target_was_reached = true;
                     if self.core.options.feedback_send_behavior
                         == FeedbackSendBehavior::PreventEchoFeedback
