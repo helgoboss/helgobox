@@ -6,7 +6,7 @@ use helgoboss_learn::{MidiSourceValue, FEEDBACK_EPSILON};
 use helgoboss_midi::test_util::*;
 use helgoboss_midi::ShortMessage;
 use reaper_high::{ActionKind, Fx, FxParameter, Reaper, Track};
-use reaper_medium::{Db, StuffMidiMessageTarget};
+use reaper_medium::{Db, ReaperPanValue, StuffMidiMessageTarget};
 use std::ffi::CString;
 use std::future::Future;
 use tokio::time::Duration;
@@ -39,6 +39,16 @@ impl Test {
 
     pub async fn test(&mut self) {
         self.step("Basics", basics()).await;
+        self.step(
+            "Load mapping snapshot - All mappings",
+            load_mapping_snapshot_all_mappings(),
+        )
+        .await;
+        self.step(
+            "Load mapping snapshot - Some mappings",
+            load_mapping_snapshot_some_mappings(),
+        )
+        .await;
         self.step("Toggle mode", toggle_mode()).await;
         self.step(
             "Send feedback after control - Normal mode - Arm",
@@ -198,6 +208,139 @@ async fn basics() {
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 127)))],
         "feedback should be sent on target value change"
+    );
+}
+
+async fn load_mapping_snapshot_all_mappings() {
+    // Given
+    let realearn = setup().await;
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
+    load_realearn_preset(
+        &realearn,
+        include_str!("presets/load_mapping_snapshot_all_mappings.json"),
+    );
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            // Vol
+            Midi(Plain(note_on(0, 64, 91))),
+            // Pan
+            Midi(Plain(note_on(0, 63, 64))),
+            // Mute
+            Midi(Plain(note_on(0, 62, 0))),
+        ],
+        "feedback should be sent after loading preset"
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    send_midi(note_on(0, 63, 0)).await;
+    send_midi(note_on(0, 62, 127)).await;
+    // Then
+    assert_eq!(
+        realearn.track().volume().db(),
+        Db::MIN,
+        "volume should be MIN because muted"
+    );
+    assert_eq!(realearn.track().pan().reaper_value(), ReaperPanValue::LEFT);
+    assert!(realearn.track().is_muted());
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            // Vol
+            Midi(Plain(note_on(0, 64, 0))),
+            // Pan
+            Midi(Plain(note_on(0, 63, 0))),
+            // Mute
+            Midi(Plain(note_on(0, 62, 127))),
+        ],
+        "feedback should be sent on target value changes"
+    );
+    // When
+    send_midi(note_on(0, 65, 127)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(
+        realearn.track().pan().reaper_value(),
+        ReaperPanValue::CENTER
+    );
+    assert!(!realearn.track().is_muted());
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            // Vol
+            Midi(Plain(note_on(0, 64, 91))),
+            // Pan
+            Midi(Plain(note_on(0, 63, 64))),
+            // Mute
+            Midi(Plain(note_on(0, 62, 0))),
+        ],
+        "feedback should be sent when loading snapshot"
+    );
+}
+
+async fn load_mapping_snapshot_some_mappings() {
+    // Given
+    let realearn = setup().await;
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
+    load_realearn_preset(
+        &realearn,
+        include_str!("presets/load_mapping_snapshot_some_mappings.json"),
+    );
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            // Vol
+            Midi(Plain(note_on(0, 64, 91))),
+            // Pan
+            Midi(Plain(note_on(0, 63, 64))),
+            // Mute
+            Midi(Plain(note_on(0, 62, 0))),
+        ],
+        "feedback should be sent after loading preset"
+    );
+    // When
+    send_midi(note_on(0, 64, 0)).await;
+    send_midi(note_on(0, 63, 0)).await;
+    send_midi(note_on(0, 62, 127)).await;
+    // Then
+    assert_eq!(
+        realearn.track().volume().db(),
+        Db::MIN,
+        "volume should be MIN because muted"
+    );
+    assert_eq!(realearn.track().pan().reaper_value(), ReaperPanValue::LEFT);
+    assert!(realearn.track().is_muted());
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            // Vol
+            Midi(Plain(note_on(0, 64, 0))),
+            // Pan
+            Midi(Plain(note_on(0, 63, 0))),
+            // Mute
+            Midi(Plain(note_on(0, 62, 127))),
+        ],
+        "feedback should be sent on target value changes"
+    );
+    // When
+    send_midi(note_on(0, 65, 127)).await;
+    // Then
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    assert_eq!(realearn.track().pan().reaper_value(), ReaperPanValue::LEFT);
+    assert!(realearn.track().is_muted());
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![
+            // Vol
+            Midi(Plain(note_on(0, 64, 91))),
+        ],
+        "feedback should be sent when loading snapshot"
     );
 }
 

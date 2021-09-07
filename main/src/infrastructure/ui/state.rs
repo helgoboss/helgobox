@@ -5,11 +5,9 @@ use crate::application::{MappingModel, Session};
 use crate::infrastructure::ui::Item;
 use enum_map::{enum_map, EnumMap};
 use rxrust::prelude::*;
-use serde_yaml::Mapping;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
-use std::str::FromStr;
 use wildmatch::WildMatch;
 
 pub type SharedMainState = Rc<RefCell<MainState>>;

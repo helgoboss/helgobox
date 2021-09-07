@@ -1,7 +1,7 @@
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, transport_is_enabled_unit_value,
     ClipChangedEvent, ControlContext, HitInstructionReturnValue, InstanceFeedbackEvent,
-    RealearnTarget, SlotPlayOptions, TargetCharacter, TransportAction,
+    MappingControlContext, RealearnTarget, SlotPlayOptions, TargetCharacter, TransportAction,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -29,11 +29,11 @@ impl RealearnTarget for ClipTransportTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        context: ControlContext,
+        context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         use TransportAction::*;
         let on = !value.to_unit_value()?.is_zero();
-        let mut instance_state = context.instance_state.borrow_mut();
+        let mut instance_state = context.control_context.instance_state.borrow_mut();
         match self.action {
             PlayStop => {
                 if on {

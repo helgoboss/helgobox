@@ -1,6 +1,6 @@
 use crate::domain::{
-    current_value_of_seek, get_seek_info, AdditionalFeedbackEvent, ControlContext,
-    HitInstructionReturnValue, RealearnTarget, SeekOptions, TargetCharacter,
+    current_value_of_seek, get_seek_info, AdditionalFeedbackEvent, HitInstructionReturnValue,
+    MappingControlContext, RealearnTarget, SeekOptions, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use reaper_high::Project;
@@ -21,7 +21,7 @@ impl RealearnTarget for SeekTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_unit_value()?;
         let info = get_seek_info(self.project, self.options);

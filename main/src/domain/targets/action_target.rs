@@ -1,7 +1,7 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    ActionInvocationType, AdditionalFeedbackEvent, ControlContext, HitInstructionReturnValue,
-    RealearnTarget, TargetCharacter,
+    ActionInvocationType, AdditionalFeedbackEvent, HitInstructionReturnValue,
+    MappingControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use helgoboss_midi::U14;
@@ -50,7 +50,7 @@ impl RealearnTarget for ActionTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         match value {
             ControlValue::AbsoluteContinuous(v) => match self.invocation_type {

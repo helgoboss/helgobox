@@ -1,7 +1,7 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, ControlContext, FxDisplayType, HitInstructionReturnValue,
-    RealearnTarget, TargetCharacter,
+    MappingControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
@@ -25,7 +25,7 @@ impl RealearnTarget for FxOpenTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         use FxDisplayType::*;
         if value.to_unit_value()?.is_zero() {

@@ -1,7 +1,7 @@
 use crate::domain::ui_util::{fx_parameter_unit_value, parse_unit_value_from_percentage};
 use crate::domain::{
-    AdditionalFeedbackEvent, ControlContext, HitInstructionReturnValue, RealearnTarget,
-    TargetCharacter,
+    AdditionalFeedbackEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
+    RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Track};
@@ -87,7 +87,7 @@ impl RealearnTarget for FxParameterTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         // It's okay to just convert this to a REAPER-normalized value. We don't support
         // values above the maximum (or buggy plug-ins).

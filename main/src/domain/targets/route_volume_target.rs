@@ -1,7 +1,10 @@
 use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
-use crate::domain::{ControlContext, HitInstructionReturnValue, RealearnTarget, TargetCharacter};
+use crate::domain::{
+    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
+    TargetCharacter,
+};
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, TrackRoute, Volume};
 
@@ -42,7 +45,7 @@ impl RealearnTarget for RouteVolumeTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
         self.route

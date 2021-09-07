@@ -1,6 +1,6 @@
 use crate::domain::ui_util::{format_raw_midi_event, log_target_output};
 use crate::domain::{
-    ControlContext, FeedbackAudioHookTask, FeedbackOutput, HitInstructionReturnValue,
+    FeedbackAudioHookTask, FeedbackOutput, HitInstructionReturnValue, MappingControlContext,
     MidiDestination, RealTimeReaperTarget, RealearnTarget, SendMidiDestination, TargetCharacter,
 };
 use helgoboss_learn::{
@@ -105,7 +105,7 @@ impl RealearnTarget for MidiSendTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        context: ControlContext,
+        context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_absolute_value()?;
         // We arrive here only if controlled via OSC. Sending MIDI in response to incoming
@@ -114,15 +114,19 @@ impl RealearnTarget for MidiSendTarget {
         let result = match self.destination {
             SendMidiDestination::FxOutput => Err("OSC => MIDI FX output not supported"),
             SendMidiDestination::FeedbackOutput => {
-                let feedback_output = context.feedback_output.ok_or("no feedback output set")?;
+                let feedback_output = context
+                    .control_context
+                    .feedback_output
+                    .ok_or("no feedback output set")?;
                 if let FeedbackOutput::Midi(MidiDestination::Device(dev_id)) = feedback_output {
-                    if context.output_logging_enabled {
+                    if context.control_context.output_logging_enabled {
                         log_target_output(
-                            context.instance_id,
+                            context.control_context.instance_id,
                             format_raw_midi_event(&raw_midi_event),
                         );
                     }
                     let _ = context
+                        .control_context
                         .feedback_audio_hook_task_sender
                         .send(FeedbackAudioHookTask::SendMidi(
                             dev_id,

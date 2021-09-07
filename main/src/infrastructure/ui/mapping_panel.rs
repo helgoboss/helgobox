@@ -40,7 +40,8 @@ use crate::application::{
 use crate::base::Global;
 use crate::domain::{
     control_element_domains, ClipInfo, ControlContext, FeedbackOutput, FeedbackSendBehavior,
-    InstanceId, SendMidiDestination, SharedInstanceState, SlotContent, CLIP_SLOT_COUNT,
+    GroupId, InstanceId, MappingControlContext, MappingData, MappingScope, SendMidiDestination,
+    SharedInstanceState, SlotContent, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -54,7 +55,9 @@ use itertools::Itertools;
 
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::infrastructure::plugin::App;
-use crate::infrastructure::ui::util::{open_in_browser, symbols};
+use crate::infrastructure::ui::util::{
+    format_tags_as_csv, open_in_browser, parse_tags_from_csv, symbols,
+};
 use std::collections::HashMap;
 use std::time::Duration;
 use swell_ui::{
@@ -1871,6 +1874,13 @@ impl<'a> MutableMappingPanel<'a> {
                         }
                     }
                 }
+                t if t.supports_filtering_of_mappings() => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .mapping_scope
+                        .set(i.try_into().expect("invalid mapping scope"));
+                }
                 ReaperTargetType::Action => {
                     let i = combo.selected_combo_box_item_index();
                     self.mapping
@@ -2146,6 +2156,13 @@ impl<'a> MutableMappingPanel<'a> {
                     }
                     _ => {}
                 },
+                t if t.supports_filtering_of_mappings() => {
+                    let text = control.text().unwrap_or_default();
+                    self.mapping
+                        .target_model
+                        .tags
+                        .set_with_initiator(parse_tags_from_csv(&text), Some(edit_control_id));
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -2757,9 +2774,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                     BookmarkType::Marker => Some("Marker"),
                     BookmarkType::Region => Some("Region"),
                 },
-                t if t.supports_feedback_resolution() => Some("Feedback"),
                 ReaperTargetType::SendMidi => Some("Output"),
                 ReaperTargetType::SendOsc => Some("Output"),
+                t if t.supports_feedback_resolution() => Some("Feedback"),
+                t if t.supports_filtering_of_mappings() => Some("Snapshot"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
             },
@@ -2822,6 +2840,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                             self.mapping.target_model.feedback_resolution.get().into(),
                         )
                         .unwrap();
+                }
+                t if t.supports_filtering_of_mappings() => {
+                    combo.show();
+                    combo.select_new_combo_box_item("Initial");
                 }
                 _ => {
                     combo.hide();
@@ -3133,6 +3155,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                     control.set_text(text);
                     control.show();
                 }
+                t if t.supports_filtering_of_mappings() => {
+                    let text = format_tags_as_csv(self.target.tags.get_ref());
+                    control.set_text(text);
+                    control.show();
+                }
                 _ => {
                     control.hide();
                 }
@@ -3203,6 +3230,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t if t.supports_slot() => Some("Slot"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
+                t if t.supports_filtering_of_mappings() => Some("Scope"),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -3221,6 +3249,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::ClipTransport => Some("Action"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
+                t if t.supports_filtering_of_mappings() => Some("Tags"),
                 t if t.supports_send() => match self.target.route_type.get() {
                     TrackRouteType::Send => Some("Send"),
                     TrackRouteType::Receive => Some("Receive"),
@@ -3421,6 +3450,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                     } else {
                         combo.hide();
                     }
+                }
+                t if t.supports_filtering_of_mappings() => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(MappingScope::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.mapping_scope.get().into())
+                        .unwrap();
                 }
                 ReaperTargetType::Action => {
                     combo.show();
@@ -4954,6 +4990,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mode_controls();
             },
         );
+        self.panel.when(target.mapping_scope.changed(), |view, _| {
+            view.invalidate_target_line_3_combo_box_2();
+        });
+        self.panel
+            .when(target.tags.changed_with_initiator(), |view, initiator| {
+                view.invalidate_target_line_4_edit_control(initiator);
+            });
     }
 
     fn register_mode_listeners(&self) {
@@ -5386,6 +5429,7 @@ impl View for MappingPanel {
                     instance_state,
                     instance_id,
                     output_logging_enabled,
+                    group_id,
                 )) = self.read(|p| {
                     (
                         p.resolved_targets(),
@@ -5393,6 +5437,7 @@ impl View for MappingPanel {
                         p.session.instance_state().clone(),
                         *p.session.instance_id(),
                         p.session.output_logging_enabled.get(),
+                        p.mapping.group_id.get(),
                     )
                 }) {
                     update_target_value(
@@ -5402,6 +5447,7 @@ impl View for MappingPanel {
                         &instance_state,
                         &instance_id,
                         output_logging_enabled,
+                        group_id,
                     );
                 }
             }
@@ -5469,6 +5515,7 @@ impl View for MappingPanel {
                     instance_state,
                     instance_id,
                     output_logging_enabled,
+                    group_id,
                 ) = view.write(|p| {
                     let value = p
                         .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
@@ -5480,6 +5527,7 @@ impl View for MappingPanel {
                         p.session.instance_state().clone(),
                         *p.session.instance_id(),
                         p.session.output_logging_enabled.get(),
+                        p.mapping.group_id.get(),
                     )
                 });
                 update_target_value(
@@ -5489,6 +5537,7 @@ impl View for MappingPanel {
                     &instance_state,
                     &instance_id,
                     output_logging_enabled,
+                    group_id,
                 );
             }
             _ => return false,
@@ -5588,18 +5637,21 @@ fn update_target_value(
     instance_state: &SharedInstanceState,
     instance_id: &InstanceId,
     output_logging_enabled: bool,
+    group_id: GroupId,
 ) {
     for target in targets {
         // If it doesn't work in some cases, so what.
-        let res = target.hit(
-            ControlValue::AbsoluteContinuous(value),
-            create_control_context(
-                feedback_output,
-                instance_state,
-                instance_id,
-                output_logging_enabled,
-            ),
+        let control_context = create_control_context(
+            feedback_output,
+            instance_state,
+            instance_id,
+            output_logging_enabled,
         );
+        let ctx = MappingControlContext {
+            control_context,
+            mapping_data: MappingData { group_id },
+        };
+        let res = target.hit(ControlValue::AbsoluteContinuous(value), ctx);
         if let Err(msg) = res {
             slog::debug!(App::logger(), "Control failed: {}", msg);
         }

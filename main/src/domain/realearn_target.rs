@@ -1,6 +1,6 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{
-    AdditionalFeedbackEvent, FeedbackAudioHookTask, FeedbackOutput, InstanceFeedbackEvent,
+    AdditionalFeedbackEvent, FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceFeedbackEvent,
     InstanceId, MainMapping, OrderedMappingMap, OscFeedbackTask, RealTimeReaperTarget,
     RealTimeSender, SharedInstanceState, TargetCharacter, TrackExclusivity,
 };
@@ -117,7 +117,7 @@ pub trait RealearnTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        context: ControlContext,
+        context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let (_, _) = (value, context);
         Err("not supported")
@@ -205,6 +205,17 @@ pub struct ControlContext<'a> {
     pub instance_state: &'a SharedInstanceState,
     pub instance_id: &'a InstanceId,
     pub output_logging_enabled: bool,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct MappingControlContext<'a> {
+    pub control_context: ControlContext<'a>,
+    pub mapping_data: MappingData,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct MappingData {
+    pub group_id: GroupId,
 }
 
 pub type HitInstructionReturnValue = Option<Box<dyn HitInstruction>>;

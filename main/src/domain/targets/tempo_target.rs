@@ -1,7 +1,7 @@
 use crate::domain::{
     bpm_span, format_step_size_as_bpm_without_unit, format_value_as_bpm_without_unit,
     parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value, ControlContext,
-    HitInstructionReturnValue, RealearnTarget, TargetCharacter,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project};
@@ -57,7 +57,7 @@ impl RealearnTarget for TempoTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let tempo = reaper_high::Tempo::from_normalized_value(value.to_unit_value()?.get());
         self.project.set_tempo(tempo, UndoBehavior::OmitUndoPoint);

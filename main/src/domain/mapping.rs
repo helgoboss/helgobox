@@ -1,11 +1,11 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, AdditionalFeedbackEvent, ControlContext, ControlOptions,
     ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
-    InstanceFeedbackEvent, MappingActivationEffect, MidiSource, Mode, ParameterArray,
-    ParameterSlice, RealSource, RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource,
-    ReaperTarget, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
-    VirtualControlElement, VirtualSource, VirtualSourceValue, VirtualTarget,
-    COMPARTMENT_PARAMETER_COUNT,
+    InstanceFeedbackEvent, MappingActivationEffect, MappingControlContext, MappingData, MidiSource,
+    Mode, ParameterArray, ParameterSlice, RealSource, RealTimeReaperTarget, RealearnTarget,
+    ReaperMessage, ReaperSource, ReaperTarget, Tag, TargetCharacter, TrackExclusivity,
+    UnresolvedReaperTarget, VirtualControlElement, VirtualSource, VirtualSourceValue,
+    VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -191,6 +191,10 @@ impl MainMapping {
         }
     }
 
+    pub fn has_any_tag(&self, tags: &[Tag]) -> bool {
+        self.tags.iter().any(|t| tags.contains(t))
+    }
+
     pub fn qualified_source(&self) -> QualifiedSource {
         QualifiedSource {
             compartment: self.core.compartment,
@@ -346,7 +350,13 @@ impl MainMapping {
                 // which won't participate in snapshotting anyway because it doesn't report a
                 // current value. As soon as we have targets that use hit instructions AND take
                 // part in snapshotting, we should implement this. My guess: Never.
-                let _ = t.hit(ControlValue::from_absolute(inital_value), control_context);
+                let ctx = MappingControlContext {
+                    control_context,
+                    mapping_data: MappingData {
+                        group_id: self.core.group_id,
+                    },
+                };
+                let _ = t.hit(ControlValue::from_absolute(inital_value), ctx);
             }
         }
     }
@@ -459,6 +469,10 @@ impl MainMapping {
         self.is_effectively_active() && self.core.options.control_is_enabled
     }
 
+    pub fn control_is_enabled(&self) -> bool {
+        self.core.options.control_is_enabled
+    }
+
     pub fn feedback_is_enabled(&self) -> bool {
         self.core.options.feedback_is_enabled
     }
@@ -512,7 +526,13 @@ impl MainMapping {
                 Some(HitTarget { value, .. }) => {
                     at_least_one_target_was_reached = true;
                     // Be graceful here. Don't debug-log errors for now because this is polled.
-                    if let Ok(hi) = target.hit(value, context) {
+                    let ctx = MappingControlContext {
+                        control_context: context,
+                        mapping_data: MappingData {
+                            group_id: self.core.group_id,
+                        },
+                    };
+                    if let Ok(hi) = target.hit(value, ctx) {
                         // For now the first hit instruction wins (at the moment we don't have
                         // multi-targets in which multiple targets send hit instructions anyway).
                         if hit_instruction.is_none() {
@@ -683,7 +703,13 @@ impl MainMapping {
                         self.core.time_of_last_control = Some(Instant::now());
                     }
                     // Be graceful here.
-                    match target.hit(value, context) {
+                    let ctx = MappingControlContext {
+                        control_context: context,
+                        mapping_data: MappingData {
+                            group_id: self.core.group_id,
+                        },
+                    };
+                    match target.hit(value, ctx) {
                         // For now the first hit instruction wins (at the moment we don't have
                         // multi-targets in which multiple targets send hit instructions anyway).
                         Ok(hi) => {
@@ -1463,7 +1489,7 @@ impl RealearnTarget for CompoundMappingTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        context: ControlContext,
+        context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         use CompoundMappingTarget::*;
         match self {

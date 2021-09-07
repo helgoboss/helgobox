@@ -1,6 +1,7 @@
 use crate::domain::{
     AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, ControlContext, FeedbackResolution,
-    HitInstructionReturnValue, InstanceFeedbackEvent, RealearnTarget, TargetCharacter,
+    HitInstructionReturnValue, InstanceFeedbackEvent, MappingControlContext, RealearnTarget,
+    TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 
@@ -18,10 +19,10 @@ impl RealearnTarget for ClipSeekTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        context: ControlContext,
+        context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_unit_value()?;
-        let mut instance_state = context.instance_state.borrow_mut();
+        let mut instance_state = context.control_context.instance_state.borrow_mut();
         instance_state.seek_slot(self.slot_index, value)?;
         Ok(None)
     }

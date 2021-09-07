@@ -98,3 +98,6 @@ pub use small_ascii_string::*;
 
 mod tag;
 pub use tag::*;
+
+mod organization;
+pub use organization::*;

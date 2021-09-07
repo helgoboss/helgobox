@@ -2,7 +2,8 @@ use crate::domain::{
     format_step_size_as_playback_speed_factor_without_unit,
     format_value_as_playback_speed_factor_without_unit, parse_step_size_from_playback_speed_factor,
     parse_value_from_playback_speed_factor, playback_speed_factor_span, playrate_unit_value,
-    ControlContext, HitInstructionReturnValue, RealearnTarget, TargetCharacter,
+    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
+    TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, PlayRate, Project};
@@ -58,7 +59,7 @@ impl RealearnTarget for PlayrateTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let play_rate =
             PlayRate::from_normalized_value(NormalizedPlayRate::new(value.to_unit_value()?.get()));

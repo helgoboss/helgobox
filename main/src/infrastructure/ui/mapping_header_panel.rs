@@ -1,5 +1,5 @@
 use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::util::symbols;
+use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv, symbols};
 
 use enum_iterator::IntoEnumIterator;
 use std::cell::{Cell, RefCell};
@@ -12,9 +12,7 @@ use crate::application::{
     SharedSession, WeakSession,
 };
 use crate::domain::{MappingCompartment, Tag, COMPARTMENT_PARAMETER_COUNT};
-use itertools::Itertools;
 use std::fmt::Debug;
-use std::str::FromStr;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
 type SharedItem = Rc<RefCell<dyn Item>>;
@@ -149,8 +147,7 @@ impl MappingHeaderPanel {
         let c = self
             .view
             .require_control(root::ID_MAPPING_TAGS_EDIT_CONTROL);
-        let csv: String = item.tags().iter().join(", ");
-        c.set_text(csv);
+        c.set_text(format_tags_as_csv(item.tags()));
     }
 
     fn invalidate_control_enabled_check_box(&self, item: &dyn Item) {
@@ -385,11 +382,10 @@ impl MappingHeaderPanel {
             .require_control(root::ID_MAPPING_TAGS_EDIT_CONTROL)
             .text()
             .unwrap_or_else(|_| "".to_string());
-        let tags: Vec<_> = value
-            .split(',')
-            .filter_map(|item| Tag::from_str(item).ok())
-            .collect();
-        item.set_tags(tags, root::ID_MAPPING_TAGS_EDIT_CONTROL);
+        item.set_tags(
+            parse_tags_from_csv(&value),
+            root::ID_MAPPING_TAGS_EDIT_CONTROL,
+        );
     }
 
     fn update_activation_eel_condition(&self, item: &mut dyn Item) {

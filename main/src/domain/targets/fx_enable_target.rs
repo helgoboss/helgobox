@@ -1,6 +1,6 @@
 use crate::domain::{
     format_value_as_on_off, fx_enable_unit_value, ControlContext, HitInstructionReturnValue,
-    RealearnTarget, TargetCharacter,
+    MappingControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
@@ -22,7 +22,7 @@ impl RealearnTarget for FxEnableTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         if value.to_unit_value()?.is_zero() {
             self.fx.disable();

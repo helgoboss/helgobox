@@ -1,5 +1,5 @@
 use crate::domain::{
-    format_value_as_on_off, mute_unit_value, ControlContext, HitInstructionReturnValue,
+    format_value_as_on_off, mute_unit_value, HitInstructionReturnValue, MappingControlContext,
     RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -23,7 +23,7 @@ impl RealearnTarget for RouteMuteTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         if value.to_unit_value()?.is_zero() {
             self.route.unmute();

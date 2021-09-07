@@ -1,6 +1,6 @@
 use crate::domain::{
     format_value_as_on_off, global_automation_mode_override_unit_value, ControlContext,
-    HitInstructionReturnValue, RealearnTarget, TargetCharacter,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Reaper};
@@ -27,7 +27,7 @@ impl RealearnTarget for AutomationModeOverrideTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         if value.to_unit_value()?.is_zero() {
             Reaper::get().set_global_automation_override(None);

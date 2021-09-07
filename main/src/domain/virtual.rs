@@ -156,7 +156,7 @@ fn create_control_element_name_lossy(text: &str) -> Result<SmallAsciiString, &'s
     let ascii_string: AsciiString = text
         .chars()
         .filter_map(|c| c.to_ascii_char().ok())
-        .filter(|c| c.is_ascii_alphanumeric() || c.is_ascii_punctuation())
+        .filter(|ch| ch.is_ascii_alphanumeric() || ch.is_ascii_punctuation())
         .collect();
     if ascii_string.is_empty() {
         return Err("empty virtual control element name");

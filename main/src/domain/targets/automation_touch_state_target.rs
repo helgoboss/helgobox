@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
     handle_track_exclusivity, touched_unit_value, AdditionalFeedbackEvent, BackboneState,
-    ControlContext, HitInstructionReturnValue, RealearnTarget, TargetCharacter,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
     TouchedParameterType, TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -26,7 +26,7 @@ impl RealearnTarget for AutomationTouchStateTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let mut ctx = BackboneState::target_context().borrow_mut();
         if value.to_unit_value()?.is_zero() {

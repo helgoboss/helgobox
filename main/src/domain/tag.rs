@@ -21,9 +21,9 @@ impl FromStr for Tag {
             // Remove all non-ASCII schars
             .filter_map(|c| c.to_ascii_char().ok())
             // Allow only letters, digits and underscore
-            .filter(|c| c.is_ascii_alphanumeric() || *c == AsciiChar::UnderScore)
+            .filter(|ch| ch.is_ascii_alphanumeric() || *ch == AsciiChar::UnderScore)
             // Skip leading digits
-            .skip_while(|c| c.is_ascii_digit())
+            .skip_while(|ch| ch.is_ascii_digit())
             .collect();
         if ascii_string.is_empty() {
             return Err("empty tag");

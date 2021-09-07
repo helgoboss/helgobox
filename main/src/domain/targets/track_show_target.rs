@@ -1,7 +1,7 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
-    handle_track_exclusivity, ControlContext, HitInstructionReturnValue, RealearnTarget,
+    handle_track_exclusivity, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
     TargetCharacter, TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -28,7 +28,7 @@ impl RealearnTarget for TrackShowTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         if value.to_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| {

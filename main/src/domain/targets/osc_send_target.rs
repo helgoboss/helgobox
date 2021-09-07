@@ -1,6 +1,6 @@
 use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
-    ControlContext, FeedbackOutput, HitInstructionReturnValue, OscDeviceId, OscFeedbackTask,
+    FeedbackOutput, HitInstructionReturnValue, MappingControlContext, OscDeviceId, OscFeedbackTask,
     RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{
@@ -77,7 +77,7 @@ impl RealearnTarget for OscSendTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        context: ControlContext,
+        context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_unit_value()?;
         let msg = OscMessage {
@@ -92,22 +92,23 @@ impl RealearnTarget for OscSendTarget {
         let effective_dev_id = self
             .device_id
             .or_else(|| {
-                if let FeedbackOutput::Osc(dev_id) = context.feedback_output? {
+                if let FeedbackOutput::Osc(dev_id) = context.control_context.feedback_output? {
                     Some(dev_id)
                 } else {
                     None
                 }
             })
             .ok_or("no destination device for sending OSC")?;
-        if context.output_logging_enabled {
+        if context.control_context.output_logging_enabled {
             let text = format!(
                 "Device {} | {}",
                 effective_dev_id.fmt_short(),
                 format_osc_message(&msg)
             );
-            log_target_output(context.instance_id, text);
+            log_target_output(context.control_context.instance_id, text);
         }
         context
+            .control_context
             .osc_feedback_task_sender
             .try_send(OscFeedbackTask::new(effective_dev_id, msg))
             .unwrap();

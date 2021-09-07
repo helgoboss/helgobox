@@ -12,8 +12,8 @@ use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_
 use crate::base::notification;
 use crate::domain::{
     get_fx_chain, ActionInvocationType, ExtendedProcessorContext, FxDisplayType,
-    MappingCompartment, OscDeviceId, SeekOptions, SendMidiDestination, SoloBehavior,
-    TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
+    MappingCompartment, MappingScope, OscDeviceId, SeekOptions, SendMidiDestination, SoloBehavior,
+    Tag, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
 };
 use crate::infrastructure::data::VirtualControlElementIdData;
 use crate::infrastructure::plugin::App;
@@ -121,6 +121,10 @@ pub struct TargetModelData {
     pub buffered: bool,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     pub poll_for_feedback: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub mapping_scope: MappingScope,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub tags: Vec<Tag>,
 }
 
 impl TargetModelData {
@@ -181,6 +185,8 @@ impl TargetModelData {
             next_bar: model.next_bar.get(),
             buffered: model.buffered.get(),
             poll_for_feedback: model.poll_for_feedback.get(),
+            mapping_scope: model.mapping_scope.get(),
+            tags: model.tags.get_ref().clone(),
         }
     }
 
@@ -401,6 +407,12 @@ impl TargetModelData {
         model
             .poll_for_feedback
             .set_with_optional_notification(self.poll_for_feedback, with_notification);
+        model
+            .mapping_scope
+            .set_with_optional_notification(self.mapping_scope, with_notification);
+        model
+            .tags
+            .set_with_optional_notification(self.tags.clone(), with_notification);
     }
 }
 

@@ -16,9 +16,9 @@ use crate::domain::{
     find_bookmark, get_fx_param, get_fxs, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_route, ActionInvocationType,
     CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext, FeedbackResolution,
-    FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment, OscDeviceId,
-    ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination,
-    SlotPlayOptions, SoloBehavior, TouchedParameterType, TrackDescriptor, TrackExclusivity,
+    FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment, MappingScope,
+    OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination,
+    SlotPlayOptions, SoloBehavior, Tag, TouchedParameterType, TrackDescriptor, TrackExclusivity,
     TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement,
     VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
@@ -127,6 +127,9 @@ pub struct TargetModel {
     pub buffered: Prop<bool>,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     pub poll_for_feedback: Prop<bool>,
+    // # For some ReaLearn targets
+    pub mapping_scope: Prop<MappingScope>,
+    pub tags: Prop<Vec<Tag>>,
 }
 
 impl Default for TargetModel {
@@ -193,6 +196,8 @@ impl Default for TargetModel {
             next_bar: prop(false),
             buffered: prop(false),
             poll_for_feedback: prop(true),
+            mapping_scope: prop(Default::default()),
+            tags: prop(Default::default()),
         }
     }
 }
@@ -731,6 +736,8 @@ impl TargetModel {
             .merge(self.next_bar.changed())
             .merge(self.buffered.changed())
             .merge(self.poll_for_feedback.changed())
+            .merge(self.mapping_scope.changed())
+            .merge(self.tags.changed())
     }
 
     pub fn virtual_track(&self) -> Option<VirtualTrack> {
@@ -1082,7 +1089,10 @@ impl TargetModel {
                     ClipVolume => UnresolvedReaperTarget::ClipVolume {
                         slot_index: self.slot_index.get(),
                     },
-                    LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot,
+                    LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot {
+                        scope: self.mapping_scope.get(),
+                        tags: self.tags.get_ref().clone(),
+                    },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }
@@ -1911,6 +1921,48 @@ impl ReaperTargetType {
             | ClipVolume
             | FxNavigate
             | LoadMappingSnapshot => false,
+        }
+    }
+
+    pub fn supports_filtering_of_mappings(self) -> bool {
+        use ReaperTargetType::*;
+        match self {
+            FxParameter
+            | FxOpen
+            | FxEnable
+            | FxPreset
+            | LoadFxSnapshot
+            | TrackSendVolume
+            | TrackSendPan
+            | TrackSendMute
+            | TrackVolume
+            | TrackPeak
+            | TrackPan
+            | TrackWidth
+            | TrackArm
+            | TrackSelection
+            | TrackMute
+            | TrackSolo
+            | Action
+            | Tempo
+            | Playrate
+            | SelectedTrack
+            | AllTrackFxEnable
+            | Transport
+            | LastTouched
+            | AutomationTouchState
+            | GoToBookmark
+            | Seek
+            | TrackShow
+            | TrackAutomationMode
+            | AutomationModeOverride
+            | SendMidi
+            | SendOsc
+            | ClipTransport
+            | ClipSeek
+            | ClipVolume
+            | FxNavigate => false,
+            LoadMappingSnapshot => true,
         }
     }
 

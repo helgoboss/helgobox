@@ -24,11 +24,12 @@ use crate::domain::{
     AutomationModeOverrideTarget, AutomationTouchStateTarget, ClipPlayState, ClipSeekTarget,
     ClipTransportTarget, ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget,
     FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry,
-    HierarchyEntryProvider, InstanceFeedbackEvent, LoadFxSnapshotTarget, MidiSendTarget,
-    OscSendTarget, PlayrateTarget, RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekTarget,
-    SelectedTrackTarget, TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMuteTarget,
-    TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget,
-    TrackVolumeTarget, TrackWidthTarget, TransportTarget,
+    HierarchyEntryProvider, InstanceFeedbackEvent, LoadFxSnapshotTarget, MappingControlContext,
+    MidiSendTarget, OscSendTarget, PlayrateTarget, RouteMuteTarget, RoutePanTarget,
+    RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget, TrackArmTarget,
+    TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
+    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportTarget,
 };
 use enum_dispatch::enum_dispatch;
 use std::convert::TryInto;

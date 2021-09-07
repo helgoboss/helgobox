@@ -1,4 +1,8 @@
+use crate::domain::Tag;
+use itertools::Itertools;
 use reaper_high::Reaper;
+use std::fmt::Display;
+use std::str::FromStr;
 use swell_ui::{DialogUnits, Dimensions, Window};
 
 /// The optimal size of the main panel in dialog units.
@@ -186,4 +190,18 @@ pub fn open_in_text_editor(
             .alert("ReaLearn", format!("Couldn't obtain text:\n\n{}", msg));
         "couldn't obtain text"
     })
+}
+
+pub fn parse_tags_from_csv(text: &str) -> Vec<Tag> {
+    text.split(',')
+        .filter_map(|item| Tag::from_str(item).ok())
+        .collect()
+}
+
+pub fn format_tags_as_csv(tags: &[Tag]) -> String {
+    format_as_csv(tags)
+}
+
+fn format_as_csv(iter: impl IntoIterator<Item = impl Display>) -> String {
+    iter.into_iter().join(", ")
 }

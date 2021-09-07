@@ -1,6 +1,6 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    AdditionalFeedbackEvent, BackboneState, ControlContext, HitInstructionReturnValue,
+    AdditionalFeedbackEvent, BackboneState, HitInstructionReturnValue, MappingControlContext,
     RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -29,7 +29,7 @@ impl RealearnTarget for LoadFxSnapshotTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        _: ControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         if !value.to_unit_value()?.is_zero() {
             BackboneState::target_context()
