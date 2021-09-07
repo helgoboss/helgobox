@@ -168,7 +168,7 @@ impl SearchExpression {
 
     pub fn matches_any_tag(&self, tags: &[Tag]) -> bool {
         if let Some(tag) = &self.tag {
-            tags.into_iter().any(|t| t == tag)
+            tags.iter().any(|t| t == tag)
         } else {
             false
         }

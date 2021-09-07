@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
     Display,
 )]
 #[repr(usize)]
+#[allow(clippy::enum_variant_names)]
 pub enum MappingScope {
     #[serde(rename = "instance")]
     #[display(fmt = "All mappings in instance")]
