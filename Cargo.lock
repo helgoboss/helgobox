@@ -2780,7 +2780,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.10.0"
+version = "2.11.0"
 dependencies = [
  "approx",
  "ascii",
@@ -2844,6 +2844,7 @@ dependencies = [
  "serde_json",
  "serde_prometheus",
  "serde_repr",
+ "serde_with",
  "serde_yaml",
  "slog",
  "slog-stdlog",

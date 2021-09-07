@@ -1,12 +1,15 @@
 use crate::base::{prop, Prop};
-use crate::domain::{CompoundMappingSource, GroupId, MappingCompartment, ReaperTarget};
+use crate::domain::{CompoundMappingSource, GroupId, MappingCompartment, ReaperTarget, Tag};
 
-use crate::application::MappingModel;
+use crate::application::{MappingModel, Session};
+use crate::infrastructure::ui::Item;
 use enum_map::{enum_map, EnumMap};
 use rxrust::prelude::*;
+use serde_yaml::Mapping;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
+use std::str::FromStr;
 use wildmatch::WildMatch;
 
 pub type SharedMainState = Rc<RefCell<MainState>>;
@@ -125,7 +128,10 @@ impl MainState {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct SearchExpression(WildMatch);
+pub struct SearchExpression {
+    wild_match: WildMatch,
+    tag: Option<Tag>,
+}
 
 impl SearchExpression {
     pub fn new(text: &str) -> SearchExpression {
@@ -135,11 +141,39 @@ impl SearchExpression {
             let modified_text = format!("*{}*", text.to_lowercase());
             WildMatch::new(&modified_text)
         };
-        Self(wild_match)
+        fn extract_tag(text: &str) -> Option<Tag> {
+            let tag_name = text.strip_prefix('#')?;
+            tag_name.parse().ok()
+        }
+        Self {
+            wild_match,
+            tag: extract_tag(text),
+        }
     }
 
     pub fn matches(&self, text: &str) -> bool {
-        self.0.matches(&text.to_lowercase())
+        self.wild_match.matches(&text.to_lowercase())
+    }
+
+    pub fn matches_any_tag_in_group(&self, mapping: &MappingModel, session: &Session) -> bool {
+        if self.tag.is_none() {
+            return false;
+        }
+        if let Some(group) = session
+            .find_group_by_id_including_default_group(mapping.compartment(), mapping.group_id.get())
+        {
+            self.matches_any_tag(group.borrow().tags())
+        } else {
+            false
+        }
+    }
+
+    pub fn matches_any_tag(&self, tags: &[Tag]) -> bool {
+        if let Some(tag) = &self.tag {
+            tags.into_iter().any(|t| t == tag)
+        } else {
+            false
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -149,7 +183,7 @@ impl SearchExpression {
 
 impl fmt::Display for SearchExpression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = self.0.to_string();
+        let s = self.wild_match.to_string();
         let s = s.strip_prefix('*').unwrap_or(&s);
         let s = s.strip_suffix('*').unwrap_or(s);
         f.write_str(s)

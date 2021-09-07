@@ -4,7 +4,7 @@ use std::rc::{Rc, Weak};
 use crate::base::when;
 use crate::infrastructure::ui::{
     bindings::root, get_object_from_clipboard, paste_mappings, util, ClipboardObject,
-    IndependentPanelManager, MainState, MappingRowPanel, SharedIndependentPanelManager,
+    IndependentPanelManager, Item, MainState, MappingRowPanel, SharedIndependentPanelManager,
     SharedMainState,
 };
 use reaper_high::Reaper;
@@ -374,7 +374,11 @@ impl MappingRowsPanel {
             }
         }
         let search_expression = main_state.search_expression.get_ref();
-        if !search_expression.is_empty() && !search_expression.matches(&mapping.effective_name()) {
+        if !search_expression.is_empty()
+            && !search_expression.matches(&mapping.effective_name())
+            && !search_expression.matches_any_tag(mapping.tags.get_ref())
+            && !search_expression.matches_any_tag_in_group(&mapping, session)
+        {
             return false;
         }
         true

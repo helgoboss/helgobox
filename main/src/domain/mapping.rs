@@ -3,8 +3,9 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
     InstanceFeedbackEvent, MappingActivationEffect, MidiSource, Mode, ParameterArray,
     ParameterSlice, RealSource, RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource,
-    ReaperTarget, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
-    VirtualSource, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    ReaperTarget, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
+    VirtualControlElement, VirtualSource, VirtualSourceValue, VirtualTarget,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -126,6 +127,7 @@ impl MappingExtension {
 pub struct MainMapping {
     core: MappingCore,
     name: String,
+    tags: Vec<Tag>,
     /// Is `Some` if the user-provided target data is complete.
     unresolved_target: Option<UnresolvedCompoundMappingTarget>,
     /// Is non-empty if the target resolved successfully.
@@ -156,6 +158,7 @@ impl MainMapping {
         id: MappingId,
         group_id: GroupId,
         name: String,
+        tags: Vec<Tag>,
         source: CompoundMappingSource,
         mode: Mode,
         group_interaction: GroupInteraction,
@@ -177,6 +180,7 @@ impl MainMapping {
                 time_of_last_control: None,
             },
             name,
+            tags,
             unresolved_target,
             targets: vec![],
             activation_condition_1,

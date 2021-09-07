@@ -1,6 +1,6 @@
 use crate::application::GroupModel;
 use crate::base::default_util::is_default;
-use crate::domain::{GroupId, MappingCompartment};
+use crate::domain::{GroupId, MappingCompartment, Tag};
 use crate::infrastructure::data::{ActivationConditionData, EnabledData};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
@@ -14,6 +14,8 @@ pub struct GroupModelData {
     // Because default group name is empty, it won't be serialized.
     #[serde(default, skip_serializing_if = "is_default")]
     name: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub tags: Vec<Tag>,
     #[serde(flatten)]
     enabled_data: EnabledData,
     #[serde(flatten)]
@@ -25,6 +27,7 @@ impl GroupModelData {
         GroupModelData {
             id: model.id(),
             name: model.name.get_ref().clone(),
+            tags: model.tags.get_ref().clone(),
             enabled_data: EnabledData {
                 control_is_enabled: model.control_is_enabled.get(),
                 feedback_is_enabled: model.feedback_is_enabled.get(),
@@ -43,6 +46,7 @@ impl GroupModelData {
 
     fn apply_to_model(&self, model: &mut GroupModel) {
         model.name.set_without_notification(self.name.clone());
+        model.tags.set_without_notification(self.tags.clone());
         model
             .control_is_enabled
             .set_without_notification(self.enabled_data.control_is_enabled);

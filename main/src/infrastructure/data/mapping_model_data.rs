@@ -1,7 +1,7 @@
 use crate::application::MappingModel;
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    ExtendedProcessorContext, FeedbackSendBehavior, GroupId, MappingCompartment, MappingId,
+    ExtendedProcessorContext, FeedbackSendBehavior, GroupId, MappingCompartment, MappingId, Tag,
 };
 use crate::infrastructure::data::{
     ActivationConditionData, EnabledData, MigrationDescriptor, ModeModelData, SourceModelData,
@@ -20,6 +20,8 @@ pub struct MappingModelData {
     id: Option<MappingId>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub name: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub tags: Vec<Tag>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub group_id: GroupId,
     source: SourceModelData,
@@ -44,6 +46,7 @@ impl MappingModelData {
         MappingModelData {
             id: Some(model.id()),
             name: model.name.get_ref().clone(),
+            tags: model.tags.get_ref().clone(),
             group_id: model.group_id.get(),
             source: SourceModelData::from_model(&model.source_model),
             mode: ModeModelData::from_model(&model.mode_model),
@@ -150,6 +153,9 @@ impl MappingModelData {
         model
             .name
             .set_with_optional_notification(self.name.clone(), with_notification);
+        model
+            .tags
+            .set_with_optional_notification(self.tags.clone(), with_notification);
         model
             .group_id
             .set_with_optional_notification(self.group_id, with_notification);

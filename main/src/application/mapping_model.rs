@@ -7,7 +7,7 @@ use crate::domain::{
     ActivationCondition, CompoundMappingSource, CompoundMappingTarget, ExtendedProcessorContext,
     ExtendedSourceCharacter, FeedbackSendBehavior, GroupId, MainMapping, MappingCompartment,
     MappingId, Mode, ProcessorMappingOptions, QualifiedMappingId, RealearnTarget, ReaperTarget,
-    TargetCharacter, UnresolvedCompoundMappingTarget,
+    Tag, TargetCharacter, UnresolvedCompoundMappingTarget,
 };
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
@@ -24,6 +24,7 @@ pub struct MappingModel {
     id: MappingId,
     compartment: MappingCompartment,
     pub name: Prop<String>,
+    pub tags: Prop<Vec<Tag>>,
     pub group_id: Prop<GroupId>,
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
@@ -72,6 +73,7 @@ impl MappingModel {
             id: MappingId::random(),
             compartment,
             name: Default::default(),
+            tags: Default::default(),
             group_id: prop(initial_group_id),
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
@@ -296,11 +298,14 @@ impl MappingModel {
             feedback_is_enabled: group_data.feedback_is_enabled && self.feedback_is_enabled.get(),
             feedback_send_behavior: self.feedback_send_behavior.get(),
         };
+        let mut merged_tags = group_data.tags;
+        merged_tags.extend_from_slice(self.tags.get_ref());
         MainMapping::new(
             self.compartment,
             id,
             self.group_id.get(),
             self.name.get_ref().clone(),
+            merged_tags,
             source,
             mode,
             self.mode_model.group_interaction.get(),
@@ -319,6 +324,7 @@ pub struct GroupData {
     pub control_is_enabled: bool,
     pub feedback_is_enabled: bool,
     pub activation_condition: ActivationCondition,
+    pub tags: Vec<Tag>,
 }
 
 impl Default for GroupData {
@@ -327,6 +333,7 @@ impl Default for GroupData {
             control_is_enabled: true,
             feedback_is_enabled: true,
             activation_condition: ActivationCondition::Always,
+            tags: vec![],
         }
     }
 }

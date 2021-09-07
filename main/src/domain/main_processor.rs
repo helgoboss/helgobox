@@ -25,6 +25,7 @@ use crate::domain::ui_util::{
     format_short_midi_message, log_control_input, log_feedback_output, log_learn_input,
     log_lifecycle_output, log_target_output,
 };
+use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_midi::RawShortMessage;
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
@@ -2507,9 +2508,11 @@ impl fmt::Display for InstanceId {
 impl InstanceId {
     pub fn random() -> Self {
         let instance_id = nanoid::nanoid!(8);
-        let ascii = SmallAsciiString::create_compatible_ascii_string(&instance_id);
-        let small_ascii = SmallAsciiString::from_ascii_str(&ascii).expect("impossible");
-        Self(small_ascii)
+        let ascii_string: AsciiString = instance_id
+            .chars()
+            .filter_map(|c| c.to_ascii_char().ok())
+            .collect();
+        Self(SmallAsciiString::from_ascii_str_cropping(&ascii_string))
     }
 }
 

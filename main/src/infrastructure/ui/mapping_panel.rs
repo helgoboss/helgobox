@@ -3909,6 +3909,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                     .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
             },
         );
+        self.panel.when(
+            self.mapping.tags.changed_with_initiator(),
+            |view, initiator| {
+                view.panel
+                    .mapping_header_panel
+                    .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
+            },
+        );
         self.panel
             .when(self.mapping.control_is_enabled.changed(), |view, _| {
                 view.panel

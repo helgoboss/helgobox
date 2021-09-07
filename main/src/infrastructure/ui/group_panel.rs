@@ -36,6 +36,10 @@ impl GroupPanel {
             view.mapping_header_panel
                 .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
         });
+        self.when(group.tags.changed_with_initiator(), |view, initiator| {
+            view.mapping_header_panel
+                .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
+        });
         self.when(group.control_is_enabled.changed(), |view, _| {
             view.mapping_header_panel
                 .invalidate_due_to_changed_prop(ItemProp::ControlEnabled, None);

@@ -842,6 +842,18 @@ impl Session {
             .find(|g| g.borrow().id() == id)
     }
 
+    pub fn find_group_by_id_including_default_group(
+        &self,
+        compartment: MappingCompartment,
+        id: GroupId,
+    ) -> Option<&SharedGroup> {
+        if id.is_default() {
+            Some(self.default_group(compartment))
+        } else {
+            self.find_group_by_id(compartment, id)
+        }
+    }
+
     pub fn find_group_by_index_sorted(
         &self,
         compartment: MappingCompartment,

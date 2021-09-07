@@ -11,8 +11,10 @@ use crate::application::{
     ActivationType, BankConditionModel, GroupModel, MappingModel, ModifierConditionModel,
     SharedSession, WeakSession,
 };
-use crate::domain::{MappingCompartment, COMPARTMENT_PARAMETER_COUNT};
+use crate::domain::{MappingCompartment, Tag, COMPARTMENT_PARAMETER_COUNT};
+use itertools::Itertools;
 use std::fmt::Debug;
+use std::str::FromStr;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
 type SharedItem = Rc<RefCell<dyn Item>>;
@@ -33,6 +35,8 @@ pub trait Item: Debug {
     fn supports_activation(&self) -> bool;
     fn name(&self) -> &str;
     fn set_name(&mut self, name: String, initiator: u32);
+    fn tags(&self) -> &[Tag];
+    fn set_tags(&mut self, tags: Vec<Tag>, initiator: u32);
     fn control_is_enabled(&self) -> bool;
     fn set_control_is_enabled(&mut self, value: bool);
     fn feedback_is_enabled(&self) -> bool;
@@ -51,6 +55,7 @@ pub trait Item: Debug {
 
 pub enum ItemProp {
     Name,
+    Tags,
     ControlEnabled,
     FeedbackEnabled,
     ActivationType,
@@ -107,6 +112,7 @@ impl MappingHeaderPanel {
 
     fn invalidate_controls_internal(&self, item: &dyn Item) {
         self.invalidate_name_edit_control(item, None);
+        self.invalidate_tags_edit_control(item, None);
         self.invalidate_control_enabled_check_box(item);
         self.invalidate_feedback_enabled_check_box(item);
         self.invalidate_activation_controls(item);
@@ -115,10 +121,10 @@ impl MappingHeaderPanel {
     fn init_controls(&self) {
         self.view
             .require_control(root::ID_MAPPING_CONTROL_ENABLED_CHECK_BOX)
-            .set_text(format!("{} Control enabled", symbols::arrow_right_symbol()));
+            .set_text(format!("{} Control", symbols::arrow_right_symbol()));
         self.view
             .require_control(root::ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX)
-            .set_text(format!("{} Feedback enabled", symbols::arrow_left_symbol()));
+            .set_text(format!("{} Feedback", symbols::arrow_left_symbol()));
         self.view
             .require_control(root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX)
             .fill_combo_box_indexed(ActivationType::into_enum_iter());
@@ -134,6 +140,17 @@ impl MappingHeaderPanel {
             .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL);
         c.set_text(item.name());
         c.set_enabled(item.supports_name_change());
+    }
+
+    fn invalidate_tags_edit_control(&self, item: &dyn Item, initiator: Option<u32>) {
+        if initiator == Some(root::ID_MAPPING_TAGS_EDIT_CONTROL) {
+            return;
+        }
+        let c = self
+            .view
+            .require_control(root::ID_MAPPING_TAGS_EDIT_CONTROL);
+        let csv: String = item.tags().iter().join(", ");
+        c.set_text(csv);
     }
 
     fn invalidate_control_enabled_check_box(&self, item: &dyn Item) {
@@ -362,6 +379,19 @@ impl MappingHeaderPanel {
         item.set_name(value, root::ID_MAPPING_NAME_EDIT_CONTROL);
     }
 
+    fn update_tags(&self, item: &mut dyn Item) {
+        let value = self
+            .view
+            .require_control(root::ID_MAPPING_TAGS_EDIT_CONTROL)
+            .text()
+            .unwrap_or_else(|_| "".to_string());
+        let tags: Vec<_> = value
+            .split(',')
+            .filter_map(|item| Tag::from_str(item).ok())
+            .collect();
+        item.set_tags(tags, root::ID_MAPPING_TAGS_EDIT_CONTROL);
+    }
+
     fn update_activation_eel_condition(&self, item: &mut dyn Item) {
         let value = self
             .view
@@ -482,6 +512,7 @@ impl MappingHeaderPanel {
                 use ItemProp::*;
                 match prop {
                     Name => self.invalidate_name_edit_control(item, initiator),
+                    Tags => self.invalidate_tags_edit_control(item, initiator),
                     ControlEnabled => self.invalidate_control_enabled_check_box(item),
                     FeedbackEnabled => self.invalidate_feedback_enabled_check_box(item),
                     ActivationType => self.invalidate_activation_controls(item),
@@ -598,6 +629,9 @@ impl View for MappingHeaderPanel {
             ID_MAPPING_NAME_EDIT_CONTROL => {
                 self.with_mutable_item(Self::update_name);
             }
+            ID_MAPPING_TAGS_EDIT_CONTROL => {
+                self.with_mutable_item(Self::update_tags);
+            }
             ID_MAPPING_ACTIVATION_EDIT_CONTROL => {
                 self.with_mutable_item(Self::update_activation_eel_condition);
             }
@@ -638,6 +672,14 @@ impl Item for MappingModel {
 
     fn set_name(&mut self, name: String, initiator: u32) {
         self.name.set_with_initiator(name, Some(initiator));
+    }
+
+    fn tags(&self) -> &[Tag] {
+        self.tags.get_ref()
+    }
+
+    fn set_tags(&mut self, tags: Vec<Tag>, initiator: u32) {
+        self.tags.set_with_initiator(tags, Some(initiator));
     }
 
     fn control_is_enabled(&self) -> bool {
@@ -726,6 +768,14 @@ impl Item for GroupModel {
 
     fn set_name(&mut self, name: String, initiator: u32) {
         self.name.set_with_initiator(name, Some(initiator));
+    }
+
+    fn tags(&self) -> &[Tag] {
+        self.tags.get_ref()
+    }
+
+    fn set_tags(&mut self, tags: Vec<Tag>, initiator: u32) {
+        self.tags.set_with_initiator(tags, Some(initiator));
     }
 
     fn control_is_enabled(&self) -> bool {

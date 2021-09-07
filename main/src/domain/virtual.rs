@@ -1,6 +1,6 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
-use crate::domain::{ExtendedSourceCharacter, TargetCharacter};
-use ascii::{AsciiStr, AsciiString, ToAsciiChar};
+use crate::domain::{ExtendedSourceCharacter, SmallAsciiString, TargetCharacter};
+use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, SourceCharacter, Target, UnitValue,
 };
@@ -140,67 +140,33 @@ pub enum VirtualControlElementId {
 impl FromStr for VirtualControlElementId {
     type Err = &'static str;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(position) = s.parse::<i32>() {
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        if let Ok(position) = text.parse::<i32>() {
             let index = std::cmp::max(0, position - 1) as u32;
             Ok(Self::Indexed(index))
         } else {
-            let ascii_string = SmallAsciiString::create_compatible_ascii_string(s);
-            let small_ascii_string = SmallAsciiString::from_ascii_str(&ascii_string)?;
+            let small_ascii_string = create_control_element_name_lossy(text)?;
             Ok(Self::Named(small_ascii_string))
         }
     }
 }
 
+/// Keeps only alphanumeric and punctuation ASCII characters and crops the string if too long.
+fn create_control_element_name_lossy(text: &str) -> Result<SmallAsciiString, &'static str> {
+    let ascii_string: AsciiString = text
+        .chars()
+        .filter_map(|c| c.to_ascii_char().ok())
+        .filter(|c| c.is_ascii_alphanumeric() || c.is_ascii_punctuation())
+        .collect();
+    if ascii_string.is_empty() {
+        return Err("empty virtual control element name");
+    }
+    Ok(SmallAsciiString::from_ascii_str_cropping(&ascii_string))
+}
+
 impl Default for VirtualControlElementId {
     fn default() -> Self {
         Self::Indexed(0)
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
-pub struct SmallAsciiString {
-    length: u8,
-    content: [u8; SmallAsciiString::MAX_LENGTH],
-}
-
-impl SmallAsciiString {
-    pub const MAX_LENGTH: usize = 16;
-
-    pub fn create_compatible_ascii_string(text: &str) -> AsciiString {
-        let fixed_text = text
-            .chars()
-            .filter(|c| c.is_ascii_alphanumeric() || c.is_ascii_punctuation())
-            .map(|c| c.to_ascii_char().unwrap());
-        let ascii_string: AsciiString = fixed_text.collect();
-        AsciiString::from(&ascii_string.as_slice()[..Self::MAX_LENGTH.min(ascii_string.len())])
-    }
-
-    pub fn from_ascii_str(ascii_str: &AsciiStr) -> Result<Self, &'static str> {
-        if ascii_str.len() > SmallAsciiString::MAX_LENGTH {
-            return Err("too large to be a small ASCII string");
-        }
-        let mut content = [0u8; SmallAsciiString::MAX_LENGTH];
-        content[..ascii_str.len()].copy_from_slice(ascii_str.as_bytes());
-        let res = Self {
-            content,
-            length: ascii_str.len() as u8,
-        };
-        Ok(res)
-    }
-
-    pub fn as_ascii_str(&self) -> &AsciiStr {
-        AsciiStr::from_ascii(self.as_slice()).unwrap()
-    }
-
-    pub fn as_slice(&self) -> &[u8] {
-        &self.content[..(self.length as usize)]
-    }
-}
-
-impl Display for SmallAsciiString {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.as_ascii_str().fmt(f)
     }
 }
 

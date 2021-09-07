@@ -92,3 +92,9 @@ pub use reaper_source::*;
 
 mod device_change_detector;
 pub use device_change_detector::*;
+
+mod small_ascii_string;
+pub use small_ascii_string::*;
+
+mod tag;
+pub use tag::*;

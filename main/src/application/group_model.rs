@@ -1,6 +1,6 @@
 use crate::application::{ActivationConditionModel, GroupData};
 use crate::base::{prop, Prop};
-use crate::domain::{GroupId, MappingCompartment};
+use crate::domain::{GroupId, MappingCompartment, Tag};
 use core::fmt;
 use rxrust::prelude::*;
 use std::cell::RefCell;
@@ -12,6 +12,7 @@ pub struct GroupModel {
     compartment: MappingCompartment,
     id: GroupId,
     pub name: Prop<String>,
+    pub tags: Prop<Vec<Tag>>,
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
     pub activation_condition_model: ActivationConditionModel,
@@ -51,6 +52,7 @@ impl GroupModel {
             compartment,
             id: Default::default(),
             name: Default::default(),
+            tags: Default::default(),
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
             activation_condition_model: ActivationConditionModel::default(),
@@ -84,6 +86,7 @@ impl GroupModel {
             activation_condition: self
                 .activation_condition_model
                 .create_activation_condition(),
+            tags: self.tags.get_ref().clone(),
         }
     }
 
