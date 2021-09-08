@@ -122,6 +122,8 @@ impl RealearnAudioHook {
                             mo.send_msg(&*raw_midi_event, SendMidiTime::Instantly);
                         }
                     });
+                    self.garbage_bin
+                        .dispose(Garbage::RawMidiEvent(raw_midi_event));
                 }
             }
         }
