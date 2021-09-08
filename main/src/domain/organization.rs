@@ -22,12 +22,12 @@ pub enum MappingScope {
     #[serde(rename = "instance")]
     #[display(fmt = "All mappings in instance")]
     AllInInstance,
-    #[serde(rename = "instance-active")]
-    #[display(fmt = "All active mappings in instance")]
-    AllActiveInInstance,
     #[serde(rename = "group")]
     #[display(fmt = "All mappings in group")]
     AllInGroup,
+    #[serde(rename = "instance-active")]
+    #[display(fmt = "All active mappings in instance")]
+    AllActiveInInstance,
     #[serde(rename = "group-active")]
     #[display(fmt = "All active mappings in group")]
     AllActiveInGroup,

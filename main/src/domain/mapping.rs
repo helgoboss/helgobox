@@ -1353,6 +1353,10 @@ impl CompoundMappingTarget {
             CompoundMappingTarget::Virtual(t) => Some(RealTimeCompoundMappingTarget::Virtual(*t)),
         }
     }
+
+    pub fn is_virtual(&self) -> bool {
+        matches!(self, CompoundMappingTarget::Virtual(_))
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]

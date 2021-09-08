@@ -1355,7 +1355,7 @@ impl<'a> TargetModelFormatMultiLine<'a> {
         match &virtual_route.selector {
             ById(_) => {
                 if let Ok(r) = self.resolve_track_route() {
-                    get_route_label(&r)
+                    get_route_label(&r).into()
                 } else {
                     get_non_present_virtual_route_label(virtual_route).into()
                 }
@@ -1566,8 +1566,8 @@ pub fn get_fx_param_label(fx_param: Option<&FxParameter>, index: u32) -> Cow<'st
     }
 }
 
-fn get_route_label(route: &TrackRoute) -> Cow<'static, str> {
-    format!("{}. {}", route.index() + 1, route.name().to_str()).into()
+pub fn get_route_label(route: &TrackRoute) -> String {
+    format!("{}. {}", route.index() + 1, route.name().to_str())
 }
 
 pub fn get_optional_fx_label(virtual_chain_fx: &VirtualChainFx, fx: Option<&Fx>) -> String {

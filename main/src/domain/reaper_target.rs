@@ -35,7 +35,7 @@ use enum_dispatch::enum_dispatch;
 use std::convert::TryInto;
 use std::rc::Rc;
 
-/// This target character is just used for auto-correct settings! It doesn't have influence
+/// This target character is just used for GUI and auto-correct settings! It doesn't have influence
 /// on control/feedback.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TargetCharacter {
@@ -45,6 +45,13 @@ pub enum TargetCharacter {
     Continuous,
     VirtualMulti,
     VirtualButton,
+}
+
+impl TargetCharacter {
+    pub fn is_button_like(self) -> bool {
+        use TargetCharacter::*;
+        matches!(self, Trigger | Switch | VirtualButton)
+    }
 }
 
 /// This is a ReaLearn target.
@@ -1223,7 +1230,7 @@ pub fn get_control_type_and_character_for_track_exclusivity(
     } else {
         (
             ControlType::AbsoluteContinuousRetriggerable,
-            TargetCharacter::Trigger,
+            TargetCharacter::Switch,
         )
     }
 }

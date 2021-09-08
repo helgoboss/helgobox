@@ -29,7 +29,7 @@ use std::rc::Rc;
 
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
-    get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label,
+    get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
     AutomationModeOverrideType, BookmarkAnchorType, ConcreteFxInstruction,
     ConcreteTrackInstruction, MappingModel, MidiSourceType, ModeModel, RealearnAutomationMode,
     RealearnTrackArea, ReaperSourceType, ReaperTargetType, Session, SharedMapping, SharedSession,
@@ -2185,6 +2185,17 @@ impl<'a> MutableMappingPanel<'a> {
 }
 
 impl<'a> ImmutableMappingPanel<'a> {
+    fn get_update_target_value_data(&self) -> UpdateTargetValueData {
+        UpdateTargetValueData {
+            targets: self.resolved_targets(),
+            feedback_output: self.session.feedback_output(),
+            instance_state: self.session.instance_state().clone(),
+            instance_id: *self.session.instance_id(),
+            output_logging_enabled: self.session.output_logging_enabled.get(),
+            group_id: self.mapping.group_id.get(),
+        }
+    }
+
     fn fill_all_controls(&self) {
         self.fill_mapping_feedback_send_behavior_combo_box();
         self.fill_source_category_combo_box();
@@ -3791,38 +3802,87 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_value_controls(&self) {
-        // TODO-medium This might set the value slider to the wrong value because it only takes the
+        // TODO-low This might set the value slider to the wrong value because it only takes the
         //  first resolved target into account.
-        let error = if let Some(t) = self.first_resolved_target() {
-            if t.can_report_current_value() {
-                let control_context = create_control_context(
-                    self.session.feedback_output(),
-                    self.session.instance_state(),
-                    self.session.instance_id(),
-                    self.session.output_logging_enabled.get(),
-                );
-                let value = t.current_value(control_context).unwrap_or_default();
-                self.invalidate_target_value_controls_with_value(value);
-                None
+        let (error_msg, read_enabled, write_enabled, character) =
+            if let Some(t) = self.first_resolved_target() {
+                let (error_msg, read_enabled, write_enabled) = if t.is_virtual() {
+                    // Makes no sense to display any value controls for virtual targets. They neither
+                    // have a value nor would moving a slider make any difference.
+                    (None, false, false)
+                } else if t.can_report_current_value() {
+                    let control_context = create_control_context(
+                        self.session.feedback_output(),
+                        self.session.instance_state(),
+                        self.session.instance_id(),
+                        self.session.output_logging_enabled.get(),
+                    );
+                    let value = t.current_value(control_context).unwrap_or_default();
+                    self.invalidate_target_value_controls_with_value(value);
+                    let write_enabled = !t.control_type().is_relative();
+                    (None, true, write_enabled)
+                } else {
+                    // Target is real but can't report values (e.g. load mapping snapshot)
+                    (None, false, true)
+                };
+                (error_msg, read_enabled, write_enabled, Some(t.character()))
             } else {
-                Some("")
-            }
-        } else {
-            Some("Target inactive!")
-        };
-        let value_text = self.view.require_control(root::ID_TARGET_VALUE_TEXT);
+                (Some("Target inactive!"), false, false, None)
+            };
         self.show_if(
-            error.is_none(),
+            read_enabled,
             &[
                 root::ID_TARGET_VALUE_LABEL_TEXT,
-                root::ID_TARGET_VALUE_SLIDER_CONTROL,
                 root::ID_TARGET_VALUE_EDIT_CONTROL,
                 root::ID_TARGET_UNIT_BUTTON,
             ],
         );
-        value_text.set_enabled(error.is_none());
-        if let Some(msg) = error {
+        // Slider or buttons
+        let off_button = self.view.require_control(root::ID_TARGET_VALUE_OFF_BUTTON);
+        let on_button = self.view.require_control(root::ID_TARGET_VALUE_ON_BUTTON);
+        let slider_control = self
+            .view
+            .require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL);
+        if write_enabled {
+            use TargetCharacter::*;
+            match character {
+                Some(Trigger) => {
+                    slider_control.hide();
+                    off_button.hide();
+                    on_button.show();
+                    on_button.set_text("Trigger!");
+                }
+                Some(Switch) => {
+                    slider_control.hide();
+                    off_button.show();
+                    on_button.show();
+                    on_button.set_text("On");
+                }
+                _ => {
+                    off_button.hide();
+                    on_button.hide();
+                    slider_control.show();
+                }
+            }
+        } else {
+            slider_control.hide();
+            off_button.hide();
+            on_button.hide();
+        }
+        // Maybe display grey error message instead of value text
+        let value_text = self.view.require_control(root::ID_TARGET_VALUE_TEXT);
+        if let Some(msg) = error_msg {
+            value_text.show();
+            value_text.disable();
             value_text.set_text(msg);
+        } else {
+            if read_enabled {
+                value_text.show();
+                value_text.enable();
+                // Value text already set above
+            } else {
+                value_text.hide();
+            }
         }
     }
 
@@ -4446,6 +4506,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn invalidate_target_controls_internal(
         &self,
         slider_control_id: u32,
@@ -4867,6 +4928,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel
             .when(target.action_invocation_type.changed(), |view, _| {
                 view.invalidate_target_line_3(None);
+                view.invalidate_target_value_controls();
                 view.invalidate_mode_controls();
             });
         self.panel.when(
@@ -4893,13 +4955,21 @@ impl<'a> ImmutableMappingPanel<'a> {
             },
         );
         self.panel.when(
+            target.track_exclusivity.changed_with_initiator(),
+            |view, initiator| {
+                view.invalidate_target_line_4(initiator);
+                view.invalidate_target_value_controls();
+                view.invalidate_mode_controls();
+            },
+        );
+        self.panel.when(
             target
-                .track_exclusivity
+                .osc_arg_type_tag
                 .changed_with_initiator()
-                .merge(target.osc_arg_type_tag.changed_with_initiator())
                 .merge(target.osc_arg_index.changed_with_initiator()),
             |view, initiator| {
                 view.invalidate_target_line_4(initiator);
+                view.invalidate_target_value_controls();
                 view.invalidate_mode_controls();
             },
         );
@@ -5323,6 +5393,16 @@ impl View for MappingPanel {
             root::ID_TARGET_LINE_4_BUTTON => {
                 let _ = self.handle_target_line_4_button_press();
             }
+            root::ID_TARGET_VALUE_OFF_BUTTON => {
+                if let Ok(data) = self.read(|p| p.get_update_target_value_data()) {
+                    update_target_value(data, UnitValue::MIN);
+                }
+            }
+            root::ID_TARGET_VALUE_ON_BUTTON => {
+                if let Ok(data) = self.read(|p| p.get_update_target_value_data()) {
+                    update_target_value(data, UnitValue::MAX);
+                }
+            }
             root::ID_TARGET_UNIT_BUTTON => self.write(|p| p.handle_target_unit_button_press()),
             _ => unreachable!(),
         }
@@ -5423,32 +5503,8 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_jump_from_slider(s));
             }
             s if s == sliders.target_value => {
-                if let Ok((
-                    mut targets,
-                    feedback_output,
-                    instance_state,
-                    instance_id,
-                    output_logging_enabled,
-                    group_id,
-                )) = self.read(|p| {
-                    (
-                        p.resolved_targets(),
-                        p.session.feedback_output(),
-                        p.session.instance_state().clone(),
-                        *p.session.instance_id(),
-                        p.session.output_logging_enabled.get(),
-                        p.mapping.group_id.get(),
-                    )
-                }) {
-                    update_target_value(
-                        &mut targets,
-                        s.slider_unit_value(),
-                        feedback_output,
-                        &instance_state,
-                        &instance_id,
-                        output_logging_enabled,
-                        group_id,
-                    );
+                if let Ok(data) = self.read(|p| p.get_update_target_value_data()) {
+                    update_target_value(data, s.slider_unit_value());
                 }
             }
             _ => unreachable!(),
@@ -5508,37 +5564,13 @@ impl View for MappingPanel {
                 view.write(|p| p.handle_target_line_4_edit_control_change())
             }
             root::ID_TARGET_VALUE_EDIT_CONTROL => {
-                let (
-                    mut targets,
-                    value,
-                    feedback_output,
-                    instance_state,
-                    instance_id,
-                    output_logging_enabled,
-                    group_id,
-                ) = view.write(|p| {
-                    let value = p
-                        .get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
-                        .unwrap_or(UnitValue::MIN);
-                    (
-                        p.resolved_targets(),
-                        value,
-                        p.session.feedback_output(),
-                        p.session.instance_state().clone(),
-                        *p.session.instance_id(),
-                        p.session.output_logging_enabled.get(),
-                        p.mapping.group_id.get(),
-                    )
-                });
-                update_target_value(
-                    &mut targets,
-                    value,
-                    feedback_output,
-                    &instance_state,
-                    &instance_id,
-                    output_logging_enabled,
-                    group_id,
-                );
+                if let Ok(data) = view.clone().read(|p| p.get_update_target_value_data()) {
+                    let value = view.write(|p| {
+                        p.get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
+                            .unwrap_or(UnitValue::MIN)
+                    });
+                    update_target_value(data, value);
+                }
             }
             _ => return false,
         };
@@ -5630,26 +5662,28 @@ enum PositiveOrSymmetricUnitValue {
     Symmetric(SoftSymmetricUnitValue),
 }
 
-fn update_target_value(
-    targets: &mut [CompoundMappingTarget],
-    value: UnitValue,
+struct UpdateTargetValueData {
+    targets: Vec<CompoundMappingTarget>,
     feedback_output: Option<FeedbackOutput>,
-    instance_state: &SharedInstanceState,
-    instance_id: &InstanceId,
+    instance_state: SharedInstanceState,
+    instance_id: InstanceId,
     output_logging_enabled: bool,
     group_id: GroupId,
-) {
-    for target in targets {
+}
+
+fn update_target_value(mut data: UpdateTargetValueData, value: UnitValue) {
+    for target in &mut data.targets {
         // If it doesn't work in some cases, so what.
-        let control_context = create_control_context(
-            feedback_output,
-            instance_state,
-            instance_id,
-            output_logging_enabled,
-        );
         let ctx = MappingControlContext {
-            control_context,
-            mapping_data: MappingData { group_id },
+            control_context: create_control_context(
+                data.feedback_output,
+                &data.instance_state,
+                &data.instance_id,
+                data.output_logging_enabled,
+            ),
+            mapping_data: MappingData {
+                group_id: data.group_id,
+            },
         };
         let res = target.hit(ControlValue::AbsoluteContinuous(value), ctx);
         if let Err(msg) = res {
@@ -5736,11 +5770,13 @@ fn invalidate_target_controls_free(
         None => ("".to_string(), "".to_string()),
     };
     slider_control.set_slider_unit_value(value);
+    // Value edit control
     if initiator != Some(edit_control_id)
         && (!set_text_only_if_edit_control_not_focused || !edit_control.has_focus())
     {
         edit_control.set_text(edit_text);
     }
+    // Value label
     value_text_control.set_text(value_text);
 }
 
@@ -5794,12 +5830,15 @@ fn send_combo_box_entries(track: &Track, route_type: TrackRouteType) -> Vec<Stri
     match route_type {
         TrackRouteType::Send => track
             .typed_sends(SendPartnerType::Track)
-            .map(|route| route.to_string())
+            .map(|route| get_route_label(&route))
             .collect(),
-        TrackRouteType::Receive => track.receives().map(|route| route.to_string()).collect(),
+        TrackRouteType::Receive => track
+            .receives()
+            .map(|route| get_route_label(&route))
+            .collect(),
         TrackRouteType::HardwareOutput => track
             .typed_sends(SendPartnerType::HardwareOutput)
-            .map(|route| route.to_string())
+            .map(|route| get_route_label(&route))
             .collect(),
     }
 }

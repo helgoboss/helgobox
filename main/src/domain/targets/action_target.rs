@@ -21,7 +21,7 @@ impl RealearnTarget for ActionTarget {
         match self.invocation_type {
             ActionInvocationType::Trigger => (
                 ControlType::AbsoluteContinuousRetriggerable,
-                TargetCharacter::Trigger,
+                TargetCharacter::Switch,
             ),
             ActionInvocationType::Absolute => match self.action.character() {
                 ActionCharacter::Toggle => {
