@@ -739,6 +739,12 @@ fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result
     client.send(&event)
 }
 
+fn send_initial_feedback(session_id: &str) {
+    if let Some(session) = App::get().find_session_by_id(session_id) {
+        session.borrow_mut().send_all_feedback();
+    }
+}
+
 fn send_updated_active_controller(session: &Session) -> Result<(), &'static str> {
     send_to_clients_subscribed_to(
         &Topic::ActiveController {
@@ -820,9 +826,10 @@ fn send_initial_events_for_topic(
         Session { session_id } => send_initial_session(client, session_id),
         ControllerRouting { session_id } => send_initial_controller_routing(client, session_id),
         ActiveController { session_id } => send_initial_controller(client, session_id),
-        // TODO-medium Send initial feedback. Not *that* important in a 80% solution because we can
-        //  always press play button to sync.
-        Feedback { .. } => Ok(()),
+        Feedback { session_id } => {
+            send_initial_feedback(session_id);
+            Ok(())
+        }
     }
 }
 
