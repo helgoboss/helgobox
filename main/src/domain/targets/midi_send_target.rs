@@ -108,8 +108,9 @@ impl RealearnTarget for MidiSendTarget {
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_absolute_value()?;
-        // We arrive here only if controlled via OSC. Sending MIDI in response to incoming
-        // MIDI messages is handled directly in the real-time processor.
+        // We arrive here only if controlled via OSC, group interaction (as follower), mapping
+        // snapshot or autoload. Sending MIDI in response to incoming MIDI messages is handled
+        // directly in the real-time processor.
         let raw_midi_event = self.pattern.to_concrete_midi_event(value);
         let result = match self.destination {
             SendMidiDestination::FxOutput => Err("OSC => MIDI FX output not supported"),

@@ -2071,8 +2071,7 @@ impl ReaperTargetType {
             ClipTransport => "Experimental target, record not supported",
             TrackSendMute | AllTrackFxEnable | TrackShow => "Automatic feedback via polling only",
             TrackPeak => "Feedback only, no control",
-            SendMidi => "Group interaction not supported",
-            LoadMappingSnapshot => "Work in progress",
+            SendMidi => "Has limitations (see user guide)",
             _ => "",
         }
     }

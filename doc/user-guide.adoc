@@ -2095,9 +2095,12 @@ a capable and convenient MIDI → MIDI and OSC → MIDI converter.
 
 * *Output:* Where to send the MIDI message.
 ** *FX output:* Sends the MIDI message to the output of this ReaLearn instance - which usually means it flows
- into the FX below ReaLearn, e.g. a VST instrument. This only works if _Control input_ is set to `&lt;FX input&gt;`!
-** *Feedback output:* Sends the MIDI message to the device which is set as _Feedback output_. Of course this only
- works if it's a MIDI device.
+ into the FX below ReaLearn, e.g. a VST instrument.
++
+NOTE: This only works if _control input_ is set to `&lt;FX input&gt;`!
+** *Feedback output:* Sends the MIDI message to the device which is set as _feedback output_.
++
+NOTE: This only works if _feedback output_ is set to a MIDI device. If _feedback output_ is set to `<FX output>`, this only works if _control input_ is set to `<FX input>`.
 * *Pattern:* Defines the MIDI message to be sent as a sequence of bytes in hexadecimal notation. It also allows you
  to encode the incoming _absolute_ control value as part of the message (after it has been processed by the tuning
  section). The syntax for doing this takes some getting used to but it's very flexible. It's exactly the same syntax as
@@ -2105,6 +2108,19 @@ a capable and convenient MIDI → MIDI and OSC → MIDI converter.
  Please read about it there!
 * *Pick!:* Provides many predefined patterns. Just pick one here, set the destination to "Feedback output" and
  add a "ReaControlMIDI" FX below to see which messages ReaLearn sends.
+
+[NOTE]
+====
+This target is a bit special in that it carries out its processing logic exclusively in the audio thread if it's controlled by a MIDI source. This has the big advantage that receiving and producing MIDI messages happens in one go (without inter-thread-communication latency), which is often important when using MIDI message conversion.
+
+However, this also means that the following things won't work when controlling this target using MIDI:
+
+* It can't take the lead in <<group-interaction>>.
+* If _output_ is set to `<FX output>`, additional limitations apply:
+** It can't act as a follower in <<group-interaction>>, either.
+** It can't participate in <<_realearn_load_mapping_snapshot>>.
+** It can't participate in mapping autostart.
+====
 
 ====== Clip: Volume
 
