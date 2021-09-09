@@ -394,6 +394,13 @@ impl Session {
         }
     }
 
+    /// Makes all autostart mappings hit the target.
+    pub fn autostart(&self) {
+        self.normal_main_task_sender
+            .try_send(NormalMainTask::AutoStartMappings)
+            .unwrap();
+    }
+
     /// Connects the dots.
     // TODO-low Too large. Split this into several methods.
     pub fn activate(&mut self, weak_session: WeakSession) {

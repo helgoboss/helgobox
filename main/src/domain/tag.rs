@@ -24,6 +24,8 @@ impl FromStr for Tag {
             .filter(|ch| ch.is_ascii_alphanumeric() || *ch == AsciiChar::UnderScore)
             // Skip leading digits
             .skip_while(|ch| ch.is_ascii_digit())
+            // No uppercase
+            .map(|ch| ch.to_ascii_lowercase())
             .collect();
         if ascii_string.is_empty() {
             return Err("empty tag");
@@ -46,6 +48,8 @@ mod tests {
     #[test]
     pub fn parse_tags() {
         assert_eq!(Tag::from_str("hey").unwrap().to_string(), "hey");
+        assert_eq!(Tag::from_str("_hey").unwrap().to_string(), "_hey");
+        assert_eq!(Tag::from_str("HeY").unwrap().to_string(), "hey");
         assert_eq!(Tag::from_str("hey_test").unwrap().to_string(), "hey_test");
         assert_eq!(
             Tag::from_str("1ähey1ätest").unwrap().to_string(),

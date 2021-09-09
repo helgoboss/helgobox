@@ -1,11 +1,11 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, AdditionalFeedbackEvent, ControlContext, ControlOptions,
-    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
-    InstanceFeedbackEvent, MappingActivationEffect, MappingControlContext, MappingData, MidiSource,
-    Mode, ParameterArray, ParameterSlice, RealSource, RealTimeReaperTarget, RealearnTarget,
-    ReaperMessage, ReaperSource, ReaperTarget, Tag, TargetCharacter, TrackExclusivity,
-    UnresolvedReaperTarget, VirtualControlElement, VirtualSource, VirtualSourceValue,
-    VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstruction,
+    HitInstructionReturnValue, InstanceFeedbackEvent, MappingActivationEffect,
+    MappingControlContext, MappingData, MidiSource, Mode, ParameterArray, ParameterSlice,
+    RealSource, RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget,
+    Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
+    VirtualSource, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -137,6 +137,7 @@ pub struct MainMapping {
     activation_state: ActivationState,
     extension: MappingExtension,
     initial_target_value_snapshot: Option<AbsoluteValue>,
+    is_autostart: bool,
 }
 
 #[derive(Default, Debug)]
@@ -168,6 +169,8 @@ impl MainMapping {
         options: ProcessorMappingOptions,
         extension: MappingExtension,
     ) -> MainMapping {
+        use once_cell::sync::Lazy;
+        static AUTOSTART_TAG: Lazy<Tag> = Lazy::new(|| "_autostart".parse().unwrap());
         MainMapping {
             core: MappingCore {
                 compartment,
@@ -180,6 +183,7 @@ impl MainMapping {
                 time_of_last_control: None,
             },
             name,
+            is_autostart: tags.contains(&*AUTOSTART_TAG),
             tags,
             unresolved_target,
             targets: vec![],
@@ -342,6 +346,30 @@ impl MainMapping {
         self.initial_target_value_snapshot = self.current_aggregated_target_value(control_context);
     }
 
+    pub fn is_autostart(&self) -> bool {
+        self.is_autostart
+    }
+
+    #[must_use]
+    pub fn autostart(&mut self, control_context: ControlContext) -> Vec<Box<dyn HitInstruction>> {
+        // Even inactive mappings can participate in autostart! Otherwise it would be not very
+        // symmetric because we don't auto-start on mapping activation.
+        let value = self.mode().settings().target_value_interval.max_val();
+        let group_id = self.core.group_id;
+        self.targets
+            .iter_mut()
+            .filter_map(|t| {
+                let ctx = MappingControlContext {
+                    control_context,
+                    mapping_data: MappingData { group_id },
+                };
+                t.hit(ControlValue::AbsoluteContinuous(value), ctx)
+                    .ok()
+                    .flatten()
+            })
+            .collect()
+    }
+
     pub fn hit_target_with_initial_value_snapshot(&mut self, control_context: ControlContext) {
         if let Some(inital_value) = self.initial_target_value_snapshot {
             for t in &mut self.targets {
@@ -448,6 +476,7 @@ impl MainMapping {
         self.activation_state.is_active()
     }
 
+    /// Returns `true` if the mapping itself and the target is active.
     fn is_effectively_active(&self) -> bool {
         is_effectively_active(
             &self.core.options,
@@ -460,6 +489,7 @@ impl MainMapping {
         target_is_effectively_active(&self.core.options, self.unresolved_target.as_ref())
     }
 
+    /// Returns `true` if mapping&target is active and control or feedback is enabled.
     pub fn is_effectively_on(&self) -> bool {
         self.is_effectively_active()
             && (self.core.options.control_is_enabled || self.core.options.feedback_is_enabled)
@@ -533,8 +563,9 @@ impl MainMapping {
                         },
                     };
                     if let Ok(hi) = target.hit(value, ctx) {
-                        // For now the first hit instruction wins (at the moment we don't have
-                        // multi-targets in which multiple targets send hit instructions anyway).
+                        // TODO-low For now the first hit instruction wins (at the moment we don't
+                        //  have multi-targets in which multiple targets send hit instructions
+                        //  anyway).
                         if hit_instruction.is_none() {
                             hit_instruction = hi;
                         }
@@ -710,7 +741,7 @@ impl MainMapping {
                         },
                     };
                     match target.hit(value, ctx) {
-                        // For now the first hit instruction wins (at the moment we don't have
+                        // For now, the first hit instruction wins (at the moment we don't have
                         // multi-targets in which multiple targets send hit instructions anyway).
                         Ok(hi) => {
                             if hit_instruction.is_none() {
@@ -1797,6 +1828,7 @@ fn feedback_is_effectively_on(
         && options.feedback_is_enabled
 }
 
+/// Returns `true` if the mapping itself and the target is active.
 fn is_effectively_active(
     options: &ProcessorMappingOptions,
     activation_state: &ActivationState,

@@ -766,6 +766,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateAllMappings(compartment, mappings) => {
                     self.update_all_mappings(compartment, mappings);
                 }
+                AutoStartMappings => {
+                    self.autostart_mappings();
+                }
                 // This is sent on events such as track list change, FX focus etc.
                 RefreshAllTargets => {
                     self.refresh_all_targets();
@@ -837,6 +840,26 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         };
         let event = self.feedback_output_usage_might_have_changed_event();
         self.send_io_update(event).unwrap();
+    }
+
+    fn autostart_mappings(&mut self) {
+        for compartment in MappingCompartment::enum_iter() {
+            let mut hit_instructions = vec![];
+            let control_context = self.basics.control_context();
+            for m in self.collections.mappings[compartment].values_mut() {
+                if !m.is_autostart() || !m.control_is_enabled() {
+                    continue;
+                }
+                debug!(self.basics.logger, "Autostart mapping {}", m.id());
+                hit_instructions.extend(m.autostart(control_context));
+            }
+            for hi in hit_instructions {
+                hi.execute(HitInstructionContext {
+                    mappings: &mut self.collections.mappings[compartment],
+                    control_context,
+                });
+            }
+        }
     }
 
     fn refresh_all_targets(&mut self) {
@@ -1829,6 +1852,8 @@ pub enum NormalMainTask {
     /// Replaces the given mapping.
     // Boxed because much larger struct size than other variants.
     UpdateSingleMapping(MappingCompartment, Box<MainMapping>),
+    /// Causes all mappings tagged as 'autostart' to hit the target with target max.
+    AutoStartMappings,
     RefreshAllTargets,
     UpdateSettings {
         control_input: ControlInput,
