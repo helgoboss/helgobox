@@ -7,11 +7,11 @@ use crate::domain::{
     InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping, MainSourceMessage,
     MappingActivationEffect, MappingCompartment, MappingControlResult, MappingId,
     MappingMatchedEvent, MidiDestination, MidiSource, NormalRealTimeTask, OrderedMappingIdSet,
-    OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedSource,
-    RealFeedbackValue, RealSource, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
-    RealearnTarget, ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString,
-    SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent, VirtualSourceValue,
-    CLIP_SLOT_COUNT,
+    OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedMappingId,
+    QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
+    RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperMessage, ReaperTarget,
+    SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
+    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -776,6 +776,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateSingleMapping(compartment, mapping) => {
                     self.update_single_mapping(compartment, mapping);
                 }
+                UpdatePersistentMappingProcessingState { id, state } => {
+                    self.update_persistent_mapping_processing_state(id, state);
+                }
                 SendAllFeedback => {
                     self.send_all_feedback();
                 }
@@ -857,6 +860,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 hi.execute(HitInstructionContext {
                     mappings: &mut self.collections.mappings[compartment],
                     control_context,
+                    domain_event_handler: &self.basics.event_handler,
                 });
             }
         }
@@ -1111,6 +1115,23 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 None
             },
         )
+    }
+
+    fn get_normal_or_virtual_target_mapping_mut(
+        &mut self,
+        id: QualifiedMappingId,
+    ) -> Option<&mut MainMapping> {
+        self.collections.mappings[id.compartment]
+            .get_mut(&id.id)
+            .or(
+                if id.compartment == MappingCompartment::ControllerMappings {
+                    self.collections
+                        .mappings_with_virtual_targets
+                        .get_mut(&id.id)
+                } else {
+                    None
+                },
+            )
     }
 
     pub fn process_additional_feedback_event(&self, event: &AdditionalFeedbackEvent) {
@@ -1405,13 +1426,27 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.update_on_mappings();
     }
 
+    fn update_single_mapping_on_state(&self, id: QualifiedMappingId) {
+        let is_on =
+            if let Some(m) = self.get_normal_or_virtual_target_mapping(id.compartment, id.id) {
+                m.is_effectively_on()
+            } else {
+                false
+            };
+        self.basics
+            .event_handler
+            .handle_event(DomainEvent::UpdatedSingleMappingOnState(
+                UpdatedSingleMappingOnStateEvent { id, is_on },
+            ));
+    }
+
     fn update_on_mappings(&self) {
         let instance_is_enabled =
             self.control_is_effectively_enabled() && self.basics.feedback_is_effectively_enabled();
         let on_mappings = if instance_is_enabled {
             self.all_mappings()
                 .filter(|m| m.is_effectively_on())
-                .map(MainMapping::id)
+                .map(MainMapping::qualified_id)
                 .collect()
         } else {
             HashSet::new()
@@ -1673,7 +1708,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.collections.parameters,
         );
         Reaper::get().show_console_msg(msg);
-        // Detailled
+        // Detailed
         trace!(
             self.basics.logger,
             "\n\
@@ -1727,25 +1762,65 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 Box::new(Some(mapping.splinter_real_time_mapping())),
             ))
             .unwrap();
-        // Collect feedback (important to send later as soon as mappings updated)
-        struct Fb(FeedbackReason, Option<FeedbackValue>);
-        impl Fb {
-            fn none() -> Self {
-                Fb(FeedbackReason::Normal, None)
-            }
+        // Update and feedback
+        let diff_feedback = self.calc_diff_feedback_complicated(
+            self.get_normal_or_virtual_target_mapping(mapping.compartment(), mapping.id()),
+            &mapping,
+        );
+        let id = QualifiedMappingId::new(compartment, mapping.id());
+        self.update_map_entries(compartment, *mapping);
+        self.send_diff_feedback(diff_feedback);
+        self.update_single_mapping_on_state(id);
+    }
 
-            fn unused(value: Option<FeedbackValue>) -> Self {
-                Fb(FeedbackReason::ClearUnusedSource, value)
-            }
-
-            fn normal(value: Option<FeedbackValue>) -> Self {
-                Fb(FeedbackReason::Normal, value)
+    fn update_persistent_mapping_processing_state(
+        &mut self,
+        id: QualifiedMappingId,
+        state: PersistentMappingProcessingState,
+    ) {
+        debug!(
+            self.basics.logger,
+            "Updating persistent processing state of {} {:?}", id.compartment, id.id,
+        );
+        // Sync to real-time processor
+        self.basics
+            .channels
+            .normal_real_time_task_sender
+            .send(NormalRealTimeTask::UpdatePersistentMappingProcessingState { id, state })
+            .unwrap();
+        // Update
+        let (was_on_before, is_on_now) =
+            if let Some(m) = self.get_normal_or_virtual_target_mapping_mut(id) {
+                let was_on_before = m.feedback_is_effectively_on();
+                m.update_persistent_processing_state(state);
+                (was_on_before, m.feedback_is_effectively_on())
+            } else {
+                (false, false)
+            };
+        // Send feedback if necessary (right now we assume that changed processing state doesn't
+        // change anything about the source or target, so we use a much more simple mechanism to
+        // determine necessary diff feedback than when updating the complete mapping).
+        if was_on_before != is_on_now {
+            if let Some(m) = self.get_normal_or_virtual_target_mapping(id.compartment, id.id) {
+                let fb = if is_on_now {
+                    Fb::normal(self.get_mapping_feedback_follow_virtual(&*m))
+                } else {
+                    Fb::unused(m.zero_feedback())
+                };
+                self.send_feedback(fb.0, fb.1);
             }
         }
+        self.update_single_mapping_on_state(id);
+    }
 
-        let (fb1, fb2) = if let Some(previous_mapping) =
-            self.get_normal_or_virtual_target_mapping(compartment, mapping.id())
-        {
+    /// Collect feedback (important to send later as soon as mappings updated).
+    #[must_use]
+    fn calc_diff_feedback_complicated(
+        &self,
+        previous_mapping: Option<&MainMapping>,
+        mapping: &MainMapping,
+    ) -> (Fb, Fb) {
+        if let Some(previous_mapping) = previous_mapping {
             // An existing mapping is being overwritten.
             if previous_mapping.feedback_is_effectively_on() {
                 // And its light is currently on.
@@ -1799,8 +1874,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // Lights off.
                 (Fb::none(), Fb::none())
             }
-        };
-        // Update hash map entries
+        }
+    }
+
+    fn send_diff_feedback(&self, (fb1, fb2): (Fb, Fb)) {
+        self.send_feedback(fb1.0, fb1.1);
+        self.send_feedback(fb2.0, fb2.1);
+    }
+
+    fn update_map_entries(&mut self, compartment: MappingCompartment, mapping: MainMapping) {
         if mapping.needs_refresh_when_target_touched() {
             self.collections.target_touch_dependent_mappings[compartment].insert(mapping.id());
         } else {
@@ -1835,13 +1917,23 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .shift_remove(&mapping.id());
             &mut self.collections.mappings[compartment]
         };
-        relevant_map.insert(mapping.id(), *mapping);
-        // Send feedback
-        self.send_feedback(fb1.0, fb1.1);
-        self.send_feedback(fb1.0, fb2.1);
-        // TODO-low Mmh, iterating over all mappings might be a bit overkill here.
-        self.update_on_mappings();
+        relevant_map.insert(mapping.id(), mapping);
     }
+}
+
+/// State that contains only those properties of a mapping which ...
+///
+/// - make a difference in terms of processing
+/// - are changed in response to processing
+/// - and are persisted as part of the session.
+///
+/// These properties follow an unusual data flow, but still an unidirectional one: They are
+/// propagated from the processing layer to the session (via synchronous event), persisted into the
+/// session and sent back (asynchronously via channel) to the processor - which causes the actual
+/// change.  
+#[derive(Copy, Clone, Debug)]
+pub struct PersistentMappingProcessingState {
+    pub is_enabled: bool,
 }
 
 /// A task which is sent from time to time.
@@ -1852,6 +1944,12 @@ pub enum NormalMainTask {
     /// Replaces the given mapping.
     // Boxed because much larger struct size than other variants.
     UpdateSingleMapping(MappingCompartment, Box<MainMapping>),
+    // Available separately for performance reasons, because these updates are also triggered
+    // triggered by processing itself, so it should happen fast.
+    UpdatePersistentMappingProcessingState {
+        id: QualifiedMappingId,
+        state: PersistentMappingProcessingState,
+    },
     /// Causes all mappings tagged as 'autostart' to hit the target with target max.
     AutoStartMappings,
     RefreshAllTargets,
@@ -2139,6 +2237,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             hi.execute(HitInstructionContext {
                 mappings: &mut collections.mappings[compartment],
                 control_context: self.control_context(),
+                domain_event_handler: &self.event_handler,
             });
         }
     }
@@ -2604,6 +2703,7 @@ fn control_mapping_stage_two<EH: DomainEventHandler>(
         hi.execute(HitInstructionContext {
             mappings: &mut collections.mappings[compartment],
             control_context: basics.control_context(),
+            domain_event_handler: &basics.event_handler,
         });
     }
     if let GroupInteractionProcessing::On(input) = group_interaction_processing {
@@ -2641,4 +2741,19 @@ struct GroupInteractionInput {
     mapping_id: MappingId,
     group_interaction: GroupInteraction,
     control_value: ControlValue,
+}
+
+struct Fb(FeedbackReason, Option<FeedbackValue>);
+impl Fb {
+    fn none() -> Self {
+        Fb(FeedbackReason::Normal, None)
+    }
+
+    fn unused(value: Option<FeedbackValue>) -> Self {
+        Fb(FeedbackReason::ClearUnusedSource, value)
+    }
+
+    fn normal(value: Option<FeedbackValue>) -> Self {
+        Fb(FeedbackReason::Normal, value)
+    }
 }

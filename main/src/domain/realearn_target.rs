@@ -1,8 +1,8 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{
-    AdditionalFeedbackEvent, FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceFeedbackEvent,
-    InstanceId, MainMapping, OrderedMappingMap, OscFeedbackTask, RealTimeReaperTarget,
-    RealTimeSender, SharedInstanceState, TargetCharacter, TrackExclusivity,
+    AdditionalFeedbackEvent, DomainEventHandler, FeedbackAudioHookTask, FeedbackOutput, GroupId,
+    InstanceFeedbackEvent, InstanceId, MainMapping, MappingId, OrderedMappingMap, OscFeedbackTask,
+    RealTimeReaperTarget, RealTimeSender, SharedInstanceState, TargetCharacter, TrackExclusivity,
 };
 use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, UnitValue};
@@ -215,6 +215,7 @@ pub struct MappingControlContext<'a> {
 
 #[derive(Copy, Clone, Debug)]
 pub struct MappingData {
+    pub mapping_id: MappingId,
     pub group_id: GroupId,
 }
 
@@ -227,4 +228,5 @@ pub trait HitInstruction {
 pub struct HitInstructionContext<'a> {
     pub mappings: &'a mut OrderedMappingMap<MainMapping>,
     pub control_context: ControlContext<'a>,
+    pub domain_event_handler: &'a dyn DomainEventHandler,
 }

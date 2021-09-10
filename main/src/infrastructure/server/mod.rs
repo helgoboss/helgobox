@@ -921,7 +921,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
             if !m.visible_in_projection.get() {
                 return None;
             }
-            let target_descriptor = if session.mapping_is_on(m.id()) {
+            let target_descriptor = if session.mapping_is_on(m.qualified_id()) {
                 if m.target_model.category.get() == TargetCategory::Virtual {
                     // Virtual
                     let control_element = m.target_model.create_control_element();
@@ -932,7 +932,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
                             mp.visible_in_projection.get()
                                 && mp.source_model.category.get() == SourceCategory::Virtual
                                 && mp.source_model.create_control_element() == control_element
-                                && session.mapping_is_on(mp.id())
+                                && session.mapping_is_on(mp.qualified_id())
                         });
                     let descriptors: Vec<_> = matching_main_mappings
                         .map(|m| {

@@ -13,7 +13,9 @@ use reaper_medium::{
 };
 use rxrust::prelude::*;
 
-use crate::domain::{HitInstructionReturnValue, LoadMappingSnapshotTarget, RealearnTarget};
+use crate::domain::{
+    EnableMappingsTarget, HitInstructionReturnValue, LoadMappingSnapshotTarget, RealearnTarget,
+};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
@@ -39,11 +41,21 @@ use std::rc::Rc;
 /// on control/feedback.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TargetCharacter {
+    /// "Fire-only", so like switch but whenever it only makes sense to send "on", not "off".
+    ///
+    /// Rendered as one button.
     Trigger,
+    /// When there are just two states: "on" and "off".
+    ///
+    /// Rendered as two buttons.
     Switch,
+    /// Whenever there's a certain, discrete number of target values (steps).
     Discrete,
+    /// Whenever the step size between two target values can get arbitrarily small.
     Continuous,
+    /// When the target is a virtual control element that allows for more than 2 states.
     VirtualMulti,
+    /// When the target is a virtual control element that allows for a maximum of 2 states.
     VirtualButton,
 }
 
@@ -96,6 +108,7 @@ pub enum ReaperTarget {
     ClipSeek(ClipSeekTarget),
     ClipVolume(ClipVolumeTarget),
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
+    EnableMappings(EnableMappingsTarget),
 }
 
 #[derive(
@@ -602,6 +615,7 @@ impl<'a> Target<'a> for ReaperTarget {
             ClipSeek(t) => t.current_value(context),
             ClipVolume(t) => t.current_value(context),
             LoadMappingSnapshot(t) => t.current_value(()),
+            EnableMappings(t) => t.current_value(()),
         }
     }
 

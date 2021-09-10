@@ -3,16 +3,16 @@ use crate::base::hash_util;
 use crate::domain::{
     ActionInvocationType, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
     AutomationTouchStateTarget, BackboneState, ClipSeekTarget, ClipTransportTarget,
-    ClipVolumeTarget, ExtendedProcessorContext, FeedbackResolution, FxDisplayType, FxEnableTarget,
-    FxNavigateTarget, FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget,
-    LoadFxSnapshotTarget, LoadMappingSnapshotTarget, MappingCompartment, MappingScope,
-    MidiSendTarget, OscDeviceId, OscSendTarget, ParameterSlice, PlayrateTarget, RealearnTarget,
-    ReaperTarget, RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekOptions, SeekTarget,
-    SelectedTrackTarget, SendMidiDestination, SlotPlayOptions, SoloBehavior, Tag, TempoTarget,
-    TouchedParameterType, TrackArmTarget, TrackAutomationModeTarget, TrackExclusivity,
-    TrackMuteTarget, TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget,
-    TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget, TransportAction, TransportTarget,
-    COMPARTMENT_PARAMETER_COUNT,
+    ClipVolumeTarget, EnableMappingsTarget, ExtendedProcessorContext, FeedbackResolution,
+    FullMappingScope, FxDisplayType, FxEnableTarget, FxNavigateTarget, FxOpenTarget,
+    FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, LoadFxSnapshotTarget,
+    LoadMappingSnapshotTarget, MappingCompartment, MidiSendTarget, OscDeviceId, OscSendTarget,
+    ParameterSlice, PlayrateTarget, RealearnTarget, ReaperTarget, RouteMuteTarget, RoutePanTarget,
+    RouteVolumeTarget, SeekOptions, SeekTarget, SelectedTrackTarget, SendMidiDestination,
+    SlotPlayOptions, SoloBehavior, TempoTarget, TouchedParameterType, TrackArmTarget,
+    TrackAutomationModeTarget, TrackExclusivity, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
+    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -173,8 +173,10 @@ pub enum UnresolvedReaperTarget {
         slot_index: usize,
     },
     LoadMappingSnapshot {
-        scope: MappingScope,
-        tags: Vec<Tag>,
+        scope: FullMappingScope,
+    },
+    EnableMappings {
+        scope: FullMappingScope,
     },
 }
 
@@ -519,12 +521,14 @@ impl UnresolvedReaperTarget {
             ClipVolume { slot_index } => vec![ReaperTarget::ClipVolume(ClipVolumeTarget {
                 slot_index: *slot_index,
             })],
-            LoadMappingSnapshot { scope, tags } => vec![ReaperTarget::LoadMappingSnapshot(
+            LoadMappingSnapshot { scope } => vec![ReaperTarget::LoadMappingSnapshot(
                 LoadMappingSnapshotTarget {
-                    scope: *scope,
-                    tags: tags.clone(),
+                    scope: scope.clone(),
                 },
             )],
+            EnableMappings { scope } => vec![ReaperTarget::EnableMappings(EnableMappingsTarget {
+                scope: scope.clone(),
+            })],
         };
         Ok(resolved_targets)
     }
@@ -624,7 +628,8 @@ impl UnresolvedReaperTarget {
             | SendMidi { .. }
             | SendOsc { .. }
             | GoToBookmark { .. }
-            | LoadMappingSnapshot { .. } => Default::default(),
+            | LoadMappingSnapshot { .. }
+            | EnableMappings { .. } => Default::default(),
             FxOpen { fx_descriptor, .. }
             | FxEnable { fx_descriptor }
             | FxPreset { fx_descriptor }
@@ -722,7 +727,8 @@ impl UnresolvedReaperTarget {
             | ClipTransport { .. }
             | ClipVolume { .. }
             | AutomationTouchState { .. }
-            | LoadMappingSnapshot { .. } => return None,
+            | LoadMappingSnapshot { .. }
+            | EnableMappings { .. } => return None,
             AllTrackFxEnable {
                 poll_for_feedback, ..
             }

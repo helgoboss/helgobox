@@ -137,6 +137,10 @@ where
             return;
         }
         self.value = transformed_value;
+        self.notify(initiator);
+    }
+
+    fn notify(&mut self, initiator: Option<I>) {
         N::notify(&mut self.subject, &initiator);
         N2::notify(&mut self.value_subject, &self.value);
     }
@@ -188,6 +192,12 @@ where
     pub fn set_with(&mut self, f: impl Fn(&T) -> T) {
         let value = f(&self.value);
         self.set(value);
+    }
+
+    /// Modifies the value in place and notifies listeners.
+    pub fn mut_in_place(&mut self, f: impl Fn(&mut T)) {
+        f(&mut self.value);
+        self.notify(None);
     }
 
     pub fn set_with_with_initiator(&mut self, f: impl Fn(&T) -> T, initiator: Option<I>) {

@@ -10,7 +10,8 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
-    ID_MAPPING_ROW_CONTROL_CHECK_BOX, ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
+    IDC_MAPPING_ROW_ENABLED_CHECK_BOX, ID_MAPPING_ROW_CONTROL_CHECK_BOX,
+    ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
 use crate::infrastructure::ui::util::symbols;
 use crate::infrastructure::ui::{
@@ -105,6 +106,7 @@ impl MappingRowPanel {
         self.invalidate_target_label(mapping);
         self.invalidate_learn_source_button(mapping);
         self.invalidate_learn_target_button(mapping);
+        self.invalidate_enabled_check_box(mapping);
         self.invalidate_control_check_box(mapping);
         self.invalidate_feedback_check_box(mapping);
         self.invalidate_on_indicator(mapping);
@@ -263,6 +265,12 @@ impl MappingRowPanel {
         indicator.disable();
     }
 
+    fn invalidate_enabled_check_box(&self, mapping: &MappingModel) {
+        self.view
+            .require_control(root::IDC_MAPPING_ROW_ENABLED_CHECK_BOX)
+            .set_checked(mapping.is_enabled.get());
+    }
+
     fn invalidate_control_check_box(&self, mapping: &MappingModel) {
         self.view
             .require_control(root::ID_MAPPING_ROW_CONTROL_CHECK_BOX)
@@ -276,7 +284,10 @@ impl MappingRowPanel {
     }
 
     fn invalidate_on_indicator(&self, mapping: &MappingModel) {
-        let is_on = self.session().borrow().mapping_is_on(mapping.id());
+        let is_on = self
+            .session()
+            .borrow()
+            .mapping_is_on(mapping.qualified_id());
         self.view
             .require_control(root::ID_MAPPING_ROW_SOURCE_LABEL_TEXT)
             .set_enabled(is_on);
@@ -330,6 +341,9 @@ impl MappingRowPanel {
                 });
             },
         );
+        self.when(mapping.is_enabled.changed(), |view| {
+            view.with_mapping(Self::invalidate_enabled_check_box);
+        });
         self.when(mapping.control_is_enabled.changed(), |view| {
             view.with_mapping(Self::invalidate_control_check_box);
         });
@@ -448,6 +462,14 @@ impl MappingRowPanel {
         shared_session
             .borrow_mut()
             .toggle_learning_target(&shared_session, self.require_qualified_mapping_id());
+    }
+
+    fn update_is_enabled(&self) {
+        self.require_mapping().borrow_mut().is_enabled.set(
+            self.view
+                .require_control(IDC_MAPPING_ROW_ENABLED_CHECK_BOX)
+                .is_checked(),
+        );
     }
 
     fn update_control_is_enabled(&self) {
@@ -671,6 +693,7 @@ impl View for MappingRowPanel {
 
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
+            root::IDC_MAPPING_ROW_ENABLED_CHECK_BOX => self.update_is_enabled(),
             root::ID_MAPPING_ROW_EDIT_BUTTON => self.edit_mapping(),
             root::ID_UP_BUTTON => {
                 let _ = self.move_mapping_within_list(-1);

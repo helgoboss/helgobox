@@ -96,8 +96,8 @@ pub struct Session {
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
     main_preset_link_manager: Box<dyn PresetLinkManager>,
-    /// The mappings which are on (control or feedback enabled + mapping active + target active)
-    on_mappings: Prop<HashSet<MappingId>>,
+    /// The mappings which are on (enabled + control or feedback enabled + mapping active + target active)
+    on_mappings: Prop<HashSet<QualifiedMappingId>>,
     instance_state: SharedInstanceState,
 }
 
@@ -274,7 +274,7 @@ impl Session {
         use CompoundMappingSource::*;
         self.mappings(compartment).find(|m| {
             let m = m.borrow();
-            if !self.on_mappings.get_ref().contains(&m.id()) {
+            if !self.on_mappings.get_ref().contains(&m.qualified_id()) {
                 return false;
             }
             let mapping_source = m.source_model.create_source();
@@ -622,7 +622,7 @@ impl Session {
             if m.target_model.category.get() != TargetCategory::Virtual {
                 continue;
             }
-            if !self.on_mappings.get_ref().contains(&m.id()) {
+            if !self.on_mappings.get_ref().contains(&m.qualified_id()) {
                 // Since virtual mappings support conditional activation, too!
                 continue;
             }
@@ -683,9 +683,24 @@ impl Session {
                 // We don't need to take until "party is over" because if the session disappears,
                 // we know the mappings disappear as well.
                 let mapping = shared_mapping.borrow();
-                let shared_mapping_clone = shared_mapping.clone();
+                let shared_mapping_clone_1 = shared_mapping.clone();
+                let shared_mapping_clone_2 = shared_mapping.clone();
                 let all_subscriptions = LocalSubscription::default();
-                // Keep syncing to processors
+                // Keep syncing persistent mapping processing state (shouldn't do too much because
+                // can be triggered by processing).
+                {
+                    let subscription = when(mapping.changed_persistent_mapping_processing_state())
+                        .with(weak_session.clone())
+                        .do_sync(move |session, _| {
+                            session
+                                .borrow_mut()
+                                .sync_persistent_mapping_processing_state(
+                                    &shared_mapping_clone_1.borrow(),
+                                );
+                        });
+                    all_subscriptions.add(subscription);
+                }
+                // Keep syncing complete mappings to processors
                 {
                     let subscription = when(mapping.changed_processing_relevant())
                         .with(weak_session.clone())
@@ -693,7 +708,7 @@ impl Session {
                             let mut session = session.borrow_mut();
                             session.sync_single_mapping_to_processors(
                                 compartment,
-                                &shared_mapping_clone.borrow(),
+                                &shared_mapping_clone_2.borrow(),
                             );
                             session.mark_project_as_dirty();
                             session.notify_mapping_changed(compartment);
@@ -1723,7 +1738,7 @@ impl Session {
             .unwrap();
     }
 
-    pub fn mapping_is_on(&self, id: MappingId) -> bool {
+    pub fn mapping_is_on(&self, id: QualifiedMappingId) -> bool {
         self.on_mappings.get_ref().contains(&id)
     }
 
@@ -1908,6 +1923,15 @@ impl Session {
         self.normal_real_time_task_sender.send(task).unwrap();
     }
 
+    fn sync_persistent_mapping_processing_state(&self, mapping: &MappingModel) {
+        self.normal_main_task_sender
+            .try_send(NormalMainTask::UpdatePersistentMappingProcessingState {
+                id: mapping.qualified_id(),
+                state: mapping.create_persistent_mapping_processing_state(),
+            })
+            .unwrap();
+    }
+
     fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
         let group_data = self
             .find_group_of_mapping(m)
@@ -2080,6 +2104,15 @@ impl DomainEventHandler for WeakSession {
             UpdatedOnMappings(on_mappings) => {
                 session.borrow_mut().on_mappings.set(on_mappings);
             }
+            UpdatedSingleMappingOnState(event) => {
+                session.borrow_mut().on_mappings.mut_in_place(|m| {
+                    if event.is_on {
+                        m.insert(event.id);
+                    } else {
+                        m.remove(&event.id);
+                    }
+                });
+            }
             TargetValueChanged(e) => {
                 // If the session is borrowed already, just let it be. It happens only in a very
                 // particular case of reentrancy (because of a quirk in REAPER related to master
@@ -2110,6 +2143,15 @@ impl DomainEventHandler for WeakSession {
             MappingMatched(event) => {
                 if let Ok(s) = session.try_borrow() {
                     s.ui.mapping_matched(event);
+                }
+            }
+            MappingEnabledChangeRequested(event) => {
+                if let Ok(s) = session.try_borrow() {
+                    if let Some((_, m)) =
+                        s.find_mapping_and_index_by_id(event.compartment, event.mapping_id)
+                    {
+                        m.borrow_mut().is_enabled.set(event.is_enabled);
+                    }
                 }
             }
         }

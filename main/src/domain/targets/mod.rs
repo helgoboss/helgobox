@@ -102,3 +102,6 @@ pub use track_automation_mode_target::*;
 
 mod load_mapping_snapshot_target;
 pub use load_mapping_snapshot_target::*;
+
+mod enable_mappings_target;
+pub use enable_mappings_target::*;

@@ -3,8 +3,9 @@ use crate::domain::{
     Event, FeedbackSendBehavior, Garbage, GarbageBin, InputMatchResult, InstanceId,
     LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator,
     MidiMessageClassification, MidiSource, MidiSourceScanner, NormalRealTimeToMainThreadTask,
-    OrderedMappingMap, PartialControlMatch, RealTimeCompoundMappingTarget, RealTimeMapping,
-    RealTimeReaperTarget, SampleOffset, SendMidiDestination, VirtualSourceValue,
+    OrderedMappingMap, PartialControlMatch, PersistentMappingProcessingState, QualifiedMappingId,
+    RealTimeCompoundMappingTarget, RealTimeMapping, RealTimeReaperTarget, SampleOffset,
+    SendMidiDestination, VirtualSourceValue,
 };
 use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{
@@ -268,30 +269,41 @@ impl RealTimeProcessor {
                             m.id()
                         );
                     });
-                    // Handle activation MIDI
+                    // Send lifecycle MIDI
                     if self.processor_feedback_is_effectively_on() {
                         let was_on_before = self.mappings[compartment]
                             .get(&m.id())
                             .map_or(false, |m| m.feedback_is_effectively_on());
                         let is_on_now = m.feedback_is_effectively_on();
-                        if is_on_now {
-                            self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                                compartment,
-                                &m,
-                                LifecyclePhase::Activation,
-                            );
-                        } else if was_on_before {
-                            self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                                compartment,
-                                &m,
-                                LifecyclePhase::Deactivation,
-                            );
-                        }
+                        self.send_lifecycle_midi_diff(&m, was_on_before, is_on_now)
                     }
-                    // Insert
+                    // Update
                     let old_mapping = self.mappings[compartment].insert(m.id(), m);
                     if let Some(m) = old_mapping {
                         self.garbage_bin.dispose_real_time_mapping(m);
+                    }
+                }
+                UpdatePersistentMappingProcessingState { id, state } => {
+                    permit_alloc(|| {
+                        debug!(
+                            self.logger,
+                            "Updating persistent state of {} {:?}...", id.compartment, id.id
+                        );
+                    });
+                    // Update
+                    let (was_on_before, is_on_now) =
+                        if let Some(m) = self.mappings[id.compartment].get_mut(&id.id) {
+                            let was_on_before = m.feedback_is_effectively_on();
+                            m.update_persistent_processing_state(state);
+                            (was_on_before, m.feedback_is_effectively_on())
+                        } else {
+                            (false, false)
+                        };
+                    // Send lifecycle MIDI
+                    if self.processor_feedback_is_effectively_on() {
+                        if let Some(m) = self.mappings[id.compartment].get(&id.id) {
+                            self.send_lifecycle_midi_diff(&m, was_on_before, is_on_now);
+                        }
                     }
                 }
                 UpdateTargetActivations(compartment, activation_updates) => {
@@ -319,7 +331,6 @@ impl RealTimeProcessor {
                             if let Some(m) = self.mappings[compartment].get(&update.id) {
                                 if m.feedback_is_effectively_on_ignoring_target_activation() {
                                     self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                                        compartment,
                                         m,
                                         update.is_active.into(),
                                     );
@@ -414,7 +425,6 @@ impl RealTimeProcessor {
                             if let Some(m) = self.mappings[compartment].get(&update.id) {
                                 if m.feedback_is_effectively_on_ignoring_mapping_activation() {
                                     self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                                        compartment,
                                         m,
                                         update.is_active.into(),
                                     );
@@ -431,6 +441,20 @@ impl RealTimeProcessor {
         // danger that feedback it sent to the wrong device or not at all.
         if self.get_feedback_driver() == Driver::AudioHook {
             self.process_feedback_tasks(Caller::AudioHook);
+        }
+    }
+
+    fn send_lifecycle_midi_diff(&self, m: &RealTimeMapping, was_on_before: bool, is_on_now: bool) {
+        if is_on_now {
+            self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
+                &m,
+                LifecyclePhase::Activation,
+            );
+        } else if was_on_before {
+            self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
+                &m,
+                LifecyclePhase::Deactivation,
+            );
         }
     }
 
@@ -451,7 +475,7 @@ impl RealTimeProcessor {
     ) {
         for m in self.mappings[compartment].values() {
             if m.feedback_is_effectively_on() {
-                self.send_lifecycle_midi_to_feedback_output_from_audio_hook(compartment, m, phase);
+                self.send_lifecycle_midi_to_feedback_output_from_audio_hook(m, phase);
             }
         }
     }
@@ -935,7 +959,6 @@ impl RealTimeProcessor {
 
     fn send_lifecycle_midi_to_feedback_output_from_audio_hook(
         &self,
-        compartment: MappingCompartment,
         m: &RealTimeMapping,
         phase: LifecyclePhase,
     ) {
@@ -945,7 +968,7 @@ impl RealTimeProcessor {
                     // We can't send it now because we don't have safe access to the host callback
                     // because this method is being called from the audio hook.
                     let _ = self.feedback_task_sender.try_send(
-                        FeedbackRealTimeTask::SendLifecycleMidi(compartment, m.id(), phase),
+                        FeedbackRealTimeTask::SendLifecycleMidi(m.compartment(), m.id(), phase),
                     );
                 }
                 MidiDestination::Device(dev_id) => {
@@ -1125,6 +1148,10 @@ impl<T> RealTimeSender<T> {
 pub enum NormalRealTimeTask {
     UpdateAllMappings(MappingCompartment, Vec<RealTimeMapping>),
     UpdateSingleMapping(MappingCompartment, Box<Option<RealTimeMapping>>),
+    UpdatePersistentMappingProcessingState {
+        id: QualifiedMappingId,
+        state: PersistentMappingProcessingState,
+    },
     UpdateSettings {
         let_matched_events_through: bool,
         let_unmatched_events_through: bool,

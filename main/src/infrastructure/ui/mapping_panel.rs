@@ -40,7 +40,7 @@ use crate::application::{
 use crate::base::Global;
 use crate::domain::{
     control_element_domains, ClipInfo, ControlContext, FeedbackOutput, FeedbackSendBehavior,
-    GroupId, InstanceId, MappingControlContext, MappingData, MappingScope, SendMidiDestination,
+    InstanceId, MappingControlContext, MappingData, MappingScope, SendMidiDestination,
     SharedInstanceState, SlotContent, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
@@ -834,6 +834,14 @@ impl<'a> MutableMappingPanel<'a> {
             .try_into()
             .expect("invalid feedback send behavior");
         self.mapping.feedback_send_behavior.set(behavior);
+    }
+
+    fn update_mapping_is_enabled(&mut self) {
+        self.mapping.is_enabled.set(
+            self.view
+                .require_control(root::IDC_MAPPING_ENABLED_CHECK_BOX)
+                .is_checked(),
+        );
     }
 
     fn update_mapping_is_visible_in_projection(&mut self) {
@@ -2192,7 +2200,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             instance_state: self.session.instance_state().clone(),
             instance_id: *self.session.instance_id(),
             output_logging_enabled: self.session.output_logging_enabled.get(),
-            group_id: self.mapping.group_id.get(),
+            mapping_data: self.mapping.data(),
         }
     }
 
@@ -2213,6 +2221,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_all_controls(&self) {
         self.invalidate_window_title();
         self.panel.mapping_header_panel.invalidate_controls();
+        self.invalidate_mapping_enabled_check_box();
         self.invalidate_mapping_feedback_send_behavior_combo_box();
         self.invalidate_mapping_visible_in_projection_check_box();
         self.invalidate_mapping_advanced_settings_button();
@@ -2375,6 +2384,12 @@ impl<'a> ImmutableMappingPanel<'a> {
         combo
             .select_combo_box_item_by_index(self.mapping.feedback_send_behavior.get().into())
             .unwrap();
+    }
+
+    fn invalidate_mapping_enabled_check_box(&self) {
+        self.view
+            .require_control(root::IDC_MAPPING_ENABLED_CHECK_BOX)
+            .set_checked(self.mapping.is_enabled.get());
     }
 
     fn invalidate_mapping_visible_in_projection_check_box(&self) {
@@ -2843,6 +2858,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                         )
                         .unwrap();
                 }
+                ReaperTargetType::LoadMappingSnapshot => {
+                    combo.show();
+                    combo.select_new_combo_box_item("Initial");
+                }
                 t if t.supports_feedback_resolution() => {
                     combo.show();
                     combo.fill_combo_box_indexed(FeedbackResolution::into_enum_iter());
@@ -2851,10 +2870,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                             self.mapping.target_model.feedback_resolution.get().into(),
                         )
                         .unwrap();
-                }
-                t if t.supports_filtering_of_mappings() => {
-                    combo.show();
-                    combo.select_new_combo_box_item("Initial");
                 }
                 _ => {
                     combo.hide();
@@ -4026,6 +4041,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                     .mapping_header_panel
                     .invalidate_due_to_changed_prop(ItemProp::FeedbackEnabled, None);
                 view.invalidate_mode_controls();
+            });
+        self.panel
+            .when(self.mapping.is_enabled.changed(), |view, _| {
+                view.invalidate_mapping_enabled_check_box();
             });
         self.panel
             .when(self.mapping.feedback_send_behavior.changed(), |view, _| {
@@ -5344,6 +5363,9 @@ impl View for MappingPanel {
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             // Mapping
+            root::IDC_MAPPING_ENABLED_CHECK_BOX => {
+                self.write(|p| p.update_mapping_is_enabled());
+            }
             root::ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX => {
                 self.write(|p| p.update_mapping_is_visible_in_projection());
             }
@@ -5668,7 +5690,7 @@ struct UpdateTargetValueData {
     instance_state: SharedInstanceState,
     instance_id: InstanceId,
     output_logging_enabled: bool,
-    group_id: GroupId,
+    mapping_data: MappingData,
 }
 
 fn update_target_value(mut data: UpdateTargetValueData, value: UnitValue) {
@@ -5681,11 +5703,12 @@ fn update_target_value(mut data: UpdateTargetValueData, value: UnitValue) {
                 &data.instance_id,
                 data.output_logging_enabled,
             ),
-            mapping_data: MappingData {
-                group_id: data.group_id,
-            },
+            mapping_data: data.mapping_data,
         };
         let res = target.hit(ControlValue::AbsoluteContinuous(value), ctx);
+        // TODO-high Send hit instructions to main processor! Or rather send this complete
+        //  instruction to the main processor! Then it will take care of everything and we are
+        //  safe from reentrancy issues.
         if let Err(msg) = res {
             slog::debug!(App::logger(), "Control failed: {}", msg);
         }

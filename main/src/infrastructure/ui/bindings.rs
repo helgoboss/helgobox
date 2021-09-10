@@ -14,6 +14,8 @@ pub mod root {
     pub const ID_SHARED_GROUP_MAPPING_PANEL: u32 = 132;
     pub const ID_GROUP_PANEL: u32 = 134;
     pub const ID_YAML_EDITOR_PANEL: u32 = 139;
+    pub const IDC_MAPPING_ENABLED_CHECK_BOX: u32 = 1001;
+    pub const IDC_MAPPING_ROW_ENABLED_CHECK_BOX: u32 = 1002;
     pub const IDM_MULTIS: u32 = 40000;
     pub const ID_ADD_MAPPING_BUTTON: u32 = 40000;
     pub const ID_GROUP_IS_EMPTY_TEXT: u32 = 40000;
@@ -216,7 +218,7 @@ pub mod root {
     pub const ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX: u32 = 40130;
     pub const ID_MAPPING_FEEDBACK_SEND_BEHAVIOR_COMBO_BOX: u32 = 40131;
     pub const ID_TARGET_VALUE_ON_BUTTON: u32 = 40132;
-    pub const ID_TARGET_VALUE_OFF_BUTTON: u32 = 40135;
     pub const IDC_MAPPING_MATCHED_INDICATOR_TEXT: u32 = 40133;
     pub const IDC_MAPPING_ROW_MATCHED_INDICATOR_TEXT: u32 = 40134;
+    pub const ID_TARGET_VALUE_OFF_BUTTON: u32 = 40135;
 }

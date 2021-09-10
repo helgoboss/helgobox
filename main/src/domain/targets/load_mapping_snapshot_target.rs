@@ -1,13 +1,12 @@
 use crate::domain::{
-    GroupId, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
-    MappingControlContext, MappingScope, RealearnTarget, Tag, TargetCharacter,
+    FullMappingScope, GroupId, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
+    MappingControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoadMappingSnapshotTarget {
-    pub scope: MappingScope,
-    pub tags: Vec<Tag>,
+    pub scope: FullMappingScope,
 }
 
 impl RealearnTarget for LoadMappingSnapshotTarget {
@@ -27,9 +26,8 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
             return Ok(None);
         }
         struct LoadMappingSnapshotInstruction {
-            scope: MappingScope,
-            tags: Vec<Tag>,
-            group_id: GroupId,
+            scope: FullMappingScope,
+            required_group_id: GroupId,
         }
         impl HitInstruction for LoadMappingSnapshotInstruction {
             fn execute(&self, context: HitInstructionContext) {
@@ -37,13 +35,7 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
                     if !m.control_is_enabled() {
                         continue;
                     }
-                    if self.scope.active_mappings_only() && !m.is_active() {
-                        continue;
-                    }
-                    if self.scope == MappingScope::AllInGroup && m.group_id() != self.group_id {
-                        continue;
-                    }
-                    if !self.tags.is_empty() && !m.has_any_tag(&self.tags) {
+                    if !self.scope.matches(m, self.required_group_id) {
                         continue;
                     }
                     m.hit_target_with_initial_value_snapshot(context.control_context)
@@ -51,11 +43,10 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
             }
         }
         let instruction = LoadMappingSnapshotInstruction {
-            scope: self.scope,
             // So far this clone is okay because loading a snapshot is not something that happens
             // every few milliseconds. No need to use a ref to this target.
-            tags: self.tags.clone(),
-            group_id: context.mapping_data.group_id,
+            scope: self.scope.clone(),
+            required_group_id: context.mapping_data.group_id,
         };
         Ok(Some(Box::new(instruction)))
     }

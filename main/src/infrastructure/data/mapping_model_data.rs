@@ -27,6 +27,8 @@ pub struct MappingModelData {
     source: SourceModelData,
     mode: ModeModelData,
     target: TargetModelData,
+    #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
+    is_enabled: bool,
     #[serde(flatten)]
     enabled_data: EnabledData,
     #[serde(flatten)]
@@ -51,6 +53,7 @@ impl MappingModelData {
             source: SourceModelData::from_model(&model.source_model),
             mode: ModeModelData::from_model(&model.mode_model),
             target: TargetModelData::from_model(&model.target_model),
+            is_enabled: model.is_enabled.get(),
             enabled_data: EnabledData {
                 control_is_enabled: model.control_is_enabled.get(),
                 feedback_is_enabled: model.feedback_is_enabled.get(),
@@ -183,6 +186,9 @@ impl MappingModelData {
             with_notification,
             compartment,
         );
+        model
+            .is_enabled
+            .set_with_optional_notification(self.is_enabled, with_notification);
         model.control_is_enabled.set_with_optional_notification(
             self.enabled_data.control_is_enabled,
             with_notification,

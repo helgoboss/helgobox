@@ -16,10 +16,10 @@ use crate::domain::{
     find_bookmark, get_fx_param, get_fxs, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_route, ActionInvocationType,
     CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext, FeedbackResolution,
-    FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment, MappingScope,
-    OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination,
-    SlotPlayOptions, SoloBehavior, Tag, TouchedParameterType, TrackDescriptor, TrackExclusivity,
-    TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
+    FullMappingScope, FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment,
+    MappingScope, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions,
+    SendMidiDestination, SlotPlayOptions, SoloBehavior, Tag, TouchedParameterType, TrackDescriptor,
+    TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
     UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement,
     VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
     VirtualTrackRoute,
@@ -668,7 +668,8 @@ impl TargetModel {
             | ClipSeek(_)
             | ClipVolume(_)
             | Seek(_)
-            | LoadMappingSnapshot(_) => {}
+            | LoadMappingSnapshot(_)
+            | EnableMappings(_) => {}
         };
     }
 
@@ -1090,8 +1091,16 @@ impl TargetModel {
                         slot_index: self.slot_index.get(),
                     },
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot {
-                        scope: self.mapping_scope.get(),
-                        tags: self.tags.get_ref().clone(),
+                        scope: FullMappingScope {
+                            scope: self.mapping_scope.get(),
+                            tags: self.tags.get_ref().clone(),
+                        },
+                    },
+                    EnableMappings => UnresolvedReaperTarget::EnableMappings {
+                        scope: FullMappingScope {
+                            scope: self.mapping_scope.get(),
+                            tags: self.tags.get_ref().clone(),
+                        },
                     },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
@@ -1237,9 +1246,8 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                     | TrackWidth | TrackVolume | TrackPeak | TrackShow | TrackSolo | FxNavigate
                     | FxEnable | TrackMute | AllTrackFxEnable | TrackSelection | FxPreset
                     | FxOpen | FxParameter | TrackSendMute | TrackSendPan | TrackSendVolume
-                    | LoadFxSnapshot | SendMidi | SendOsc | LoadMappingSnapshot => {
-                        f.write_str(tt.short_name())
-                    }
+                    | LoadFxSnapshot | SendMidi | SendOsc | LoadMappingSnapshot
+                    | EnableMappings => f.write_str(tt.short_name()),
                     ClipTransport | ClipSeek | ClipVolume => {
                         write!(
                             f,
@@ -1463,7 +1471,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                 let tt = self.target.r#type.get();
                 match tt {
                     Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi | SendOsc
-                    | LoadMappingSnapshot => {
+                    | LoadMappingSnapshot | EnableMappings => {
                         write!(f, "{}", tt)
                     }
                     ClipTransport | ClipSeek | ClipVolume => {
@@ -1783,6 +1791,8 @@ pub enum ReaperTargetType {
     // ReaLearn targets
     #[display(fmt = "ReaLearn: Load mapping snapshot")]
     LoadMappingSnapshot = 35,
+    #[display(fmt = "ReaLearn: Enable/disable mappings")]
+    EnableMappings = 36,
 }
 
 impl Default for ReaperTargetType {
@@ -1830,6 +1840,7 @@ impl ReaperTargetType {
             ClipSeek { .. } => ReaperTargetType::ClipSeek,
             ClipVolume { .. } => ReaperTargetType::ClipVolume,
             LoadMappingSnapshot { .. } => ReaperTargetType::LoadMappingSnapshot,
+            EnableMappings { .. } => ReaperTargetType::EnableMappings,
         }
     }
 
@@ -1867,7 +1878,8 @@ impl ReaperTargetType {
             | AutomationModeOverride
             | ClipSeek
             | ClipVolume
-            | LoadMappingSnapshot => false,
+            | LoadMappingSnapshot
+            | EnableMappings => false,
         }
     }
 
@@ -1920,7 +1932,8 @@ impl ReaperTargetType {
             | ClipSeek
             | ClipVolume
             | FxNavigate
-            | LoadMappingSnapshot => false,
+            | LoadMappingSnapshot
+            | EnableMappings => false,
         }
     }
 
@@ -1962,7 +1975,7 @@ impl ReaperTargetType {
             | ClipSeek
             | ClipVolume
             | FxNavigate => false,
-            LoadMappingSnapshot => true,
+            LoadMappingSnapshot | EnableMappings => true,
         }
     }
 
@@ -2012,7 +2025,8 @@ impl ReaperTargetType {
             | ClipSeek
             | ClipVolume
             | FxNavigate
-            | LoadMappingSnapshot => false,
+            | LoadMappingSnapshot
+            | EnableMappings => false,
         }
     }
 
@@ -2048,7 +2062,8 @@ impl ReaperTargetType {
             | ClipSeek
             | ClipVolume
             | FxNavigate
-            | LoadMappingSnapshot => false,
+            | LoadMappingSnapshot
+            | EnableMappings => false,
         }
     }
 
@@ -2118,6 +2133,7 @@ impl ReaperTargetType {
             ClipSeek => "Clip seek",
             ClipVolume => "Clip volume",
             LoadMappingSnapshot => "Load mapping snapshot",
+            EnableMappings => "Enable/disable mappings",
         }
     }
 }

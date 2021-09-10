@@ -6,8 +6,9 @@ use crate::base::{prop, Prop};
 use crate::domain::{
     ActivationCondition, CompoundMappingSource, CompoundMappingTarget, ExtendedProcessorContext,
     ExtendedSourceCharacter, FeedbackSendBehavior, GroupId, MainMapping, MappingCompartment,
-    MappingId, Mode, ProcessorMappingOptions, QualifiedMappingId, RealearnTarget, ReaperTarget,
-    Tag, TargetCharacter, UnresolvedCompoundMappingTarget,
+    MappingData, MappingId, Mode, PersistentMappingProcessingState, ProcessorMappingOptions,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, Tag, TargetCharacter,
+    UnresolvedCompoundMappingTarget,
 };
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
@@ -26,6 +27,7 @@ pub struct MappingModel {
     pub name: Prop<String>,
     pub tags: Prop<Vec<Tag>>,
     pub group_id: Prop<GroupId>,
+    pub is_enabled: Prop<bool>,
     pub control_is_enabled: Prop<bool>,
     pub feedback_is_enabled: Prop<bool>,
     pub feedback_send_behavior: Prop<FeedbackSendBehavior>,
@@ -75,6 +77,7 @@ impl MappingModel {
             name: Default::default(),
             tags: Default::default(),
             group_id: prop(initial_group_id),
+            is_enabled: prop(true),
             control_is_enabled: prop(true),
             feedback_is_enabled: prop(true),
             feedback_send_behavior: prop(Default::default()),
@@ -97,6 +100,13 @@ impl MappingModel {
 
     pub fn qualified_id(&self) -> QualifiedMappingId {
         QualifiedMappingId::new(self.compartment, self.id)
+    }
+
+    pub fn data(&self) -> MappingData {
+        MappingData {
+            mapping_id: self.id,
+            group_id: self.group_id.get(),
+        }
     }
 
     pub fn effective_name(&self) -> String {
@@ -200,6 +210,10 @@ impl MappingModel {
     }
 
     /// Fires whenever a property has changed that has an effect on control/feedback processing.
+    ///
+    /// However, we don't include properties here which are changed by the processing layer
+    /// (such as `is_enabled`) because that would mean the complete mapping will be synced as a
+    /// result, whereas we want to sync processing stuff faster!  
     pub fn changed_processing_relevant(
         &self,
     ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
@@ -216,6 +230,16 @@ impl MappingModel {
                     .changed_processing_relevant(),
             )
             .merge(self.advanced_settings.changed())
+    }
+
+    /// Fires whenever a property has changed that has an effect on control/feedback processing
+    /// and is also changed by the processing layer itself, so it shouldn't contain much! The
+    /// session takes care to not sync the complete mapping properties but only the ones mentioned
+    /// here.
+    pub fn changed_persistent_mapping_processing_state(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
+        self.is_enabled.changed()
     }
 
     pub fn base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {
@@ -281,6 +305,12 @@ impl MappingModel {
         self.target_model.create_target().ok()
     }
 
+    pub fn create_persistent_mapping_processing_state(&self) -> PersistentMappingProcessingState {
+        PersistentMappingProcessingState {
+            is_enabled: self.is_enabled.get(),
+        }
+    }
+
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
     pub fn create_main_mapping(&self, group_data: GroupData) -> MainMapping {
@@ -294,6 +324,7 @@ impl MappingModel {
         let options = ProcessorMappingOptions {
             // TODO-medium Encapsulate, don't set here
             target_is_active: false,
+            persistent_processing_state: self.create_persistent_mapping_processing_state(),
             control_is_enabled: group_data.control_is_enabled && self.control_is_enabled.get(),
             feedback_is_enabled: group_data.feedback_is_enabled && self.feedback_is_enabled.get(),
             feedback_send_behavior: self.feedback_send_behavior.get(),

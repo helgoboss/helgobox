@@ -1,6 +1,6 @@
 use crate::domain::{
     CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId, MidiSource,
-    ParameterArray, ProjectionFeedbackValue, ReaperSource, SourceFeedbackValue,
+    ParameterArray, ProjectionFeedbackValue, QualifiedMappingId, ReaperSource, SourceFeedbackValue,
 };
 use helgoboss_learn::{AbsoluteValue, OscSource};
 use std::collections::HashSet;
@@ -13,7 +13,8 @@ pub enum DomainEvent<'a> {
         source: RealSource,
         allow_virtual_sources: bool,
     },
-    UpdatedOnMappings(HashSet<MappingId>),
+    UpdatedOnMappings(HashSet<QualifiedMappingId>),
+    UpdatedSingleMappingOnState(UpdatedSingleMappingOnStateEvent),
     UpdatedParameter {
         index: u32,
         value: f32,
@@ -23,6 +24,20 @@ pub enum DomainEvent<'a> {
     ProjectionFeedback(ProjectionFeedbackValue),
     MappingMatched(MappingMatchedEvent),
     FullResyncRequested,
+    MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct UpdatedSingleMappingOnStateEvent {
+    pub id: QualifiedMappingId,
+    pub is_on: bool,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct MappingEnabledChangeRequestedEvent {
+    pub compartment: MappingCompartment,
+    pub mapping_id: MappingId,
+    pub is_enabled: bool,
 }
 
 #[derive(Copy, Clone, Debug)]

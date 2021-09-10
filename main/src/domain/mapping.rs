@@ -3,9 +3,10 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstruction,
     HitInstructionReturnValue, InstanceFeedbackEvent, MappingActivationEffect,
     MappingControlContext, MappingData, MidiSource, Mode, ParameterArray, ParameterSlice,
-    RealSource, RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget,
-    Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
-    VirtualSource, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    PersistentMappingProcessingState, RealSource, RealTimeReaperTarget, RealearnTarget,
+    ReaperMessage, ReaperSource, ReaperTarget, Tag, TargetCharacter, TrackExclusivity,
+    UnresolvedReaperTarget, VirtualControlElement, VirtualSource, VirtualSourceValue,
+    VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -38,9 +39,20 @@ pub struct ProcessorMappingOptions {
     /// is_always_active() result. The real-time processor always gets the effective result of the
     /// main processor mapping.
     pub target_is_active: bool,
+    pub persistent_processing_state: PersistentMappingProcessingState,
     pub control_is_enabled: bool,
     pub feedback_is_enabled: bool,
     pub feedback_send_behavior: FeedbackSendBehavior,
+}
+
+impl ProcessorMappingOptions {
+    pub fn control_is_effectively_enabled(&self) -> bool {
+        self.persistent_processing_state.is_enabled && self.control_is_enabled
+    }
+
+    pub fn feedback_is_effectively_enabled(&self) -> bool {
+        self.persistent_processing_state.is_enabled && self.feedback_is_enabled
+    }
 }
 
 #[derive(
@@ -195,6 +207,10 @@ impl MainMapping {
         }
     }
 
+    pub fn update_persistent_processing_state(&mut self, state: PersistentMappingProcessingState) {
+        self.core.options.persistent_processing_state = state;
+    }
+
     pub fn has_any_tag(&self, tags: &[Tag]) -> bool {
         self.tags.iter().any(|t| tags.contains(t))
     }
@@ -213,6 +229,10 @@ impl MainMapping {
 
     pub fn id(&self) -> MappingId {
         self.core.id
+    }
+
+    pub fn qualified_id(&self) -> QualifiedMappingId {
+        QualifiedMappingId::new(self.core.compartment, self.core.id)
     }
 
     pub fn options(&self) -> &ProcessorMappingOptions {
@@ -355,13 +375,13 @@ impl MainMapping {
         // Even inactive mappings can participate in autostart! Otherwise it would be not very
         // symmetric because we don't auto-start on mapping activation.
         let value = self.mode().settings().target_value_interval.max_val();
-        let group_id = self.core.group_id;
+        let mapping_data = self.data();
         self.targets
             .iter_mut()
             .filter_map(|t| {
                 let ctx = MappingControlContext {
                     control_context,
-                    mapping_data: MappingData { group_id },
+                    mapping_data,
                 };
                 t.hit(ControlValue::AbsoluteContinuous(value), ctx)
                     .ok()
@@ -371,6 +391,7 @@ impl MainMapping {
     }
 
     pub fn hit_target_with_initial_value_snapshot(&mut self, control_context: ControlContext) {
+        let mapping_data = self.data();
         if let Some(inital_value) = self.initial_target_value_snapshot {
             for t in &mut self.targets {
                 // We don't trigger hit instructions here because it's not necessary at
@@ -380,9 +401,7 @@ impl MainMapping {
                 // part in snapshotting, we should implement this. My guess: Never.
                 let ctx = MappingControlContext {
                     control_context,
-                    mapping_data: MappingData {
-                        group_id: self.core.group_id,
-                    },
+                    mapping_data,
                 };
                 let _ = t.hit(ControlValue::from_absolute(inital_value), ctx);
             }
@@ -492,19 +511,19 @@ impl MainMapping {
     /// Returns `true` if mapping&target is active and control or feedback is enabled.
     pub fn is_effectively_on(&self) -> bool {
         self.is_effectively_active()
-            && (self.core.options.control_is_enabled || self.core.options.feedback_is_enabled)
+            && (self.control_is_enabled() || self.core.options.feedback_is_effectively_enabled())
     }
 
     pub fn control_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.core.options.control_is_enabled
+        self.is_effectively_active() && self.control_is_enabled()
     }
 
     pub fn control_is_enabled(&self) -> bool {
-        self.core.options.control_is_enabled
+        self.core.options.control_is_effectively_enabled()
     }
 
     pub fn feedback_is_enabled(&self) -> bool {
-        self.core.options.feedback_is_enabled
+        self.core.options.feedback_is_effectively_enabled()
     }
 
     pub fn feedback_is_effectively_on(&self) -> bool {
@@ -544,6 +563,7 @@ impl MainMapping {
         let mut should_send_feedback = false;
         let mut at_least_one_target_was_reached = false;
         let mut hit_instruction = None;
+        let mapping_data = self.data();
         for target in &mut self.targets {
             let target = if let CompoundMappingTarget::Reaper(t) = target {
                 t
@@ -558,9 +578,7 @@ impl MainMapping {
                     // Be graceful here. Don't debug-log errors for now because this is polled.
                     let ctx = MappingControlContext {
                         control_context: context,
-                        mapping_data: MappingData {
-                            group_id: self.core.group_id,
-                        },
+                        mapping_data,
                     };
                     if let Ok(hi) = target.hit(value, ctx) {
                         // TODO-low For now the first hit instruction wins (at the moment we don't
@@ -674,6 +692,13 @@ impl MainMapping {
         )
     }
 
+    fn data(&self) -> MappingData {
+        MappingData {
+            mapping_id: self.core.id,
+            group_id: self.core.group_id,
+        }
+    }
+
     #[must_use]
     fn control_internal(
         &mut self,
@@ -706,6 +731,7 @@ impl MainMapping {
         } else {
             vec![]
         };
+        let mapping_data = self.data();
         let actual_targets = if options.enforce_target_refresh {
             &mut fresh_targets
         } else {
@@ -736,9 +762,7 @@ impl MainMapping {
                     // Be graceful here.
                     let ctx = MappingControlContext {
                         control_context: context,
-                        mapping_data: MappingData {
-                            group_id: self.core.group_id,
-                        },
+                        mapping_data,
                     };
                     match target.hit(value, ctx) {
                         // For now, the first hit instruction wins (at the moment we don't have
@@ -995,6 +1019,9 @@ impl RealTimeMapping {
         self.core.id
     }
 
+    pub fn compartment(&self) -> MappingCompartment {
+        self.core.compartment
+    }
     pub fn lifecycle_midi_messages(&self, phase: LifecyclePhase) -> &[LifecycleMidiMessage] {
         use LifecyclePhase::*;
         match phase {
@@ -1004,21 +1031,25 @@ impl RealTimeMapping {
     }
 
     pub fn control_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.core.options.control_is_enabled
+        self.is_effectively_active() && self.control_is_enabled()
+    }
+
+    pub fn control_is_enabled(&self) -> bool {
+        self.core.options.control_is_effectively_enabled()
     }
 
     pub fn feedback_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.core.options.feedback_is_enabled
+        self.is_effectively_active() && self.core.options.feedback_is_effectively_enabled()
     }
 
     pub fn feedback_is_effectively_on_ignoring_mapping_activation(&self) -> bool {
         self.is_effectively_active_ignoring_mapping_activation()
-            && self.core.options.feedback_is_enabled
+            && self.core.options.feedback_is_effectively_enabled()
     }
 
     pub fn feedback_is_effectively_on_ignoring_target_activation(&self) -> bool {
         self.is_effectively_active_ignoring_target_activation()
-            && self.core.options.feedback_is_enabled
+            && self.core.options.feedback_is_effectively_enabled()
     }
 
     fn is_effectively_active(&self) -> bool {
@@ -1031,6 +1062,10 @@ impl RealTimeMapping {
 
     fn is_effectively_active_ignoring_mapping_activation(&self) -> bool {
         self.core.options.target_is_active
+    }
+
+    pub fn update_persistent_processing_state(&mut self, state: PersistentMappingProcessingState) {
+        self.core.options.persistent_processing_state = state;
     }
 
     pub fn update_target_activation(&mut self, is_active: bool) {
@@ -1825,7 +1860,7 @@ fn feedback_is_effectively_on(
     unresolved_target: Option<&UnresolvedCompoundMappingTarget>,
 ) -> bool {
     is_effectively_active(options, activation_state, unresolved_target)
-        && options.feedback_is_enabled
+        && options.feedback_is_effectively_enabled()
 }
 
 /// Returns `true` if the mapping itself and the target is active.
