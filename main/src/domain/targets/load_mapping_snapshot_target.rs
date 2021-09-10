@@ -1,12 +1,12 @@
 use crate::domain::{
-    FullMappingScope, GroupId, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, TargetCharacter,
+    GroupId, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
+    MappingControlContext, MappingControlResult, MappingScope, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoadMappingSnapshotTarget {
-    pub scope: FullMappingScope,
+    pub scope: MappingScope,
 }
 
 impl RealearnTarget for LoadMappingSnapshotTarget {
@@ -26,11 +26,12 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
             return Ok(None);
         }
         struct LoadMappingSnapshotInstruction {
-            scope: FullMappingScope,
+            scope: MappingScope,
             required_group_id: GroupId,
         }
         impl HitInstruction for LoadMappingSnapshotInstruction {
-            fn execute(&self, context: HitInstructionContext) {
+            fn execute(&self, context: HitInstructionContext) -> Vec<MappingControlResult> {
+                let mut control_results = vec![];
                 for m in context.mappings.values_mut() {
                     if !m.control_is_enabled() {
                         continue;
@@ -38,8 +39,15 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
                     if !self.scope.matches(m, self.required_group_id) {
                         continue;
                     }
-                    m.hit_target_with_initial_value_snapshot(context.control_context)
+                    if let Some(r) = m.hit_target_with_initial_value_snapshot_if_any(
+                        context.control_context,
+                        context.logger,
+                        context.processor_context,
+                    ) {
+                        control_results.push(r);
+                    }
                 }
+                control_results
             }
         }
         let instruction = LoadMappingSnapshotInstruction {

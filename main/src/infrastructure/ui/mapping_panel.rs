@@ -39,9 +39,9 @@ use crate::application::{
 };
 use crate::base::Global;
 use crate::domain::{
-    control_element_domains, ClipInfo, ControlContext, FeedbackOutput, FeedbackSendBehavior,
-    InstanceId, MappingControlContext, MappingData, MappingScope, SendMidiDestination,
-    SharedInstanceState, SlotContent, CLIP_SLOT_COUNT,
+    control_element_domains, ClipInfo, ControlContext, Exclusivity, FeedbackOutput,
+    FeedbackSendBehavior, InstanceId, MappingUniverse, SendMidiDestination, SharedInstanceState,
+    SlotContent, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -463,7 +463,7 @@ impl MappingPanel {
 
     pub fn handle_changed_target_value(
         self: SharedView<Self>,
-        target: &[CompoundMappingTarget],
+        targets: &[CompoundMappingTarget],
         new_value: AbsoluteValue,
     ) {
         self.invoke_programmatically(|| {
@@ -471,7 +471,7 @@ impl MappingPanel {
                 // We use the target only to derive some characteristics. When having multiple
                 // targets, they should all share the same characteristics, so we can just take
                 // the first one.
-                target.first(),
+                targets.first(),
                 self.view
                     .require_control(root::ID_TARGET_VALUE_SLIDER_CONTROL),
                 self.view
@@ -1781,6 +1781,13 @@ impl<'a> MutableMappingPanel<'a> {
                         .unwrap_or_default();
                     self.mapping.target_model.param_type.set(param_type);
                 }
+                ReaperTargetType::EnableMappings => {
+                    let exclusivity = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    self.mapping.target_model.exclusivity.set(exclusivity);
+                }
                 t if t.supports_send() => {
                     let selector_type = combo
                         .selected_combo_box_item_index()
@@ -2193,15 +2200,11 @@ impl<'a> MutableMappingPanel<'a> {
 }
 
 impl<'a> ImmutableMappingPanel<'a> {
-    fn get_update_target_value_data(&self) -> UpdateTargetValueData {
-        UpdateTargetValueData {
-            targets: self.resolved_targets(),
-            feedback_output: self.session.feedback_output(),
-            instance_state: self.session.instance_state().clone(),
-            instance_id: *self.session.instance_id(),
-            output_logging_enabled: self.session.output_logging_enabled.get(),
-            mapping_data: self.mapping.data(),
-        }
+    fn hit_target(&self, value: UnitValue) {
+        self.session.hit_target(
+            self.mapping.qualified_id(),
+            AbsoluteValue::Continuous(value),
+        );
     }
 
     fn fill_all_controls(&self) {
@@ -2802,8 +2805,8 @@ impl<'a> ImmutableMappingPanel<'a> {
                 },
                 ReaperTargetType::SendMidi => Some("Output"),
                 ReaperTargetType::SendOsc => Some("Output"),
+                ReaperTargetType::LoadMappingSnapshot => Some("Snapshot"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
-                t if t.supports_filtering_of_mappings() => Some("Snapshot"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
             },
@@ -3402,6 +3405,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .select_combo_box_item_by_index(self.target.param_type.get().into())
                         .unwrap();
                 }
+                ReaperTargetType::EnableMappings => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(Exclusivity::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(self.target.exclusivity.get().into())
+                        .unwrap();
+                }
                 t if t.supports_send() => {
                     combo.show();
                     combo.fill_combo_box_indexed(TrackRouteSelectorType::into_enum_iter());
@@ -3479,7 +3489,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 t if t.supports_filtering_of_mappings() => {
                     combo.show();
-                    combo.fill_combo_box_indexed(MappingScope::into_enum_iter());
+                    combo.fill_combo_box_indexed(MappingUniverse::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(self.target.mapping_scope.get().into())
                         .unwrap();
@@ -5047,6 +5057,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when(target.use_time_selection.changed(), |view, _| {
                 view.invalidate_target_check_boxes();
             });
+        self.panel.when(target.exclusivity.changed(), |view, _| {
+            view.invalidate_target_line_4_combo_box_1();
+        });
         self.panel
             .when(target.feedback_resolution.changed(), |view, _| {
                 view.invalidate_target_line_2_combo_box_1();
@@ -5416,14 +5429,10 @@ impl View for MappingPanel {
                 let _ = self.handle_target_line_4_button_press();
             }
             root::ID_TARGET_VALUE_OFF_BUTTON => {
-                if let Ok(data) = self.read(|p| p.get_update_target_value_data()) {
-                    update_target_value(data, UnitValue::MIN);
-                }
+                let _ = self.read(|p| p.hit_target(UnitValue::MIN));
             }
             root::ID_TARGET_VALUE_ON_BUTTON => {
-                if let Ok(data) = self.read(|p| p.get_update_target_value_data()) {
-                    update_target_value(data, UnitValue::MAX);
-                }
+                let _ = self.read(|p| p.hit_target(UnitValue::MAX));
             }
             root::ID_TARGET_UNIT_BUTTON => self.write(|p| p.handle_target_unit_button_press()),
             _ => unreachable!(),
@@ -5525,9 +5534,7 @@ impl View for MappingPanel {
                 self.write(|p| p.update_mode_max_jump_from_slider(s));
             }
             s if s == sliders.target_value => {
-                if let Ok(data) = self.read(|p| p.get_update_target_value_data()) {
-                    update_target_value(data, s.slider_unit_value());
-                }
+                let _ = self.read(|p| p.hit_target(s.slider_unit_value()));
             }
             _ => unreachable!(),
         };
@@ -5586,13 +5593,11 @@ impl View for MappingPanel {
                 view.write(|p| p.handle_target_line_4_edit_control_change())
             }
             root::ID_TARGET_VALUE_EDIT_CONTROL => {
-                if let Ok(data) = view.clone().read(|p| p.get_update_target_value_data()) {
-                    let value = view.write(|p| {
-                        p.get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
-                            .unwrap_or(UnitValue::MIN)
-                    });
-                    update_target_value(data, value);
-                }
+                let value = view.clone().write(|p| {
+                    p.get_value_from_target_edit_control(root::ID_TARGET_VALUE_EDIT_CONTROL)
+                        .unwrap_or(UnitValue::MIN)
+                });
+                let _ = view.read(|p| p.hit_target(value));
             }
             _ => return false,
         };
@@ -5682,37 +5687,6 @@ impl WindowExt for Window {
 enum PositiveOrSymmetricUnitValue {
     Positive(UnitValue),
     Symmetric(SoftSymmetricUnitValue),
-}
-
-struct UpdateTargetValueData {
-    targets: Vec<CompoundMappingTarget>,
-    feedback_output: Option<FeedbackOutput>,
-    instance_state: SharedInstanceState,
-    instance_id: InstanceId,
-    output_logging_enabled: bool,
-    mapping_data: MappingData,
-}
-
-fn update_target_value(mut data: UpdateTargetValueData, value: UnitValue) {
-    for target in &mut data.targets {
-        // If it doesn't work in some cases, so what.
-        let ctx = MappingControlContext {
-            control_context: create_control_context(
-                data.feedback_output,
-                &data.instance_state,
-                &data.instance_id,
-                data.output_logging_enabled,
-            ),
-            mapping_data: data.mapping_data,
-        };
-        let res = target.hit(ControlValue::AbsoluteContinuous(value), ctx);
-        // TODO-high Send hit instructions to main processor! Or rather send this complete
-        //  instruction to the main processor! Then it will take care of everything and we are
-        //  safe from reentrancy issues.
-        if let Err(msg) = res {
-            slog::debug!(App::logger(), "Control failed: {}", msg);
-        }
-    }
 }
 
 fn create_control_context<'a>(

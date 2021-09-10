@@ -27,6 +27,7 @@ use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
+use helgoboss_learn::AbsoluteValue;
 use helgoboss_midi::Channel;
 use itertools::Itertools;
 use reaper_medium::{MidiInputDeviceId, RecordingInput};
@@ -398,6 +399,13 @@ impl Session {
     pub fn autostart(&self) {
         self.normal_main_task_sender
             .try_send(NormalMainTask::AutoStartMappings)
+            .unwrap();
+    }
+
+    /// Instructs the main processor to hit the target directly.
+    pub fn hit_target(&self, id: QualifiedMappingId, value: AbsoluteValue) {
+        self.normal_main_task_sender
+            .try_send(NormalMainTask::HitTarget { id, value })
             .unwrap();
     }
 

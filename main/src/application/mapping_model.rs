@@ -230,6 +230,7 @@ impl MappingModel {
                     .changed_processing_relevant(),
             )
             .merge(self.advanced_settings.changed())
+            .merge(self.tags.changed())
     }
 
     /// Fires whenever a property has changed that has an effect on control/feedback processing

@@ -5,20 +5,24 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct FullMappingScope {
-    pub scope: MappingScope,
+pub struct MappingScope {
+    pub universe: MappingUniverse,
     /// The mapping in question should have at least one of these tags.
     pub tags: Vec<Tag>,
 }
 
-impl FullMappingScope {
+impl MappingScope {
     pub fn matches(&self, m: &MainMapping, required_group_id: GroupId) -> bool {
-        if self.scope.active_mappings_only() && !m.is_active() {
+        if !self.universe.matches(m, required_group_id) {
             return false;
         }
-        if self.scope.mappings_in_group_only() && m.group_id() != required_group_id {
+        if !self.matches_tags(m) {
             return false;
         }
+        true
+    }
+
+    pub fn matches_tags(&self, m: &MainMapping) -> bool {
         if !self.tags.is_empty() && !m.has_any_tag(&self.tags) {
             return false;
         }
@@ -41,7 +45,7 @@ impl FullMappingScope {
 )]
 #[repr(usize)]
 #[allow(clippy::enum_variant_names)]
-pub enum MappingScope {
+pub enum MappingUniverse {
     #[serde(rename = "instance")]
     #[display(fmt = "All mappings in instance")]
     AllInInstance,
@@ -56,19 +60,29 @@ pub enum MappingScope {
     AllActiveInGroup,
 }
 
-impl MappingScope {
+impl MappingUniverse {
+    pub fn matches(&self, m: &MainMapping, required_group_id: GroupId) -> bool {
+        if self.active_mappings_only() && !m.is_active() {
+            return false;
+        }
+        if self.mappings_in_group_only() && m.group_id() != required_group_id {
+            return false;
+        }
+        true
+    }
+
     fn active_mappings_only(self) -> bool {
-        use MappingScope::*;
+        use MappingUniverse::*;
         matches!(self, AllActiveInInstance | AllActiveInGroup)
     }
 
     fn mappings_in_group_only(self) -> bool {
-        use MappingScope::*;
+        use MappingUniverse::*;
         matches!(self, AllInGroup | AllActiveInGroup)
     }
 }
 
-impl Default for MappingScope {
+impl Default for MappingUniverse {
     fn default() -> Self {
         Self::AllInInstance
     }

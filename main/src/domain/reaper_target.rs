@@ -1192,6 +1192,34 @@ impl Default for TrackExclusivity {
     }
 }
 
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize_repr,
+    Deserialize_repr,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum Exclusivity {
+    #[display(fmt = "Non-exclusive")]
+    NonExclusive,
+    #[display(fmt = "Exclusive")]
+    Exclusive,
+}
+
+impl Default for Exclusivity {
+    fn default() -> Self {
+        Exclusivity::NonExclusive
+    }
+}
+
 impl HierarchyEntryProvider for Project {
     type Entry = Track;
 

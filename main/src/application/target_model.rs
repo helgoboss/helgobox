@@ -15,14 +15,14 @@ use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx_param, get_fxs, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_route, ActionInvocationType,
-    CompoundMappingTarget, ExpressionEvaluator, ExtendedProcessorContext, FeedbackResolution,
-    FullMappingScope, FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment,
-    MappingScope, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions,
-    SendMidiDestination, SlotPlayOptions, SoloBehavior, Tag, TouchedParameterType, TrackDescriptor,
-    TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType, TransportAction,
-    UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement,
-    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
-    VirtualTrackRoute,
+    CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
+    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment,
+    MappingScope, MappingUniverse, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget,
+    SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior, Tag, TouchedParameterType,
+    TrackDescriptor, TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType,
+    TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx,
+    VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget,
+    VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -128,8 +128,9 @@ pub struct TargetModel {
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     pub poll_for_feedback: Prop<bool>,
     // # For some ReaLearn targets
-    pub mapping_scope: Prop<MappingScope>,
+    pub mapping_scope: Prop<MappingUniverse>,
     pub tags: Prop<Vec<Tag>>,
+    pub exclusivity: Prop<Exclusivity>,
 }
 
 impl Default for TargetModel {
@@ -198,6 +199,7 @@ impl Default for TargetModel {
             poll_for_feedback: prop(true),
             mapping_scope: prop(Default::default()),
             tags: prop(Default::default()),
+            exclusivity: prop(Default::default()),
         }
     }
 }
@@ -739,6 +741,7 @@ impl TargetModel {
             .merge(self.poll_for_feedback.changed())
             .merge(self.mapping_scope.changed())
             .merge(self.tags.changed())
+            .merge(self.exclusivity.changed())
     }
 
     pub fn virtual_track(&self) -> Option<VirtualTrack> {
@@ -1091,16 +1094,17 @@ impl TargetModel {
                         slot_index: self.slot_index.get(),
                     },
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot {
-                        scope: FullMappingScope {
-                            scope: self.mapping_scope.get(),
+                        scope: MappingScope {
+                            universe: self.mapping_scope.get(),
                             tags: self.tags.get_ref().clone(),
                         },
                     },
                     EnableMappings => UnresolvedReaperTarget::EnableMappings {
-                        scope: FullMappingScope {
-                            scope: self.mapping_scope.get(),
+                        scope: MappingScope {
+                            universe: self.mapping_scope.get(),
                             tags: self.tags.get_ref().clone(),
                         },
+                        exclusivity: self.exclusivity.get(),
                     },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))

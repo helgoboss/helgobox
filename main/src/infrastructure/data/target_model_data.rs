@@ -11,9 +11,10 @@ use crate::application::{
 use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_some_default};
 use crate::base::notification;
 use crate::domain::{
-    get_fx_chain, ActionInvocationType, ExtendedProcessorContext, FxDisplayType,
-    MappingCompartment, MappingScope, OscDeviceId, SeekOptions, SendMidiDestination, SoloBehavior,
-    Tag, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
+    get_fx_chain, ActionInvocationType, Exclusivity, ExtendedProcessorContext, FxDisplayType,
+    MappingCompartment, MappingUniverse, OscDeviceId, SeekOptions, SendMidiDestination,
+    SoloBehavior, Tag, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction,
+    VirtualTrack,
 };
 use crate::infrastructure::data::VirtualControlElementIdData;
 use crate::infrastructure::plugin::App;
@@ -122,9 +123,11 @@ pub struct TargetModelData {
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
     pub poll_for_feedback: bool,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub mapping_scope: MappingScope,
+    pub mapping_scope: MappingUniverse,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub exclusivity: Exclusivity,
 }
 
 impl TargetModelData {
@@ -187,6 +190,7 @@ impl TargetModelData {
             poll_for_feedback: model.poll_for_feedback.get(),
             mapping_scope: model.mapping_scope.get(),
             tags: model.tags.get_ref().clone(),
+            exclusivity: model.exclusivity.get(),
         }
     }
 
@@ -413,6 +417,9 @@ impl TargetModelData {
         model
             .tags
             .set_with_optional_notification(self.tags.clone(), with_notification);
+        model
+            .exclusivity
+            .set_with_optional_notification(self.exclusivity, with_notification);
     }
 }
 

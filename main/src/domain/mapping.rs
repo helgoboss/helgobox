@@ -1,12 +1,11 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, AdditionalFeedbackEvent, ControlContext, ControlOptions,
-    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstruction,
-    HitInstructionReturnValue, InstanceFeedbackEvent, MappingActivationEffect,
-    MappingControlContext, MappingData, MidiSource, Mode, ParameterArray, ParameterSlice,
-    PersistentMappingProcessingState, RealSource, RealTimeReaperTarget, RealearnTarget,
-    ReaperMessage, ReaperSource, ReaperTarget, Tag, TargetCharacter, TrackExclusivity,
-    UnresolvedReaperTarget, VirtualControlElement, VirtualSource, VirtualSourceValue,
-    VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
+    InstanceFeedbackEvent, MappingActivationEffect, MappingControlContext, MappingData, MidiSource,
+    Mode, ParameterArray, ParameterSlice, PersistentMappingProcessingState, RealSource,
+    RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget, Tag,
+    TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
+    VirtualSource, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -207,6 +206,10 @@ impl MainMapping {
         }
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     pub fn update_persistent_processing_state(&mut self, state: PersistentMappingProcessingState) {
         self.core.options.persistent_processing_state = state;
     }
@@ -371,40 +374,40 @@ impl MainMapping {
     }
 
     #[must_use]
-    pub fn autostart(&mut self, control_context: ControlContext) -> Vec<Box<dyn HitInstruction>> {
+    pub fn autostart(
+        &mut self,
+        control_context: ControlContext,
+        logger: &slog::Logger,
+        processor_context: ExtendedProcessorContext,
+    ) -> MappingControlResult {
         // Even inactive mappings can participate in autostart! Otherwise it would be not very
         // symmetric because we don't auto-start on mapping activation.
         let value = self.mode().settings().target_value_interval.max_val();
-        let mapping_data = self.data();
-        self.targets
-            .iter_mut()
-            .filter_map(|t| {
-                let ctx = MappingControlContext {
-                    control_context,
-                    mapping_data,
-                };
-                t.hit(ControlValue::AbsoluteContinuous(value), ctx)
-                    .ok()
-                    .flatten()
-            })
-            .collect()
+        self.control_from_target_directly(
+            control_context,
+            logger,
+            processor_context,
+            AbsoluteValue::Continuous(value),
+        )
     }
 
-    pub fn hit_target_with_initial_value_snapshot(&mut self, control_context: ControlContext) {
-        let mapping_data = self.data();
+    #[must_use]
+    pub fn hit_target_with_initial_value_snapshot_if_any(
+        &mut self,
+        control_context: ControlContext,
+        logger: &slog::Logger,
+        processor_context: ExtendedProcessorContext,
+    ) -> Option<MappingControlResult> {
         if let Some(inital_value) = self.initial_target_value_snapshot {
-            for t in &mut self.targets {
-                // We don't trigger hit instructions here because it's not necessary at
-                // the moment. We use hit instructions only for "Load mapping snapshot" target,
-                // which won't participate in snapshotting anyway because it doesn't report a
-                // current value. As soon as we have targets that use hit instructions AND take
-                // part in snapshotting, we should implement this. My guess: Never.
-                let ctx = MappingControlContext {
-                    control_context,
-                    mapping_data,
-                };
-                let _ = t.hit(ControlValue::from_absolute(inital_value), ctx);
-            }
+            let r = self.control_from_target_directly(
+                control_context,
+                logger,
+                processor_context,
+                inital_value,
+            );
+            Some(r)
+        } else {
+            None
         }
     }
 
@@ -559,60 +562,21 @@ impl MainMapping {
     }
 
     /// This is for timer-triggered control (e.g. "Fire after delay").
-    pub fn poll_control(&mut self, context: ControlContext) -> MappingControlResult {
-        let mut should_send_feedback = false;
-        let mut at_least_one_target_was_reached = false;
-        let mut hit_instruction = None;
-        let mapping_data = self.data();
-        for target in &mut self.targets {
-            let target = if let CompoundMappingTarget::Reaper(t) = target {
-                t
-            } else {
-                continue;
-            };
-            use ModeControlResult::*;
-            match self.core.mode.poll(target, context) {
-                None => {}
-                Some(HitTarget { value, .. }) => {
-                    at_least_one_target_was_reached = true;
-                    // Be graceful here. Don't debug-log errors for now because this is polled.
-                    let ctx = MappingControlContext {
-                        control_context: context,
-                        mapping_data,
-                    };
-                    if let Ok(hi) = target.hit(value, ctx) {
-                        // TODO-low For now the first hit instruction wins (at the moment we don't
-                        //  have multi-targets in which multiple targets send hit instructions
-                        //  anyway).
-                        if hit_instruction.is_none() {
-                            hit_instruction = hi;
-                        }
-                    }
-                    // Echo feedback, send feedback after control ... all of that is not important when
-                    // firing triggered by a timer.
-                    if should_send_manual_feedback_after_control(
-                        target,
-                        &self.core.options,
-                        &self.activation_state,
-                        self.unresolved_target.as_ref(),
-                    ) {
-                        should_send_feedback = true;
-                    }
-                }
-                Some(LeaveTargetUntouched(_)) => {
-                    at_least_one_target_was_reached = true;
-                }
-            };
-        }
-        MappingControlResult {
-            successful: at_least_one_target_was_reached,
-            feedback_value: if should_send_feedback {
-                self.feedback(true, context)
-            } else {
-                None
-            },
-            hit_instruction,
-        }
+    #[must_use]
+    pub fn poll_control(
+        &mut self,
+        context: ControlContext,
+        logger: &slog::Logger,
+        processor_context: ExtendedProcessorContext,
+    ) -> MappingControlResult {
+        self.control_internal(
+            ControlOptions::default(),
+            context,
+            logger,
+            processor_context,
+            true,
+            |_, context, mode, target| mode.poll(target, context),
+        )
     }
 
     pub fn group_interaction(&self) -> GroupInteraction {
@@ -637,6 +601,7 @@ impl MainMapping {
             context,
             logger,
             processor_context,
+            false,
             |options, context, mode, target| {
                 mode.control_with_options(
                     source_value,
@@ -653,7 +618,7 @@ impl MainMapping {
     /// Don't execute in real-time processor because this executes REAPER main-thread-only
     /// functions. If `send_feedback_after_control` is on, this might return feedback.
     #[must_use]
-    pub fn control_from_target(
+    pub fn control_from_target_via_group_interaction(
         &mut self,
         value: AbsoluteValue,
         options: ControlOptions,
@@ -667,6 +632,7 @@ impl MainMapping {
             context,
             logger,
             processor_context,
+            false,
             |_, _, mode, target| {
                 let mut v = value;
                 let control_type = target.control_type();
@@ -700,12 +666,37 @@ impl MainMapping {
     }
 
     #[must_use]
+    pub fn control_from_target_directly(
+        &mut self,
+        context: ControlContext,
+        logger: &slog::Logger,
+        // TODO-low Strictly spoken, this is not necessary, because control_internal uses this only
+        //  if target refresh is enforced, which is not the case here.
+        processor_context: ExtendedProcessorContext,
+        value: AbsoluteValue,
+    ) -> MappingControlResult {
+        self.control_internal(
+            ControlOptions::default(),
+            context,
+            logger,
+            processor_context,
+            false,
+            |_, _, _, _| {
+                Some(ModeControlResult::hit_target(ControlValue::from_absolute(
+                    value,
+                )))
+            },
+        )
+    }
+
+    #[must_use]
     fn control_internal(
         &mut self,
         options: ControlOptions,
         context: ControlContext,
         logger: &slog::Logger,
         processor_context: ExtendedProcessorContext,
+        is_polling: bool,
         get_mode_control_result: impl Fn(
             ControlOptions,
             ControlContext,
@@ -713,7 +704,7 @@ impl MainMapping {
             &ReaperTarget,
         ) -> Option<ModeControlResult<ControlValue>>,
     ) -> MappingControlResult {
-        let mut send_manual_feedback = false;
+        let mut send_manual_feedback_because_of_target = false;
         let mut at_least_one_relevant_target_exists = false;
         let mut at_least_one_target_was_reached = false;
         let mut hit_instruction = None;
@@ -721,11 +712,7 @@ impl MainMapping {
         let mut fresh_targets = if options.enforce_target_refresh {
             let (targets, conditions_are_met) = self.resolve_target(processor_context);
             if !conditions_are_met {
-                return MappingControlResult {
-                    successful: false,
-                    feedback_value: None,
-                    hit_instruction: None,
-                };
+                return MappingControlResult::default();
             }
             targets
         } else {
@@ -754,8 +741,9 @@ impl MainMapping {
                 }
                 Some(HitTarget { value }) => {
                     at_least_one_target_was_reached = true;
-                    if self.core.options.feedback_send_behavior
-                        == FeedbackSendBehavior::PreventEchoFeedback
+                    if !is_polling
+                        && self.core.options.feedback_send_behavior
+                            == FeedbackSendBehavior::PreventEchoFeedback
                     {
                         self.core.time_of_last_control = Some(Instant::now());
                     }
@@ -765,8 +753,9 @@ impl MainMapping {
                         mapping_data,
                     };
                     match target.hit(value, ctx) {
-                        // For now, the first hit instruction wins (at the moment we don't have
-                        // multi-targets in which multiple targets send hit instructions anyway).
+                        // TODO-low For now, the first hit instruction wins (at the moment we don't
+                        // have multi-targets in which multiple targets send hit instructions
+                        // anyway).
                         Ok(hi) => {
                             if hit_instruction.is_none() {
                                 hit_instruction = hi;
@@ -774,13 +763,13 @@ impl MainMapping {
                         }
                         Err(msg) => slog::debug!(logger, "Control failed: {}", msg),
                     }
-                    if should_send_manual_feedback_after_control(
+                    if should_send_manual_feedback_due_to_target(
                         target,
                         &self.core.options,
                         &self.activation_state,
                         self.unresolved_target.as_ref(),
                     ) {
-                        send_manual_feedback = true;
+                        send_manual_feedback_because_of_target = true;
                     }
                 }
                 Some(LeaveTargetUntouched(_)) => {
@@ -792,12 +781,19 @@ impl MainMapping {
                 }
             }
         }
-        MappingControlResult {
-            successful: at_least_one_target_was_reached,
-            feedback_value: if at_least_one_relevant_target_exists {
-                if send_manual_feedback {
-                    self.feedback(true, context)
-                } else {
+        if send_manual_feedback_because_of_target {
+            let new_target_value = self.current_aggregated_target_value(context);
+            MappingControlResult {
+                successful: at_least_one_target_was_reached,
+                new_target_value,
+                feedback_value: self.manual_feedback_because_of_target(new_target_value),
+                hit_instruction,
+            }
+        } else {
+            MappingControlResult {
+                successful: at_least_one_target_was_reached,
+                new_target_value: None,
+                feedback_value: if !is_polling && at_least_one_relevant_target_exists {
                     // Before #396, we only sent "feedback after control" if the target was not hit at all.
                     // Reasoning was that if the target was hit, there must have been a value change
                     // (because we usually don't hit a target if it already has the desired value)
@@ -820,12 +816,12 @@ impl MainMapping {
                     // TODO-bkl-medium we could optimize this in future by checking
                     //  significance of the difference within the mapping (should be easy now that
                     //  we have mutable access to self here).
-                    self.feedback_after_control_if_enabled(options, context)
-                }
-            } else {
-                None
-            },
-            hit_instruction,
+                    self.manual_feedback_after_control_if_enabled(options, context)
+                } else {
+                    None
+                },
+                hit_instruction,
+            }
         }
     }
 
@@ -843,24 +839,37 @@ impl MainMapping {
         }
     }
 
+    fn manual_feedback_because_of_target(
+        &self,
+        new_target_value: Option<AbsoluteValue>,
+    ) -> Option<FeedbackValue> {
+        self.feedback_internal(true, new_target_value)
+    }
+
     /// Returns `None` when used on mappings with virtual targets.
     pub fn feedback(
         &self,
         with_projection_feedback: bool,
         context: ControlContext,
     ) -> Option<FeedbackValue> {
-        let combined_target_value = self
-            .targets
-            .iter()
-            .filter_map(|target| match target {
-                CompoundMappingTarget::Reaper(t) => t.current_value(context),
-                _ => None,
-            })
-            .max()?;
-        self.feedback_given_target_value(
-            combined_target_value,
+        self.feedback_internal(
             with_projection_feedback,
-            !self.core.is_echo(),
+            self.current_aggregated_target_value(context),
+        )
+    }
+
+    /// Returns `None` when used on mappings with virtual targets.
+    fn feedback_internal(
+        &self,
+        with_projection_feedback: bool,
+        combined_target_value: Option<AbsoluteValue>,
+    ) -> Option<FeedbackValue> {
+        self.feedback_given_target_value(
+            combined_target_value?,
+            FeedbackDestinations {
+                with_projection_feedback,
+                with_source_feedback: !self.core.is_echo(),
+            },
         )
     }
 
@@ -896,8 +905,7 @@ impl MainMapping {
     pub fn feedback_given_target_value(
         &self,
         target_value: AbsoluteValue,
-        with_projection_feedback: bool,
-        with_source_feedback: bool,
+        destinations: FeedbackDestinations,
     ) -> Option<FeedbackValue> {
         let options = ModeFeedbackOptions {
             source_is_virtual: self.core.source.is_virtual(),
@@ -907,32 +915,39 @@ impl MainMapping {
             .core
             .mode
             .feedback_with_options(target_value, options)?;
-        self.feedback_given_mode_value(mode_value, with_projection_feedback, with_source_feedback)
+        self.feedback_given_mode_value(mode_value, destinations)
     }
 
     pub fn feedback_given_mode_value(
         &self,
         mode_value: AbsoluteValue,
-        with_projection_feedback: bool,
-        with_source_feedback: bool,
+        destinations: FeedbackDestinations,
     ) -> Option<FeedbackValue> {
         FeedbackValue::from_mode_value(
             self.core.compartment,
             self.id(),
             &self.core.source,
             mode_value,
-            with_projection_feedback,
-            with_source_feedback,
+            destinations,
         )
     }
 
+    /// This returns a "lights off" feedback.
+    ///
+    /// Used when mappings get inactive.
     pub fn zero_feedback(&self) -> Option<FeedbackValue> {
         // TODO-medium  "Unused" and "zero" could be a difference for projection so we should
         //  have different values for that (at the moment it's not though).
-        self.feedback_given_mode_value(AbsoluteValue::Continuous(UnitValue::MIN), true, true)
+        self.feedback_given_mode_value(
+            AbsoluteValue::Continuous(UnitValue::MIN),
+            FeedbackDestinations {
+                with_projection_feedback: true,
+                with_source_feedback: true,
+            },
+        )
     }
 
-    fn feedback_after_control_if_enabled(
+    fn manual_feedback_after_control_if_enabled(
         &self,
         options: ControlOptions,
         context: ControlContext,
@@ -943,7 +958,7 @@ impl MainMapping {
         {
             if self.feedback_is_effectively_on() {
                 // No projection feedback in this case! Just the source controller needs this hack.
-                self.feedback(false, context)
+                self.feedback_internal(false, self.current_aggregated_target_value(context))
             } else {
                 None
             }
@@ -1173,8 +1188,10 @@ impl QualifiedSource {
             self.id,
             &self.source,
             AbsoluteValue::Continuous(UnitValue::MIN),
-            true,
-            true,
+            FeedbackDestinations {
+                with_projection_feedback: true,
+                with_source_feedback: true,
+            },
         )
     }
 }
@@ -1253,11 +1270,24 @@ impl CompoundMappingSource {
 #[derive(Clone, PartialEq, Debug)]
 pub enum FeedbackValue {
     Virtual {
-        with_projection_feedback: bool,
-        with_source_feedback: bool,
         value: VirtualSourceValue,
+        destinations: FeedbackDestinations,
     },
     Real(RealFeedbackValue),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct FeedbackDestinations {
+    /// Feedback to projection clients.
+    pub with_projection_feedback: bool,
+    /// Feedback to controller itself.
+    pub with_source_feedback: bool,
+}
+
+impl FeedbackDestinations {
+    pub fn is_all_off(&self) -> bool {
+        !self.with_source_feedback && !self.with_projection_feedback
+    }
 }
 
 impl FeedbackValue {
@@ -1266,20 +1296,18 @@ impl FeedbackValue {
         id: MappingId,
         source: &CompoundMappingSource,
         mode_value: AbsoluteValue,
-        with_projection_feedback: bool,
-        with_source_feedback: bool,
+        destinations: FeedbackDestinations,
     ) -> Option<FeedbackValue> {
-        if !with_projection_feedback && !with_source_feedback {
+        if destinations.is_all_off() {
             return None;
         }
         let val = if let CompoundMappingSource::Virtual(vs) = &source {
             FeedbackValue::Virtual {
-                with_projection_feedback,
-                with_source_feedback,
+                destinations,
                 value: vs.feedback(mode_value),
             }
         } else {
-            let projection = if with_projection_feedback
+            let projection = if destinations.with_projection_feedback
                 && compartment == MappingCompartment::ControllerMappings
             {
                 Some(ProjectionFeedbackValue::new(
@@ -1290,7 +1318,7 @@ impl FeedbackValue {
             } else {
                 None
             };
-            let source = if with_source_feedback {
+            let source = if destinations.with_source_feedback {
                 source.feedback(mode_value)
             } else {
                 None
@@ -1815,20 +1843,24 @@ pub(crate) enum ControlMode {
 pub fn aggregate_target_values(
     values: impl Iterator<Item = Option<AbsoluteValue>>,
 ) -> Option<AbsoluteValue> {
-    values.map(|v| v.unwrap_or_default()).max()
+    values.flatten().max()
 }
 
+#[derive(Default)]
 pub struct MappingControlResult {
     /// `true` if target hit or almost hit but left untouched because it already has desired value.
     /// `false` e.g. if source message filtered out (e.g. because of button filter) or no target.
     pub successful: bool,
-    /// Even if not hit, this can contain a feedback value!
+    /// In case the target doesn't support automatic feedback (even polling not enabled for it),
+    /// this should contain the target value determined at the occasion of hitting the target.
+    pub new_target_value: Option<AbsoluteValue>,
+    /// Even if not hit, this can contain a feedback value (if "Send feedback after control" on)!
     pub feedback_value: Option<FeedbackValue>,
     pub hit_instruction: HitInstructionReturnValue,
 }
 
 /// Not usable for mappings with virtual targets.
-fn should_send_manual_feedback_after_control(
+fn should_send_manual_feedback_due_to_target(
     target: &ReaperTarget,
     options: &ProcessorMappingOptions,
     activation_state: &ActivationState,
@@ -1840,17 +1872,11 @@ fn should_send_manual_feedback_after_control(
         // enabled). This happens in the majority of cases.
         false
     } else {
-        // The target value was changed but the target doesn't support feedback. If
-        // `send_feedback_after_control` is enabled, we at least send feedback after we
-        // know it has been changed. What a virtual control mapping says shouldn't be relevant
-        // here because this is about the target supporting feedback, not about the controller
-        // needing the "Send feedback after control" workaround. Therefore we don't forward
-        // any "enforce" options.
-        // TODO-low Wouldn't it be better to always send feedback in this situation? But that
-        //  could the user let believe that it actually works while in reality it's not "true"
-        //  feedback that is independent from control. So an opt-in is maybe the right thing.
-        options.feedback_send_behavior == FeedbackSendBehavior::SendFeedbackAfterControl
-            && feedback_is_effectively_on(options, activation_state, unresolved_target)
+        // The target value was changed but the target doesn't support feedback. What a virtual
+        // control mapping says shouldn't be relevant here because this is about the target
+        // supporting feedback, not about the controller needing the "Send feedback after control"
+        // workaround. Therefore we don't forward any "enforce" options.
+        feedback_is_effectively_on(options, activation_state, unresolved_target)
     }
 }
 

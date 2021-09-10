@@ -3,16 +3,16 @@ use crate::base::hash_util;
 use crate::domain::{
     ActionInvocationType, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
     AutomationTouchStateTarget, BackboneState, ClipSeekTarget, ClipTransportTarget,
-    ClipVolumeTarget, EnableMappingsTarget, ExtendedProcessorContext, FeedbackResolution,
-    FullMappingScope, FxDisplayType, FxEnableTarget, FxNavigateTarget, FxOpenTarget,
+    ClipVolumeTarget, EnableMappingsTarget, Exclusivity, ExtendedProcessorContext,
+    FeedbackResolution, FxDisplayType, FxEnableTarget, FxNavigateTarget, FxOpenTarget,
     FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, LoadFxSnapshotTarget,
-    LoadMappingSnapshotTarget, MappingCompartment, MidiSendTarget, OscDeviceId, OscSendTarget,
-    ParameterSlice, PlayrateTarget, RealearnTarget, ReaperTarget, RouteMuteTarget, RoutePanTarget,
-    RouteVolumeTarget, SeekOptions, SeekTarget, SelectedTrackTarget, SendMidiDestination,
-    SlotPlayOptions, SoloBehavior, TempoTarget, TouchedParameterType, TrackArmTarget,
-    TrackAutomationModeTarget, TrackExclusivity, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
-    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
+    LoadMappingSnapshotTarget, MappingCompartment, MappingScope, MidiSendTarget, OscDeviceId,
+    OscSendTarget, ParameterSlice, PlayrateTarget, RealearnTarget, ReaperTarget, RouteMuteTarget,
+    RoutePanTarget, RouteVolumeTarget, SeekOptions, SeekTarget, SelectedTrackTarget,
+    SendMidiDestination, SlotPlayOptions, SoloBehavior, TempoTarget, TouchedParameterType,
+    TrackArmTarget, TrackAutomationModeTarget, TrackExclusivity, TrackMuteTarget, TrackPanTarget,
+    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget,
+    TrackWidthTarget, TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -173,10 +173,11 @@ pub enum UnresolvedReaperTarget {
         slot_index: usize,
     },
     LoadMappingSnapshot {
-        scope: FullMappingScope,
+        scope: MappingScope,
     },
     EnableMappings {
-        scope: FullMappingScope,
+        scope: MappingScope,
+        exclusivity: Exclusivity,
     },
 }
 
@@ -526,9 +527,12 @@ impl UnresolvedReaperTarget {
                     scope: scope.clone(),
                 },
             )],
-            EnableMappings { scope } => vec![ReaperTarget::EnableMappings(EnableMappingsTarget {
-                scope: scope.clone(),
-            })],
+            EnableMappings { scope, exclusivity } => {
+                vec![ReaperTarget::EnableMappings(EnableMappingsTarget::new(
+                    scope.clone(),
+                    *exclusivity,
+                ))]
+            }
         };
         Ok(resolved_targets)
     }

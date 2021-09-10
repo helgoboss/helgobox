@@ -1,8 +1,9 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{
-    AdditionalFeedbackEvent, DomainEventHandler, FeedbackAudioHookTask, FeedbackOutput, GroupId,
-    InstanceFeedbackEvent, InstanceId, MainMapping, MappingId, OrderedMappingMap, OscFeedbackTask,
-    RealTimeReaperTarget, RealTimeSender, SharedInstanceState, TargetCharacter, TrackExclusivity,
+    AdditionalFeedbackEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackOutput, GroupId, InstanceFeedbackEvent, InstanceId, MainMapping, MappingControlResult,
+    MappingId, OrderedMappingMap, OscFeedbackTask, RealTimeReaperTarget, RealTimeSender,
+    SharedInstanceState, TargetCharacter, TrackExclusivity,
 };
 use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, UnitValue};
@@ -142,6 +143,22 @@ pub trait RealearnTarget {
     fn track_exclusivity(&self) -> Option<TrackExclusivity> {
         None
     }
+
+    /// Whether the target supports automatic feedback in response to some events or polling.
+    ///
+    /// If the target supports automatic feedback, you are left with a choice:
+    ///
+    /// - a) Using polling (continuously poll the target value).
+    /// - b) Setting this to `false`.
+    ///
+    /// Choose (a) if the target value is a real, global target value that also can affect
+    /// other mappings. Polling is obviously not the optimal choice because of the performance
+    /// drawback ... but at least multiple mappings can participate.
+    ///
+    /// Choose (b) is if the target value is not global but artificial, that is, attached to the
+    /// mapping itself - and can therefore not have any effect on other mappings. This is also
+    /// not the optimal choice because other mappings can't participate in the feedback value ...
+    /// but at least it's fast.
     fn supports_automatic_feedback(&self) -> bool {
         // Usually yes. We will quickly realize if not.
         true
@@ -222,11 +239,13 @@ pub struct MappingData {
 pub type HitInstructionReturnValue = Option<Box<dyn HitInstruction>>;
 
 pub trait HitInstruction {
-    fn execute(&self, context: HitInstructionContext);
+    fn execute(&self, context: HitInstructionContext) -> Vec<MappingControlResult>;
 }
 
 pub struct HitInstructionContext<'a> {
     pub mappings: &'a mut OrderedMappingMap<MainMapping>,
     pub control_context: ControlContext<'a>,
     pub domain_event_handler: &'a dyn DomainEventHandler,
+    pub logger: &'a slog::Logger,
+    pub processor_context: ExtendedProcessorContext<'a>,
 }

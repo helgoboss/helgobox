@@ -1,14 +1,26 @@
 use crate::domain::{
-    DomainEvent, FullMappingScope, HitInstruction, HitInstructionContext,
-    HitInstructionReturnValue, MappingControlContext, MappingData,
-    MappingEnabledChangeRequestedEvent, RealearnTarget, TargetCharacter,
+    DomainEvent, Exclusivity, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
+    MappingControlContext, MappingControlResult, MappingData, MappingEnabledChangeRequestedEvent,
+    MappingScope, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct EnableMappingsTarget {
-    // TODO-high Add at least an artificial current target value so we can use "Toggle"
-    pub scope: FullMappingScope,
+    scope: MappingScope,
+    // For making basic toggle control possible.
+    artificial_value: UnitValue,
+    exclusivity: Exclusivity,
+}
+
+impl EnableMappingsTarget {
+    pub fn new(scope: MappingScope, exclusivity: Exclusivity) -> Self {
+        Self {
+            scope,
+            artificial_value: UnitValue::MAX,
+            exclusivity,
+        }
+    }
 }
 
 impl RealearnTarget for EnableMappingsTarget {
@@ -24,32 +36,53 @@ impl RealearnTarget for EnableMappingsTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        let is_enable = !value.to_unit_value()?.is_zero();
+        let value = value.to_unit_value()?;
+        self.artificial_value = value;
+        let is_enable = !value.is_zero();
         struct EnableMappingInstruction {
-            scope: FullMappingScope,
+            scope: MappingScope,
             mapping_data: MappingData,
             is_enable: bool,
+            exclusivity: Exclusivity,
         }
         impl HitInstruction for EnableMappingInstruction {
-            fn execute(&self, context: HitInstructionContext) {
+            fn execute(&self, context: HitInstructionContext) -> Vec<MappingControlResult> {
                 for m in context.mappings.values_mut() {
                     if m.id() == self.mapping_data.mapping_id {
-                        // We don't want to disable ourself!
+                        // We don't want to enable/disable ourselves!
                         continue;
                     }
-                    if !self.scope.matches(m, self.mapping_data.group_id) {
+                    // Don't touch mappings which are not in the universe (e.g. not in the group or
+                    // are not active).
+                    if !self.scope.universe.matches(m, self.mapping_data.group_id) {
                         continue;
                     }
-                    context.domain_event_handler.handle_event(
-                        DomainEvent::MappingEnabledChangeRequested(
-                            MappingEnabledChangeRequestedEvent {
-                                compartment: m.compartment(),
-                                mapping_id: m.id(),
-                                is_enabled: self.is_enable,
-                            },
-                        ),
-                    );
+                    // Now determine how to change the mappings within that universe.
+                    let change = if self.exclusivity == Exclusivity::Exclusive {
+                        // Change mappings that match the tags and negate the rest.
+                        Some(self.scope.matches_tags(m))
+                    } else {
+                        if self.scope.matches_tags(m) {
+                            // Change mappings that match the tags.
+                            Some(true)
+                        } else {
+                            // Don't touch mappings that don't match the tags.
+                            None
+                        }
+                    };
+                    if let Some(change) = change {
+                        context.domain_event_handler.handle_event(
+                            DomainEvent::MappingEnabledChangeRequested(
+                                MappingEnabledChangeRequestedEvent {
+                                    compartment: m.compartment(),
+                                    mapping_id: m.id(),
+                                    is_enabled: if self.is_enable { change } else { !change },
+                                },
+                            ),
+                        );
+                    }
                 }
+                vec![]
             }
         }
         let instruction = EnableMappingInstruction {
@@ -58,19 +91,17 @@ impl RealearnTarget for EnableMappingsTarget {
             scope: self.scope.clone(),
             mapping_data: context.mapping_data,
             is_enable,
+            exclusivity: self.exclusivity,
         };
         Ok(Some(Box::new(instruction)))
     }
 
-    fn can_report_current_value(&self) -> bool {
-        // It would be cool if it could (by investigating if all of the affected mappings are
-        // enabled), but for now this is a bit difficult and maybe costly ... let's see if we
-        // need this one day.
-        false
-    }
-
     fn is_available(&self) -> bool {
         true
+    }
+
+    fn supports_automatic_feedback(&self) -> bool {
+        false
     }
 }
 
@@ -78,7 +109,7 @@ impl<'a> Target<'a> for EnableMappingsTarget {
     type Context = ();
 
     fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
-        None
+        Some(AbsoluteValue::Continuous(self.artificial_value))
     }
 
     fn control_type(&self) -> ControlType {

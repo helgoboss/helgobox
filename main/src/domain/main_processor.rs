@@ -2,13 +2,13 @@ use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
     ClipChangedEvent, CompoundMappingSource, CompoundMappingTarget, ControlContext, ControlInput,
     ControlMode, DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
-    FeedbackAudioHookTask, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
-    FeedbackSendBehavior, FeedbackValue, GroupId, HitInstructionContext, InstanceFeedbackEvent,
-    InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping, MainSourceMessage,
-    MappingActivationEffect, MappingCompartment, MappingControlResult, MappingId,
-    MappingMatchedEvent, MidiDestination, MidiSource, NormalRealTimeTask, OrderedMappingIdSet,
-    OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedMappingId,
-    QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
+    FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
+    FeedbackResolution, FeedbackSendBehavior, FeedbackValue, GroupId, HitInstructionContext,
+    InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
+    MainSourceMessage, MappingActivationEffect, MappingCompartment, MappingControlResult,
+    MappingId, MappingMatchedEvent, MidiDestination, MidiSource, NormalRealTimeTask,
+    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext,
+    QualifiedMappingId, QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
     RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperMessage, ReaperTarget,
     SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
     TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
@@ -309,11 +309,23 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         if !m.control_is_effectively_on() {
                             continue;
                         }
-                        let mut control_result = m.poll_control(self.basics.control_context());
-                        self.basics.send_feedback(
-                            &self.collections.mappings_with_virtual_targets,
-                            FeedbackReason::Normal,
-                            control_result.feedback_value.take(),
+                        let mut control_result = m.poll_control(
+                            self.basics.control_context(),
+                            &self.basics.logger,
+                            ExtendedProcessorContext::new(
+                                &self.basics.context,
+                                &self.collections.parameters,
+                            ),
+                        );
+                        control_mapping_stage_two(
+                            &self.basics,
+                            &mut control_result,
+                            m,
+                            ManualFeedbackProcessing::On {
+                                mappings_with_virtual_targets: &self
+                                    .collections
+                                    .mappings_with_virtual_targets,
+                            },
                         );
                         (control_result, m.group_interaction())
                     } else {
@@ -328,7 +340,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         group_interaction,
                         GroupInteraction::SameTargetValue | GroupInteraction::InverseTargetValue
                     );
-                control_mapping_stage_two(
+                control_mapping_stage_three(
                     &self.basics,
                     &mut self.collections,
                     compartment,
@@ -373,7 +385,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             if !m.control_is_effectively_on() {
                 return Ok(());
             }
-            let control_result = control_mapping_stage_one(
+            let control_result = control_mapping_stage_one_and_two(
                 &self.basics,
                 &self.collections.parameters,
                 m,
@@ -385,7 +397,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             );
             (control_result, m.group_interaction())
         };
-        control_mapping_stage_two(
+        control_mapping_stage_three(
             &self.basics,
             &mut self.collections,
             compartment,
@@ -419,7 +431,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     let control_context = self.basics.control_context();
                     self.basics
                         .process_feedback_related_reaper_event_for_mapping(
-                            compartment,
                             m,
                             &self.collections.mappings_with_virtual_targets,
                             &mut |t| {
@@ -494,7 +505,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             if let Some(m) = self.collections.mappings[compartment].get(mapping_id)
                             {
                                 self.process_feedback_related_reaper_event_for_mapping(
-                                    compartment,
                                     m,
                                     &mut |target| {
                                         target.value_changed_from_instance_feedback_event(
@@ -769,6 +779,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 AutoStartMappings => {
                     self.autostart_mappings();
                 }
+                HitTarget { id, value } => {
+                    self.hit_target(id, value);
+                }
                 // This is sent on events such as track list change, FX focus etc.
                 RefreshAllTargets => {
                     self.refresh_all_targets();
@@ -847,21 +860,41 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn autostart_mappings(&mut self) {
         for compartment in MappingCompartment::enum_iter() {
-            let mut hit_instructions = vec![];
+            let mut control_results = vec![];
             let control_context = self.basics.control_context();
             for m in self.collections.mappings[compartment].values_mut() {
                 if !m.is_autostart() || !m.control_is_enabled() {
                     continue;
                 }
                 debug!(self.basics.logger, "Autostart mapping {}", m.id());
-                hit_instructions.extend(m.autostart(control_context));
-            }
-            for hi in hit_instructions {
-                hi.execute(HitInstructionContext {
-                    mappings: &mut self.collections.mappings[compartment],
+                let mut control_result = m.autostart(
                     control_context,
-                    domain_event_handler: &self.basics.event_handler,
-                });
+                    &self.basics.logger,
+                    ExtendedProcessorContext::new(
+                        &self.basics.context,
+                        &self.collections.parameters,
+                    ),
+                );
+                control_mapping_stage_two(
+                    &self.basics,
+                    &mut control_result,
+                    m,
+                    ManualFeedbackProcessing::On {
+                        mappings_with_virtual_targets: &self
+                            .collections
+                            .mappings_with_virtual_targets,
+                    },
+                );
+                control_results.push(control_result);
+            }
+            for control_result in control_results {
+                control_mapping_stage_three(
+                    &self.basics,
+                    &mut self.collections,
+                    compartment,
+                    control_result,
+                    GroupInteractionProcessing::Off,
+                );
             }
         }
     }
@@ -1143,13 +1176,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.collections.beat_dependent_feedback_mappings[compartment].iter()
                 {
                     if let Some(m) = self.collections.mappings[compartment].get(mapping_id) {
-                        self.process_feedback_related_reaper_event_for_mapping(
-                            compartment,
-                            m,
-                            &mut |target| {
-                                target.value_changed_from_additional_feedback_event(event)
-                            },
-                        );
+                        self.process_feedback_related_reaper_event_for_mapping(m, &mut |target| {
+                            target.value_changed_from_additional_feedback_event(event)
+                        });
                     }
                 }
             }
@@ -1206,20 +1235,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // Mappings with virtual targets don't need to be considered here because they don't
             // cause feedback themselves.
             for m in self.collections.mappings[compartment].values() {
-                self.process_feedback_related_reaper_event_for_mapping(compartment, m, &mut f);
+                self.process_feedback_related_reaper_event_for_mapping(m, &mut f);
             }
         }
     }
 
     fn process_feedback_related_reaper_event_for_mapping(
         &self,
-        compartment: MappingCompartment,
         m: &MainMapping,
         f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {
         self.basics
             .process_feedback_related_reaper_event_for_mapping(
-                compartment,
                 m,
                 &self.collections.mappings_with_virtual_targets,
                 f,
@@ -1258,7 +1285,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 &self.collections.parameters,
             );
         for r in results {
-            control_mapping_stage_two(
+            control_mapping_stage_three(
                 &self.basics,
                 &mut self.collections,
                 r.compartment,
@@ -1305,7 +1332,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             &self.collections.parameters,
                         );
                     for r in results {
-                        control_mapping_stage_two(
+                        control_mapping_stage_three(
                             &self.basics,
                             &mut self.collections,
                             r.compartment,
@@ -1351,7 +1378,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     enforce_target_refresh,
                     ..Default::default()
                 };
-                let control_result = control_mapping_stage_one(
+                let control_result = control_mapping_stage_one_and_two(
                     &self.basics,
                     &self.collections.parameters,
                     m,
@@ -1376,7 +1403,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 results.push(extended_control_result);
             }
             for r in results {
-                control_mapping_stage_two(
+                control_mapping_stage_three(
                     &self.basics,
                     &mut self.collections,
                     r.compartment,
@@ -1919,6 +1946,39 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         };
         relevant_map.insert(mapping.id(), mapping);
     }
+
+    fn hit_target(&mut self, id: QualifiedMappingId, value: AbsoluteValue) {
+        let control_result = if let Some(m) =
+            self.collections.mappings[id.compartment].get_mut(&id.id)
+        {
+            let mut control_result = m.control_from_target_directly(
+                self.basics.control_context(),
+                &self.basics.logger,
+                ExtendedProcessorContext::new(&self.basics.context, &self.collections.parameters),
+                value,
+            );
+            control_mapping_stage_two(
+                &self.basics,
+                &mut control_result,
+                m,
+                ManualFeedbackProcessing::On {
+                    mappings_with_virtual_targets: &self.collections.mappings_with_virtual_targets,
+                },
+            );
+            Some(control_result)
+        } else {
+            None
+        };
+        if let Some(control_result) = control_result {
+            control_mapping_stage_three(
+                &self.basics,
+                &mut self.collections,
+                id.compartment,
+                control_result,
+                GroupInteractionProcessing::Off,
+            );
+        }
+    }
 }
 
 /// State that contains only those properties of a mapping which ...
@@ -1952,6 +2012,10 @@ pub enum NormalMainTask {
     },
     /// Causes all mappings tagged as 'autostart' to hit the target with target max.
     AutoStartMappings,
+    HitTarget {
+        id: QualifiedMappingId,
+        value: AbsoluteValue,
+    },
     RefreshAllTargets,
     UpdateSettings {
         control_input: ControlInput,
@@ -2150,7 +2214,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                 enforce_target_refresh: true,
                                 ..Default::default()
                             };
-                            control_mapping_stage_one(
+                            control_mapping_stage_one_and_two(
                                 basics,
                                 parameters,
                                 other_mapping,
@@ -2181,7 +2245,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             mapping_id,
                             group_id,
                             |other_mapping, basics, parameters| {
-                                other_mapping.control_from_target(
+                                other_mapping.control_from_target_via_group_interaction(
                                     normalized_target_value,
                                     ControlOptions {
                                         // Previous mappings in this transaction could affect
@@ -2224,6 +2288,9 @@ impl<EH: DomainEventHandler> Basics<EH> {
         let mut hit_instructions = vec![];
         for other_mapping in other_mappings {
             let other_control_result = f(other_mapping, self, &collections.parameters);
+            if let Some(new_value) = other_control_result.new_target_value {
+                self.notify_target_value_changed(other_mapping, new_value);
+            }
             self.send_feedback(
                 &collections.mappings_with_virtual_targets,
                 FeedbackReason::Normal,
@@ -2238,6 +2305,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 mappings: &mut collections.mappings[compartment],
                 control_context: self.control_context(),
                 domain_event_handler: &self.event_handler,
+                logger: &self.logger,
+                processor_context: ExtendedProcessorContext::new(
+                    &self.context,
+                    &collections.parameters,
+                ),
             });
         }
     }
@@ -2246,7 +2318,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
     #[allow(clippy::needless_collect)]
     pub fn process_feedback_related_reaper_event_for_mapping(
         &self,
-        compartment: MappingCompartment,
         m: &MainMapping,
         mappings_with_virtual_targets: &OrderedMappingMap<MainMapping>,
         f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
@@ -2296,23 +2367,29 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 && !m.is_echo();
             let feedback_value = m.feedback_given_target_value(
                 new_value,
-                projection_feedback_desired,
-                source_feedback_desired,
+                FeedbackDestinations {
+                    with_projection_feedback: projection_feedback_desired,
+                    with_source_feedback: source_feedback_desired,
+                },
             );
             self.send_feedback(
                 mappings_with_virtual_targets,
                 FeedbackReason::Normal,
                 feedback_value,
             );
-            // Inform session, e.g. for UI updates
-            self.event_handler
-                .handle_event(DomainEvent::TargetValueChanged(TargetValueChangedEvent {
-                    compartment,
-                    mapping_id: m.id(),
-                    targets: m.targets(),
-                    new_value,
-                }));
+            self.notify_target_value_changed(m, new_value);
         }
+    }
+
+    /// Inform session, e.g. for UI updates
+    fn notify_target_value_changed(&self, m: &MainMapping, new_value: AbsoluteValue) {
+        self.event_handler
+            .handle_event(DomainEvent::TargetValueChanged(TargetValueChangedEvent {
+                compartment: m.compartment(),
+                mapping_id: m.id(),
+                targets: m.targets(),
+                new_value,
+            }));
     }
 
     /// Processes (controller) mappings with virtual targets.
@@ -2382,8 +2459,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         for feedback_value in feedback_values.into_iter() {
             match feedback_value {
                 FeedbackValue::Virtual {
-                    with_projection_feedback,
-                    with_source_feedback,
+                    destinations,
                     value,
                 } => {
                     if let Ok(v) = value.control_value().to_absolute_value() {
@@ -2396,8 +2472,12 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                     if let Some(FeedbackValue::Real(final_feedback_value)) = m
                                         .feedback_given_target_value(
                                             v,
-                                            with_projection_feedback,
-                                            with_source_feedback && m.feedback_is_enabled(),
+                                            FeedbackDestinations {
+                                                with_source_feedback: destinations
+                                                    .with_source_feedback
+                                                    && m.feedback_is_enabled(),
+                                                ..destinations
+                                            },
                                         )
                                     {
                                         self.send_direct_feedback(
@@ -2561,7 +2641,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         enforce_target_refresh,
                         ..options
                     };
-                    let control_result = control_mapping_stage_one(
+                    let control_result = control_mapping_stage_one_and_two(
                         self,
                         parameters,
                         m,
@@ -2569,6 +2649,9 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         options,
                         ManualFeedbackProcessing::Off,
                     );
+                    if let Some(new_value) = control_result.new_target_value {
+                        self.notify_target_value_changed(m, new_value);
+                    }
                     enforce_target_refresh = true;
                     let extended_control_result = ExtendedMappingControlResult {
                         control_result,
@@ -2650,14 +2733,8 @@ pub enum InputMatchResult {
     Matched,
 }
 
-/// Executes stage one of a typical mapping control invocation.
-///
-/// Takes care of:
-///
-/// 1. Notifying that mapping matched
-/// 2. Controlling with given control value (probably produced by source) starting from mode.
-/// 3. Sending "Send feedback after control" feedback (if enabled).
-fn control_mapping_stage_one<EH: DomainEventHandler>(
+#[must_use]
+fn control_mapping_stage_one_and_two<EH: DomainEventHandler>(
     basics: &Basics<EH>,
     parameters: &ParameterArray,
     m: &mut MainMapping,
@@ -2665,14 +2742,50 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
     options: ControlOptions,
     feedback_handling: ManualFeedbackProcessing,
 ) -> MappingControlResult {
+    let mut control_result =
+        control_mapping_stage_one(basics, parameters, m, control_value, options);
+    control_mapping_stage_two(basics, &mut control_result, m, feedback_handling);
+    control_result
+}
+
+/// Executes stage one of a typical mapping control invocation.
+///
+/// Takes care of:
+///
+/// 1. Notifying that mapping matched
+/// 2. Controlling with given control value (probably produced by source) starting from mode.
+#[must_use]
+fn control_mapping_stage_one<EH: DomainEventHandler>(
+    basics: &Basics<EH>,
+    parameters: &ParameterArray,
+    m: &mut MainMapping,
+    control_value: ControlValue,
+    options: ControlOptions,
+) -> MappingControlResult {
     basics.notify_mapping_matched(m.compartment(), m.id());
-    let mut control_result = m.control_from_mode(
+    m.control_from_mode(
         control_value,
         options,
         basics.control_context(),
         &basics.logger,
         ExtendedProcessorContext::new(&basics.context, parameters),
-    );
+    )
+}
+
+/// Executes stage one of a typical mapping control invocation.
+///
+/// Takes care of:
+///
+/// 1. Sending manual feedback due to target or "Send feedback after control".
+fn control_mapping_stage_two<EH: DomainEventHandler>(
+    basics: &Basics<EH>,
+    control_result: &mut MappingControlResult,
+    m: &mut MainMapping,
+    feedback_handling: ManualFeedbackProcessing,
+) {
+    if let Some(new_value) = control_result.new_target_value {
+        basics.notify_target_value_changed(m, new_value);
+    }
     if let ManualFeedbackProcessing::On {
         mappings_with_virtual_targets,
     } = feedback_handling
@@ -2683,16 +2796,15 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
             control_result.feedback_value.take(),
         );
     }
-    control_result
 }
 
-/// Executes stage two of a typical mapping control invocation.
+/// Executes stage three of a typical mapping control invocation.
 ///
 /// Takes care of:
 ///
 /// 1. Executing a possible hit instruction.
 /// 2. Processing group interaction (if enabled).
-fn control_mapping_stage_two<EH: DomainEventHandler>(
+fn control_mapping_stage_three<EH: DomainEventHandler>(
     basics: &Basics<EH>,
     collections: &mut Collections,
     compartment: MappingCompartment,
@@ -2704,6 +2816,11 @@ fn control_mapping_stage_two<EH: DomainEventHandler>(
             mappings: &mut collections.mappings[compartment],
             control_context: basics.control_context(),
             domain_event_handler: &basics.event_handler,
+            logger: &basics.logger,
+            processor_context: ExtendedProcessorContext::new(
+                &basics.context,
+                &collections.parameters,
+            ),
         });
     }
     if let GroupInteractionProcessing::On(input) = group_interaction_processing {
