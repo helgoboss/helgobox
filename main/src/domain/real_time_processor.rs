@@ -302,7 +302,7 @@ impl RealTimeProcessor {
                     // Send lifecycle MIDI
                     if self.processor_feedback_is_effectively_on() {
                         if let Some(m) = self.mappings[id.compartment].get(&id.id) {
-                            self.send_lifecycle_midi_diff(&m, was_on_before, is_on_now);
+                            self.send_lifecycle_midi_diff(m, was_on_before, is_on_now);
                         }
                     }
                 }
@@ -447,12 +447,12 @@ impl RealTimeProcessor {
     fn send_lifecycle_midi_diff(&self, m: &RealTimeMapping, was_on_before: bool, is_on_now: bool) {
         if is_on_now {
             self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                &m,
+                m,
                 LifecyclePhase::Activation,
             );
         } else if was_on_before {
             self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                &m,
+                m,
                 LifecyclePhase::Deactivation,
             );
         }

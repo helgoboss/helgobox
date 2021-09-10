@@ -3900,14 +3900,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             value_text.show();
             value_text.disable();
             value_text.set_text(msg);
+        } else if read_enabled {
+            value_text.show();
+            value_text.enable();
+            // Value text already set above
         } else {
-            if read_enabled {
-                value_text.show();
-                value_text.enable();
-                // Value text already set above
-            } else {
-                value_text.hide();
-            }
+            value_text.hide();
         }
     }
 

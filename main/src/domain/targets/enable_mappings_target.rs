@@ -61,14 +61,12 @@ impl RealearnTarget for EnableMappingsTarget {
                     let change = if self.exclusivity == Exclusivity::Exclusive {
                         // Change mappings that match the tags and negate the rest.
                         Some(self.scope.matches_tags(m))
+                    } else if self.scope.matches_tags(m) {
+                        // Change mappings that match the tags.
+                        Some(true)
                     } else {
-                        if self.scope.matches_tags(m) {
-                            // Change mappings that match the tags.
-                            Some(true)
-                        } else {
-                            // Don't touch mappings that don't match the tags.
-                            None
-                        }
+                        // Don't touch mappings that don't match the tags.
+                        None
                     };
                     if let Some(change) = change {
                         context.domain_event_handler.handle_event(
