@@ -13,7 +13,7 @@ use crate::infrastructure::ui::bindings::root::{
     IDC_MAPPING_ROW_ENABLED_CHECK_BOX, ID_MAPPING_ROW_CONTROL_CHECK_BOX,
     ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
-use crate::infrastructure::ui::util::symbols;
+use crate::infrastructure::ui::util::{format_tags_as_csv, symbols};
 use crate::infrastructure::ui::{
     copy_object_to_clipboard, get_object_from_clipboard, util, ClipboardObject,
     IndependentPanelManager, Item, SharedMainState,
@@ -122,33 +122,37 @@ impl MappingRowPanel {
 
     fn invalidate_name_labels(&self, mapping: &MappingModel) {
         let main_state = self.main_state.borrow();
-        let group_name = if main_state
+        // Left label
+        self.view
+            .require_window()
+            .require_control(root::ID_MAPPING_ROW_MAPPING_LABEL)
+            .set_text(mapping.effective_name());
+        // Right label
+        let mut right_label = format_tags_as_csv(mapping.tags.get_ref());
+        if main_state
             .displayed_group_for_active_compartment()
-            .is_some()
+            .is_none()
         {
-            None
-        } else {
-            // All groups are shown. Add more context!
+            // All groups are shown. Add group name next to tags.
             let group_id = mapping.group_id.get();
             let compartment = main_state.active_compartment.get();
             let session = self.session();
-            let label = if group_id.is_default() {
+            let group_label = if group_id.is_default() {
                 "<Default>".to_owned()
             } else if let Some(group) = session.borrow().find_group_by_id(compartment, group_id) {
                 group.borrow().name().to_owned()
             } else {
                 "<group not present>".to_owned()
             };
-            Some(label)
+            if !mapping.tags.get_ref().is_empty() {
+                right_label += " | ";
+            }
+            right_label += &group_label;
         };
         self.view
             .require_window()
-            .require_control(root::ID_MAPPING_ROW_MAPPING_LABEL)
-            .set_text(mapping.effective_name());
-        self.view
-            .require_window()
             .require_control(root::ID_MAPPING_ROW_GROUP_LABEL)
-            .set_text_or_hide(group_name);
+            .set_text(right_label);
     }
 
     fn session(&self) -> SharedSession {
@@ -323,9 +327,12 @@ impl MappingRowPanel {
     fn register_listeners(self: &SharedView<Self>, mapping: &MappingModel) {
         let session = self.session();
         let session = session.borrow();
-        self.when(mapping.name.changed(), |view| {
-            view.with_mapping(Self::invalidate_name_labels);
-        });
+        self.when(
+            mapping.name.changed().merge(mapping.tags.changed()),
+            |view| {
+                view.with_mapping(Self::invalidate_name_labels);
+            },
+        );
         self.when(mapping.source_model.changed(), |view| {
             view.with_mapping(Self::invalidate_source_label);
         });

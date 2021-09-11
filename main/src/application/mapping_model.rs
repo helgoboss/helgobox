@@ -102,6 +102,10 @@ impl MappingModel {
         QualifiedMappingId::new(self.compartment, self.id)
     }
 
+    pub fn has_tags(&self) -> bool {
+        !self.tags.get_ref().is_empty()
+    }
+
     pub fn data(&self) -> MappingData {
         MappingData {
             mapping_id: self.id,
