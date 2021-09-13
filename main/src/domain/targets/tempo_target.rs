@@ -13,7 +13,7 @@ pub struct TempoTarget {
 }
 
 impl RealearnTarget for TempoTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteContinuousRoundable {
                 rounding_step_size: UnitValue::new(1.0 / bpm_span()),
@@ -22,35 +22,35 @@ impl RealearnTarget for TempoTarget {
         )
     }
 
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_value(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {
         parse_value_from_bpm(text)
     }
 
-    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_step_size(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {
         parse_step_size_from_bpm(text)
     }
 
-    fn format_value_without_unit(&self, value: UnitValue) -> String {
+    fn format_value_without_unit(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_bpm_without_unit(value)
     }
 
-    fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
+    fn format_step_size_without_unit(&self, step_size: UnitValue, _: ControlContext) -> String {
         format_step_size_as_bpm_without_unit(step_size)
     }
 
-    fn hide_formatted_value(&self) -> bool {
+    fn hide_formatted_value(&self, _: ControlContext) -> bool {
         true
     }
 
-    fn hide_formatted_step_size(&self) -> bool {
+    fn hide_formatted_step_size(&self, _: ControlContext) -> bool {
         true
     }
 
-    fn value_unit(&self) -> &'static str {
+    fn value_unit(&self, _: ControlContext) -> &'static str {
         "bpm"
     }
 
-    fn step_size_unit(&self) -> &'static str {
+    fn step_size_unit(&self, _: ControlContext) -> &'static str {
         "bpm"
     }
 
@@ -64,7 +64,7 @@ impl RealearnTarget for TempoTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.project.is_available()
     }
 
@@ -90,14 +90,14 @@ impl RealearnTarget for TempoTarget {
 }
 
 impl<'a> Target<'a> for TempoTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let val = tempo_unit_value(self.project.tempo());
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

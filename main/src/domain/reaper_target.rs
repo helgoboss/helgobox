@@ -577,50 +577,50 @@ impl<'a> Target<'a> for ReaperTarget {
     fn current_value(&self, context: ControlContext) -> Option<AbsoluteValue> {
         use ReaperTarget::*;
         match self {
-            SendOsc(t) => t.current_value(()),
+            SendOsc(t) => t.current_value(context),
             SendMidi(t) => t.current_value(()),
             TrackPeak(t) => t.current_value(context),
-            Action(t) => t.current_value(()),
-            FxParameter(t) => t.current_value(()),
-            TrackVolume(t) => t.current_value(()),
-            TrackPan(t) => t.current_value(()),
-            TrackWidth(t) => t.current_value(()),
-            TrackArm(t) => t.current_value(()),
-            TrackRouteVolume(t) => t.current_value(()),
-            TrackSelection(t) => t.current_value(()),
-            TrackMute(t) => t.current_value(()),
-            TrackShow(t) => t.current_value(()),
-            TrackSolo(t) => t.current_value(()),
-            TrackAutomationMode(t) => t.current_value(()),
-            TrackRoutePan(t) => t.current_value(()),
-            TrackRouteMute(t) => t.current_value(()),
-            Tempo(t) => t.current_value(()),
-            Playrate(t) => t.current_value(()),
-            AutomationModeOverride(t) => t.current_value(()),
-            FxEnable(t) => t.current_value(()),
-            FxOpen(t) => t.current_value(()),
+            Action(t) => t.current_value(context),
+            FxParameter(t) => t.current_value(context),
+            TrackVolume(t) => t.current_value(context),
+            TrackPan(t) => t.current_value(context),
+            TrackWidth(t) => t.current_value(context),
+            TrackArm(t) => t.current_value(context),
+            TrackRouteVolume(t) => t.current_value(context),
+            TrackSelection(t) => t.current_value(context),
+            TrackMute(t) => t.current_value(context),
+            TrackShow(t) => t.current_value(context),
+            TrackSolo(t) => t.current_value(context),
+            TrackAutomationMode(t) => t.current_value(context),
+            TrackRoutePan(t) => t.current_value(context),
+            TrackRouteMute(t) => t.current_value(context),
+            Tempo(t) => t.current_value(context),
+            Playrate(t) => t.current_value(context),
+            AutomationModeOverride(t) => t.current_value(context),
+            FxEnable(t) => t.current_value(context),
+            FxOpen(t) => t.current_value(context),
             // Discrete
-            FxPreset(t) => t.current_value(()),
-            LoadFxSnapshot(t) => t.current_value(()),
+            FxPreset(t) => t.current_value(context),
+            LoadFxSnapshot(t) => t.current_value(context),
             // Discrete
-            SelectedTrack(t) => t.current_value(()),
+            SelectedTrack(t) => t.current_value(context),
             // Discrete
-            FxNavigate(t) => t.current_value(()),
-            AllTrackFxEnable(t) => t.current_value(()),
-            Transport(t) => t.current_value(()),
-            AutomationTouchState(t) => t.current_value(()),
-            GoToBookmark(t) => t.current_value(()),
-            Seek(t) => t.current_value(()),
+            FxNavigate(t) => t.current_value(context),
+            AllTrackFxEnable(t) => t.current_value(context),
+            Transport(t) => t.current_value(context),
+            AutomationTouchState(t) => t.current_value(context),
+            GoToBookmark(t) => t.current_value(context),
+            Seek(t) => t.current_value(context),
             ClipTransport(t) => t.current_value(context),
             ClipSeek(t) => t.current_value(context),
             ClipVolume(t) => t.current_value(context),
-            LoadMappingSnapshot(t) => t.current_value(()),
-            EnableMappings(t) => t.current_value(()),
+            LoadMappingSnapshot(t) => t.current_value(context),
+            EnableMappings(t) => t.current_value(context),
         }
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: ControlContext) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }
 impl<'a> Target<'a> for RealTimeReaperTarget {
@@ -633,10 +633,10 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
         }
     }
 
-    fn control_type(&self) -> ControlType {
+    fn control_type(&self, _: ()) -> ControlType {
         use RealTimeReaperTarget::*;
         match self {
-            SendMidi(t) => t.control_type(),
+            SendMidi(t) => t.control_type(()),
         }
     }
 }

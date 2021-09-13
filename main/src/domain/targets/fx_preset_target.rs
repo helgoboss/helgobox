@@ -13,7 +13,7 @@ pub struct FxPresetTarget {
 }
 
 impl RealearnTarget for FxPresetTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         // `+ 1` because "<no preset>" is also a possible value.
         let preset_count = self.fx.preset_count().unwrap_or(0);
         (
@@ -24,22 +24,34 @@ impl RealearnTarget for FxPresetTarget {
         )
     }
 
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.parse_value_from_discrete_value(text)
+    fn parse_as_value(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
+        self.parse_value_from_discrete_value(text, context)
     }
 
-    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.parse_value_from_discrete_value(text)
+    fn parse_as_step_size(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
+        self.parse_value_from_discrete_value(text, context)
     }
 
-    fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+    fn convert_unit_value_to_discrete_value(
+        &self,
+        input: UnitValue,
+        _: ControlContext,
+    ) -> Result<u32, &'static str> {
         let value = convert_unit_value_to_preset_index(&self.fx, input)
             .map(|i| i + 1)
             .unwrap_or(0);
         Ok(value)
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         match convert_unit_value_to_preset_index(&self.fx, value) {
             None => "<No preset>".to_string(),
             Some(i) => (i + 1).to_string(),
@@ -69,7 +81,7 @@ impl RealearnTarget for FxPresetTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.fx.is_available()
     }
 
@@ -96,16 +108,20 @@ impl RealearnTarget for FxPresetTarget {
         }
     }
 
-    fn convert_discrete_value_to_unit_value(&self, value: u32) -> Result<UnitValue, &'static str> {
+    fn convert_discrete_value_to_unit_value(
+        &self,
+        value: u32,
+        _: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
         let index = if value == 0 { None } else { Some(value - 1) };
         Ok(fx_preset_unit_value(&self.fx, index))
     }
 }
 
 impl<'a> Target<'a> for FxPresetTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let preset_count = self.fx.preset_count().ok()?;
         // Because we count "<No preset>" as a possible value, this is equal.
         let max_value = preset_count;
@@ -117,7 +133,7 @@ impl<'a> Target<'a> for FxPresetTarget {
         )))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

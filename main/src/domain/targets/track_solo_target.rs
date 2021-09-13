@@ -15,11 +15,11 @@ pub struct TrackSoloTarget {
 }
 
 impl RealearnTarget for TrackSoloTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         get_control_type_and_character_for_track_exclusivity(self.exclusivity)
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_on_off(value).to_string()
     }
 
@@ -46,7 +46,7 @@ impl RealearnTarget for TrackSoloTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.track.is_available()
     }
 
@@ -80,14 +80,14 @@ impl RealearnTarget for TrackSoloTarget {
 }
 
 impl<'a> Target<'a> for TrackSoloTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let val = track_solo_unit_value(self.track.is_solo());
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

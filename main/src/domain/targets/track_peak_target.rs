@@ -33,29 +33,29 @@ impl<'a> Target<'a> for TrackPeakTarget {
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }
 
 impl RealearnTarget for TrackPeakTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
 
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_value(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {
         parse_value_from_db(text)
     }
 
-    fn format_value_without_unit(&self, value: UnitValue) -> String {
+    fn format_value_without_unit(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_db_without_unit(value)
     }
 
-    fn value_unit(&self) -> &'static str {
+    fn value_unit(&self, _: ControlContext) -> &'static str {
         "dB"
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.track.is_available()
     }
 

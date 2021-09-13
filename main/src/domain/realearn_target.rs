@@ -13,11 +13,18 @@ use std::convert::TryInto;
 
 #[enum_dispatch(ReaperTarget)]
 pub trait RealearnTarget {
-    fn character(&self) -> TargetCharacter {
-        self.control_type_and_character().1
+    // TODO-low Instead of taking the ControlContext as parameter in each method, we could also
+    //  choose to implement RealearnTarget for a wrapper that contains the control context.
+    //  We did this with ValueFormatter and ValueParser.
+    fn character(&self, context: ControlContext) -> TargetCharacter {
+        self.control_type_and_character(context).1
     }
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter);
-    fn open(&self) {
+
+    fn control_type_and_character(&self, context: ControlContext)
+        -> (ControlType, TargetCharacter);
+
+    fn open(&self, context: ControlContext) {
+        let _ = context;
         if let Some(fx) = self.fx() {
             fx.show_in_floating_window();
             return;
@@ -32,11 +39,21 @@ pub trait RealearnTarget {
         }
     }
     /// Parses the given text as a target value and returns it as unit value.
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_value(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
+        let _ = context;
         parse_unit_value_from_percentage(text)
     }
     /// Parses the given text as a target step size and returns it as unit value.
-    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_step_size(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
+        let _ = context;
         parse_unit_value_from_percentage(text)
     }
     /// This converts the given normalized value to a discrete value.
@@ -53,8 +70,12 @@ pub trait RealearnTarget {
     /// # Errors
     ///
     /// Returns an error if this target doesn't report a step size.
-    fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
-        if self.control_type_and_character().0.is_relative() {
+    fn convert_unit_value_to_discrete_value(
+        &self,
+        input: UnitValue,
+        context: ControlContext,
+    ) -> Result<u32, &'static str> {
+        if self.control_type_and_character(context).0.is_relative() {
             // Relative MIDI controllers support a maximum of 63 steps.
             return Ok((input.get() * 63.0).round() as _);
         }
@@ -62,17 +83,25 @@ pub trait RealearnTarget {
         Err("not supported")
     }
     /// Formats the given value without unit.
-    fn format_value_without_unit(&self, value: UnitValue) -> String {
-        self.format_as_discrete_or_percentage(value)
+    fn format_value_without_unit(&self, value: UnitValue, context: ControlContext) -> String {
+        self.format_as_discrete_or_percentage(value, context)
     }
     /// Formats the given step size without unit.
-    fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
-        self.format_as_discrete_or_percentage(step_size)
+    fn format_step_size_without_unit(
+        &self,
+        step_size: UnitValue,
+        context: ControlContext,
+    ) -> String {
+        self.format_as_discrete_or_percentage(step_size, context)
     }
     /// Reusable function
-    fn format_as_discrete_or_percentage(&self, value: UnitValue) -> String {
-        if self.character() == TargetCharacter::Discrete {
-            self.convert_unit_value_to_discrete_value(value)
+    fn format_as_discrete_or_percentage(
+        &self,
+        value: UnitValue,
+        context: ControlContext,
+    ) -> String {
+        if self.character(context) == TargetCharacter::Discrete {
+            self.convert_unit_value_to_discrete_value(value, context)
                 .map(|v| v.to_string())
                 .unwrap_or_default()
         } else {
@@ -81,38 +110,40 @@ pub trait RealearnTarget {
     }
     /// If this returns true, a value will not be printed (e.g. because it's already in the edit
     /// field).
-    fn hide_formatted_value(&self) -> bool {
+    fn hide_formatted_value(&self, context: ControlContext) -> bool {
+        let _ = context;
         false
     }
     /// If this returns true, a step size will not be printed (e.g. because it's already in the
     /// edit field).
-    fn hide_formatted_step_size(&self) -> bool {
+    fn hide_formatted_step_size(&self, context: ControlContext) -> bool {
+        let _ = context;
         false
     }
-    fn value_unit(&self) -> &'static str {
-        if self.character() == TargetCharacter::Discrete {
+    fn value_unit(&self, context: ControlContext) -> &'static str {
+        if self.character(context) == TargetCharacter::Discrete {
             ""
         } else {
             "%"
         }
     }
-    fn step_size_unit(&self) -> &'static str {
-        if self.character() == TargetCharacter::Discrete {
+    fn step_size_unit(&self, context: ControlContext) -> &'static str {
+        if self.character(context) == TargetCharacter::Discrete {
             ""
         } else {
             "%"
         }
     }
     /// Formats the value completely (including a possible unit).
-    fn format_value(&self, value: UnitValue) -> String {
-        self.format_value_generic(value)
+    fn format_value(&self, value: UnitValue, context: ControlContext) -> String {
+        self.format_value_generic(value, context)
     }
 
-    fn format_value_generic(&self, value: UnitValue) -> String {
+    fn format_value_generic(&self, value: UnitValue, context: ControlContext) -> String {
         format!(
             "{} {}",
-            self.format_value_without_unit(value),
-            self.value_unit()
+            self.format_value_without_unit(value, context),
+            self.value_unit(context)
         )
     }
     fn hit(
@@ -123,11 +154,14 @@ pub trait RealearnTarget {
         let (_, _) = (value, context);
         Err("not supported")
     }
+
     fn can_report_current_value(&self) -> bool {
         // We will quickly realize if not.
         true
     }
-    fn is_available(&self) -> bool;
+
+    fn is_available(&self, context: ControlContext) -> bool;
+
     fn project(&self) -> Option<Project> {
         None
     }
@@ -171,9 +205,9 @@ pub trait RealearnTarget {
     fn process_change_event(
         &self,
         evt: &ChangeEvent,
-        control_context: ControlContext,
+        context: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
-        let (_, _) = (evt, control_context);
+        let (_, _) = (evt, context);
         (false, None)
     }
 
@@ -201,16 +235,27 @@ pub trait RealearnTarget {
     ///
     /// Used for parsing discrete values of discrete targets that can't do real parsing according to
     /// `can_parse_values()`.
-    fn convert_discrete_value_to_unit_value(&self, value: u32) -> Result<UnitValue, &'static str> {
-        if self.control_type_and_character().0.is_relative() {
+    fn convert_discrete_value_to_unit_value(
+        &self,
+        value: u32,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
+        if self.control_type_and_character(context).0.is_relative() {
             return (value as f64 / 63.0).try_into();
         }
         let _ = value;
         Err("not supported")
     }
 
-    fn parse_value_from_discrete_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.convert_discrete_value_to_unit_value(text.parse().map_err(|_| "not a discrete value")?)
+    fn parse_value_from_discrete_value(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
+        self.convert_discrete_value_to_unit_value(
+            text.parse().map_err(|_| "not a discrete value")?,
+            context,
+        )
     }
 }
 

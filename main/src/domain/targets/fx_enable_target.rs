@@ -11,11 +11,11 @@ pub struct FxEnableTarget {
 }
 
 impl RealearnTarget for FxEnableTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_on_off(value).to_string()
     }
 
@@ -32,7 +32,7 @@ impl RealearnTarget for FxEnableTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.fx.is_available()
     }
 
@@ -64,15 +64,15 @@ impl RealearnTarget for FxEnableTarget {
 }
 
 impl<'a> Target<'a> for FxEnableTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         Some(AbsoluteValue::Continuous(fx_enable_unit_value(
             self.fx.is_enabled(),
         )))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

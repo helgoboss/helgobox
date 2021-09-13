@@ -39,7 +39,7 @@ impl<'a> Target<'a> for VirtualTarget {
         None
     }
 
-    fn control_type(&self) -> ControlType {
+    fn control_type(&self, _: ()) -> ControlType {
         use VirtualControlElement::*;
         match self.control_element {
             Multi(_) => ControlType::VirtualMulti,

@@ -1,6 +1,6 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    ActionInvocationType, AdditionalFeedbackEvent, HitInstructionReturnValue,
+    ActionInvocationType, AdditionalFeedbackEvent, ControlContext, HitInstructionReturnValue,
     MappingControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
@@ -17,7 +17,7 @@ pub struct ActionTarget {
 }
 
 impl RealearnTarget for ActionTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         match self.invocation_type {
             ActionInvocationType::Trigger => (
                 ControlType::AbsoluteContinuousRetriggerable,
@@ -35,7 +35,7 @@ impl RealearnTarget for ActionTarget {
         }
     }
 
-    fn open(&self) {
+    fn open(&self, _: ControlContext) {
         // Just open action window
         Reaper::get()
             .main_section()
@@ -43,7 +43,7 @@ impl RealearnTarget for ActionTarget {
             .invoke_as_trigger(Some(self.project));
     }
 
-    fn format_value(&self, _: UnitValue) -> String {
+    fn format_value(&self, _: UnitValue, _: ControlContext) -> String {
         "".to_owned()
     }
 
@@ -88,7 +88,7 @@ impl RealearnTarget for ActionTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.action.is_available()
     }
 
@@ -110,9 +110,9 @@ impl RealearnTarget for ActionTarget {
 }
 
 impl<'a> Target<'a> for ActionTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let val = if let Some(state) = self.action.is_on() {
             // Toggle action: Return toggle state as 0 or 1.
             convert_bool_to_unit_value(state)
@@ -128,8 +128,8 @@ impl<'a> Target<'a> for ActionTarget {
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }
 

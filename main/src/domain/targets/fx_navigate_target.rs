@@ -14,7 +14,7 @@ pub struct FxNavigateTarget {
 }
 
 impl RealearnTarget for FxNavigateTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         // `+ 1` because "<No FX>" is also a possible value.
         (
             ControlType::AbsoluteDiscrete {
@@ -24,22 +24,34 @@ impl RealearnTarget for FxNavigateTarget {
         )
     }
 
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.parse_value_from_discrete_value(text)
+    fn parse_as_value(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
+        self.parse_value_from_discrete_value(text, context)
     }
 
-    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.parse_value_from_discrete_value(text)
+    fn parse_as_step_size(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
+        self.parse_value_from_discrete_value(text, context)
     }
 
-    fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+    fn convert_unit_value_to_discrete_value(
+        &self,
+        input: UnitValue,
+        _: ControlContext,
+    ) -> Result<u32, &'static str> {
         let value = convert_unit_value_to_fx_index(&self.fx_chain, input)
             .map(|i| i + 1)
             .unwrap_or(0);
         Ok(value)
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         match convert_unit_value_to_fx_index(&self.fx_chain, value) {
             None => "<No FX>".to_string(),
             Some(i) => (i + 1).to_string(),
@@ -93,7 +105,7 @@ impl RealearnTarget for FxNavigateTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.fx_chain.is_available()
     }
 
@@ -117,16 +129,20 @@ impl RealearnTarget for FxNavigateTarget {
         }
     }
 
-    fn convert_discrete_value_to_unit_value(&self, value: u32) -> Result<UnitValue, &'static str> {
+    fn convert_discrete_value_to_unit_value(
+        &self,
+        value: u32,
+        _: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
         let index = if value == 0 { None } else { Some(value - 1) };
         Ok(shown_fx_unit_value(&self.fx_chain, index))
     }
 }
 
 impl<'a> Target<'a> for FxNavigateTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let fx_count = self.fx_chain.fx_count();
         // Because we count "<No FX>" as a possible value, this is equal.
         let max_value = fx_count;
@@ -152,7 +168,7 @@ impl<'a> Target<'a> for FxNavigateTarget {
         )))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

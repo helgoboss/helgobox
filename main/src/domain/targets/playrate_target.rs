@@ -15,7 +15,7 @@ pub struct PlayrateTarget {
 }
 
 impl RealearnTarget for PlayrateTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteContinuousRoundable {
                 rounding_step_size: UnitValue::new(1.0 / (playback_speed_factor_span() * 100.0)),
@@ -24,35 +24,35 @@ impl RealearnTarget for PlayrateTarget {
         )
     }
 
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_value(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {
         parse_value_from_playback_speed_factor(text)
     }
 
-    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_step_size(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {
         parse_step_size_from_playback_speed_factor(text)
     }
 
-    fn format_value_without_unit(&self, value: UnitValue) -> String {
+    fn format_value_without_unit(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_playback_speed_factor_without_unit(value)
     }
 
-    fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
+    fn format_step_size_without_unit(&self, step_size: UnitValue, _: ControlContext) -> String {
         format_step_size_as_playback_speed_factor_without_unit(step_size)
     }
 
-    fn hide_formatted_value(&self) -> bool {
+    fn hide_formatted_value(&self, _: ControlContext) -> bool {
         true
     }
 
-    fn hide_formatted_step_size(&self) -> bool {
+    fn hide_formatted_step_size(&self, _: ControlContext) -> bool {
         true
     }
 
-    fn value_unit(&self) -> &'static str {
+    fn value_unit(&self, _: ControlContext) -> &'static str {
         "x"
     }
 
-    fn step_size_unit(&self) -> &'static str {
+    fn step_size_unit(&self, _: ControlContext) -> &'static str {
         "x"
     }
 
@@ -67,7 +67,7 @@ impl RealearnTarget for PlayrateTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.project.is_available()
     }
 
@@ -93,14 +93,14 @@ impl RealearnTarget for PlayrateTarget {
 }
 
 impl<'a> Target<'a> for PlayrateTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let val = playrate_unit_value(self.project.play_rate());
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

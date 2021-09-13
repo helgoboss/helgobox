@@ -1,5 +1,7 @@
 use crate::base::AsyncNotifier;
-use crate::domain::{ClipPlayState, ClipSlot, SlotContent, SlotDescriptor, SlotPlayOptions};
+use crate::domain::{
+    ClipPlayState, ClipSlot, GroupId, MappingId, SlotContent, SlotDescriptor, SlotPlayOptions,
+};
 use helgoboss_learn::UnitValue;
 use reaper_high::{Item, Project, Track};
 use reaper_medium::{PlayState, ReaperVolumeValue};
@@ -7,6 +9,7 @@ use rx_util::Notifier;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::error::Error;
 use std::rc::Rc;
 
@@ -19,6 +22,7 @@ pub struct InstanceState {
     clip_slots: [ClipSlot; CLIP_SLOT_COUNT],
     instance_feedback_event_sender: crossbeam_channel::Sender<InstanceFeedbackEvent>,
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
+    active_mapping_by_group: HashMap<GroupId, MappingId>,
 }
 
 impl InstanceState {
@@ -29,7 +33,25 @@ impl InstanceState {
             clip_slots: Default::default(),
             instance_feedback_event_sender,
             slot_contents_changed_subject: Default::default(),
+            active_mapping_by_group: Default::default(),
         }
+    }
+
+    /// Sets the ID of the currently active mapping within the given group.
+    pub fn set_active_mapping_within_group(&mut self, group_id: GroupId, mapping_id: MappingId) {
+        self.active_mapping_by_group.insert(group_id, mapping_id);
+        let instance_event = InstanceFeedbackEvent::ActiveMappingWithinGroupChanged {
+            group_id,
+            mapping_id: Some(mapping_id),
+        };
+        self.instance_feedback_event_sender
+            .try_send(instance_event)
+            .unwrap();
+    }
+
+    /// Gets the ID of the currently active mapping within the given group.
+    pub fn get_active_mapping_within_group(&self, group_id: GroupId) -> Option<MappingId> {
+        self.active_mapping_by_group.get(&group_id).copied()
     }
 
     pub fn process_transport_change(&mut self, new_play_state: PlayState) {
@@ -197,6 +219,10 @@ pub enum InstanceFeedbackEvent {
     ClipChanged {
         slot_index: usize,
         event: ClipChangedEvent,
+    },
+    ActiveMappingWithinGroupChanged {
+        group_id: GroupId,
+        mapping_id: Option<MappingId>,
     },
 }
 

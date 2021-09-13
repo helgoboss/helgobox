@@ -329,20 +329,20 @@ impl SessionData {
                 .map(|g| g.to_model(MappingCompartment::ControllerMappings)),
         );
         // Mappings
-        let context = session.context().clone();
-        let extended_context = ExtendedProcessorContext::new(&context, params);
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
-            session.set_mappings_without_notification(
-                compartment,
-                mappings.iter().map(|m| {
+            let extended_context = session.extended_context_with_params(params);
+            let mappings: Vec<_> = mappings
+                .iter()
+                .map(|m| {
                     m.to_model_flexible(
                         compartment,
                         Some(extended_context),
                         &migration_descriptor,
                         self.version.as_ref(),
                     )
-                }),
-            );
+                })
+                .collect();
+            session.set_mappings_without_notification(compartment, mappings);
         };
         apply_mappings(MappingCompartment::MainMappings, &self.mappings);
         apply_mappings(

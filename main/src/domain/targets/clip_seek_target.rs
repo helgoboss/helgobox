@@ -12,7 +12,7 @@ pub struct ClipSeekTarget {
 }
 
 impl RealearnTarget for ClipSeekTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
 
@@ -27,7 +27,7 @@ impl RealearnTarget for ClipSeekTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         // TODO-medium With clip targets we should check the control context (instance state) if
         //  slot filled.
         true
@@ -86,7 +86,7 @@ impl<'a> Target<'a> for ClipSeekTarget {
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

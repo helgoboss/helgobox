@@ -362,7 +362,7 @@ impl MainMapping {
         context: ExtendedProcessorContext,
         control_context: ControlContext,
     ) {
-        let (targets, is_active) = self.resolve_target(context);
+        let (targets, is_active) = self.resolve_target(context, control_context);
         self.targets = targets;
         self.core.options.target_is_active = is_active;
         self.update_activation(context.params());
@@ -414,6 +414,7 @@ impl MainMapping {
     fn resolve_target(
         &mut self,
         context: ExtendedProcessorContext,
+        control_context: ControlContext,
     ) -> (Vec<CompoundMappingTarget>, bool) {
         match self.unresolved_target.as_ref() {
             None => (vec![], false),
@@ -421,7 +422,7 @@ impl MainMapping {
                 None => (vec![], false),
                 Some(resolved_targets) => {
                     if let Some(t) = resolved_targets.first() {
-                        self.core.mode.update_from_target(t);
+                        self.core.mode.update_from_target(t, control_context);
                     }
                     let met = t.conditions_are_met(&resolved_targets);
                     (resolved_targets, met)
@@ -454,6 +455,7 @@ impl MainMapping {
     pub fn refresh_target(
         &mut self,
         context: ExtendedProcessorContext,
+        control_context: ControlContext,
     ) -> (bool, Option<ActivationChange>) {
         match self.unresolved_target.as_ref() {
             None => return (false, None),
@@ -464,7 +466,7 @@ impl MainMapping {
             }
         }
         let was_effectively_active_before = self.target_is_effectively_active();
-        let (targets, is_active) = self.resolve_target(context);
+        let (targets, is_active) = self.resolve_target(context, control_context);
         let target_changed = targets != self.targets;
         self.targets = targets;
         self.core.options.target_is_active = is_active;
@@ -635,7 +637,7 @@ impl MainMapping {
             false,
             |_, _, mode, target| {
                 let mut v = value;
-                let control_type = target.control_type();
+                let control_type = target.control_type(context);
                 // This is very similar to the mode logic, but just a small subset.
                 if inverse {
                     let normalized_max = control_type.discrete_max().map(|m| {
@@ -710,7 +712,7 @@ impl MainMapping {
         let mut hit_instruction = None;
         use ModeControlResult::*;
         let mut fresh_targets = if options.enforce_target_refresh {
-            let (targets, conditions_are_met) = self.resolve_target(processor_context);
+            let (targets, conditions_are_met) = self.resolve_target(processor_context, context);
             if !conditions_are_met {
                 return MappingControlResult::default();
             }
@@ -1459,127 +1461,168 @@ pub enum RealTimeCompoundMappingTarget {
     Virtual(VirtualTarget),
 }
 
-impl ValueFormatter for CompoundMappingTarget {
-    fn format_value(&self, value: UnitValue, f: &mut Formatter) -> fmt::Result {
-        f.write_str(&self.format_value_without_unit(value))
-    }
+pub struct WithControlContext<'a, T> {
+    control_context: ControlContext<'a>,
+    value: &'a T,
+}
 
-    fn format_step(&self, value: UnitValue, f: &mut Formatter) -> fmt::Result {
-        f.write_str(&self.format_step_size_without_unit(value))
+impl<'a, T> WithControlContext<'a, T> {
+    pub fn new(control_context: ControlContext<'a>, value: &'a T) -> Self {
+        Self {
+            control_context,
+            value,
+        }
     }
 }
 
-impl ValueParser for CompoundMappingTarget {
+impl<'a> ValueFormatter for WithControlContext<'a, CompoundMappingTarget> {
+    fn format_value(&self, value: UnitValue, f: &mut Formatter) -> fmt::Result {
+        f.write_str(
+            &self
+                .value
+                .format_value_without_unit(value, self.control_context),
+        )
+    }
+
+    fn format_step(&self, value: UnitValue, f: &mut Formatter) -> fmt::Result {
+        f.write_str(
+            &self
+                .value
+                .format_step_size_without_unit(value, self.control_context),
+        )
+    }
+}
+
+impl<'a> ValueParser for WithControlContext<'a, CompoundMappingTarget> {
     fn parse_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.parse_as_value(text)
+        self.value.parse_as_value(text, self.control_context)
     }
 
     fn parse_step(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.parse_as_step_size(text)
+        self.value.parse_as_step_size(text, self.control_context)
     }
 }
 
 impl RealearnTarget for CompoundMappingTarget {
-    fn character(&self) -> TargetCharacter {
+    fn character(&self, context: ControlContext) -> TargetCharacter {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.character(),
+            Reaper(t) => t.character(context),
             Virtual(t) => t.character(),
         }
     }
 
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(
+        &self,
+        context: ControlContext,
+    ) -> (ControlType, TargetCharacter) {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.control_type_and_character(),
-            Virtual(t) => (t.control_type(), t.character()),
+            Reaper(t) => t.control_type_and_character(context),
+            Virtual(t) => (t.control_type(()), t.character()),
         }
     }
 
-    fn open(&self) {
+    fn open(&self, context: ControlContext) {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.open(),
+            Reaper(t) => t.open(context),
             Virtual(_) => {}
         };
     }
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_value(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.parse_as_value(text),
+            Reaper(t) => t.parse_as_value(text, context),
             Virtual(_) => Err("not supported for virtual targets"),
         }
     }
 
     /// Parses the given text as a target step size and returns it as unit value.
-    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_step_size(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.parse_as_step_size(text),
+            Reaper(t) => t.parse_as_step_size(text, context),
             Virtual(_) => Err("not supported for virtual targets"),
         }
     }
 
-    fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+    fn convert_unit_value_to_discrete_value(
+        &self,
+        input: UnitValue,
+        context: ControlContext,
+    ) -> Result<u32, &'static str> {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.convert_unit_value_to_discrete_value(input),
+            Reaper(t) => t.convert_unit_value_to_discrete_value(input, context),
             Virtual(_) => Err("not supported for virtual targets"),
         }
     }
 
-    fn format_value_without_unit(&self, value: UnitValue) -> String {
+    fn format_value_without_unit(&self, value: UnitValue, context: ControlContext) -> String {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.format_value_without_unit(value),
+            Reaper(t) => t.format_value_without_unit(value, context),
             Virtual(_) => String::new(),
         }
     }
 
-    fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
+    fn format_step_size_without_unit(
+        &self,
+        step_size: UnitValue,
+        context: ControlContext,
+    ) -> String {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.format_step_size_without_unit(step_size),
+            Reaper(t) => t.format_step_size_without_unit(step_size, context),
             Virtual(_) => String::new(),
         }
     }
 
-    fn hide_formatted_value(&self) -> bool {
+    fn hide_formatted_value(&self, context: ControlContext) -> bool {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.hide_formatted_value(),
+            Reaper(t) => t.hide_formatted_value(context),
             Virtual(_) => false,
         }
     }
 
-    fn hide_formatted_step_size(&self) -> bool {
+    fn hide_formatted_step_size(&self, context: ControlContext) -> bool {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.hide_formatted_step_size(),
+            Reaper(t) => t.hide_formatted_step_size(context),
             Virtual(_) => false,
         }
     }
 
-    fn value_unit(&self) -> &'static str {
+    fn value_unit(&self, context: ControlContext) -> &'static str {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.value_unit(),
+            Reaper(t) => t.value_unit(context),
             Virtual(_) => "",
         }
     }
 
-    fn step_size_unit(&self) -> &'static str {
+    fn step_size_unit(&self, context: ControlContext) -> &'static str {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.step_size_unit(),
+            Reaper(t) => t.step_size_unit(context),
             Virtual(_) => "",
         }
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, context: ControlContext) -> String {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.format_value(value),
+            Reaper(t) => t.format_value(value, context),
             Virtual(_) => String::new(),
         }
     }
@@ -1604,10 +1647,10 @@ impl RealearnTarget for CompoundMappingTarget {
         }
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, context: ControlContext) -> bool {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.is_available(),
+            Reaper(t) => t.is_available(context),
             Virtual(_) => true,
         }
     }
@@ -1702,10 +1745,14 @@ impl RealearnTarget for CompoundMappingTarget {
         }
     }
 
-    fn convert_discrete_value_to_unit_value(&self, value: u32) -> Result<UnitValue, &'static str> {
+    fn convert_discrete_value_to_unit_value(
+        &self,
+        value: u32,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.convert_discrete_value_to_unit_value(value),
+            Reaper(t) => t.convert_discrete_value_to_unit_value(value, context),
             Virtual(_) => Err("not supported for virtual targets"),
         }
     }
@@ -1722,11 +1769,11 @@ impl<'a> Target<'a> for CompoundMappingTarget {
         }
     }
 
-    fn control_type(&self) -> ControlType {
+    fn control_type(&self, context: ControlContext) -> ControlType {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.control_type(),
-            Virtual(t) => t.control_type(),
+            Reaper(t) => t.control_type(context),
+            Virtual(t) => t.control_type(()),
         }
     }
 }

@@ -1,6 +1,6 @@
 use crate::domain::{
     all_track_fx_enable_unit_value, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, handle_track_exclusivity,
+    get_control_type_and_character_for_track_exclusivity, handle_track_exclusivity, ControlContext,
     HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
     TrackExclusivity,
 };
@@ -15,11 +15,11 @@ pub struct AllTrackFxEnableTarget {
 }
 
 impl RealearnTarget for AllTrackFxEnableTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         get_control_type_and_character_for_track_exclusivity(self.exclusivity)
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_on_off(value).to_string()
     }
 
@@ -38,7 +38,7 @@ impl RealearnTarget for AllTrackFxEnableTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.track.is_available()
     }
 
@@ -60,14 +60,14 @@ impl RealearnTarget for AllTrackFxEnableTarget {
 }
 
 impl<'a> Target<'a> for AllTrackFxEnableTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let val = all_track_fx_enable_unit_value(self.track.fx_is_enabled());
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

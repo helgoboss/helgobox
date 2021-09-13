@@ -1,6 +1,6 @@
 use crate::domain::{
-    current_value_of_seek, get_seek_info, AdditionalFeedbackEvent, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, SeekOptions, TargetCharacter,
+    current_value_of_seek, get_seek_info, AdditionalFeedbackEvent, ControlContext,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, SeekOptions, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 use reaper_high::Project;
@@ -13,7 +13,7 @@ pub struct SeekTarget {
 }
 
 impl RealearnTarget for SeekTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         // TODO-low "Seek" could support rounding/discrete (beats, measures, seconds, ...)
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
@@ -37,7 +37,7 @@ impl RealearnTarget for SeekTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.project.is_available()
     }
 
@@ -60,9 +60,9 @@ impl RealearnTarget for SeekTarget {
 }
 
 impl<'a> Target<'a> for SeekTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let val = current_value_of_seek(
             self.project,
             self.options,
@@ -71,7 +71,7 @@ impl<'a> Target<'a> for SeekTarget {
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

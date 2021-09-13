@@ -15,7 +15,7 @@ pub struct SelectedTrackTarget {
 }
 
 impl RealearnTarget for SelectedTrackTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         // `+ 1` because "<Master track>" is also a possible value.
         (
             ControlType::AbsoluteDiscrete {
@@ -25,22 +25,34 @@ impl RealearnTarget for SelectedTrackTarget {
         )
     }
 
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.parse_value_from_discrete_value(text)
+    fn parse_as_value(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
+        self.parse_value_from_discrete_value(text, context)
     }
 
-    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
-        self.parse_value_from_discrete_value(text)
+    fn parse_as_step_size(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
+        self.parse_value_from_discrete_value(text, context)
     }
 
-    fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+    fn convert_unit_value_to_discrete_value(
+        &self,
+        input: UnitValue,
+        _: ControlContext,
+    ) -> Result<u32, &'static str> {
         let value = convert_unit_value_to_track_index(self.project, input)
             .map(|i| i + 1)
             .unwrap_or(0);
         Ok(value)
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         match convert_unit_value_to_track_index(self.project, value) {
             None => "<Master track>".to_string(),
             Some(i) => (i + 1).to_string(),
@@ -82,7 +94,7 @@ impl RealearnTarget for SelectedTrackTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.project.is_available()
     }
 
@@ -105,16 +117,20 @@ impl RealearnTarget for SelectedTrackTarget {
         }
     }
 
-    fn convert_discrete_value_to_unit_value(&self, value: u32) -> Result<UnitValue, &'static str> {
+    fn convert_discrete_value_to_unit_value(
+        &self,
+        value: u32,
+        _: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
         let index = if value == 0 { None } else { Some(value - 1) };
         Ok(selected_track_unit_value(self.project, index))
     }
 }
 
 impl<'a> Target<'a> for SelectedTrackTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let track_index = self
             .project
             .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)
@@ -122,8 +138,8 @@ impl<'a> Target<'a> for SelectedTrackTarget {
         Some(self.value_for(track_index))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }
 

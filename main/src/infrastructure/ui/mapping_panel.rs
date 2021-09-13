@@ -39,9 +39,8 @@ use crate::application::{
 };
 use crate::base::Global;
 use crate::domain::{
-    control_element_domains, ClipInfo, ControlContext, Exclusivity, FeedbackOutput,
-    FeedbackSendBehavior, InstanceId, MappingUniverse, SendMidiDestination, SharedInstanceState,
-    SlotContent, CLIP_SLOT_COUNT,
+    control_element_domains, ClipInfo, ControlContext, Exclusivity, FeedbackSendBehavior,
+    MappingUniverse, SendMidiDestination, SlotContent, WithControlContext, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -467,6 +466,8 @@ impl MappingPanel {
         new_value: AbsoluteValue,
     ) {
         self.invoke_programmatically(|| {
+            let session = self.session();
+            let session = session.borrow();
             invalidate_target_controls_free(
                 // We use the target only to derive some characteristics. When having multiple
                 // targets, they should all share the same characteristics, so we can just take
@@ -485,6 +486,7 @@ impl MappingPanel {
                 self.displayed_mapping()
                     .map(|m| m.borrow().target_model.unit.get())
                     .unwrap_or_default(),
+                session.control_context(),
             );
         });
     }
@@ -738,8 +740,12 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn open_target(&self) {
         if let Some(t) = self.first_resolved_target() {
+            let session = self.panel.session().clone();
             Global::task_support()
-                .do_later_in_main_thread_from_main_thread_asap(move || t.open())
+                .do_later_in_main_thread_from_main_thread_asap(move || {
+                    let session = session.borrow();
+                    t.open(session.control_context())
+                })
                 .unwrap();
         }
     }
@@ -1174,8 +1180,9 @@ impl<'a> MutableMappingPanel<'a> {
     fn get_value_from_target_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
         let target = self.first_resolved_target()?;
         let text = self.view.require_control(edit_control_id).text().ok()?;
+        let control_context = self.session.control_context();
         match self.mapping.target_model.unit.get() {
-            TargetUnit::Native => target.parse_as_value(text.as_str()).ok(),
+            TargetUnit::Native => target.parse_as_value(text.as_str(), control_context).ok(),
             TargetUnit::Percent => parse_unit_value_from_percentage(&text).ok(),
         }
     }
@@ -1183,8 +1190,11 @@ impl<'a> MutableMappingPanel<'a> {
     fn get_step_size_from_target_edit_control(&self, edit_control_id: u32) -> Option<UnitValue> {
         let target = self.first_resolved_target()?;
         let text = self.view.require_control(edit_control_id).text().ok()?;
+        let control_context = self.session.control_context();
         match self.mapping.target_model.unit.get() {
-            TargetUnit::Native => target.parse_as_step_size(text.as_str()).ok(),
+            TargetUnit::Native => target
+                .parse_as_step_size(text.as_str(), control_context)
+                .ok(),
             TargetUnit::Percent => parse_unit_value_from_percentage(&text).ok(),
         }
     }
@@ -1339,6 +1349,7 @@ impl<'a> MutableMappingPanel<'a> {
         let sequence = match self.mapping.target_model.unit.get() {
             TargetUnit::Native => {
                 if let Some(t) = self.first_resolved_target() {
+                    let t = WithControlContext::new(self.session.control_context(), &t);
                     ValueSequence::parse(&t, &text)
                 } else {
                     ValueSequence::parse(&PercentIo, &text)
@@ -3831,26 +3842,26 @@ impl<'a> ImmutableMappingPanel<'a> {
         //  first resolved target into account.
         let (error_msg, read_enabled, write_enabled, character) =
             if let Some(t) = self.first_resolved_target() {
+                let control_context = self.session.control_context();
                 let (error_msg, read_enabled, write_enabled) = if t.is_virtual() {
                     // Makes no sense to display any value controls for virtual targets. They neither
                     // have a value nor would moving a slider make any difference.
                     (None, false, false)
                 } else if t.can_report_current_value() {
-                    let control_context = create_control_context(
-                        self.session.feedback_output(),
-                        self.session.instance_state(),
-                        self.session.instance_id(),
-                        self.session.output_logging_enabled.get(),
-                    );
                     let value = t.current_value(control_context).unwrap_or_default();
                     self.invalidate_target_value_controls_with_value(value);
-                    let write_enabled = !t.control_type().is_relative();
+                    let write_enabled = !t.control_type(control_context).is_relative();
                     (None, true, write_enabled)
                 } else {
                     // Target is real but can't report values (e.g. load mapping snapshot)
                     (None, false, true)
                 };
-                (error_msg, read_enabled, write_enabled, Some(t.character()))
+                (
+                    error_msg,
+                    read_enabled,
+                    write_enabled,
+                    Some(t.character(control_context)),
+                )
             } else {
                 (Some("Target inactive!"), false, false, None)
             };
@@ -3923,13 +3934,14 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_target_unit_button(&self) {
         let unit = self.mapping.target_model.unit.get();
+        let control_context = self.session.control_context();
         let (value_unit, step_size_unit) = match unit {
             TargetUnit::Native => self
                 .first_resolved_target()
                 .map(|t| {
-                    let vu = t.value_unit();
+                    let vu = t.value_unit(control_context);
                     let vu = if vu.is_empty() { None } else { Some(vu) };
-                    let su = t.step_size_unit();
+                    let su = t.step_size_unit(control_context);
                     let su = if su.is_empty() { None } else { Some(su) };
                     (vu, su)
                 })
@@ -4556,6 +4568,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             false,
             use_step_sizes,
             self.target.unit.get(),
+            self.session.control_context(),
         );
     }
 
@@ -4697,9 +4710,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                     (val, edit_text, "x".to_string())
                 } else {
                     // "{size} {unit}"
+                    let control_context = self.session.control_context();
                     let pos_value = value.clamp_to_positive_unit_interval();
-                    let edit_text = target.format_step_size_without_unit(pos_value);
-                    let value_text = get_text_right_to_step_size_edit_control(target, pos_value);
+                    let edit_text =
+                        target.format_step_size_without_unit(pos_value, control_context);
+                    let value_text = get_text_right_to_step_size_edit_control(
+                        target,
+                        pos_value,
+                        control_context,
+                    );
                     (
                         PositiveOrSymmetricUnitValue::Positive(pos_value),
                         edit_text,
@@ -4834,7 +4853,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         let formatted = match self.target.unit.get() {
             TargetUnit::Native => {
                 if let Some(t) = self.first_resolved_target() {
-                    sequence.displayable(&t).to_string()
+                    let t = WithControlContext::new(self.session.control_context(), &t);
+                    let displayable = sequence.displayable(&t);
+                    displayable.to_string()
                 } else {
                     sequence.displayable(&PercentIo).to_string()
                 }
@@ -5687,22 +5708,6 @@ enum PositiveOrSymmetricUnitValue {
     Symmetric(SoftSymmetricUnitValue),
 }
 
-fn create_control_context<'a>(
-    feedback_output: Option<FeedbackOutput>,
-    instance_state: &'a SharedInstanceState,
-    instance_id: &'a InstanceId,
-    output_logging_enabled: bool,
-) -> ControlContext<'a> {
-    ControlContext {
-        feedback_audio_hook_task_sender: App::get().feedback_audio_hook_task_sender(),
-        osc_feedback_task_sender: App::get().osc_feedback_task_sender(),
-        feedback_output,
-        instance_state,
-        instance_id,
-        output_logging_enabled,
-    }
-}
-
 fn group_mappings_by_virtual_control_element<'a>(
     mappings: impl Iterator<Item = &'a SharedMapping>,
 ) -> HashMap<VirtualControlElement, Vec<&'a SharedMapping>> {
@@ -5736,27 +5741,28 @@ fn invalidate_target_controls_free(
     set_text_only_if_edit_control_not_focused: bool,
     use_step_sizes: bool,
     unit: TargetUnit,
+    control_context: ControlContext,
 ) {
     // TODO-high-discrete Handle discrete value in a better way.
     let value = value.to_unit_value();
     let (edit_text, value_text) = match real_target {
         Some(target) => match unit {
             TargetUnit::Native => {
-                if target.character() == TargetCharacter::Discrete {
+                if target.character(control_context) == TargetCharacter::Discrete {
                     let edit_text = target
-                        .convert_unit_value_to_discrete_value(value)
+                        .convert_unit_value_to_discrete_value(value, control_context)
                         .map(|v| v.to_string())
                         .unwrap_or_else(|_| "".to_string());
                     (edit_text, "".to_string())
                 } else if use_step_sizes {
                     (
-                        target.format_step_size_without_unit(value),
-                        get_text_right_to_step_size_edit_control(target, value),
+                        target.format_step_size_without_unit(value, control_context),
+                        get_text_right_to_step_size_edit_control(target, value, control_context),
                     )
                 } else {
                     (
-                        target.format_value_without_unit(value),
-                        get_text_right_to_target_edit_control(target, value),
+                        target.format_value_without_unit(value, control_context),
+                        get_text_right_to_target_edit_control(target, value, control_context),
                     )
                 }
             }
@@ -5775,29 +5781,38 @@ fn invalidate_target_controls_free(
     value_text_control.set_text(value_text);
 }
 
-fn get_text_right_to_target_edit_control(t: &CompoundMappingTarget, value: UnitValue) -> String {
-    if t.hide_formatted_value() {
-        t.value_unit().to_string()
-    } else if t.character() == TargetCharacter::Discrete {
+fn get_text_right_to_target_edit_control(
+    t: &CompoundMappingTarget,
+    value: UnitValue,
+    control_context: ControlContext,
+) -> String {
+    if t.hide_formatted_value(control_context) {
+        t.value_unit(control_context).to_string()
+    } else if t.character(control_context) == TargetCharacter::Discrete {
         // Please note that discrete FX parameters can only show their *current* value,
         // unless they implement the REAPER VST extension functions.
-        t.format_value(value)
+        t.format_value(value, control_context)
     } else {
-        format!("{}  {}", t.value_unit(), t.format_value(value))
+        format!(
+            "{}  {}",
+            t.value_unit(control_context),
+            t.format_value(value, control_context)
+        )
     }
 }
 
 fn get_text_right_to_step_size_edit_control(
     t: &CompoundMappingTarget,
     step_size: UnitValue,
+    control_context: ControlContext,
 ) -> String {
-    if t.hide_formatted_step_size() {
-        t.step_size_unit().to_string()
+    if t.hide_formatted_step_size(control_context) {
+        t.step_size_unit(control_context).to_string()
     } else {
         format!(
             "{}  {}",
-            t.step_size_unit(),
-            t.format_step_size_without_unit(step_size)
+            t.step_size_unit(control_context),
+            t.format_step_size_without_unit(step_size, control_context)
         )
     }
 }

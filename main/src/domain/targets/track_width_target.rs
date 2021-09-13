@@ -15,35 +15,35 @@ pub struct TrackWidthTarget {
 }
 
 impl RealearnTarget for TrackWidthTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
 
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_value(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {
         parse_from_symmetric_percentage(text)
     }
 
-    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_step_size(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {
         parse_from_double_percentage(text)
     }
 
-    fn format_value_without_unit(&self, value: UnitValue) -> String {
+    fn format_value_without_unit(&self, value: UnitValue, _: ControlContext) -> String {
         format_as_symmetric_percentage_without_unit(value)
     }
 
-    fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
+    fn format_step_size_without_unit(&self, step_size: UnitValue, _: ControlContext) -> String {
         format_as_double_percentage_without_unit(step_size)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.track.is_available()
     }
 
-    fn hide_formatted_value(&self) -> bool {
+    fn hide_formatted_value(&self, _: ControlContext) -> bool {
         true
     }
 
-    fn hide_formatted_step_size(&self) -> bool {
+    fn hide_formatted_step_size(&self, _: ControlContext) -> bool {
         true
     }
 
@@ -86,14 +86,14 @@ impl RealearnTarget for TrackWidthTarget {
 }
 
 impl<'a> Target<'a> for TrackWidthTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let val = width_unit_value(self.track.width());
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

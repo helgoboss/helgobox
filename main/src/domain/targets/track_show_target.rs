@@ -1,8 +1,8 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
-    handle_track_exclusivity, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    TargetCharacter, TrackExclusivity,
+    handle_track_exclusivity, ControlContext, HitInstructionReturnValue, MappingControlContext,
+    RealearnTarget, TargetCharacter, TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -17,11 +17,11 @@ pub struct TrackShowTarget {
 }
 
 impl RealearnTarget for TrackShowTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         get_control_type_and_character_for_track_exclusivity(self.exclusivity)
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_on_off(value).to_string()
     }
 
@@ -44,7 +44,7 @@ impl RealearnTarget for TrackShowTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.track.is_available()
     }
 
@@ -66,15 +66,15 @@ impl RealearnTarget for TrackShowTarget {
 }
 
 impl<'a> Target<'a> for TrackShowTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let is_shown = self.track.is_shown(self.area);
         let val = convert_bool_to_unit_value(is_shown);
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

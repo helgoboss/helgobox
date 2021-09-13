@@ -15,14 +15,14 @@ pub struct ClipTransportTarget {
 }
 
 impl RealearnTarget for ClipTransportTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Switch,
         )
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_on_off(value).to_string()
     }
 
@@ -69,7 +69,7 @@ impl RealearnTarget for ClipTransportTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         // TODO-medium With clip targets we should check the control context (instance state) if
         //  slot filled.
         if let Some(t) = &self.track {
@@ -163,7 +163,7 @@ impl<'a> Target<'a> for ClipTransportTarget {
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

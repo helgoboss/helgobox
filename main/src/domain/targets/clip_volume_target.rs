@@ -15,23 +15,23 @@ pub struct ClipVolumeTarget {
 }
 
 impl RealearnTarget for ClipVolumeTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
 
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_value(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {
         parse_value_from_db(text)
     }
 
-    fn format_value_without_unit(&self, value: UnitValue) -> String {
+    fn format_value_without_unit(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_db_without_unit(value)
     }
 
-    fn value_unit(&self) -> &'static str {
+    fn value_unit(&self, _: ControlContext) -> &'static str {
         "dB"
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_db(value)
     }
 
@@ -49,7 +49,7 @@ impl RealearnTarget for ClipVolumeTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         // TODO-medium With clip targets we should check the control context (instance state) if
         //  slot filled.
         true
@@ -83,7 +83,7 @@ impl<'a> Target<'a> for ClipVolumeTarget {
         Some(AbsoluteValue::Continuous(reaper_volume_unit_value(volume)))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

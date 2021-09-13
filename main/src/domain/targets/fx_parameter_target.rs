@@ -15,7 +15,7 @@ pub struct FxParameterTarget {
 }
 
 impl RealearnTarget for FxParameterTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         use GetParameterStepSizesResult::*;
         match self.param.step_sizes() {
             None => (ControlType::AbsoluteContinuous, TargetCharacter::Continuous),
@@ -47,23 +47,35 @@ impl RealearnTarget for FxParameterTarget {
         }
     }
 
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_value(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
         if self.param.character() == FxParameterCharacter::Discrete {
-            self.parse_value_from_discrete_value(text)
+            self.parse_value_from_discrete_value(text, context)
         } else {
             parse_unit_value_from_percentage(text)
         }
     }
 
-    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_step_size(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
         if self.param.character() == FxParameterCharacter::Discrete {
-            self.parse_value_from_discrete_value(text)
+            self.parse_value_from_discrete_value(text, context)
         } else {
             parse_unit_value_from_percentage(text)
         }
     }
 
-    fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+    fn convert_unit_value_to_discrete_value(
+        &self,
+        input: UnitValue,
+        _: ControlContext,
+    ) -> Result<u32, &'static str> {
         // Example (target step size = 0.10):
         // - 0    => 0
         // - 0.05 => 1
@@ -75,13 +87,13 @@ impl RealearnTarget for FxParameterTarget {
         Ok(val)
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, context: ControlContext) -> String {
         self.param
             // Even if a REAPER-normalized value can take numbers > 1.0, the usual value range
             // is in fact normalized in the classical sense (unit interval).
             .format_reaper_normalized_value(ReaperNormalizedFxParamValue::new(value.get()))
             .map(|s| s.into_string())
-            .unwrap_or_else(|_| self.format_value_generic(value))
+            .unwrap_or_else(|_| self.format_value_generic(value, context))
     }
 
     fn hit(
@@ -98,7 +110,7 @@ impl RealearnTarget for FxParameterTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.param.is_available()
     }
 
@@ -157,7 +169,11 @@ impl RealearnTarget for FxParameterTarget {
         }
     }
 
-    fn convert_discrete_value_to_unit_value(&self, value: u32) -> Result<UnitValue, &'static str> {
+    fn convert_discrete_value_to_unit_value(
+        &self,
+        value: u32,
+        _: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
         let step_size = self.param.step_size().ok_or("not supported")?;
         let result = (value as f64 * step_size).try_into()?;
         Ok(result)
@@ -165,14 +181,14 @@ impl RealearnTarget for FxParameterTarget {
 }
 
 impl<'a> Target<'a> for FxParameterTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let val = fx_parameter_unit_value(&self.param, self.param.reaper_normalized_value());
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

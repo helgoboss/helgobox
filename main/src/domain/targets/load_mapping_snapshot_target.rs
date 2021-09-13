@@ -1,5 +1,5 @@
 use crate::domain::{
-    GroupId, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
+    ControlContext, GroupId, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
     MappingControlContext, MappingControlResult, MappingScope, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
@@ -10,7 +10,7 @@ pub struct LoadMappingSnapshotTarget {
 }
 
 impl RealearnTarget for LoadMappingSnapshotTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Trigger,
@@ -63,19 +63,19 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
         false
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         true
     }
 }
 
 impl<'a> Target<'a> for LoadMappingSnapshotTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         None
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

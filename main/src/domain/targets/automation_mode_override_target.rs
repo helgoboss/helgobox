@@ -12,7 +12,7 @@ pub struct AutomationModeOverrideTarget {
 }
 
 impl RealearnTarget for AutomationModeOverrideTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         // Retriggerable because of #277
         (
             ControlType::AbsoluteContinuousRetriggerable,
@@ -20,7 +20,7 @@ impl RealearnTarget for AutomationModeOverrideTarget {
         )
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_on_off(value).to_string()
     }
 
@@ -37,7 +37,7 @@ impl RealearnTarget for AutomationModeOverrideTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         true
     }
 
@@ -59,9 +59,9 @@ impl RealearnTarget for AutomationModeOverrideTarget {
 }
 
 impl<'a> Target<'a> for AutomationModeOverrideTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let value = global_automation_mode_override_unit_value(
             self.mode_override,
             Reaper::get().global_automation_override(),
@@ -69,7 +69,7 @@ impl<'a> Target<'a> for AutomationModeOverrideTarget {
         Some(AbsoluteValue::Continuous(value))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

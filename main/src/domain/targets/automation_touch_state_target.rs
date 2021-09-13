@@ -1,8 +1,8 @@
 use crate::domain::{
     format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
     handle_track_exclusivity, touched_unit_value, AdditionalFeedbackEvent, BackboneState,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
-    TouchedParameterType, TrackExclusivity,
+    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
+    TargetCharacter, TouchedParameterType, TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -15,11 +15,11 @@ pub struct AutomationTouchStateTarget {
 }
 
 impl RealearnTarget for AutomationTouchStateTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         get_control_type_and_character_for_track_exclusivity(self.exclusivity)
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_on_off(value).to_string()
     }
 
@@ -43,7 +43,7 @@ impl RealearnTarget for AutomationTouchStateTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.track.is_available()
     }
 
@@ -78,16 +78,16 @@ impl RealearnTarget for AutomationTouchStateTarget {
 }
 
 impl<'a> Target<'a> for AutomationTouchStateTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let is_touched = BackboneState::target_context()
             .borrow()
             .automation_parameter_is_touched(self.track.raw(), self.parameter_type);
         Some(AbsoluteValue::Continuous(touched_unit_value(is_touched)))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

@@ -6,13 +6,14 @@ use crate::application::{
 use crate::base::default_util::is_default;
 use crate::base::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
-    BackboneState, CompoundMappingSource, ControlInput, DomainEvent, DomainEventHandler,
-    ExtendedProcessorContext, FeedbackOutput, GroupId, InstanceId, MainMapping, MappingCompartment,
-    MappingId, MappingMatchedEvent, MidiControlInput, MidiDestination, NormalMainTask,
-    NormalRealTimeTask, OscDeviceId, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
-    QualifiedMappingId, RealSource, RealTimeSender, RealearnTarget, ReaperTarget,
-    SharedInstanceState, SourceFeedbackValue, TargetValueChangedEvent, VirtualControlElementId,
-    VirtualFx, VirtualSource, VirtualTrack, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    BackboneState, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
+    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
+    InstanceId, MainMapping, MappingCompartment, MappingId, MappingMatchedEvent, MidiControlInput,
+    MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId, OscFeedbackTask,
+    ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
+    RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue,
+    TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualTrack,
+    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::{enum_map, EnumMap};
@@ -100,6 +101,8 @@ pub struct Session {
     /// The mappings which are on (enabled + control or feedback enabled + mapping active + target active)
     on_mappings: Prop<HashSet<QualifiedMappingId>>,
     instance_state: SharedInstanceState,
+    global_feedback_audio_hook_task_sender: &'static RealTimeSender<FeedbackAudioHookTask>,
+    global_osc_feedback_task_sender: &'static crossbeam_channel::Sender<OscFeedbackTask>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -169,6 +172,8 @@ impl Session {
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
         instance_state: SharedInstanceState,
+        global_feedback_audio_hook_task_sender: &'static RealTimeSender<FeedbackAudioHookTask>,
+        global_osc_feedback_task_sender: &'static crossbeam_channel::Sender<OscFeedbackTask>,
     ) -> Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
@@ -225,6 +230,8 @@ impl Session {
             main_preset_link_manager: Box::new(preset_link_manager),
             on_mappings: Default::default(),
             instance_state,
+            global_feedback_audio_hook_task_sender,
+            global_osc_feedback_task_sender,
         }
     }
 
@@ -693,6 +700,7 @@ impl Session {
                 let mapping = shared_mapping.borrow();
                 let shared_mapping_clone_1 = shared_mapping.clone();
                 let shared_mapping_clone_2 = shared_mapping.clone();
+                let shared_mapping_clone_3 = shared_mapping.clone();
                 let all_subscriptions = LocalSubscription::default();
                 // Keep syncing persistent mapping processing state (shouldn't do too much because
                 // can be triggered by processing).
@@ -736,23 +744,20 @@ impl Session {
                 }
                 // Keep auto-correcting mode settings
                 if self.auto_correct_settings.get() {
-                    let processor_context = self.context().clone();
                     let subscription = when(
                         mapping
                             .source_model
                             .changed()
                             .merge(mapping.target_model.changed()),
                     )
-                    .with(Rc::downgrade(shared_mapping))
-                    .do_sync(move |mapping, _| {
+                    .with(weak_session.clone())
+                    .do_sync(move |session, _| {
                         // Parameter values are not important for mode auto correction because
                         // dynamic targets don't really profit from it anyway. Therefore just
                         // use zero parameters.
-                        let extended_context = ExtendedProcessorContext::new(
-                            &processor_context,
-                            &ZEROED_PLUGIN_PARAMETERS,
-                        );
-                        mapping
+                        let session = session.borrow();
+                        let extended_context = session.extended_context();
+                        shared_mapping_clone_3
                             .borrow_mut()
                             .adjust_mode_if_necessary(extended_context);
                     });
@@ -830,7 +835,25 @@ impl Session {
     }
 
     pub fn extended_context(&self) -> ExtendedProcessorContext {
-        ExtendedProcessorContext::new(&self.context, &self.parameters)
+        self.extended_context_with_params(&self.parameters)
+    }
+
+    pub fn extended_context_with_params<'a>(
+        &'a self,
+        params: &'a ParameterArray,
+    ) -> ExtendedProcessorContext<'a> {
+        ExtendedProcessorContext::new(&self.context, params, self.control_context())
+    }
+
+    pub fn control_context(&self) -> ControlContext {
+        ControlContext {
+            feedback_audio_hook_task_sender: self.global_feedback_audio_hook_task_sender,
+            osc_feedback_task_sender: self.global_osc_feedback_task_sender,
+            feedback_output: self.feedback_output(),
+            instance_state: self.instance_state(),
+            instance_id: self.instance_id(),
+            output_logging_enabled: self.output_logging_enabled.get(),
+        }
     }
 
     pub fn add_default_group(&mut self, compartment: MappingCompartment, name: String) -> GroupId {
@@ -1685,12 +1708,12 @@ impl Session {
     pub fn set_mappings_without_notification(
         &mut self,
         compartment: MappingCompartment,
-        mappings: impl Iterator<Item = MappingModel>,
+        mappings: impl IntoIterator<Item = MappingModel>,
     ) {
         // If we import JSON from clipboard, we might stumble upon duplicate mapping IDs. Fix those!
         // This is a feature for power users.
         let mut used_ids = HashSet::new();
-        let fixed_mappings = mappings.map(|mut m| {
+        let fixed_mappings = mappings.into_iter().map(|mut m| {
             if used_ids.contains(&m.id()) {
                 m.set_id_without_notification(MappingId::random());
             } else {

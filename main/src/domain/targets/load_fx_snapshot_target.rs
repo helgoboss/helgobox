@@ -1,7 +1,7 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    AdditionalFeedbackEvent, BackboneState, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, TargetCharacter,
+    AdditionalFeedbackEvent, BackboneState, ControlContext, HitInstructionReturnValue,
+    MappingControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, Project, Track};
@@ -15,14 +15,14 @@ pub struct LoadFxSnapshotTarget {
 }
 
 impl RealearnTarget for LoadFxSnapshotTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Trigger,
         )
     }
 
-    fn format_value(&self, _: UnitValue) -> String {
+    fn format_value(&self, _: UnitValue, _: ControlContext) -> String {
         "".to_owned()
     }
 
@@ -39,7 +39,7 @@ impl RealearnTarget for LoadFxSnapshotTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.fx.is_available()
     }
 
@@ -70,9 +70,9 @@ impl RealearnTarget for LoadFxSnapshotTarget {
 }
 
 impl<'a> Target<'a> for LoadFxSnapshotTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let is_loaded = BackboneState::target_context()
             .borrow()
             .current_fx_snapshot_chunk_hash(&self.fx)
@@ -82,7 +82,7 @@ impl<'a> Target<'a> for LoadFxSnapshotTarget {
         )))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

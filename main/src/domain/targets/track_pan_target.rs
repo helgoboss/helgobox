@@ -11,27 +11,27 @@ pub struct TrackPanTarget {
 }
 
 impl RealearnTarget for TrackPanTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
 
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_value(&self, text: &str, _: ControlContext) -> Result<UnitValue, &'static str> {
         parse_value_from_pan(text)
     }
 
-    fn format_value_without_unit(&self, value: UnitValue) -> String {
+    fn format_value_without_unit(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_pan(value)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.track.is_available()
     }
 
-    fn hide_formatted_value(&self) -> bool {
+    fn hide_formatted_value(&self, _: ControlContext) -> bool {
         true
     }
 
-    fn hide_formatted_step_size(&self) -> bool {
+    fn hide_formatted_step_size(&self, _: ControlContext) -> bool {
         true
     }
 
@@ -43,15 +43,15 @@ impl RealearnTarget for TrackPanTarget {
         Some(&self.track)
     }
 
-    fn value_unit(&self) -> &'static str {
+    fn value_unit(&self, _: ControlContext) -> &'static str {
         ""
     }
 
-    fn step_size_unit(&self) -> &'static str {
+    fn step_size_unit(&self, _: ControlContext) -> &'static str {
         ""
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_pan(value)
     }
 
@@ -86,14 +86,14 @@ impl RealearnTarget for TrackPanTarget {
 }
 
 impl<'a> Target<'a> for TrackPanTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let val = pan_unit_value(self.track.pan());
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

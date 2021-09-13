@@ -14,11 +14,11 @@ pub struct FxOpenTarget {
 }
 
 impl RealearnTarget for FxOpenTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_on_off(value).to_string()
     }
 
@@ -50,7 +50,7 @@ impl RealearnTarget for FxOpenTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.fx.is_available()
     }
 
@@ -80,9 +80,9 @@ impl RealearnTarget for FxOpenTarget {
 }
 
 impl<'a> Target<'a> for FxOpenTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         use FxDisplayType::*;
         let is_open = match self.display_type {
             FloatingWindow => self.fx.floating_window().is_some(),
@@ -99,7 +99,7 @@ impl<'a> Target<'a> for FxOpenTarget {
         )))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

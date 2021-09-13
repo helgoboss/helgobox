@@ -378,6 +378,8 @@ impl RealearnPlugin {
                     App::get().main_preset_manager(),
                     App::get().preset_link_manager(),
                     instance_state.clone(),
+                    App::get().feedback_audio_hook_task_sender(),
+                    App::get().osc_feedback_task_sender(),
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);

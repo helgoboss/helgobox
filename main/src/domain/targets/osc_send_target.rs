@@ -1,7 +1,7 @@
 use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
-    FeedbackOutput, HitInstructionReturnValue, MappingControlContext, OscDeviceId, OscFeedbackTask,
-    RealearnTarget, TargetCharacter,
+    ControlContext, FeedbackOutput, HitInstructionReturnValue, MappingControlContext, OscDeviceId,
+    OscFeedbackTask, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, OscArgDescriptor, OscTypeTag, Target,
@@ -45,7 +45,7 @@ impl OscSendTarget {
 }
 
 impl RealearnTarget for OscSendTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         if let Some(desc) = self.arg_descriptor {
             use OscTypeTag::*;
             match desc.type_tag() {
@@ -116,7 +116,7 @@ impl RealearnTarget for OscSendTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         true
     }
 
@@ -126,13 +126,13 @@ impl RealearnTarget for OscSendTarget {
 }
 
 impl<'a> Target<'a> for OscSendTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _context: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         Some(self.artificial_value)
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

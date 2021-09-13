@@ -1638,7 +1638,7 @@ impl<'a> TargetModelWithContext<'a> {
         self.resolve_first()
             .map(|t| {
                 matches!(
-                    t.control_type(),
+                    t.control_type(self.context.control_context()),
                     ControlType::AbsoluteContinuousRoundable { .. }
                 )
             })

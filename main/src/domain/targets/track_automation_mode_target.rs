@@ -15,7 +15,7 @@ pub struct TrackAutomationModeTarget {
 }
 
 impl RealearnTarget for TrackAutomationModeTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         // Retriggerable because of #277
         if self.exclusivity == TrackExclusivity::NonExclusive {
             (
@@ -30,7 +30,7 @@ impl RealearnTarget for TrackAutomationModeTarget {
         }
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_on_off(value).to_string()
     }
 
@@ -53,7 +53,7 @@ impl RealearnTarget for TrackAutomationModeTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.track.is_available()
     }
 
@@ -88,14 +88,14 @@ impl RealearnTarget for TrackAutomationModeTarget {
 }
 
 impl<'a> Target<'a> for TrackAutomationModeTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         let val = track_automation_mode_unit_value(self.mode, self.track.automation_mode());
         Some(AbsoluteValue::Continuous(val))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

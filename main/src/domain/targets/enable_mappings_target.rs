@@ -1,7 +1,7 @@
 use crate::domain::{
-    DomainEvent, Exclusivity, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
-    MappingControlContext, MappingControlResult, MappingData, MappingEnabledChangeRequestedEvent,
-    MappingScope, RealearnTarget, TargetCharacter,
+    ControlContext, DomainEvent, Exclusivity, HitInstruction, HitInstructionContext,
+    HitInstructionReturnValue, MappingControlContext, MappingControlResult, MappingData,
+    MappingEnabledChangeRequestedEvent, MappingScope, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 
@@ -24,7 +24,7 @@ impl EnableMappingsTarget {
 }
 
 impl RealearnTarget for EnableMappingsTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteContinuousRetriggerable,
             TargetCharacter::Switch,
@@ -94,7 +94,7 @@ impl RealearnTarget for EnableMappingsTarget {
         Ok(Some(Box::new(instruction)))
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         true
     }
 
@@ -104,13 +104,13 @@ impl RealearnTarget for EnableMappingsTarget {
 }
 
 impl<'a> Target<'a> for EnableMappingsTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         Some(AbsoluteValue::Continuous(self.artificial_value))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

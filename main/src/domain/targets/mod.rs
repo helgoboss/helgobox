@@ -105,3 +105,6 @@ pub use load_mapping_snapshot_target::*;
 
 mod enable_mappings_target;
 pub use enable_mappings_target::*;
+
+mod navigate_within_group_target;
+pub use navigate_within_group_target::*;

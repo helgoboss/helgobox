@@ -389,14 +389,17 @@ impl<'a> MappingModelWithContext<'a> {
             Normal(MomentaryButton) | Normal(ToggleButton) => {
                 let target = self.target_with_context().resolve_first()?;
                 match mode_type {
-                    AbsoluteMode::Normal | AbsoluteMode::ToggleButtons => {
-                        !target.control_type().is_relative()
-                    }
+                    AbsoluteMode::Normal | AbsoluteMode::ToggleButtons => !target
+                        .control_type(self.context.control_context())
+                        .is_relative(),
                     AbsoluteMode::IncrementalButtons => {
-                        if target.control_type().is_relative() {
+                        if target
+                            .control_type(self.context.control_context())
+                            .is_relative()
+                        {
                             true
                         } else {
-                            match target.character() {
+                            match target.character(self.context.control_context()) {
                                 TargetCharacter::Discrete
                                 | TargetCharacter::Continuous
                                 | TargetCharacter::VirtualMulti => true,
@@ -432,10 +435,13 @@ impl<'a> MappingModelWithContext<'a> {
             Normal(RangeElement) | VirtualContinuous => AbsoluteMode::Normal,
             Normal(MomentaryButton) | Normal(ToggleButton) => {
                 let target = self.target_with_context().resolve_first()?;
-                if target.control_type().is_relative() {
+                if target
+                    .control_type(self.context.control_context())
+                    .is_relative()
+                {
                     AbsoluteMode::IncrementalButtons
                 } else {
-                    match target.character() {
+                    match target.character(self.context.control_context()) {
                         TargetCharacter::Trigger
                         | TargetCharacter::Continuous
                         | TargetCharacter::VirtualMulti => AbsoluteMode::Normal,
@@ -465,7 +471,7 @@ impl<'a> MappingModelWithContext<'a> {
             None => return false,
             Some(t) => t,
         };
-        match target.control_type() {
+        match target.control_type(self.context.control_context()) {
             ControlType::AbsoluteContinuousRetriggerable => false,
             ControlType::AbsoluteContinuous => false,
             ControlType::AbsoluteContinuousRoundable { .. } => false,
@@ -492,7 +498,9 @@ impl<'a> MappingModelWithContext<'a> {
 
     fn target_step_size(&self) -> Option<UnitValue> {
         let target = self.target_with_context().resolve_first().ok()?;
-        target.control_type().step_size()
+        target
+            .control_type(self.context.control_context())
+            .step_size()
     }
 
     fn target_with_context(&self) -> TargetModelWithContext<'_> {

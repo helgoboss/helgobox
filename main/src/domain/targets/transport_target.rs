@@ -13,7 +13,7 @@ pub struct TransportTarget {
 }
 
 impl RealearnTarget for TransportTarget {
-    fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+    fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         use TransportAction::*;
         match self.action {
             // Retriggerable because we want to be able to retrigger play!
@@ -27,7 +27,7 @@ impl RealearnTarget for TransportTarget {
         }
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
         format_value_as_on_off(value).to_string()
     }
 
@@ -81,7 +81,7 @@ impl RealearnTarget for TransportTarget {
         Ok(None)
     }
 
-    fn is_available(&self) -> bool {
+    fn is_available(&self, _: ControlContext) -> bool {
         self.project.is_available()
     }
 
@@ -164,9 +164,9 @@ impl RealearnTarget for TransportTarget {
 }
 
 impl<'a> Target<'a> for TransportTarget {
-    type Context = ();
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
         use TransportAction::*;
         let play_state = self.project.play_state();
         let value = match self.action {
@@ -181,7 +181,7 @@ impl<'a> Target<'a> for TransportTarget {
         Some(AbsoluteValue::Continuous(value))
     }
 
-    fn control_type(&self) -> ControlType {
-        self.control_type_and_character().0
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
     }
 }

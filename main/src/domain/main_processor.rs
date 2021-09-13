@@ -309,12 +309,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         if !m.control_is_effectively_on() {
                             continue;
                         }
+                        let control_context = self.basics.control_context();
                         let mut control_result = m.poll_control(
-                            self.basics.control_context(),
+                            control_context,
                             &self.basics.logger,
                             ExtendedProcessorContext::new(
                                 &self.basics.context,
                                 &self.collections.parameters,
+                                control_context,
                             ),
                         );
                         control_mapping_stage_two(
@@ -553,15 +555,20 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // We don't need to track activation updates because this target
                     // is always on. Switching off is not necessary since the last
                     // touched target can never be "unset".
-                    m.refresh_target(ExtendedProcessorContext::new(
-                        &self.basics.context,
-                        &self.collections.parameters,
-                    ));
+                    let control_context = self.basics.control_context();
+                    m.refresh_target(
+                        ExtendedProcessorContext::new(
+                            &self.basics.context,
+                            &self.collections.parameters,
+                            control_context,
+                        ),
+                        control_context,
+                    );
                     if m.has_reaper_target() && m.has_resolved_successfully() {
                         if m.feedback_is_effectively_on() {
                             // TODO-medium Is this executed too frequently and maybe
                             // even sends redundant feedback!?
-                            m.feedback(true, self.basics.control_context())
+                            m.feedback(true, control_context)
                         } else {
                             None
                         }
@@ -669,11 +676,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 compartment,
             ) {
                 if m.target_can_be_affected_by_parameters() {
+                    let control_context = self.basics.control_context();
                     let context = ExtendedProcessorContext::new(
                         &self.basics.context,
                         &self.collections.parameters,
+                        control_context,
                     );
-                    let (target_has_changed, activation_change) = m.refresh_target(context);
+                    let (target_has_changed, activation_change) =
+                        m.refresh_target(context, control_context);
                     if target_has_changed || activation_change.is_some() {
                         changed_mappings.insert(m.id());
                     }
@@ -718,11 +728,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                 }
                 if m.target_can_be_affected_by_parameters() {
+                    let control_context = self.basics.control_context();
                     let context = ExtendedProcessorContext::new(
                         &self.basics.context,
                         &self.collections.parameters,
+                        control_context,
                     );
-                    let (has_changed, activation_change) = m.refresh_target(context);
+                    let (has_changed, activation_change) =
+                        m.refresh_target(context, control_context);
                     if has_changed || activation_change.is_some() {
                         changed_mappings.push(m.id())
                     }
@@ -873,6 +886,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     ExtendedProcessorContext::new(
                         &self.basics.context,
                         &self.collections.parameters,
+                        control_context,
                     ),
                 );
                 control_mapping_stage_two(
@@ -908,11 +922,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // Mappings with virtual targets don't have to be refreshed because virtual
             // targets are always active and never change depending on circumstances.
             for m in self.collections.mappings[compartment].values_mut() {
+                let control_context = self.basics.control_context();
                 let context = ExtendedProcessorContext::new(
                     &self.basics.context,
                     &self.collections.parameters,
+                    control_context,
                 );
-                let (target_changed, activation_update) = m.refresh_target(context);
+                let (target_changed, activation_update) =
+                    m.refresh_target(context, control_context);
                 if target_changed || activation_update.is_some() {
                     changed_mappings.push(m.id());
                 }
@@ -981,12 +998,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let real_time_mappings = mappings
             .iter_mut()
             .map(|m| {
+                let control_context = self.basics.control_context();
                 m.init_target_and_activation(
                     ExtendedProcessorContext::new(
                         &self.basics.context,
                         &self.collections.parameters,
+                        control_context,
                     ),
-                    self.basics.control_context(),
+                    control_context,
                 );
                 if m.feedback_is_effectively_on() {
                     // Mark source as used
@@ -1776,9 +1795,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             mapping.id()
         );
         // Refresh
+        let control_context = self.basics.control_context();
         mapping.init_target_and_activation(
-            ExtendedProcessorContext::new(&self.basics.context, &self.collections.parameters),
-            self.basics.control_context(),
+            ExtendedProcessorContext::new(
+                &self.basics.context,
+                &self.collections.parameters,
+                control_context,
+            ),
+            control_context,
         );
         // Sync to real-time processor
         self.basics
@@ -1951,10 +1975,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let control_result = if let Some(m) =
             self.collections.mappings[id.compartment].get_mut(&id.id)
         {
+            let control_context = self.basics.control_context();
             let mut control_result = m.control_from_target_directly(
-                self.basics.control_context(),
+                control_context,
                 &self.basics.logger,
-                ExtendedProcessorContext::new(&self.basics.context, &self.collections.parameters),
+                ExtendedProcessorContext::new(
+                    &self.basics.context,
+                    &self.collections.parameters,
+                    control_context,
+                ),
                 value,
             );
             control_mapping_stage_two(
@@ -2245,6 +2274,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             mapping_id,
                             group_id,
                             |other_mapping, basics, parameters| {
+                                let control_context = basics.control_context();
                                 other_mapping.control_from_target_via_group_interaction(
                                     normalized_target_value,
                                     ControlOptions {
@@ -2253,10 +2283,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                         enforce_target_refresh: true,
                                         ..Default::default()
                                     },
-                                    basics.control_context(),
+                                    control_context,
                                     &basics.logger,
                                     inverse,
-                                    ExtendedProcessorContext::new(&self.context, parameters),
+                                    ExtendedProcessorContext::new(
+                                        &self.context,
+                                        parameters,
+                                        control_context,
+                                    ),
                                 )
                             },
                         );
@@ -2309,6 +2343,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 processor_context: ExtendedProcessorContext::new(
                     &self.context,
                     &collections.parameters,
+                    self.control_context(),
                 ),
             });
         }
@@ -2768,7 +2803,7 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
         options,
         basics.control_context(),
         &basics.logger,
-        ExtendedProcessorContext::new(&basics.context, parameters),
+        ExtendedProcessorContext::new(&basics.context, parameters, basics.control_context()),
     )
 }
 
@@ -2812,14 +2847,16 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
     group_interaction_processing: GroupInteractionProcessing,
 ) {
     if let Some(hi) = control_result.hit_instruction {
+        let control_context = basics.control_context();
         hi.execute(HitInstructionContext {
             mappings: &mut collections.mappings[compartment],
-            control_context: basics.control_context(),
+            control_context: control_context,
             domain_event_handler: &basics.event_handler,
             logger: &basics.logger,
             processor_context: ExtendedProcessorContext::new(
                 &basics.context,
                 &collections.parameters,
+                control_context,
             ),
         });
     }
