@@ -187,13 +187,12 @@ impl RealearnAudioHook {
             // stop doing so synchronously if the plug-in is
             // gone.
             let mut guard = p.lock_recover();
-            if !guard.control_is_globally_enabled() {
-                continue;
-            }
             guard.run_from_audio_hook_all(args.len as _, might_be_rebirth);
-            if let MidiControlInput::Device(dev_id) = guard.midi_control_input() {
-                midi_dev_id_is_used[dev_id.get() as usize] = true;
-                midi_devs_used_at_all = true;
+            if guard.control_is_globally_enabled() {
+                if let MidiControlInput::Device(dev_id) = guard.midi_control_input() {
+                    midi_dev_id_is_used[dev_id.get() as usize] = true;
+                    midi_devs_used_at_all = true;
+                }
             }
         }
         // 1b. Forward MIDI events from MIDI devices to ReaLearn instances and filter
@@ -229,10 +228,9 @@ impl RealearnAudioHook {
                         let mut filter_out_event = false;
                         for (_, p) in self.real_time_processors.iter() {
                             let mut guard = p.lock_recover();
-                            if !guard.control_is_globally_enabled() {
-                                continue;
-                            }
-                            if guard.process_incoming_midi_from_audio_hook(event) {
+                            if guard.control_is_globally_enabled()
+                                && guard.process_incoming_midi_from_audio_hook(event)
+                            {
                                 filter_out_event = true;
                             }
                         }
