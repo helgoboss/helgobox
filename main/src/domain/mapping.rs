@@ -374,24 +374,6 @@ impl MainMapping {
     }
 
     #[must_use]
-    pub fn autostart(
-        &mut self,
-        control_context: ControlContext,
-        logger: &slog::Logger,
-        processor_context: ExtendedProcessorContext,
-    ) -> MappingControlResult {
-        // Even inactive mappings can participate in autostart! Otherwise it would be not very
-        // symmetric because we don't auto-start on mapping activation.
-        let value = self.mode().settings().target_value_interval.max_val();
-        self.control_from_target_directly(
-            control_context,
-            logger,
-            processor_context,
-            AbsoluteValue::Continuous(value),
-        )
-    }
-
-    #[must_use]
     pub fn hit_target_with_initial_value_snapshot_if_any(
         &mut self,
         control_context: ControlContext,

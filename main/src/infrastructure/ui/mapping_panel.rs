@@ -1792,7 +1792,7 @@ impl<'a> MutableMappingPanel<'a> {
                         .unwrap_or_default();
                     self.mapping.target_model.param_type.set(param_type);
                 }
-                ReaperTargetType::EnableMappings => {
+                t if t.supports_exclusivity() => {
                     let exclusivity = combo
                         .selected_combo_box_item_index()
                         .try_into()
@@ -1840,6 +1840,16 @@ impl<'a> MutableMappingPanel<'a> {
                         .target_model
                         .transport_action
                         .set(i.try_into().expect("invalid transport action"));
+                }
+                ReaperTargetType::NavigateWithinGroup => {
+                    let i = combo.selected_combo_box_item_index();
+                    let group_id = self
+                        .session
+                        .find_group_by_index_sorted(self.mapping.compartment(), i)
+                        .expect("group not existing")
+                        .borrow()
+                        .id();
+                    self.mapping.target_model.group_id.set(group_id);
                 }
                 ReaperTargetType::SendMidi => {
                     let i = combo.selected_combo_box_item_index();
@@ -2817,6 +2827,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendMidi => Some("Output"),
                 ReaperTargetType::SendOsc => Some("Output"),
                 ReaperTargetType::LoadMappingSnapshot => Some("Snapshot"),
+                ReaperTargetType::NavigateWithinGroup => Some("Group"),
                 t if t.supports_feedback_resolution() => Some("Feedback"),
                 _ if self.target.supports_track() => Some("Track"),
                 _ => None,
@@ -2936,6 +2947,31 @@ impl<'a> ImmutableMappingPanel<'a> {
                         self.target.bookmark_anchor_type.get(),
                         self.target.bookmark_ref.get(),
                     );
+                }
+                ReaperTargetType::NavigateWithinGroup => {
+                    combo.show();
+                    let compartment = self.mapping.compartment();
+                    // Fill box
+                    combo.fill_combo_box_with_data_small(
+                        self.session
+                            .groups_sorted(compartment)
+                            .enumerate()
+                            .map(|(i, g)| (i as isize, g.borrow().to_string())),
+                    );
+                    // Select value
+                    let group_id = self.target.group_id.get();
+                    match self
+                        .session
+                        .find_group_index_by_id_sorted(compartment, group_id)
+                    {
+                        None => {
+                            combo
+                                .select_new_combo_box_item(format!("<Not present> ({})", group_id));
+                        }
+                        Some(i) => {
+                            combo.select_combo_box_item_by_data(i as isize).unwrap();
+                        }
+                    }
                 }
                 ReaperTargetType::SendMidi => {
                     combo.show();
@@ -3290,6 +3326,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
                 t if t.supports_filtering_of_mappings() => Some("Tags"),
+                t if t.supports_exclusivity() => Some("Exclusivity"),
                 t if t.supports_send() => match self.target.route_type.get() {
                     TrackRouteType::Send => Some("Send"),
                     TrackRouteType::Receive => Some("Receive"),
@@ -3416,7 +3453,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .select_combo_box_item_by_index(self.target.param_type.get().into())
                         .unwrap();
                 }
-                ReaperTargetType::EnableMappings => {
+                t if t.supports_exclusivity() => {
                     combo.show();
                     combo.fill_combo_box_indexed(Exclusivity::into_enum_iter());
                     combo
@@ -5006,6 +5043,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             target.track_exclusivity.changed_with_initiator(),
             |view, initiator| {
                 view.invalidate_target_line_4(initiator);
+                view.invalidate_target_value_controls();
+                view.invalidate_mode_controls();
+            },
+        );
+        self.panel.when(
+            target.group_id.changed_with_initiator(),
+            |view, initiator| {
+                view.invalidate_target_line_2(initiator);
                 view.invalidate_target_value_controls();
                 view.invalidate_mode_controls();
             },

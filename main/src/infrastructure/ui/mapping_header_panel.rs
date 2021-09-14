@@ -755,11 +755,7 @@ impl Item for GroupModel {
     }
 
     fn name(&self) -> &str {
-        if self.is_default_group() {
-            "<Default>"
-        } else {
-            self.name.get_ref()
-        }
+        self.name()
     }
 
     fn set_name(&mut self, name: String, initiator: u32) {

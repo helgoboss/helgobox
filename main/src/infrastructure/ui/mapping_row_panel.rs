@@ -16,7 +16,7 @@ use crate::infrastructure::ui::bindings::root::{
 use crate::infrastructure::ui::util::{format_tags_as_csv, symbols};
 use crate::infrastructure::ui::{
     copy_object_to_clipboard, get_object_from_clipboard, util, ClipboardObject,
-    IndependentPanelManager, Item, SharedMainState,
+    IndependentPanelManager, SharedMainState,
 };
 use reaper_high::Reaper;
 use reaper_low::raw;
@@ -498,7 +498,6 @@ impl MappingRowPanel {
     fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
         let menu_bar = MenuBar::new_popup_menu();
         let pure_menu = {
-            use std::iter::once;
             use swell_ui::menu_tree::*;
             let shared_session = self.session();
             let session = shared_session.borrow();
@@ -514,7 +513,6 @@ impl MappingRowPanel {
             let group_id = mapping.group_id.get();
             let session_1 = shared_session.clone();
             let session_2 = shared_session.clone();
-            let session_3 = shared_session.clone();
             let session_4 = shared_session.clone();
             let session_5 = shared_session.clone();
             let session_6 = shared_session.clone();
@@ -619,35 +617,24 @@ impl MappingRowPanel {
                 ),
                 menu(
                     "Move to group",
-                    once(item_with_opts(
-                        "<Default>",
-                        ItemOpts {
-                            enabled: !group_id.is_default(),
-                            checked: false,
-                        },
-                        move || {
-                            move_mapping_to_group(
-                                session_3,
-                                compartment,
-                                mapping_id,
-                                GroupId::default(),
+                    session
+                        .groups_sorted(compartment)
+                        .map(move |g| {
+                            let session = session_4.clone();
+                            let g = g.borrow();
+                            let g_id = g.id();
+                            item_with_opts(
+                                g.to_string(),
+                                ItemOpts {
+                                    enabled: group_id != g_id,
+                                    checked: false,
+                                },
+                                move || {
+                                    move_mapping_to_group(session, compartment, mapping_id, g_id)
+                                },
                             )
-                        },
-                    ))
-                    .chain(session.groups_sorted(compartment).map(move |g| {
-                        let session = session_4.clone();
-                        let g = g.borrow();
-                        let g_id = g.id();
-                        item_with_opts(
-                            g.name.get_ref().to_owned(),
-                            ItemOpts {
-                                enabled: group_id != g_id,
-                                checked: false,
-                            },
-                            move || move_mapping_to_group(session, compartment, mapping_id, g_id),
-                        )
-                    }))
-                    .collect(),
+                        })
+                        .collect(),
                 ),
                 item("Log debug info", move || {
                     session_9.borrow().log_mapping(compartment, mapping_id);

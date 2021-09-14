@@ -14,7 +14,8 @@ use reaper_medium::{
 use rxrust::prelude::*;
 
 use crate::domain::{
-    EnableMappingsTarget, HitInstructionReturnValue, LoadMappingSnapshotTarget, RealearnTarget,
+    EnableMappingsTarget, HitInstructionReturnValue, LoadMappingSnapshotTarget,
+    NavigateWithinGroupTarget, RealearnTarget,
 };
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -109,6 +110,7 @@ pub enum ReaperTarget {
     ClipVolume(ClipVolumeTarget),
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     EnableMappings(EnableMappingsTarget),
+    NavigateWithinGroup(NavigateWithinGroupTarget),
 }
 
 #[derive(
@@ -616,6 +618,7 @@ impl<'a> Target<'a> for ReaperTarget {
             ClipVolume(t) => t.current_value(context),
             LoadMappingSnapshot(t) => t.current_value(context),
             EnableMappings(t) => t.current_value(context),
+            NavigateWithinGroup(t) => t.current_value(context),
         }
     }
 
@@ -688,14 +691,14 @@ pub(crate) fn current_value_of_seek(
 }
 
 /// Converts a number of possible values to a step size.
-pub fn convert_count_to_step_size(n: u32) -> UnitValue {
+pub fn convert_count_to_step_size(count: u32) -> UnitValue {
     // Dividing 1.0 by n would divide the unit interval (0..=1) into n same-sized
     // sub intervals, which means we would have n + 1 possible values. We want to
     // represent just n values, so we need n - 1 same-sized sub intervals.
-    if n == 0 || n == 1 {
+    if count == 0 || count == 1 {
         return UnitValue::MAX;
     }
-    UnitValue::new(1.0 / (n - 1) as f64)
+    UnitValue::new(1.0 / (count - 1) as f64)
 }
 
 pub fn format_value_as_playback_speed_factor_without_unit(value: UnitValue) -> String {
@@ -775,6 +778,20 @@ fn convert_unit_to_discrete_value_with_none(value: UnitValue, count: u32) -> Opt
         let zero_based_value = (value.get() - step_size).max(0.0); // 0.5
         Some((zero_based_value * count as f64).round() as u32) // 2
     }
+}
+
+pub fn convert_unit_to_discrete_value(value: UnitValue, count: u32) -> u32 {
+    if count == 0 {
+        return 0;
+    }
+    (value.get() * (count - 1) as f64).round() as u32
+}
+
+pub fn convert_discrete_to_unit_value(value: u32, count: u32) -> UnitValue {
+    if count < 2 {
+        return UnitValue::MIN;
+    }
+    UnitValue::new_clamped(value as f64 / (count - 1) as f64)
 }
 
 pub fn selected_track_unit_value(project: Project, index: Option<u32>) -> UnitValue {

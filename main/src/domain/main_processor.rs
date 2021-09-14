@@ -880,7 +880,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     continue;
                 }
                 debug!(self.basics.logger, "Autostart mapping {}", m.id());
-                let mut control_result = m.autostart(
+                // Even inactive mappings can participate in autostart! Otherwise it would be not very
+                // symmetric because we don't auto-start on mapping activation.
+                let autostart_value = m.mode().settings().target_value_interval.max_val();
+                let mut control_result = m.control_from_target_directly(
                     control_context,
                     &self.basics.logger,
                     ExtendedProcessorContext::new(
@@ -888,6 +891,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         &self.collections.parameters,
                         control_context,
                     ),
+                    AbsoluteValue::Continuous(autostart_value),
                 );
                 control_mapping_stage_two(
                     &self.basics,
@@ -988,6 +992,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             mappings.len(),
             compartment
         );
+
+        let mut mappings_by_group: HashMap<GroupId, Vec<MappingId>> = HashMap::new();
         let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
         self.collections.target_touch_dependent_mappings[compartment].clear();
         self.collections.beat_dependent_feedback_mappings[compartment].clear();
@@ -998,6 +1004,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let real_time_mappings = mappings
             .iter_mut()
             .map(|m| {
+                mappings_by_group
+                    .entry(m.group_id())
+                    .or_default()
+                    .push(m.id());
                 let control_context = self.basics.control_context();
                 m.init_target_and_activation(
                     ExtendedProcessorContext::new(
@@ -1027,6 +1037,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 m.splinter_real_time_mapping()
             })
             .collect();
+        // Update instance state
+        self.basics
+            .instance_state
+            .borrow_mut()
+            .set_mappings_by_group(mappings_by_group);
         // Put into hash map in order to quickly look up mappings by ID
         let mapping_tuples = mappings.into_iter().map(|m| (m.id(), m));
         if compartment == MappingCompartment::ControllerMappings {

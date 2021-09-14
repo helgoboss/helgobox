@@ -16,13 +16,13 @@ use crate::domain::{
     find_bookmark, get_fx_param, get_fxs, get_non_present_virtual_route_label,
     get_non_present_virtual_track_label, get_track_route, ActionInvocationType,
     CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
-    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, MappingCompartment,
-    MappingScope, MappingUniverse, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget,
-    SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior, Tag, TouchedParameterType,
-    TrackDescriptor, TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType,
-    TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx,
-    VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget,
-    VirtualTrack, VirtualTrackRoute,
+    FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId,
+    MappingCompartment, MappingScope, MappingUniverse, OscDeviceId, ProcessorContext,
+    RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior,
+    Tag, TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
+    TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedCompoundMappingTarget,
+    UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement, VirtualControlElementId,
+    VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -131,6 +131,7 @@ pub struct TargetModel {
     pub mapping_scope: Prop<MappingUniverse>,
     pub tags: Prop<Vec<Tag>>,
     pub exclusivity: Prop<Exclusivity>,
+    pub group_id: Prop<GroupId>,
 }
 
 impl Default for TargetModel {
@@ -200,6 +201,7 @@ impl Default for TargetModel {
             mapping_scope: prop(Default::default()),
             tags: prop(Default::default()),
             exclusivity: prop(Default::default()),
+            group_id: prop(Default::default()),
         }
     }
 }
@@ -671,7 +673,8 @@ impl TargetModel {
             | ClipVolume(_)
             | Seek(_)
             | LoadMappingSnapshot(_)
-            | EnableMappings(_) => {}
+            | EnableMappings(_)
+            | NavigateWithinGroup(_) => {}
         };
     }
 
@@ -742,6 +745,7 @@ impl TargetModel {
             .merge(self.mapping_scope.changed())
             .merge(self.tags.changed())
             .merge(self.exclusivity.changed())
+            .merge(self.group_id.changed())
     }
 
     pub fn virtual_track(&self) -> Option<VirtualTrack> {
@@ -1106,6 +1110,12 @@ impl TargetModel {
                         },
                         exclusivity: self.exclusivity.get(),
                     },
+                    NavigateWithinGroup => UnresolvedReaperTarget::NavigateWithinGroup {
+                        // TODO-high Use current compartment
+                        compartment: MappingCompartment::MainMappings,
+                        group_id: self.group_id.get(),
+                        exclusivity: self.exclusivity.get(),
+                    },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }
@@ -1251,7 +1261,7 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                     | FxEnable | TrackMute | AllTrackFxEnable | TrackSelection | FxPreset
                     | FxOpen | FxParameter | TrackSendMute | TrackSendPan | TrackSendVolume
                     | LoadFxSnapshot | SendMidi | SendOsc | LoadMappingSnapshot
-                    | EnableMappings => f.write_str(tt.short_name()),
+                    | EnableMappings | NavigateWithinGroup => f.write_str(tt.short_name()),
                     ClipTransport | ClipSeek | ClipVolume => {
                         write!(
                             f,
@@ -1475,7 +1485,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                 let tt = self.target.r#type.get();
                 match tt {
                     Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi | SendOsc
-                    | LoadMappingSnapshot | EnableMappings => {
+                    | LoadMappingSnapshot | EnableMappings | NavigateWithinGroup => {
                         write!(f, "{}", tt)
                     }
                     ClipTransport | ClipSeek | ClipVolume => {
@@ -1797,6 +1807,8 @@ pub enum ReaperTargetType {
     LoadMappingSnapshot = 35,
     #[display(fmt = "ReaLearn: Enable/disable mappings")]
     EnableMappings = 36,
+    #[display(fmt = "ReaLearn: Navigate within group")]
+    NavigateWithinGroup = 37,
 }
 
 impl Default for ReaperTargetType {
@@ -1845,6 +1857,7 @@ impl ReaperTargetType {
             ClipVolume { .. } => ReaperTargetType::ClipVolume,
             LoadMappingSnapshot { .. } => ReaperTargetType::LoadMappingSnapshot,
             EnableMappings { .. } => ReaperTargetType::EnableMappings,
+            NavigateWithinGroup { .. } => ReaperTargetType::NavigateWithinGroup,
         }
     }
 
@@ -1883,7 +1896,8 @@ impl ReaperTargetType {
             | ClipSeek
             | ClipVolume
             | LoadMappingSnapshot
-            | EnableMappings => false,
+            | EnableMappings
+            | NavigateWithinGroup => false,
         }
     }
 
@@ -1937,7 +1951,8 @@ impl ReaperTargetType {
             | ClipVolume
             | FxNavigate
             | LoadMappingSnapshot
-            | EnableMappings => false,
+            | EnableMappings
+            | NavigateWithinGroup => false,
         }
     }
 
@@ -1978,7 +1993,8 @@ impl ReaperTargetType {
             | ClipTransport
             | ClipSeek
             | ClipVolume
-            | FxNavigate => false,
+            | FxNavigate
+            | NavigateWithinGroup => false,
             LoadMappingSnapshot | EnableMappings => true,
         }
     }
@@ -2030,7 +2046,8 @@ impl ReaperTargetType {
             | ClipVolume
             | FxNavigate
             | LoadMappingSnapshot
-            | EnableMappings => false,
+            | EnableMappings
+            | NavigateWithinGroup => false,
         }
     }
 
@@ -2067,7 +2084,51 @@ impl ReaperTargetType {
             | ClipVolume
             | FxNavigate
             | LoadMappingSnapshot
-            | EnableMappings => false,
+            | EnableMappings
+            | NavigateWithinGroup => false,
+        }
+    }
+
+    pub fn supports_exclusivity(self) -> bool {
+        use ReaperTargetType::*;
+        match self {
+            EnableMappings | NavigateWithinGroup => true,
+            TrackSendVolume
+            | TrackSendPan
+            | TrackSendMute
+            | FxParameter
+            | TrackVolume
+            | TrackPeak
+            | TrackPan
+            | TrackWidth
+            | FxEnable
+            | FxPreset
+            | Action
+            | Tempo
+            | Playrate
+            | SelectedTrack
+            | Transport
+            | LoadFxSnapshot
+            | LastTouched
+            | GoToBookmark
+            | Seek
+            | AutomationModeOverride
+            | FxOpen
+            | SendMidi
+            | SendOsc
+            | ClipTransport
+            | ClipSeek
+            | ClipVolume
+            | FxNavigate
+            | LoadMappingSnapshot
+            | TrackArm
+            | AllTrackFxEnable
+            | TrackMute
+            | TrackSelection
+            | TrackAutomationMode
+            | AutomationTouchState
+            | TrackShow
+            | TrackSolo => false,
         }
     }
 
@@ -2138,6 +2199,7 @@ impl ReaperTargetType {
             ClipVolume => "Clip volume",
             LoadMappingSnapshot => "Load mapping snapshot",
             EnableMappings => "Enable/disable mappings",
+            NavigateWithinGroup => "Navigate within group",
         }
     }
 }

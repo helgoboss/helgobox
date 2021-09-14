@@ -12,7 +12,7 @@ use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_
 use crate::base::notification;
 use crate::domain::{
     get_fx_chain, ActionInvocationType, Exclusivity, ExtendedProcessorContext, FxDisplayType,
-    MappingCompartment, MappingUniverse, OscDeviceId, SeekOptions, SendMidiDestination,
+    GroupId, MappingCompartment, MappingUniverse, OscDeviceId, SeekOptions, SendMidiDestination,
     SoloBehavior, Tag, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction,
     VirtualTrack,
 };
@@ -128,6 +128,8 @@ pub struct TargetModelData {
     pub tags: Vec<Tag>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub exclusivity: Exclusivity,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub group_id: GroupId,
 }
 
 impl TargetModelData {
@@ -191,6 +193,7 @@ impl TargetModelData {
             mapping_scope: model.mapping_scope.get(),
             tags: model.tags.get_ref().clone(),
             exclusivity: model.exclusivity.get(),
+            group_id: model.group_id.get(),
         }
     }
 
@@ -420,6 +423,9 @@ impl TargetModelData {
         model
             .exclusivity
             .set_with_optional_notification(self.exclusivity, with_notification);
+        model
+            .group_id
+            .set_with_optional_notification(self.group_id, with_notification);
     }
 }
 

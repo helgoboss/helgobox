@@ -289,6 +289,7 @@ pub trait HitInstruction {
 
 pub struct HitInstructionContext<'a> {
     pub mappings: &'a mut OrderedMappingMap<MainMapping>,
+    // TODO-medium This became part of ExtendedProcessorContext, so redundant (not just here BTW)
     pub control_context: ControlContext<'a>,
     pub domain_event_handler: &'a dyn DomainEventHandler,
     pub logger: &'a slog::Logger,

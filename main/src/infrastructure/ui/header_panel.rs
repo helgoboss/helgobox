@@ -233,6 +233,7 @@ impl HeaderPanel {
             let session = self.session();
             let session = session.borrow();
             let compartment = self.active_compartment();
+            let group_id = self.active_group_id();
             let last_focused_fx_id = App::get().previously_focused_fx().and_then(|fx| {
                 if fx.is_available() {
                     FxId::from_fx(&fx, false).ok()
@@ -257,17 +258,21 @@ impl HeaderPanel {
                 }),
                 menu(
                     "Move listed mappings to group",
-                    once(item("<Default>", move || {
-                        MenuAction::MoveListedMappingsToGroup(GroupId::default())
-                    }))
-                    .chain(session.groups_sorted(compartment).map(move |g| {
-                        let g = g.borrow();
-                        let g_id = g.id();
-                        item(g.name.get_ref().to_owned(), move || {
-                            MenuAction::MoveListedMappingsToGroup(g_id)
+                    session
+                        .groups_sorted(compartment)
+                        .map(move |g| {
+                            let g = g.borrow();
+                            let g_id = g.id();
+                            item_with_opts(
+                                g.to_string(),
+                                ItemOpts {
+                                    enabled: group_id != Some(g_id),
+                                    checked: false,
+                                },
+                                move || MenuAction::MoveListedMappingsToGroup(g_id),
+                            )
                         })
-                    }))
-                    .collect(),
+                        .collect(),
                 ),
                 menu(
                     "Options",
@@ -945,10 +950,7 @@ impl HeaderPanel {
 
     fn fill_group_combo_box(&self) {
         let combo = self.view.require_control(root::ID_GROUP_COMBO_BOX);
-        let vec = vec![
-            (-2isize, "<All>".to_string()),
-            (-1isize, "<Default>".to_string()),
-        ];
+        let vec = vec![(-1isize, "<All>".to_string())];
         let compartment = self.active_compartment();
         combo.fill_combo_box_with_data_small(
             vec.into_iter().chain(
@@ -970,22 +972,18 @@ impl HeaderPanel {
             .borrow()
             .displayed_group_for_active_compartment()
         {
-            None => -2isize,
+            None => -1isize,
             Some(GroupFilter(id)) => {
-                if id.is_default() {
-                    -1isize
-                } else {
-                    match self
-                        .session()
-                        .borrow()
-                        .find_group_index_by_id_sorted(compartment, id)
-                    {
-                        None => {
-                            combo.select_new_combo_box_item(format!("<Not present> ({})", id));
-                            return;
-                        }
-                        Some(i) => i as isize,
+                match self
+                    .session()
+                    .borrow()
+                    .find_group_index_by_id_sorted(compartment, id)
+                {
+                    None => {
+                        combo.select_new_combo_box_item(format!("<Not present> ({})", id));
+                        return;
                     }
+                    Some(i) => i as isize,
                 }
             }
         };
@@ -1463,8 +1461,7 @@ impl HeaderPanel {
             .require_control(root::ID_GROUP_COMBO_BOX)
             .selected_combo_box_item_data()
         {
-            -2 => None,
-            -1 => Some(GroupFilter(GroupId::default())),
+            -1 => None,
             i if i >= 0 => {
                 let session = self.session();
                 let session = session.borrow();

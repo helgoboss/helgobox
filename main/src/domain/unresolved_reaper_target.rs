@@ -5,14 +5,15 @@ use crate::domain::{
     AutomationTouchStateTarget, BackboneState, ClipSeekTarget, ClipTransportTarget,
     ClipVolumeTarget, EnableMappingsTarget, Exclusivity, ExtendedProcessorContext,
     FeedbackResolution, FxDisplayType, FxEnableTarget, FxNavigateTarget, FxOpenTarget,
-    FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, LoadFxSnapshotTarget,
-    LoadMappingSnapshotTarget, MappingCompartment, MappingScope, MidiSendTarget, OscDeviceId,
-    OscSendTarget, ParameterSlice, PlayrateTarget, RealearnTarget, ReaperTarget, RouteMuteTarget,
-    RoutePanTarget, RouteVolumeTarget, SeekOptions, SeekTarget, SelectedTrackTarget,
-    SendMidiDestination, SlotPlayOptions, SoloBehavior, TempoTarget, TouchedParameterType,
-    TrackArmTarget, TrackAutomationModeTarget, TrackExclusivity, TrackMuteTarget, TrackPanTarget,
-    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget,
-    TrackWidthTarget, TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
+    FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, GroupId, LoadFxSnapshotTarget,
+    LoadMappingSnapshotTarget, MappingCompartment, MappingScope, MidiSendTarget,
+    NavigateWithinGroupTarget, OscDeviceId, OscSendTarget, ParameterSlice, PlayrateTarget,
+    RealearnTarget, ReaperTarget, RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekOptions,
+    SeekTarget, SelectedTrackTarget, SendMidiDestination, SlotPlayOptions, SoloBehavior,
+    TempoTarget, TouchedParameterType, TrackArmTarget, TrackAutomationModeTarget, TrackExclusivity,
+    TrackMuteTarget, TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget,
+    TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget, TransportAction, TransportTarget,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -177,6 +178,11 @@ pub enum UnresolvedReaperTarget {
     },
     EnableMappings {
         scope: MappingScope,
+        exclusivity: Exclusivity,
+    },
+    NavigateWithinGroup {
+        compartment: MappingCompartment,
+        group_id: GroupId,
         exclusivity: Exclusivity,
     },
 }
@@ -533,6 +539,19 @@ impl UnresolvedReaperTarget {
                     *exclusivity,
                 ))]
             }
+            NavigateWithinGroup {
+                compartment,
+                group_id,
+                exclusivity,
+            } => {
+                vec![ReaperTarget::NavigateWithinGroup(
+                    NavigateWithinGroupTarget {
+                        compartment: *compartment,
+                        group_id: *group_id,
+                        exclusivity: *exclusivity,
+                    },
+                )]
+            }
         };
         Ok(resolved_targets)
     }
@@ -633,7 +652,8 @@ impl UnresolvedReaperTarget {
             | SendOsc { .. }
             | GoToBookmark { .. }
             | LoadMappingSnapshot { .. }
-            | EnableMappings { .. } => Default::default(),
+            | EnableMappings { .. }
+            | NavigateWithinGroup { .. } => Default::default(),
             FxOpen { fx_descriptor, .. }
             | FxEnable { fx_descriptor }
             | FxPreset { fx_descriptor }
@@ -732,7 +752,8 @@ impl UnresolvedReaperTarget {
             | ClipVolume { .. }
             | AutomationTouchState { .. }
             | LoadMappingSnapshot { .. }
-            | EnableMappings { .. } => return None,
+            | EnableMappings { .. }
+            | NavigateWithinGroup { .. } => return None,
             AllTrackFxEnable {
                 poll_for_feedback, ..
             }

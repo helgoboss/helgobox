@@ -22,6 +22,7 @@ pub struct InstanceState {
     clip_slots: [ClipSlot; CLIP_SLOT_COUNT],
     instance_feedback_event_sender: crossbeam_channel::Sender<InstanceFeedbackEvent>,
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
+    mappings_by_group: HashMap<GroupId, Vec<MappingId>>,
     active_mapping_by_group: HashMap<GroupId, MappingId>,
 }
 
@@ -33,6 +34,7 @@ impl InstanceState {
             clip_slots: Default::default(),
             instance_feedback_event_sender,
             slot_contents_changed_subject: Default::default(),
+            mappings_by_group: Default::default(),
             active_mapping_by_group: Default::default(),
         }
     }
@@ -52,6 +54,30 @@ impl InstanceState {
     /// Gets the ID of the currently active mapping within the given group.
     pub fn get_active_mapping_within_group(&self, group_id: GroupId) -> Option<MappingId> {
         self.active_mapping_by_group.get(&group_id).copied()
+    }
+
+    pub fn set_mappings_by_group(&mut self, mappings_by_group: HashMap<GroupId, Vec<MappingId>>) {
+        let mut events = vec![];
+        self.active_mapping_by_group.retain(|group_id, _| {
+            let keep = mappings_by_group.contains_key(group_id);
+            if !keep {
+                let event = InstanceFeedbackEvent::ActiveMappingWithinGroupChanged {
+                    group_id: *group_id,
+                    mapping_id: None,
+                };
+                events.push(event);
+            }
+            keep
+        });
+        self.mappings_by_group = mappings_by_group;
+        for event in events {
+            self.instance_feedback_event_sender.try_send(event).unwrap();
+        }
+    }
+
+    pub fn get_mappings_within_group(&self, group_id: GroupId) -> Option<&[MappingId]> {
+        let vec = self.mappings_by_group.get(&group_id)?;
+        Some(&vec)
     }
 
     pub fn process_transport_change(&mut self, new_play_state: PlayState) {

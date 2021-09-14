@@ -18,9 +18,19 @@ pub struct GroupModel {
     pub activation_condition_model: ActivationConditionModel,
 }
 
+impl GroupModel {
+    pub fn name(&self) -> &str {
+        if self.is_default_group() {
+            "<Default>"
+        } else {
+            self.name.get_ref()
+        }
+    }
+}
+
 impl fmt::Display for GroupModel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.name.get_ref())
+        write!(f, "{}", self.name())
     }
 }
 
@@ -76,7 +86,7 @@ impl GroupModel {
     }
 
     pub fn is_default_group(&self) -> bool {
-        self.id() == Default::default()
+        self.id.is_default()
     }
 
     pub fn create_data(&self) -> GroupData {

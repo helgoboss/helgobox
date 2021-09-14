@@ -28,6 +28,7 @@ use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
+use core::iter;
 use helgoboss_learn::AbsoluteValue;
 use helgoboss_midi::Channel;
 use itertools::Itertools;
@@ -919,9 +920,11 @@ impl Session {
         &self,
         compartment: MappingCompartment,
     ) -> impl Iterator<Item = &SharedGroup> {
-        self.groups[compartment]
-            .iter()
-            .sorted_by_key(|g| g.borrow().name.get_ref().clone())
+        iter::once(self.default_group(compartment)).chain(
+            self.groups[compartment]
+                .iter()
+                .sorted_by_key(|g| g.borrow().name.get_ref().clone()),
+        )
     }
 
     pub fn move_mappings_to_group(
