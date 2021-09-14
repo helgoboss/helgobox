@@ -46,6 +46,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
+        // TODO-high Exclude control disabled or mapping disabled/inactive mappings
         let value = value.to_absolute_value()?;
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let desired_mapping_id = {

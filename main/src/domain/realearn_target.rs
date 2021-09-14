@@ -288,6 +288,7 @@ pub trait HitInstruction {
 }
 
 pub struct HitInstructionContext<'a> {
+    /// All mappings in the relevant compartment.
     pub mappings: &'a mut OrderedMappingMap<MainMapping>,
     // TODO-medium This became part of ExtendedProcessorContext, so redundant (not just here BTW)
     pub control_context: ControlContext<'a>,

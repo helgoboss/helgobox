@@ -46,15 +46,15 @@ impl MappingScope {
 #[repr(usize)]
 #[allow(clippy::enum_variant_names)]
 pub enum MappingUniverse {
-    #[serde(rename = "instance")]
-    #[display(fmt = "All mappings in instance")]
-    AllInInstance,
+    #[serde(rename = "compartment")]
+    #[display(fmt = "All mappings in compartment")]
+    AllInCompartment,
     #[serde(rename = "group")]
     #[display(fmt = "All mappings in group")]
     AllInGroup,
-    #[serde(rename = "instance-active")]
-    #[display(fmt = "All active mappings in instance")]
-    AllActiveInInstance,
+    #[serde(rename = "compartment-active")]
+    #[display(fmt = "All active mappings in compartment")]
+    AllActiveInCompartment,
     #[serde(rename = "group-active")]
     #[display(fmt = "All active mappings in group")]
     AllActiveInGroup,
@@ -73,7 +73,7 @@ impl MappingUniverse {
 
     fn active_mappings_only(self) -> bool {
         use MappingUniverse::*;
-        matches!(self, AllActiveInInstance | AllActiveInGroup)
+        matches!(self, AllActiveInCompartment | AllActiveInGroup)
     }
 
     fn mappings_in_group_only(self) -> bool {
@@ -84,6 +84,6 @@ impl MappingUniverse {
 
 impl Default for MappingUniverse {
     fn default() -> Self {
-        Self::AllInInstance
+        Self::AllInCompartment
     }
 }
