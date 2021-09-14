@@ -417,7 +417,7 @@ impl RealearnPlugin {
                 shared_session.borrow_mut().activate(weak_session.clone());
                 main_panel.notify_session_is_available(weak_session.clone());
                 plugin_parameters.notify_session_is_available(weak_session);
-                shared_session.borrow().autostart();
+                shared_session.borrow().notify_realearn_instance_started();
                 // RealearnPlugin is the main owner of the session. Everywhere else the session is
                 // just temporarily upgraded, never stored as Rc, only as Weak.
                 session_container.fill(shared_session).unwrap();

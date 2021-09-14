@@ -148,7 +148,6 @@ pub struct MainMapping {
     activation_state: ActivationState,
     extension: MappingExtension,
     initial_target_value_snapshot: Option<AbsoluteValue>,
-    is_autostart: bool,
 }
 
 #[derive(Default, Debug)]
@@ -180,8 +179,6 @@ impl MainMapping {
         options: ProcessorMappingOptions,
         extension: MappingExtension,
     ) -> MainMapping {
-        use once_cell::sync::Lazy;
-        static AUTOSTART_TAG: Lazy<Tag> = Lazy::new(|| "_autostart".parse().unwrap());
         MainMapping {
             core: MappingCore {
                 compartment,
@@ -194,7 +191,6 @@ impl MainMapping {
                 time_of_last_control: None,
             },
             name,
-            is_autostart: tags.contains(&*AUTOSTART_TAG),
             tags,
             unresolved_target,
             targets: vec![],
@@ -367,10 +363,6 @@ impl MainMapping {
         self.core.options.target_is_active = is_active;
         self.update_activation(context.params());
         self.initial_target_value_snapshot = self.current_aggregated_target_value(control_context);
-    }
-
-    pub fn is_autostart(&self) -> bool {
-        self.is_autostart
     }
 
     #[must_use]

@@ -317,6 +317,7 @@ impl SourceModel {
                 use ReaperSourceType::*;
                 let reaper_source = match self.reaper_source_type.get() {
                     MidiDeviceChanges => ReaperSource::MidiDeviceChanges,
+                    RealearnInstanceStart => ReaperSource::RealearnInstanceStart,
                 };
                 CompoundMappingSource::Reaper(reaper_source)
             }
@@ -538,10 +539,7 @@ impl Display for SourceModel {
             ],
             Osc => vec!["OSC".into(), self.osc_address_pattern.get_ref().into()],
             Reaper => {
-                use ReaperSourceType::*;
-                match self.reaper_source_type.get() {
-                    MidiDeviceChanges => vec!["MIDI device changes".into()],
-                }
+                vec![self.reaper_source_type.get().to_string().into()]
             }
             Never => vec!["None".into()],
         };
@@ -772,6 +770,9 @@ pub enum ReaperSourceType {
     #[serde(rename = "midi-device-changes")]
     #[display(fmt = "MIDI device changes")]
     MidiDeviceChanges,
+    #[serde(rename = "realearn-instance-start")]
+    #[display(fmt = "ReaLearn instance start")]
+    RealearnInstanceStart,
 }
 
 impl Default for ReaperSourceType {
@@ -785,6 +786,7 @@ impl ReaperSourceType {
         use ReaperSource::*;
         match source {
             MidiDeviceChanges => Self::MidiDeviceChanges,
+            RealearnInstanceStart => Self::RealearnInstanceStart,
         }
     }
 }

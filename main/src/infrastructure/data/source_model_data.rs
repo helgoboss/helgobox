@@ -1,5 +1,7 @@
 use super::none_if_minus_one;
-use crate::application::{MidiSourceType, SourceCategory, SourceModel, VirtualControlElementType};
+use crate::application::{
+    MidiSourceType, ReaperSourceType, SourceCategory, SourceModel, VirtualControlElementType,
+};
 use crate::base::default_util::is_default;
 use crate::base::notification;
 use crate::domain::MappingCompartment;
@@ -59,6 +61,8 @@ pub struct SourceModelData {
     pub control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
     control_element_index: VirtualControlElementIdData,
+    #[serde(default, skip_serializing_if = "is_default")]
+    reaper_source_type: ReaperSourceType,
 }
 
 impl SourceModelData {
@@ -86,6 +90,7 @@ impl SourceModelData {
             control_element_index: VirtualControlElementIdData::from_model(
                 model.control_element_id.get(),
             ),
+            reaper_source_type: model.reaper_source_type.get(),
         }
     }
 
@@ -188,6 +193,9 @@ impl SourceModelData {
             self.control_element_index.to_model(),
             with_notification,
         );
+        model
+            .reaper_source_type
+            .set_with_optional_notification(self.reaper_source_type, with_notification);
     }
 }
 
@@ -230,7 +238,8 @@ mod tests {
                 osc_arg_type: Default::default(),
                 osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
-                control_element_index: Default::default()
+                control_element_index: Default::default(),
+                reaper_source_type: Default::default()
             }
         );
     }
@@ -268,7 +277,8 @@ mod tests {
                 osc_arg_type: Default::default(),
                 osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
-                control_element_index: Default::default()
+                control_element_index: Default::default(),
+                reaper_source_type: Default::default()
             }
         );
     }
@@ -293,6 +303,7 @@ mod tests {
             osc_arg_is_relative: false,
             control_element_type: VirtualControlElementType::Multi,
             control_element_index: Default::default(),
+            reaper_source_type: Default::default(),
         };
         let mut model = SourceModel::default();
         // When
@@ -334,6 +345,7 @@ mod tests {
             osc_arg_is_relative: false,
             control_element_type: VirtualControlElementType::Multi,
             control_element_index: Default::default(),
+            reaper_source_type: Default::default(),
         };
         let mut model = SourceModel::default();
         // When
@@ -385,6 +397,7 @@ mod tests {
                 osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: Default::default(),
+                reaper_source_type: Default::default()
             }
         );
     }
@@ -427,6 +440,7 @@ mod tests {
                 osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
                 control_element_index: Default::default(),
+                reaper_source_type: Default::default()
             }
         );
     }

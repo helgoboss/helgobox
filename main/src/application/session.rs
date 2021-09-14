@@ -404,9 +404,9 @@ impl Session {
     }
 
     /// Makes all autostart mappings hit the target.
-    pub fn autostart(&self) {
+    pub fn notify_realearn_instance_started(&self) {
         self.normal_main_task_sender
-            .try_send(NormalMainTask::AutoStartMappings)
+            .try_send(NormalMainTask::NotifyRealearnInstanceStarted)
             .unwrap();
     }
 

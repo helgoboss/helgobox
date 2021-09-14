@@ -8,6 +8,7 @@ use std::convert::TryInto;
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub enum ReaperSource {
     MidiDeviceChanges,
+    RealearnInstanceStart,
 }
 
 impl ReaperSource {
@@ -15,14 +16,12 @@ impl ReaperSource {
         use ReaperSource::*;
         match self {
             MidiDeviceChanges => vec![DetailedSourceCharacter::MomentaryOnOffButton],
+            RealearnInstanceStart => vec![DetailedSourceCharacter::MomentaryOnOffButton],
         }
     }
 
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
-        use ReaperSource::*;
-        let formatted = match self {
-            MidiDeviceChanges => format_percentage_without_unit(value.to_unit_value()?.get()),
-        };
+        let formatted = format_percentage_without_unit(value.to_unit_value()?.get());
         Ok(formatted)
     }
 
@@ -31,10 +30,7 @@ impl ReaperSource {
     }
 
     pub fn character(&self) -> SourceCharacter {
-        use ReaperSource::*;
-        match self {
-            MidiDeviceChanges => SourceCharacter::MomentaryButton,
-        }
+        SourceCharacter::MomentaryButton
     }
 
     pub fn control(&self, msg: &ReaperMessage) -> Option<ControlValue> {
@@ -42,9 +38,17 @@ impl ReaperSource {
         let control_value = match msg {
             MidiDevicesConnected => match self {
                 ReaperSource::MidiDeviceChanges => ControlValue::AbsoluteContinuous(UnitValue::MAX),
+                _ => return None,
             },
             MidiDevicesDisconnected => match self {
                 ReaperSource::MidiDeviceChanges => ControlValue::AbsoluteContinuous(UnitValue::MIN),
+                _ => return None,
+            },
+            RealearnInstanceStarted => match self {
+                ReaperSource::RealearnInstanceStart => {
+                    ControlValue::AbsoluteContinuous(UnitValue::MAX)
+                }
+                _ => return None,
             },
         };
         Some(control_value)
@@ -55,4 +59,5 @@ impl ReaperSource {
 pub enum ReaperMessage {
     MidiDevicesConnected,
     MidiDevicesDisconnected,
+    RealearnInstanceStarted,
 }

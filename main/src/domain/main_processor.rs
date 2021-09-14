@@ -789,8 +789,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UpdateAllMappings(compartment, mappings) => {
                     self.update_all_mappings(compartment, mappings);
                 }
-                AutoStartMappings => {
-                    self.autostart_mappings();
+                NotifyRealearnInstanceStarted => {
+                    self.process_reaper_message(&ReaperMessage::RealearnInstanceStarted);
                 }
                 HitTarget { id, value } => {
                     self.hit_target(id, value);
@@ -869,52 +869,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         };
         let event = self.feedback_output_usage_might_have_changed_event();
         self.send_io_update(event).unwrap();
-    }
-
-    fn autostart_mappings(&mut self) {
-        for compartment in MappingCompartment::enum_iter() {
-            let mut control_results = vec![];
-            let control_context = self.basics.control_context();
-            for m in self.collections.mappings[compartment].values_mut() {
-                if !m.is_autostart() || !m.control_is_enabled() {
-                    continue;
-                }
-                debug!(self.basics.logger, "Autostart mapping {}", m.id());
-                // Even inactive mappings can participate in autostart! Otherwise it would be not very
-                // symmetric because we don't auto-start on mapping activation.
-                let autostart_value = m.mode().settings().target_value_interval.max_val();
-                let mut control_result = m.control_from_target_directly(
-                    control_context,
-                    &self.basics.logger,
-                    ExtendedProcessorContext::new(
-                        &self.basics.context,
-                        &self.collections.parameters,
-                        control_context,
-                    ),
-                    AbsoluteValue::Continuous(autostart_value),
-                );
-                control_mapping_stage_two(
-                    &self.basics,
-                    &mut control_result,
-                    m,
-                    ManualFeedbackProcessing::On {
-                        mappings_with_virtual_targets: &self
-                            .collections
-                            .mappings_with_virtual_targets,
-                    },
-                );
-                control_results.push(control_result);
-            }
-            for control_result in control_results {
-                control_mapping_stage_three(
-                    &self.basics,
-                    &mut self.collections,
-                    compartment,
-                    control_result,
-                    GroupInteractionProcessing::Off,
-                );
-            }
-        }
     }
 
     fn refresh_all_targets(&mut self) {
@@ -2054,8 +2008,8 @@ pub enum NormalMainTask {
         id: QualifiedMappingId,
         state: PersistentMappingProcessingState,
     },
-    /// Causes all mappings tagged as 'autostart' to hit the target with target max.
-    AutoStartMappings,
+    /// Invokes the "ReaLearn instance started" source.
+    NotifyRealearnInstanceStarted,
     HitTarget {
         id: QualifiedMappingId,
         value: AbsoluteValue,
