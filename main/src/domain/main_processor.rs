@@ -995,7 +995,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics
             .instance_state
             .borrow_mut()
-            .set_mappings_by_group(mappings_by_group);
+            .set_mappings_by_group(compartment, mappings_by_group);
         // Put into hash map in order to quickly look up mappings by ID
         let mapping_tuples = mappings.into_iter().map(|m| (m.id(), m));
         if compartment == MappingCompartment::ControllerMappings {

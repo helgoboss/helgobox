@@ -8,6 +8,8 @@ use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NavigateWithinGroupTarget {
+    /// This must always correspond to the compartment of the containing mapping, otherwise it will
+    /// not have any effect when controlling (only when querying the values).
     pub compartment: MappingCompartment,
     pub group_id: GroupId,
     pub exclusivity: Exclusivity,
@@ -18,7 +20,7 @@ impl NavigateWithinGroupTarget {
         let count = context
             .instance_state
             .borrow()
-            .get_mappings_within_group(self.group_id)
+            .get_mappings_within_group(self.compartment, self.group_id)
             .ok_or("group doesn't exist")?
             .len();
         Ok(count as _)
@@ -51,7 +53,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let desired_mapping_id = {
             let mapping_ids = instance_state
-                .get_mappings_within_group(self.group_id)
+                .get_mappings_within_group(self.compartment, self.group_id)
                 .ok_or("group doesn't exist")?;
             let count = mapping_ids.len();
             let desired_index = match value {
@@ -62,7 +64,11 @@ impl RealearnTarget for NavigateWithinGroupTarget {
                 .get(desired_index as usize)
                 .ok_or("mapping index out of bounds")?
         };
-        instance_state.set_active_mapping_within_group(self.group_id, desired_mapping_id);
+        instance_state.set_active_mapping_within_group(
+            self.compartment,
+            self.group_id,
+            desired_mapping_id,
+        );
         struct CycleThroughGroupInstruction {
             group_id: GroupId,
             exclusivity: Exclusivity,
@@ -138,7 +144,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
         context
             .instance_state
             .borrow()
-            .get_mappings_within_group(self.group_id)
+            .get_mappings_within_group(self.compartment, self.group_id)
             .is_some()
     }
 
@@ -162,8 +168,12 @@ impl<'a> Target<'a> for NavigateWithinGroupTarget {
 
     fn current_value(&self, context: ControlContext) -> Option<AbsoluteValue> {
         let instance_state = context.instance_state.borrow();
-        if let Some(mapping_id) = instance_state.get_active_mapping_within_group(self.group_id) {
-            if let Some(mapping_ids) = instance_state.get_mappings_within_group(self.group_id) {
+        if let Some(mapping_id) =
+            instance_state.get_active_mapping_within_group(self.compartment, self.group_id)
+        {
+            if let Some(mapping_ids) =
+                instance_state.get_mappings_within_group(self.compartment, self.group_id)
+            {
                 if mapping_ids.len() > 0 {
                     let max_value = mapping_ids.len() - 1;
                     if let Some(index) = mapping_ids.iter().position(|id| *id == mapping_id) {

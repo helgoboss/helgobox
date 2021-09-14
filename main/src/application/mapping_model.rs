@@ -307,7 +307,7 @@ impl MappingModel {
     }
 
     fn create_target(&self) -> Option<UnresolvedCompoundMappingTarget> {
-        self.target_model.create_target().ok()
+        self.target_model.create_target(self.compartment).ok()
     }
 
     pub fn create_persistent_mapping_processing_state(&self) -> PersistentMappingProcessingState {

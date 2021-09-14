@@ -937,7 +937,10 @@ impl TargetModel {
         Ok(desc)
     }
 
-    pub fn create_target(&self) -> Result<UnresolvedCompoundMappingTarget, &'static str> {
+    pub fn create_target(
+        &self,
+        compartment: MappingCompartment,
+    ) -> Result<UnresolvedCompoundMappingTarget, &'static str> {
         use TargetCategory::*;
         match self.category.get() {
             Reaper => {
@@ -1111,8 +1114,7 @@ impl TargetModel {
                         exclusivity: self.exclusivity.get(),
                     },
                     NavigateWithinGroup => UnresolvedReaperTarget::NavigateWithinGroup {
-                        // TODO-high Use current compartment
-                        compartment: MappingCompartment::MainMappings,
+                        compartment,
                         group_id: self.group_id.get(),
                         exclusivity: self.exclusivity.get(),
                     },
@@ -1634,7 +1636,7 @@ impl<'a> TargetModelWithContext<'a> {
     /// Returns an error if not enough information is provided by the model or if something (e.g.
     /// track/FX/parameter) is not available.
     pub fn resolve(&self) -> Result<Vec<CompoundMappingTarget>, &'static str> {
-        let unresolved = self.target.create_target()?;
+        let unresolved = self.target.create_target(self.compartment)?;
         unresolved.resolve(self.context, self.compartment)
     }
 

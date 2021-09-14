@@ -1,7 +1,9 @@
 use crate::base::AsyncNotifier;
 use crate::domain::{
-    ClipPlayState, ClipSlot, GroupId, MappingId, SlotContent, SlotDescriptor, SlotPlayOptions,
+    ClipPlayState, ClipSlot, GroupId, MappingCompartment, MappingId, SlotContent, SlotDescriptor,
+    SlotPlayOptions,
 };
+use enum_map::EnumMap;
 use helgoboss_learn::UnitValue;
 use reaper_high::{Item, Project, Track};
 use reaper_medium::{PlayState, ReaperVolumeValue};
@@ -22,8 +24,8 @@ pub struct InstanceState {
     clip_slots: [ClipSlot; CLIP_SLOT_COUNT],
     instance_feedback_event_sender: crossbeam_channel::Sender<InstanceFeedbackEvent>,
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
-    mappings_by_group: HashMap<GroupId, Vec<MappingId>>,
-    active_mapping_by_group: HashMap<GroupId, MappingId>,
+    mappings_by_group: EnumMap<MappingCompartment, HashMap<GroupId, Vec<MappingId>>>,
+    active_mapping_by_group: EnumMap<MappingCompartment, HashMap<GroupId, MappingId>>,
 }
 
 impl InstanceState {
@@ -40,9 +42,15 @@ impl InstanceState {
     }
 
     /// Sets the ID of the currently active mapping within the given group.
-    pub fn set_active_mapping_within_group(&mut self, group_id: GroupId, mapping_id: MappingId) {
-        self.active_mapping_by_group.insert(group_id, mapping_id);
+    pub fn set_active_mapping_within_group(
+        &mut self,
+        compartment: MappingCompartment,
+        group_id: GroupId,
+        mapping_id: MappingId,
+    ) {
+        self.active_mapping_by_group[compartment].insert(group_id, mapping_id);
         let instance_event = InstanceFeedbackEvent::ActiveMappingWithinGroupChanged {
+            compartment,
             group_id,
             mapping_id: Some(mapping_id),
         };
@@ -52,16 +60,27 @@ impl InstanceState {
     }
 
     /// Gets the ID of the currently active mapping within the given group.
-    pub fn get_active_mapping_within_group(&self, group_id: GroupId) -> Option<MappingId> {
-        self.active_mapping_by_group.get(&group_id).copied()
+    pub fn get_active_mapping_within_group(
+        &self,
+        compartment: MappingCompartment,
+        group_id: GroupId,
+    ) -> Option<MappingId> {
+        self.active_mapping_by_group[compartment]
+            .get(&group_id)
+            .copied()
     }
 
-    pub fn set_mappings_by_group(&mut self, mappings_by_group: HashMap<GroupId, Vec<MappingId>>) {
+    pub fn set_mappings_by_group(
+        &mut self,
+        compartment: MappingCompartment,
+        mappings_by_group: HashMap<GroupId, Vec<MappingId>>,
+    ) {
         let mut events = vec![];
-        self.active_mapping_by_group.retain(|group_id, _| {
+        self.active_mapping_by_group[compartment].retain(|group_id, _| {
             let keep = mappings_by_group.contains_key(group_id);
             if !keep {
                 let event = InstanceFeedbackEvent::ActiveMappingWithinGroupChanged {
+                    compartment,
                     group_id: *group_id,
                     mapping_id: None,
                 };
@@ -69,14 +88,18 @@ impl InstanceState {
             }
             keep
         });
-        self.mappings_by_group = mappings_by_group;
+        self.mappings_by_group[compartment] = mappings_by_group;
         for event in events {
             self.instance_feedback_event_sender.try_send(event).unwrap();
         }
     }
 
-    pub fn get_mappings_within_group(&self, group_id: GroupId) -> Option<&[MappingId]> {
-        let vec = self.mappings_by_group.get(&group_id)?;
+    pub fn get_mappings_within_group(
+        &self,
+        compartment: MappingCompartment,
+        group_id: GroupId,
+    ) -> Option<&[MappingId]> {
+        let vec = &self.mappings_by_group[compartment].get(&group_id)?;
         Some(&vec)
     }
 
@@ -247,6 +270,7 @@ pub enum InstanceFeedbackEvent {
         event: ClipChangedEvent,
     },
     ActiveMappingWithinGroupChanged {
+        compartment: MappingCompartment,
         group_id: GroupId,
         mapping_id: Option<MappingId>,
     },
