@@ -7,6 +7,7 @@ use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoadMappingSnapshotTarget {
     pub scope: MappingScope,
+    pub active_mappings_only: bool,
 }
 
 impl RealearnTarget for LoadMappingSnapshotTarget {
@@ -28,6 +29,7 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
         struct LoadMappingSnapshotInstruction {
             scope: MappingScope,
             required_group_id: GroupId,
+            active_mappings_only: bool,
         }
         impl HitInstruction for LoadMappingSnapshotInstruction {
             fn execute(&self, context: HitInstructionContext) -> Vec<MappingControlResult> {
@@ -37,6 +39,9 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
                         continue;
                     }
                     if !self.scope.matches(m, self.required_group_id) {
+                        continue;
+                    }
+                    if self.active_mappings_only && !m.is_active() {
                         continue;
                     }
                     if let Some(r) = m.hit_target_with_initial_value_snapshot_if_any(
@@ -55,6 +60,7 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
             // every few milliseconds. No need to use a ref to this target.
             scope: self.scope.clone(),
             required_group_id: context.mapping_data.group_id,
+            active_mappings_only: self.active_mappings_only,
         };
         Ok(Some(Box::new(instruction)))
     }

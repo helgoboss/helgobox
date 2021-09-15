@@ -130,6 +130,8 @@ pub struct TargetModelData {
     pub exclusivity: Exclusivity,
     #[serde(default, skip_serializing_if = "is_default")]
     pub group_id: GroupId,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub active_mappings_only: bool,
 }
 
 impl TargetModelData {
@@ -194,6 +196,7 @@ impl TargetModelData {
             tags: model.tags.get_ref().clone(),
             exclusivity: model.exclusivity.get(),
             group_id: model.group_id.get(),
+            active_mappings_only: model.active_mappings_only.get(),
         }
     }
 
@@ -426,6 +429,9 @@ impl TargetModelData {
         model
             .group_id
             .set_with_optional_notification(self.group_id, with_notification);
+        model
+            .active_mappings_only
+            .set_with_optional_notification(self.active_mappings_only, with_notification);
     }
 }
 

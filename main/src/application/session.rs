@@ -411,6 +411,8 @@ impl Session {
     }
 
     /// Instructs the main processor to hit the target directly.
+    ///
+    /// This doesn't invoke group interaction because it's meant to totally skip the mode.
     pub fn hit_target(&self, id: QualifiedMappingId, value: AbsoluteValue) {
         self.normal_main_task_sender
             .try_send(NormalMainTask::HitTarget { id, value })

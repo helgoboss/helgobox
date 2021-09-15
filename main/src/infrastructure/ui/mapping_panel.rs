@@ -1547,6 +1547,12 @@ impl<'a> MutableMappingPanel<'a> {
                 ReaperTargetType::Seek => {
                     self.mapping.target_model.seek_play.set(is_checked);
                 }
+                ReaperTargetType::LoadMappingSnapshot => {
+                    self.mapping
+                        .target_model
+                        .active_mappings_only
+                        .set(is_checked);
+                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -3730,6 +3736,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                     Some(("Regions", is_regions))
                 }
                 ReaperTargetType::Seek => Some(("Seek play", self.target.seek_play.get())),
+                ReaperTargetType::LoadMappingSnapshot => Some((
+                    "Active mappings only",
+                    self.target.active_mappings_only.get(),
+                )),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5119,6 +5129,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         );
         self.panel
             .when(target.use_time_selection.changed(), |view, _| {
+                view.invalidate_target_check_boxes();
+            });
+        self.panel
+            .when(target.active_mappings_only.changed(), |view, _| {
                 view.invalidate_target_check_boxes();
             });
         self.panel.when(target.exclusivity.changed(), |view, _| {

@@ -52,33 +52,14 @@ pub enum MappingUniverse {
     #[serde(rename = "group")]
     #[display(fmt = "All mappings in group")]
     AllInGroup,
-    #[serde(rename = "compartment-active")]
-    #[display(fmt = "All active mappings in compartment")]
-    AllActiveInCompartment,
-    #[serde(rename = "group-active")]
-    #[display(fmt = "All active mappings in group")]
-    AllActiveInGroup,
 }
 
 impl MappingUniverse {
     pub fn matches(&self, m: &MainMapping, required_group_id: GroupId) -> bool {
-        if self.active_mappings_only() && !m.is_active() {
-            return false;
-        }
-        if self.mappings_in_group_only() && m.group_id() != required_group_id {
+        if *self == MappingUniverse::AllInGroup && m.group_id() != required_group_id {
             return false;
         }
         true
-    }
-
-    fn active_mappings_only(self) -> bool {
-        use MappingUniverse::*;
-        matches!(self, AllActiveInCompartment | AllActiveInGroup)
-    }
-
-    fn mappings_in_group_only(self) -> bool {
-        use MappingUniverse::*;
-        matches!(self, AllInGroup | AllActiveInGroup)
     }
 }
 

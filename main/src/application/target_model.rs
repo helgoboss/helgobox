@@ -132,6 +132,7 @@ pub struct TargetModel {
     pub tags: Prop<Vec<Tag>>,
     pub exclusivity: Prop<Exclusivity>,
     pub group_id: Prop<GroupId>,
+    pub active_mappings_only: Prop<bool>,
 }
 
 impl Default for TargetModel {
@@ -202,6 +203,7 @@ impl Default for TargetModel {
             tags: prop(Default::default()),
             exclusivity: prop(Default::default()),
             group_id: prop(Default::default()),
+            active_mappings_only: prop(false),
         }
     }
 }
@@ -746,6 +748,7 @@ impl TargetModel {
             .merge(self.tags.changed())
             .merge(self.exclusivity.changed())
             .merge(self.group_id.changed())
+            .merge(self.active_mappings_only.changed())
     }
 
     pub fn virtual_track(&self) -> Option<VirtualTrack> {
@@ -1105,6 +1108,7 @@ impl TargetModel {
                             universe: self.mapping_scope.get(),
                             tags: self.tags.get_ref().clone(),
                         },
+                        active_mappings_only: self.active_mappings_only.get(),
                     },
                     EnableMappings => UnresolvedReaperTarget::EnableMappings {
                         scope: MappingScope {

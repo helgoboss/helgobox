@@ -2010,6 +2010,9 @@ pub enum NormalMainTask {
     },
     /// Invokes the "ReaLearn instance started" source.
     NotifyRealearnInstanceStarted,
+    /// Instructs the main processor to hit the target directly.
+    ///
+    /// This doesn't invoke group interaction because it's meant to totally skip the mode.
     HitTarget {
         id: QualifiedMappingId,
         value: AbsoluteValue,

@@ -175,6 +175,7 @@ pub enum UnresolvedReaperTarget {
     },
     LoadMappingSnapshot {
         scope: MappingScope,
+        active_mappings_only: bool,
     },
     EnableMappings {
         scope: MappingScope,
@@ -528,9 +529,13 @@ impl UnresolvedReaperTarget {
             ClipVolume { slot_index } => vec![ReaperTarget::ClipVolume(ClipVolumeTarget {
                 slot_index: *slot_index,
             })],
-            LoadMappingSnapshot { scope } => vec![ReaperTarget::LoadMappingSnapshot(
+            LoadMappingSnapshot {
+                scope,
+                active_mappings_only,
+            } => vec![ReaperTarget::LoadMappingSnapshot(
                 LoadMappingSnapshotTarget {
                     scope: scope.clone(),
+                    active_mappings_only: *active_mappings_only,
                 },
             )],
             EnableMappings { scope, exclusivity } => {
