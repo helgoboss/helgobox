@@ -115,6 +115,7 @@ impl GroupModel {
         self.control_is_enabled
             .changed()
             .merge(self.feedback_is_enabled.changed())
+            .merge(self.tags.changed())
             .merge(
                 self.activation_condition_model
                     .changed_processing_relevant(),
