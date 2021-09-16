@@ -684,8 +684,9 @@ fn send_sessions_to_subscribed_clients() {
 
 pub fn keep_informing_clients_about_session_events(shared_session: &SharedSession) {
     let session = shared_session.borrow();
+    let instance_state = session.instance_state().borrow();
     when(
-        session
+        instance_state
             .on_mappings_changed()
             .merge(session.mapping_list_changed().map_to(()))
             .merge(session.mapping_changed().map_to(())),
@@ -914,6 +915,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
         id: mp.id().to_string(),
         name: mp.name().to_string(),
     });
+    let instance_state = session.instance_state().borrow();
     let routes = session
         .mappings(MappingCompartment::ControllerMappings)
         .filter_map(|m| {
@@ -921,7 +923,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
             if !m.visible_in_projection.get() {
                 return None;
             }
-            let target_descriptor = if session.mapping_is_on(m.qualified_id()) {
+            let target_descriptor = if instance_state.mapping_is_on(m.qualified_id()) {
                 if m.target_model.category.get() == TargetCategory::Virtual {
                     // Virtual
                     let control_element = m.target_model.create_control_element();
@@ -932,7 +934,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
                             mp.visible_in_projection.get()
                                 && mp.source_model.category.get() == SourceCategory::Virtual
                                 && mp.source_model.create_control_element() == control_element
-                                && session.mapping_is_on(mp.qualified_id())
+                                && instance_state.mapping_is_on(mp.qualified_id())
                         });
                     let descriptors: Vec<_> = matching_main_mappings
                         .map(|m| {

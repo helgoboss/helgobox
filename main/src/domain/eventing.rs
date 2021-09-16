@@ -65,6 +65,13 @@ pub struct TargetValueChangedEvent<'a> {
 
 pub trait DomainEventHandler: Debug {
     fn handle_event(&self, event: DomainEvent);
+
+    fn notify_mapping_matched(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+        self.handle_event(DomainEvent::MappingMatched(MappingMatchedEvent::new(
+            compartment,
+            mapping_id,
+        )));
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]

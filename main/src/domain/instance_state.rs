@@ -1,7 +1,7 @@
-use crate::base::AsyncNotifier;
+use crate::base::{AsyncNotifier, Prop};
 use crate::domain::{
-    ClipPlayState, ClipSlot, GroupId, MappingCompartment, MappingId, SlotContent, SlotDescriptor,
-    SlotPlayOptions,
+    ClipPlayState, ClipSlot, GroupId, MappingCompartment, MappingId, QualifiedMappingId,
+    SlotContent, SlotDescriptor, SlotPlayOptions,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::UnitValue;
@@ -11,7 +11,7 @@ use rx_util::Notifier;
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::rc::Rc;
 
@@ -26,6 +26,8 @@ pub struct InstanceState {
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
     mappings_by_group: EnumMap<MappingCompartment, HashMap<GroupId, Vec<MappingId>>>,
     active_mapping_by_group: EnumMap<MappingCompartment, HashMap<GroupId, MappingId>>,
+    /// The mappings which are on (enabled + control or feedback enabled + mapping active + target active)
+    on_mappings: Prop<HashSet<QualifiedMappingId>>,
 }
 
 impl InstanceState {
@@ -38,7 +40,32 @@ impl InstanceState {
             slot_contents_changed_subject: Default::default(),
             mappings_by_group: Default::default(),
             active_mapping_by_group: Default::default(),
+            on_mappings: Default::default(),
         }
+    }
+
+    pub fn mapping_is_on(&self, id: QualifiedMappingId) -> bool {
+        self.on_mappings.get_ref().contains(&id)
+    }
+
+    pub fn on_mappings_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
+        self.on_mappings.changed()
+    }
+
+    pub fn set_on_mappings(&mut self, on_mappings: HashSet<QualifiedMappingId>) {
+        self.on_mappings.set(on_mappings);
+    }
+
+    pub fn set_mapping_on(&mut self, id: QualifiedMappingId, is_on: bool) {
+        self.on_mappings.mut_in_place(|m| {
+            if is_on {
+                m.insert(id);
+            } else {
+                m.remove(&id);
+            }
+        });
     }
 
     /// Sets the ID of the currently active mapping within the given group.
@@ -94,13 +121,17 @@ impl InstanceState {
         }
     }
 
-    pub fn get_mappings_within_group(
+    pub fn get_on_mappings_within_group(
         &self,
         compartment: MappingCompartment,
         group_id: GroupId,
-    ) -> Option<&[MappingId]> {
-        let vec = &self.mappings_by_group[compartment].get(&group_id)?;
-        Some(&vec)
+    ) -> impl Iterator<Item = MappingId> + '_ {
+        self.mappings_by_group[compartment]
+            .get(&group_id)
+            .into_iter()
+            .flatten()
+            .copied()
+            .filter(move |id| self.mapping_is_on(QualifiedMappingId::new(compartment, *id)))
     }
 
     pub fn process_transport_change(&mut self, new_play_state: PlayState) {

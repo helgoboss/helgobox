@@ -16,14 +16,12 @@ pub struct NavigateWithinGroupTarget {
 }
 
 impl NavigateWithinGroupTarget {
-    fn count(&self, context: ControlContext) -> Result<u32, &'static str> {
-        let count = context
+    fn count(&self, context: ControlContext) -> u32 {
+        context
             .instance_state
             .borrow()
-            .get_mappings_within_group(self.compartment, self.group_id)
-            .ok_or("group doesn't exist")?
-            .len();
-        Ok(count as _)
+            .get_on_mappings_within_group(self.compartment, self.group_id)
+            .count() as _
     }
 }
 
@@ -35,8 +33,8 @@ impl RealearnTarget for NavigateWithinGroupTarget {
         (
             ControlType::AbsoluteDiscrete {
                 atomic_step_size: {
-                    let count = self.count(context).unwrap_or(0);
-                    convert_count_to_step_size(count as _)
+                    let count = self.count(context);
+                    convert_count_to_step_size(count)
                 },
             },
             TargetCharacter::Discrete,
@@ -48,13 +46,12 @@ impl RealearnTarget for NavigateWithinGroupTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        // TODO-high Exclude control disabled or mapping disabled/inactive mappings
         let value = value.to_absolute_value()?;
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         let desired_mapping_id = {
-            let mapping_ids = instance_state
-                .get_mappings_within_group(self.compartment, self.group_id)
-                .ok_or("group doesn't exist")?;
+            let mapping_ids: Vec<_> = instance_state
+                .get_on_mappings_within_group(self.compartment, self.group_id)
+                .collect();
             let count = mapping_ids.len();
             let desired_index = match value {
                 AbsoluteValue::Continuous(v) => convert_unit_to_discrete_value(v, count as _),
@@ -87,6 +84,9 @@ impl RealearnTarget for NavigateWithinGroupTarget {
                     } else {
                         continue;
                     };
+                    context
+                        .domain_event_handler
+                        .notify_mapping_matched(m.compartment(), m.id());
                     let res = m.control_from_target_directly(
                         context.control_context,
                         context.logger,
@@ -127,7 +127,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
         input: UnitValue,
         context: ControlContext,
     ) -> Result<u32, &'static str> {
-        let count = self.count(context)?;
+        let count = self.count(context);
         Ok(convert_unit_to_discrete_value(input, count))
     }
 
@@ -136,7 +136,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
         value: u32,
         context: ControlContext,
     ) -> Result<UnitValue, &'static str> {
-        let count = self.count(context)?;
+        let count = self.count(context);
         Ok(convert_discrete_to_unit_value(value, count as _))
     }
 
@@ -144,8 +144,9 @@ impl RealearnTarget for NavigateWithinGroupTarget {
         context
             .instance_state
             .borrow()
-            .get_mappings_within_group(self.compartment, self.group_id)
-            .is_some()
+            .get_on_mappings_within_group(self.compartment, self.group_id)
+            .count()
+            > 0
     }
 
     fn value_changed_from_instance_feedback_event(
@@ -171,17 +172,16 @@ impl<'a> Target<'a> for NavigateWithinGroupTarget {
         if let Some(mapping_id) =
             instance_state.get_active_mapping_within_group(self.compartment, self.group_id)
         {
-            if let Some(mapping_ids) =
-                instance_state.get_mappings_within_group(self.compartment, self.group_id)
-            {
-                if mapping_ids.len() > 0 {
-                    let max_value = mapping_ids.len() - 1;
-                    if let Some(index) = mapping_ids.iter().position(|id| *id == mapping_id) {
-                        return Some(AbsoluteValue::Discrete(Fraction::new(
-                            index as _,
-                            max_value as _,
-                        )));
-                    }
+            let mapping_ids: Vec<_> = instance_state
+                .get_on_mappings_within_group(self.compartment, self.group_id)
+                .collect();
+            if mapping_ids.len() > 0 {
+                let max_value = mapping_ids.len() - 1;
+                if let Some(index) = mapping_ids.iter().position(|id| *id == mapping_id) {
+                    return Some(AbsoluteValue::Discrete(Fraction::new(
+                        index as _,
+                        max_value as _,
+                    )));
                 }
             }
         }

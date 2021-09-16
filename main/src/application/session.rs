@@ -100,8 +100,6 @@ pub struct Session {
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
     main_preset_link_manager: Box<dyn PresetLinkManager>,
-    /// The mappings which are on (enabled + control or feedback enabled + mapping active + target active)
-    on_mappings: Prop<HashSet<QualifiedMappingId>>,
     instance_state: SharedInstanceState,
     global_feedback_audio_hook_task_sender: &'static RealTimeSender<FeedbackAudioHookTask>,
     global_osc_feedback_task_sender: &'static crossbeam_channel::Sender<OscFeedbackTask>,
@@ -231,7 +229,6 @@ impl Session {
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
             main_preset_link_manager: Box::new(preset_link_manager),
-            on_mappings: Default::default(),
             instance_state,
             global_feedback_audio_hook_task_sender,
             global_osc_feedback_task_sender,
@@ -282,10 +279,11 @@ impl Session {
         actual_real_source: &RealSource,
     ) -> Option<&SharedMapping> {
         let actual_virt_source = self.virtualize_if_possible(actual_real_source);
+        let instance_state = self.instance_state.borrow();
         use CompoundMappingSource::*;
         self.mappings(compartment).find(|m| {
             let m = m.borrow();
-            if !self.on_mappings.get_ref().contains(&m.qualified_id()) {
+            if !instance_state.mapping_is_on(m.qualified_id()) {
                 return false;
             }
             let mapping_source = m.source_model.create_source();
@@ -634,6 +632,7 @@ impl Session {
     }
 
     fn virtualize_if_possible(&self, source: &RealSource) -> Option<VirtualSource> {
+        let instance_state = self.instance_state.borrow();
         for m in self.mappings(MappingCompartment::ControllerMappings) {
             let m = m.borrow();
             if !m.control_is_enabled.get() {
@@ -642,7 +641,7 @@ impl Session {
             if m.target_model.category.get() != TargetCategory::Virtual {
                 continue;
             }
-            if !self.on_mappings.get_ref().contains(&m.qualified_id()) {
+            if !instance_state.mapping_is_on(m.qualified_id()) {
                 // Since virtual mappings support conditional activation, too!
                 continue;
             }
@@ -1777,13 +1776,7 @@ impl Session {
     }
 
     pub fn mapping_is_on(&self, id: QualifiedMappingId) -> bool {
-        self.on_mappings.get_ref().contains(&id)
-    }
-
-    pub fn on_mappings_changed(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.on_mappings.changed()
+        self.instance_state.borrow().mapping_is_on(id)
     }
 
     fn log_debug_info_internal(&self) {
@@ -2140,16 +2133,18 @@ impl DomainEventHandler for WeakSession {
                     .learn_source(source, allow_virtual_sources);
             }
             UpdatedOnMappings(on_mappings) => {
-                session.borrow_mut().on_mappings.set(on_mappings);
+                session
+                    .borrow()
+                    .instance_state
+                    .borrow_mut()
+                    .set_on_mappings(on_mappings);
             }
             UpdatedSingleMappingOnState(event) => {
-                session.borrow_mut().on_mappings.mut_in_place(|m| {
-                    if event.is_on {
-                        m.insert(event.id);
-                    } else {
-                        m.remove(&event.id);
-                    }
-                });
+                session
+                    .borrow()
+                    .instance_state
+                    .borrow_mut()
+                    .set_mapping_on(event.id, event.is_on);
             }
             TargetValueChanged(e) => {
                 // If the session is borrowed already, just let it be. It happens only in a very

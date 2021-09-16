@@ -6,9 +6,9 @@ use crate::domain::{
     FeedbackResolution, FeedbackSendBehavior, FeedbackValue, GroupId, HitInstructionContext,
     InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
     MainSourceMessage, MappingActivationEffect, MappingCompartment, MappingControlResult,
-    MappingId, MappingMatchedEvent, MidiDestination, MidiSource, NormalRealTimeTask,
-    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext,
-    QualifiedMappingId, QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
+    MappingId, MidiDestination, MidiSource, NormalRealTimeTask, OrderedMappingIdSet,
+    OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedMappingId,
+    QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
     RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperMessage, ReaperTarget,
     SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
     TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
@@ -2175,14 +2175,6 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
-    pub fn notify_mapping_matched(&self, compartment: MappingCompartment, mapping_id: MappingId) {
-        self.event_handler
-            .handle_event(DomainEvent::MappingMatched(MappingMatchedEvent::new(
-                compartment,
-                mapping_id,
-            )));
-    }
-
     pub fn process_group_interaction(
         &self,
         collections: &mut Collections,
@@ -2417,7 +2409,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
             .filter(|m| m.control_is_effectively_on())
             .flat_map(|m| {
                 if let Some(virtual_source_value) = m.control_virtualizing(msg) {
-                    self.notify_mapping_matched(MappingCompartment::ControllerMappings, m.id());
+                    self.event_handler
+                        .notify_mapping_matched(MappingCompartment::ControllerMappings, m.id());
                     self.process_main_mappings_with_virtual_sources(
                         main_mappings,
                         virtual_source_value,
@@ -2769,7 +2762,9 @@ fn control_mapping_stage_one<EH: DomainEventHandler>(
     control_value: ControlValue,
     options: ControlOptions,
 ) -> MappingControlResult {
-    basics.notify_mapping_matched(m.compartment(), m.id());
+    basics
+        .event_handler
+        .notify_mapping_matched(m.compartment(), m.id());
     m.control_from_mode(
         control_value,
         options,

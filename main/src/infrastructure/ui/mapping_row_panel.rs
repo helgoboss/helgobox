@@ -327,6 +327,7 @@ impl MappingRowPanel {
     fn register_listeners(self: &SharedView<Self>, mapping: &MappingModel) {
         let session = self.session();
         let session = session.borrow();
+        let instance_state = session.instance_state().borrow();
         self.when(
             mapping.name.changed().merge(mapping.tags.changed()),
             |view| {
@@ -363,7 +364,7 @@ impl MappingRowPanel {
         self.when(session.mapping_which_learns_target_changed(), |view| {
             view.with_mapping(Self::invalidate_learn_target_button);
         });
-        self.when(session.on_mappings_changed(), |view| {
+        self.when(instance_state.on_mappings_changed(), |view| {
             view.with_mapping(Self::invalidate_on_indicator);
         });
         self.when(
