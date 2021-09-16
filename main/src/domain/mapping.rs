@@ -202,6 +202,10 @@ impl MainMapping {
         }
     }
 
+    pub fn initial_target_value_snapshot(&self) -> Option<AbsoluteValue> {
+        self.initial_target_value_snapshot
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -251,7 +255,7 @@ impl MainMapping {
                 },
                 ..self.core.clone()
             },
-            is_active: self.is_active(),
+            is_active: self.is_active_in_terms_of_activation_state(),
             target_category: self.unresolved_target.as_ref().map(|t| match t {
                 UnresolvedCompoundMappingTarget::Reaper(_) => UnresolvedTargetCategory::Reaper,
                 UnresolvedCompoundMappingTarget::Virtual(_) => UnresolvedTargetCategory::Virtual,
@@ -335,14 +339,14 @@ impl MainMapping {
         &mut self,
         activation_effect: MappingActivationEffect,
     ) -> Option<ActivationChange> {
-        let was_active_before = self.is_active();
+        let was_active_before = self.is_active_in_terms_of_activation_state();
         self.activation_state.is_active_1 = activation_effect
             .active_1_effect
             .unwrap_or(self.activation_state.is_active_1);
         self.activation_state.is_active_2 = activation_effect
             .active_2_effect
             .unwrap_or(self.activation_state.is_active_2);
-        let now_is_active = self.is_active();
+        let now_is_active = self.is_active_in_terms_of_activation_state();
         if now_is_active == was_active_before {
             return None;
         }
@@ -363,26 +367,6 @@ impl MainMapping {
         self.core.options.target_is_active = is_active;
         self.update_activation(context.params());
         self.initial_target_value_snapshot = self.current_aggregated_target_value(control_context);
-    }
-
-    #[must_use]
-    pub fn hit_target_with_initial_value_snapshot_if_any(
-        &mut self,
-        control_context: ControlContext,
-        logger: &slog::Logger,
-        processor_context: ExtendedProcessorContext,
-    ) -> Option<MappingControlResult> {
-        if let Some(inital_value) = self.initial_target_value_snapshot {
-            let r = self.control_from_target_directly(
-                control_context,
-                logger,
-                processor_context,
-                inital_value,
-            );
-            Some(r)
-        } else {
-            None
-        }
     }
 
     fn resolve_target(
@@ -456,10 +440,10 @@ impl MainMapping {
 
     pub fn update_activation(&mut self, params: &ParameterArray) -> Option<ActivationChange> {
         let sliced_params = self.core.compartment.slice_params(params);
-        let was_active_before = self.is_active();
+        let was_active_before = self.is_active_in_terms_of_activation_state();
         self.activation_state.is_active_1 = self.activation_condition_1.is_fulfilled(sliced_params);
         self.activation_state.is_active_2 = self.activation_condition_2.is_fulfilled(sliced_params);
-        let now_is_active = self.is_active();
+        let now_is_active = self.is_active_in_terms_of_activation_state();
         if now_is_active == was_active_before {
             return None;
         }
@@ -470,11 +454,14 @@ impl MainMapping {
         Some(update)
     }
 
-    pub fn is_active(&self) -> bool {
+    /// Doesn't check if explicitly enabled or disabled.
+    pub fn is_active_in_terms_of_activation_state(&self) -> bool {
         self.activation_state.is_active()
     }
 
     /// Returns `true` if the mapping itself and the target is active.
+    ///
+    /// Doesn't check if explicitly enabled or disabled.
     fn is_effectively_active(&self) -> bool {
         is_effectively_active(
             &self.core.options,
@@ -487,7 +474,7 @@ impl MainMapping {
         target_is_effectively_active(&self.core.options, self.unresolved_target.as_ref())
     }
 
-    /// Returns `true` if mapping&target is active and control or feedback is enabled.
+    /// Returns `true` if mapping & target is active and control or feedback is enabled.
     pub fn is_effectively_on(&self) -> bool {
         self.is_effectively_active()
             && (self.control_is_enabled() || self.core.options.feedback_is_effectively_enabled())

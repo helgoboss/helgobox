@@ -36,20 +36,28 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
                 let mut control_results = vec![];
                 for m in context.mappings.values_mut() {
                     if !m.control_is_enabled() {
+                        // If "Control disabled", it doesn't make much sense because then it means
+                        // we don't have a chance to modify the target via this mapping via
+                        // ReaLearn anyway.
                         continue;
                     }
                     if !self.scope.matches(m, self.required_group_id) {
                         continue;
                     }
-                    if self.active_mappings_only && !m.is_active() {
+                    if self.active_mappings_only && !m.is_effectively_on() {
                         continue;
                     }
-                    if let Some(r) = m.hit_target_with_initial_value_snapshot_if_any(
-                        context.control_context,
-                        context.logger,
-                        context.processor_context,
-                    ) {
-                        control_results.push(r);
+                    if let Some(inital_value) = m.initial_target_value_snapshot() {
+                        context
+                            .domain_event_handler
+                            .notify_mapping_matched(m.compartment(), m.id());
+                        let res = m.control_from_target_directly(
+                            context.control_context,
+                            context.logger,
+                            context.processor_context,
+                            inital_value,
+                        );
+                        control_results.push(res);
                     }
                 }
                 control_results
