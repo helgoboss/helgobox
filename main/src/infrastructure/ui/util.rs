@@ -198,7 +198,7 @@ pub fn parse_tags_from_csv(text: &str) -> Vec<Tag> {
         .collect()
 }
 
-pub fn format_tags_as_csv(tags: &[Tag]) -> String {
+pub fn format_tags_as_csv<'a>(tags: impl IntoIterator<Item = &'a Tag>) -> String {
     format_as_csv(tags)
 }
 

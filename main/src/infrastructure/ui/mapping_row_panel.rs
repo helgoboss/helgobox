@@ -127,24 +127,31 @@ impl MappingRowPanel {
             .require_window()
             .require_control(root::ID_MAPPING_ROW_MAPPING_LABEL)
             .set_text(mapping.effective_name());
-        // Right label
-        let mut right_label = format_tags_as_csv(mapping.tags.get_ref());
+        // Initialize right label with tags
+        let session = self.session();
+        let session = session.borrow();
+        let group_id = mapping.group_id.get();
+        let compartment = main_state.active_compartment.get();
+        let group = session.find_group_by_id_including_default_group(compartment, group_id);
+        let mut right_label = if let Some(g) = group {
+            // Group present. Merge group tags with mapping tags.
+            let g = g.borrow();
+            format_tags_as_csv(g.tags.get_ref().iter().chain(mapping.tags.get_ref()))
+        } else {
+            // Group not present. Use mapping tags only.
+            format_tags_as_csv(mapping.tags.get_ref())
+        };
+        // Add group name to right label if all groups are shown.
         if main_state
             .displayed_group_for_active_compartment()
             .is_none()
         {
-            // All groups are shown. Add group name next to tags.
-            let group_id = mapping.group_id.get();
-            let compartment = main_state.active_compartment.get();
-            let session = self.session();
-            let group_label = if group_id.is_default() {
-                "<Default>".to_owned()
-            } else if let Some(group) = session.borrow().find_group_by_id(compartment, group_id) {
-                group.borrow().name().to_owned()
+            let group_label = if let Some(g) = group {
+                g.borrow().name().to_owned()
             } else {
                 "<group not present>".to_owned()
             };
-            if !mapping.tags.get_ref().is_empty() {
+            if !right_label.is_empty() {
                 right_label += " | ";
             }
             right_label += &group_label;
@@ -363,6 +370,10 @@ impl MappingRowPanel {
         });
         self.when(session.mapping_which_learns_target_changed(), |view| {
             view.with_mapping(Self::invalidate_learn_target_button);
+        });
+        self.when(session.group_changed().map_to(()), move |view| {
+            // Refresh to display potentially new inherited tags.
+            view.with_mapping(Self::invalidate_name_labels);
         });
         self.when(instance_state.on_mappings_changed(), |view| {
             view.with_mapping(Self::invalidate_on_indicator);
