@@ -159,6 +159,9 @@ impl HeaderPanel {
 
     fn add_group(&self) {
         if let Some(name) = dialog_util::prompt_for("Group name", "") {
+            if name.trim().is_empty() {
+                return;
+            }
             let id = self
                 .session()
                 .borrow_mut()
@@ -1750,6 +1753,9 @@ impl HeaderPanel {
             None => return,
             Some(n) => n,
         };
+        if new_session_id.trim().is_empty() {
+            return;
+        }
         if new_session_id == current_session_id {
             return;
         }
@@ -1780,6 +1786,9 @@ impl HeaderPanel {
             None => return Ok(()),
             Some(n) => n,
         };
+        if preset_name.trim().is_empty() {
+            return Ok(());
+        }
         self.make_mappings_project_independent_if_desired();
         let session = self.session();
         let mut session = session.borrow_mut();

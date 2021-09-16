@@ -221,7 +221,10 @@ impl MainPanel {
         let initial_csv = self
             .do_with_session(|session| format_tags_as_csv(session.tags.get_ref()))
             .unwrap_or_default();
-        let new_tag_string = dialog_util::prompt_for("Tags", &initial_csv).unwrap_or_default();
+        let new_tag_string = match dialog_util::prompt_for("Tags", &initial_csv) {
+            None => return,
+            Some(s) => s,
+        };
         let tags = parse_tags_from_csv(&new_tag_string);
         self.do_with_session_mut(|session| {
             session.tags.set(tags);
