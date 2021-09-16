@@ -1,5 +1,5 @@
 use crate::infrastructure::ui::{
-    bindings::root, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
+    bindings::root, dialog_util, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
 
@@ -17,7 +17,9 @@ use crate::domain::{
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::send_projection_feedback_to_subscribed_clients;
+use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv};
 use rxrust::prelude::*;
+use std::borrow::Cow;
 use std::rc::{Rc, Weak};
 use std::sync;
 use swell_ui::{DialogUnits, Dimensions, Pixels, Point, SharedView, View, ViewContext, Window};
@@ -78,6 +80,8 @@ impl MainPanel {
         // If the plug-in window is currently open, open the sub panels as well. Now we are talking!
         if let Some(window) = self.view.window() {
             self.open_sub_panels(window);
+            self.invalidate_all_controls();
+            self.register_session_listeners();
         }
     }
 
@@ -121,10 +125,41 @@ impl MainPanel {
     }
 
     fn invalidate_status_text(&self) {
-        let state = self.state.borrow();
-        self.view
-            .require_control(root::ID_MAIN_PANEL_STATUS_TEXT)
-            .set_text(state.status_msg.get_ref().as_str());
+        self.do_with_session(|session| {
+            let state = self.state.borrow();
+            let status_msg = state.status_msg.get_ref();
+            let tags = session.tags.get_ref();
+            let text = if tags.is_empty() {
+                Cow::Borrowed(status_msg)
+            } else {
+                Cow::Owned(format!(
+                    "{} | Tags: {}",
+                    status_msg,
+                    format_tags_as_csv(tags)
+                ))
+            };
+            self.view
+                .require_control(root::ID_MAIN_PANEL_STATUS_TEXT)
+                .set_text(text.as_str());
+        });
+    }
+
+    fn do_with_session<R>(&self, f: impl FnOnce(&Session) -> R) -> Option<R> {
+        if let Some(data) = self.active_data.borrow() {
+            if let Some(session) = data.session.upgrade() {
+                return Some(f(&session.borrow()));
+            }
+        }
+        None
+    }
+
+    fn do_with_session_mut<R>(&self, f: impl FnOnce(&mut Session) -> R) -> Option<R> {
+        if let Some(data) = self.active_data.borrow() {
+            if let Some(session) = data.session.upgrade() {
+                return Some(f(&mut session.borrow_mut()));
+            }
+        }
+        None
     }
 
     fn invalidate_version_text(&self) {
@@ -142,6 +177,18 @@ impl MainPanel {
         let state = self.state.borrow();
         self.when(state.status_msg.changed(), |view| {
             view.invalidate_status_text();
+        });
+        self.register_session_listeners();
+    }
+
+    fn register_session_listeners(self: &SharedView<Self>) {
+        self.do_with_session(|session| {
+            self.when(session.everything_changed(), |view| {
+                view.invalidate_all_controls();
+            });
+            self.when(session.tags.changed(), |view| {
+                view.invalidate_status_text();
+            });
         });
     }
 
@@ -168,6 +215,17 @@ impl MainPanel {
                 .borrow()
                 .handle_changed_parameters(session);
         }
+    }
+
+    fn edit_tags(&self) {
+        let initial_csv = self
+            .do_with_session(|session| format_tags_as_csv(session.tags.get_ref()))
+            .unwrap_or_default();
+        let new_tag_string = dialog_util::prompt_for("Tags", &initial_csv).unwrap_or_default();
+        let tags = parse_tags_from_csv(&new_tag_string);
+        self.do_with_session_mut(|session| {
+            session.tags.set(tags);
+        });
     }
 
     fn when(
@@ -209,6 +267,13 @@ impl View for MainPanel {
         self.invalidate_all_controls();
         self.register_listeners();
         true
+    }
+
+    fn button_clicked(self: SharedView<Self>, resource_id: u32) {
+        match resource_id {
+            root::IDC_EDIT_TAGS_BUTTON => self.edit_tags(),
+            _ => {}
+        }
     }
 }
 

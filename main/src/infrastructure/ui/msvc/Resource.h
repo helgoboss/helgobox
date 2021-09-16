@@ -14,6 +14,7 @@
 #define ID_YAML_EDITOR_PANEL            139
 #define IDC_MAPPING_ENABLED_CHECK_BOX   1001
 #define IDC_MAPPING_ROW_ENABLED_CHECK_BOX 1002
+#define IDC_EDIT_TAGS_BUTTON            1004
 #define IDM_MULTIS                      40000
 #define ID_ADD_MAPPING_BUTTON           40000
 #define ID_GROUP_IS_EMPTY_TEXT          40000
@@ -227,7 +228,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1003
+#define _APS_NEXT_CONTROL_VALUE         1005
 #define _APS_NEXT_SYMED_VALUE           110
 #endif
 #endif

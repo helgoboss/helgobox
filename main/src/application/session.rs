@@ -11,7 +11,7 @@ use crate::domain::{
     InstanceId, MainMapping, MappingCompartment, MappingId, MappingMatchedEvent, MidiControlInput,
     MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId, OscFeedbackTask,
     ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
-    RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue,
+    RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue, Tag,
     TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualTrack,
     COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
@@ -67,6 +67,7 @@ pub struct Session {
     pub osc_output_device_id: Prop<Option<OscDeviceId>>,
     pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
     pub lives_on_upper_floor: Prop<bool>,
+    pub tags: Prop<Vec<Tag>>,
     // Is set when in the state of learning multiple mappings ("batch learn")
     learn_many_state: Prop<Option<LearnManyState>>,
     // We want that learn works independently of the UI, so they are session properties.
@@ -194,6 +195,7 @@ impl Session {
             osc_output_device_id: prop(None),
             main_preset_auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
             lives_on_upper_floor: prop(false),
+            tags: Default::default(),
             learn_many_state: prop(None),
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),

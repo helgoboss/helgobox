@@ -5,7 +5,7 @@ use crate::application::{
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     MappingCompartment, MidiControlInput, MidiDestination, OscDeviceId, ParameterArray,
-    QualifiedSlotDescriptor, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    QualifiedSlotDescriptor, Tag, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
@@ -79,6 +79,8 @@ pub struct SessionData {
     controller_parameters: HashMap<u32, ParameterData>,
     #[serde(default, skip_serializing_if = "is_default")]
     clip_slots: Vec<QualifiedSlotDescriptor>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub tags: Vec<Tag>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -120,6 +122,7 @@ impl Default for SessionData {
             parameters: Default::default(),
             controller_parameters: Default::default(),
             clip_slots: vec![],
+            tags: vec![],
         }
     }
 }
@@ -191,6 +194,7 @@ impl SessionData {
                 MappingCompartment::ControllerMappings,
             ),
             clip_slots: { session.instance_state().borrow().filled_slot_descriptors() },
+            tags: session.tags.get_ref().clone(),
         }
     }
 
@@ -371,6 +375,8 @@ impl SessionData {
                 Some(session.context().project_or_current_project()),
             )?;
         }
+        // Tags
+        session.tags.set_without_notification(self.tags.clone());
         Ok(())
     }
 

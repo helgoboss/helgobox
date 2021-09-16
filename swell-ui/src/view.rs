@@ -87,10 +87,14 @@ pub trait View {
     fn closed(self: SharedView<Self>, _window: Window) {}
 
     /// WM_COMMAND, HIWORD(wparam) == 0.
-    fn button_clicked(self: SharedView<Self>, _resource_id: u32) {}
+    fn button_clicked(self: SharedView<Self>, resource_id: u32) {
+        let _ = resource_id;
+    }
 
     /// WM_COMMAND, HIWORD(wparam) == CBN_SELCHANGE
-    fn option_selected(self: SharedView<Self>, _resource_id: u32) {}
+    fn option_selected(self: SharedView<Self>, resource_id: u32) {
+        let _ = resource_id;
+    }
 
     /// WM_VSCROLL, LOWORD(wparam).
     ///

@@ -16,6 +16,7 @@ pub mod root {
     pub const ID_YAML_EDITOR_PANEL: u32 = 139;
     pub const IDC_MAPPING_ENABLED_CHECK_BOX: u32 = 1001;
     pub const IDC_MAPPING_ROW_ENABLED_CHECK_BOX: u32 = 1002;
+    pub const IDC_EDIT_TAGS_BUTTON: u32 = 1004;
     pub const IDM_MULTIS: u32 = 40000;
     pub const ID_ADD_MAPPING_BUTTON: u32 = 40000;
     pub const ID_GROUP_IS_EMPTY_TEXT: u32 = 40000;
