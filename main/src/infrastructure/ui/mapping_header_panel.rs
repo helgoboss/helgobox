@@ -636,7 +636,7 @@ impl View for MappingHeaderPanel {
         true
     }
 
-    fn edit_control_focus_killed(self: SharedView<Self>, _resource_id: u32) -> bool {
+    fn edit_control_focus_killed(self: SharedView<Self>, resource_id: u32) -> bool {
         // This is also called when the window is hidden.
         // The edit control which is currently edited by the user doesn't get invalidated during
         // `edit_control_changed()`, for good reasons. But as soon as the edit control loses
@@ -644,7 +644,11 @@ impl View for MappingHeaderPanel {
         // entered an invalid value. Because we are lazy and edit controls are not
         // manipulated very frequently, we just invalidate all controls.
         // If this fails (because the mapping is not filled anymore), it's not a problem.
-        self.with_item_if_set(Self::invalidate_controls_internal);
+        self.with_item_if_set(|s, item| match resource_id {
+            root::ID_MAPPING_NAME_EDIT_CONTROL => s.invalidate_name_edit_control(item, None),
+            root::ID_MAPPING_TAGS_EDIT_CONTROL => s.invalidate_tags_edit_control(item, None),
+            _ => {}
+        });
         false
     }
 }
