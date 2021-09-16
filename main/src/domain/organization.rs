@@ -22,6 +22,13 @@ impl MappingScope {
         true
     }
 
+    pub fn has_tags(&self) -> bool {
+        !self.tags.is_empty()
+    }
+
+    /// A mapping matches the tags if it has at least one of the tags of this scope.
+    ///
+    /// If the scope has no tags at all, then any mapping matches.
     pub fn matches_tags(&self, m: &MainMapping) -> bool {
         if !self.tags.is_empty() && !m.has_any_tag(&self.tags) {
             return false;

@@ -48,37 +48,40 @@ impl RealearnTarget for EnableMappingsTarget {
         impl HitInstruction for EnableMappingInstruction {
             fn execute(&self, context: HitInstructionContext) -> Vec<MappingControlResult> {
                 for m in context.mappings.values_mut() {
+                    // Don't touch ourselves.
                     if m.id() == self.mapping_data.mapping_id {
-                        // We don't want to enable/disable ourselves!
                         continue;
                     }
-                    // Don't touch mappings which are not in the universe (e.g. not in the group or
-                    // are not active).
+                    // Don't touch mappings which are not in the universe (not in the group).
                     if !self.scope.universe.matches(m, self.mapping_data.group_id) {
                         continue;
                     }
                     // Now determine how to change the mappings within that universe.
                     let change = if self.exclusivity == Exclusivity::Exclusive {
-                        // Change mappings that match the tags and negate the rest.
-                        Some(self.scope.matches_tags(m))
+                        // Change mappings that match the tags and negate all others.
+                        if self.scope.has_tags() && !m.has_tags() {
+                            // Well, not *all* others. Leave mappings without tags untouched if
+                            // the scope defines tags.
+                            continue;
+                        } else {
+                            self.scope.matches_tags(m)
+                        }
                     } else if self.scope.matches_tags(m) {
                         // Change mappings that match the tags.
-                        Some(true)
+                        true
                     } else {
                         // Don't touch mappings that don't match the tags.
-                        None
+                        continue;
                     };
-                    if let Some(change) = change {
-                        context.domain_event_handler.handle_event(
-                            DomainEvent::MappingEnabledChangeRequested(
-                                MappingEnabledChangeRequestedEvent {
-                                    compartment: m.compartment(),
-                                    mapping_id: m.id(),
-                                    is_enabled: if self.is_enable { change } else { !change },
-                                },
-                            ),
-                        );
-                    }
+                    context.domain_event_handler.handle_event(
+                        DomainEvent::MappingEnabledChangeRequested(
+                            MappingEnabledChangeRequestedEvent {
+                                compartment: m.compartment(),
+                                mapping_id: m.id(),
+                                is_enabled: if self.is_enable { change } else { !change },
+                            },
+                        ),
+                    );
                 }
                 vec![]
             }

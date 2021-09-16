@@ -214,6 +214,10 @@ impl MainMapping {
         self.core.options.persistent_processing_state = state;
     }
 
+    pub fn has_tags(&self) -> bool {
+        !self.tags.is_empty()
+    }
+
     pub fn has_any_tag(&self, tags: &[Tag]) -> bool {
         self.tags.iter().any(|t| tags.contains(t))
     }
