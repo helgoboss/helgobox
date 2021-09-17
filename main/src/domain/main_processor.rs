@@ -2804,7 +2804,11 @@ fn control_mapping_stage_two<EH: DomainEventHandler>(
 ///
 /// Takes care of:
 ///
-/// 1. Executing a possible hit instruction.
+/// 1. Executing a possible hit instruction (and in a possible second pass all resulting hit
+///    instructions). A second pass is not just theory, it makes a lot of sense in practice, e.g.
+///    when we control "Enable/disable mappings" via "Navigate within group". However, we should
+///    stop there in order to prevent infinite loops. If we really need more in future, we can add
+///    a third pass.  
 /// 2. Processing group interaction (if enabled).
 fn control_mapping_stage_three<EH: DomainEventHandler>(
     basics: &Basics<EH>,
@@ -2815,17 +2819,30 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
 ) {
     if let Some(hi) = control_result.hit_instruction {
         let control_context = basics.control_context();
-        hi.execute(HitInstructionContext {
+        let processor_context = ExtendedProcessorContext::new(
+            &basics.context,
+            &collections.parameters,
+            control_context,
+        );
+        let pass_2_control_results = hi.execute(HitInstructionContext {
             mappings: &mut collections.mappings[compartment],
-            control_context: control_context,
+            control_context,
             domain_event_handler: &basics.event_handler,
             logger: &basics.logger,
-            processor_context: ExtendedProcessorContext::new(
-                &basics.context,
-                &collections.parameters,
-                control_context,
-            ),
+            processor_context,
         });
+        // Second pass, without group interaction this time!
+        for pass_2_control_result in pass_2_control_results {
+            if let Some(pass_2_hi) = pass_2_control_result.hit_instruction {
+                pass_2_hi.execute(HitInstructionContext {
+                    mappings: &mut collections.mappings[compartment],
+                    control_context,
+                    domain_event_handler: &basics.event_handler,
+                    logger: &basics.logger,
+                    processor_context,
+                });
+            }
+        }
     }
     if let GroupInteractionProcessing::On(input) = group_interaction_processing {
         if input.group_interaction != GroupInteraction::None {

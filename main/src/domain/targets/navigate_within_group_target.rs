@@ -154,11 +154,11 @@ impl RealearnTarget for NavigateWithinGroupTarget {
         evt: &InstanceFeedbackEvent,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            InstanceFeedbackEvent::ActiveMappingWithinGroupChanged { group_id, .. }
-                if *group_id == self.group_id =>
-            {
-                (true, None)
-            }
+            InstanceFeedbackEvent::ActiveMappingWithinGroupChanged {
+                compartment,
+                group_id,
+                ..
+            } if *compartment == self.compartment && *group_id == self.group_id => (true, None),
             _ => (false, None),
         }
     }

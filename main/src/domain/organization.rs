@@ -3,12 +3,13 @@ use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MappingScope {
     pub universe: MappingUniverse,
     /// The mapping in question should have at least one of these tags.
-    pub tags: Vec<Tag>,
+    pub tags: HashSet<Tag>,
 }
 
 impl MappingScope {

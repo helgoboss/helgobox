@@ -1106,14 +1106,15 @@ impl TargetModel {
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot {
                         scope: MappingScope {
                             universe: self.mapping_scope.get(),
-                            tags: self.tags.get_ref().clone(),
+                            tags: self.tags.get_ref().iter().cloned().collect(),
                         },
                         active_mappings_only: self.active_mappings_only.get(),
                     },
                     EnableMappings => UnresolvedReaperTarget::EnableMappings {
+                        compartment,
                         scope: MappingScope {
                             universe: self.mapping_scope.get(),
-                            tags: self.tags.get_ref().clone(),
+                            tags: self.tags.get_ref().iter().cloned().collect(),
                         },
                         exclusivity: self.exclusivity.get(),
                     },

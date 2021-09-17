@@ -1,26 +1,19 @@
 use crate::domain::{
     ControlContext, DomainEvent, Exclusivity, HitInstruction, HitInstructionContext,
-    HitInstructionReturnValue, MappingControlContext, MappingControlResult, MappingData,
-    MappingEnabledChangeRequestedEvent, MappingScope, RealearnTarget, TargetCharacter,
+    HitInstructionReturnValue, InstanceFeedbackEvent, MappingCompartment, MappingControlContext,
+    MappingControlResult, MappingData, MappingEnabledChangeRequestedEvent, MappingScope,
+    RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use std::collections::HashSet;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct EnableMappingsTarget {
-    scope: MappingScope,
-    // For making basic toggle control possible.
-    artificial_value: UnitValue,
-    exclusivity: Exclusivity,
-}
-
-impl EnableMappingsTarget {
-    pub fn new(scope: MappingScope, exclusivity: Exclusivity) -> Self {
-        Self {
-            scope,
-            artificial_value: UnitValue::MAX,
-            exclusivity,
-        }
-    }
+    /// This must always correspond to the compartment of the containing mapping, otherwise it will
+    /// lead to strange behavior.
+    pub compartment: MappingCompartment,
+    pub scope: MappingScope,
+    pub exclusivity: Exclusivity,
 }
 
 impl RealearnTarget for EnableMappingsTarget {
@@ -37,9 +30,9 @@ impl RealearnTarget for EnableMappingsTarget {
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_unit_value()?;
-        self.artificial_value = value;
         let is_enable = !value.is_zero();
         struct EnableMappingInstruction {
+            compartment: MappingCompartment,
             scope: MappingScope,
             mapping_data: MappingData,
             is_enable: bool,
@@ -47,6 +40,7 @@ impl RealearnTarget for EnableMappingsTarget {
         }
         impl HitInstruction for EnableMappingInstruction {
             fn execute(&self, context: HitInstructionContext) -> Vec<MappingControlResult> {
+                let mut activated_inverse_tags = HashSet::new();
                 for m in context.mappings.values_mut() {
                     // Don't touch ourselves.
                     if m.id() == self.mapping_data.mapping_id {
@@ -57,36 +51,77 @@ impl RealearnTarget for EnableMappingsTarget {
                         continue;
                     }
                     // Now determine how to change the mappings within that universe.
-                    let change = if self.exclusivity == Exclusivity::Exclusive {
-                        // Change mappings that match the tags and negate all others.
-                        if self.scope.has_tags() && !m.has_tags() {
-                            // Well, not *all* others. Leave mappings without tags untouched if
-                            // the scope defines tags.
-                            continue;
-                        } else {
-                            self.scope.matches_tags(m)
+                    let flag = match self.exclusivity {
+                        Exclusivity::Exclusive => {
+                            if self.scope.has_tags() {
+                                // Set mappings that match the scope tags and unset all others
+                                // as long as they have tags!
+                                if m.has_tags() {
+                                    self.scope.matches_tags(m)
+                                } else {
+                                    continue;
+                                }
+                            } else {
+                                // Scope doesn't define any tags. Unset *all* mappings as long as
+                                // they have tags.
+                                if m.has_tags() {
+                                    false
+                                } else {
+                                    continue;
+                                }
+                            }
                         }
-                    } else if self.scope.matches_tags(m) {
-                        // Change mappings that match the tags.
-                        true
-                    } else {
-                        // Don't touch mappings that don't match the tags.
-                        continue;
+                        Exclusivity::NonExclusive => {
+                            if self.scope.matches_tags(m) {
+                                // Non-exclusive, so we just add to or remove from mappings that are
+                                // currently active (= relative).
+                                true
+                            } else {
+                                // Don't touch mappings that don't match the tags.
+                                continue;
+                            }
+                        }
                     };
+                    if self.exclusivity == Exclusivity::Exclusive && !self.is_enable {
+                        // Collect all *other* mapping tags because they are going to be activated
+                        // and we have to know about them!
+                        activated_inverse_tags.extend(m.tags().iter().cloned());
+                    }
+                    // Finally request change of mapping enabled state!
                     context.domain_event_handler.handle_event(
                         DomainEvent::MappingEnabledChangeRequested(
                             MappingEnabledChangeRequestedEvent {
                                 compartment: m.compartment(),
                                 mapping_id: m.id(),
-                                is_enabled: if self.is_enable { change } else { !change },
+                                is_enabled: if self.is_enable { flag } else { !flag },
                             },
                         ),
+                    );
+                }
+                // TODO-high This is not correct if our universe is the group!!! Maybe we should take the
+                //  group out of the equation.
+                let mut instance_state = context.control_context.instance_state.borrow_mut();
+                if self.exclusivity == Exclusivity::Exclusive {
+                    // Completely replace
+                    let new_active_tags = if self.is_enable {
+                        self.scope.tags.clone()
+                    } else {
+                        activated_inverse_tags
+                    };
+                    instance_state.set_active_mapping_tags(self.compartment, new_active_tags);
+                } else {
+                    // Add or remove
+                    instance_state.activate_or_deactivate_mapping_tags(
+                        self.compartment,
+                        &self.scope.tags,
+                        self.is_enable,
                     );
                 }
                 vec![]
             }
         }
         let instruction = EnableMappingInstruction {
+            compartment: self.compartment,
             // So far this clone is okay because enabling/disable mappings is not something that
             // happens every few milliseconds. No need to use a ref to this target.
             scope: self.scope.clone(),
@@ -101,16 +136,35 @@ impl RealearnTarget for EnableMappingsTarget {
         true
     }
 
-    fn supports_automatic_feedback(&self) -> bool {
-        false
+    fn value_changed_from_instance_feedback_event(
+        &self,
+        evt: &InstanceFeedbackEvent,
+    ) -> (bool, Option<AbsoluteValue>) {
+        match evt {
+            InstanceFeedbackEvent::ActiveMappingTagsChanged { compartment, .. }
+                if *compartment == self.compartment =>
+            {
+                (true, None)
+            }
+            _ => (false, None),
+        }
     }
 }
 
 impl<'a> Target<'a> for EnableMappingsTarget {
     type Context = ControlContext<'a>;
 
-    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        Some(AbsoluteValue::Continuous(self.artificial_value))
+    fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
+        let active = context
+            .instance_state
+            .borrow()
+            .all_of_those_mapping_tags_are_active(self.compartment, &self.scope.tags);
+        let uv = if active {
+            UnitValue::MAX
+        } else {
+            UnitValue::MIN
+        };
+        Some(AbsoluteValue::Continuous(uv))
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

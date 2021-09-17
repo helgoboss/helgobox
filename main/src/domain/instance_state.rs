@@ -1,7 +1,7 @@
 use crate::base::{AsyncNotifier, Prop};
 use crate::domain::{
     ClipPlayState, ClipSlot, GroupId, MappingCompartment, MappingId, QualifiedMappingId,
-    SlotContent, SlotDescriptor, SlotPlayOptions,
+    SlotContent, SlotDescriptor, SlotPlayOptions, Tag,
 };
 use enum_map::EnumMap;
 use helgoboss_learn::UnitValue;
@@ -24,10 +24,29 @@ pub struct InstanceState {
     clip_slots: [ClipSlot; CLIP_SLOT_COUNT],
     instance_feedback_event_sender: crossbeam_channel::Sender<InstanceFeedbackEvent>,
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
+    /// Which mappings are in which group.
+    ///
+    /// - Used for target "ReaLearn: Navigate within group"
+    /// - Automatically filled by main processor on sync
+    /// - Completely derived from mappings, so it's redundant state.
     mappings_by_group: EnumMap<MappingCompartment, HashMap<GroupId, Vec<MappingId>>>,
+    /// Which is the active mapping in which group.
+    ///
+    /// - Set by target "ReaLearn: Navigate within group".
+    /// - Non-redundant state!
+    // TODO-high Should we save this so feedback gets restored on reload?
     active_mapping_by_group: EnumMap<MappingCompartment, HashMap<GroupId, MappingId>>,
-    /// The mappings which are on (enabled + control or feedback enabled + mapping active + target active)
+    /// The mappings which are on.
+    ///
+    /// - "on" = enabled & control or feedback enabled & mapping active & target active
+    /// - Completely derived from mappings, so it's redundant state.
     on_mappings: Prop<HashSet<QualifiedMappingId>>,
+    /// All tags whose mappings have been switched on via tag.
+    ///
+    /// - Set by target "ReaLearn: Enable/disable mappings".
+    /// - Non-redundant state!
+    // TODO-high Should we save this so feedback gets restored on reload?
+    active_mapping_tags: EnumMap<MappingCompartment, HashSet<Tag>>,
 }
 
 impl InstanceState {
@@ -41,7 +60,42 @@ impl InstanceState {
             mappings_by_group: Default::default(),
             active_mapping_by_group: Default::default(),
             on_mappings: Default::default(),
+            active_mapping_tags: Default::default(),
         }
+    }
+
+    pub fn all_of_those_mapping_tags_are_active(
+        &self,
+        compartment: MappingCompartment,
+        tags: &HashSet<Tag>,
+    ) -> bool {
+        tags == &self.active_mapping_tags[compartment]
+    }
+
+    pub fn activate_or_deactivate_mapping_tags(
+        &mut self,
+        compartment: MappingCompartment,
+        tags: &HashSet<Tag>,
+        activate: bool,
+    ) {
+        if activate {
+            self.active_mapping_tags[compartment].extend(tags.iter().cloned());
+        } else {
+            self.active_mapping_tags[compartment].retain(|t| !tags.contains(t));
+        }
+        self.notify_active_mapping_tags_changed(compartment);
+    }
+
+    pub fn set_active_mapping_tags(&mut self, compartment: MappingCompartment, tags: HashSet<Tag>) {
+        self.active_mapping_tags[compartment] = tags;
+        self.notify_active_mapping_tags_changed(compartment);
+    }
+
+    fn notify_active_mapping_tags_changed(&mut self, compartment: MappingCompartment) {
+        let instance_event = InstanceFeedbackEvent::ActiveMappingTagsChanged { compartment };
+        self.instance_feedback_event_sender
+            .try_send(instance_event)
+            .unwrap();
     }
 
     pub fn mapping_is_on(&self, id: QualifiedMappingId) -> bool {
@@ -304,6 +358,9 @@ pub enum InstanceFeedbackEvent {
         compartment: MappingCompartment,
         group_id: GroupId,
         mapping_id: Option<MappingId>,
+    },
+    ActiveMappingTagsChanged {
+        compartment: MappingCompartment,
     },
 }
 

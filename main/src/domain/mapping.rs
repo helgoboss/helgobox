@@ -25,6 +25,7 @@ use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
+use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
 use std::fmt::Display;
@@ -214,11 +215,15 @@ impl MainMapping {
         self.core.options.persistent_processing_state = state;
     }
 
+    pub fn tags(&self) -> &[Tag] {
+        &self.tags
+    }
+
     pub fn has_tags(&self) -> bool {
         !self.tags.is_empty()
     }
 
-    pub fn has_any_tag(&self, tags: &[Tag]) -> bool {
+    pub fn has_any_tag(&self, tags: &HashSet<Tag>) -> bool {
         self.tags.iter().any(|t| tags.contains(t))
     }
 

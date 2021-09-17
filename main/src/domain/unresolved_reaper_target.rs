@@ -178,6 +178,7 @@ pub enum UnresolvedReaperTarget {
         active_mappings_only: bool,
     },
     EnableMappings {
+        compartment: MappingCompartment,
         scope: MappingScope,
         exclusivity: Exclusivity,
     },
@@ -538,11 +539,16 @@ impl UnresolvedReaperTarget {
                     active_mappings_only: *active_mappings_only,
                 },
             )],
-            EnableMappings { scope, exclusivity } => {
-                vec![ReaperTarget::EnableMappings(EnableMappingsTarget::new(
-                    scope.clone(),
-                    *exclusivity,
-                ))]
+            EnableMappings {
+                compartment,
+                scope,
+                exclusivity,
+            } => {
+                vec![ReaperTarget::EnableMappings(EnableMappingsTarget {
+                    compartment: *compartment,
+                    scope: scope.clone(),
+                    exclusivity: *exclusivity,
+                })]
             }
             NavigateWithinGroup {
                 compartment,
