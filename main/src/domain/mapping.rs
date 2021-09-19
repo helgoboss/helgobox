@@ -138,7 +138,6 @@ impl MappingExtension {
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
-    name: String,
     tags: Vec<Tag>,
     /// Is `Some` if the user-provided target data is complete.
     unresolved_target: Option<UnresolvedCompoundMappingTarget>,
@@ -169,7 +168,6 @@ impl MainMapping {
         compartment: MappingCompartment,
         id: MappingId,
         group_id: GroupId,
-        name: String,
         tags: Vec<Tag>,
         source: CompoundMappingSource,
         mode: Mode,
@@ -191,7 +189,6 @@ impl MainMapping {
                 options,
                 time_of_last_control: None,
             },
-            name,
             tags,
             unresolved_target,
             targets: vec![],
@@ -205,10 +202,6 @@ impl MainMapping {
 
     pub fn initial_target_value_snapshot(&self) -> Option<AbsoluteValue> {
         self.initial_target_value_snapshot
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
     }
 
     pub fn update_persistent_processing_state(&mut self, state: PersistentMappingProcessingState) {

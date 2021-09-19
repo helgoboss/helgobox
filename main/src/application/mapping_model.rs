@@ -6,9 +6,8 @@ use crate::base::{prop, Prop};
 use crate::domain::{
     ActivationCondition, CompoundMappingSource, CompoundMappingTarget, ExtendedProcessorContext,
     ExtendedSourceCharacter, FeedbackSendBehavior, GroupId, MainMapping, MappingCompartment,
-    MappingData, MappingId, Mode, PersistentMappingProcessingState, ProcessorMappingOptions,
-    QualifiedMappingId, RealearnTarget, ReaperTarget, Tag, TargetCharacter,
-    UnresolvedCompoundMappingTarget,
+    MappingId, Mode, PersistentMappingProcessingState, ProcessorMappingOptions, QualifiedMappingId,
+    RealearnTarget, ReaperTarget, Tag, TargetCharacter, UnresolvedCompoundMappingTarget,
 };
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
@@ -100,17 +99,6 @@ impl MappingModel {
 
     pub fn qualified_id(&self) -> QualifiedMappingId {
         QualifiedMappingId::new(self.compartment, self.id)
-    }
-
-    pub fn has_tags(&self) -> bool {
-        !self.tags.get_ref().is_empty()
-    }
-
-    pub fn data(&self) -> MappingData {
-        MappingData {
-            mapping_id: self.id,
-            group_id: self.group_id.get(),
-        }
     }
 
     pub fn effective_name(&self) -> String {
@@ -340,7 +328,6 @@ impl MappingModel {
             self.compartment,
             id,
             self.group_id.get(),
-            self.name.get_ref().clone(),
             merged_tags,
             source,
             mode,

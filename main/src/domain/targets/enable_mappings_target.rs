@@ -46,18 +46,14 @@ impl RealearnTarget for EnableMappingsTarget {
                     if m.id() == self.mapping_data.mapping_id {
                         continue;
                     }
-                    // Don't touch mappings which are not in the universe (not in the group).
-                    if !self.scope.universe.matches(m, self.mapping_data.group_id) {
-                        continue;
-                    }
-                    // Now determine how to change the mappings within that universe.
+                    // Determine how to change the mappings.
                     let flag = match self.exclusivity {
                         Exclusivity::Exclusive => {
                             if self.scope.has_tags() {
                                 // Set mappings that match the scope tags and unset all others
                                 // as long as they have tags!
                                 if m.has_tags() {
-                                    self.scope.matches_tags(m)
+                                    m.has_any_tag(&self.scope.tags)
                                 } else {
                                     continue;
                                 }
@@ -72,7 +68,7 @@ impl RealearnTarget for EnableMappingsTarget {
                             }
                         }
                         Exclusivity::NonExclusive => {
-                            if self.scope.matches_tags(m) {
+                            if !self.scope.has_tags() || m.has_any_tag(&self.scope.tags) {
                                 // Non-exclusive, so we just add to or remove from mappings that are
                                 // currently active (= relative).
                                 true
@@ -98,8 +94,6 @@ impl RealearnTarget for EnableMappingsTarget {
                         ),
                     );
                 }
-                // TODO-high This is not correct if our universe is the group!!! Maybe we should take the
-                //  group out of the equation.
                 let mut instance_state = context.control_context.instance_state.borrow_mut();
                 if self.exclusivity == Exclusivity::Exclusive {
                     // Completely replace

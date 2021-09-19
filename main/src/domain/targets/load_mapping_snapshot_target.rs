@@ -1,5 +1,5 @@
 use crate::domain::{
-    ControlContext, GroupId, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
+    ControlContext, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
     MappingControlContext, MappingControlResult, MappingScope, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
@@ -21,14 +21,13 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
     fn hit(
         &mut self,
         value: ControlValue,
-        context: MappingControlContext,
+        _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         if value.to_unit_value()?.is_zero() {
             return Ok(None);
         }
         struct LoadMappingSnapshotInstruction {
             scope: MappingScope,
-            required_group_id: GroupId,
             active_mappings_only: bool,
         }
         impl HitInstruction for LoadMappingSnapshotInstruction {
@@ -41,7 +40,7 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
                         // ReaLearn anyway.
                         continue;
                     }
-                    if !self.scope.matches(m, self.required_group_id) {
+                    if self.scope.has_tags() && !m.has_any_tag(&self.scope.tags) {
                         continue;
                     }
                     if self.active_mappings_only && !m.is_effectively_on() {
@@ -67,7 +66,6 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
             // So far this clone is okay because loading a snapshot is not something that happens
             // every few milliseconds. No need to use a ref to this target.
             scope: self.scope.clone(),
-            required_group_id: context.mapping_data.group_id,
             active_mappings_only: self.active_mappings_only,
         };
         Ok(Some(Box::new(instruction)))

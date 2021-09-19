@@ -333,12 +333,14 @@ async fn load_mapping_snapshot_some_mappings() {
     // Then
     assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
     assert_eq!(realearn.track().pan().reaper_value(), ReaperPanValue::LEFT);
-    assert!(realearn.track().is_muted());
+    assert!(!realearn.track().is_muted());
     assert_eq!(
         realearn.pop_feedback(),
         vec![
             // Vol
             Midi(Plain(note_on(0, 64, 91))),
+            // Mute
+            Midi(Plain(note_on(0, 62, 0))),
         ],
         "feedback should be sent when loading snapshot"
     );

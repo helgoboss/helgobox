@@ -17,12 +17,12 @@ use crate::domain::{
     get_non_present_virtual_track_label, get_track_route, ActionInvocationType,
     CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId,
-    MappingCompartment, MappingScope, MappingUniverse, OscDeviceId, ProcessorContext,
-    RealearnTarget, ReaperTarget, SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior,
-    Tag, TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
-    TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedCompoundMappingTarget,
-    UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement, VirtualControlElementId,
-    VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    MappingCompartment, MappingScope, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget,
+    SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior, Tag, TouchedParameterType,
+    TrackDescriptor, TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType,
+    TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx,
+    VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget,
+    VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -127,8 +127,6 @@ pub struct TargetModel {
     pub buffered: Prop<bool>,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     pub poll_for_feedback: Prop<bool>,
-    // # For some ReaLearn targets
-    pub mapping_scope: Prop<MappingUniverse>,
     pub tags: Prop<Vec<Tag>>,
     pub exclusivity: Prop<Exclusivity>,
     pub group_id: Prop<GroupId>,
@@ -199,7 +197,6 @@ impl Default for TargetModel {
             next_bar: prop(false),
             buffered: prop(false),
             poll_for_feedback: prop(true),
-            mapping_scope: prop(Default::default()),
             tags: prop(Default::default()),
             exclusivity: prop(Default::default()),
             group_id: prop(Default::default()),
@@ -744,7 +741,6 @@ impl TargetModel {
             .merge(self.next_bar.changed())
             .merge(self.buffered.changed())
             .merge(self.poll_for_feedback.changed())
-            .merge(self.mapping_scope.changed())
             .merge(self.tags.changed())
             .merge(self.exclusivity.changed())
             .merge(self.group_id.changed())
@@ -1105,7 +1101,6 @@ impl TargetModel {
                     },
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot {
                         scope: MappingScope {
-                            universe: self.mapping_scope.get(),
                             tags: self.tags.get_ref().iter().cloned().collect(),
                         },
                         active_mappings_only: self.active_mappings_only.get(),
@@ -1113,7 +1108,6 @@ impl TargetModel {
                     EnableMappings => UnresolvedReaperTarget::EnableMappings {
                         compartment,
                         scope: MappingScope {
-                            universe: self.mapping_scope.get(),
                             tags: self.tags.get_ref().iter().cloned().collect(),
                         },
                         exclusivity: self.exclusivity.get(),

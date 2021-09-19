@@ -90,7 +90,6 @@
         "moveView": true,
         "seekPlay": true,
         "oscArgIndex": 0,
-        "mappingScope": "group",
         "tags": [
           "load"
         ]

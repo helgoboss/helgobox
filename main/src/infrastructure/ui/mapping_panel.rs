@@ -40,7 +40,7 @@ use crate::application::{
 use crate::base::Global;
 use crate::domain::{
     control_element_domains, ClipInfo, ControlContext, Exclusivity, FeedbackSendBehavior,
-    MappingUniverse, SendMidiDestination, SlotContent, WithControlContext, CLIP_SLOT_COUNT,
+    SendMidiDestination, SlotContent, WithControlContext, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -1916,13 +1916,6 @@ impl<'a> MutableMappingPanel<'a> {
                         }
                     }
                 }
-                t if t.supports_filtering_of_mappings() => {
-                    let i = combo.selected_combo_box_item_index();
-                    self.mapping
-                        .target_model
-                        .mapping_scope
-                        .set(i.try_into().expect("invalid mapping scope"));
-                }
                 ReaperTargetType::Action => {
                     let i = combo.selected_combo_box_item_index();
                     self.mapping
@@ -3540,13 +3533,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                     } else {
                         combo.hide();
                     }
-                }
-                t if t.supports_filtering_of_mappings() => {
-                    combo.show();
-                    combo.fill_combo_box_indexed(MappingUniverse::into_enum_iter());
-                    combo
-                        .select_combo_box_item_by_index(self.target.mapping_scope.get().into())
-                        .unwrap();
                 }
                 ReaperTargetType::Action => {
                     combo.show();
@@ -5170,9 +5156,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_mode_controls();
             },
         );
-        self.panel.when(target.mapping_scope.changed(), |view, _| {
-            view.invalidate_target_line_3_combo_box_2();
-        });
         self.panel
             .when(target.tags.changed_with_initiator(), |view, initiator| {
                 view.invalidate_target_line_4_edit_control(initiator);
