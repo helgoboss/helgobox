@@ -2891,7 +2891,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 ReaperTargetType::LoadMappingSnapshot => {
                     combo.show();
-                    combo.select_new_combo_box_item("Initial");
+                    combo.select_only_combo_box_item("Initial");
                 }
                 t if t.supports_feedback_resolution() => {
                     combo.show();
