@@ -76,12 +76,20 @@ impl InstanceState {
         }
     }
 
-    pub fn all_of_those_mapping_tags_are_active(
+    pub fn only_these_mapping_tags_are_active(
         &self,
         compartment: MappingCompartment,
         tags: &HashSet<Tag>,
     ) -> bool {
         tags == &self.active_mapping_tags[compartment]
+    }
+
+    pub fn at_least_those_mapping_tags_are_active(
+        &self,
+        compartment: MappingCompartment,
+        tags: &HashSet<Tag>,
+    ) -> bool {
+        tags.is_subset(&self.active_mapping_tags[compartment])
     }
 
     pub fn activate_or_deactivate_mapping_tags(
@@ -110,8 +118,12 @@ impl InstanceState {
             .unwrap();
     }
 
-    pub fn all_of_those_instance_tags_are_active(&self, tags: &HashSet<Tag>) -> bool {
+    pub fn only_these_instance_tags_are_active(&self, tags: &HashSet<Tag>) -> bool {
         tags == &self.active_instance_tags
+    }
+
+    pub fn at_least_those_instance_tags_are_active(&self, tags: &HashSet<Tag>) -> bool {
+        tags.is_subset(&self.active_instance_tags)
     }
 
     pub fn activate_or_deactivate_instance_tags(&mut self, tags: &HashSet<Tag>, activate: bool) {

@@ -125,10 +125,13 @@ impl<'a> Target<'a> for EnableMappingsTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
-        let active = context
-            .instance_state
-            .borrow()
-            .all_of_those_mapping_tags_are_active(self.compartment, &self.scope.tags);
+        let instance_state = context.instance_state.borrow();
+        let active = match self.exclusivity {
+            Exclusivity::NonExclusive => instance_state
+                .at_least_those_mapping_tags_are_active(self.compartment, &self.scope.tags),
+            Exclusivity::Exclusive => instance_state
+                .only_these_mapping_tags_are_active(self.compartment, &self.scope.tags),
+        };
         let uv = if active {
             UnitValue::MAX
         } else {
