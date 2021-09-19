@@ -1547,12 +1547,6 @@ impl<'a> MutableMappingPanel<'a> {
                 ReaperTargetType::Seek => {
                     self.mapping.target_model.seek_play.set(is_checked);
                 }
-                ReaperTargetType::LoadMappingSnapshot => {
-                    self.mapping
-                        .target_model
-                        .active_mappings_only
-                        .set(is_checked);
-                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -1577,6 +1571,12 @@ impl<'a> MutableMappingPanel<'a> {
                 }
                 ReaperTargetType::Seek => {
                     self.mapping.target_model.move_view.set(is_checked);
+                }
+                ReaperTargetType::LoadMappingSnapshot => {
+                    self.mapping
+                        .target_model
+                        .active_mappings_only
+                        .set(is_checked);
                 }
                 _ => {}
             },
@@ -3736,10 +3736,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                     Some(("Regions", is_regions))
                 }
                 ReaperTargetType::Seek => Some(("Seek play", self.target.seek_play.get())),
-                ReaperTargetType::LoadMappingSnapshot => Some((
-                    "Active mappings only",
-                    self.target.active_mappings_only.get(),
-                )),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -3750,6 +3746,10 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_check_box_2(&self) {
         let state = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
+                ReaperTargetType::LoadMappingSnapshot => Some((
+                    "Active mappings only",
+                    self.target.active_mappings_only.get(),
+                )),
                 _ if self.mapping.target_model.supports_track_must_be_selected() => {
                     if self
                         .target
@@ -5133,7 +5133,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             });
         self.panel
             .when(target.active_mappings_only.changed(), |view, _| {
-                view.invalidate_target_check_boxes();
+                view.invalidate_target_check_box_2();
             });
         self.panel.when(target.exclusivity.changed(), |view, _| {
             view.invalidate_target_line_4_combo_box_1();
