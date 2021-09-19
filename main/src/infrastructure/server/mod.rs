@@ -41,6 +41,7 @@ use warp::{reply, Rejection, Reply};
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
+#[derive(Debug)]
 pub struct RealearnServer {
     http_port: u16,
     https_port: u16,
@@ -51,12 +52,14 @@ pub struct RealearnServer {
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
 }
 
+#[derive(Debug)]
 enum ServerState {
     Stopped,
     Starting(ServerRuntimeData),
     Running(ServerRuntimeData),
 }
 
+#[derive(Debug)]
 struct ServerRuntimeData {
     clients: ServerClients,
     shutdown_sender: broadcast::Sender<()>,
@@ -635,7 +638,7 @@ async fn client_connected(ws: WebSocket, topics: Topics, clients: ServerClients)
     clients.write().unwrap().remove(&client_id);
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct WebSocketClient {
     id: usize,
     topics: Topics,

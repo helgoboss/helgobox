@@ -19,6 +19,8 @@ pub const CLIP_SLOT_COUNT: usize = 8;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 
+/// State connected to the instance which also needs to be accessible from layers *above* the
+/// processing layer (otherwise it could reside in the main processor).
 #[derive(Debug)]
 pub struct InstanceState {
     clip_slots: [ClipSlot; CLIP_SLOT_COUNT],
@@ -29,6 +31,8 @@ pub struct InstanceState {
     /// - Used for target "ReaLearn: Navigate within group"
     /// - Automatically filled by main processor on sync
     /// - Completely derived from mappings, so it's redundant state.
+    /// - Could be kept in main processor because it's only accessed by the processing layer,
+    ///   but it's very related to the active mapping by group, so we decided to keep it here too.
     mappings_by_group: EnumMap<MappingCompartment, HashMap<GroupId, Vec<MappingId>>>,
     /// Which is the active mapping in which group.
     ///
@@ -40,13 +44,20 @@ pub struct InstanceState {
     ///
     /// - "on" = enabled & control or feedback enabled & mapping active & target active
     /// - Completely derived from mappings, so it's redundant state.
+    /// - It's needed by both processing layer and layers above.
     on_mappings: Prop<HashSet<QualifiedMappingId>>,
-    /// All tags whose mappings have been switched on via tag.
+    /// All mapping tags whose mappings have been switched on via tag.
     ///
     /// - Set by target "ReaLearn: Enable/disable mappings".
     /// - Non-redundant state!
     // TODO-high Should we save this so feedback gets restored on reload?
     active_mapping_tags: EnumMap<MappingCompartment, HashSet<Tag>>,
+    /// All instance tags whose instances have been switched on via tag.
+    ///
+    /// - Set by target "ReaLearn: Enable/disable instances".
+    /// - Non-redundant state!
+    // TODO-high Should we save this so feedback gets restored on reload?
+    active_instance_tags: HashSet<Tag>,
 }
 
 impl InstanceState {
@@ -61,6 +72,7 @@ impl InstanceState {
             active_mapping_by_group: Default::default(),
             on_mappings: Default::default(),
             active_mapping_tags: Default::default(),
+            active_instance_tags: Default::default(),
         }
     }
 
@@ -95,6 +107,30 @@ impl InstanceState {
         let instance_event = InstanceFeedbackEvent::ActiveMappingTagsChanged { compartment };
         self.instance_feedback_event_sender
             .try_send(instance_event)
+            .unwrap();
+    }
+
+    pub fn all_of_those_instance_tags_are_active(&self, tags: &HashSet<Tag>) -> bool {
+        tags == &self.active_instance_tags
+    }
+
+    pub fn activate_or_deactivate_instance_tags(&mut self, tags: &HashSet<Tag>, activate: bool) {
+        if activate {
+            self.active_instance_tags.extend(tags.iter().cloned());
+        } else {
+            self.active_instance_tags.retain(|t| !tags.contains(t));
+        }
+        self.notify_active_instance_tags_changed();
+    }
+
+    pub fn set_active_instance_tags(&mut self, tags: HashSet<Tag>) {
+        self.active_instance_tags = tags;
+        self.notify_active_instance_tags_changed();
+    }
+
+    fn notify_active_instance_tags_changed(&mut self) {
+        self.instance_feedback_event_sender
+            .try_send(InstanceFeedbackEvent::ActiveInstanceTagsChanged)
             .unwrap();
     }
 
@@ -362,6 +398,7 @@ pub enum InstanceFeedbackEvent {
     ActiveMappingTagsChanged {
         compartment: MappingCompartment,
     },
+    ActiveInstanceTagsChanged,
 }
 
 #[derive(Debug)]

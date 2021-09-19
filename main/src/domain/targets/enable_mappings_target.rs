@@ -1,8 +1,8 @@
 use crate::domain::{
     ControlContext, DomainEvent, Exclusivity, HitInstruction, HitInstructionContext,
     HitInstructionReturnValue, InstanceFeedbackEvent, MappingCompartment, MappingControlContext,
-    MappingControlResult, MappingData, MappingEnabledChangeRequestedEvent, MappingScope,
-    RealearnTarget, TargetCharacter,
+    MappingControlResult, MappingData, MappingEnabledChangeRequestedEvent, RealearnTarget,
+    TagScope, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::collections::HashSet;
@@ -12,7 +12,7 @@ pub struct EnableMappingsTarget {
     /// This must always correspond to the compartment of the containing mapping, otherwise it will
     /// lead to strange behavior.
     pub compartment: MappingCompartment,
-    pub scope: MappingScope,
+    pub scope: TagScope,
     pub exclusivity: Exclusivity,
 }
 
@@ -31,15 +31,18 @@ impl RealearnTarget for EnableMappingsTarget {
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_unit_value()?;
         let is_enable = !value.is_zero();
-        struct EnableMappingInstruction {
+        struct EnableMappingsInstruction {
             compartment: MappingCompartment,
-            scope: MappingScope,
+            scope: TagScope,
             mapping_data: MappingData,
             is_enable: bool,
             exclusivity: Exclusivity,
         }
-        impl HitInstruction for EnableMappingInstruction {
-            fn execute(&self, context: HitInstructionContext) -> Vec<MappingControlResult> {
+        impl HitInstruction for EnableMappingsInstruction {
+            fn execute(
+                self: Box<Self>,
+                context: HitInstructionContext,
+            ) -> Vec<MappingControlResult> {
                 let mut activated_inverse_tags = HashSet::new();
                 for m in context.mappings.values_mut() {
                     // Don't touch ourselves.
@@ -47,36 +50,9 @@ impl RealearnTarget for EnableMappingsTarget {
                         continue;
                     }
                     // Determine how to change the mappings.
-                    let flag = match self.exclusivity {
-                        Exclusivity::Exclusive => {
-                            if self.scope.has_tags() {
-                                // Set mappings that match the scope tags and unset all others
-                                // as long as they have tags!
-                                if m.has_tags() {
-                                    m.has_any_tag(&self.scope.tags)
-                                } else {
-                                    continue;
-                                }
-                            } else {
-                                // Scope doesn't define any tags. Unset *all* mappings as long as
-                                // they have tags.
-                                if m.has_tags() {
-                                    false
-                                } else {
-                                    continue;
-                                }
-                            }
-                        }
-                        Exclusivity::NonExclusive => {
-                            if !self.scope.has_tags() || m.has_any_tag(&self.scope.tags) {
-                                // Non-exclusive, so we just add to or remove from mappings that are
-                                // currently active (= relative).
-                                true
-                            } else {
-                                // Don't touch mappings that don't match the tags.
-                                continue;
-                            }
-                        }
+                    let flag = match self.scope.determine_change(self.exclusivity, m.tags()) {
+                        None => continue,
+                        Some(f) => f,
                     };
                     if self.exclusivity == Exclusivity::Exclusive && !self.is_enable {
                         // Collect all *other* mapping tags because they are going to be activated
@@ -114,7 +90,7 @@ impl RealearnTarget for EnableMappingsTarget {
                 vec![]
             }
         }
-        let instruction = EnableMappingInstruction {
+        let instruction = EnableMappingsInstruction {
             compartment: self.compartment,
             // So far this clone is okay because enabling/disable mappings is not something that
             // happens every few milliseconds. No need to use a ref to this target.

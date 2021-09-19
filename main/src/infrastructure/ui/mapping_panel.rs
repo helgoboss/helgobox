@@ -2191,7 +2191,7 @@ impl<'a> MutableMappingPanel<'a> {
                     }
                     _ => {}
                 },
-                t if t.supports_filtering_of_mappings() => {
+                t if t.supports_tags() => {
                     let text = control.text().unwrap_or_default();
                     self.mapping
                         .target_model
@@ -3230,7 +3230,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     control.set_text(text);
                     control.show();
                 }
-                t if t.supports_filtering_of_mappings() => {
+                t if t.supports_tags() => {
                     let text = format_tags_as_csv(self.target.tags.get_ref());
                     control.set_text(text);
                     control.show();
@@ -3305,7 +3305,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t if t.supports_slot() => Some("Slot"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
-                t if t.supports_filtering_of_mappings() => Some("Scope"),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -3324,7 +3323,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::ClipTransport => Some("Action"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
-                t if t.supports_filtering_of_mappings() => Some("Tags"),
+                t if t.supports_tags() => Some("Tags"),
                 t if t.supports_exclusivity() => Some("Exclusivity"),
                 t if t.supports_send() => match self.target.route_type.get() {
                     TrackRouteType::Send => Some("Send"),

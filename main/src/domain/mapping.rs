@@ -212,10 +212,6 @@ impl MainMapping {
         &self.tags
     }
 
-    pub fn has_tags(&self) -> bool {
-        !self.tags.is_empty()
-    }
-
     pub fn has_any_tag(&self, tags: &HashSet<Tag>) -> bool {
         self.tags.iter().any(|t| tags.contains(t))
     }

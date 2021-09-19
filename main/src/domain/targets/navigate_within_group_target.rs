@@ -72,7 +72,10 @@ impl RealearnTarget for NavigateWithinGroupTarget {
             desired_mapping_id: MappingId,
         }
         impl HitInstruction for CycleThroughGroupInstruction {
-            fn execute(&self, context: HitInstructionContext) -> Vec<MappingControlResult> {
+            fn execute(
+                self: Box<Self>,
+                context: HitInstructionContext,
+            ) -> Vec<MappingControlResult> {
                 let mut control_results = vec![];
                 for m in context.mappings.values_mut() {
                     let v = if m.id() == self.desired_mapping_id {

@@ -14,8 +14,8 @@ use reaper_medium::{
 use rxrust::prelude::*;
 
 use crate::domain::{
-    EnableMappingsTarget, HitInstructionReturnValue, LoadMappingSnapshotTarget,
-    NavigateWithinGroupTarget, RealearnTarget,
+    EnableInstancesTarget, EnableMappingsTarget, HitInstructionReturnValue,
+    LoadMappingSnapshotTarget, NavigateWithinGroupTarget, RealearnTarget,
 };
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -110,6 +110,7 @@ pub enum ReaperTarget {
     ClipVolume(ClipVolumeTarget),
     LoadMappingSnapshot(LoadMappingSnapshotTarget),
     EnableMappings(EnableMappingsTarget),
+    EnableInstances(EnableInstancesTarget),
     NavigateWithinGroup(NavigateWithinGroupTarget),
 }
 
@@ -618,6 +619,7 @@ impl<'a> Target<'a> for ReaperTarget {
             ClipVolume(t) => t.current_value(context),
             LoadMappingSnapshot(t) => t.current_value(context),
             EnableMappings(t) => t.current_value(context),
+            EnableInstances(t) => t.current_value(context),
             NavigateWithinGroup(t) => t.current_value(context),
         }
     }

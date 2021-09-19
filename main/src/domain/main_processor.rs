@@ -4,11 +4,11 @@ use crate::domain::{
     ControlMode, DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
     FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
     FeedbackResolution, FeedbackSendBehavior, FeedbackValue, GroupId, HitInstructionContext,
-    InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent, MainMapping,
-    MainSourceMessage, MappingActivationEffect, MappingCompartment, MappingControlResult,
-    MappingId, MidiDestination, MidiSource, NormalRealTimeTask, OrderedMappingIdSet,
-    OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedMappingId,
-    QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
+    InstanceContainer, InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent,
+    MainMapping, MainSourceMessage, MappingActivationEffect, MappingCompartment,
+    MappingControlResult, MappingId, MidiDestination, MidiSource, NormalRealTimeTask,
+    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext,
+    QualifiedMappingId, QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
     RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperMessage, ReaperTarget,
     SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
     TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
@@ -60,6 +60,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
 #[derive(Debug)]
 struct Basics<EH: DomainEventHandler> {
     instance_id: InstanceId,
+    instance_container: &'static dyn InstanceContainer,
     logger: slog::Logger,
     // TODO-medium Now that we communicate the feedback output separately, we could limit the scope
     //  of its meaning to "instance enabled etc."
@@ -138,6 +139,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         event_handler: EH,
         context: ProcessorContext,
         instance_state: SharedInstanceState,
+        instance_container: &'static dyn InstanceContainer,
     ) -> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) =
             crossbeam_channel::bounded(FEEDBACK_TASK_QUEUE_SIZE);
@@ -154,6 +156,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 control_input: Default::default(),
                 feedback_output: Default::default(),
                 instance_state,
+                instance_container,
                 input_logging_enabled: false,
                 output_logging_enabled: false,
                 channels: Channels {
@@ -2169,9 +2172,11 @@ impl<EH: DomainEventHandler> Basics<EH> {
             feedback_audio_hook_task_sender: &self.channels.feedback_audio_hook_task_sender,
             osc_feedback_task_sender: &self.channels.osc_feedback_task_sender,
             feedback_output: self.feedback_output,
+            instance_container: self.instance_container,
             instance_state: &self.instance_state,
             instance_id: &self.instance_id,
             output_logging_enabled: self.output_logging_enabled,
+            processor_context: &self.context,
         }
     }
 

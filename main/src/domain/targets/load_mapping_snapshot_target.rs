@@ -1,12 +1,12 @@
 use crate::domain::{
     ControlContext, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
-    MappingControlContext, MappingControlResult, MappingScope, RealearnTarget, TargetCharacter,
+    MappingControlContext, MappingControlResult, RealearnTarget, TagScope, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoadMappingSnapshotTarget {
-    pub scope: MappingScope,
+    pub scope: TagScope,
     pub active_mappings_only: bool,
 }
 
@@ -27,11 +27,14 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
             return Ok(None);
         }
         struct LoadMappingSnapshotInstruction {
-            scope: MappingScope,
+            scope: TagScope,
             active_mappings_only: bool,
         }
         impl HitInstruction for LoadMappingSnapshotInstruction {
-            fn execute(&self, context: HitInstructionContext) -> Vec<MappingControlResult> {
+            fn execute(
+                self: Box<Self>,
+                context: HitInstructionContext,
+            ) -> Vec<MappingControlResult> {
                 let mut control_results = vec![];
                 for m in context.mappings.values_mut() {
                     if !m.control_is_enabled() {

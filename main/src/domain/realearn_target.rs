@@ -1,15 +1,18 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{
-    AdditionalFeedbackEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackOutput, GroupId, InstanceFeedbackEvent, InstanceId, MainMapping, MappingControlResult,
-    MappingId, OrderedMappingMap, OscFeedbackTask, RealTimeReaperTarget, RealTimeSender,
-    SharedInstanceState, TargetCharacter, TrackExclusivity,
+    AdditionalFeedbackEvent, DomainEventHandler, Exclusivity, ExtendedProcessorContext,
+    FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceFeedbackEvent, InstanceId, MainMapping,
+    MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
+    RealTimeReaperTarget, RealTimeSender, SharedInstanceState, Tag, TagScope, TargetCharacter,
+    TrackExclusivity,
 };
 use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
 use reaper_medium::CommandId;
+use std::collections::HashSet;
 use std::convert::TryInto;
+use std::fmt::Debug;
 
 #[enum_dispatch(ReaperTarget)]
 pub trait RealearnTarget {
@@ -259,14 +262,30 @@ pub trait RealearnTarget {
     }
 }
 
+pub trait InstanceContainer: Debug {
+    /// Returns activated tags if they don't correspond to the tags in the args.
+    fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>>;
+}
+
+pub struct EnableInstancesArgs<'a> {
+    pub initiator_instance_id: InstanceId,
+    /// `None` if monitoring FX.
+    pub initiator_project: Option<Project>,
+    pub scope: &'a TagScope,
+    pub is_enable: bool,
+    pub exclusivity: Exclusivity,
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct ControlContext<'a> {
     pub feedback_audio_hook_task_sender: &'a RealTimeSender<FeedbackAudioHookTask>,
     pub osc_feedback_task_sender: &'a crossbeam_channel::Sender<OscFeedbackTask>,
     pub feedback_output: Option<FeedbackOutput>,
+    pub instance_container: &'a dyn InstanceContainer,
     pub instance_state: &'a SharedInstanceState,
     pub instance_id: &'a InstanceId,
     pub output_logging_enabled: bool,
+    pub processor_context: &'a ProcessorContext,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -284,7 +303,7 @@ pub struct MappingData {
 pub type HitInstructionReturnValue = Option<Box<dyn HitInstruction>>;
 
 pub trait HitInstruction {
-    fn execute(&self, context: HitInstructionContext) -> Vec<MappingControlResult>;
+    fn execute(self: Box<Self>, context: HitInstructionContext) -> Vec<MappingControlResult>;
 }
 
 pub struct HitInstructionContext<'a> {

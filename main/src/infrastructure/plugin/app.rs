@@ -4,12 +4,13 @@ use crate::application::{
 use crate::base::default_util::is_default;
 use crate::base::{notification, Global};
 use crate::domain::{
-    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, FeedbackAudioHookTask, Garbage,
-    GarbageBin, GroupId, InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment,
-    MidiSource, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
-    RealSource, RealTimeSender, RealearnAudioHook, RealearnControlSurfaceMainTask,
-    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, RealearnTarget,
-    RealearnTargetContext, ReaperTarget, SharedRealTimeProcessor,
+    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, EnableInstancesArgs, Exclusivity,
+    FeedbackAudioHookTask, Garbage, GarbageBin, GroupId, InstanceContainer, InstanceId,
+    InstanceOrchestrationEvent, MainProcessor, MappingCompartment, MidiSource, NormalAudioHookTask,
+    OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, RealSource, RealTimeSender,
+    RealearnAudioHook, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetContext, ReaperTarget,
+    SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
     FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
@@ -34,6 +35,7 @@ use semver::Version;
 use serde::{Deserialize, Serialize};
 use slog::{debug, Drain, Logger};
 use std::cell::{Ref, RefCell};
+use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -66,6 +68,7 @@ pub type RealearnControlSurfaceMainTaskSender =
 pub type RealearnControlSurfaceServerTaskSender =
     crossbeam_channel::Sender<RealearnControlSurfaceServerTask>;
 
+#[derive(Debug)]
 pub struct App {
     state: RefCell<AppState>,
     controller_preset_manager: SharedControllerPresetManager,
@@ -151,7 +154,7 @@ impl Default for App {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct ListOfRecentlyFocusedFx {
     previous: Option<Fx>,
     current: Option<Fx>,
@@ -1262,7 +1265,7 @@ impl Drop for App {
     }
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
     main: MainConfig,
@@ -1306,7 +1309,7 @@ impl AppConfig {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct MainConfig {
     #[serde(default, skip_serializing_if = "is_default")]
     server_enabled: u8,
@@ -1463,5 +1466,48 @@ impl HookPostCommand2 for App {
                 command_id,
             }))
             .unwrap();
+    }
+}
+
+impl InstanceContainer for App {
+    fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>> {
+        let mut activated_inverse_tags = HashSet::new();
+        for session in self.sessions.borrow().iter() {
+            if let Some(session) = session.upgrade() {
+                let session = session.borrow();
+                // Don't touch ourselves.
+                if *session.instance_id() == args.initiator_instance_id {
+                    continue;
+                }
+                // Don't leave the context (project if in project, FX chain if monitoring FX).
+                let context = session.context();
+                if context.project() != args.initiator_project {
+                    continue;
+                }
+                // Determine how to change the instances.
+                let session_tags = session.tags.get_ref();
+                let flag = match args.scope.determine_change(args.exclusivity, session_tags) {
+                    None => continue,
+                    Some(f) => f,
+                };
+                if args.exclusivity == Exclusivity::Exclusive && !args.is_enable {
+                    // Collect all *other* instance tags because they are going to be activated
+                    // and we have to know about them!
+                    activated_inverse_tags.extend(session_tags.iter().cloned());
+                }
+                let enable = if args.is_enable { flag } else { !flag };
+                let fx = context.containing_fx();
+                if enable {
+                    fx.enable();
+                } else {
+                    fx.disable();
+                }
+            }
+        }
+        if args.exclusivity == Exclusivity::Exclusive && !args.is_enable {
+            Some(activated_inverse_tags)
+        } else {
+            None
+        }
     }
 }

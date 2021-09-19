@@ -17,8 +17,8 @@ use crate::domain::{
     get_non_present_virtual_track_label, get_track_route, ActionInvocationType,
     CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId,
-    MappingCompartment, MappingScope, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget,
-    SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior, Tag, TouchedParameterType,
+    MappingCompartment, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget, SeekOptions,
+    SendMidiDestination, SlotPlayOptions, SoloBehavior, Tag, TagScope, TouchedParameterType,
     TrackDescriptor, TrackExclusivity, TrackRouteDescriptor, TrackRouteSelector, TrackRouteType,
     TransportAction, UnresolvedCompoundMappingTarget, UnresolvedReaperTarget, VirtualChainFx,
     VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget,
@@ -673,6 +673,7 @@ impl TargetModel {
             | Seek(_)
             | LoadMappingSnapshot(_)
             | EnableMappings(_)
+            | EnableInstances(_)
             | NavigateWithinGroup(_) => {}
         };
     }
@@ -1100,14 +1101,20 @@ impl TargetModel {
                         slot_index: self.slot_index.get(),
                     },
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot {
-                        scope: MappingScope {
+                        scope: TagScope {
                             tags: self.tags.get_ref().iter().cloned().collect(),
                         },
                         active_mappings_only: self.active_mappings_only.get(),
                     },
                     EnableMappings => UnresolvedReaperTarget::EnableMappings {
                         compartment,
-                        scope: MappingScope {
+                        scope: TagScope {
+                            tags: self.tags.get_ref().iter().cloned().collect(),
+                        },
+                        exclusivity: self.exclusivity.get(),
+                    },
+                    EnableInstances => UnresolvedReaperTarget::EnableInstances {
+                        scope: TagScope {
                             tags: self.tags.get_ref().iter().cloned().collect(),
                         },
                         exclusivity: self.exclusivity.get(),
@@ -1262,7 +1269,9 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                     | FxEnable | TrackMute | AllTrackFxEnable | TrackSelection | FxPreset
                     | FxOpen | FxParameter | TrackSendMute | TrackSendPan | TrackSendVolume
                     | LoadFxSnapshot | SendMidi | SendOsc | LoadMappingSnapshot
-                    | EnableMappings | NavigateWithinGroup => f.write_str(tt.short_name()),
+                    | EnableMappings | EnableInstances | NavigateWithinGroup => {
+                        f.write_str(tt.short_name())
+                    }
                     ClipTransport | ClipSeek | ClipVolume => {
                         write!(
                             f,
@@ -1486,7 +1495,8 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                 let tt = self.target.r#type.get();
                 match tt {
                     Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi | SendOsc
-                    | LoadMappingSnapshot | EnableMappings | NavigateWithinGroup => {
+                    | LoadMappingSnapshot | EnableMappings | EnableInstances
+                    | NavigateWithinGroup => {
                         write!(f, "{}", tt)
                     }
                     ClipTransport | ClipSeek | ClipVolume => {
@@ -1804,10 +1814,12 @@ pub enum ReaperTargetType {
     SendOsc = 30,
 
     // ReaLearn targets
-    #[display(fmt = "ReaLearn: Load mapping snapshot")]
-    LoadMappingSnapshot = 35,
+    #[display(fmt = "ReaLearn: Enable/disable instances")]
+    EnableInstances = 38,
     #[display(fmt = "ReaLearn: Enable/disable mappings")]
     EnableMappings = 36,
+    #[display(fmt = "ReaLearn: Load mapping snapshot")]
+    LoadMappingSnapshot = 35,
     #[display(fmt = "ReaLearn: Navigate within group")]
     NavigateWithinGroup = 37,
 }
@@ -1858,6 +1870,7 @@ impl ReaperTargetType {
             ClipVolume { .. } => ReaperTargetType::ClipVolume,
             LoadMappingSnapshot { .. } => ReaperTargetType::LoadMappingSnapshot,
             EnableMappings { .. } => ReaperTargetType::EnableMappings,
+            EnableInstances { .. } => ReaperTargetType::EnableInstances,
             NavigateWithinGroup { .. } => ReaperTargetType::NavigateWithinGroup,
         }
     }
@@ -1898,6 +1911,7 @@ impl ReaperTargetType {
             | ClipVolume
             | LoadMappingSnapshot
             | EnableMappings
+            | EnableInstances
             | NavigateWithinGroup => false,
         }
     }
@@ -1953,11 +1967,12 @@ impl ReaperTargetType {
             | FxNavigate
             | LoadMappingSnapshot
             | EnableMappings
+            | EnableInstances
             | NavigateWithinGroup => false,
         }
     }
 
-    pub fn supports_filtering_of_mappings(self) -> bool {
+    pub fn supports_tags(self) -> bool {
         use ReaperTargetType::*;
         match self {
             FxParameter
@@ -1996,7 +2011,7 @@ impl ReaperTargetType {
             | ClipVolume
             | FxNavigate
             | NavigateWithinGroup => false,
-            LoadMappingSnapshot | EnableMappings => true,
+            LoadMappingSnapshot | EnableMappings | EnableInstances => true,
         }
     }
 
@@ -2048,6 +2063,7 @@ impl ReaperTargetType {
             | FxNavigate
             | LoadMappingSnapshot
             | EnableMappings
+            | EnableInstances
             | NavigateWithinGroup => false,
         }
     }
@@ -2086,6 +2102,7 @@ impl ReaperTargetType {
             | FxNavigate
             | LoadMappingSnapshot
             | EnableMappings
+            | EnableInstances
             | NavigateWithinGroup => false,
         }
     }
@@ -2093,7 +2110,7 @@ impl ReaperTargetType {
     pub fn supports_exclusivity(self) -> bool {
         use ReaperTargetType::*;
         match self {
-            EnableMappings | NavigateWithinGroup => true,
+            EnableMappings | EnableInstances | NavigateWithinGroup => true,
             TrackSendVolume
             | TrackSendPan
             | TrackSendMute
@@ -2200,6 +2217,7 @@ impl ReaperTargetType {
             ClipVolume => "Clip volume",
             LoadMappingSnapshot => "Load mapping snapshot",
             EnableMappings => "Enable/disable mappings",
+            EnableInstances => "Enable/disable instances",
             NavigateWithinGroup => "Navigate within group",
         }
     }

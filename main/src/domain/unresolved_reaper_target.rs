@@ -3,13 +3,13 @@ use crate::base::hash_util;
 use crate::domain::{
     ActionInvocationType, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
     AutomationTouchStateTarget, BackboneState, ClipSeekTarget, ClipTransportTarget,
-    ClipVolumeTarget, EnableMappingsTarget, Exclusivity, ExtendedProcessorContext,
-    FeedbackResolution, FxDisplayType, FxEnableTarget, FxNavigateTarget, FxOpenTarget,
-    FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, GroupId, LoadFxSnapshotTarget,
-    LoadMappingSnapshotTarget, MappingCompartment, MappingScope, MidiSendTarget,
+    ClipVolumeTarget, EnableInstancesTarget, EnableMappingsTarget, Exclusivity,
+    ExtendedProcessorContext, FeedbackResolution, FxDisplayType, FxEnableTarget, FxNavigateTarget,
+    FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, GroupId,
+    LoadFxSnapshotTarget, LoadMappingSnapshotTarget, MappingCompartment, MidiSendTarget,
     NavigateWithinGroupTarget, OscDeviceId, OscSendTarget, ParameterSlice, PlayrateTarget,
     RealearnTarget, ReaperTarget, RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekOptions,
-    SeekTarget, SelectedTrackTarget, SendMidiDestination, SlotPlayOptions, SoloBehavior,
+    SeekTarget, SelectedTrackTarget, SendMidiDestination, SlotPlayOptions, SoloBehavior, TagScope,
     TempoTarget, TouchedParameterType, TrackArmTarget, TrackAutomationModeTarget, TrackExclusivity,
     TrackMuteTarget, TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget,
     TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget, TransportAction, TransportTarget,
@@ -174,17 +174,21 @@ pub enum UnresolvedReaperTarget {
         slot_index: usize,
     },
     LoadMappingSnapshot {
-        scope: MappingScope,
+        scope: TagScope,
         active_mappings_only: bool,
     },
     EnableMappings {
         compartment: MappingCompartment,
-        scope: MappingScope,
+        scope: TagScope,
         exclusivity: Exclusivity,
     },
     NavigateWithinGroup {
         compartment: MappingCompartment,
         group_id: GroupId,
+        exclusivity: Exclusivity,
+    },
+    EnableInstances {
+        scope: TagScope,
         exclusivity: Exclusivity,
     },
 }
@@ -550,6 +554,12 @@ impl UnresolvedReaperTarget {
                     exclusivity: *exclusivity,
                 })]
             }
+            EnableInstances { scope, exclusivity } => {
+                vec![ReaperTarget::EnableInstances(EnableInstancesTarget {
+                    scope: scope.clone(),
+                    exclusivity: *exclusivity,
+                })]
+            }
             NavigateWithinGroup {
                 compartment,
                 group_id,
@@ -664,6 +674,7 @@ impl UnresolvedReaperTarget {
             | GoToBookmark { .. }
             | LoadMappingSnapshot { .. }
             | EnableMappings { .. }
+            | EnableInstances { .. }
             | NavigateWithinGroup { .. } => Default::default(),
             FxOpen { fx_descriptor, .. }
             | FxEnable { fx_descriptor }
@@ -764,6 +775,7 @@ impl UnresolvedReaperTarget {
             | AutomationTouchState { .. }
             | LoadMappingSnapshot { .. }
             | EnableMappings { .. }
+            | EnableInstances { .. }
             | NavigateWithinGroup { .. } => return None,
             AllTrackFxEnable {
                 poll_for_feedback, ..

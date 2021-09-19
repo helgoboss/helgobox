@@ -374,6 +374,7 @@ impl RealearnPlugin {
                     // being dropped when the plug-in is removed. It
                     // doesn't result in a crash, but there's no cleanup.
                     Rc::downgrade(&main_panel),
+                    App::get(),
                     App::get().controller_preset_manager(),
                     App::get().main_preset_manager(),
                     App::get().preset_link_manager(),
@@ -408,6 +409,7 @@ impl RealearnPlugin {
                     weak_session.clone(),
                     processor_context,
                     instance_state,
+                    App::get(),
                 );
                 App::get().register_processor_couple(
                     instance_id,

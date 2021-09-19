@@ -8,12 +8,12 @@ use crate::base::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
-    InstanceId, MainMapping, MappingCompartment, MappingId, MappingMatchedEvent, MidiControlInput,
-    MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId, OscFeedbackTask,
-    ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
-    RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue, Tag,
-    TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualTrack,
-    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    InstanceContainer, InstanceId, MainMapping, MappingCompartment, MappingId, MappingMatchedEvent,
+    MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
+    OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
+    RealSource, RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState,
+    SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualFx,
+    VirtualSource, VirtualTrack, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::{enum_map, EnumMap};
@@ -95,6 +95,7 @@ pub struct Session {
     party_is_over_subject: LocalSubject<'static, (), ()>,
     #[derivative(Debug = "ignore")]
     ui: Box<dyn SessionUi>,
+    instance_container: &'static dyn InstanceContainer,
     parameters: ParameterArray,
     parameter_settings: EnumMap<MappingCompartment, Vec<ParameterSetting>>,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
@@ -168,6 +169,7 @@ impl Session {
         normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
         normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
         ui: impl SessionUi + 'static,
+        instance_container: &'static dyn InstanceContainer,
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
@@ -221,6 +223,7 @@ impl Session {
             normal_real_time_task_sender,
             party_is_over_subject: Default::default(),
             ui: Box::new(ui),
+            instance_container,
             parameters: ZEROED_PLUGIN_PARAMETERS,
             parameter_settings: enum_map! {
                 MappingCompartment::ControllerMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
@@ -854,9 +857,11 @@ impl Session {
             feedback_audio_hook_task_sender: self.global_feedback_audio_hook_task_sender,
             osc_feedback_task_sender: self.global_osc_feedback_task_sender,
             feedback_output: self.feedback_output(),
+            instance_container: self.instance_container,
             instance_state: self.instance_state(),
             instance_id: self.instance_id(),
             output_logging_enabled: self.output_logging_enabled.get(),
+            processor_context: &self.context,
         }
     }
 
