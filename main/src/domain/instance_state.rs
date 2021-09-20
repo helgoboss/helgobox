@@ -38,7 +38,6 @@ pub struct InstanceState {
     ///
     /// - Set by target "ReaLearn: Navigate within group".
     /// - Non-redundant state!
-    // TODO-high Should we save this so feedback gets restored on reload?
     active_mapping_by_group: EnumMap<MappingCompartment, HashMap<GroupId, MappingId>>,
     /// The mappings which are on.
     ///
@@ -50,13 +49,11 @@ pub struct InstanceState {
     ///
     /// - Set by target "ReaLearn: Enable/disable mappings".
     /// - Non-redundant state!
-    // TODO-high Should we save this so feedback gets restored on reload?
     active_mapping_tags: EnumMap<MappingCompartment, HashSet<Tag>>,
     /// All instance tags whose instances have been switched on via tag.
     ///
     /// - Set by target "ReaLearn: Enable/disable instances".
     /// - Non-redundant state!
-    // TODO-high Should we save this so feedback gets restored on reload?
     active_instance_tags: HashSet<Tag>,
 }
 
@@ -135,6 +132,14 @@ impl InstanceState {
         self.notify_active_instance_tags_changed();
     }
 
+    pub fn active_instance_tags(&self) -> &HashSet<Tag> {
+        &self.active_instance_tags
+    }
+
+    pub fn set_active_instance_tags_without_notification(&mut self, tags: HashSet<Tag>) {
+        self.active_instance_tags = tags;
+    }
+
     pub fn set_active_instance_tags(&mut self, tags: HashSet<Tag>) {
         self.active_instance_tags = tags;
         self.notify_active_instance_tags_changed();
@@ -168,6 +173,25 @@ impl InstanceState {
                 m.remove(&id);
             }
         });
+    }
+
+    pub fn active_mapping_by_group(
+        &self,
+        compartment: MappingCompartment,
+    ) -> &HashMap<GroupId, MappingId> {
+        &self.active_mapping_by_group[compartment]
+    }
+
+    pub fn active_mapping_tags(&self, compartment: MappingCompartment) -> &HashSet<Tag> {
+        &self.active_mapping_tags[compartment]
+    }
+
+    pub fn set_active_mapping_by_group(
+        &mut self,
+        compartment: MappingCompartment,
+        value: HashMap<GroupId, MappingId>,
+    ) {
+        self.active_mapping_by_group[compartment] = value;
     }
 
     /// Sets the ID of the currently active mapping within the given group.
@@ -204,23 +228,17 @@ impl InstanceState {
         compartment: MappingCompartment,
         mappings_by_group: HashMap<GroupId, Vec<MappingId>>,
     ) {
-        let mut events = vec![];
-        self.active_mapping_by_group[compartment].retain(|group_id, _| {
-            let keep = mappings_by_group.contains_key(group_id);
-            if !keep {
+        for group_id in self.active_mapping_by_group[compartment].keys() {
+            if !mappings_by_group.contains_key(group_id) {
                 let event = InstanceFeedbackEvent::ActiveMappingWithinGroupChanged {
                     compartment,
                     group_id: *group_id,
                     mapping_id: None,
                 };
-                events.push(event);
+                self.instance_feedback_event_sender.try_send(event).unwrap();
             }
-            keep
-        });
-        self.mappings_by_group[compartment] = mappings_by_group;
-        for event in events {
-            self.instance_feedback_event_sender.try_send(event).unwrap();
         }
+        self.mappings_by_group[compartment] = mappings_by_group;
     }
 
     pub fn get_on_mappings_within_group(

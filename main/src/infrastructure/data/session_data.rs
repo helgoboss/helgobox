@@ -4,8 +4,9 @@ use crate::application::{
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    MappingCompartment, MidiControlInput, MidiDestination, OscDeviceId, ParameterArray,
-    QualifiedSlotDescriptor, Tag, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    GroupId, InstanceState, MappingCompartment, MappingId, MidiControlInput, MidiDestination,
+    OscDeviceId, ParameterArray, QualifiedSlotDescriptor, Tag, COMPARTMENT_PARAMETER_COUNT,
+    ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
@@ -15,7 +16,7 @@ use crate::infrastructure::plugin::App;
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::ops::Deref;
 
@@ -81,6 +82,33 @@ pub struct SessionData {
     clip_slots: Vec<QualifiedSlotDescriptor>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    controller: CompartmentState,
+    #[serde(default, skip_serializing_if = "is_default")]
+    main: CompartmentState,
+    #[serde(default, skip_serializing_if = "is_default")]
+    active_instance_tags: HashSet<Tag>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct CompartmentState {
+    #[serde(default, skip_serializing_if = "is_default")]
+    active_mapping_by_group: HashMap<GroupId, MappingId>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    active_mapping_tags: HashSet<Tag>,
+}
+
+impl CompartmentState {
+    fn from_instance_state(
+        instance_state: &InstanceState,
+        compartment: MappingCompartment,
+    ) -> Self {
+        CompartmentState {
+            active_mapping_by_group: instance_state.active_mapping_by_group(compartment).clone(),
+            active_mapping_tags: instance_state.active_mapping_tags(compartment).clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -123,6 +151,9 @@ impl Default for SessionData {
             controller_parameters: Default::default(),
             clip_slots: vec![],
             tags: vec![],
+            controller: Default::default(),
+            main: Default::default(),
+            active_instance_tags: Default::default(),
         }
     }
 }
@@ -146,6 +177,7 @@ impl SessionData {
                 session.default_group(compartment).borrow().deref(),
             ))
         };
+        let instance_state = session.instance_state().borrow();
         SessionData {
             version: Some(App::version().clone()),
             id: Some(session.id().to_string()),
@@ -193,8 +225,17 @@ impl SessionData {
                 parameters,
                 MappingCompartment::ControllerMappings,
             ),
-            clip_slots: { session.instance_state().borrow().filled_slot_descriptors() },
+            clip_slots: { instance_state.filled_slot_descriptors() },
             tags: session.tags.get_ref().clone(),
+            controller: CompartmentState::from_instance_state(
+                &instance_state,
+                MappingCompartment::ControllerMappings,
+            ),
+            main: CompartmentState::from_instance_state(
+                &instance_state,
+                MappingCompartment::MainMappings,
+            ),
+            active_instance_tags: instance_state.active_instance_tags().clone(),
         }
     }
 
@@ -358,6 +399,7 @@ impl SessionData {
         session
             .main_preset_auto_load_mode
             .set_without_notification(self.main_preset_auto_load_mode);
+        session.tags.set_without_notification(self.tags.clone());
         // Parameters
         session.set_parameter_settings_without_notification(
             MappingCompartment::MainMappings,
@@ -367,16 +409,33 @@ impl SessionData {
             MappingCompartment::ControllerMappings,
             get_parameter_settings(&self.controller_parameters),
         );
-        // Clip slots
+        // Instance state
         {
             let mut instance_state = session.instance_state().borrow_mut();
             instance_state.load_slots(
                 self.clip_slots.clone(),
                 Some(session.context().project_or_current_project()),
             )?;
+            instance_state
+                .set_active_instance_tags_without_notification(self.active_instance_tags.clone());
+            // Compartment-specific
+            instance_state.set_active_mapping_by_group(
+                MappingCompartment::ControllerMappings,
+                self.controller.active_mapping_by_group.clone(),
+            );
+            instance_state.set_active_mapping_by_group(
+                MappingCompartment::MainMappings,
+                self.main.active_mapping_by_group.clone(),
+            );
+            instance_state.set_active_mapping_tags(
+                MappingCompartment::ControllerMappings,
+                self.controller.active_mapping_tags.clone(),
+            );
+            instance_state.set_active_mapping_tags(
+                MappingCompartment::MainMappings,
+                self.main.active_mapping_tags.clone(),
+            );
         }
-        // Tags
-        session.tags.set_without_notification(self.tags.clone());
         Ok(())
     }
 
