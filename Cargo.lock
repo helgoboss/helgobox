@@ -2868,6 +2868,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#96152b26f3757886a58a2ae5b5865b47fe06f4d6"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -2893,6 +2894,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#96152b26f3757886a58a2ae5b5865b47fe06f4d6"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -2906,6 +2908,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#96152b26f3757886a58a2ae5b5865b47fe06f4d6"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.9",
@@ -2915,6 +2918,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#96152b26f3757886a58a2ae5b5865b47fe06f4d6"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -2932,6 +2936,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#96152b26f3757886a58a2ae5b5865b47fe06f4d6"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
@@ -3993,7 +3998,7 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 [[package]]
 name = "vst"
 version = "0.2.1"
-source = "git+https://github.com/helgoboss/vst-rs.git?branch=bugfix/invalid-sysex#ce9e1444dc45abb29a7c4b3e66c5a78fdae90ebe"
+source = "git+https://github.com/helgoboss/vst-rs.git?branch=bugfix/invalid-sysex#a8386893996a4a353492fa2de5e6d9fe85451f77"
 dependencies = [
  "bitflags",
  "libc",
