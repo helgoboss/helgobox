@@ -1,6 +1,6 @@
 use crate::domain::{
     ControlContext, EnableInstancesArgs, Exclusivity, HitInstructionReturnValue,
-    InstanceFeedbackEvent, MappingControlContext, RealearnTarget, TagScope, TargetCharacter,
+    InstanceStateChanged, MappingControlContext, RealearnTarget, TagScope, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 
@@ -54,10 +54,10 @@ impl RealearnTarget for EnableInstancesTarget {
 
     fn value_changed_from_instance_feedback_event(
         &self,
-        evt: &InstanceFeedbackEvent,
+        evt: &InstanceStateChanged,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            InstanceFeedbackEvent::ActiveInstanceTagsChanged => (true, None),
+            InstanceStateChanged::ActiveInstanceTags => (true, None),
             _ => (false, None),
         }
     }

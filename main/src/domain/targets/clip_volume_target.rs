@@ -3,7 +3,7 @@ use crate::domain::ui_util::{
     reaper_volume_unit_value,
 };
 use crate::domain::{
-    ClipChangedEvent, ControlContext, HitInstructionReturnValue, InstanceFeedbackEvent,
+    ClipChangedEvent, ControlContext, HitInstructionReturnValue, InstanceStateChanged,
     MappingControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -57,10 +57,10 @@ impl RealearnTarget for ClipVolumeTarget {
 
     fn value_changed_from_instance_feedback_event(
         &self,
-        evt: &InstanceFeedbackEvent,
+        evt: &InstanceStateChanged,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            InstanceFeedbackEvent::ClipChanged {
+            InstanceStateChanged::Clip {
                 slot_index: si,
                 event: ClipChangedEvent::ClipVolume(new_value),
             } if *si == self.slot_index => (

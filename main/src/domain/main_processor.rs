@@ -4,7 +4,7 @@ use crate::domain::{
     ControlMode, DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
     FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
     FeedbackResolution, FeedbackSendBehavior, FeedbackValue, GroupId, HitInstructionContext,
-    InstanceContainer, InstanceFeedbackEvent, InstanceOrchestrationEvent, IoUpdatedEvent,
+    InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent,
     MainMapping, MainSourceMessage, MappingActivationEffect, MappingCompartment,
     MappingControlResult, MappingId, MidiDestination, MidiSource, NormalRealTimeTask,
     OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext,
@@ -106,7 +106,7 @@ struct Channels {
         crossbeam_channel::Receiver<NormalRealTimeToMainThreadTask>,
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackMainTask>,
     parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
-    instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceFeedbackEvent>,
+    instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceStateChanged>,
     control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
     normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
     feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
@@ -129,7 +129,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         >,
         parameter_task_receiver: crossbeam_channel::Receiver<ParameterMainTask>,
         control_task_receiver: crossbeam_channel::Receiver<ControlMainTask>,
-        instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceFeedbackEvent>,
+        instance_feedback_event_receiver: crossbeam_channel::Receiver<InstanceStateChanged>,
         normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
         feedback_real_time_task_sender: RealTimeSender<FeedbackRealTimeTask>,
         feedback_audio_hook_task_sender: RealTimeSender<FeedbackAudioHookTask>,
@@ -494,7 +494,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         for i in 0..CLIP_SLOT_COUNT {
             for event in instance_state.poll_slot(i).into_iter() {
                 let is_position_change = matches!(&event, ClipChangedEvent::ClipPosition(_));
-                let instance_event = InstanceFeedbackEvent::ClipChanged {
+                let instance_event = InstanceStateChanged::Clip {
                     slot_index: i,
                     event,
                 };

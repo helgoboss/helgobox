@@ -740,7 +740,7 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn open_target(&self) {
         if let Some(t) = self.first_resolved_target() {
-            let session = self.panel.session().clone();
+            let session = self.panel.session();
             Global::task_support()
                 .do_later_in_main_thread_from_main_thread_asap(move || {
                     let session = session.borrow();

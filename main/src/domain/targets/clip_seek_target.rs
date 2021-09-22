@@ -1,6 +1,6 @@
 use crate::domain::{
     AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, ControlContext, FeedbackResolution,
-    HitInstructionReturnValue, InstanceFeedbackEvent, MappingControlContext, RealearnTarget,
+    HitInstructionReturnValue, InstanceStateChanged, MappingControlContext, RealearnTarget,
     TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -49,14 +49,14 @@ impl RealearnTarget for ClipSeekTarget {
 
     fn value_changed_from_instance_feedback_event(
         &self,
-        evt: &InstanceFeedbackEvent,
+        evt: &InstanceStateChanged,
     ) -> (bool, Option<AbsoluteValue>) {
         // When feedback resolution is beat, we only react to the main timeline beat changes.
         if self.feedback_resolution != FeedbackResolution::High {
             return (false, None);
         }
         match evt {
-            InstanceFeedbackEvent::ClipChanged {
+            InstanceStateChanged::Clip {
                 slot_index: si,
                 event,
             } if *si == self.slot_index => match event {

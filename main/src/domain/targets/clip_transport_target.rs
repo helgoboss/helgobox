@@ -1,6 +1,6 @@
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, transport_is_enabled_unit_value,
-    ClipChangedEvent, ControlContext, HitInstructionReturnValue, InstanceFeedbackEvent,
+    ClipChangedEvent, ControlContext, HitInstructionReturnValue, InstanceStateChanged,
     MappingControlContext, RealearnTarget, SlotPlayOptions, TargetCharacter, TransportAction,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
@@ -103,10 +103,10 @@ impl RealearnTarget for ClipTransportTarget {
 
     fn value_changed_from_instance_feedback_event(
         &self,
-        evt: &InstanceFeedbackEvent,
+        evt: &InstanceStateChanged,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            InstanceFeedbackEvent::ClipChanged {
+            InstanceStateChanged::Clip {
                 slot_index: si,
                 event,
             } if *si == self.slot_index => {

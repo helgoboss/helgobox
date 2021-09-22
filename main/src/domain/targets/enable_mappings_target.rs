@@ -1,6 +1,6 @@
 use crate::domain::{
     ControlContext, DomainEvent, Exclusivity, HitInstruction, HitInstructionContext,
-    HitInstructionReturnValue, InstanceFeedbackEvent, MappingCompartment, MappingControlContext,
+    HitInstructionReturnValue, InstanceStateChanged, MappingCompartment, MappingControlContext,
     MappingControlResult, MappingData, MappingEnabledChangeRequestedEvent, RealearnTarget,
     TagScope, TargetCharacter,
 };
@@ -108,10 +108,10 @@ impl RealearnTarget for EnableMappingsTarget {
 
     fn value_changed_from_instance_feedback_event(
         &self,
-        evt: &InstanceFeedbackEvent,
+        evt: &InstanceStateChanged,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            InstanceFeedbackEvent::ActiveMappingTagsChanged { compartment, .. }
+            InstanceStateChanged::ActiveMappingTags { compartment, .. }
                 if *compartment == self.compartment =>
             {
                 (true, None)

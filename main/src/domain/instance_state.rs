@@ -24,7 +24,7 @@ pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 #[derive(Debug)]
 pub struct InstanceState {
     clip_slots: [ClipSlot; CLIP_SLOT_COUNT],
-    instance_feedback_event_sender: crossbeam_channel::Sender<InstanceFeedbackEvent>,
+    instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
     /// Which mappings are in which group.
     ///
@@ -59,7 +59,7 @@ pub struct InstanceState {
 
 impl InstanceState {
     pub fn new(
-        instance_feedback_event_sender: crossbeam_channel::Sender<InstanceFeedbackEvent>,
+        instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
     ) -> Self {
         Self {
             clip_slots: Default::default(),
@@ -109,7 +109,7 @@ impl InstanceState {
     }
 
     fn notify_active_mapping_tags_changed(&mut self, compartment: MappingCompartment) {
-        let instance_event = InstanceFeedbackEvent::ActiveMappingTagsChanged { compartment };
+        let instance_event = InstanceStateChanged::ActiveMappingTags { compartment };
         self.instance_feedback_event_sender
             .try_send(instance_event)
             .unwrap();
@@ -147,7 +147,7 @@ impl InstanceState {
 
     fn notify_active_instance_tags_changed(&mut self) {
         self.instance_feedback_event_sender
-            .try_send(InstanceFeedbackEvent::ActiveInstanceTagsChanged)
+            .try_send(InstanceStateChanged::ActiveInstanceTags)
             .unwrap();
     }
 
@@ -202,7 +202,7 @@ impl InstanceState {
         mapping_id: MappingId,
     ) {
         self.active_mapping_by_group[compartment].insert(group_id, mapping_id);
-        let instance_event = InstanceFeedbackEvent::ActiveMappingWithinGroupChanged {
+        let instance_event = InstanceStateChanged::ActiveMappingWithinGroup {
             compartment,
             group_id,
             mapping_id: Some(mapping_id),
@@ -230,7 +230,7 @@ impl InstanceState {
     ) {
         for group_id in self.active_mapping_by_group[compartment].keys() {
             if !mappings_by_group.contains_key(group_id) {
-                let event = InstanceFeedbackEvent::ActiveMappingWithinGroupChanged {
+                let event = InstanceStateChanged::ActiveMappingWithinGroup {
                     compartment,
                     group_id: *group_id,
                     mapping_id: None,
@@ -257,7 +257,7 @@ impl InstanceState {
     pub fn process_transport_change(&mut self, new_play_state: PlayState) {
         for (slot_index, slot) in self.clip_slots.iter_mut().enumerate() {
             if let Ok(Some(event)) = slot.process_transport_change(new_play_state) {
-                let instance_event = InstanceFeedbackEvent::ClipChanged { slot_index, event };
+                let instance_event = InstanceStateChanged::Clip { slot_index, event };
                 self.instance_feedback_event_sender
                     .try_send(instance_event)
                     .unwrap();
@@ -394,10 +394,10 @@ impl InstanceState {
     }
 
     fn send_clip_changed_event(&self, slot_index: usize, event: ClipChangedEvent) {
-        self.send_feedback_event(InstanceFeedbackEvent::ClipChanged { slot_index, event });
+        self.send_feedback_event(InstanceStateChanged::Clip { slot_index, event });
     }
 
-    fn send_feedback_event(&self, event: InstanceFeedbackEvent) {
+    fn send_feedback_event(&self, event: InstanceStateChanged) {
         self.instance_feedback_event_sender.try_send(event).unwrap();
     }
 
@@ -415,20 +415,20 @@ pub struct QualifiedSlotDescriptor {
 }
 
 #[derive(Debug)]
-pub enum InstanceFeedbackEvent {
-    ClipChanged {
+pub enum InstanceStateChanged {
+    Clip {
         slot_index: usize,
         event: ClipChangedEvent,
     },
-    ActiveMappingWithinGroupChanged {
+    ActiveMappingWithinGroup {
         compartment: MappingCompartment,
         group_id: GroupId,
         mapping_id: Option<MappingId>,
     },
-    ActiveMappingTagsChanged {
+    ActiveMappingTags {
         compartment: MappingCompartment,
     },
-    ActiveInstanceTagsChanged,
+    ActiveInstanceTags,
 }
 
 #[derive(Debug)]

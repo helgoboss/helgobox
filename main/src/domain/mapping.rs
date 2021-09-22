@@ -1,7 +1,7 @@
 use crate::domain::{
     ActivationChange, ActivationCondition, AdditionalFeedbackEvent, ControlContext, ControlOptions,
     ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
-    InstanceFeedbackEvent, MappingActivationEffect, MappingControlContext, MappingData, MidiSource,
+    InstanceStateChanged, MappingActivationEffect, MappingControlContext, MappingData, MidiSource,
     Mode, ParameterArray, ParameterSlice, PersistentMappingProcessingState, RealSource,
     RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget, Tag,
     TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
@@ -1687,7 +1687,7 @@ impl RealearnTarget for CompoundMappingTarget {
 
     fn value_changed_from_instance_feedback_event(
         &self,
-        evt: &InstanceFeedbackEvent,
+        evt: &InstanceStateChanged,
     ) -> (bool, Option<AbsoluteValue>) {
         use CompoundMappingTarget::*;
         match self {

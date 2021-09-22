@@ -272,6 +272,7 @@ impl View for MainPanel {
         true
     }
 
+    #[allow(clippy::single_match)]
     fn button_clicked(self: SharedView<Self>, resource_id: u32) {
         match resource_id {
             root::IDC_EDIT_TAGS_BUTTON => self.edit_tags(),

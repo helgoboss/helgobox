@@ -1,7 +1,7 @@
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value, convert_unit_to_discrete_value,
     ControlContext, Exclusivity, GroupId, HitInstruction, HitInstructionContext,
-    HitInstructionReturnValue, InstanceFeedbackEvent, MappingCompartment, MappingControlContext,
+    HitInstructionReturnValue, InstanceStateChanged, MappingCompartment, MappingControlContext,
     MappingControlResult, MappingId, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
@@ -154,10 +154,10 @@ impl RealearnTarget for NavigateWithinGroupTarget {
 
     fn value_changed_from_instance_feedback_event(
         &self,
-        evt: &InstanceFeedbackEvent,
+        evt: &InstanceStateChanged,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            InstanceFeedbackEvent::ActiveMappingWithinGroupChanged {
+            InstanceStateChanged::ActiveMappingWithinGroup {
                 compartment,
                 group_id,
                 ..
@@ -178,7 +178,7 @@ impl<'a> Target<'a> for NavigateWithinGroupTarget {
             let mapping_ids: Vec<_> = instance_state
                 .get_on_mappings_within_group(self.compartment, self.group_id)
                 .collect();
-            if mapping_ids.len() > 0 {
+            if !mapping_ids.is_empty() {
                 let max_value = mapping_ids.len() - 1;
                 if let Some(index) = mapping_ids.iter().position(|id| *id == mapping_id) {
                     return Some(AbsoluteValue::Discrete(Fraction::new(

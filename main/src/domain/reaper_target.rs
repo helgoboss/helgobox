@@ -27,7 +27,7 @@ use crate::domain::{
     AutomationModeOverrideTarget, AutomationTouchStateTarget, ClipPlayState, ClipSeekTarget,
     ClipTransportTarget, ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget,
     FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry,
-    HierarchyEntryProvider, InstanceFeedbackEvent, LoadFxSnapshotTarget, MappingControlContext,
+    HierarchyEntryProvider, InstanceStateChanged, LoadFxSnapshotTarget, MappingControlContext,
     MidiSendTarget, OscSendTarget, PlayrateTarget, RouteMuteTarget, RoutePanTarget,
     RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget, TrackArmTarget,
     TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,

@@ -1,7 +1,7 @@
 use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
 use crate::domain::{
     AdditionalFeedbackEvent, DomainEventHandler, Exclusivity, ExtendedProcessorContext,
-    FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceFeedbackEvent, InstanceId, MainMapping,
+    FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceId, InstanceStateChanged, MainMapping,
     MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
     RealTimeReaperTarget, RealTimeSender, SharedInstanceState, Tag, TagScope, TargetCharacter,
     TrackExclusivity,
@@ -224,7 +224,7 @@ pub trait RealearnTarget {
 
     fn value_changed_from_instance_feedback_event(
         &self,
-        evt: &InstanceFeedbackEvent,
+        evt: &InstanceStateChanged,
     ) -> (bool, Option<AbsoluteValue>) {
         let _ = evt;
         (false, None)
