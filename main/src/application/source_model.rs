@@ -685,8 +685,7 @@ impl MidiSourceType {
     }
 
     pub fn supports_control(&self) -> bool {
-        use MidiSourceType::*;
-        !matches!(self, Script | Raw)
+        *self != MidiSourceType::Script
     }
 
     pub fn supports_feedback(&self) -> bool {
