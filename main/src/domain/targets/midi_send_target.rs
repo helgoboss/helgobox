@@ -1,4 +1,4 @@
-use crate::domain::ui_util::{format_raw_midi_event, log_target_output};
+use crate::domain::ui_util::{format_raw_midi, log_target_output};
 use crate::domain::{
     ControlContext, FeedbackAudioHookTask, FeedbackOutput, HitInstructionReturnValue,
     MappingControlContext, MidiDestination, RealTimeReaperTarget, RealearnTarget,
@@ -144,7 +144,7 @@ impl RealearnTarget for MidiSendTarget {
                     if context.control_context.output_logging_enabled {
                         log_target_output(
                             context.control_context.instance_id,
-                            format_raw_midi_event(&raw_midi_event),
+                            format_raw_midi(raw_midi_event.bytes()),
                         );
                     }
                     let _ = context

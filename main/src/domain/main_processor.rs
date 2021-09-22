@@ -21,9 +21,9 @@ use helgoboss_learn::{
 };
 
 use crate::domain::ui_util::{
-    format_midi_source_value, format_osc_message, format_osc_packet, format_raw_midi_event,
-    format_short_midi_message, log_control_input, log_feedback_output, log_learn_input,
-    log_lifecycle_output, log_target_output,
+    format_incoming_midi_message, format_midi_source_value, format_osc_message, format_osc_packet,
+    format_raw_midi, log_control_input, log_feedback_output, log_learn_input, log_lifecycle_output,
+    log_target_output,
 };
 use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_midi::RawShortMessage;
@@ -295,10 +295,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     );
                 }
                 LogLearnInput { msg } => {
-                    log_learn_input(self.instance_id(), format_short_midi_message(msg));
+                    log_learn_input(self.instance_id(), format_incoming_midi_message(msg));
                 }
                 LogTargetOutput { event } => {
-                    log_target_output(self.instance_id(), format_raw_midi_event(&event));
+                    log_target_output(self.instance_id(), format_raw_midi(event.bytes()));
                 }
             }
         }
@@ -2056,7 +2056,7 @@ pub enum NormalRealTimeToMainThreadTask {
     /// - Feedback
     FullResyncToRealTimeProcessorPlease,
     LogLifecycleOutput {
-        value: MidiSourceValue<RawShortMessage>,
+        value: MidiSourceValue<'static, RawShortMessage>,
     },
 }
 
@@ -2084,15 +2084,20 @@ pub enum ControlMainTask {
         options: ControlOptions,
     },
     LogControlInput {
-        value: MidiSourceValue<RawShortMessage>,
+        value: MidiSourceValue<'static, RawShortMessage>,
         match_result: InputMatchResult,
     },
     LogLearnInput {
-        msg: RawShortMessage,
+        msg: OwnedIncomingMidiMessage,
     },
     LogTargetOutput {
         event: Box<RawMidiEvent>,
     },
+}
+
+pub enum OwnedIncomingMidiMessage {
+    Short(RawShortMessage),
+    SysEx(Vec<u8>),
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]

@@ -61,7 +61,6 @@ impl RealearnTarget for NavigateWithinGroupTarget {
                 .get(desired_index as usize)
                 .ok_or("mapping index out of bounds")?
         };
-        // TODO-high Prevent repeated hit!
         instance_state.set_active_mapping_within_group(
             self.compartment,
             self.group_id,

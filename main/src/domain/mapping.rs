@@ -1336,7 +1336,7 @@ impl ProjectionFeedbackValue {
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum SourceFeedbackValue {
-    Midi(MidiSourceValue<RawShortMessage>),
+    Midi(MidiSourceValue<'static, RawShortMessage>),
     Osc(OscMessage),
 }
 

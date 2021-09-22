@@ -1,8 +1,7 @@
-use crate::domain::InstanceId;
+use crate::domain::{InstanceId, OwnedIncomingMidiMessage};
 use core::fmt;
 use helgoboss_learn::{
-    format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, RawMidiEvent,
-    UnitValue,
+    format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use reaper_high::{FxParameter, Reaper, Volume};
@@ -131,12 +130,13 @@ pub fn format_midi_source_value(value: &MidiSourceValue<RawShortMessage>) -> Str
         ParameterNumber(m) => serde_json::to_string(&m).unwrap(),
         ControlChange14Bit(m) => serde_json::to_string(&m).unwrap(),
         Tempo(bpm) => format!("{:?}", bpm),
-        Raw(evt) => format_raw_midi_event(evt),
+        Raw(evt) => format_raw_midi(evt.bytes()),
+        BorrowedSysEx(bytes) => format_raw_midi(bytes),
     }
 }
 
-pub fn format_raw_midi_event(evt: &RawMidiEvent) -> String {
-    format!("{:02X?}", evt.bytes())
+pub fn format_raw_midi(bytes: &[u8]) -> String {
+    format!("{:02X?}", bytes)
 }
 
 pub fn format_osc_packet(packet: &OscPacket) -> String {
@@ -147,7 +147,7 @@ pub fn format_osc_message(msg: &OscMessage) -> String {
     format!("{:?}", msg)
 }
 
-pub fn format_short_midi_message(msg: RawShortMessage) -> String {
+fn format_short_midi_message(msg: RawShortMessage) -> String {
     let bytes = msg.to_bytes();
     let decimal = format!("[{}, {}, {}]", bytes.0, bytes.1, bytes.2);
     let structured = format!("{:?}", msg.to_structured());
@@ -158,6 +158,14 @@ pub fn format_short_midi_message(msg: RawShortMessage) -> String {
         bytes.2.get()
     );
     format!("{} = {} = {}", hex, decimal, structured)
+}
+
+pub fn format_incoming_midi_message(msg: OwnedIncomingMidiMessage) -> String {
+    use OwnedIncomingMidiMessage::*;
+    match msg {
+        Short(m) => format_short_midi_message(m),
+        SysEx(m) => format_raw_midi(&m),
+    }
 }
 
 fn log(instance_id: &InstanceId, label: &str, msg: &impl fmt::Display) {

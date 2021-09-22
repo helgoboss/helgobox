@@ -1,10 +1,10 @@
 use crate::domain::{
-    classify_midi_message, Event, Garbage, GarbageBin, InstanceId, MidiControlInput,
-    MidiMessageClassification, MidiSource, MidiSourceScanner, RealTimeProcessor, SampleOffset,
+    classify_midi_message, Event, Garbage, GarbageBin, IncomingMidiMessage, InstanceId,
+    MidiControlInput, MidiMessageClassification, MidiSource, MidiSourceScanner, RealTimeProcessor,
 };
 use assert_no_alloc::*;
 use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
-use helgoboss_midi::{DataEntryByteOrder, RawShortMessage, ShortMessage};
+use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
@@ -42,7 +42,10 @@ pub enum NormalAudioHookTask {
 /// A global feedback task (which is potentially sent very frequently).
 #[derive(Debug)]
 pub enum FeedbackAudioHookTask {
-    MidiDeviceFeedback(MidiOutputDeviceId, MidiSourceValue<RawShortMessage>),
+    MidiDeviceFeedback(
+        MidiOutputDeviceId,
+        MidiSourceValue<'static, RawShortMessage>,
+    ),
     SendMidi(MidiOutputDeviceId, Box<RawMidiEvent>),
 }
 
@@ -145,9 +148,9 @@ impl RealearnAudioHook {
                 for dev in Reaper::get().midi_input_devices() {
                     dev.with_midi_input(|mi| {
                         if let Some(mi) = mi {
-                            for evt in mi.get_read_buf() {
+                            for e in mi.get_read_buf() {
                                 if let Some(source) =
-                                    process_midi_event(dev.id(), evt, midi_source_scanner)
+                                    scan_midi_source_for_learning(dev.id(), e, midi_source_scanner)
                                 {
                                     let _ = sender.try_send((dev.id(), source));
                                 }
@@ -219,17 +222,15 @@ impl RealearnAudioHook {
                     while let Some(res) = event_list.enum_items(bpos) {
                         // Current control mode is checked further down the callstack. No need to
                         // check it here.
-                        // Frame offset is given in 1/1024000 of a second, *not* sample frames!
-                        let offset = SampleOffset::from_frame_offset(
-                            res.midi_event.frame_offset(),
-                            args.srate,
-                        );
-                        let event = Event::new(offset, res.midi_event.message().to_other());
+                        let our_event = match Event::from_reaper(res.midi_event, args.srate) {
+                            Err(_) => continue,
+                            Ok(e) => e,
+                        };
                         let mut filter_out_event = false;
                         for (_, p) in self.real_time_processors.iter() {
                             let mut guard = p.lock_recover();
                             if guard.control_is_globally_enabled()
-                                && guard.process_incoming_midi_from_audio_hook(event)
+                                && guard.process_incoming_midi_from_audio_hook(our_event)
                             {
                                 filter_out_event = true;
                             }
@@ -295,16 +296,25 @@ impl OnAudioBuffer for RealearnAudioHook {
     }
 }
 
-fn process_midi_event(
+fn scan_midi_source_for_learning(
     dev_id: MidiInputDeviceId,
     evt: &MidiEvent,
     midi_source_scanner: &mut MidiSourceScanner,
 ) -> Option<MidiSource> {
-    let raw_msg = evt.message().to_other();
-    if classify_midi_message(raw_msg) != MidiMessageClassification::Normal {
+    let msg = IncomingMidiMessage::from_reaper(evt.message()).ok()?;
+    if classify_midi_message(msg) != MidiMessageClassification::Normal {
         return None;
     }
-    midi_source_scanner.feed_short(raw_msg, Some(dev_id))
+    use IncomingMidiMessage::*;
+    match msg {
+        Short(short_msg) => midi_source_scanner.feed_short(short_msg, Some(dev_id)),
+        SysEx(bytes) => {
+            // It's okay here to temporarily permit allocation because crackling during learning
+            // is not a showstopper.
+            let source = permit_alloc(|| MidiSource::from_raw(bytes));
+            Some(source)
+        }
+    }
 }
 
 pub trait RealTimeProcessorLocker {

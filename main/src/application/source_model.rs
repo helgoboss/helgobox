@@ -642,7 +642,7 @@ pub enum MidiSourceType {
     ClockTempo = 8,
     #[display(fmt = "MIDI clock transport")]
     ClockTransport = 9,
-    #[display(fmt = "Raw MIDI (feedback only for now)")]
+    #[display(fmt = "Raw MIDI / SysEx")]
     Raw = 10,
     #[display(fmt = "MIDI script (feedback only)")]
     Script = 11,

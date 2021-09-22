@@ -22,3 +22,6 @@ webpki = { git = "https://github.com/helgoboss/webpki.git", branch = "workaround
 # to wait for open connections to finish. The following is a hopefully temporary hack to make this possible.
 # See https://github.com/hyperium/hyper/issues/1885 and https://github.com/helgoboss/realearn/issues.
 hyper = { git = "https://github.com/helgoboss/hyper.git", branch = "feature/realearn" }
+# TODO-low-wait
+# Wait until https://github.com/RustAudio/vst-rs/issues/170 merged.
+vst = { git = "https://github.com/helgoboss/vst-rs.git", branch = "bugfix/invalid-sysex" }
