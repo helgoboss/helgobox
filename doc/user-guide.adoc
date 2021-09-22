@@ -5,7 +5,7 @@
 :sectnumlevels: 2
 
 |===
-|Last update of text: |`2021-09-06 (v2.10.0)`
+|Last update of text: |`2021-09-22 (v2.11.0-pre.1)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -491,6 +491,7 @@ TIP: This global MIDI filter feature is only available in REAPER v6.36+.
 * *Add one:* Adds a new mapping at the end of the current mapping list.
 * *Learn many:* Allows you to add and learn many new mappings in a convenient batch mode. Click this button and follow
  the on-screen instructions. Click _Stop_ when you are finished with your bulk learning strike.
+[#search]
 * *Search:* Enter some text here in order to display just mappings whose name matches the text. The search expression
  also supports wildcards `*` and `?` for doing more blurry searches.
 * *Filter source:* If you work with many mappings and you have problems memorizing them, you
@@ -617,6 +618,7 @@ on macOS) with the following entries:
  where it doesn't work though. In this case you can send feedback manually using this button.
 * *Log debug info:* Logs some information about ReaLearn's internal state. Can be interesting for
  investigating bugs or understanding how this plug-in works.
+[#log-incoming-messages]
 * *Log incoming messages:* When enabled, all incoming MIDI or OSC messages will be logged to the console. Each log
  entry contains the following information:
 ** Timestamp in seconds
@@ -633,6 +635,7 @@ on macOS) with the following entries:
 *** *consumed:* Only for short MIDI messages. This short message is part of a (N)RPN or 14-bit CC message and
  there's at least one active mapping that has a (N)RPN or 14-bit CC source. That means it will not be
  processed. The complete (N)RPN or 14-bit CC message will be.
+[#log-outgoing-messages]
 * *Log outgoing messages:* When enabled, all outgoing MIDI or OSC messages will be logged to the console. The log
  entries look similar to the ones described above, with the following notable differences.
 ** Message purpose
@@ -641,6 +644,13 @@ on macOS) with the following entries:
  (see <<mapping-lifecycle-actions,Mapping lifecycle actions>>).
 *** *Target output:* A message sent because of either the <<midi-send-message,MIDI: Send message>> or
  <<osc-send-message,OSC: Send message>> target.
+
+[#bottom-panel]
+==== Bottom panel
+
+At the bottom you can see the current scroll position, version information and tags assigned to this ReaLearn instance.
+
+* *Edit tags...:* Press this button to assign tags to this instance (a comma-separated list). They are important if you want to dynamically enable or disable instances using the <<realearn-enable-disable-instances>> target.
 
 ==== Mapping lists in general
 
@@ -665,9 +675,7 @@ mappings into multiple groups.
 * *Add:* Allows you to add a group and give it a specific name.
 * *Remove:* Removes the currently displayed group. It will ask you if you want to remove all the mappings in that
  group as well. Alternatively they will automatically be moved to the default group.
-* *Edit:* Opens the group panel. This allows you to change the group name, enable/disable control and/or
- feedback and set an activation condition for all mappings in this group. The activation condition that you provide
- here is combined with the one that you provide in the mapping. Only if both, the group activation conditions and
+* *Edit:* Opens the group panel. This allows you to change the group name and change things that affect all mappings in this groups: Assigning tags, enabling/disabling control and/or feedback, setting an activation condition. The activation condition that you provide here is combined with the one that you provide in the mapping. Only if both, the group activation conditions and
  the mapping activation condition are satisfied, the corresponding mapping will be active. Read more about
  <<conditional-activation,conditional activation>> below in the section about the <<mapping-panel,Mapping panel>>.
 
@@ -804,14 +812,16 @@ The source and target label of a mapping row is greyed out whenever the mapping 
 _on_ only if the following is true:
 
 . The mapping is complete, that is, both source and target are completely specified.
+. The mapping is enabled as a whole.
 . The mapping has control and/or feedback enabled.
 . The mapping is active (see _conditional activation_).
 
 If a mapping is _off_, it doesn't have any effect.
 
-* *●:* This indicator at the very left of the mapping row lights on incoming control messages  whenever they match the mapping source. Attention: This doesn't necessarily mean that the message will reach the target (although it often does). There are certain settings in the <<tuning>> section which allow you to filter messages even they matched the source (e.g. the _Source Min/Max_).
+* *✓:* This checkbox at the top left of the mapping row enables or disables the mapping as a whole.
+* *●:* This indicator at the very left of the mapping row lights on incoming control messages whenever they match the mapping source. Attention: This doesn't necessarily mean that the message will reach the target (although it often does). There are certain settings in the <<tuning>> section which allow you to filter messages even they matched the source (e.g. the _Source Min/Max_).
 * *Up / Down:* Use these buttons to move this mapping up or down the list.
-* *→ / ←:* Use these checkboxes to enable/disable control and/or feedback for this mapping.
+* *→ / ←:* Use these checkboxes to enable/disable control and/or feedback for this mapping. Disabling both has the same effect as disabling the mapping as a whole.
 * *Edit:* Opens the mapping panel for this mapping.
 * *Duplicate:* Creates a new mapping just like this one right below.
 * *Remove:* Removes this mapping from the list.
@@ -870,6 +880,10 @@ This section provides the following mapping-related settings and functions:
 * *Name:* Here you can enter a descriptive name for the mapping. This is especially useful in
  combination with the search function if there are many mappings to keep track of. If you clear
  the name, ReaLearn will name the mapping automatically based on its target.
+* *Tags:* Use this to assign arbitrary tags to this mapping (comma-separated). These tags can be used to organize mappings in a way that is much more flexible than groups.
+** Mapping tags are also displayed in mapping rows, including the ones inherited by groups.
+** In the header panel <<search,search field>>, you can search for mappings that have a certain tag by entering the tag name prefixed with the hash character `#`. For example, you can search for all mappings tagged with the tag `mixing` by entering `#mixing`.
+** Tags are not just something for people that love to keep things tidy! They also get meaning in combination with certain ReaLearn targets such as <<realearn-enable-disable-mappings>>.
 * *Control enabled / Feedback enabled:* Use these checkboxes to enable/disable control and/or
  feedback for this mapping.
 * *Active:* This dropdown controls so-called conditional activation of mappings. See the
@@ -913,6 +927,7 @@ This section provides the following mapping-related settings and functions:
  properties.
 * *Find in mapping list:* Scrolls the mapping rows panel so that the corresponding mapping row for
  this mapping gets visible.
+* *Enabled:* Enables or disables the mapping as a whole.
 
 [#conditional-activation]
 ==== Conditional activation
@@ -1227,11 +1242,9 @@ and stop messages which can be sent by some DAWs and MIDI devices.
 * *Message:* The specific transport message to which this source should react.
 
 [#raw-midi-source]
-====== Raw MIDI source
+====== Raw MIDI / SysEx source
 
-This source primarily deals with system-exclusive MIDI messages. It only supports feedback direction at the moment
-because I couldn't find a use case yet for control direction. If you also need it for control direction, please
-put a feature request, it's not difficult to add.
+This source primarily deals with system-exclusive MIDI messages. Since ReaLearn v2.11.0, it supports both control and feedback direction!
 
 * *Pattern:* Pattern describing the raw MIDI message.
 
@@ -1246,18 +1259,15 @@ Example:
 F0 00 20 6B 7F 42 02 00 10 77 00 F7
 ----
 
-If you enter this and feedback is set up correctly, this system-exclusive message will be sent to the device
-whenever the target value changes.
+If you enter this and ReaLearn receives this system-exclusive message from the control input, it will fire a 100% value. If feedback is set up correctly, this message will be sent to the device whenever the target value changes.
 
 Remarks:
 
-- You can check if the correct messages are sent by setting ReaLearn's feedback output to `&lt;FX output&gt;` and slapping
- a ReaControlMIDI FX right below it. In ReaControlMIDI, press "Show log" and enable "Log sysex". Now
- change the target value and you should see messages appearing the log.
+- You can check if the correct feedback messages are sent to the device by <<log-outgoing-messages,logging outgoing messages>>.
 - Each byte is written using 2 hexadecimal digits.
 - Spaces between the bytes can be omitted.
-- You can express all types of MIDI messages using this raw notation, also the other ones in this list. If you want
-a system-exclusive MIDI message, you _must_ include its start (`F0`) and end status byte (`F7`)!
+- You can express all types of MIDI messages using this raw notation (e.g. pitch wheel), not just system-exclusive ones. If you do this, it will work as expected for the _feedback_ direction. Please note that it will not work for the _control_ direction at the moment (I don't think this is needed).
+- If you want a system-exclusive MIDI message, you _must_ include its start (`F0`) and end status byte (`F7`)!
 
 *Binary notation*
 
@@ -1277,15 +1287,15 @@ Remarks:
 - Between the brackets, each digit represents one bit. The left bit is the most significant one.
 - Spaces between the two nibbles (4 bits) can be omitted.
 
-*Encoding the target value*
+*Extracing and encoding a value*
 
-The examples I've shown you so far aren't real-world examples because there's no point in sending the same MIDI message to
-the device over and over again! If you really would want to send a constant MIDI message to the device, you would be
+For the _feedback_ direction, the examples I've shown you so far aren't real-world examples, because there's no point in sending the same MIDI message to the device over and over again! If you really would want to send a constant MIDI message to the device, you would be
 much better off using a <<mapping-lifecycle-actions,Mapping lifecycle action>>, which allow you to send raw MIDI
 messages once when a mapping is initialized, not on every target value change.
 
-In order to support true MIDI feedback, ReaLearn offers a way to encode the current target value as part of the raw MIDI
-message. Bytes which contain the target value (or a part of it) _must_ be expressed using binary notation.
+But even for the _control_ direction, you might want to react to a whole _range_ of system-exclusive messages, not just a fixed one. One part of your message might represent a variable value. You might want to extract it and control the target with it.
+
+Fortunately, ReaLearn offers a uniform way to extract a variable value from the raw MIDI message (control) or encode the current target value as part of it (feedback). Bytes which contain a variable value (or a part of it) _must_ be expressed using binary notation.
 
 Example:
 
@@ -1294,11 +1304,11 @@ F0 00 20 6B 7F 42 02 00 10 77 [0000 dcba] F7
 ----
 
 The second nibble of the second last byte contains the lowercase letters `dcba`. This is the portion of the byte that
-will contain the target value.
+denotes the variable value.
 
-Each letter represents one bit of the target value:
+Each letter represents one bit of the variable value:
 
-* `a` - Bit 1 (least significant bit of the target value)
+* `a` - Bit 1 (least significant bit of the variable value)
 * `b` - Bit 2
 * `c` - Bit 3
 * `d` - Bit 4
@@ -1306,9 +1316,9 @@ Each letter represents one bit of the target value:
 * `m` - Bit 13
 * `n` - Bit 14
 * `o` - Bit 15
-* `p` - Bit 16 (most significant bit of the target value)
+* `p` - Bit 16 (most significant bit of the variable value)
 
-The resolution of the target value always corresponds to the letter in the whole pattern which represents the
+The resolution of the variable value always corresponds to the letter in the whole pattern which represents the
 highest bit number. In the example above, the resolution is 4 bit because there's no letter greater than `d`
 in the pattern.
 
@@ -1426,6 +1436,10 @@ disconnected. You can map this to the REAPER action "Reset all MIDI devices" to 
 of MIDI devices (provided the corresponding device has been enabled at least once in REAPER's MIDI device
 preferences).
 
+====== ReaLearn instance start
+
+This source fires (emits a value of 100%) when ReaLearn starts. It can be used to execute an actions or restore certain states on REAPER startup or project load.
+
 ===== Category "Virtual"
 
 As pointed out before, _virtual_ sources exist in order to decouple your mappings from the actual
@@ -1497,7 +1511,7 @@ A target is a thing that is supposed to be controlled. The following settings an
 
 All real targets additionally have this:
 
-* *Value:* Reflects the current value of this mapping target and lets you change it.
+* *Value:* Reflects the current value of this mapping target and lets you change it (either via slider and text field or via buttons, depending on the target character).
 ** If the target can't be resolved at the moment, it will show "Target currently inactive!".
 * *Unit button:* On the right side of the current value you will see a button with a label such as `1. dB (%)`.
  This button displays the currently selected unit which is used for displaying and entering target values. The
@@ -2118,8 +2132,7 @@ However, this also means that the following things won't work when controlling t
 * It can't take the lead in <<group-interaction>>.
 * If _output_ is set to `<FX output>`, additional limitations apply:
 ** It can't act as a follower in <<group-interaction>>, either.
-** It can't participate in <<_realearn_load_mapping_snapshot>>.
-** It can't participate in mapping autostart.
+** It can't participate in <<realearn-load-mapping-snapshot>>.
 ====
 
 ====== Clip: Volume
@@ -2140,12 +2153,82 @@ it will encode the incoming absolute control value as that argument (after it ha
 * *Address* and *Argument*: This corresponds to the identically named settings of <<category-osc,OSC sources>>.
  Check that section for details.
 
+[#realearn-enable-disable-instances]
+====== Realearn: Enable/disable instances
+
+This target allows you to flexibly enable or disable other ReaLearn instances based on their tags:
+
+* *Exclusivity*
+** *Non-exclusive:* If the incoming control value is greater than 0%, all matching ReaLearn instances will be enabled (on top of the already enabled instances). If the value is 0%, all matching ReaLearn instances will be disabled.
+** *Exclusive:* If the incoming control value is greater than 0%, all matching ReaLearn instances will be enabled and all non-matching ones will be disabled. If the value is 0%, it's exactly the opposite (react to button <<press-only,press only>> if you don't want this to happen).
+* *Tags:* A ReaLearn instance matches when it is tagged with any of the tags entered in this field (comma-separated).
+
+TIP: Use the main panel to assign tags to a ReaLearn instance.
+
+Please note:
+
+* This really affects other ReaLearn instances only, not _this_ instance.
+* ReaLearn instances without tags won't be affected at all.
+* Only affects instances in the same project. If _this_ ReaLearn instance is on the monitoring FX chain, it only affects other instances in the monitoring FX chain.
+
+TIP: This target is great for switching between completely different controller setups!
+
+[#realearn-enable-disable-mappings]
+====== Realearn: Enable/disable mappings
+
+This target allows you to flexibly enable or disable other mappings in this instance based on their tags:
+
+* *Exclusivity*
+** *Non-exclusive:* If the incoming control value is greater than 0%, all matching mappings will be enabled (on top of the already enabled mappings). If the value is 0%, all matching mappings will be disabled.
+** *Exclusive:* If the incoming control value is greater than 0%, all matching mappings will be enabled and all non-matching ones will be disabled. If the value is 0%, it's exactly the opposite (react to button <<press-only,press only>> if you don't want this to happen).
+* *Tags:* A mapping matches when it is tagged with any of the tags entered in this field (comma-separated).
+
+TIP: Use the text field on the top of the mapping panel to assign tags to a mapping.
+
+Please note:
+
+* This really affects other mappings only, not _this_ mapping.
+* Mappings without tags won't be affected at all.
+
+TIP: This target is a straightforward alternative to <<conditional-activation>>, especially when it comes to bank switching!
+
+[#realearn-load-mapping-snapshot]
 ====== Realearn: Load mapping snapshot
 
-NOTE: Work in progress!
+Restores target values for all or certain mappings in this ReaLearn instances.
 
-At the moment, this target simply restores the initial target values for each mapping in this ReaLearn instances.
-In future, it will be able to do much more.
+* *Snapshot:* At the moment, this target is capable of restoring the initial target values for mappings in this ReaLearn instances. In the future, it will also be able to load user-defined mapping snapshots.
+* *Tags:* Allows you to restrict the set of mappings whose target values will be restored.
+** If this field is empty, snapshots of all mappings will be restored.
+** If this field contains tags (comma-separated), snapshots will be restored only for mappings that are tagged with any of these.
+* *Active mappings only:* By default, even inactive (but control-enabled) mappings participate! If you don't like that, tick this checkbox.
+
+Please note:
+
+* Mappings for which control is not enabled never participate in snapshotting.
+* Some targets don't report values (e.g. the <<realearn-load-mapping-snapshot>> target itself) and therefore don't participate in snapshotting.
+
+[#realearn-navigate-within-group]
+====== Realearn: Navigate within group
+
+This target lets you choose an arbitrary mapping group in this compartment and cycle through it with an encoder/fader/knob or incremental (previous/next) buttons.
+
+"Cycling through" means that you move from one mapping in the group to the next one by hitting the next mapping's target with the _Target Max_ value in its tuning section (by default 100%).
+
+* *Group:* The group that you want to cycle through.
+* *Exclusivity*
+** *Non-exclusive:* Really just hits the target of the mapping which is next in the line and doesn't do anything with the other mappings. In many cases this is enough, e.g. if the targets of the mappings in the cycled group are the same and just "Target Max" is different. Or if the target itself already takes care of exclusivity.
+** *Exclusive:* Doesn't just hit the target of the mapping which is next in the line but also hits the targets of all other mappings in the cycled group with their respective _Target Min_ value (by default 0%). Be careful with this, you often won't need it.
+
+[TIP]
+====
+Groups provide an intuitive way of defining things that should happen _in sequence_. This target allows you to take advantage of that!
+
+- Combine it with <<realearn-enable-disable-mappings>> to cycle through different banks.
+- Combine it with <<realearn-enable-disable-instances>> to cycle through completely different controller setups (or banks).
+- Combine it with targets that don't provide a "Navigate within ..." variant themselves.
+- Use it as an alternative to <<target-value-sequence,target value sequences>> that allows you to have completely different targets within one sequence.
+====
 
 ===== Category "Virtual"
 
@@ -2196,6 +2279,7 @@ The following elements are relevant for all kinds of sources, both in _control_ 
 
 These are relevant for the control direction only:
 
+[#target-value-sequence]
 * *Value sequence:* Allows you to define a specific sequence of target values. This is a very powerful feature because
  you not only can enter single values but also ranges with customizable step sizes! Plus, it has support for true
  relative control. All values are entered comma-separated and using the unit chosen in the <<target,target section>>.
@@ -2454,6 +2538,7 @@ decide how exactly ReaLearn should cope with button presses.
 * *Button filter (right dropdown)*: This allows you to easily ignore button presses or releases.
 ** *Press &amp; release:* ReaLearn will process both button presses (control value = 0%) and button releases (control
  value &gt; 0%). This is the default.
+[#press-only]
 ** *Press only:* Makes ReaLearn ignore the release of the button. The same thing can be achieved by setting
  _Source Min_ to 1. However, doing so would also affect the feedback direction, which is often undesirable
  because it will mess with the button LED color or on/off state.
