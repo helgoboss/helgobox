@@ -1,6 +1,6 @@
 = ReaLearn user guide
 :toc:
-:toclevels: 2
+:toclevels: 5
 :sectnums:
 :sectnumlevels: 2
 
@@ -198,6 +198,7 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 . Right click ReaLearn FX in the FX chain.
 . Enable "Send all keyboard input to plug-in".
 
+[discrete]
 ==== Adding a mapping
 
 *Let's see how to add and use our first MIDI mapping:*
@@ -221,6 +222,7 @@ It can be useful to route all keyboard input to ReaLearn, so you can enter space
 * At this point the mapping should not be greyed out anymore because it's complete and enabled.
 . Now you should be able to control the touched target with your control element.
 
+[discrete]
 [#troubleshooting]
 ==== Troubleshooting
 
@@ -255,6 +257,7 @@ More about that later.
 
 At this point: Congratulations! You have successfully made your first baby steps with ReaLearn.
 
+[discrete]
 ==== Some words about MIDI routing
 
 If you think that what we saw until now is not more than what REAPER's built-in MIDI learn already
@@ -652,7 +655,7 @@ At the bottom you can see the current scroll position, version information and t
 
 * *Edit tags...:* Press this button to assign tags to this instance (a comma-separated list). They are important if you want to dynamically enable or disable instances using the <<realearn-enable-disable-instances>> target.
 
-==== Mapping lists in general
+==== Common compartment settings
 
 The header panel shows the following user interface elements, no matter if you are in the controller or main
 compartment: 
@@ -873,7 +876,7 @@ control values. Even if the source is relative (e.g. an encoder), ReaLearn will 
 feedback, because relative feedback doesn't make sense.
 
 [#mapping]
-==== Mapping
+==== General mapping properties
 
 This section provides the following mapping-related settings and functions:
 
@@ -938,9 +941,11 @@ controller has a limited amount of control elements and you want to give control
 responsibilities. It let's you easily implement use cases such as:
 
 * "This knob should control the track pan, but only when my sustain pedal is pressed, otherwise it
- should control track volume!"
+ should control track volume!" (modifier use cases)
 * "I want to have two buttons for switching between different banks where each bank represents
- a group of mappings."
+ a group of mappings." (bank use cases)
+
+TIP: Since ReaLearn 2.11.0, <<realearn-enable-disable-mappings>> provides a slightly less powerful but more straightforward way to achieve such use cases.
 
 There are 4 different activation modes:
 
@@ -958,6 +963,7 @@ FX: Via automation envelopes, via track controls, via REAPER's own MIDI/OSC lear
 Initially, they don't do anything at all. First, you need to give meaning to them by referring to them
 in activation conditions or `&lt;Dynamic&gt;` selector expressions.
 
+[discrete]
 ===== When modifiers on/off
 
 This mode is comparable to modifier keys on a computer keyboard. For example, when you press `Ctrl+V`
@@ -988,10 +994,13 @@ parameter decides if the modifier button is momentary (has to be pressed all the
 or toggled (switches between on and off everytime you press it). You can also be more adventurous
 and let the modifier on/off state change over time, using REAPER's automation envelopes.
 
+[discrete]
 ===== When bank selected
 
 _Hint:_ This is the correct activation mode if you want control surface "bank-style" mapping. An in-depth tutorial how
-to implement this can be found in the <<tutorials,Tutorials>> section, tutorial number 1. 
+to implement this can be found in the <<tutorials,Tutorials>> section, tutorial number 1.
+
+TIP: For this kind of use cases you should consider the new <<realearn-enable-disable-mappings>> target, which is available since ReaLearn 2.11.0 as an alternative. It's slightly less powerful than conditional activation but probably easier to use, partly because you can dictate which mappings should be active "from outside", not from the perspective of the mapping itself.
 
 You can tell ReaLearn to only activate your mapping if a certain parameter has a particular value.
 The particular value is called "Bank". Why? Let's
@@ -1026,8 +1035,9 @@ involved using multiple ReaLearn instances:
 
 With _Conditional activation_ you can do the same (and more) within just one ReaLearn instance. A fixed
 assumption here is that each bank (parameter) consists of 100 banks. If this is too limiting for you,
-please use the EEL activation mode instead. 
+please use the EEL activation mode instead.
 
+[discrete]
 ===== When EEL result &gt; 0
 
 This is for experts. It allows you to write a formula in https://www.cockos.com/EEL2/[EEL2] language
@@ -1045,8 +1055,9 @@ it will become inactive. `p1` to `p100` contain the current parameter values. Ea
 value between 0.0 (= 0%) and 1.0 (= 100%).
 
 This activation mode accounts for ReaLearn's philosophy to allow for great flexibility instead of just implementing
-one particular use case. If you feel limited by the other activation modes, just use EEL. 
+one particular use case. If you feel limited by the other activation modes, just use EEL.
 
+[discrete]
 ===== Custom parameter names
 
 Because ReaLearn's parameters are freely assignable, they have very generic names by default. However, as soon as you
@@ -1061,6 +1072,7 @@ give them meaning by using them in a specific way, it can be helpful to give the
 Parameter names are not global, they are always saved together with the REAPER project / FX preset / track template etc.
 They will also be saved/restored as part of the compartment preset.
 
+[discrete]
 ===== Use case: Control A when a button is not pressed, control B when it is
 
 Here's how you would implement a typical use case. You want your rotary encoder to control target A when the button is
@@ -1106,7 +1118,7 @@ All types in the MIDI category have the following UI elements in common:
 The remaining UI elements in this section depend on the chosen source type.
 
 [#cc-value-source]
-====== CC value source
+====== CC value
 
 This source reacts to incoming MIDI control-change messages.
 
@@ -1160,7 +1172,7 @@ out-of-range-behavior will set in that will just ignore all button presses.
  resolution (usually the case). If checked, it reacts to MIDI control-change messages with 14-bit
  resolution. This is not so common but sometimes used by controllers with high-precision faders.
 
-====== Note velocity source
+====== Note velocity
 
 This source reacts to incoming MIDI note-on and note-off messages. The higher the velocity of the
 incoming note-on message, the higher the absolute control value. Note-off messages are always
@@ -1169,7 +1181,7 @@ translated to 0%, even if there's a note-off velocity.
 * *Note:* Optionally restricts this source to messages with a certain note number (note numbers
  represent keys on the MIDI keyboard, e.g. 60 corresponds to C4).
 
-====== Note number source
+====== Note number
 
 This source reacts to incoming MIDI note-on messages. The higher the note number (= key on a MIDI
 keyboard), the higher the absolute control value.
@@ -1177,23 +1189,23 @@ keyboard), the higher the absolute control value.
 This essentially turns your MIDI keyboard into a "huge fader" with the advantage that you can jump
 to any value at any time.
 
-====== Pitch wheel source
+====== Pitch wheel
 
 This source reacts to incoming MIDI pitch-bend change messages. The higher the pitch-wheel position,
 the higher the absolute control value. The center position corresponds to an absolute control value
 of 50%.
 
-====== Channel after touch source
+====== Channel after touch
 
 This source reacts to incoming MIDI channel-pressure messages. The higher the pressure, the higher
 the absolute control value.
 
-====== Program change source
+====== Program change
 
 This source reacts to incoming MIDI program-change messages. The higher the program number, the
 higher the absolute control value.
 
-====== (N)RPN value source
+====== (N)RPN value
 
 This source reacts to incoming non-registered (NRPN) or registered (RPN) MIDI parameter-number
 messages. The higher the emitted value, the higher the absolute control value.
@@ -1210,14 +1222,14 @@ resolution.
  checked, it reacts to those with 14-bit resolution. In practice, this if often checked.
 * *Character:* See <<cc-value-source,CC value source>>.
 
-====== Polyphonic after touch source
+====== Polyphonic after touch
 
 This source reacts to incoming MIDI polyphonic-key-pressure messages. The higher the pressure, the
 higher the absolute control value.
 
 * *Note:* Optionally restricts this source to messages with a certain note number.
 
-====== MIDI clock tempo source
+====== MIDI clock tempo
 
 This source reacts to incoming MIDI clock (MTC) tempo messages. These are metronome-beat-like
 messages which can be regularly transmitted by some DAWs and MIDI devices. The frequency with which
@@ -1234,7 +1246,7 @@ suitable if you need super accurate and instant tempo synchronization. Additiona
 algorithm for calculating the tempo could probably be improved (that's why this source is marked as
 experimental).
 
-====== MIDI clock transport source
+====== MIDI clock transport
 
 This source reacts to incoming MIDI clock (MTC) transport messages. These are simple start, continue
 and stop messages which can be sent by some DAWs and MIDI devices.
@@ -1242,7 +1254,7 @@ and stop messages which can be sent by some DAWs and MIDI devices.
 * *Message:* The specific transport message to which this source should react.
 
 [#raw-midi-source]
-====== Raw MIDI / SysEx source
+====== Raw MIDI / SysEx
 
 This source primarily deals with system-exclusive MIDI messages. Since ReaLearn v2.11.0, it supports both control and feedback direction!
 
@@ -1374,7 +1386,7 @@ E0 [0gfe dcba] [0nml kjih]
 ----
 
 [#script-source]
-====== Script source
+====== Script
 
 This source is feedback-only and exists for enabling more complex feedback use cases such as controlling LCD displays.
 It lets you write an EEL script that will be executed whenever ReaLearn "feels" like it needs to send some feedback
@@ -1545,6 +1557,7 @@ object selectors. We use the example of tracks but the same applies to all other
 ** *Name field:* Here you can enter a name. If you don't want exact matching, you can use wildcards:
  `*` for matching zero or arbitrary many characters and `?` for matching exactly one arbitrary character.
  E.g. `Violin *` would match for example `Violin 1` or `Violin 12` but not `12th Violin`.
+[#dynamic-selector]
 * *&lt;Dynamic&gt;*: This selector allows you to make the object (e.g. the track) depend on the values of ReaLearn's
 internal parameters.
 ** *Expression field:* When you choose this option, a text field will appear next to it. This lets you enter a
@@ -2220,6 +2233,10 @@ This target lets you choose an arbitrary mapping group in this compartment and c
 ** *Non-exclusive:* Really just hits the target of the mapping which is next in the line and doesn't do anything with the other mappings. In many cases this is enough, e.g. if the targets of the mappings in the cycled group are the same and just "Target Max" is different. Or if the target itself already takes care of exclusivity.
 ** *Exclusive:* Doesn't just hit the target of the mapping which is next in the line but also hits the targets of all other mappings in the cycled group with their respective _Target Min_ value (by default 0%). Be careful with this, you often won't need it.
 
+Please note:
+
+- Inactive mappings are skipped.
+
 [TIP]
 ====
 Groups provide an intuitive way of defining things that should happen _in sequence_. This target allows you to take advantage of that!
@@ -2264,6 +2281,7 @@ No matter which kind of source, the following UI elements are always relevant:
 
 * *Reset to defaults:* Resets the settings to some sensible defaults.
 
+[discrete]
 ===== For all source characters
 
 The following elements are relevant for all kinds of sources, both in _control_ and _feedback_ direction.
@@ -2354,6 +2372,7 @@ If the target value is > _Target Max_, ReaLearn will behave as if _Target Max_ w
  | *Ignore* | Target value won't be touched. | No feedback will be sent.
 |===
 
+[discrete]
 ===== For knobs/faders and buttons (control only)
 
 These are elements which are relevant only for sources that emit absolute values - knobs, faders, buttons etc.
@@ -2423,6 +2442,7 @@ jump is not allowed. _Important:_ These modes only have an effect if you set _Ju
 . Apply target interval
 . Apply rounding
 
+[discrete]
 ===== For encoders and incremental buttons (control only)
 
 These are elements which are relevant only for sources that emit relative values or whose values
@@ -2487,6 +2507,7 @@ will have absolutely no effect on the incrementation/decrementation amount. If y
 ** You gain support for control-direction EEL transformation, non-continuous target value sequences and source range.
 ** You can still use some of the relative-only features: Step size and rotate!
 
+[discrete]
 [#for-buttons-control-only]
 ===== For buttons (control only)
 
@@ -2554,7 +2575,7 @@ _feedback_ direction (if applicable).
  always contains a list of sources. It only displays relevant kinds of sources. If a source kind is impossible
  according to the current source settings or if it's not supported by the setting, it won't appear in the list.
 
-=== REAPER actions
+=== Provided REAPER actions
 
 ReaLearn provides some REAPER actions which become available as soon as at least one instance of ReaLearn
 is loaded. It can be useful to put a ReaLearn instance on REAPER's monitoring FX chain in order to have access
@@ -2606,7 +2627,8 @@ entered (and it will strip comments!). That means if you open the advanced setti
 bit different, in particular it can have a different formatting. But don't worry, it _means_ exactly the same to
 ReaLearn.
 
-==== Why the hell did you come up with something like that?
+[discrete]
+===== Why the hell did you come up with something like that?
 
 Deciding for textual configuration and YAML in particular was a conscious decision with the goal to provide a
 developer-friendly framework for rapidly extending ReaLearn with advanced features that don't urgently need a graphical
@@ -2833,6 +2855,8 @@ Users often ask if it's possible to do control surface bank-style mapping in ord
 different set of mappings with the press of a button. Yes, it is! It's done using the _conditional activation_ feature
 with the activation mode "When bank selected".
 
+TIP: ReaLearn >= 2.11.0 provides an alternative and probably more straightforward way to implement banks: The <<realearn-enable-disable-mappings>> target.
+
 I'll show you a minimal example but in great detail. Once you understand this example, you should be able to progress to
 bigger things. So let's assume you have 2 knobs and 2 buttons on your controller and you want to map some controls
 to parameters of the https://vital.audio/[Vital synth]. Here's our goal:
@@ -2842,6 +2866,7 @@ to parameters of the https://vital.audio/[Vital synth]. Here's our goal:
 * *Button B1:* Sets X to 1
 * *Button B2:* Sets X to 2
 
+[discrete]
 ==== Step 1: Add all desired mappings
 
 First, it's important to understand that conditional activation does one thing only: It switches mappings on or off.
@@ -2857,6 +2882,7 @@ At this point, all those mappings are always active, so moving K1 will affect bo
 K2 will affect both LFO 1 and LFO 2 frequency! We need activation conditions to make sure that not all mappings are
 active at the same time.
 
+[discrete]
 ==== Step 2: Assign mappings to groups
 
 Now we could shoot ahead and directly set the activation condition of each mapping individually. *But* usually it's
@@ -2878,6 +2904,7 @@ image:images/tutorial-1-step-2.jpg[Step 2]
 
 Please note that until now, this is purely cosmetic. It hasn't changed in any way how the mappings work.
 
+[discrete]
 ==== Step 3: Set group activation conditions
 
 Now let's set the activation conditions. First for "Group 1":
@@ -2894,6 +2921,7 @@ image:images/tutorial-1-step-3.jpg[Step 3]
 Did you see how the mappings in "Group 2" turned grey? That means they became inactive! At this point, moving the knobs
 should affect ENV 1 and LFO 1 only.
 
+[discrete]
 ==== Step 4: Understand "Parameter" and "Bank"
 
 In the previous step, we have set "Parameter" to "Parameter 1". It's important to understand that we are talking about
@@ -2912,6 +2940,7 @@ none of the mappings will be active. Enough! Press "UI" again to go back to the 
 Now that we know that the value of ReaLearn's internal "Parameter 1" is the key to activate/deactivate our mappings,
 the next step should be obvious: We need to map our buttons to it!
 
+[discrete]
 ==== Step 5: Map buttons to bank parameter
 
 We are going to map the buttons to "Parameter 1". Button B1 will set its value to 0 and button B2 will set its value
@@ -2938,11 +2967,14 @@ take the time and digest this for a while, you will realize that you can do almo
 the "Mapping", "Parameter" and "Activation condition" concepts. This scenario is just one of many. Just see the next
 tutorial to understand why.
 
-=== Like tutorial 1, but with previous/next buttons
+=== The same but with previous/next buttons
 
 Now let's assume you don't want 2 buttons where each button should activate one particular bank but you want
 previous/next buttons to switch between the banks. Do everything as in tutorial 1 with the exception of step 5.
 
+TIP: ReaLearn >= 2.11.0 provides an alternative and probably more straightforward way to implement cycling through banks with previous/next buttons: By combining multiple mappings with <<realearn-enable-disable-mappings>> target (for defining the banks) with one <<realearn-navigate-within-group>> targets (for cycling).
+
+[discrete]
 ==== Step 5: Map buttons to bank parameter
 
 . As in tutorial 1.
@@ -2964,6 +2996,7 @@ feature.
 To have a nice example, let's assume you want to build a first set of mappings for the VSTi plug-in
 https://vital.audio/[Vital]. The procedure for other plug-ins is the same.
 
+[discrete]
 ==== Step 1: Activate the correct controller preset
 
 Before you start, I strongly recommend to download a ReaLearn controller preset for your specific controller from
@@ -2974,6 +3007,7 @@ suitable preset for your controller available on ReaPack, build your own.
 This step is completely optional but it gives you many advantages, both in the short and long run. Please see
 section <<controller-compartment,Controller compartment>> for details.
 
+[discrete]
 ==== Step 2: Create mappings for your FX plug-in
 
 In this step you will tell ReaLearn which control element on your controller should control which parameter of your FX
@@ -2988,6 +3022,7 @@ plug-in:
  Vital parameter … until you are finished!
 . Press _Stop_.
 
+[discrete]
 ==== Step 3: Save mappings as main preset and link it to the FX type
 
 Now let's save your newly created set of mappings as preset and link the preset to the Vital VSTi plug-in:
@@ -3002,6 +3037,7 @@ Now let's save your newly created set of mappings as preset and link the preset 
 ** If it doesn't mention _Vital_ but another VST plug-in, focus your Vital VSTi plug-in instance for a moment and
  then go directly to ReaLearn and right-click the header panel.
 
+[discrete]
 ==== Step 4: Activate "Auto-load"
 
 Now you just have to set _Auto-load_ to _Depending on focused FX_ and ReaLearn will activate your "Vital" preset
@@ -3036,6 +3072,27 @@ There's no definitive answer to that, it all depends on what you want. Here are 
 ** That way your VST instrument won't receive MIDI that's already processed by ReaLearn, which is cool.
 ** If you want ReaLearn to only receive MIDI messages that originate from live playing and ignore MIDI that
  originates from track MIDI items, put it on the input FX chain of that track.
+
+=== Should I use conditional activation or the "Enable/disable mapping" target?
+
+ReaLearn 2.11.0 introduces an alternative to <<conditional-activation>>: The ability to tag mappings and enable/disable them via the <<realearn-enable-disable-mappings>> target. In general, one can say that conditional activation is slightly more powerful but that the enable/disable target is easier to use and enough in most common use cases.
+
+You strictly need to use conditional activation if you ...
+
+* ... want to (de)activate mappings using REAPER automation envelopes.
+* ... want to sync the active/inactive state of a mapping with a <<dynamic-selector,`<Dynamic>`>> expression.
+* ... want to (de)activate mappings in another ReaLearn instance.
+* ... want to (de)activate mappings in another compartment within the same ReaLearn instance.
++
+NOTE: This particular limitation of the enable/disable target might disappear in the future.
+
+You might prefer conditional activation if you ...
+
+* ... prefer that the mapping itself defines when it should be active or not (instead of dictating it via tags).
+* ... have a modifier use case (not a bank switching use case).
+** It can be quite intuitive to think of modifiers as parameters that you define once and refer to them in the mapping (to be activated or deactivated) itself.
+
+In all other circumstances the enable/disable target should be fine.
 
 [#tested-controllers]
 == Tested controllers
@@ -3102,6 +3159,7 @@ might save you a lot of mapping work (and possibly also layout work, if you want
 This controller works with ReaLearn out of the box, including feedback. It doesn't have encoders though, so the full
 potential of ReaLearn can't be used.
 
+[discrete]
 ==== Presets
 
 * *Akai APC Key 25*
@@ -3110,6 +3168,7 @@ potential of ReaLearn can't be used.
 
 Instructions and preset for this device have been contributed by dissofiddle.
 
+[discrete]
 ==== Preparation
 
 The device itself:
@@ -3139,6 +3198,7 @@ About the name of the preset:
 - Fader buttons are the buttons below the faders.
 - Bank A/B defines the bank when switching with part1/next; part2/previous and live/bank button in User mode.
 
+[discrete]
 ==== Presets
 
 * *Arturia KeyLab MkII*
@@ -3148,6 +3208,7 @@ About the name of the preset:
 This keyboard works, including its relative encoders and since ReaLearn v2.6.0 also feedback via
 pad LEDs with different colors.
 
+[discrete]
 ==== Preparation
 
 By default, all encoders except the leftmost ones are configured to transmit absolute values (Option "Absolute").
@@ -3162,12 +3223,14 @@ get this option):
 
 image:images/minilab-mkii-setup-2.png[MiniLab mkII Setup 2]
 
+[discrete]
 ==== Presets
 
 All MiniLab mkII controller presets assume relative values.
 
 * *Arturia MiniLab mkII*
 
+[discrete]
 ==== Hints
 
 * Visual feedback for the pad LEDs works thanks to ReaLearn's <<raw-midi-source,Raw MIDI source>> which uses
@@ -3211,6 +3274,7 @@ of this device.
 
 ==== Standard mode
 
+[discrete]
 ===== Preparation
 
 By default, the encoders are configured to transmit absolute values (MIN VALUE = "0"). It's important to make them
@@ -3222,6 +3286,7 @@ layer:
 
 image:images/x-touch-compact-setup.png[Behringer X-Touch Compact Setup]
 
+[discrete]
 ===== Presets
 
 The following controller presets assume relative values.
@@ -3229,6 +3294,7 @@ The following controller presets assume relative values.
 * *Behringer X-Touch Compact:* Layer A.
 * *Behringer X-Touch Compact - Layer B:* Layer B.
 
+[discrete]
 ===== Hints
 
 In standard mode, this device tries to be clever with the button LED feedback but doesn't get it right. It can lead to
@@ -3239,6 +3305,7 @@ corresponding mappings, which is already taken care of in the controller presets
 
 Works out of the box with above mentioned restrictions.
 
+[discrete]
 ===== Presets
 
 * *Mackie Control*: This is a generic preset, so it doesn't contain a controller layout. It also misses some of the
@@ -3260,6 +3327,7 @@ button in ReaLearn to customize its logic.
 * _MidiRel:_ This has the advantage of having a freely assignable "Master" button. The downside is that the fader
 resolution is only 7 bit! Moreover, I've not yet created a controller preset for the MIDI mode.
 
+[discrete]
 ==== Presets
 
 * *Mackie Control*: This works great.
@@ -3271,6 +3339,7 @@ resolution is only 7 bit! Moreover, I've not yet created a controller preset for
 This controller works very well with ReaLearn, including feedback and LED color selection. Special feedback features
 such as the indicator type are currently not configurable from the ReaLearn user interface.
 
+[discrete]
 ==== Preparation
 
 By default, the Twister's encoders are configured to transmit absolute values (Encoder MIDI Type = "CC").
@@ -3292,6 +3361,7 @@ If you want to make use of the Twister's built-in encoder acceleration, you shou
 enough, both in the controller mappings (already done in the latest Twister controller presets) and your
 specific main mapping.
 
+[discrete]
 ==== Presets
 
 All Midi Fighter Twister controller presets available on the Helgoboss ReaPack repository assume relative values.
@@ -3299,6 +3369,7 @@ All Midi Fighter Twister controller presets available on the Helgoboss ReaPack r
 * *DJ TechTools Midi Fighter Twister:* First virtual bank.
 * *DJ TechTools Midi Fighter Twister - Bank 2:* Second virtual bank.
 
+[discrete]
 ==== Hints
 
 * Even though the Twister has its own bank/paging feature, I would recommend to use ReaLearn's built-in conditional
@@ -3319,6 +3390,7 @@ All Midi Fighter Twister controller presets available on the Helgoboss ReaPack r
 
 === Evolution UC-33
 
+[discrete]
 ==== Presets
 
 * *Evolution UC-33* (contributed by Roger Green)
@@ -3334,12 +3406,14 @@ E.g. TouchOSC expects values for both axes in case of X/Y controls instead of be
 and leaving the other axis untouched. Currently, ReaLearn can only send feedback messages that contain one real value
 and sets the other unchanged values to `Nil`.
 
+[discrete]
 ==== Setup
 
 * *Local port:* This needs to be the same as configured for "Port (outgoing)" on the device.
 * *Device host:* This needs to be the same as configured for "Local IP Address" on the device.
 * *Device port:* This needs to be the same as configured for "Port (incoming)" on the device.
 
+[discrete]
 ==== Presets
 
 There are no ReaLearn controller presets for TouchOSC layouts yet. Although technically possible in exactly the same way
@@ -3352,6 +3426,7 @@ Works very nicely, including 10-bit fader resolution and feedback for motorized 
 
 Tested with firmware v2.12.
 
+[discrete]
 ==== Preparation
 
 Please start the device in "Mackie" control mode (channel 1 since firmware version 2).
@@ -3362,6 +3437,7 @@ the same messages and therefore also just works. The significant difference is t
 It's a complete mystery to me why they don't use the full resolution in "User defined" mode. But that's no problem,
 just make sure you use "Mackie" mode. It provides the best settings out of the box. Leave the customization to ReaLearn!
 
+[discrete]
 ==== Presets
 
 * *iCON Platform M+*: Preferred because also provides a controller layout.
@@ -3369,6 +3445,7 @@ just make sure you use "Mackie" mode. It provides the best settings out of the b
 
 === Korg padKONTROL
 
+[discrete]
 ==== Presets
 
 * *Korg padKONTROL* (contributed by Roger Green)
@@ -3379,10 +3456,12 @@ just make sure you use "Mackie" mode. It provides the best settings out of the b
 This controller works well with ReaLearn, including feedback and LED color selection. There's a multitude of very
 Launchpad-specific features that's not directly supported though.
 
+[discrete]
 ==== Preparation
 
 I always press "Setup" + the upper left pad to put this device into "Live" mode.
 
+[discrete]
 ==== Presets
 
 All presets assume "Live" mode.
@@ -3391,6 +3470,7 @@ All presets assume "Live" mode.
 
 === Nord Stage 3
 
+[discrete]
 ==== Presets
 
 * *Nord Stage 3* (contributed by Roger Green)
@@ -3399,6 +3479,7 @@ All presets assume "Live" mode.
 
 Works both for control and feedback.
 
+[discrete]
 ==== Setup
 
 * *Local port:* Set this to the same value as "Send to port" in OSC/PILOT (by default 8001).
@@ -3410,11 +3491,13 @@ of the machine on which OSC/PILOT runs.
 
 This works well, including 10-bit fader resolution, feedback for the motorized fader and turning LEDs on/off.
 
+[discrete]
 ==== Preparation
 
 This device needs to be initialized with some custom MIDI messages to enter a particular mode. However, ReaLearn does
-this for you automatically if you use the *FaderPort Classic* controller preset. 
+this for you automatically if you use the *FaderPort Classic* controller preset.
 
+[discrete]
 ==== Presets
 
 * *PreSonus FaderPort Classic*
@@ -3428,13 +3511,15 @@ system-exclusive MIDI messages need to be sent to the device in order to change 
 supports sending system-exclusive MIDI messages whenever mappings get activated or deactivated, so in theory the
 displays could be operated. Future ReaLearn versions might make that easier. Same story with setting LED colors.
 
+[discrete]
 ==== Preparation
 
 Please start the device in "Studio One" operation mode. This mode should be the default. If not, press the first two
 Select buttons while powering the device on and then press the first Select button.
 
-MCU mode also works, but just partially and it doesn't offer complete customization of each control element. 
+MCU mode also works, but just partially and it doesn't offer complete customization of each control element.
 
+[discrete]
 ==== Presets
 
 * *PreSonus FaderPort 8*
