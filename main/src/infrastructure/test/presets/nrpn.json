@@ -1,0 +1,28 @@
+{
+  "version": "2.11.0-pre.2",
+  "id": "I3iqzlfV",
+  "letMatchedEventsThrough": true,
+  "controlDeviceId": "62",
+  "feedbackDeviceId": "fx-output",
+  "defaultGroup": {},
+  "defaultControllerGroup": {},
+  "mappings": [
+    {
+      "id": "134104a5-8eb1-4a07-b8a9-b65d0a8f74d3",
+      "name": "1",
+      "source": {
+        "type": 6,
+        "channel": 0,
+        "number": 100,
+        "isRegistered": false,
+        "is14Bit": false
+      },
+      "mode": {},
+      "target": {
+        "type": 2,
+        "fxAnchor": "id",
+        "soloBehavior": 1
+      }
+    }
+  ]
+}

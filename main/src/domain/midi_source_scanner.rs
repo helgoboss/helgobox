@@ -79,7 +79,7 @@ impl MidiSourceScanner {
         msg: RawShortMessage,
         dev_id: Option<MidiInputDeviceId>,
     ) -> Option<MidiSource> {
-        if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
+        if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg)[0] {
             let res = self.feed(
                 MidiSourceValue::<RawShortMessage>::ParameterNumber(nrpn_msg),
                 dev_id,

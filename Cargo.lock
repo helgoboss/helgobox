@@ -1434,9 +1434,9 @@ dependencies = [
 
 [[package]]
 name = "helgoboss-midi"
-version = "0.2.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9734da3480ff1ccef68a089fb6555e342f1193a40f95581097bd945b0aef315a"
+checksum = "95a3835d4e50b1a8dec937ce339d48c344fe315ad8ea8099f732531efa3d5ebd"
 dependencies = [
  "core-error",
  "derive_more",
@@ -2780,7 +2780,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.11.0-pre.1"
+version = "2.11.0-pre.2"
 dependencies = [
  "approx",
  "ascii",

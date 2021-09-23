@@ -4,13 +4,13 @@ use crate::infrastructure::plugin::{App, SET_STATE_PARAM_NAME};
 use approx::assert_abs_diff_eq;
 use helgoboss_learn::{MidiSourceValue, FEEDBACK_EPSILON};
 use helgoboss_midi::test_util::*;
-use helgoboss_midi::ShortMessage;
+use helgoboss_midi::{DataEntryByteOrder, ParameterNumberMessage, RawShortMessage, ShortMessage};
 use reaper_high::{ActionKind, Fx, FxParameter, Reaper, Track};
 use reaper_medium::{Db, ReaperPanValue, StuffMidiMessageTarget};
 use std::ffi::CString;
 use std::future::Future;
 use tokio::time::Duration;
-use MidiSourceValue::Plain;
+use MidiSourceValue::{ParameterNumber, Plain};
 use SourceFeedbackValue::Midi;
 
 pub fn register_test_action() {
@@ -39,6 +39,7 @@ impl Test {
 
     pub async fn test(&mut self) {
         self.step("Basics", basics()).await;
+        self.step("(N)RPN", nrpn_test()).await;
         self.step(
             "Load mapping snapshot - All mappings",
             load_mapping_snapshot_all_mappings(),
@@ -207,6 +208,71 @@ async fn basics() {
     assert_eq!(
         realearn.pop_feedback(),
         vec![Midi(Plain(note_on(0, 64, 127)))],
+        "feedback should be sent on target value change"
+    );
+}
+
+async fn nrpn_test() {
+    // Given
+    let realearn = setup().await;
+    assert_eq!(realearn.track().volume().db(), Db::ZERO_DB);
+    // When
+    load_realearn_preset(&realearn, include_str!("presets/nrpn.json"));
+    moment().await;
+    // Then
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(ParameterNumber(nrpn(0, 100, 91)))],
+        "feedback should be sent after loading preset"
+    );
+    // When
+    send_midi_multi(
+        nrpn(0, 100, 0).to_short_messages::<RawShortMessage>(DataEntryByteOrder::MsbFirst),
+    )
+    .await;
+    // Then
+    assert_eq!(
+        realearn.track().volume().db(),
+        Db::MINUS_INF,
+        "NOTE OFF should turn down volume completely"
+    );
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(ParameterNumber(nrpn(0, 100, 0)))],
+        "feedback should be sent on target value change"
+    );
+    // When
+    send_midi_multi(
+        ParameterNumberMessage::non_registered_increment(channel(0), u14(100), u7(50))
+            .to_short_messages::<RawShortMessage>(DataEntryByteOrder::MsbFirst),
+    )
+    .await;
+    // Then
+    assert_ne!(
+        realearn.track().volume().db(),
+        Db::MINUS_INF,
+        "increment should turn volume up a bit"
+    );
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(ParameterNumber(nrpn(0, 100, 2)))],
+        "feedback should be sent on target value change"
+    );
+    // When
+    send_midi_multi(
+        ParameterNumberMessage::non_registered_decrement(channel(0), u14(100), u7(50))
+            .to_short_messages::<RawShortMessage>(DataEntryByteOrder::MsbFirst),
+    )
+    .await;
+    // Then
+    assert_eq!(
+        realearn.track().volume().db(),
+        Db::MINUS_INF,
+        "decrement should turn volume down a bit again"
+    );
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(ParameterNumber(nrpn(0, 100, 0)))],
         "feedback should be sent on target value change"
     );
 }
@@ -1259,5 +1325,14 @@ fn load_realearn_preset(realearn: &RealearnTestInstance, json: &str) {
 
 async fn send_midi(message: impl ShortMessage) {
     Reaper::get().stuff_midi_message(StuffMidiMessageTarget::VirtualMidiKeyboardQueue, message);
+    moment().await;
+}
+
+async fn send_midi_multi<const I: usize>(messages: [Option<impl ShortMessage>; I]) {
+    for msg in messages {
+        if let Some(msg) = msg {
+            Reaper::get().stuff_midi_message(StuffMidiMessageTarget::VirtualMidiKeyboardQueue, msg);
+        }
+    }
     moment().await;
 }

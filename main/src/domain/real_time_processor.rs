@@ -692,13 +692,13 @@ impl RealTimeProcessor {
                         self.process_incoming_midi_normal_plain(event, caller);
                     let (matched_nrpn, matched_cc14) = match event.payload() {
                         IncomingMidiMessage::Short(short_msg) => {
-                            let matched_nrpn =
-                                if let Some(nrpn_msg) = self.nrpn_scanner.feed(&short_msg) {
-                                    let nrpn_event = Event::new(event.offset(), nrpn_msg);
-                                    self.process_incoming_midi_normal_nrpn(nrpn_event, caller)
-                                } else {
-                                    false
-                                };
+                            let mut matched_nrpn = false;
+                            for nrpn_msg in self.nrpn_scanner.feed(&short_msg).iter().flatten() {
+                                let nrpn_event = Event::new(event.offset(), *nrpn_msg);
+                                if self.process_incoming_midi_normal_nrpn(nrpn_event, caller) {
+                                    matched_nrpn = true;
+                                }
+                            }
                             let matched_cc14 =
                                 if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&short_msg) {
                                     let cc14_event = Event::new(event.offset(), cc14_msg);
