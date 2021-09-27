@@ -35,6 +35,7 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 
+use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_object_to_clipboard, copy_text_to_clipboard, get_object_from_clipboard,
@@ -158,18 +159,15 @@ impl HeaderPanel {
     }
 
     fn add_group(&self) {
-        if let Some(name) = dialog_util::prompt_for("Group name", "") {
-            if name.trim().is_empty() {
-                return;
-            }
-            let id = self
-                .session()
-                .borrow_mut()
-                .add_default_group(self.active_compartment(), name);
+        if let Ok(group_id) = self.add_group_internal() {
             self.main_state
                 .borrow_mut()
-                .set_displayed_group_for_active_compartment(Some(GroupFilter(id)));
+                .set_displayed_group_for_active_compartment(Some(GroupFilter(group_id)));
         }
+    }
+
+    fn add_group_internal(&self) -> Result<GroupId, &'static str> {
+        add_group_via_dialog(self.session(), self.active_compartment())
     }
 
     fn add_mapping(&self) {
@@ -188,7 +186,7 @@ impl HeaderPanel {
             None,
             CopyListedMappings,
             AutoNameListedMappings,
-            MoveListedMappingsToGroup(GroupId),
+            MoveListedMappingsToGroup(Option<GroupId>),
             PasteReplaceAllInGroup(Vec<MappingModelData>),
             ToggleAutoCorrectSettings,
             ToggleInputLogging,
@@ -261,21 +259,22 @@ impl HeaderPanel {
                 }),
                 menu(
                     "Move listed mappings to group",
-                    session
-                        .groups_sorted(compartment)
-                        .map(move |g| {
-                            let g = g.borrow();
-                            let g_id = g.id();
-                            item_with_opts(
-                                g.to_string(),
-                                ItemOpts {
-                                    enabled: group_id != Some(g_id),
-                                    checked: false,
-                                },
-                                move || MenuAction::MoveListedMappingsToGroup(g_id),
-                            )
-                        })
-                        .collect(),
+                    iter::once(item("<New group>", || {
+                        MenuAction::MoveListedMappingsToGroup(None)
+                    }))
+                    .chain(session.groups_sorted(compartment).map(move |g| {
+                        let g = g.borrow();
+                        let g_id = g.id();
+                        item_with_opts(
+                            g.to_string(),
+                            ItemOpts {
+                                enabled: group_id != Some(g_id),
+                                checked: false,
+                            },
+                            move || MenuAction::MoveListedMappingsToGroup(Some(g_id)),
+                        )
+                    }))
+                    .collect(),
                 ),
                 menu(
                     "Options",
@@ -513,7 +512,7 @@ impl HeaderPanel {
             MenuAction::CopyListedMappings => self.copy_listed_mappings(),
             MenuAction::AutoNameListedMappings => self.auto_name_listed_mappings(),
             MenuAction::MoveListedMappingsToGroup(group_id) => {
-                self.move_listed_mappings_to_group(group_id)
+                let _ = self.move_listed_mappings_to_group(group_id);
             }
             MenuAction::PasteReplaceAllInGroup(mapping_datas) => {
                 self.paste_replace_all_in_group(mapping_datas)
@@ -652,10 +651,13 @@ impl HeaderPanel {
         }
     }
 
-    fn move_listed_mappings_to_group(&self, group_id: GroupId) {
+    fn move_listed_mappings_to_group(&self, group_id: Option<GroupId>) -> Result<(), &'static str> {
+        let group_id = group_id
+            .or_else(|| self.add_group_internal().ok())
+            .ok_or("no group selected")?;
         let listed_mappings = self.get_listened_mappings();
         if listed_mappings.is_empty() {
-            return;
+            return Err("mapping list empty");
         }
         if !self.view.require_window().confirm(
             "ReaLearn",
@@ -664,7 +666,7 @@ impl HeaderPanel {
                 listed_mappings.len()
             ),
         ) {
-            return;
+            return Err("cancelled");
         }
         let compartment = self.active_compartment();
         let session = self.session();
@@ -673,7 +675,8 @@ impl HeaderPanel {
             .into_iter()
             .map(|m| m.borrow().id())
             .collect();
-        let _ = session.move_mappings_to_group(compartment, &mapping_ids, group_id);
+        session.move_mappings_to_group(compartment, &mapping_ids, group_id)?;
+        Ok(())
     }
 
     fn get_listened_mappings(&self) -> Vec<SharedMapping> {

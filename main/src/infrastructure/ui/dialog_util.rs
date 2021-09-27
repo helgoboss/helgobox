@@ -1,3 +1,5 @@
+use crate::application::SharedSession;
+use crate::domain::{GroupId, MappingCompartment};
 use reaper_high::Reaper;
 
 /// Attention: This blocks the thread but continues the event loop, so you shouldn't have
@@ -8,4 +10,21 @@ pub fn prompt_for(caption: &str, initial_value: &str) -> Option<String> {
         .medium_reaper()
         .get_user_inputs("ReaLearn", 1, captions_csv, initial_value, 256)
         .map(|r| r.to_str().trim().to_owned())
+}
+
+pub fn add_group_via_dialog(
+    session: SharedSession,
+    compartment: MappingCompartment,
+) -> Result<GroupId, &'static str> {
+    if let Some(name) = prompt_for("Group name", "") {
+        if name.trim().is_empty() {
+            return Err("empty group name");
+        }
+        let id = session
+            .borrow_mut()
+            .add_group_with_default_values(compartment, name);
+        Ok(id)
+    } else {
+        Err("cancelled")
+    }
 }

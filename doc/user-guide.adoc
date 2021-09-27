@@ -2240,7 +2240,7 @@ Please note:
 
 [TIP]
 ====
-Groups provide an intuitive way of defining things that should happen _in sequence_. This target allows you to take advantage of that!
+Mapping lend themselves perfectly for defining things that should happen _in sequence_. This target allows you to take advantage of that!
 
 - Combine it with <<realearn-enable-disable-mappings>> to cycle through different banks.
 - Combine it with <<realearn-enable-disable-instances>> to cycle through completely different controller setups (or banks).

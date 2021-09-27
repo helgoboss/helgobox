@@ -13,11 +13,13 @@ use crate::infrastructure::ui::bindings::root::{
     IDC_MAPPING_ROW_ENABLED_CHECK_BOX, ID_MAPPING_ROW_CONTROL_CHECK_BOX,
     ID_MAPPING_ROW_FEEDBACK_CHECK_BOX,
 };
+use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::{format_tags_as_csv, symbols};
 use crate::infrastructure::ui::{
     copy_object_to_clipboard, get_object_from_clipboard, util, ClipboardObject,
     IndependentPanelManager, SharedMainState,
 };
+use core::iter;
 use reaper_high::Reaper;
 use reaper_low::raw;
 use rxrust::prelude::*;
@@ -508,6 +510,19 @@ impl MappingRowPanel {
     }
 
     fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
+        enum MenuAction {
+            None,
+            PasteObjectInPlace(ClipboardObject),
+            PasteMappings(Vec<MappingModelData>),
+            CopyPart(ObjectType),
+            MoveMappingToGroup(Option<GroupId>),
+            LogDebugInfo,
+        }
+        impl Default for MenuAction {
+            fn default() -> Self {
+                Self::None
+            }
+        }
         let menu_bar = MenuBar::new_popup_menu();
         let pure_menu = {
             use swell_ui::menu_tree::*;
@@ -517,29 +532,11 @@ impl MappingRowPanel {
             let mapping = mapping.as_ref().ok_or("row contains no mapping")?;
             let mapping = mapping.borrow();
             let compartment = mapping.compartment();
-            let mapping_id = mapping.id();
             let clipboard_object = get_object_from_clipboard();
             let clipboard_object_2 = clipboard_object.clone();
-            // TODO-medium Since ReaLearn 2.8.0-pre5, menu items can return values, so we could
-            //  easily refactor this clone hell if we return e.g. MenuAction enum values.
             let group_id = mapping.group_id.get();
-            let session_1 = shared_session.clone();
-            let session_2 = shared_session.clone();
-            let session_4 = shared_session.clone();
-            let session_5 = shared_session.clone();
-            let session_6 = shared_session.clone();
-            let session_7 = shared_session.clone();
-            let session_8 = shared_session.clone();
-            let session_9 = shared_session.clone();
             let entries = vec![
-                item("Copy", move || {
-                    let _ = copy_mapping_object(
-                        session_1,
-                        compartment,
-                        mapping_id,
-                        ObjectType::Mapping,
-                    );
-                }),
+                item("Copy", || MenuAction::CopyPart(ObjectType::Mapping)),
                 {
                     let desc = match clipboard_object {
                         Some(ClipboardObject::Mapping(m)) => Some((
@@ -560,15 +557,7 @@ impl MappingRowPanel {
                         None | Some(ClipboardObject::Mappings(_)) => None,
                     };
                     if let Some((label, obj)) = desc {
-                        item(label, move || {
-                            let _ = paste_object_in_place(
-                                obj,
-                                session_2,
-                                compartment,
-                                mapping_id,
-                                group_id,
-                            );
-                        })
+                        item(label, move || MenuAction::PasteObjectInPlace(obj))
                     } else {
                         disabled_item("Paste (replace)")
                     }
@@ -585,15 +574,7 @@ impl MappingRowPanel {
                         _ => None,
                     };
                     if let Some((label, datas)) = desc {
-                        item(label, move || {
-                            let _ = paste_mappings(
-                                datas,
-                                session_8,
-                                compartment,
-                                Some(mapping_id),
-                                group_id,
-                            );
-                        })
+                        item(label, move || MenuAction::PasteMappings(datas))
                     } else {
                         disabled_item("Paste (insert below)")
                     }
@@ -601,38 +582,15 @@ impl MappingRowPanel {
                 menu(
                     "Copy part",
                     vec![
-                        item("Copy source", move || {
-                            let _ = copy_mapping_object(
-                                session_5,
-                                compartment,
-                                mapping_id,
-                                ObjectType::Source,
-                            );
-                        }),
-                        item("Copy mode", move || {
-                            let _ = copy_mapping_object(
-                                session_6,
-                                compartment,
-                                mapping_id,
-                                ObjectType::Mode,
-                            );
-                        }),
-                        item("Copy target", move || {
-                            let _ = copy_mapping_object(
-                                session_7,
-                                compartment,
-                                mapping_id,
-                                ObjectType::Target,
-                            );
-                        }),
+                        item("Copy source", || MenuAction::CopyPart(ObjectType::Source)),
+                        item("Copy mode", || MenuAction::CopyPart(ObjectType::Mode)),
+                        item("Copy target", || MenuAction::CopyPart(ObjectType::Target)),
                     ],
                 ),
                 menu(
                     "Move to group",
-                    session
-                        .groups_sorted(compartment)
-                        .map(move |g| {
-                            let session = session_4.clone();
+                    iter::once(item("<New group>", || MenuAction::MoveMappingToGroup(None)))
+                        .chain(session.groups_sorted(compartment).map(move |g| {
                             let g = g.borrow();
                             let g_id = g.id();
                             item_with_opts(
@@ -641,16 +599,12 @@ impl MappingRowPanel {
                                     enabled: group_id != g_id,
                                     checked: false,
                                 },
-                                move || {
-                                    move_mapping_to_group(session, compartment, mapping_id, g_id)
-                                },
+                                move || MenuAction::MoveMappingToGroup(Some(g_id)),
                             )
-                        })
+                        }))
                         .collect(),
                 ),
-                item("Log debug info", move || {
-                    session_9.borrow().log_mapping(compartment, mapping_id);
-                }),
+                item("Log debug info", move || MenuAction::LogDebugInfo),
             ];
             let mut root_menu = root_menu(entries);
             root_menu.index(1);
@@ -662,10 +616,53 @@ impl MappingRowPanel {
             .require_window()
             .open_popup_menu(menu_bar.menu(), location)
             .ok_or("no entry selected")?;
-        pure_menu
+        let result = pure_menu
             .find_item_by_id(result_index)
             .expect("selected menu item not found")
             .invoke_handler();
+        let (mapping_id, mapping_compartment, mapping_group_id) = {
+            let mapping = self.mapping.borrow();
+            let mapping = mapping.as_ref().ok_or("row contains no mapping")?;
+            let mapping = mapping.borrow();
+            (mapping.id(), mapping.compartment(), mapping.group_id.get())
+        };
+        match result {
+            MenuAction::None => {}
+            MenuAction::PasteObjectInPlace(obj) => {
+                let _ = paste_object_in_place(
+                    obj,
+                    self.session(),
+                    mapping_compartment,
+                    mapping_id,
+                    mapping_group_id,
+                );
+            }
+            MenuAction::PasteMappings(datas) => {
+                let _ = paste_mappings(
+                    datas,
+                    self.session(),
+                    mapping_compartment,
+                    Some(mapping_id),
+                    mapping_group_id,
+                );
+            }
+            MenuAction::CopyPart(obj_type) => {
+                let _ =
+                    copy_mapping_object(self.session(), mapping_compartment, mapping_id, obj_type);
+            }
+            MenuAction::MoveMappingToGroup(group_id) => {
+                let _ = move_mapping_to_group(
+                    self.session(),
+                    mapping_compartment,
+                    mapping_id,
+                    group_id,
+                );
+            }
+            MenuAction::LogDebugInfo => self
+                .session()
+                .borrow()
+                .log_mapping(mapping_compartment, mapping_id),
+        }
         Ok(())
     }
 
@@ -752,12 +749,16 @@ fn move_mapping_to_group(
     session: SharedSession,
     compartment: MappingCompartment,
     mapping_id: MappingId,
-    group_id: GroupId,
-) {
+    group_id: Option<GroupId>,
+) -> Result<(), &'static str> {
+    let cloned_session = session.clone();
+    let group_id = group_id
+        .or_else(move || add_group_via_dialog(cloned_session, compartment).ok())
+        .ok_or("no group selected")?;
     session
         .borrow_mut()
-        .move_mappings_to_group(compartment, &[mapping_id], group_id)
-        .unwrap();
+        .move_mappings_to_group(compartment, &[mapping_id], group_id)?;
+    Ok(())
 }
 
 fn copy_mapping_object(

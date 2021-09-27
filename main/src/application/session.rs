@@ -865,7 +865,11 @@ impl Session {
         }
     }
 
-    pub fn add_default_group(&mut self, compartment: MappingCompartment, name: String) -> GroupId {
+    pub fn add_group_with_default_values(
+        &mut self,
+        compartment: MappingCompartment,
+        name: String,
+    ) -> GroupId {
         let group = GroupModel::new_from_ui(compartment, name);
         self.add_group(compartment, group)
     }
