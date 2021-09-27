@@ -40,6 +40,8 @@ pub struct TargetModelData {
     // Until ReaLearn 1.0.0-beta6
     #[serde(default, skip_serializing)]
     invoke_relative: Option<bool>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    with_track: bool,
     // Track target
     #[serde(flatten)]
     track_data: TrackData,
@@ -153,6 +155,7 @@ impl TargetModelData {
             invoke_relative: None,
             track_data: serialize_track(model.track()),
             enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
+            with_track: model.with_track.get(),
             fx_data: serialize_fx(model.fx()),
             enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
             track_route_data: serialize_track_route(model.track_route()),
@@ -280,6 +283,9 @@ impl TargetModelData {
                 self.enable_only_if_track_is_selected,
                 with_notification,
             );
+        model
+            .with_track
+            .set_with_optional_notification(self.with_track, with_notification);
         let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
         let fx_prop_values = deserialize_fx(
             &self.fx_data,

@@ -975,6 +975,7 @@ fn determine_target_for_action(action: Action) -> ReaperTarget {
             action,
             invocation_type: ActionInvocationType::Trigger,
             project,
+            track: None,
         }),
     }
 }

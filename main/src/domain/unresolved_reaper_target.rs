@@ -42,6 +42,7 @@ pub enum UnresolvedReaperTarget {
     Action {
         action: Action,
         invocation_type: ActionInvocationType,
+        track_descriptor: Option<TrackDescriptor>,
     },
     FxParameter {
         fx_parameter_descriptor: FxParameterDescriptor,
@@ -208,11 +209,30 @@ impl UnresolvedReaperTarget {
             Action {
                 action,
                 invocation_type,
-            } => vec![ReaperTarget::Action(ActionTarget {
-                action: action.clone(),
-                invocation_type: *invocation_type,
-                project: context.context().project_or_current_project(),
-            })],
+                track_descriptor,
+            } => {
+                let project = context.context().project_or_current_project();
+                if let Some(td) = track_descriptor {
+                    get_effective_tracks(context, &td.track, compartment)?
+                        .into_iter()
+                        .map(|track| {
+                            ReaperTarget::Action(ActionTarget {
+                                action: action.clone(),
+                                invocation_type: *invocation_type,
+                                project,
+                                track: Some(track),
+                            })
+                        })
+                        .collect()
+                } else {
+                    vec![ReaperTarget::Action(ActionTarget {
+                        action: action.clone(),
+                        invocation_type: *invocation_type,
+                        project,
+                        track: None,
+                    })]
+                }
+            }
             FxParameter {
                 fx_parameter_descriptor,
                 poll_for_feedback,
@@ -659,8 +679,7 @@ impl UnresolvedReaperTarget {
     fn unpack_descriptors(&self) -> Descriptors {
         use UnresolvedReaperTarget::*;
         match self {
-            Action { .. }
-            | Tempo
+            Tempo
             | Playrate
             | SelectedTrack { .. }
             | Transport { .. }
@@ -676,6 +695,12 @@ impl UnresolvedReaperTarget {
             | EnableMappings { .. }
             | EnableInstances { .. }
             | NavigateWithinGroup { .. } => Default::default(),
+            Action {
+                track_descriptor, ..
+            } => Descriptors {
+                track: track_descriptor.as_ref(),
+                ..Default::default()
+            },
             FxOpen { fx_descriptor, .. }
             | FxEnable { fx_descriptor }
             | FxPreset { fx_descriptor }

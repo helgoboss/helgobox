@@ -93,7 +93,6 @@ struct ImmutableMappingPanel<'a> {
 struct MutableMappingPanel<'a> {
     session: &'a Session,
     mapping: &'a mut MappingModel,
-    shared_mapping: &'a SharedMapping,
     panel: &'a SharedView<MappingPanel>,
     view: &'a ViewContext,
 }
@@ -341,21 +340,70 @@ impl MappingPanel {
 
     fn handle_target_line_4_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
-        let target_type = mapping.borrow().target_model.r#type.get();
-        if target_type == ReaperTargetType::LoadFxSnapshot {
-            // Important that neither session nor mapping is mutably borrowed while doing this
-            // because state of our ReaLearn instance is not unlikely to be
-            // queried as well!
-            let compartment = mapping.borrow().compartment();
-            let fx_snapshot = mapping
-                .borrow()
-                .target_model
-                .take_fx_snapshot(self.session().borrow().extended_context(), compartment)?;
-            mapping
-                .borrow_mut()
-                .target_model
-                .fx_snapshot
-                .set(Some(fx_snapshot));
+        match mapping.borrow().target_model.r#type.get() {
+            ReaperTargetType::Action => {
+                let reaper = Reaper::get().medium_reaper();
+                use InitialAction::*;
+                let initial_action = match mapping.borrow().target_model.action.get_ref().as_ref() {
+                    None => NoneSelected,
+                    Some(a) => Selected(a.command_id()),
+                };
+                // TODO-low Add this to reaper-high with rxRust
+                if reaper.low().pointers().PromptForAction.is_none() {
+                    self.view.require_window().alert(
+                        "ReaLearn",
+                        "Please update to REAPER >= 6.12 in order to pick actions!",
+                    );
+                    return Ok(());
+                }
+                reaper.prompt_for_action_create(initial_action, SectionId::new(0));
+                let shared_mapping = self.mapping();
+                Global::control_surface_rx()
+                    .main_thread_idle()
+                    .take_until(self.party_is_over())
+                    .map(|_| {
+                        Reaper::get()
+                            .medium_reaper()
+                            .prompt_for_action_poll(SectionId::new(0))
+                    })
+                    .filter(|r| *r != PromptForActionResult::NoneSelected)
+                    .take_while(|r| *r != PromptForActionResult::ActionWindowGone)
+                    .subscribe_complete(
+                        move |r| {
+                            if let PromptForActionResult::Selected(command_id) = r {
+                                let action = Reaper::get()
+                                    .main_section()
+                                    .action_by_command_id(command_id);
+                                shared_mapping
+                                    .borrow_mut()
+                                    .target_model
+                                    .action
+                                    .set(Some(action));
+                            }
+                        },
+                        || {
+                            Reaper::get()
+                                .medium_reaper()
+                                .prompt_for_action_finish(SectionId::new(0));
+                        },
+                    );
+            }
+            ReaperTargetType::LoadFxSnapshot => {
+                // Important that neither session nor mapping is mutably borrowed while doing this
+                // because state of our ReaLearn instance is not unlikely to be
+                // queried as well!
+                let compartment = mapping.borrow().compartment();
+                let fx_snapshot = mapping
+                    .borrow()
+                    .target_model
+                    .take_fx_snapshot(self.session().borrow().extended_context(), compartment)?;
+                mapping
+                    .borrow_mut()
+                    .target_model
+                    .fx_snapshot
+                    .set(Some(fx_snapshot));
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -618,7 +666,6 @@ impl MappingPanel {
         let mut p = MutableMappingPanel {
             session: &session,
             mapping: &mut mapping,
-            shared_mapping,
             panel: &self,
             view: &self.view,
         };
@@ -753,53 +800,6 @@ impl<'a> MutableMappingPanel<'a> {
     fn handle_target_line_2_button_press(&mut self) {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::Action => {
-                    let reaper = Reaper::get().medium_reaper();
-                    use InitialAction::*;
-                    let initial_action = match self.mapping.target_model.action.get_ref().as_ref() {
-                        None => NoneSelected,
-                        Some(a) => Selected(a.command_id()),
-                    };
-                    // TODO-low Add this to reaper-high with rxRust
-                    if reaper.low().pointers().PromptForAction.is_none() {
-                        self.view.require_window().alert(
-                            "ReaLearn",
-                            "Please update to REAPER >= 6.12 in order to pick actions!",
-                        );
-                        return;
-                    }
-                    reaper.prompt_for_action_create(initial_action, SectionId::new(0));
-                    let shared_mapping = self.shared_mapping.clone();
-                    Global::control_surface_rx()
-                        .main_thread_idle()
-                        .take_until(self.panel.party_is_over())
-                        .map(|_| {
-                            Reaper::get()
-                                .medium_reaper()
-                                .prompt_for_action_poll(SectionId::new(0))
-                        })
-                        .filter(|r| *r != PromptForActionResult::NoneSelected)
-                        .take_while(|r| *r != PromptForActionResult::ActionWindowGone)
-                        .subscribe_complete(
-                            move |r| {
-                                if let PromptForActionResult::Selected(command_id) = r {
-                                    let action = Reaper::get()
-                                        .main_section()
-                                        .action_by_command_id(command_id);
-                                    shared_mapping
-                                        .borrow_mut()
-                                        .target_model
-                                        .action
-                                        .set(Some(action));
-                                }
-                            },
-                            || {
-                                Reaper::get()
-                                    .medium_reaper()
-                                    .prompt_for_action_finish(SectionId::new(0));
-                            },
-                        );
-                }
                 ReaperTargetType::GoToBookmark => {
                     let project = self.session.context().project_or_current_project();
                     let current_bookmark_data = project.current_bookmark();
@@ -1527,6 +1527,9 @@ impl<'a> MutableMappingPanel<'a> {
             .is_checked();
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Action => {
+                    self.mapping.target_model.with_track.set(is_checked);
+                }
                 ReaperTargetType::GoToBookmark => {
                     let bookmark_type = if is_checked {
                         BookmarkType::Region
@@ -2826,7 +2829,6 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_2_label_1(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::Action => Some("Action"),
                 ReaperTargetType::Transport => Some("Action"),
                 ReaperTargetType::AutomationModeOverride => Some("Behavior"),
                 ReaperTargetType::GoToBookmark => match self.target.bookmark_type.get() {
@@ -2849,16 +2851,10 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_2_label_2(&self) {
-        let text = match self.target_category() {
-            TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::Action => Some(self.target.action_name_label().to_string()),
-                _ => None,
-            },
-            TargetCategory::Virtual => None,
-        };
+        // Currently not in use
         self.view
             .require_control(root::ID_TARGET_LINE_2_LABEL_2)
-            .set_text_or_hide(text);
+            .hide();
     }
 
     fn invalidate_target_line_2_label_3(&self) {
@@ -3110,7 +3106,6 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_2_button(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::Action => Some("Pick!"),
                 ReaperTargetType::GoToBookmark => Some("Now!"),
                 _ => None,
             },
@@ -3164,6 +3159,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_4_button(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Action => Some("Pick!"),
                 ReaperTargetType::LoadFxSnapshot => Some("Take!"),
                 _ => None,
             },
@@ -3327,6 +3323,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_4_label_1(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Action => Some("Action"),
                 ReaperTargetType::FxParameter => Some("Parameter"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 ReaperTargetType::SendOsc => Some("Argument"),
@@ -3388,6 +3385,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_4_label_2(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
+                ReaperTargetType::Action => Some(self.target.action_name_label().to_string()),
                 ReaperTargetType::LoadFxSnapshot => {
                     let label = if let Some(snapshot) = self.target.fx_snapshot.get_ref() {
                         snapshot.to_string()
@@ -3716,6 +3714,12 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_check_box_1(&self) {
         let state = match self.target.category.get() {
             TargetCategory::Reaper => match self.target.r#type.get() {
+                ReaperTargetType::Action => Some(("With track", self.target.with_track.get())),
+                ReaperTargetType::GoToBookmark => {
+                    let is_regions = self.target.bookmark_type.get() == BookmarkType::Region;
+                    Some(("Regions", is_regions))
+                }
+                ReaperTargetType::Seek => Some(("Seek play", self.target.seek_play.get())),
                 t if t.supports_fx_chain() => {
                     if matches!(
                         self.target.fx_type.get(),
@@ -3735,11 +3739,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t if t.supports_track_scrolling() => {
                     Some(("Scroll TCP", self.target.scroll_arrange_view.get()))
                 }
-                ReaperTargetType::GoToBookmark => {
-                    let is_regions = self.target.bookmark_type.get() == BookmarkType::Region;
-                    Some(("Regions", is_regions))
-                }
-                ReaperTargetType::Seek => Some(("Seek play", self.target.seek_play.get())),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -5103,6 +5102,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 view.invalidate_target_check_boxes();
             },
         );
+        self.panel.when(target.with_track.changed(), |view, _| {
+            view.invalidate_target_controls(None);
+        });
         self.panel.when(
             target
                 .enable_only_if_fx_has_focus

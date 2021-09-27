@@ -5,8 +5,8 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use helgoboss_midi::U14;
-use reaper_high::{Action, ActionCharacter, Project, Reaper};
-use reaper_medium::{ActionValueChange, CommandId, WindowContext};
+use reaper_high::{Action, ActionCharacter, Project, Reaper, Track};
+use reaper_medium::{ActionValueChange, CommandId, MasterTrackBehavior, WindowContext};
 use std::convert::TryFrom;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -14,6 +14,7 @@ pub struct ActionTarget {
     pub action: Action,
     pub invocation_type: ActionInvocationType,
     pub project: Project,
+    pub track: Option<Track>,
 }
 
 impl RealearnTarget for ActionTarget {
@@ -52,6 +53,16 @@ impl RealearnTarget for ActionTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
+        if let Some(track) = &self.track {
+            if !track.is_selected()
+                || self
+                    .project
+                    .selected_track_count(MasterTrackBehavior::IncludeMasterTrack)
+                    > 1
+            {
+                track.select_exclusively();
+            }
+        }
         match value {
             ControlValue::AbsoluteContinuous(v) => match self.invocation_type {
                 ActionInvocationType::Trigger => {

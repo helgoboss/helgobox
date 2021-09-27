@@ -52,6 +52,7 @@ pub struct TargetModel {
     // TODO-low Maybe replace Action with just command ID and/or command name
     pub action: Prop<Option<Action>>,
     pub action_invocation_type: Prop<ActionInvocationType>,
+    pub with_track: Prop<bool>,
     // # For track targets
     pub track_type: Prop<VirtualTrackType>,
     pub track_id: Prop<Option<Guid>>,
@@ -149,6 +150,7 @@ impl Default for TargetModel {
             track_index: prop(0),
             track_expression: prop("".to_owned()),
             enable_only_if_track_selected: prop(false),
+            with_track: prop(false),
             fx_type: prop(Default::default()),
             fx_is_input_fx: prop(false),
             fx_id: prop(None),
@@ -692,6 +694,7 @@ impl TargetModel {
             .merge(self.track_index.changed())
             .merge(self.track_expression.changed())
             .merge(self.enable_only_if_track_selected.changed())
+            .merge(self.with_track.changed())
             .merge(self.fx_type.changed())
             .merge(self.fx_id.changed())
             .merge(self.fx_name.changed())
@@ -949,6 +952,11 @@ impl TargetModel {
                     Action => UnresolvedReaperTarget::Action {
                         action: self.action()?,
                         invocation_type: self.action_invocation_type.get(),
+                        track_descriptor: if self.with_track.get() {
+                            Some(self.track_descriptor()?)
+                        } else {
+                            None
+                        },
                     },
                     FxParameter => UnresolvedReaperTarget::FxParameter {
                         fx_parameter_descriptor: self.fx_parameter_descriptor()?,
@@ -1179,13 +1187,14 @@ impl TargetModel {
     }
 
     fn supports_track_apart_from_type(&self) -> bool {
-        if self.r#type.get() == ReaperTargetType::ClipTransport {
-            use TransportAction::*;
-            if !matches!(self.transport_action.get(), PlayStop | PlayPause) {
-                return false;
+        match self.r#type.get() {
+            ReaperTargetType::ClipTransport => {
+                use TransportAction::*;
+                matches!(self.transport_action.get(), PlayStop | PlayPause)
             }
+            ReaperTargetType::Action => self.with_track.get(),
+            _ => true,
         }
-        true
     }
 
     pub fn supports_fx(&self) -> bool {
@@ -1895,9 +1904,8 @@ impl ReaperTargetType {
             | TrackArm | TrackSelection | TrackMute | TrackShow | TrackAutomationMode
             | TrackSolo | TrackSendPan | TrackSendMute | FxEnable | FxOpen | FxNavigate
             | FxPreset | AllTrackFxEnable | LoadFxSnapshot | AutomationTouchState
-            | ClipTransport => true,
-            Action
-            | Tempo
+            | ClipTransport | Action => true,
+            Tempo
             | Playrate
             | SelectedTrack
             | Transport
@@ -1918,7 +1926,7 @@ impl ReaperTargetType {
 
     pub fn supports_track_must_be_selected(self) -> bool {
         use ReaperTargetType::*;
-        self.supports_track() && !matches!(self, TrackSelection)
+        self.supports_track() && !matches!(self, TrackSelection | Action)
     }
 
     pub fn supports_track_scrolling(self) -> bool {
