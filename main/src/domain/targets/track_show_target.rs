@@ -1,8 +1,9 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
-    handle_track_exclusivity, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, TargetCharacter, TrackExclusivity,
+    change_track_prop, format_value_as_on_off,
+    get_control_type_and_character_for_track_exclusivity, ControlContext,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
+    TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -30,17 +31,13 @@ impl RealearnTarget for TrackShowTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        if value.to_unit_value()?.is_zero() {
-            handle_track_exclusivity(&self.track, self.exclusivity, |t| {
-                t.set_shown(self.area, true)
-            });
-            self.track.set_shown(self.area, false);
-        } else {
-            handle_track_exclusivity(&self.track, self.exclusivity, |t| {
-                t.set_shown(self.area, false)
-            });
-            self.track.set_shown(self.area, true);
-        }
+        change_track_prop(
+            &self.track,
+            self.exclusivity,
+            value.to_unit_value()?,
+            |t| t.set_shown(self.area, true),
+            |t| t.set_shown(self.area, false),
+        );
         Ok(None)
     }
 

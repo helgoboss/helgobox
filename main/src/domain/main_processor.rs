@@ -2200,10 +2200,10 @@ impl<EH: DomainEventHandler> Basics<EH> {
             match m.group_interaction() {
                 None => {}
                 SameControl | InverseControl => {
-                    let interaction_value = match m.group_interaction() {
-                        SameControl => control_value,
-                        InverseControl => control_value.inverse(),
-                        _ => unreachable!(),
+                    let control_value = if m.group_interaction().is_inverse() {
+                        control_value.inverse()
+                    } else {
+                        control_value
                     };
                     self.process_other_mappings(
                         collections,
@@ -2221,19 +2221,24 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                 basics,
                                 parameters,
                                 other_mapping,
-                                interaction_value,
+                                control_value,
                                 options,
                                 ManualFeedbackProcessing::Off,
                             )
                         },
                     );
                 }
-                SameTargetValue | InverseTargetValue => {
+                SameTargetValue | InverseTargetValue | InverseTargetValueOnOnly => {
                     if !control_was_successful {
                         return;
                     }
                     let context = self.control_context();
                     if let Some(reference_value) = m.current_aggregated_target_value(context) {
+                        if m.group_interaction() == InverseTargetValueOnOnly
+                            && !reference_value.is_on()
+                        {
+                            return;
+                        }
                         let normalized_target_value = reference_value.normalize(
                             &m.mode().settings().target_value_interval,
                             &m.mode().settings().discrete_target_value_interval,
@@ -2241,7 +2246,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             m.mode().settings().use_discrete_processing,
                             BASE_EPSILON,
                         );
-                        let inverse = m.group_interaction() == InverseTargetValue;
+                        let inverse = m.group_interaction().is_inverse();
                         self.process_other_mappings(
                             collections,
                             compartment,

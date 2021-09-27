@@ -1,7 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
-    handle_track_exclusivity, track_arm_unit_value, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, TargetCharacter, TrackExclusivity,
+    change_track_prop, format_value_as_on_off,
+    get_control_type_and_character_for_track_exclusivity, track_arm_unit_value, ControlContext,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
+    TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -26,13 +27,13 @@ impl RealearnTarget for TrackArmTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        if value.to_unit_value()?.is_zero() {
-            handle_track_exclusivity(&self.track, self.exclusivity, |t| t.arm(false));
-            self.track.disarm(false);
-        } else {
-            handle_track_exclusivity(&self.track, self.exclusivity, |t| t.disarm(false));
-            self.track.arm(false);
-        }
+        change_track_prop(
+            &self.track,
+            self.exclusivity,
+            value.to_unit_value()?,
+            |t| t.arm(false),
+            |t| t.disarm(false),
+        );
         Ok(None)
     }
 

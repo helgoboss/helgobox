@@ -9,11 +9,11 @@ use crate::domain::{
     LoadFxSnapshotTarget, LoadMappingSnapshotTarget, MappingCompartment, MidiSendTarget,
     NavigateWithinGroupTarget, OscDeviceId, OscSendTarget, ParameterSlice, PlayrateTarget,
     RealearnTarget, ReaperTarget, RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekOptions,
-    SeekTarget, SelectedTrackTarget, SendMidiDestination, SlotPlayOptions, SoloBehavior, TagScope,
-    TempoTarget, TouchedParameterType, TrackArmTarget, TrackAutomationModeTarget, TrackExclusivity,
-    TrackMuteTarget, TrackPanTarget, TrackPeakTarget, TrackSelectionTarget, TrackShowTarget,
-    TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget, TransportAction, TransportTarget,
-    COMPARTMENT_PARAMETER_COUNT,
+    SeekTarget, SelectedTrackTarget, SendMidiDestination, SimpleExclusivity, SlotPlayOptions,
+    SoloBehavior, TagScope, TempoTarget, TouchedParameterType, TrackArmTarget,
+    TrackAutomationModeTarget, TrackExclusivity, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
+    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -185,7 +185,7 @@ pub enum UnresolvedReaperTarget {
     NavigateWithinGroup {
         compartment: MappingCompartment,
         group_id: GroupId,
-        exclusivity: Exclusivity,
+        exclusivity: SimpleExclusivity,
     },
     EnableInstances {
         scope: TagScope,

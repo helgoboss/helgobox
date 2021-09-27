@@ -50,7 +50,11 @@ impl RealearnTarget for EnableMappingsTarget {
                         continue;
                     }
                     // Determine how to change the mappings.
-                    let flag = match self.scope.determine_change(self.exclusivity, m.tags()) {
+                    let flag = match self.scope.determine_change(
+                        self.exclusivity,
+                        m.tags(),
+                        self.is_enable,
+                    ) {
                         None => continue,
                         Some(f) => f,
                     };
@@ -71,7 +75,10 @@ impl RealearnTarget for EnableMappingsTarget {
                     );
                 }
                 let mut instance_state = context.control_context.instance_state.borrow_mut();
-                if self.exclusivity == Exclusivity::Exclusive {
+                use Exclusivity::*;
+                if self.exclusivity == Exclusive
+                    || (self.exclusivity == ExclusiveOnOnly && self.is_enable)
+                {
                     // Completely replace
                     let new_active_tags = if self.is_enable {
                         self.scope.tags.clone()
@@ -126,10 +133,11 @@ impl<'a> Target<'a> for EnableMappingsTarget {
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
         let instance_state = context.instance_state.borrow();
+        use Exclusivity::*;
         let active = match self.exclusivity {
-            Exclusivity::NonExclusive => instance_state
+            NonExclusive => instance_state
                 .at_least_those_mapping_tags_are_active(self.compartment, &self.scope.tags),
-            Exclusivity::Exclusive => instance_state
+            Exclusive | ExclusiveOnOnly => instance_state
                 .only_these_mapping_tags_are_active(self.compartment, &self.scope.tags),
         };
         let uv = if active {

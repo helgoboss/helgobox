@@ -1,6 +1,6 @@
 use crate::domain::{
-    all_track_fx_enable_unit_value, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, handle_track_exclusivity, ControlContext,
+    all_track_fx_enable_unit_value, change_track_prop, format_value_as_on_off,
+    get_control_type_and_character_for_track_exclusivity, ControlContext,
     HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
     TrackExclusivity,
 };
@@ -28,13 +28,13 @@ impl RealearnTarget for AllTrackFxEnableTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        if value.to_unit_value()?.is_zero() {
-            handle_track_exclusivity(&self.track, self.exclusivity, |t| t.enable_fx());
-            self.track.disable_fx();
-        } else {
-            handle_track_exclusivity(&self.track, self.exclusivity, |t| t.disable_fx());
-            self.track.enable_fx();
-        }
+        change_track_prop(
+            &self.track,
+            self.exclusivity,
+            value.to_unit_value()?,
+            |t| t.enable_fx(),
+            |t| t.disable_fx(),
+        );
         Ok(None)
     }
 

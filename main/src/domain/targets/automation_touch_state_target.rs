@@ -1,8 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
-    handle_track_exclusivity, touched_unit_value, AdditionalFeedbackEvent, BackboneState,
-    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    TargetCharacter, TouchedParameterType, TrackExclusivity,
+    change_track_prop, format_value_as_on_off,
+    get_control_type_and_character_for_track_exclusivity, touched_unit_value,
+    AdditionalFeedbackEvent, BackboneState, ControlContext, HitInstructionReturnValue,
+    MappingControlContext, RealearnTarget, TargetCharacter, TouchedParameterType, TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -28,18 +28,22 @@ impl RealearnTarget for AutomationTouchStateTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        let mut ctx = BackboneState::target_context().borrow_mut();
-        if value.to_unit_value()?.is_zero() {
-            handle_track_exclusivity(&self.track, self.exclusivity, |t| {
-                ctx.touch_automation_parameter(t.raw(), self.parameter_type)
-            });
-            ctx.untouch_automation_parameter(self.track.raw(), self.parameter_type);
-        } else {
-            handle_track_exclusivity(&self.track, self.exclusivity, |t| {
-                ctx.untouch_automation_parameter(t.raw(), self.parameter_type)
-            });
-            ctx.touch_automation_parameter(self.track.raw(), self.parameter_type);
-        }
+        let target_context = BackboneState::target_context();
+        change_track_prop(
+            &self.track,
+            self.exclusivity,
+            value.to_unit_value()?,
+            |t| {
+                target_context
+                    .borrow_mut()
+                    .touch_automation_parameter(t.raw(), self.parameter_type)
+            },
+            |t| {
+                target_context
+                    .borrow_mut()
+                    .untouch_automation_parameter(t.raw(), self.parameter_type)
+            },
+        );
         Ok(None)
     }
 

@@ -21,7 +21,7 @@ pub fn handle_exclusivity<E: HierarchyEntry>(
     use TrackExclusivity::*;
     match exclusivity {
         NonExclusive => {}
-        ExclusiveAll => {
+        ExclusiveWithinProject | ExclusiveWithinProjectOnOnly => {
             for i in 0..provider.entry_count() {
                 let e = provider.find_entry_by_index(i).unwrap();
                 if &e == current_entry {
@@ -30,7 +30,7 @@ pub fn handle_exclusivity<E: HierarchyEntry>(
                 apply(i, &e);
             }
         }
-        ExclusiveFolder => {
+        ExclusiveWithinFolder | ExclusiveWithinFolderOnOnly => {
             // At first look at tracks above
             {
                 let mut delta = 0;
@@ -90,19 +90,19 @@ mod tests {
             // When
             // Then
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 0,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 0,),
                 hashset![1, 2, 3]
             );
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 1,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 1,),
                 hashset![0, 2, 3]
             );
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 2,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 2,),
                 hashset![0, 1, 3]
             );
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 3,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 3,),
                 hashset![0, 1, 2]
             );
         }
@@ -113,17 +113,20 @@ mod tests {
             let p = P(vec![E("/"), E("-"), E("-"), E("-")]);
             // When
             // Then
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 0,), hashset![]);
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 1,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 0,),
+                hashset![]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 1,),
                 hashset![2, 3]
             );
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 2,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 2,),
                 hashset![1, 3]
             );
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 3,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 3,),
                 hashset![1, 2]
             );
         }
@@ -135,19 +138,19 @@ mod tests {
             // When
             // Then
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 0,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 0,),
                 hashset![1, 2, 3]
             );
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 1,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 1,),
                 hashset![0, 2, 3]
             );
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 2,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 2,),
                 hashset![0, 1, 3]
             );
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 3,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 3,),
                 hashset![0, 1, 2]
             );
         }
@@ -158,10 +161,22 @@ mod tests {
             let p = P(vec![E("-"), E("/"), E("-"), E("-")]);
             // When
             // Then
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 0,), hashset![1]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 1,), hashset![0]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 2,), hashset![3]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 3,), hashset![2]);
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 0,),
+                hashset![1]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 1,),
+                hashset![0]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 2,),
+                hashset![3]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 3,),
+                hashset![2]
+            );
         }
 
         #[test]
@@ -171,18 +186,21 @@ mod tests {
             // When
             // Then
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 0,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 0,),
                 hashset![1, 2]
             );
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 1,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 1,),
                 hashset![0, 2]
             );
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 2,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 2,),
                 hashset![0, 1]
             );
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 3,), hashset![]);
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 3,),
+                hashset![]
+            );
         }
 
         #[test]
@@ -192,16 +210,19 @@ mod tests {
             // When
             // Then
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 0,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 0,),
                 hashset![2, 3]
             );
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 1,), hashset![]);
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 2,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 1,),
+                hashset![]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 2,),
                 hashset![0, 3]
             );
             assert_eq!(
-                test(&p, TrackExclusivity::ExclusiveFolder, 3,),
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 3,),
                 hashset![0, 2]
             );
         }
@@ -212,10 +233,22 @@ mod tests {
             let p = P(vec![E("/"), E("-"), E(r#"\"#), E("-")]);
             // When
             // Then
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 0,), hashset![3]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 1,), hashset![2]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 2,), hashset![1]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 3,), hashset![0]);
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 0,),
+                hashset![3]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 1,),
+                hashset![2]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 2,),
+                hashset![1]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 3,),
+                hashset![0]
+            );
         }
 
         #[test]
@@ -224,10 +257,22 @@ mod tests {
             let p = P(vec![E("/"), E("/"), E(r#"\\"#), E("-")]);
             // When
             // Then
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 0,), hashset![3]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 1,), hashset![]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 2,), hashset![]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 3,), hashset![0]);
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 0,),
+                hashset![3]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 1,),
+                hashset![]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 2,),
+                hashset![]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 3,),
+                hashset![0]
+            );
         }
 
         #[test]
@@ -236,11 +281,26 @@ mod tests {
             let p = P(vec![E("/"), E("/"), E("/"), E(r#"\\\"#), E("-")]);
             // When
             // Then
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 0,), hashset![4]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 1,), hashset![]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 2,), hashset![]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 3,), hashset![]);
-            assert_eq!(test(&p, TrackExclusivity::ExclusiveFolder, 4,), hashset![0]);
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 0,),
+                hashset![4]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 1,),
+                hashset![]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 2,),
+                hashset![]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 3,),
+                hashset![]
+            );
+            assert_eq!(
+                test(&p, TrackExclusivity::ExclusiveWithinFolder, 4,),
+                hashset![0]
+            );
         }
     }
 

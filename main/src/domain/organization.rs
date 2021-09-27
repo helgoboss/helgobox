@@ -8,36 +8,41 @@ pub struct TagScope {
 }
 
 impl TagScope {
-    pub fn determine_change(&self, exclusivity: Exclusivity, tags: &[Tag]) -> Option<bool> {
-        match exclusivity {
-            Exclusivity::Exclusive => {
-                if self.has_tags() {
-                    // Set mappings that match the scope tags and unset all others as long as they
-                    // have tags!
-                    if tags.is_empty() {
-                        None
-                    } else {
-                        Some(has_any_of(&self.tags, tags))
-                    }
+    pub fn determine_change(
+        &self,
+        exclusivity: Exclusivity,
+        tags: &[Tag],
+        is_enable: bool,
+    ) -> Option<bool> {
+        use Exclusivity::*;
+        if exclusivity == Exclusive || (exclusivity == ExclusiveOnOnly && is_enable) {
+            // Exclusive
+            if self.has_tags() {
+                // Set mappings that match the scope tags and unset all others as long as they
+                // have tags!
+                if tags.is_empty() {
+                    None
                 } else {
-                    // Scope doesn't define any tags. Unset *all* mappings as long as
-                    // they have tags.
-                    if tags.is_empty() {
-                        None
-                    } else {
-                        Some(false)
-                    }
+                    Some(has_any_of(&self.tags, tags))
+                }
+            } else {
+                // Scope doesn't define any tags. Unset *all* mappings as long as
+                // they have tags.
+                if tags.is_empty() {
+                    None
+                } else {
+                    Some(false)
                 }
             }
-            Exclusivity::NonExclusive => {
-                if !self.has_tags() || has_any_of(&self.tags, tags) {
-                    // Non-exclusive, so we just add to or remove from mappings that are
-                    // currently active (= relative).
-                    Some(true)
-                } else {
-                    // Don't touch mappings that don't match the tags.
-                    None
-                }
+        } else {
+            // Non-exclusive
+            if !self.has_tags() || has_any_of(&self.tags, tags) {
+                // Non-exclusive, so we just add to or remove from mappings that are
+                // currently active (= relative).
+                Some(true)
+            } else {
+                // Don't touch mappings that don't match the tags.
+                None
             }
         }
     }

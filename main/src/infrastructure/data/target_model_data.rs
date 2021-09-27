@@ -297,7 +297,7 @@ impl TargetModelData {
         let track_exclusivity = if let Some(select_exclusively) = self.select_exclusively {
             // Should only be set in versions < 2.4.0.
             if select_exclusively {
-                TrackExclusivity::ExclusiveAll
+                TrackExclusivity::ExclusiveWithinProject
             } else {
                 TrackExclusivity::NonExclusive
             }

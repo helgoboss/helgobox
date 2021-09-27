@@ -1122,7 +1122,7 @@ impl TargetModel {
                     NavigateWithinGroup => UnresolvedReaperTarget::NavigateWithinGroup {
                         compartment,
                         group_id: self.group_id.get(),
-                        exclusivity: self.exclusivity.get(),
+                        exclusivity: self.exclusivity.get().into(),
                     },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))

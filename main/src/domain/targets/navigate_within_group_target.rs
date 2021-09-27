@@ -1,8 +1,8 @@
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value, convert_unit_to_discrete_value,
-    ControlContext, Exclusivity, GroupId, HitInstruction, HitInstructionContext,
-    HitInstructionReturnValue, InstanceStateChanged, MappingCompartment, MappingControlContext,
-    MappingControlResult, MappingId, RealearnTarget, TargetCharacter,
+    ControlContext, GroupId, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
+    InstanceStateChanged, MappingCompartment, MappingControlContext, MappingControlResult,
+    MappingId, RealearnTarget, SimpleExclusivity, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 
@@ -12,7 +12,7 @@ pub struct NavigateWithinGroupTarget {
     /// not have any effect when controlling (only when querying the values).
     pub compartment: MappingCompartment,
     pub group_id: GroupId,
-    pub exclusivity: Exclusivity,
+    pub exclusivity: SimpleExclusivity,
 }
 
 impl NavigateWithinGroupTarget {
@@ -68,7 +68,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
         );
         struct CycleThroughGroupInstruction {
             group_id: GroupId,
-            exclusivity: Exclusivity,
+            exclusivity: SimpleExclusivity,
             desired_mapping_id: MappingId,
         }
         impl HitInstruction for CycleThroughGroupInstruction {
@@ -80,7 +80,7 @@ impl RealearnTarget for NavigateWithinGroupTarget {
                 for m in context.mappings.values_mut() {
                     let v = if m.id() == self.desired_mapping_id {
                         m.mode().settings().target_value_interval.max_val()
-                    } else if self.exclusivity == Exclusivity::Exclusive
+                    } else if self.exclusivity == SimpleExclusivity::Exclusive
                         && m.group_id() == self.group_id
                     {
                         m.mode().settings().target_value_interval.min_val()

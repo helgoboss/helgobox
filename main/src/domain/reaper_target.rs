@@ -1200,14 +1200,28 @@ pub enum TrackExclusivity {
     #[display(fmt = "No")]
     NonExclusive,
     #[display(fmt = "Within project")]
-    ExclusiveAll,
+    ExclusiveWithinProject,
     #[display(fmt = "Within folder")]
-    ExclusiveFolder,
+    ExclusiveWithinFolder,
+    #[display(fmt = "Within project (on only)")]
+    ExclusiveWithinProjectOnOnly,
+    #[display(fmt = "Within folder (on only)")]
+    ExclusiveWithinFolderOnOnly,
 }
 
 impl Default for TrackExclusivity {
     fn default() -> Self {
         TrackExclusivity::NonExclusive
+    }
+}
+
+impl TrackExclusivity {
+    pub fn is_on_only(self) -> bool {
+        use TrackExclusivity::*;
+        matches!(
+            self,
+            ExclusiveWithinProjectOnOnly | ExclusiveWithinFolderOnOnly
+        )
     }
 }
 
@@ -1231,11 +1245,59 @@ pub enum Exclusivity {
     NonExclusive,
     #[display(fmt = "Exclusive")]
     Exclusive,
+    #[display(fmt = "Exclusive (on only)")]
+    ExclusiveOnOnly,
 }
 
 impl Default for Exclusivity {
     fn default() -> Self {
         Exclusivity::NonExclusive
+    }
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum SimpleExclusivity {
+    #[display(fmt = "Non-exclusive")]
+    NonExclusive,
+    #[display(fmt = "Exclusive")]
+    Exclusive,
+}
+
+impl Default for SimpleExclusivity {
+    fn default() -> Self {
+        SimpleExclusivity::NonExclusive
+    }
+}
+
+impl From<Exclusivity> for SimpleExclusivity {
+    fn from(e: Exclusivity) -> Self {
+        use Exclusivity::*;
+        match e {
+            NonExclusive => Self::NonExclusive,
+            Exclusive | ExclusiveOnOnly => Self::Exclusive,
+        }
+    }
+}
+
+impl From<SimpleExclusivity> for Exclusivity {
+    fn from(e: SimpleExclusivity) -> Self {
+        use SimpleExclusivity::*;
+        match e {
+            NonExclusive => Self::NonExclusive,
+            Exclusive => Self::Exclusive,
+        }
     }
 }
 
@@ -1259,23 +1321,43 @@ impl HierarchyEntry for Track {
     }
 }
 
-pub fn handle_track_exclusivity(
+pub fn change_track_prop(
     track: &Track,
     exclusivity: TrackExclusivity,
-    mut f: impl FnMut(&Track),
+    control_value: UnitValue,
+    mut enable: impl FnMut(&Track),
+    mut disable: impl FnMut(&Track),
 ) {
     let track_index = match track.index() {
         // We consider the master track as its own folder (same as non-exclusive).
         None => return,
         Some(i) => i,
     };
-    handle_exclusivity(
-        &track.project(),
-        exclusivity,
-        track_index,
-        track,
-        |_, track| f(track),
-    );
+    if control_value.is_zero() {
+        if !exclusivity.is_on_only() {
+            // Enable property for other tracks
+            handle_exclusivity(
+                &track.project(),
+                exclusivity,
+                track_index,
+                track,
+                |_, track| enable(track),
+            );
+        }
+        // Disable property for this track
+        disable(track);
+    } else {
+        // Disable property for other tracks
+        handle_exclusivity(
+            &track.project(),
+            exclusivity,
+            track_index,
+            track,
+            |_, track| disable(track),
+        );
+        // Enable property for this track
+        enable(track);
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

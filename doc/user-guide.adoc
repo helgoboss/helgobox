@@ -1612,15 +1612,14 @@ anymore.
  _Track_ is currently selected. Of course, this doesn't have any effect if latter is
  _&lt;Selected&gt;_.
 
-Targets which control an on/off-style property of tracks (e.g. <<track-solounsolo,Track: Solo/unsolo>>) additionally
-provide this:
+Targets which control an on/off-style property of tracks (e.g. <<track-solounsolo,Track: Solo/unsolo>>) additionally provide this:
 
 * *Exclusive:* By default, this option is set to "No".
 ** *No:* Makes the track target affect just this track.
-** *Within all tracks:* Switches the property on (or off) for this track and makes sure that it's off (or on)
- for all other tracks in the project.
-** *Within folder:* Switches the property on (or off) for this track and makes sure that it's off (or on) for
- all tracks in the same folder and same level. Very powerful feature!
+** *Within project:* Switches the property on (off) for this track and off (on) for all other tracks in the project.
+** *Within folder:* Switches the property on (off) for this track and off (on) for all other tracks in the same folder and same level.
+** *Within project (on only):* Variation of _Within project_ that applies exclusivity only when switching the property on for this track. In other words, it never switches the property on for other tracks.
+** *Within folder (on only):* Variation of _Within folder_ that applies exclusivity only when switching the property on for this track. In other words, it never switches the property on for other tracks.
 
 Only available for targets that work on a send/receive:
 
@@ -2174,6 +2173,7 @@ This target allows you to flexibly enable or disable other ReaLearn instances ba
 * *Exclusivity*
 ** *Non-exclusive:* If the incoming control value is greater than 0%, all matching ReaLearn instances will be enabled (on top of the already enabled instances). If the value is 0%, all matching ReaLearn instances will be disabled.
 ** *Exclusive:* If the incoming control value is greater than 0%, all matching ReaLearn instances will be enabled and all non-matching ones will be disabled. If the value is 0%, it's exactly the opposite (react to button <<press-only,press only>> if you don't want this to happen).
+** *Exclusive (on only):* Variation of _Exclusive_ that applies exclusivity only if the incoming control value is greater than 0%.
 * *Tags:* A ReaLearn instance matches when it is tagged with any of the tags entered in this field (comma-separated).
 
 TIP: Use the main panel to assign tags to a ReaLearn instance.
@@ -2194,6 +2194,7 @@ This target allows you to flexibly enable or disable other mappings in this inst
 * *Exclusivity*
 ** *Non-exclusive:* If the incoming control value is greater than 0%, all matching mappings will be enabled (on top of the already enabled mappings). If the value is 0%, all matching mappings will be disabled.
 ** *Exclusive:* If the incoming control value is greater than 0%, all matching mappings will be enabled and all non-matching ones will be disabled. If the value is 0%, it's exactly the opposite (react to button <<press-only,press only>> if you don't want this to happen).
+** *Exclusive (on only):* Variation of _Exclusive_ that applies exclusivity only if the incoming control value is greater than 0%.
 * *Tags:* A mapping matches when it is tagged with any of the tags entered in this field (comma-separated).
 
 TIP: Use the text field on the top of the mapping panel to assign tags to a mapping.
@@ -2334,9 +2335,7 @@ These are relevant for the control direction only:
  one group. It's a great alternative to the _Exclusive_ setting which is available for some targets. Unlike the
  latter, _Inverse target value_ allows for exclusivity between completely different target types and completely
  custom groupings - independent of e.g. organization of tracks into folders.
-
-These are relevant for the feedback direction only:
-
+** *Inverse target value (on only):* Variation of _Inverse target value_ that applies the inverse only when the target value is > 0%.
 * *Feedback transformation (EEL):* This is like _Control transformation (EEL)_ (see further below) but used for
  translating a target value back to a source value for feedback purposes. It usually makes most
  sense if it's exactly the reverse of the control transformation. Be aware: Here `x` is the desired

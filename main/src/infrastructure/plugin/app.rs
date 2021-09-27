@@ -1486,7 +1486,11 @@ impl InstanceContainer for App {
                 }
                 // Determine how to change the instances.
                 let session_tags = session.tags.get_ref();
-                let flag = match args.scope.determine_change(args.exclusivity, session_tags) {
+                let flag = match args.scope.determine_change(
+                    args.exclusivity,
+                    session_tags,
+                    args.is_enable,
+                ) {
                     None => continue,
                     Some(f) => f,
                 };

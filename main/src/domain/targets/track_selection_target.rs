@@ -1,7 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
-    handle_track_exclusivity, track_selected_unit_value, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, TargetCharacter, TrackExclusivity,
+    change_track_prop, format_value_as_on_off,
+    get_control_type_and_character_for_track_exclusivity, track_selected_unit_value,
+    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
+    TargetCharacter, TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper, Track};
@@ -29,15 +30,24 @@ impl RealearnTarget for TrackSelectionTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        if value.to_unit_value()?.is_zero() {
-            handle_track_exclusivity(&self.track, self.exclusivity, |t| t.select());
-            self.track.unselect();
-        } else if self.exclusivity == TrackExclusivity::ExclusiveAll {
+        let value = value.to_unit_value()?;
+        use TrackExclusivity::*;
+        let select_exclusively_within_project = !value.is_zero()
+            && matches!(
+                self.exclusivity,
+                ExclusiveWithinProject | ExclusiveWithinProjectOnOnly
+            );
+        if select_exclusively_within_project {
             // We have a dedicated REAPER function to select the track exclusively.
             self.track.select_exclusively();
         } else {
-            handle_track_exclusivity(&self.track, self.exclusivity, |t| t.unselect());
-            self.track.select();
+            change_track_prop(
+                &self.track,
+                self.exclusivity,
+                value,
+                |t| t.select(),
+                |t| t.unselect(),
+            );
         }
         if self.scroll_arrange_view {
             Reaper::get()

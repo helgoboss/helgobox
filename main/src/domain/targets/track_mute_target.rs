@@ -1,7 +1,8 @@
 use crate::domain::{
-    format_value_as_on_off, get_control_type_and_character_for_track_exclusivity,
-    handle_track_exclusivity, mute_unit_value, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, TargetCharacter, TrackExclusivity,
+    change_track_prop, format_value_as_on_off,
+    get_control_type_and_character_for_track_exclusivity, mute_unit_value, ControlContext,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
+    TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -26,13 +27,13 @@ impl RealearnTarget for TrackMuteTarget {
         value: ControlValue,
         _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        if value.to_unit_value()?.is_zero() {
-            handle_track_exclusivity(&self.track, self.exclusivity, |t| t.mute());
-            self.track.unmute();
-        } else {
-            handle_track_exclusivity(&self.track, self.exclusivity, |t| t.unmute());
-            self.track.mute();
-        }
+        change_track_prop(
+            &self.track,
+            self.exclusivity,
+            value.to_unit_value()?,
+            |t| t.mute(),
+            |t| t.unmute(),
+        );
         Ok(None)
     }
 

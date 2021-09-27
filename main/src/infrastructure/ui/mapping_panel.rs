@@ -40,7 +40,7 @@ use crate::application::{
 use crate::base::Global;
 use crate::domain::{
     control_element_domains, ClipInfo, ControlContext, Exclusivity, FeedbackSendBehavior,
-    SendMidiDestination, SlotContent, WithControlContext, CLIP_SLOT_COUNT,
+    SendMidiDestination, SimpleExclusivity, SlotContent, WithControlContext, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -1798,6 +1798,16 @@ impl<'a> MutableMappingPanel<'a> {
                         .unwrap_or_default();
                     self.mapping.target_model.param_type.set(param_type);
                 }
+                ReaperTargetType::NavigateWithinGroup => {
+                    let exclusivity: SimpleExclusivity = combo
+                        .selected_combo_box_item_index()
+                        .try_into()
+                        .unwrap_or_default();
+                    self.mapping
+                        .target_model
+                        .exclusivity
+                        .set(exclusivity.into());
+                }
                 t if t.supports_exclusivity() => {
                     let exclusivity = combo
                         .selected_combo_box_item_index()
@@ -3449,6 +3459,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.fill_combo_box_indexed(VirtualFxParameterType::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(self.target.param_type.get().into())
+                        .unwrap();
+                }
+                ReaperTargetType::NavigateWithinGroup => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(SimpleExclusivity::into_enum_iter());
+                    let simple_exclusivity: SimpleExclusivity =
+                        self.target.exclusivity.get().into();
+                    combo
+                        .select_combo_box_item_by_index(simple_exclusivity.into())
                         .unwrap();
                 }
                 t if t.supports_exclusivity() => {

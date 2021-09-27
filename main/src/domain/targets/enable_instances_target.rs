@@ -37,7 +37,8 @@ impl RealearnTarget for EnableInstancesTarget {
             .instance_container
             .enable_instances(args);
         let mut instance_state = context.control_context.instance_state.borrow_mut();
-        if self.exclusivity == Exclusivity::Exclusive {
+        use Exclusivity::*;
+        if self.exclusivity == Exclusive || (self.exclusivity == ExclusiveOnOnly && is_enable) {
             // Completely replace
             let new_active_tags = tags.unwrap_or_else(|| self.scope.tags.clone());
             instance_state.set_active_instance_tags(new_active_tags);
@@ -68,11 +69,12 @@ impl<'a> Target<'a> for EnableInstancesTarget {
 
     fn current_value(&self, context: Self::Context) -> Option<AbsoluteValue> {
         let instance_state = context.instance_state.borrow();
+        use Exclusivity::*;
         let active = match self.exclusivity {
-            Exclusivity::NonExclusive => {
+            NonExclusive => {
                 instance_state.at_least_those_instance_tags_are_active(&self.scope.tags)
             }
-            Exclusivity::Exclusive => {
+            Exclusive | ExclusiveOnOnly => {
                 instance_state.only_these_instance_tags_are_active(&self.scope.tags)
             }
         };
