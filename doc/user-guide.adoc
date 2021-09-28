@@ -5,7 +5,7 @@
 :sectnumlevels: 2
 
 |===
-|Last update of text: |`2021-09-22 (v2.11.0-pre.1)`
+|Last update of text: |`2021-09-28 (v2.11.0-pre.2)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -524,8 +524,7 @@ on macOS) with the following entries:
  clipboard.
 * *Auto-name listed mappings:* Clears the names of all listed mappings so ReaLearn's auto-naming mechanism can kick
  in.
-* *Move listed mappings to group:* Lets you move all currently listed mappings to the specified group. Perfect in
- combination with the textual search!
+* *Move listed mappings to group:* Lets you move all currently listed mappings to the specified group. Perfect in combination with the textual search!
 * *Options*
 ** *Auto-correct settings:* By default, whenever you change something in ReaLearn, it tries to
  figure out if your combination of settings makes sense. If not, it makes an adjustment.
@@ -843,7 +842,7 @@ which allows you access to the following functionality:
 * *Paste mapping (insert below):* Creates a new mapping that's like the mapping in the clipboard and places it below
  this mapping.
 * *Copy part:* Copies just a part of the mapping (source, mode or target).
-* *Move to group:* lets you move this mapping to another mapping group.
+* *Move to group:* Lets you move this mapping to another mapping group.
 
 [#mapping-panel]
 === Mapping panel
@@ -1218,7 +1217,7 @@ resolution.
  between 0 and 16383.
 * *RPN:* If unchecked, this source reacts to unregistered parameter-number messages (NRPN). If
  checked, it reacts to registered ones (RPN).
-* *14-bit values:* If unchecked, this source reacts to (N)RPN messages with 7-bit resolution. If
+* *14-bit values:* If unchecked, this source reacts to (N)RPN messages with 7-bit resolution, including increment/decrement messages. If
  checked, it reacts to those with 14-bit resolution. In practice, this if often checked.
 * *Character:* See <<cc-value-source,CC value source>>.
 
@@ -1700,16 +1699,17 @@ otherwise removes the override.
 
 Triggers or sets the value of a particular REAPER action in the main section.
 
-* *Pick:* Opens REAPER's action dialog so you can select the desired action.
-* *Invocation type:* Specifies _how_ the picked action is going to be controlled.
-* *Trigger:* Invokes the action with the incoming absolute control value, but only if it's
+* *Invoke:* Specifies _how_ the picked action is going to be controlled.
+** *Trigger:* Invokes the action with the incoming absolute control value, but only if it's
 greater than 0%. Most suitable for simple trigger-like actions that neither have an on/off state
 nor are annotated with "(MIDI CC/OSC only)" or similar.
-* *Absolute:* Invokes the action with the incoming absolute control value, even if it's 0%. Most
+** *Absolute:* Invokes the action with the incoming absolute control value, even if it's 0%. Most
 suitable for actions which either have an on/off state or are annotated with "(MIDI CC/OSC
 only)" or similar.
-* *Relative:* Invokes the action with the incoming relative control value (absolute ones are
+** *Relative:* Invokes the action with the incoming relative control value (absolute ones are
 ignored). Only works for actions that are annotated with ("MIDI CC relative only") or similar.
+* *Pick:* Opens REAPER's action dialog so you can select the desired action.
+* *With track*: Allows you to choose a track which ReaLearn will select before executing the action. This makes it possible to combine ReaLearn's flexible track selection capabilities with the plethora of REAPER actions that work on the currently selected track.
 
 The particular action decides if toggling/feedback works completely, has limitations or is not possible at all. There
 are multiple types of actions so it's not possible to settle with one invocation type and be done with it. The types
@@ -1885,6 +1885,11 @@ a single LED to build a clipping indicator:
 
 At the moment this target only reports peak volume, not RMS.
 
+====== Track: Phase invert/normal
+
+Inverts the track phase if the incoming absolute control value is greater than 0%, otherwise switches the track phase back to normal.
+
+
 [#track-selectunselect]
 ====== Track: Select/unselect
 
@@ -2015,9 +2020,21 @@ Sets the value of a particular track FX parameter.
 
 * *Parameter:* The parameter to be controlled. Please note that both the _By ID_ selector and the _By Position_ selector address the FX by its position in the FX chain. The difference between the two is that _By ID_ shows a dropdown containing the available parameters and _By Position_ lets you enter the position as a number in a text field. Latter is useful if at the time of choosing the position, the FX is not available.
 
+====== Send: Automation mode
+
+Sets the track send to a specific automation mode if the incoming control value is greater than 0%, otherwise sets it back to REAPER's default automation mode "Trim/Read".
+
+====== Send: Mono/stereo
+
+Sets the track send to mono or back to stereo.
+
 ====== Send: Mute/unmute
 
 Mutes/unmutes the track send.
+
+====== Send: Phase invert/normal
+
+Inverts the track send phase or switches it back to normal.
 
 ====== Send: Set pan
 
@@ -2386,14 +2403,22 @@ are buttons. Let's assume you use the _MIDI Note velocity_ and select _Increment
 Then it works like this: Each time you press the key, the target value will increase, according to the mode's
 settings. You can even make the amount of change velocity-sensitive! If you want the target value to decrease,
 just check the _Reverse_ checkbox.
-* *Toggle buttons:* Toggle buttons mode is used to toggle a target between on and off states. It only makes sense
-for momentary buttons (which fire a value &gt; 0 on each press).
-** *Important:* Sometimes the controller itself provides a toggle mode for buttons. Don't use this!
+* *Toggle buttons:* Toggle buttons mode is used to toggle a target between on and off states. It only makes sense for momentary buttons (which fire a value > 0 on each press).
+** Here's how it works in detail:
+*** If the current target value is within the first half of the target min/max range, it's considered as _off_ and will therefore be switched _on_ (set to _target max_). If it's within the second half, it's considered as _on_ and will therefore be switched _off_ (set to _target min_).
+*** It works a bit differently if _target min_ and _target max_ have the same value (which is a common technique to set the target to a specific value on the press of a button). Instead of toggling between _target min_ and _target max_, this mode now toggles between this specific value (= _target min_ = _target max_) and 0%. This is useful whenever you have a set of buttons each of which sets the same target to a different value, and you want them to toggle between the specified value and an initial value (0%).
+** This mode is not supported for controller mappings that have a virtual target.
++
+[TIP]
+====
+Sometimes the controller itself provides a toggle mode for buttons. *Don't use it!*
+
 Always set up your controller buttons to work in momentary mode! It's impossible for the controller
 to know which state (on/off) a target currently has. Therefore, if you use the controller's built-in
 toggle function, it's quite likely that it gets out of sync with the actual target state at some point.
+
 ReaLearn's own toggle mode has a clear advantage here.
-** This mode is not supported for controller mappings that have a virtual target.
+====
 * *Jump Min/Max:* If you are not using motorized faders, absolute mode is inherently prone to
  parameter jumps. A parameter jump occurs if you touch a control element (e.g. fader) whose
  position in no way reflects the current target value. This can result in audible jumps because the
@@ -3078,20 +3103,44 @@ ReaLearn 2.11.0 introduces an alternative to <<conditional-activation>>: The abi
 
 You strictly need to use conditional activation if you ...
 
-* ... want to (de)activate mappings using REAPER automation envelopes.
+* ... want to activate/deactivate mappings using REAPER automation envelopes.
 * ... want to sync the active/inactive state of a mapping with a <<dynamic-selector,`<Dynamic>`>> expression.
-* ... want to (de)activate mappings in another ReaLearn instance.
-* ... want to (de)activate mappings in another compartment within the same ReaLearn instance.
+* ... want to activate/deactivate mappings in another ReaLearn instance.
+* ... want to activate/deactivate mappings in another compartment within the same ReaLearn instance.
 +
 NOTE: This particular limitation of the enable/disable target might disappear in the future.
 
 You might prefer conditional activation if you ...
 
-* ... prefer that the mapping itself defines when it should be active or not (instead of dictating it via tags).
 * ... have a modifier use case (not a bank switching use case).
 ** It can be quite intuitive to think of modifiers as parameters that you define once and refer to them in the mapping (to be activated or deactivated) itself.
+* ... have a modifier use case in which you want to combine multiple modifiers (e.g. activate a mapping only if the _Shift_ and _Control_ button is pressed at the same time)
+** This is really much easier to achieve using conditional activation, think about it.
+* ... prefer that the mapping itself defines when it should be active or not (instead of dictating it via tags).
 
 In all other circumstances the enable/disable target should be fine.
+
+==== More technical explanation
+
+Conditional activation introduces a level of indirection. It allows you to look at the act of enabling/disable mappings as _two different concerns_ by introducing an intermediate concept called a "modifier" (respectively a "bank").
+
+In particular, it separates the following two concerns:
+
+1. Switching a modifier on/off (respectively activating a bank)
+2. Let other mappings follow the on/off state of the modifier (respectively the active bank)
+
+You define these two concerns in different mappings:
+
+1. "Modifier/bank-changing mappings"
+2. "Modifier/bank-dependent mappings" (as activation condition)
+
+If you use the alternative to conditional activation, <<realearn-enable-disable-mappings>>, you throw both of these concerns into one mapping!
+
+The advantage of separating these two concerns is that you can change *1* (the modifier/bank-changing mappings, e.g. which button controls the modifier and how) without having to touch *2* (the dependent mappings)! And vice versa. That can make complex setups easier to understand and reason about!
+
+The disadvantage is that it makes simple setups a bit harder to understand than necessary since you need at least two mappings instead of only one.
+
+As always: Choose the right tool for the job and consider starting off with the easiest tool.
 
 [#tested-controllers]
 == Tested controllers
