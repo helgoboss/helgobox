@@ -8,10 +8,11 @@ use crate::domain::{
     FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, GroupId,
     LoadFxSnapshotTarget, LoadMappingSnapshotTarget, MappingCompartment, MidiSendTarget,
     NavigateWithinGroupTarget, OscDeviceId, OscSendTarget, ParameterSlice, PlayrateTarget,
-    RealearnTarget, ReaperTarget, RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekOptions,
-    SeekTarget, SelectedTrackTarget, SendMidiDestination, SimpleExclusivity, SlotPlayOptions,
-    SoloBehavior, TagScope, TempoTarget, TouchedParameterType, TrackArmTarget,
-    TrackAutomationModeTarget, TrackExclusivity, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
+    RealearnTarget, ReaperTarget, RouteAutomationModeTarget, RouteMonoTarget, RouteMuteTarget,
+    RoutePanTarget, RoutePhaseTarget, RouteVolumeTarget, SeekOptions, SeekTarget,
+    SelectedTrackTarget, SendMidiDestination, SimpleExclusivity, SlotPlayOptions, SoloBehavior,
+    TagScope, TempoTarget, TouchedParameterType, TrackArmTarget, TrackAutomationModeTarget,
+    TrackExclusivity, TrackMuteTarget, TrackPanTarget, TrackPeakTarget, TrackPhaseTarget,
     TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget,
     TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
 };
@@ -77,6 +78,11 @@ pub enum UnresolvedReaperTarget {
         track_descriptor: TrackDescriptor,
         exclusivity: TrackExclusivity,
     },
+    TrackPhase {
+        track_descriptor: TrackDescriptor,
+        exclusivity: TrackExclusivity,
+        poll_for_feedback: bool,
+    },
     TrackShow {
         track_descriptor: TrackDescriptor,
         exclusivity: TrackExclusivity,
@@ -98,6 +104,19 @@ pub enum UnresolvedReaperTarget {
     },
     TrackSendMute {
         descriptor: TrackRouteDescriptor,
+        poll_for_feedback: bool,
+    },
+    TrackRoutePhase {
+        descriptor: TrackRouteDescriptor,
+        poll_for_feedback: bool,
+    },
+    TrackRouteMono {
+        descriptor: TrackRouteDescriptor,
+        poll_for_feedback: bool,
+    },
+    TrackRouteAutomationMode {
+        descriptor: TrackRouteDescriptor,
+        mode: AutomationMode,
         poll_for_feedback: bool,
     },
     Tempo,
@@ -309,6 +328,20 @@ impl UnresolvedReaperTarget {
                     })
                 })
                 .collect(),
+            TrackPhase {
+                track_descriptor,
+                exclusivity,
+                poll_for_feedback,
+            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| {
+                    ReaperTarget::TrackPhase(TrackPhaseTarget {
+                        track,
+                        exclusivity: *exclusivity,
+                        poll_for_feedback: *poll_for_feedback,
+                    })
+                })
+                .collect(),
             TrackShow {
                 track_descriptor,
                 exclusivity,
@@ -363,6 +396,31 @@ impl UnresolvedReaperTarget {
                 route: get_track_route(context, descriptor, compartment)?,
                 poll_for_feedback: *poll_for_feedback,
             })],
+            TrackRoutePhase {
+                descriptor,
+                poll_for_feedback,
+            } => vec![ReaperTarget::TrackRoutePhase(RoutePhaseTarget {
+                route: get_track_route(context, descriptor, compartment)?,
+                poll_for_feedback: *poll_for_feedback,
+            })],
+            TrackRouteMono {
+                descriptor,
+                poll_for_feedback,
+            } => vec![ReaperTarget::TrackRouteMono(RouteMonoTarget {
+                route: get_track_route(context, descriptor, compartment)?,
+                poll_for_feedback: *poll_for_feedback,
+            })],
+            TrackRouteAutomationMode {
+                descriptor,
+                mode,
+                poll_for_feedback,
+            } => vec![ReaperTarget::TrackRouteAutomationMode(
+                RouteAutomationModeTarget {
+                    route: get_track_route(context, descriptor, compartment)?,
+                    poll_for_feedback: *poll_for_feedback,
+                    mode: *mode,
+                },
+            )],
             Tempo => vec![ReaperTarget::Tempo(TempoTarget {
                 project: context.context().project_or_current_project(),
             })],
@@ -731,6 +789,9 @@ impl UnresolvedReaperTarget {
             | TrackMute {
                 track_descriptor, ..
             }
+            | TrackPhase {
+                track_descriptor, ..
+            }
             | TrackShow {
                 track_descriptor, ..
             }
@@ -754,7 +815,10 @@ impl UnresolvedReaperTarget {
             },
             TrackSendVolume { descriptor }
             | TrackSendPan { descriptor }
-            | TrackSendMute { descriptor, .. } => Descriptors {
+            | TrackSendMute { descriptor, .. }
+            | TrackRoutePhase { descriptor, .. }
+            | TrackRouteAutomationMode { descriptor, .. }
+            | TrackRouteMono { descriptor, .. } => Descriptors {
                 track: Some(&descriptor.track_descriptor),
                 route: Some(descriptor),
                 ..Default::default()
@@ -806,6 +870,18 @@ impl UnresolvedReaperTarget {
                 poll_for_feedback, ..
             }
             | TrackSendMute {
+                poll_for_feedback, ..
+            }
+            | TrackRoutePhase {
+                poll_for_feedback, ..
+            }
+            | TrackRouteMono {
+                poll_for_feedback, ..
+            }
+            | TrackRouteAutomationMode {
+                poll_for_feedback, ..
+            }
+            | TrackPhase {
                 poll_for_feedback, ..
             }
             | TrackShow {

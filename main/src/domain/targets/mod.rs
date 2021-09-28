@@ -76,6 +76,15 @@ pub use route_pan_target::*;
 mod route_mute_target;
 pub use route_mute_target::*;
 
+mod route_phase_target;
+pub use route_phase_target::*;
+
+mod route_mono_target;
+pub use route_mono_target::*;
+
+mod route_automation_mode_target;
+pub use route_automation_mode_target::*;
+
 mod track_pan_target;
 pub use track_pan_target::*;
 
@@ -90,6 +99,9 @@ pub use track_selection_target::*;
 
 mod track_mute_target;
 pub use track_mute_target::*;
+
+mod track_phase_target;
+pub use track_phase_target::*;
 
 mod track_show_target;
 pub use track_show_target::*;

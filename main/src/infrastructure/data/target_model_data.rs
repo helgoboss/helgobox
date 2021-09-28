@@ -177,7 +177,7 @@ impl TargetModelData {
             },
             seek_options: model.seek_options(),
             track_area: model.track_area.get(),
-            track_automation_mode: model.track_automation_mode.get(),
+            track_automation_mode: model.automation_mode.get(),
             automation_mode_override_type: model.automation_mode_override_type.get(),
             fx_display_type: model.fx_display_type.get(),
             scroll_arrange_view: model.scroll_arrange_view.get(),
@@ -361,7 +361,7 @@ impl TargetModelData {
             .track_area
             .set_with_optional_notification(self.track_area, with_notification);
         model
-            .track_automation_mode
+            .automation_mode
             .set_with_optional_notification(self.track_automation_mode, with_notification);
         model
             .automation_mode_override_type

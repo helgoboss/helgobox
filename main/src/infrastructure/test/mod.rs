@@ -1328,11 +1328,9 @@ async fn send_midi(message: impl ShortMessage) {
     moment().await;
 }
 
-async fn send_midi_multi<const I: usize>(messages: [Option<impl ShortMessage>; I]) {
-    for msg in messages {
-        if let Some(msg) = msg {
-            Reaper::get().stuff_midi_message(StuffMidiMessageTarget::VirtualMidiKeyboardQueue, msg);
-        }
+async fn send_midi_multi<T: ShortMessage + Copy, const I: usize>(messages: [Option<T>; I]) {
+    for msg in messages.iter().flatten() {
+        Reaper::get().stuff_midi_message(StuffMidiMessageTarget::VirtualMidiKeyboardQueue, *msg);
     }
     moment().await;
 }

@@ -797,6 +797,7 @@ impl<'a> MutableMappingPanel<'a> {
         }
     }
 
+    #[allow(clippy::single_match)]
     fn handle_target_line_2_button_press(&mut self) {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
@@ -1951,11 +1952,12 @@ impl<'a> MutableMappingPanel<'a> {
                         .set(i.try_into().expect("invalid track area"));
                 }
                 ReaperTargetType::TrackAutomationMode
-                | ReaperTargetType::AutomationModeOverride => {
+                | ReaperTargetType::AutomationModeOverride
+                | ReaperTargetType::TrackSendAutomationMode => {
                     let i = combo.selected_combo_box_item_index();
                     self.mapping
                         .target_model
-                        .track_automation_mode
+                        .automation_mode
                         .set(i.try_into().expect("invalid automation mode"));
                 }
                 ReaperTargetType::AutomationTouchState => {
@@ -3577,9 +3579,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.show();
                     combo.fill_combo_box_indexed(RealearnAutomationMode::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(
-                            self.target.track_automation_mode.get().into(),
-                        )
+                        .select_combo_box_item_by_index(self.target.automation_mode.get().into())
                         .unwrap();
                 }
                 ReaperTargetType::AutomationTouchState => {
@@ -5034,7 +5034,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .solo_behavior
                 .changed()
                 .merge(target.touched_parameter_type.changed())
-                .merge(target.track_automation_mode.changed())
+                .merge(target.automation_mode.changed())
                 .merge(target.automation_mode_override_type.changed())
                 .merge(target.track_area.changed())
                 .merge(target.slot_index.changed()),

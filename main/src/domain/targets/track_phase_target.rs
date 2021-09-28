@@ -1,33 +1,23 @@
+use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    automation_mode_unit_value, change_track_prop, format_value_as_on_off, ControlContext,
+    change_track_prop, format_value_as_on_off,
+    get_control_type_and_character_for_track_exclusivity, ControlContext,
     HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
     TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Project, Track};
-use reaper_medium::AutomationMode;
+use reaper_high::{Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct TrackAutomationModeTarget {
+pub struct TrackPhaseTarget {
     pub track: Track,
     pub exclusivity: TrackExclusivity,
-    pub mode: AutomationMode,
+    pub poll_for_feedback: bool,
 }
 
-impl RealearnTarget for TrackAutomationModeTarget {
+impl RealearnTarget for TrackPhaseTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        // Retriggerable because of #277
-        if self.exclusivity == TrackExclusivity::NonExclusive {
-            (
-                ControlType::AbsoluteContinuousRetriggerable,
-                TargetCharacter::Switch,
-            )
-        } else {
-            (
-                ControlType::AbsoluteContinuousRetriggerable,
-                TargetCharacter::Trigger,
-            )
-        }
+        get_control_type_and_character_for_track_exclusivity(self.exclusivity)
     }
 
     fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
@@ -43,8 +33,8 @@ impl RealearnTarget for TrackAutomationModeTarget {
             &self.track,
             self.exclusivity,
             value.to_unit_value()?,
-            |t| t.set_automation_mode(self.mode),
-            |t| t.set_automation_mode(AutomationMode::TrimRead),
+            |t| t.set_phase_inverted(true),
+            |t| t.set_phase_inverted(false),
         );
         Ok(None)
     }
@@ -65,29 +55,16 @@ impl RealearnTarget for TrackAutomationModeTarget {
         Some(self.exclusivity)
     }
 
-    fn process_change_event(
-        &self,
-        evt: &ChangeEvent,
-        _: ControlContext,
-    ) -> (bool, Option<AbsoluteValue>) {
-        match evt {
-            ChangeEvent::TrackAutomationModeChanged(e) if e.track == self.track => (
-                true,
-                Some(AbsoluteValue::Continuous(automation_mode_unit_value(
-                    self.mode,
-                    e.new_value,
-                ))),
-            ),
-            _ => (false, None),
-        }
+    fn supports_automatic_feedback(&self) -> bool {
+        self.poll_for_feedback
     }
 }
 
-impl<'a> Target<'a> for TrackAutomationModeTarget {
+impl<'a> Target<'a> for TrackPhaseTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let val = automation_mode_unit_value(self.mode, self.track.automation_mode());
+        let val = convert_bool_to_unit_value(self.track.phase_is_inverted());
         Some(AbsoluteValue::Continuous(val))
     }
 

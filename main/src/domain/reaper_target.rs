@@ -16,6 +16,7 @@ use rxrust::prelude::*;
 use crate::domain::{
     EnableInstancesTarget, EnableMappingsTarget, HitInstructionReturnValue,
     LoadMappingSnapshotTarget, NavigateWithinGroupTarget, RealearnTarget,
+    RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget, TrackPhaseTarget,
 };
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -84,11 +85,15 @@ pub enum ReaperTarget {
     TrackArm(TrackArmTarget),
     TrackSelection(TrackSelectionTarget),
     TrackMute(TrackMuteTarget),
+    TrackPhase(TrackPhaseTarget),
     TrackShow(TrackShowTarget),
     TrackSolo(TrackSoloTarget),
     TrackAutomationMode(TrackAutomationModeTarget),
     TrackRoutePan(RoutePanTarget),
     TrackRouteMute(RouteMuteTarget),
+    TrackRoutePhase(RoutePhaseTarget),
+    TrackRouteMono(RouteMonoTarget),
+    TrackRouteAutomationMode(RouteAutomationModeTarget),
     Tempo(TempoTarget),
     Playrate(PlayrateTarget),
     AutomationModeOverride(AutomationModeOverrideTarget),
@@ -592,11 +597,15 @@ impl<'a> Target<'a> for ReaperTarget {
             TrackRouteVolume(t) => t.current_value(context),
             TrackSelection(t) => t.current_value(context),
             TrackMute(t) => t.current_value(context),
+            TrackPhase(t) => t.current_value(context),
             TrackShow(t) => t.current_value(context),
             TrackSolo(t) => t.current_value(context),
             TrackAutomationMode(t) => t.current_value(context),
             TrackRoutePan(t) => t.current_value(context),
             TrackRouteMute(t) => t.current_value(context),
+            TrackRoutePhase(t) => t.current_value(context),
+            TrackRouteMono(t) => t.current_value(context),
+            TrackRouteAutomationMode(t) => t.current_value(context),
             Tempo(t) => t.current_value(context),
             Playrate(t) => t.current_value(context),
             AutomationModeOverride(t) => t.current_value(context),
@@ -1048,7 +1057,7 @@ pub fn track_solo_unit_value(is_solo: bool) -> UnitValue {
     convert_bool_to_unit_value(is_solo)
 }
 
-pub fn track_automation_mode_unit_value(
+pub fn automation_mode_unit_value(
     desired_automation_mode: AutomationMode,
     actual_automation_mode: AutomationMode,
 ) -> UnitValue {
