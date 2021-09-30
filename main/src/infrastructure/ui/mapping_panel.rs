@@ -7,10 +7,10 @@ use crate::infrastructure::ui::{
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     check_mode_applicability, format_percentage_without_unit, AbsoluteMode, AbsoluteValue,
-    ButtonUsage, ControlValue, DetailedSourceCharacter, EncoderUsage, FeedbackType, FireMode,
-    GroupInteraction, MidiClockTransportMessage, ModeApplicabilityCheckInput, ModeParameter,
-    OscTypeTag, OutOfRangeBehavior, PercentIo, SoftSymmetricUnitValue, SourceCharacter,
-    TakeoverMode, Target, UnitValue, ValueSequence,
+    ButtonUsage, ControlValue, DetailedSourceCharacter, DisplayType, EncoderUsage, FeedbackType,
+    FireMode, GroupInteraction, MidiClockTransportMessage, ModeApplicabilityCheckInput,
+    ModeParameter, OscTypeTag, OutOfRangeBehavior, PercentIo, SoftSymmetricUnitValue,
+    SourceCharacter, TakeoverMode, Target, UnitValue, ValueSequence,
 };
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use reaper_high::{
@@ -978,11 +978,27 @@ impl<'a> MutableMappingPanel<'a> {
         let b = self
             .view
             .require_control(root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX);
-        self.mapping.source_model.midi_clock_transport_message.set(
-            b.selected_combo_box_item_index()
-                .try_into()
-                .expect("invalid MTC message type"),
-        );
+        use SourceCategory::*;
+        match self.mapping.source_model.category.get() {
+            Midi => match self.mapping.source_model.midi_source_type.get() {
+                MidiSourceType::ClockTransport => {
+                    let i = b.selected_combo_box_item_index();
+                    self.mapping
+                        .source_model
+                        .midi_clock_transport_message
+                        .set(i.try_into().expect("invalid MTC message type"));
+                }
+                MidiSourceType::Display => {
+                    let i = b.selected_combo_box_item_index();
+                    self.mapping
+                        .source_model
+                        .display_type
+                        .set(i.try_into().expect("invalid display type"));
+                }
+                _ => {}
+            },
+            _ => {}
+        }
     }
 
     fn handle_source_line_4_edit_control_change(&mut self) {
@@ -2268,7 +2284,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_source_category_combo_box();
         self.fill_source_channel_combo_box();
         self.fill_source_midi_message_number_combo_box();
-        self.fill_source_midi_clock_transport_message_type_combo_box();
         self.fill_mode_out_of_range_behavior_combo_box();
         self.fill_mode_group_interaction_combo_box();
         self.fill_mode_takeover_mode_combo_box();
@@ -2586,10 +2601,14 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     #[allow(clippy::single_match)]
     fn invalidate_source_line_3_label_2(&self) {
-        let text = if self.source.supports_midi_clock_transport_message_type() {
-            Some("Message")
-        } else {
-            None
+        use SourceCategory::*;
+        let text = match self.source.category.get() {
+            Midi => match self.source.midi_source_type.get() {
+                MidiSourceType::ClockTransport => Some("Message"),
+                MidiSourceType::Display => Some("Sub type"),
+                _ => None,
+            },
+            _ => None,
         };
         self.view
             .require_control(root::ID_SOURCE_MIDI_MESSAGE_TYPE_LABEL_TEXT)
@@ -2836,12 +2855,30 @@ impl<'a> ImmutableMappingPanel<'a> {
         let b = self
             .view
             .require_control(root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX);
-        if self.source.supports_midi_clock_transport_message_type() {
-            b.show();
-            b.select_combo_box_item_by_index(self.source.midi_clock_transport_message.get().into())
-                .unwrap();
-        } else {
-            b.hide();
+        use SourceCategory::*;
+        match self.source.category.get() {
+            Midi => match self.source.midi_source_type.get() {
+                MidiSourceType::ClockTransport => {
+                    b.show();
+                    b.fill_combo_box_indexed(MidiClockTransportMessage::into_enum_iter());
+                    b.select_combo_box_item_by_index(
+                        self.source.midi_clock_transport_message.get().into(),
+                    )
+                    .unwrap();
+                }
+                MidiSourceType::Display => {
+                    b.show();
+                    b.fill_combo_box_indexed(DisplayType::into_enum_iter());
+                    b.select_combo_box_item_by_index(self.source.display_type.get().into())
+                        .unwrap();
+                }
+                _ => {
+                    b.hide();
+                }
+            },
+            _ => {
+                b.hide();
+            }
         }
     }
 
@@ -4311,6 +4348,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when(source.midi_clock_transport_message.changed(), |view, _| {
                 view.invalidate_source_line_3_combo_box_2();
             });
+        self.panel.when(source.display_type.changed(), |view, _| {
+            view.invalidate_source_controls();
+        });
         self.panel.when(
             source
                 .osc_address_pattern
@@ -5436,12 +5476,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                     .chain((0..128).map(|i| (i as isize, i.to_string())))
                     .collect(),
             )
-    }
-
-    fn fill_source_midi_clock_transport_message_type_combo_box(&self) {
-        self.view
-            .require_control(root::ID_SOURCE_MIDI_CLOCK_TRANSPORT_MESSAGE_TYPE_COMBOX_BOX)
-            .fill_combo_box_indexed(MidiClockTransportMessage::into_enum_iter());
     }
 
     fn fill_mode_type_combo_box(&self) {

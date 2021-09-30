@@ -429,13 +429,6 @@ impl SourceModel {
         )
     }
 
-    pub fn supports_midi_clock_transport_message_type(&self) -> bool {
-        if !self.is_midi() {
-            return false;
-        }
-        self.midi_source_type.get() == MidiSourceType::ClockTransport
-    }
-
     fn is_midi(&self) -> bool {
         self.category.get() == SourceCategory::Midi
     }
