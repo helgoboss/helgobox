@@ -1,7 +1,7 @@
 use crate::base::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, TargetPropKey, UnitValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, Pan, PlayRate, Project,
@@ -630,6 +630,57 @@ impl<'a> Target<'a> for ReaperTarget {
             EnableMappings(t) => t.current_value(context),
             EnableInstances(t) => t.current_value(context),
             NavigateWithinGroup(t) => t.current_value(context),
+        }
+    }
+
+    fn textual_value(&self, key: TargetPropKey, context: Self::Context) -> Option<String> {
+        use ReaperTarget::*;
+        match self {
+            SendOsc(t) => t.textual_value(key, context),
+            SendMidi(t) => t.textual_value(key, ()),
+            TrackPeak(t) => t.textual_value(key, context),
+            Action(t) => t.textual_value(key, context),
+            FxParameter(t) => t.textual_value(key, context),
+            TrackVolume(t) => t.textual_value(key, context),
+            TrackPan(t) => t.textual_value(key, context),
+            TrackWidth(t) => t.textual_value(key, context),
+            TrackArm(t) => t.textual_value(key, context),
+            TrackRouteVolume(t) => t.textual_value(key, context),
+            TrackSelection(t) => t.textual_value(key, context),
+            TrackMute(t) => t.textual_value(key, context),
+            TrackPhase(t) => t.textual_value(key, context),
+            TrackShow(t) => t.textual_value(key, context),
+            TrackSolo(t) => t.textual_value(key, context),
+            TrackAutomationMode(t) => t.textual_value(key, context),
+            TrackRoutePan(t) => t.textual_value(key, context),
+            TrackRouteMute(t) => t.textual_value(key, context),
+            TrackRoutePhase(t) => t.textual_value(key, context),
+            TrackRouteMono(t) => t.textual_value(key, context),
+            TrackRouteAutomationMode(t) => t.textual_value(key, context),
+            Tempo(t) => t.textual_value(key, context),
+            Playrate(t) => t.textual_value(key, context),
+            AutomationModeOverride(t) => t.textual_value(key, context),
+            FxEnable(t) => t.textual_value(key, context),
+            FxOpen(t) => t.textual_value(key, context),
+            // Discrete
+            FxPreset(t) => t.textual_value(key, context),
+            LoadFxSnapshot(t) => t.textual_value(key, context),
+            // Discrete
+            SelectedTrack(t) => t.textual_value(key, context),
+            // Discrete
+            FxNavigate(t) => t.textual_value(key, context),
+            AllTrackFxEnable(t) => t.textual_value(key, context),
+            Transport(t) => t.textual_value(key, context),
+            AutomationTouchState(t) => t.textual_value(key, context),
+            GoToBookmark(t) => t.textual_value(key, context),
+            Seek(t) => t.textual_value(key, context),
+            ClipTransport(t) => t.textual_value(key, context),
+            ClipSeek(t) => t.textual_value(key, context),
+            ClipVolume(t) => t.textual_value(key, context),
+            LoadMappingSnapshot(t) => t.textual_value(key, context),
+            EnableMappings(t) => t.textual_value(key, context),
+            EnableInstances(t) => t.textual_value(key, context),
+            NavigateWithinGroup(t) => t.textual_value(key, context),
         }
     }
 

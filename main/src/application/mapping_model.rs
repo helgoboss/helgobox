@@ -242,6 +242,7 @@ impl MappingModel {
             target_supports_discrete_values: false,
             is_feedback: false,
             make_absolute: self.mode_model.make_absolute.get(),
+            use_textual_feedback: self.mode_model.feedback_type.get().is_textual(),
             // Any is okay, will be overwritten.
             source_character: DetailedSourceCharacter::RangeControl,
             absolute_mode: self.mode_model.r#type.get(),

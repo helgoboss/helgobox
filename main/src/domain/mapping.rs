@@ -5,16 +5,17 @@ use crate::domain::{
     Mode, ParameterArray, ParameterSlice, PersistentMappingProcessingState, RealSource,
     RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget, Tag,
     TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
-    VirtualSource, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    VirtualFeedbackValue, VirtualSource, VirtualSourceValue, VirtualTarget,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlType,
-    ControlValue, GroupInteraction, MidiSourceValue, ModeControlOptions, ModeControlResult,
-    ModeFeedbackOptions, OscSource, RawMidiEvent, SourceCharacter, Target, UnitValue,
-    ValueFormatter, ValueParser,
+    ControlValue, FeedbackValue, GroupInteraction, MidiSourceValue, ModeControlOptions,
+    ModeControlResult, ModeFeedbackOptions, OscSource, RawMidiEvent, SourceCharacter, Target,
+    TargetPropKey, UnitValue, ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -747,7 +748,7 @@ impl MainMapping {
             MappingControlResult {
                 successful: at_least_one_target_was_reached,
                 new_target_value,
-                feedback_value: self.manual_feedback_because_of_target(new_target_value),
+                feedback_value: self.manual_feedback_because_of_target(new_target_value, context),
                 hit_instruction,
             }
         } else {
@@ -803,8 +804,9 @@ impl MainMapping {
     fn manual_feedback_because_of_target(
         &self,
         new_target_value: Option<AbsoluteValue>,
-    ) -> Option<FeedbackValue> {
-        self.feedback_internal(true, new_target_value)
+        context: ControlContext,
+    ) -> Option<CompoundFeedbackValue> {
+        self.feedback_entry_point(true, true, new_target_value?, context)
     }
 
     /// Returns `None` when used on mappings with virtual targets.
@@ -812,30 +814,50 @@ impl MainMapping {
         &self,
         with_projection_feedback: bool,
         context: ControlContext,
-    ) -> Option<FeedbackValue> {
-        self.feedback_internal(
+    ) -> Option<CompoundFeedbackValue> {
+        self.feedback_entry_point(
             with_projection_feedback,
-            self.current_aggregated_target_value(context),
+            true,
+            self.current_aggregated_target_value(context)?,
+            context,
         )
     }
 
+    /// This is the primary entry point to feedback!
+    ///
     /// Returns `None` when used on mappings with virtual targets.
-    fn feedback_internal(
+    pub fn feedback_entry_point(
         &self,
         with_projection_feedback: bool,
-        combined_target_value: Option<AbsoluteValue>,
-    ) -> Option<FeedbackValue> {
+        with_source_feedback: bool,
+        combined_target_value: AbsoluteValue,
+        control_context: ControlContext,
+    ) -> Option<CompoundFeedbackValue> {
+        // - We shouldn't ask the source if it wants the given numerical feedback value or a textual
+        //   value because a virtual source wouldn't know! Even asking a real source wouldn't make
+        //   much sense because real sources could be capable of processing both numerical and
+        //   textual feedback (and indeed that makes sense for an LCD source!).
+        // - Neither should we ask the target because the target is not supposed to dictate which
+        //   form of feedback it sends, it just provides us with options and we can choose.
+        // - This leaves us with asking the mode. That means the user needs to explicitly choose
+        //   whether it wants numerical or textual feedback.
+        let feedback_value = if self.core.mode.wants_textual_feedback() {
+            FeedbackValue::Textual(
+                self.core
+                    .mode
+                    .query_textual_feedback(self.targets.first(), control_context),
+            )
+        } else {
+            FeedbackValue::Numeric(combined_target_value)
+        };
         self.feedback_given_target_value(
-            combined_target_value?,
+            // TODO-high LCD We have an owned value here! Take benefit of that!
+            &feedback_value,
             FeedbackDestinations {
                 with_projection_feedback,
-                with_source_feedback: !self.core.is_echo(),
+                with_source_feedback: with_source_feedback && !self.core.is_echo(),
             },
         )
-    }
-
-    pub fn is_echo(&self) -> bool {
-        self.core.is_echo()
     }
 
     pub fn given_or_current_value(
@@ -865,26 +887,34 @@ impl MainMapping {
 
     pub fn feedback_given_target_value(
         &self,
-        target_value: AbsoluteValue,
+        feedback_value: &FeedbackValue,
         destinations: FeedbackDestinations,
-    ) -> Option<FeedbackValue> {
-        let options = ModeFeedbackOptions {
-            source_is_virtual: self.core.source.is_virtual(),
-            max_discrete_source_value: self.core.source.max_discrete_value(),
+    ) -> Option<CompoundFeedbackValue> {
+        use FeedbackValue::*;
+        let mode_value = match feedback_value {
+            Off => Off,
+            // Process numeric value via mode
+            Numeric(v) => {
+                let options = ModeFeedbackOptions {
+                    source_is_virtual: self.core.source.is_virtual(),
+                    max_discrete_source_value: self.core.source.max_discrete_value(),
+                };
+                let mode_value = self.core.mode.feedback_with_options(*v, options)?;
+                Numeric(mode_value)
+            }
+            // Textual feedback is not processed (created by the mode in the first place).
+            // TODO-high clone is not necessary
+            Textual(v) => Textual(v.clone()),
         };
-        let mode_value = self
-            .core
-            .mode
-            .feedback_with_options(target_value, options)?;
         self.feedback_given_mode_value(mode_value, destinations)
     }
 
-    pub fn feedback_given_mode_value(
+    fn feedback_given_mode_value(
         &self,
-        mode_value: AbsoluteValue,
+        mode_value: FeedbackValue,
         destinations: FeedbackDestinations,
-    ) -> Option<FeedbackValue> {
-        FeedbackValue::from_mode_value(
+    ) -> Option<CompoundFeedbackValue> {
+        CompoundFeedbackValue::from_mode_value(
             self.core.compartment,
             self.id(),
             &self.core.source,
@@ -896,11 +926,11 @@ impl MainMapping {
     /// This returns a "lights off" feedback.
     ///
     /// Used when mappings get inactive.
-    pub fn zero_feedback(&self) -> Option<FeedbackValue> {
+    pub fn off_feedback(&self) -> Option<CompoundFeedbackValue> {
         // TODO-medium  "Unused" and "zero" could be a difference for projection so we should
         //  have different values for that (at the moment it's not though).
         self.feedback_given_mode_value(
-            AbsoluteValue::Continuous(UnitValue::MIN),
+            FeedbackValue::Off,
             FeedbackDestinations {
                 with_projection_feedback: true,
                 with_source_feedback: true,
@@ -912,14 +942,19 @@ impl MainMapping {
         &self,
         options: ControlOptions,
         context: ControlContext,
-    ) -> Option<FeedbackValue> {
+    ) -> Option<CompoundFeedbackValue> {
         if self.core.options.feedback_send_behavior
             == FeedbackSendBehavior::SendFeedbackAfterControl
             || options.enforce_send_feedback_after_control
         {
             if self.feedback_is_effectively_on() {
                 // No projection feedback in this case! Just the source controller needs this hack.
-                self.feedback_internal(false, self.current_aggregated_target_value(context))
+                self.feedback_entry_point(
+                    false,
+                    true,
+                    self.current_aggregated_target_value(context)?,
+                    context,
+                )
             } else {
                 None
             }
@@ -1143,12 +1178,12 @@ pub struct QualifiedSource {
 }
 
 impl QualifiedSource {
-    pub fn zero_feedback(&self) -> Option<FeedbackValue> {
-        FeedbackValue::from_mode_value(
+    pub fn off_feedback(&self) -> Option<CompoundFeedbackValue> {
+        CompoundFeedbackValue::from_mode_value(
             self.compartment,
             self.id,
             &self.source,
-            AbsoluteValue::Continuous(UnitValue::MIN),
+            FeedbackValue::Off,
             FeedbackDestinations {
                 with_projection_feedback: true,
                 with_source_feedback: true,
@@ -1191,13 +1226,11 @@ impl CompoundMappingSource {
         }
     }
 
-    pub fn feedback(&self, feedback_value: AbsoluteValue) -> Option<SourceFeedbackValue> {
+    pub fn feedback(&self, feedback_value: FeedbackValue) -> Option<SourceFeedbackValue> {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.feedback(feedback_value).map(SourceFeedbackValue::Midi),
-            Osc(s) => s
-                .feedback(feedback_value.to_unit_value())
-                .map(SourceFeedbackValue::Osc),
+            Osc(s) => s.feedback(feedback_value).map(SourceFeedbackValue::Osc),
             // This is handled in a special way by consumers.
             Virtual(_) => None,
             // No feedback for never source.
@@ -1229,9 +1262,9 @@ impl CompoundMappingSource {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum FeedbackValue {
+pub enum CompoundFeedbackValue {
     Virtual {
-        value: VirtualSourceValue,
+        value: VirtualFeedbackValue,
         destinations: FeedbackDestinations,
     },
     Real(RealFeedbackValue),
@@ -1251,19 +1284,19 @@ impl FeedbackDestinations {
     }
 }
 
-impl FeedbackValue {
+impl CompoundFeedbackValue {
     pub fn from_mode_value(
         compartment: MappingCompartment,
         id: MappingId,
         source: &CompoundMappingSource,
-        mode_value: AbsoluteValue,
+        mode_value: FeedbackValue,
         destinations: FeedbackDestinations,
-    ) -> Option<FeedbackValue> {
+    ) -> Option<CompoundFeedbackValue> {
         if destinations.is_all_off() {
             return None;
         }
         let val = if let CompoundMappingSource::Virtual(vs) = &source {
-            FeedbackValue::Virtual {
+            CompoundFeedbackValue::Virtual {
                 destinations,
                 value: vs.feedback(mode_value),
             }
@@ -1274,7 +1307,7 @@ impl FeedbackValue {
                 Some(ProjectionFeedbackValue::new(
                     compartment,
                     id,
-                    mode_value.to_unit_value(),
+                    mode_value.to_numeric()?.to_unit_value(),
                 ))
             } else {
                 None
@@ -1284,7 +1317,7 @@ impl FeedbackValue {
             } else {
                 None
             };
-            FeedbackValue::Real(RealFeedbackValue::new(projection, source)?)
+            CompoundFeedbackValue::Real(RealFeedbackValue::new(projection, source)?)
         };
         Some(val)
     }
@@ -1728,6 +1761,14 @@ impl<'a> Target<'a> for CompoundMappingTarget {
         }
     }
 
+    fn textual_value(&self, key: TargetPropKey, context: Self::Context) -> Option<String> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.textual_value(key, context),
+            Virtual(_) => None,
+        }
+    }
+
     fn control_type(&self, context: ControlContext) -> ControlType {
         use CompoundMappingTarget::*;
         match self {
@@ -1861,7 +1902,7 @@ pub struct MappingControlResult {
     /// this should contain the target value determined at the occasion of hitting the target.
     pub new_target_value: Option<AbsoluteValue>,
     /// Even if not hit, this can contain a feedback value (if "Send feedback after control" on)!
-    pub feedback_value: Option<FeedbackValue>,
+    pub feedback_value: Option<CompoundFeedbackValue>,
     pub hit_instruction: HitInstructionReturnValue,
 }
 

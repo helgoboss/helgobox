@@ -1424,8 +1424,10 @@ dependencies = [
  "nom 6.2.1",
  "num",
  "num_enum 0.5.4",
+ "once_cell",
  "partial-min-max",
  "reaper-low",
+ "regex",
  "rosc",
  "serde",
  "serde_repr",
@@ -2780,7 +2782,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.11.0-pre.2"
+version = "2.11.0-pre.3"
 dependencies = [
  "approx",
  "ascii",

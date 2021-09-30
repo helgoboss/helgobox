@@ -1,11 +1,11 @@
 use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
-    ClipChangedEvent, CompoundMappingSource, CompoundMappingTarget, ControlContext, ControlInput,
-    ControlMode, DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
-    FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
-    FeedbackResolution, FeedbackSendBehavior, FeedbackValue, GroupId, HitInstructionContext,
-    InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent,
-    MainMapping, MainSourceMessage, MappingActivationEffect, MappingCompartment,
+    ClipChangedEvent, CompoundFeedbackValue, CompoundMappingSource, CompoundMappingTarget,
+    ControlContext, ControlInput, ControlMode, DeviceFeedbackOutput, DomainEvent,
+    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackDestinations,
+    FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior, GroupId,
+    HitInstructionContext, InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged,
+    IoUpdatedEvent, MainMapping, MainSourceMessage, MappingActivationEffect, MappingCompartment,
     MappingControlResult, MappingId, MidiDestination, MidiSource, NormalRealTimeTask,
     OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext,
     QualifiedMappingId, QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
@@ -205,7 +205,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .find(|m| m.feedback_is_effectively_on() && m.has_this_real_source(source))
         {
             if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
-                if self.basics.feedback_is_effectively_enabled() {
+                if self.basics.instance_feedback_is_effectively_enabled() {
                     debug!(self.basics.logger, "Taking over source {:?}...", source);
                     let feedback = followed_mapping.feedback(true, self.basics.control_context());
                     self.send_feedback(FeedbackReason::TakeOverSource, feedback);
@@ -1459,8 +1459,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn update_on_mappings(&self) {
-        let instance_is_enabled =
-            self.control_is_effectively_enabled() && self.basics.feedback_is_effectively_enabled();
+        let instance_is_enabled = self.control_is_effectively_enabled()
+            && self.basics.instance_feedback_is_effectively_enabled();
         let on_mappings = if instance_is_enabled {
             self.all_mappings()
                 .filter(|m| m.is_effectively_on())
@@ -1477,7 +1477,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn send_feedback(
         &self,
         reason: FeedbackReason,
-        feedback_values: impl IntoIterator<Item = FeedbackValue>,
+        feedback_values: impl IntoIterator<Item = CompoundFeedbackValue>,
     ) {
         self.basics.send_feedback(
             &self.collections.mappings_with_virtual_targets,
@@ -1515,7 +1515,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.send_feedback(FeedbackReason::Normal, self.feedback_all());
     }
 
-    fn feedback_all(&self) -> Vec<FeedbackValue> {
+    fn feedback_all(&self) -> Vec<CompoundFeedbackValue> {
         // Virtual targets don't cause feedback themselves
         self.all_mappings_without_virtual_targets()
             .filter_map(|m| {
@@ -1532,7 +1532,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         compartment: MappingCompartment,
         mapping_ids: impl Iterator<Item = MappingId>,
-    ) -> Vec<FeedbackValue> {
+    ) -> Vec<CompoundFeedbackValue> {
         mapping_ids
             .filter_map(|id| {
                 let m = self.get_normal_or_virtual_target_mapping(compartment, id)?;
@@ -1545,7 +1545,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .collect()
     }
 
-    fn feedback_all_in_compartment(&self, compartment: MappingCompartment) -> Vec<FeedbackValue> {
+    fn feedback_all_in_compartment(
+        &self,
+        compartment: MappingCompartment,
+    ) -> Vec<CompoundFeedbackValue> {
         self.all_mappings_in_compartment(compartment)
             .filter_map(|m| {
                 if m.feedback_is_effectively_on() {
@@ -1557,7 +1560,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .collect()
     }
 
-    fn get_mapping_feedback_follow_virtual(&self, m: &MainMapping) -> Option<FeedbackValue> {
+    fn get_mapping_feedback_follow_virtual(
+        &self,
+        m: &MainMapping,
+    ) -> Option<CompoundFeedbackValue> {
         let followed_mapping = self.follow_maybe_virtual_mapping(m)?;
         followed_mapping.feedback(true, self.basics.control_context())
     }
@@ -1585,7 +1591,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .and_then(FeedbackOutput::device_output)
             == Some(feedback_output)
         {
-            if self.basics.feedback_is_effectively_enabled() {
+            if self.basics.instance_feedback_is_effectively_enabled() {
                 debug!(self.basics.logger, "Reactivating instance...");
                 // For this to really work reliably (eventual feedback consistency), it was
                 // necessary to let the direct MIDI device feedback process in the global
@@ -1624,13 +1630,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         );
     }
 
-    fn feedback_all_zero(&self) -> Vec<FeedbackValue> {
+    fn feedback_all_zero(&self) -> Vec<CompoundFeedbackValue> {
         // Mappings with virtual targets should not be included here because they might not be in
         // use and therefore should not *directly* send zeros. However, they will receive zeros
         // if one of the main mappings with virtual sources are connected to them.
         self.all_mappings_without_virtual_targets()
             .filter(|m| m.feedback_is_effectively_on())
-            .filter_map(|m| m.zero_feedback())
+            .filter_map(|m| m.off_feedback())
             .collect()
     }
 
@@ -1658,7 +1664,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         compartment: MappingCompartment,
         now_unused_sources: &HashSet<QualifiedSource>,
     ) {
-        self.send_zero_feedback_for_unused_sources(now_unused_sources);
+        self.send_off_feedback_for_unused_sources(now_unused_sources);
         self.send_feedback(
             FeedbackReason::Normal,
             self.feedback_all_in_compartment(compartment),
@@ -1671,17 +1677,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         now_unused_sources: &HashSet<QualifiedSource>,
         mapping_ids: impl Iterator<Item = MappingId>,
     ) {
-        self.send_zero_feedback_for_unused_sources(now_unused_sources);
+        self.send_off_feedback_for_unused_sources(now_unused_sources);
         self.send_feedback(
             FeedbackReason::Normal,
             self.feedback_particular_mappings(compartment, mapping_ids),
         );
     }
 
-    /// Indicate via zero feedback the sources which are not in use anymore.
-    fn send_zero_feedback_for_unused_sources(&self, now_unused_sources: &HashSet<QualifiedSource>) {
+    /// Indicate via off feedback the sources which are not in use anymore.
+    fn send_off_feedback_for_unused_sources(&self, now_unused_sources: &HashSet<QualifiedSource>) {
         for s in now_unused_sources {
-            self.send_feedback(FeedbackReason::ClearUnusedSource, s.zero_feedback());
+            self.send_feedback(FeedbackReason::ClearUnusedSource, s.off_feedback());
         }
     }
 
@@ -1828,7 +1834,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 let fb = if is_on_now {
                     Fb::normal(self.get_mapping_feedback_follow_virtual(&*m))
                 } else {
-                    Fb::unused(m.zero_feedback())
+                    Fb::unused(m.off_feedback())
                 };
                 self.send_feedback(fb.0, fb.1);
             }
@@ -1858,12 +1864,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         )
                     } else {
                         // Lights should now be off.
-                        (Fb::unused(mapping.zero_feedback()), Fb::none())
+                        (Fb::unused(mapping.off_feedback()), Fb::none())
                     }
                 } else {
                     // Source has changed.
                     // Switch previous source light off.
-                    let fb1 = Fb::unused(previous_mapping.zero_feedback());
+                    let fb1 = Fb::unused(previous_mapping.off_feedback());
                     let fb2 = if mapping.feedback_is_effectively_on() {
                         // Lights should be on. Send new lights.
                         Fb::normal(self.get_mapping_feedback_follow_virtual(&*mapping))
@@ -2115,7 +2121,7 @@ pub struct ControlOptions {
 impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
     fn drop(&mut self) {
         debug!(self.basics.logger, "Dropping main processor...");
-        if self.basics.feedback_is_effectively_enabled() {
+        if self.basics.instance_feedback_is_effectively_enabled() {
             // We clear feedback right here and now because that's the last chance.
             // Other instances can take over the feedback output afterwards.
             self.clear_all_feedback_preventing_source_takeover();
@@ -2374,17 +2380,15 @@ impl<EH: DomainEventHandler> Basics<EH> {
         let new_target_value = aggregate_target_values(new_target_values);
         if let Some(new_value) = new_target_value {
             // Feedback
-            let feedback_is_effectively_on = m.feedback_is_effectively_on();
-            let projection_feedback_desired = feedback_is_effectively_on;
-            let source_feedback_desired = self.feedback_is_effectively_enabled()
-                && feedback_is_effectively_on
-                && !m.is_echo();
-            let feedback_value = m.feedback_given_target_value(
+            let mapping_feedback_is_effectively_on = m.feedback_is_effectively_on();
+            let with_projection_feedback = mapping_feedback_is_effectively_on;
+            let with_source_feedback = self.instance_feedback_is_effectively_enabled()
+                && mapping_feedback_is_effectively_on;
+            let feedback_value = m.feedback_entry_point(
+                with_projection_feedback,
+                with_source_feedback,
                 new_value,
-                FeedbackDestinations {
-                    with_projection_feedback: projection_feedback_desired,
-                    with_source_feedback: source_feedback_desired,
-                },
+                self.control_context(),
             );
             self.send_feedback(
                 mappings_with_virtual_targets,
@@ -2469,43 +2473,40 @@ impl<EH: DomainEventHandler> Basics<EH> {
         &self,
         mappings_with_virtual_targets: &OrderedMappingMap<MainMapping>,
         feedback_reason: FeedbackReason,
-        feedback_values: impl IntoIterator<Item = FeedbackValue>,
+        feedback_values: impl IntoIterator<Item = CompoundFeedbackValue>,
     ) {
         for feedback_value in feedback_values.into_iter() {
             match feedback_value {
-                FeedbackValue::Virtual {
+                CompoundFeedbackValue::Virtual {
                     destinations,
                     value,
                 } => {
-                    if let Ok(v) = value.control_value().to_absolute_value() {
-                        // At this point we still include controller mappings for which feedback
-                        // is explicitly not enabled (not supported by controller) in order to
-                        // support at least projection feedback (#414)!
-                        for m in mappings_with_virtual_targets.values() {
-                            if let Some(t) = m.virtual_target() {
-                                if t.control_element() == value.control_element() {
-                                    if let Some(FeedbackValue::Real(final_feedback_value)) = m
-                                        .feedback_given_target_value(
-                                            v,
-                                            FeedbackDestinations {
-                                                with_source_feedback: destinations
-                                                    .with_source_feedback
-                                                    && m.feedback_is_enabled(),
-                                                ..destinations
-                                            },
-                                        )
-                                    {
-                                        self.send_direct_feedback(
-                                            feedback_reason,
-                                            final_feedback_value,
-                                        );
-                                    }
+                    // At this point we still include controller mappings for which feedback
+                    // is explicitly not enabled (not supported by controller) in order to
+                    // support at least projection feedback (#414)!
+                    for m in mappings_with_virtual_targets.values() {
+                        if let Some(t) = m.virtual_target() {
+                            if t.control_element() == value.control_element() {
+                                if let Some(CompoundFeedbackValue::Real(final_feedback_value)) = m
+                                    .feedback_given_target_value(
+                                        &value.feedback_value(),
+                                        FeedbackDestinations {
+                                            with_source_feedback: destinations.with_source_feedback
+                                                && m.feedback_is_enabled(),
+                                            ..destinations
+                                        },
+                                    )
+                                {
+                                    self.send_direct_feedback(
+                                        feedback_reason,
+                                        final_feedback_value,
+                                    );
                                 }
                             }
                         }
                     }
                 }
-                FeedbackValue::Real(final_feedback_value) => {
+                CompoundFeedbackValue::Real(final_feedback_value) => {
                     self.send_direct_feedback(feedback_reason, final_feedback_value);
                 }
             }
@@ -2590,7 +2591,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_reason: FeedbackReason,
         feedback_value: RealFeedbackValue,
     ) {
-        if feedback_reason.is_always_allowed() || self.feedback_is_effectively_enabled() {
+        if feedback_reason.is_always_allowed() || self.instance_feedback_is_effectively_enabled() {
             if let Some(feedback_output) = self.feedback_output {
                 if let Some(source_feedback_value) = feedback_value.source {
                     // At this point we can be sure that this mapping can't have a
@@ -2625,7 +2626,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
-    pub fn feedback_is_effectively_enabled(&self) -> bool {
+    pub fn instance_feedback_is_effectively_enabled(&self) -> bool {
         if let Some(fo) = self.feedback_output {
             self.feedback_is_globally_enabled
                 && BackboneState::get().feedback_is_allowed(&self.instance_id, fo)
@@ -2896,17 +2897,17 @@ struct GroupInteractionInput {
     control_value: ControlValue,
 }
 
-struct Fb(FeedbackReason, Option<FeedbackValue>);
+struct Fb(FeedbackReason, Option<CompoundFeedbackValue>);
 impl Fb {
     fn none() -> Self {
         Fb(FeedbackReason::Normal, None)
     }
 
-    fn unused(value: Option<FeedbackValue>) -> Self {
+    fn unused(value: Option<CompoundFeedbackValue>) -> Self {
         Fb(FeedbackReason::ClearUnusedSource, value)
     }
 
-    fn normal(value: Option<FeedbackValue>) -> Self {
+    fn normal(value: Option<CompoundFeedbackValue>) -> Self {
         Fb(FeedbackReason::Normal, value)
     }
 }

@@ -3,8 +3,10 @@ use crate::domain::{
     ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
     TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
-use reaper_high::{ChangeEvent, Project, Reaper};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, Fraction, Target, TargetPropKey, UnitValue,
+};
+use reaper_high::{ChangeEvent, Project, Reaper, Track};
 use reaper_medium::{CommandId, MasterTrackBehavior};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -108,9 +110,7 @@ impl RealearnTarget for SelectedTrackTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::TrackSelectedChanged(e)
-                if e.new_value && e.track.project() == self.project =>
-            {
+            ChangeEvent::TrackSelectedChanged(e) if e.track.project() == self.project => {
                 (true, Some(self.value_for(e.track.index())))
             }
             _ => (false, None),
@@ -138,6 +138,25 @@ impl<'a> Target<'a> for SelectedTrackTarget {
         Some(self.value_for(track_index))
     }
 
+    fn textual_value(&self, key: TargetPropKey, _: Self::Context) -> Option<String> {
+        use TargetPropKey::*;
+        let res = match key {
+            Default => {
+                if let Some(t) = self.selected_track() {
+                    if let Some(n) = t.name() {
+                        n.into_string()
+                    } else {
+                        "<Master>".to_string()
+                    }
+                } else {
+                    "".to_string()
+                }
+            }
+            _ => return None,
+        };
+        Some(res)
+    }
+
     fn control_type(&self, context: Self::Context) -> ControlType {
         self.control_type_and_character(context).0
     }
@@ -150,5 +169,10 @@ impl SelectedTrackTarget {
         let max_value = track_count;
         let actual_value = track_index.map(|i| i + 1).unwrap_or(0);
         AbsoluteValue::Discrete(Fraction::new(actual_value, max_value))
+    }
+
+    fn selected_track(&self) -> Option<Track> {
+        self.project
+            .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
     }
 }

@@ -3,7 +3,7 @@ use crate::base::default_util::{is_default, is_unit_value_one, unit_value_one};
 use crate::infrastructure::data::MigrationDescriptor;
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::{
-    AbsoluteMode, ButtonUsage, EncoderUsage, FireMode, GroupInteraction, Interval,
+    AbsoluteMode, ButtonUsage, EncoderUsage, FeedbackType, FireMode, GroupInteraction, Interval,
     OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue, ValueSequence,
 };
 use serde::{Deserialize, Serialize};
@@ -77,6 +77,8 @@ pub struct ModeModelData {
     group_interaction: GroupInteraction,
     #[serde(default, skip_serializing_if = "is_default")]
     target_value_sequence: ValueSequence,
+    #[serde(default, skip_serializing_if = "is_default")]
+    feedback_type: FeedbackType,
 }
 
 fn default_step_size() -> SoftSymmetricUnitValue {
@@ -111,7 +113,11 @@ impl ModeModelData {
                 .as_millis() as _,
             turbo_rate: model.turbo_rate.get().as_millis() as _,
             eel_control_transformation: model.eel_control_transformation.get_ref().clone(),
-            eel_feedback_transformation: model.eel_feedback_transformation.get_ref().clone(),
+            eel_feedback_transformation: if model.feedback_type.get().is_textual() {
+                model.textual_feedback_expression.get_ref().clone()
+            } else {
+                model.eel_feedback_transformation.get_ref().clone()
+            },
             reverse_is_enabled: model.reverse.get(),
             // Not used anymore since ReaLearn v1.11.0
             ignore_out_of_range_source_values_is_enabled: false,
@@ -127,6 +133,7 @@ impl ModeModelData {
             make_absolute_enabled: model.make_absolute.get(),
             group_interaction: model.group_interaction.get(),
             target_value_sequence: model.target_value_sequence.get_ref().clone(),
+            feedback_type: model.feedback_type.get(),
         }
     }
 
@@ -194,12 +201,17 @@ impl ModeModelData {
                 self.eel_control_transformation.clone(),
                 with_notification,
             );
+        let (eel_fb_transformation, textual_fb_expression) = if self.feedback_type.is_textual() {
+            (String::new(), self.eel_feedback_transformation.clone())
+        } else {
+            (self.eel_feedback_transformation.clone(), String::new())
+        };
         model
             .eel_feedback_transformation
-            .set_with_optional_notification(
-                self.eel_feedback_transformation.clone(),
-                with_notification,
-            );
+            .set_with_optional_notification(eel_fb_transformation, with_notification);
+        model
+            .textual_feedback_expression
+            .set_with_optional_notification(textual_fb_expression, with_notification);
         model
             .reverse
             .set_with_optional_notification(self.reverse_is_enabled, with_notification);
@@ -245,5 +257,8 @@ impl ModeModelData {
         model
             .target_value_sequence
             .set_with_optional_notification(self.target_value_sequence.clone(), with_notification);
+        model
+            .feedback_type
+            .set_with_optional_notification(self.feedback_type, with_notification);
     }
 }

@@ -6,7 +6,9 @@ use crate::base::default_util::is_default;
 use crate::base::notification;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::VirtualControlElementIdData;
-use helgoboss_learn::{MidiClockTransportMessage, OscTypeTag, SourceCharacter};
+use helgoboss_learn::{
+    DisplayType, MidiClockTransportMessage, OscTypeTag, SourceCharacter, TimeCodeDisplayScope,
+};
 use helgoboss_midi::{Channel, U14, U7};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -14,7 +16,7 @@ use std::convert::TryInto;
 
 /// This is the structure in which source settings are loaded and saved. It's optimized for being
 /// represented as JSON. The JSON representation must be 100% backward-compatible.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceModelData {
     #[serde(default, skip_serializing_if = "is_default")]
@@ -47,6 +49,12 @@ pub struct SourceModelData {
     pub raw_midi_pattern: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub midi_script: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub display_type: DisplayType,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub time_code_display_scope: TimeCodeDisplayScope,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub line: Option<u8>,
     // OSC
     #[serde(default, skip_serializing_if = "is_default")]
     pub osc_address_pattern: String,
@@ -82,6 +90,9 @@ impl SourceModelData {
             message: model.midi_clock_transport_message.get(),
             raw_midi_pattern: model.raw_midi_pattern.get_ref().clone(),
             midi_script: model.midi_script.get_ref().clone(),
+            display_type: model.display_type.get(),
+            time_code_display_scope: model.time_code_display_scope.get(),
+            line: model.line.get(),
             osc_address_pattern: model.osc_address_pattern.get_ref().clone(),
             osc_arg_index: model.osc_arg_index.get(),
             osc_arg_type: model.osc_arg_type_tag.get(),
@@ -175,6 +186,15 @@ impl SourceModelData {
             .midi_script
             .set_with_optional_notification(self.midi_script.clone(), with_notification);
         model
+            .display_type
+            .set_with_optional_notification(self.display_type, with_notification);
+        model
+            .time_code_display_scope
+            .set_with_optional_notification(self.time_code_display_scope, with_notification);
+        model
+            .line
+            .set_with_optional_notification(self.line, with_notification);
+        model
             .osc_address_pattern
             .set_with_optional_notification(self.osc_address_pattern.clone(), with_notification);
         model
@@ -231,15 +251,8 @@ mod tests {
                 is_registered: None,
                 is_14_bit: Some(false),
                 message: MidiClockTransportMessage::Start,
-                raw_midi_pattern: "".to_owned(),
-                midi_script: "".to_owned(),
-                osc_address_pattern: "".to_owned(),
-                osc_arg_index: None,
-                osc_arg_type: Default::default(),
-                osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
-                control_element_index: Default::default(),
-                reaper_source_type: Default::default()
+                ..Default::default()
             }
         );
     }
@@ -264,21 +277,13 @@ mod tests {
             SourceModelData {
                 category: SourceCategory::Midi,
                 r#type: MidiSourceType::ParameterNumberValue,
-                channel: None,
                 number: Some(U14::new(12542)),
                 character: SourceCharacter::RangeElement,
                 is_registered: Some(true),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
-                raw_midi_pattern: "".to_owned(),
-                midi_script: "".to_owned(),
-                osc_address_pattern: "".to_owned(),
-                osc_arg_index: None,
-                osc_arg_type: Default::default(),
-                osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
-                control_element_index: Default::default(),
-                reaper_source_type: Default::default()
+                ..Default::default()
             }
         );
     }
@@ -290,20 +295,12 @@ mod tests {
             category: SourceCategory::Midi,
             r#type: MidiSourceType::ParameterNumberValue,
             channel: Some(Channel::new(8)),
-            number: None,
             character: SourceCharacter::RangeElement,
             is_registered: Some(true),
             is_14_bit: Some(true),
             message: MidiClockTransportMessage::Start,
-            raw_midi_pattern: "".to_owned(),
-            osc_address_pattern: "".to_owned(),
-            midi_script: "".to_owned(),
-            osc_arg_index: None,
-            osc_arg_type: Default::default(),
-            osc_arg_is_relative: false,
             control_element_type: VirtualControlElementType::Multi,
-            control_element_index: Default::default(),
-            reaper_source_type: Default::default(),
+            ..Default::default()
         };
         let mut model = SourceModel::default();
         // When
@@ -331,21 +328,12 @@ mod tests {
         let data = SourceModelData {
             category: SourceCategory::Midi,
             r#type: MidiSourceType::ClockTransport,
-            channel: None,
             number: Some(U14::new(112)),
             character: SourceCharacter::RangeElement,
-            is_registered: None,
             is_14_bit: Some(false),
             message: MidiClockTransportMessage::Stop,
-            raw_midi_pattern: "".to_owned(),
-            midi_script: "".to_owned(),
-            osc_address_pattern: "".to_owned(),
-            osc_arg_index: None,
-            osc_arg_type: Default::default(),
-            osc_arg_is_relative: false,
             control_element_type: VirtualControlElementType::Multi,
-            control_element_index: Default::default(),
-            reaper_source_type: Default::default(),
+            ..Default::default()
         };
         let mut model = SourceModel::default();
         // When
@@ -389,15 +377,9 @@ mod tests {
                 is_registered: Some(false),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Start,
-                raw_midi_pattern: "".to_owned(),
-                midi_script: "".to_owned(),
-                osc_address_pattern: "".to_owned(),
                 osc_arg_index: Some(0),
-                osc_arg_type: Default::default(),
-                osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
-                control_element_index: Default::default(),
-                reaper_source_type: Default::default()
+                ..Default::default()
             }
         );
     }
@@ -432,15 +414,10 @@ mod tests {
                 is_registered: Some(true),
                 is_14_bit: Some(true),
                 message: MidiClockTransportMessage::Continue,
-                raw_midi_pattern: "".to_owned(),
-                midi_script: "".to_owned(),
-                osc_address_pattern: "".to_owned(),
                 osc_arg_index: Some(0),
                 osc_arg_type: Default::default(),
-                osc_arg_is_relative: false,
                 control_element_type: VirtualControlElementType::Multi,
-                control_element_index: Default::default(),
-                reaper_source_type: Default::default()
+                ..Default::default()
             }
         );
     }

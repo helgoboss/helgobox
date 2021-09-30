@@ -7,8 +7,9 @@ use crate::domain::{
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, DetailedSourceCharacter, MidiClockTransportMessage, OscArgDescriptor, OscSource,
-    OscTypeTag, SourceCharacter, UnitValue,
+    ControlValue, DetailedSourceCharacter, DisplayType, DisplayTypeSpecificSettings,
+    MidiClockTransportMessage, OscArgDescriptor, OscSource, OscTypeTag, SourceCharacter,
+    TimeCodeDisplayScope, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -34,6 +35,9 @@ pub struct SourceModel {
     pub is_14_bit: Prop<Option<bool>>,
     pub raw_midi_pattern: Prop<String>,
     pub midi_script: Prop<String>,
+    pub display_type: Prop<DisplayType>,
+    pub time_code_display_scope: Prop<TimeCodeDisplayScope>,
+    pub line: Prop<Option<u8>>,
     // OSC
     pub osc_address_pattern: Prop<String>,
     pub osc_arg_index: Prop<Option<u32>>,
@@ -62,6 +66,9 @@ impl Default for SourceModel {
             is_14_bit: prop(Some(false)),
             raw_midi_pattern: prop("".to_owned()),
             midi_script: prop("".to_owned()),
+            display_type: prop(Default::default()),
+            time_code_display_scope: prop(Default::default()),
+            line: prop(None),
             osc_address_pattern: prop("".to_owned()),
             osc_arg_index: prop(Some(0)),
             osc_arg_type_tag: prop(Default::default()),
@@ -86,6 +93,9 @@ impl SourceModel {
             .merge(self.is_14_bit.changed())
             .merge(self.raw_midi_pattern.changed())
             .merge(self.midi_script.changed())
+            .merge(self.display_type.changed())
+            .merge(self.time_code_display_scope.changed())
+            .merge(self.line.changed())
             .merge(self.control_element_type.changed())
             .merge(self.control_element_id.changed())
             .merge(self.osc_address_pattern.changed())
@@ -299,6 +309,21 @@ impl SourceModel {
                     Script => MidiSource::Script {
                         script: EelMidiSourceScript::compile(self.midi_script.get_ref()).ok(),
                     },
+                    Display => MidiSource::Display {
+                        type_specific_settings: {
+                            use DisplayType::*;
+                            match self.display_type.get() {
+                                MackieLcd => DisplayTypeSpecificSettings::MackieLcd {
+                                    channel: self.channel.get().map(|ch| ch.get()),
+                                    line: self.line.get(),
+                                },
+                                MackieTimeCode => DisplayTypeSpecificSettings::MackieTimeCode {
+                                    scope: self.time_code_display_scope.get(),
+                                },
+                                MackieAssignment => DisplayTypeSpecificSettings::MackieAssignment,
+                            }
+                        },
+                    },
                 };
                 CompoundMappingSource::Midi(midi_source)
             }
@@ -419,19 +444,6 @@ impl SourceModel {
         self.midi_source_type.get() == MidiSourceType::ParameterNumberValue
     }
 
-    pub fn supports_control_element_name(&self) -> bool {
-        self.category.get() == SourceCategory::Virtual
-    }
-
-    pub fn is_osc(&self) -> bool {
-        self.category.get() == SourceCategory::Osc
-    }
-
-    pub fn is_raw_midi(&self) -> bool {
-        self.category.get() == SourceCategory::Midi
-            && self.midi_source_type.get() == MidiSourceType::Raw
-    }
-
     pub fn is_midi_script(&self) -> bool {
         self.category.get() == SourceCategory::Midi
             && self.midi_source_type.get() == MidiSourceType::Script
@@ -466,73 +478,71 @@ impl Display for SourceModel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use SourceCategory::*;
         let lines: Vec<Cow<str>> = match self.category.get() {
-            Midi => {
-                use MidiSourceType::*;
-                match self.midi_source_type.get() {
-                    t @ NoteVelocity => {
-                        vec![
-                            t.to_string().into(),
-                            self.channel_label(),
-                            self.note_label(),
-                        ]
-                    }
-                    ParameterNumberValue => {
-                        let line_1 = match self.is_registered.get() {
-                            None => ParameterNumberValue.to_string().into(),
-                            Some(is_registered) => {
-                                if is_registered {
-                                    "RPN".into()
-                                } else {
-                                    "NRPN".into()
-                                }
-                            }
-                        };
-                        let line_3 = match self.parameter_number_message_number.get() {
-                            None => "Any number".into(),
-                            Some(n) => format!("Number {}", n.get()).into(),
-                        };
-                        vec![line_1, self.channel_label(), line_3]
-                    }
-                    PolyphonicKeyPressureAmount => {
-                        vec![
-                            "Poly after touch".into(),
-                            self.channel_label(),
-                            self.note_label(),
-                        ]
-                    }
-                    ClockTempo => vec!["MIDI clock".into(), "Tempo".into()],
-                    ClockTransport => {
-                        vec![
-                            "MIDI clock".into(),
-                            self.midi_clock_transport_message.get().to_string().into(),
-                        ]
-                    }
-                    t @ ControlChangeValue => {
-                        let line_3 = match self.midi_message_number.get() {
-                            None => "Any CC".into(),
-                            Some(n) => format!("CC number {}", n.get()).into(),
-                        };
-                        use MidiSourceType::*;
-                        let line_4 = match self.midi_source_type.get() {
-                            ControlChangeValue if self.is_14_bit.get() == Some(false) => {
-                                use SourceCharacter::*;
-                                let label = match self.custom_character.get() {
-                                    RangeElement => "Range element",
-                                    MomentaryButton => "Momentary button",
-                                    Encoder1 => "Encoder 1",
-                                    Encoder2 => "Encoder 2",
-                                    Encoder3 => "Encoder 3",
-                                    ToggleButton => "Toggle button :-(",
-                                };
-                                label.into()
-                            }
-                            _ => "".into(),
-                        };
-                        vec![t.to_string().into(), self.channel_label(), line_3, line_4]
-                    }
-                    t => vec![t.to_string().into(), self.channel_label()],
+            Midi => match self.midi_source_type.get() {
+                t @ MidiSourceType::NoteVelocity => {
+                    vec![
+                        t.to_string().into(),
+                        self.channel_label(),
+                        self.note_label(),
+                    ]
                 }
-            }
+                MidiSourceType::ParameterNumberValue => {
+                    let line_1 = match self.is_registered.get() {
+                        None => MidiSourceType::ParameterNumberValue.to_string().into(),
+                        Some(is_registered) => {
+                            if is_registered {
+                                "RPN".into()
+                            } else {
+                                "NRPN".into()
+                            }
+                        }
+                    };
+                    let line_3 = match self.parameter_number_message_number.get() {
+                        None => "Any number".into(),
+                        Some(n) => format!("Number {}", n.get()).into(),
+                    };
+                    vec![line_1, self.channel_label(), line_3]
+                }
+                MidiSourceType::PolyphonicKeyPressureAmount => {
+                    vec![
+                        "Poly after touch".into(),
+                        self.channel_label(),
+                        self.note_label(),
+                    ]
+                }
+                MidiSourceType::ClockTempo => vec!["MIDI clock".into(), "Tempo".into()],
+                MidiSourceType::ClockTransport => {
+                    vec![
+                        "MIDI clock".into(),
+                        self.midi_clock_transport_message.get().to_string().into(),
+                    ]
+                }
+                t @ MidiSourceType::ControlChangeValue => {
+                    let line_3 = match self.midi_message_number.get() {
+                        None => "Any CC".into(),
+                        Some(n) => format!("CC number {}", n.get()).into(),
+                    };
+                    use MidiSourceType::*;
+                    let line_4 = match self.midi_source_type.get() {
+                        ControlChangeValue if self.is_14_bit.get() == Some(false) => {
+                            use SourceCharacter::*;
+                            let label = match self.custom_character.get() {
+                                RangeElement => "Range element",
+                                MomentaryButton => "Momentary button",
+                                Encoder1 => "Encoder 1",
+                                Encoder2 => "Encoder 2",
+                                Encoder3 => "Encoder 3",
+                                ToggleButton => "Toggle button :-(",
+                            };
+                            label.into()
+                        }
+                        _ => "".into(),
+                    };
+                    vec![t.to_string().into(), self.channel_label(), line_3, line_4]
+                }
+                t @ MidiSourceType::Display => vec![t.to_string().into()],
+                t => vec![t.to_string().into(), self.channel_label()],
+            },
             Virtual => vec![
                 "Virtual".into(),
                 self.create_control_element().to_string().into(),
@@ -646,6 +656,8 @@ pub enum MidiSourceType {
     Raw = 10,
     #[display(fmt = "MIDI script (feedback only)")]
     Script = 11,
+    #[display(fmt = "Display (feedback only)")]
+    Display = 12,
 }
 
 impl Default for MidiSourceType {
@@ -671,6 +683,7 @@ impl MidiSourceType {
             ClockTransport { .. } => MidiSourceType::ClockTransport,
             Raw { .. } => MidiSourceType::Raw,
             Script { .. } => MidiSourceType::Script,
+            Display { .. } => MidiSourceType::Display,
         }
     }
 

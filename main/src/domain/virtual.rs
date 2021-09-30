@@ -2,7 +2,7 @@ use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value
 use crate::domain::{ExtendedSourceCharacter, SmallAsciiString, TargetCharacter};
 use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_learn::{
-    AbsoluteValue, ControlType, ControlValue, SourceCharacter, Target, UnitValue,
+    AbsoluteValue, ControlType, ControlValue, FeedbackValue, SourceCharacter, Target, UnitValue,
 };
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
@@ -73,11 +73,8 @@ impl VirtualSource {
         Some(value.control_value)
     }
 
-    pub fn feedback(&self, feedback_value: AbsoluteValue) -> VirtualSourceValue {
-        VirtualSourceValue::new(
-            self.control_element,
-            ControlValue::from_absolute(feedback_value),
-        )
+    pub fn feedback(&self, feedback_value: FeedbackValue) -> VirtualFeedbackValue {
+        VirtualFeedbackValue::new(self.control_element, feedback_value.into_owned())
     }
 
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
@@ -121,6 +118,32 @@ impl VirtualSourceValue {
 
     pub fn control_value(&self) -> ControlValue {
         self.control_value
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct VirtualFeedbackValue {
+    control_element: VirtualControlElement,
+    feedback_value: FeedbackValue<'static>,
+}
+
+impl VirtualFeedbackValue {
+    pub fn new(
+        control_element: VirtualControlElement,
+        feedback_value: FeedbackValue<'static>,
+    ) -> Self {
+        VirtualFeedbackValue {
+            control_element,
+            feedback_value,
+        }
+    }
+
+    pub fn control_element(&self) -> VirtualControlElement {
+        self.control_element
+    }
+
+    pub fn feedback_value(&self) -> &FeedbackValue {
+        &self.feedback_value
     }
 }
 

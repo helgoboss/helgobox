@@ -3,7 +3,7 @@ use crate::domain::{EelTransformation, Mode, OutputVariable};
 
 use helgoboss_learn::{
     check_mode_applicability, full_discrete_interval, full_unit_interval, AbsoluteMode,
-    ButtonUsage, DetailedSourceCharacter, DiscreteIncrement, EncoderUsage, FireMode,
+    ButtonUsage, DetailedSourceCharacter, DiscreteIncrement, EncoderUsage, FeedbackType, FireMode,
     GroupInteraction, Interval, ModeApplicabilityCheckInput, ModeParameter, ModeSettings,
     OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue, ValueSequence,
 };
@@ -52,6 +52,8 @@ pub struct ModeModel {
     pub make_absolute: Prop<bool>,
     pub group_interaction: Prop<GroupInteraction>,
     pub target_value_sequence: Prop<ValueSequence>,
+    pub feedback_type: Prop<FeedbackType>,
+    pub textual_feedback_expression: Prop<String>,
 }
 
 impl Default for ModeModel {
@@ -80,6 +82,8 @@ impl Default for ModeModel {
             make_absolute: prop(false),
             group_interaction: prop(Default::default()),
             target_value_sequence: prop(Default::default()),
+            feedback_type: prop(Default::default()),
+            textual_feedback_expression: prop(Default::default()),
         }
     }
 }
@@ -110,6 +114,8 @@ impl ModeModel {
             .set(def.eel_control_transformation.get_ref().clone());
         self.eel_feedback_transformation
             .set(def.eel_feedback_transformation.get_ref().clone());
+        self.textual_feedback_expression
+            .set(def.textual_feedback_expression.get_ref().clone());
         self.out_of_range_behavior
             .set(def.out_of_range_behavior.get());
         self.fire_mode.set(def.fire_mode.get());
@@ -122,6 +128,7 @@ impl ModeModel {
         self.group_interaction.set(def.group_interaction.get());
         self.target_value_sequence
             .set(def.target_value_sequence.get_ref().clone());
+        self.feedback_type.set(def.feedback_type.get());
         self.reverse.set(def.reverse.get());
         self.step_interval.set(def.step_interval.get());
         self.press_duration_interval
@@ -145,6 +152,7 @@ impl ModeModel {
             .merge(self.encoder_usage.changed())
             .merge(self.eel_control_transformation.changed())
             .merge(self.eel_feedback_transformation.changed())
+            .merge(self.textual_feedback_expression.changed())
             .merge(self.step_interval.changed())
             .merge(self.rotate.changed())
             .merge(self.press_duration_interval.changed())
@@ -152,6 +160,7 @@ impl ModeModel {
             .merge(self.make_absolute.changed())
             .merge(self.group_interaction.changed())
             .merge(self.target_value_sequence.changed())
+            .merge(self.feedback_type.changed())
     }
 
     pub fn mode_parameter_is_relevant(
@@ -328,6 +337,12 @@ impl ModeModel {
                 self.target_value_sequence.get_ref().clone()
             } else {
                 Default::default()
+            },
+            feedback_type: self.feedback_type.get(),
+            textual_feedback_expression: if is_relevant(ModeParameter::TextualFeedbackExpression) {
+                self.textual_feedback_expression.get_ref().trim().to_owned()
+            } else {
+                String::new()
             },
         })
     }
