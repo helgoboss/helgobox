@@ -31,11 +31,12 @@ use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
     get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
     AutomationModeOverrideType, BookmarkAnchorType, ConcreteFxInstruction,
-    ConcreteTrackInstruction, MappingModel, MidiSourceType, ModeModel, RealearnAutomationMode,
-    RealearnTrackArea, ReaperSourceType, ReaperTargetType, Session, SevenSegmentDisplayScope,
-    SharedMapping, SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
-    TargetModelWithContext, TargetUnit, TrackRouteSelectorType, VirtualControlElementType,
-    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
+    ConcreteTrackInstruction, MackieLcdScope, MackieSevenSegmentDisplayScope, MappingModel,
+    MidiSourceType, ModeModel, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType,
+    ReaperTargetType, Session, SharedMapping, SharedSession, SourceCategory, SourceModel,
+    TargetCategory, TargetModel, TargetModelWithContext, TargetUnit, TrackRouteSelectorType,
+    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
+    WeakSession,
 };
 use crate::base::Global;
 use crate::domain::{
@@ -925,7 +926,15 @@ impl<'a> MutableMappingPanel<'a> {
         match self.mapping.source_model.category.get() {
             Midi if self.mapping.source_model.supports_display_scope() => {
                 match self.mapping.source_model.display_type.get() {
-                    DisplayType::MackieLcd => {}
+                    DisplayType::MackieLcd => {
+                        let scopes = MackieLcdScope::generate_all_combinations();
+                        let scope = scopes.get(i).expect("invalid Mackie LCD scope");
+                        self.mapping
+                            .source_model
+                            .channel
+                            .set_without_notification(scope.channel.map(Channel::new));
+                        self.mapping.source_model.line.set(scope.line);
+                    }
                     DisplayType::MackieSevenSegmentDisplay => {
                         self.mapping
                             .source_model
@@ -2848,9 +2857,15 @@ impl<'a> ImmutableMappingPanel<'a> {
             Midi if self.source.supports_display_scope() => {
                 b.show();
                 match self.source.display_type.get() {
-                    DisplayType::MackieLcd => {}
+                    DisplayType::MackieLcd => {
+                        let scopes = MackieLcdScope::generate_all_combinations();
+                        b.fill_combo_box_indexed(scopes.iter());
+                        let scope = self.source.mackie_lcd_scope();
+                        let i = scopes.iter().position(|s| s == &scope).unwrap_or_default();
+                        b.select_combo_box_item_by_index(i).unwrap();
+                    }
                     DisplayType::MackieSevenSegmentDisplay => {
-                        b.fill_combo_box_indexed(SevenSegmentDisplayScope::into_enum_iter());
+                        b.fill_combo_box_indexed(MackieSevenSegmentDisplayScope::into_enum_iter());
                         b.select_combo_box_item_by_index(
                             self.source.seven_segment_display_scope.get().into(),
                         )
@@ -4336,6 +4351,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel.when(source.channel.changed(), |view, _| {
             view.invalidate_source_control_visibilities();
             view.invalidate_source_line_3_combo_box_1();
+            view.invalidate_source_line_5_combo_box();
         });
         self.panel.when(source.is_14_bit.changed(), |view, _| {
             view.invalidate_source_controls();
@@ -4380,6 +4396,9 @@ impl<'a> ImmutableMappingPanel<'a> {
             .when(source.seven_segment_display_scope.changed(), |view, _| {
                 view.invalidate_source_line_5_combo_box();
             });
+        self.panel.when(source.line.changed(), |view, _| {
+            view.invalidate_source_line_5_combo_box();
+        });
         self.panel.when(
             source
                 .osc_address_pattern

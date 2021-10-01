@@ -1,6 +1,6 @@
 use super::none_if_minus_one;
 use crate::application::{
-    MidiSourceType, ReaperSourceType, SevenSegmentDisplayScope, SourceCategory, SourceModel,
+    MackieSevenSegmentDisplayScope, MidiSourceType, ReaperSourceType, SourceCategory, SourceModel,
     VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
@@ -53,7 +53,7 @@ pub struct SourceModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub line: Option<u8>,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub seven_segment_display_scope: SevenSegmentDisplayScope,
+    pub seven_segment_display_scope: MackieSevenSegmentDisplayScope,
     // OSC
     #[serde(default, skip_serializing_if = "is_default")]
     pub osc_address_pattern: String,
