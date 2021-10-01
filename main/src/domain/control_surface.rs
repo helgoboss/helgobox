@@ -57,7 +57,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
 }
 
 pub enum Garbage {
-    RawMidiEvent(Box<RawMidiEvent>),
+    RawMidiEvents(Vec<RawMidiEvent>),
     RealTimeProcessor(SharedRealTimeProcessor),
     LifecycleMidiData(LifecycleMidiData),
     ResolvedTarget(Option<RealTimeCompoundMappingTarget>),

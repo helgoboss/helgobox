@@ -984,9 +984,12 @@ impl RealTimeProcessor {
     }
 
     fn send_midi_feedback(&self, value: MidiSourceValue<RawShortMessage>, caller: Caller) {
-        if let MidiSourceValue::Raw(msg) = value {
-            send_raw_midi_to_fx_output(msg.bytes(), SampleOffset::ZERO, caller);
-            self.garbage_bin.dispose(Garbage::RawMidiEvent(msg));
+        if let MidiSourceValue::Raw(evts) = value {
+            // TODO-medium We can implement in a way so we only need one host.process_events() call.
+            for evt in &evts {
+                send_raw_midi_to_fx_output(evt.bytes(), SampleOffset::ZERO, caller);
+            }
+            self.garbage_bin.dispose(Garbage::RawMidiEvents(evts));
         } else {
             let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
             if shorts[0].is_none() {
@@ -1027,7 +1030,7 @@ impl RealTimeProcessor {
                                         if self.output_logging_enabled {
                                             permit_alloc(|| {
                                                 self.log_lifecycle_output(MidiSourceValue::Raw(
-                                                    data.clone(),
+                                                    vec![*data.clone()],
                                                 ));
                                             });
                                         }
@@ -1054,7 +1057,7 @@ impl RealTimeProcessor {
                 LifecycleMidiMessage::Raw(data) => {
                     if self.output_logging_enabled {
                         permit_alloc(|| {
-                            self.log_lifecycle_output(MidiSourceValue::Raw(data.clone()));
+                            self.log_lifecycle_output(MidiSourceValue::Raw(vec![*data.clone()]));
                         });
                     }
                     send_raw_midi_to_fx_output(data.bytes(), SampleOffset::ZERO, caller)

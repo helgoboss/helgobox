@@ -32,10 +32,10 @@ use crate::application::{
     get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
     AutomationModeOverrideType, BookmarkAnchorType, ConcreteFxInstruction,
     ConcreteTrackInstruction, MappingModel, MidiSourceType, ModeModel, RealearnAutomationMode,
-    RealearnTrackArea, ReaperSourceType, ReaperTargetType, Session, SharedMapping, SharedSession,
-    SourceCategory, SourceModel, TargetCategory, TargetModel, TargetModelWithContext, TargetUnit,
-    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
-    VirtualTrackType, WeakSession,
+    RealearnTrackArea, ReaperSourceType, ReaperTargetType, Session, SevenSegmentDisplayScope,
+    SharedMapping, SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
+    TargetModelWithContext, TargetUnit, TrackRouteSelectorType, VirtualControlElementType,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
 };
 use crate::base::Global;
 use crate::domain::{
@@ -923,7 +923,18 @@ impl<'a> MutableMappingPanel<'a> {
         let i = b.selected_combo_box_item_index();
         use SourceCategory::*;
         match self.mapping.source_model.category.get() {
-            Midi => {
+            Midi if self.mapping.source_model.supports_display_scope() => {
+                match self.mapping.source_model.display_type.get() {
+                    DisplayType::MackieLcd => {}
+                    DisplayType::MackieSevenSegmentDisplay => {
+                        self.mapping
+                            .source_model
+                            .seven_segment_display_scope
+                            .set(i.try_into().expect("invalid 7-segment display scope"));
+                    }
+                }
+            }
+            Midi if self.mapping.source_model.supports_custom_character() => {
                 self.mapping
                     .source_model
                     .custom_character
@@ -935,7 +946,7 @@ impl<'a> MutableMappingPanel<'a> {
                     .osc_arg_type_tag
                     .set(i.try_into().expect("invalid OSC type tag"));
             }
-            Reaper | Virtual | Never => {}
+            _ => {}
         }
     }
 
@@ -2818,6 +2829,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_line_5_label(&self) {
         use SourceCategory::*;
         let text = match self.source.category.get() {
+            Midi if self.source.supports_display_scope() => Some("Scope"),
             Midi if self.source.supports_custom_character() => Some("Character"),
             Osc => Some("Type"),
             _ => None,
@@ -2833,6 +2845,19 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_SOURCE_CHARACTER_COMBO_BOX);
         use SourceCategory::*;
         match self.source.category.get() {
+            Midi if self.source.supports_display_scope() => {
+                b.show();
+                match self.source.display_type.get() {
+                    DisplayType::MackieLcd => {}
+                    DisplayType::MackieSevenSegmentDisplay => {
+                        b.fill_combo_box_indexed(SevenSegmentDisplayScope::into_enum_iter());
+                        b.select_combo_box_item_by_index(
+                            self.source.seven_segment_display_scope.get().into(),
+                        )
+                        .unwrap();
+                    }
+                }
+            }
             Midi if self.source.supports_custom_character() => {
                 b.show();
                 b.fill_combo_box_indexed(SourceCharacter::into_enum_iter());
@@ -4351,6 +4376,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel.when(source.display_type.changed(), |view, _| {
             view.invalidate_source_controls();
         });
+        self.panel
+            .when(source.seven_segment_display_scope.changed(), |view, _| {
+                view.invalidate_source_line_5_combo_box();
+            });
         self.panel.when(
             source
                 .osc_address_pattern

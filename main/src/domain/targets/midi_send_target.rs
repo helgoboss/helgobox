@@ -152,7 +152,7 @@ impl RealearnTarget for MidiSendTarget {
                         .feedback_audio_hook_task_sender
                         .send(FeedbackAudioHookTask::SendMidi(
                             dev_id,
-                            Box::new(raw_midi_event),
+                            vec![raw_midi_event],
                         ))
                         .unwrap();
                     Ok(None)

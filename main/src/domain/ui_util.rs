@@ -130,7 +130,13 @@ pub fn format_midi_source_value(value: &MidiSourceValue<RawShortMessage>) -> Str
         ParameterNumber(m) => serde_json::to_string(&m).unwrap(),
         ControlChange14Bit(m) => serde_json::to_string(&m).unwrap(),
         Tempo(bpm) => format!("{:?}", bpm),
-        Raw(evt) => format_raw_midi(evt.bytes()),
+        Raw(events) => {
+            let event_strings: Vec<_> = events
+                .iter()
+                .map(|event| format_raw_midi(event.bytes()))
+                .collect();
+            serde_json::to_string(&event_strings).unwrap()
+        }
         BorrowedSysEx(bytes) => format_raw_midi(bytes),
     }
 }

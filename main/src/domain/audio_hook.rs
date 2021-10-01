@@ -46,7 +46,7 @@ pub enum FeedbackAudioHookTask {
         MidiOutputDeviceId,
         MidiSourceValue<'static, RawShortMessage>,
     ),
-    SendMidi(MidiOutputDeviceId, Box<RawMidiEvent>),
+    SendMidi(MidiOutputDeviceId, Vec<RawMidiEvent>),
 }
 
 #[derive(Debug)]
@@ -98,13 +98,15 @@ impl RealearnAudioHook {
             use FeedbackAudioHookTask::*;
             match task {
                 MidiDeviceFeedback(dev_id, value) => {
-                    if let MidiSourceValue::Raw(msg) = value {
+                    if let MidiSourceValue::Raw(events) = value {
                         MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
                             if let Some(mo) = mo {
-                                mo.send_msg(&*msg, SendMidiTime::Instantly);
+                                for event in &events {
+                                    mo.send_msg(&*event, SendMidiTime::Instantly);
+                                }
                             }
                         });
-                        self.garbage_bin.dispose(Garbage::RawMidiEvent(msg));
+                        self.garbage_bin.dispose(Garbage::RawMidiEvents(events));
                     } else {
                         let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
                         if shorts[0].is_none() {
@@ -119,14 +121,16 @@ impl RealearnAudioHook {
                         });
                     }
                 }
-                SendMidi(dev_id, raw_midi_event) => {
+                SendMidi(dev_id, raw_midi_events) => {
                     MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
                         if let Some(mo) = mo {
-                            mo.send_msg(&*raw_midi_event, SendMidiTime::Instantly);
+                            for event in &raw_midi_events {
+                                mo.send_msg(&*event, SendMidiTime::Instantly);
+                            }
                         }
                     });
                     self.garbage_bin
-                        .dispose(Garbage::RawMidiEvent(raw_midi_event));
+                        .dispose(Garbage::RawMidiEvents(raw_midi_events));
                 }
             }
         }

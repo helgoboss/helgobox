@@ -7,9 +7,9 @@ use crate::domain::{
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, DetailedSourceCharacter, DisplayType, DisplayTypeSpecificSettings,
-    MidiClockTransportMessage, OscArgDescriptor, OscSource, OscTypeTag, SourceCharacter,
-    TimeCodeDisplayScope, UnitValue,
+    ControlValue, DetailedSourceCharacter, DisplayPositions, DisplayType,
+    DisplayTypeSpecificSettings, LcdPortions, MidiClockTransportMessage, OscArgDescriptor,
+    OscSource, OscTypeTag, SourceCharacter, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -36,7 +36,7 @@ pub struct SourceModel {
     pub raw_midi_pattern: Prop<String>,
     pub midi_script: Prop<String>,
     pub display_type: Prop<DisplayType>,
-    pub time_code_display_scope: Prop<TimeCodeDisplayScope>,
+    pub seven_segment_display_scope: Prop<SevenSegmentDisplayScope>,
     pub line: Prop<Option<u8>>,
     // OSC
     pub osc_address_pattern: Prop<String>,
@@ -67,7 +67,7 @@ impl Default for SourceModel {
             raw_midi_pattern: prop("".to_owned()),
             midi_script: prop("".to_owned()),
             display_type: prop(Default::default()),
-            time_code_display_scope: prop(Default::default()),
+            seven_segment_display_scope: prop(Default::default()),
             line: prop(None),
             osc_address_pattern: prop("".to_owned()),
             osc_arg_index: prop(Some(0)),
@@ -94,7 +94,7 @@ impl SourceModel {
             .merge(self.raw_midi_pattern.changed())
             .merge(self.midi_script.changed())
             .merge(self.display_type.changed())
-            .merge(self.time_code_display_scope.changed())
+            .merge(self.seven_segment_display_scope.changed())
             .merge(self.line.changed())
             .merge(self.control_element_type.changed())
             .merge(self.control_element_id.changed())
@@ -314,13 +314,19 @@ impl SourceModel {
                             use DisplayType::*;
                             match self.display_type.get() {
                                 MackieLcd => DisplayTypeSpecificSettings::MackieLcd {
-                                    channel: self.channel.get().map(|ch| ch.get()),
-                                    line: self.line.get(),
+                                    portions: LcdPortions::from_channel_and_line(
+                                        self.channel.get().map(|ch| ch.get()),
+                                        self.line.get(),
+                                    ),
                                 },
-                                MackieTimeCode => DisplayTypeSpecificSettings::MackieTimeCode {
-                                    scope: self.time_code_display_scope.get(),
-                                },
-                                MackieAssignment => DisplayTypeSpecificSettings::MackieAssignment,
+                                MackieSevenSegmentDisplay => {
+                                    DisplayTypeSpecificSettings::MackieSevenSegmentDisplay {
+                                        positions: self
+                                            .seven_segment_display_scope
+                                            .get_ref()
+                                            .positions(),
+                                    }
+                                }
                             }
                         },
                     },
@@ -416,6 +422,13 @@ impl SourceModel {
             return false;
         }
         self.supports_parameter_number_message_props()
+    }
+
+    pub fn supports_display_scope(&self) -> bool {
+        if !self.is_midi() {
+            return false;
+        }
+        self.midi_source_type.get() == MidiSourceType::Display
     }
 
     pub fn supports_custom_character(&self) -> bool {
@@ -793,6 +806,60 @@ impl ReaperSourceType {
             MidiDeviceChanges => Self::MidiDeviceChanges,
             RealearnInstanceStart => Self::RealearnInstanceStart,
         }
+    }
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Debug,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+    Serialize_repr,
+    Deserialize_repr,
+)]
+#[repr(usize)]
+pub enum SevenSegmentDisplayScope {
+    #[display(fmt = "All")]
+    All = 0,
+    #[display(fmt = ".... Assignment")]
+    Assignment = 1,
+    #[display(fmt = ".... Time code")]
+    Tc = 2,
+    #[display(fmt = "........ Left 3 digits (hours/bars)")]
+    TcLeft3Digits = 3,
+    #[display(fmt = "........ Left 2 digits (minutes/beats)")]
+    TcLeft2Digits = 4,
+    #[display(fmt = "........ Right 2 digits (seconds/sub)")]
+    TcRight2Digits = 5,
+    #[display(fmt = "........ Right 3 digits (frames/ticks)")]
+    TcRight3Digits = 6,
+}
+
+impl SevenSegmentDisplayScope {
+    pub fn positions(&self) -> DisplayPositions {
+        use SevenSegmentDisplayScope::*;
+        let positions = match self {
+            All => vec![0x0B, 0x0A, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
+            Assignment => vec![0x0B, 0x0A],
+            Tc => vec![9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
+            TcLeft3Digits => vec![9, 8, 7],
+            TcLeft2Digits => vec![6, 5],
+            TcRight2Digits => vec![4, 3],
+            TcRight3Digits => vec![2, 1, 0],
+        };
+        DisplayPositions::new(positions)
+    }
+}
+
+impl Default for SevenSegmentDisplayScope {
+    fn default() -> Self {
+        SevenSegmentDisplayScope::Assignment
     }
 }
 
