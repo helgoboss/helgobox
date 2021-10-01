@@ -340,7 +340,7 @@ impl ModeModel {
             },
             feedback_type: self.feedback_type.get(),
             textual_feedback_expression: if is_relevant(ModeParameter::TextualFeedbackExpression) {
-                self.textual_feedback_expression.get_ref().trim().to_owned()
+                self.textual_feedback_expression.get_ref().to_owned()
             } else {
                 String::new()
             },

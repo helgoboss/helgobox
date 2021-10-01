@@ -859,7 +859,7 @@ impl SevenSegmentDisplayScope {
 
 impl Default for SevenSegmentDisplayScope {
     fn default() -> Self {
-        SevenSegmentDisplayScope::Assignment
+        SevenSegmentDisplayScope::All
     }
 }
 
