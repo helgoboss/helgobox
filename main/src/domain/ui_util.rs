@@ -1,5 +1,6 @@
 use crate::domain::{InstanceId, OwnedIncomingMidiMessage};
 use core::fmt;
+use derive_more::Display;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
 };
@@ -9,6 +10,7 @@ use reaper_medium::{Db, ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use rosc::{OscMessage, OscPacket};
 use slog::warn;
 use std::convert::TryInto;
+use std::fmt::Display;
 
 pub fn format_as_percentage_without_unit(value: UnitValue) -> String {
     format_percentage_without_unit(value.get())
@@ -103,24 +105,45 @@ pub fn format_value_as_db(value: UnitValue) -> String {
         .to_string()
 }
 
-pub fn log_control_input(instance_id: &InstanceId, msg: String) {
-    log(instance_id, "Control input", &msg);
+pub fn log_control_input(instance_id: &InstanceId, msg: impl Display) {
+    log(instance_id, "Control input", msg);
 }
 
-pub fn log_learn_input(instance_id: &InstanceId, msg: String) {
-    log(instance_id, "Learn input", &msg);
+pub fn log_learn_input(instance_id: &InstanceId, msg: impl Display) {
+    log(instance_id, "Learn input", msg);
 }
 
-pub fn log_feedback_output(instance_id: &InstanceId, msg: String) {
-    log(instance_id, "Feedback output", &msg);
+pub fn log_output(instance_id: &InstanceId, reason: OutputReason, msg: impl Display) {
+    log(instance_id, reason, msg);
 }
 
-pub fn log_lifecycle_output(instance_id: &InstanceId, msg: String) {
-    log(instance_id, "Lifecycle output", &msg);
+pub fn log_feedback_output(instance_id: &InstanceId, msg: impl Display) {
+    log_output(instance_id, OutputReason::Feedback, msg);
 }
 
-pub fn log_target_output(instance_id: &InstanceId, msg: String) {
-    log(instance_id, "Target output", &msg);
+pub fn log_lifecycle_output(instance_id: &InstanceId, msg: impl Display) {
+    log_output(instance_id, OutputReason::Lifecycle, msg);
+}
+
+pub fn log_target_output(instance_id: &InstanceId, msg: impl Display) {
+    log_output(instance_id, OutputReason::Target, msg);
+}
+
+pub fn log_system_output(instance_id: &InstanceId, msg: impl Display) {
+    log_output(instance_id, OutputReason::System, msg);
+}
+
+#[derive(Copy, Clone, Debug, Display)]
+pub enum OutputReason {
+    #[display(fmt = "Feedback output")]
+    Feedback,
+    #[display(fmt = "Lifecycle output")]
+    Lifecycle,
+    /// E.g. device queries
+    #[display(fmt = "System output")]
+    System,
+    #[display(fmt = "Target output")]
+    Target,
 }
 
 pub fn format_midi_source_value(value: &MidiSourceValue<RawShortMessage>) -> String {
@@ -174,7 +197,7 @@ pub fn format_incoming_midi_message(msg: OwnedIncomingMidiMessage) -> String {
     }
 }
 
-fn log(instance_id: &InstanceId, label: &str, msg: &impl fmt::Display) {
+fn log(instance_id: &InstanceId, label: impl Display, msg: impl Display) {
     let reaper = Reaper::get();
     reaper.show_console_msg(format!(
         "{:.3} | ReaLearn {} | {:<16} | {}\n",

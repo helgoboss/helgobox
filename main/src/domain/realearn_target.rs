@@ -1,4 +1,7 @@
-use crate::domain::ui_util::{format_as_percentage_without_unit, parse_unit_value_from_percentage};
+use crate::domain::ui_util::{
+    format_as_percentage_without_unit, format_raw_midi, log_output,
+    parse_unit_value_from_percentage, OutputReason,
+};
 use crate::domain::{
     AdditionalFeedbackEvent, DomainEventHandler, Exclusivity, ExtendedProcessorContext,
     FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceId, InstanceStateChanged, MainMapping,
@@ -7,9 +10,9 @@ use crate::domain::{
     TrackExclusivity,
 };
 use enum_dispatch::enum_dispatch;
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, RawMidiEvent, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
-use reaper_medium::CommandId;
+use reaper_medium::{CommandId, MidiOutputDeviceId};
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt::Debug;
@@ -286,6 +289,25 @@ pub struct ControlContext<'a> {
     pub instance_id: &'a InstanceId,
     pub output_logging_enabled: bool,
     pub processor_context: &'a ProcessorContext,
+}
+
+impl<'a> ControlContext<'a> {
+    pub fn send_raw_midi(
+        &self,
+        reason: OutputReason,
+        dev_id: MidiOutputDeviceId,
+        events: Vec<RawMidiEvent>,
+    ) {
+        if self.output_logging_enabled {
+            for e in &events {
+                log_output(self.instance_id, reason, format_raw_midi(e.bytes()));
+            }
+        }
+        let _ = self
+            .feedback_audio_hook_task_sender
+            .send(FeedbackAudioHookTask::SendMidi(dev_id, events))
+            .unwrap();
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
