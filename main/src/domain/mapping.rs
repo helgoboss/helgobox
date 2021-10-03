@@ -1296,14 +1296,17 @@ impl CompoundFeedbackValue {
             return None;
         }
         let val = if let CompoundMappingSource::Virtual(vs) = &source {
+            // Virtual source
             CompoundFeedbackValue::Virtual {
                 destinations,
                 value: vs.feedback(mode_value),
             }
         } else {
+            // Real source
             let projection = if destinations.with_projection_feedback
                 && compartment == MappingCompartment::ControllerMappings
             {
+                // TODO-high Support textual projection feedback
                 Some(ProjectionFeedbackValue::new(
                     compartment,
                     id,
