@@ -74,7 +74,7 @@ impl VirtualSource {
     }
 
     pub fn feedback(&self, feedback_value: FeedbackValue) -> VirtualFeedbackValue {
-        VirtualFeedbackValue::new(self.control_element, feedback_value.into_owned())
+        VirtualFeedbackValue::new(self.control_element, feedback_value.make_owned())
     }
 
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {

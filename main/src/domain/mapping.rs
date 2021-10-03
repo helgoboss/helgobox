@@ -19,6 +19,7 @@ use helgoboss_learn::{
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use std::borrow::Cow;
 
 use indexmap::map::IndexMap;
 use indexmap::set::IndexSet;
@@ -851,7 +852,7 @@ impl MainMapping {
             FeedbackValue::Numeric(combined_target_value)
         };
         self.feedback_given_target_value(
-            feedback_value,
+            Cow::Owned(feedback_value),
             FeedbackDestinations {
                 with_projection_feedback,
                 with_source_feedback: with_source_feedback && !self.core.is_echo(),
@@ -884,32 +885,36 @@ impl MainMapping {
         self.core.group_id
     }
 
+    /// Taking the feedback value as a Cow is better than taking a reference because with a
+    /// reference we would for sure have to clone a textual feedback value, even if the consumer
+    /// can give us ownership of the feedback value. It's also better than taking an owned value
+    /// because it's possible that we don't produce a feedback value at all! In which a consumer
+    /// that can't give up ownership would need to make a clone in advance - for nothing!
     pub fn feedback_given_target_value(
         &self,
-        feedback_value: FeedbackValue,
+        feedback_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
     ) -> Option<CompoundFeedbackValue> {
         use FeedbackValue::*;
-        let mode_value = match feedback_value {
-            Off => Off,
+        let mode_value = match feedback_value.as_ref() {
             // Process numeric value via mode
             Numeric(v) => {
                 let options = ModeFeedbackOptions {
                     source_is_virtual: self.core.source.is_virtual(),
                     max_discrete_source_value: self.core.source.max_discrete_value(),
                 };
-                let mode_value = self.core.mode.feedback_with_options(v, options)?;
-                Numeric(mode_value)
+                let mode_value = self.core.mode.feedback_with_options(*v, options)?;
+                Cow::Owned(Numeric(mode_value))
             }
             // Textual feedback is not processed (created by the mode in the first place).
-            Textual(v) => Textual(v),
+            _ => feedback_value,
         };
         self.feedback_given_mode_value(mode_value, destinations)
     }
 
     fn feedback_given_mode_value(
         &self,
-        mode_value: FeedbackValue,
+        mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
     ) -> Option<CompoundFeedbackValue> {
         CompoundFeedbackValue::from_mode_value(
@@ -928,7 +933,7 @@ impl MainMapping {
         // TODO-medium  "Unused" and "zero" could be a difference for projection so we should
         //  have different values for that (at the moment it's not though).
         self.feedback_given_mode_value(
-            FeedbackValue::Off,
+            Cow::Owned(FeedbackValue::Off),
             FeedbackDestinations {
                 with_projection_feedback: true,
                 with_source_feedback: true,
@@ -1181,7 +1186,7 @@ impl QualifiedSource {
             self.compartment,
             self.id,
             &self.source,
-            FeedbackValue::Off,
+            Cow::Owned(FeedbackValue::Off),
             FeedbackDestinations {
                 with_projection_feedback: true,
                 with_source_feedback: true,
@@ -1224,11 +1229,15 @@ impl CompoundMappingSource {
         }
     }
 
-    pub fn feedback(&self, feedback_value: FeedbackValue) -> Option<SourceFeedbackValue> {
+    pub fn feedback(&self, feedback_value: Cow<FeedbackValue>) -> Option<SourceFeedbackValue> {
         use CompoundMappingSource::*;
         match self {
-            Midi(s) => s.feedback(feedback_value).map(SourceFeedbackValue::Midi),
-            Osc(s) => s.feedback(feedback_value).map(SourceFeedbackValue::Osc),
+            Midi(s) => s
+                .feedback(feedback_value.into_owned())
+                .map(SourceFeedbackValue::Midi),
+            Osc(s) => s
+                .feedback(feedback_value.into_owned())
+                .map(SourceFeedbackValue::Osc),
             // This is handled in a special way by consumers.
             Virtual(_) => None,
             // No feedback for never source.
@@ -1287,7 +1296,7 @@ impl CompoundFeedbackValue {
         compartment: MappingCompartment,
         id: MappingId,
         source: &CompoundMappingSource,
-        mode_value: FeedbackValue,
+        mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
     ) -> Option<CompoundFeedbackValue> {
         if destinations.is_all_off() {
@@ -1297,7 +1306,7 @@ impl CompoundFeedbackValue {
             // Virtual source
             CompoundFeedbackValue::Virtual {
                 destinations,
-                value: vs.feedback(mode_value),
+                value: vs.feedback(mode_value.into_owned()),
             }
         } else {
             // Real source

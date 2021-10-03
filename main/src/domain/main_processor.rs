@@ -19,6 +19,7 @@ use helgoboss_learn::{
     AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
     ModeControlOptions, OscSource, RawMidiEvent, Target, BASE_EPSILON, FEEDBACK_EPSILON,
 };
+use std::borrow::Cow;
 
 use crate::domain::ui_util::{
     format_incoming_midi_message, format_midi_source_value, format_osc_message, format_osc_packet,
@@ -2489,10 +2490,15 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         // Should always be true.
                         if let Some(t) = m.virtual_target() {
                             if t.control_element() == value.control_element() {
-                                // Virtual source matched virtual target.
+                                // Virtual source matched virtual target. The following method
+                                // will always produce real target values (because controller
+                                // mappings can't have virtual sources).
                                 if let Some(CompoundFeedbackValue::Real(final_feedback_value)) = m
                                     .feedback_given_target_value(
-                                        value.feedback_value().clone(),
+                                        // This clone is unavoidable because we are producing
+                                        // real feedback values and these will be sent to another
+                                        //  thread, so they must be self-contained.
+                                        Cow::Borrowed(value.feedback_value()),
                                         FeedbackDestinations {
                                             with_source_feedback: destinations.with_source_feedback
                                                 && m.feedback_is_enabled(),
