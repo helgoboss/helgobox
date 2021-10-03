@@ -851,8 +851,7 @@ impl MainMapping {
             FeedbackValue::Numeric(combined_target_value)
         };
         self.feedback_given_target_value(
-            // TODO-high LCD We have an owned value here! Take benefit of that!
-            &feedback_value,
+            feedback_value,
             FeedbackDestinations {
                 with_projection_feedback,
                 with_source_feedback: with_source_feedback && !self.core.is_echo(),
@@ -887,7 +886,7 @@ impl MainMapping {
 
     pub fn feedback_given_target_value(
         &self,
-        feedback_value: &FeedbackValue,
+        feedback_value: FeedbackValue,
         destinations: FeedbackDestinations,
     ) -> Option<CompoundFeedbackValue> {
         use FeedbackValue::*;
@@ -899,12 +898,11 @@ impl MainMapping {
                     source_is_virtual: self.core.source.is_virtual(),
                     max_discrete_source_value: self.core.source.max_discrete_value(),
                 };
-                let mode_value = self.core.mode.feedback_with_options(*v, options)?;
+                let mode_value = self.core.mode.feedback_with_options(v, options)?;
                 Numeric(mode_value)
             }
             // Textual feedback is not processed (created by the mode in the first place).
-            // TODO-high clone is not necessary
-            Textual(v) => Textual(v.clone()),
+            Textual(v) => Textual(v),
         };
         self.feedback_given_mode_value(mode_value, destinations)
     }
@@ -1306,7 +1304,7 @@ impl CompoundFeedbackValue {
             let projection = if destinations.with_projection_feedback
                 && compartment == MappingCompartment::ControllerMappings
             {
-                // TODO-high Support textual projection feedback
+                // TODO-medium Support textual projection feedback
                 mode_value
                     .to_numeric()
                     .map(|v| ProjectionFeedbackValue::new(compartment, id, v.to_unit_value()))
