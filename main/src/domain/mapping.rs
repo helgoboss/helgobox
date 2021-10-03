@@ -1307,11 +1307,9 @@ impl CompoundFeedbackValue {
                 && compartment == MappingCompartment::ControllerMappings
             {
                 // TODO-high Support textual projection feedback
-                Some(ProjectionFeedbackValue::new(
-                    compartment,
-                    id,
-                    mode_value.to_numeric()?.to_unit_value(),
-                ))
+                mode_value
+                    .to_numeric()
+                    .map(|v| ProjectionFeedbackValue::new(compartment, id, v.to_unit_value()))
             } else {
                 None
             };
