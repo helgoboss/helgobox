@@ -161,6 +161,10 @@ impl RealearnTarget for TransportTarget {
             _ => (false, None),
         }
     }
+
+    fn text_value(&self, context: ControlContext) -> Option<String> {
+        Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).to_string())
+    }
 }
 
 impl<'a> Target<'a> for TransportTarget {

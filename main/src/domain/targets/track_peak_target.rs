@@ -1,9 +1,9 @@
 use crate::domain::ui_util::{
-    format_value_as_db_without_unit, parse_value_from_db, reaper_volume_unit_value,
+    format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
 use crate::domain::{ControlContext, RealearnTarget, TargetCharacter};
-use helgoboss_learn::{AbsoluteValue, ControlType, Target, UnitValue};
-use reaper_high::{Project, Reaper, Track};
+use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target, UnitValue};
+use reaper_high::{Project, Reaper, Track, Volume};
 use reaper_medium::{ReaperVolumeValue, TrackAttributeKey};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -15,6 +15,18 @@ impl<'a> Target<'a> for TrackPeakTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
+        let vol = self.peak()?;
+        let val = volume_unit_value(vol);
+        Some(AbsoluteValue::Continuous(val))
+    }
+
+    fn control_type(&self, context: Self::Context) -> ControlType {
+        self.control_type_and_character(context).0
+    }
+}
+
+impl TrackPeakTarget {
+    fn peak(&self) -> Option<Volume> {
         let reaper = Reaper::get().medium_reaper();
         let channel_count = unsafe {
             reaper.get_media_track_info_value(self.track.raw(), TrackAttributeKey::Nchan) as i32
@@ -29,12 +41,7 @@ impl<'a> Target<'a> for TrackPeakTarget {
         }
         let avg = sum / channel_count as f64;
         let vol = ReaperVolumeValue::new(avg);
-        let val = reaper_volume_unit_value(vol);
-        Some(AbsoluteValue::Continuous(val))
-    }
-
-    fn control_type(&self, context: Self::Context) -> ControlType {
-        self.control_type_and_character(context).0
+        Some(Volume::from_reaper_value(vol))
     }
 }
 
@@ -65,5 +72,13 @@ impl RealearnTarget for TrackPeakTarget {
 
     fn track(&self) -> Option<&Track> {
         Some(&self.track)
+    }
+
+    fn text_value(&self, _: ControlContext) -> Option<String> {
+        Some(self.peak()?.to_string())
+    }
+
+    fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
+        Some(NumericValue::Decimal(self.peak()?.db().get()))
     }
 }

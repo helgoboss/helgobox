@@ -353,6 +353,10 @@ impl ClipSlot {
         Ok(position)
     }
 
+    pub fn position_in_seconds(&self) -> PositionInSeconds {
+        lock(&self.register).cur_pos()
+    }
+
     pub fn set_position(&mut self, position: UnitValue) -> Result<ClipChangedEvent, &'static str> {
         let mut guard = lock(&self.register);
         let source = guard.src().ok_or("no source loaded")?;

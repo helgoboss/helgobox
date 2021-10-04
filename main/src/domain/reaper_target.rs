@@ -1,15 +1,17 @@
 use crate::base::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, TargetPropKey, UnitValue};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, NumericValue, Target, TargetPropValue, UnitValue,
+};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
     Action, AvailablePanValue, BookmarkType, ChangeEvent, Fx, FxChain, Pan, PlayRate, Project,
     Reaper, Tempo, Track, TrackRoute, Width,
 };
 use reaper_medium::{
-    AutomationMode, Bpm, GetLoopTimeRange2Result, GlobalAutomationModeOverride, NormalizedPlayRate,
-    PlaybackSpeedFactor, PositionInSeconds, ReaperPanValue, ReaperWidthValue,
+    AutomationMode, Bpm, GlobalAutomationModeOverride, NormalizedPlayRate, PlaybackSpeedFactor,
+    PositionInSeconds, ReaperPanValue, ReaperWidthValue,
 };
 use rxrust::prelude::*;
 
@@ -72,6 +74,7 @@ impl TargetCharacter {
 ///
 /// Unlike TargetModel, the real target has everything resolved already (e.g. track and FX) and
 /// is immutable.
+// TODO-medium Rename to RealTarget
 #[enum_dispatch]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ReaperTarget {
@@ -226,63 +229,6 @@ impl Default for FxDisplayType {
     fn default() -> Self {
         Self::FloatingWindow
     }
-}
-
-pub struct SeekInfo {
-    pub start_pos: PositionInSeconds,
-    pub end_pos: PositionInSeconds,
-}
-
-impl SeekInfo {
-    pub fn new(start_pos: PositionInSeconds, end_pos: PositionInSeconds) -> Self {
-        Self { start_pos, end_pos }
-    }
-
-    fn from_time_range(range: GetLoopTimeRange2Result) -> Self {
-        Self::new(range.start, range.end)
-    }
-
-    pub fn length(&self) -> f64 {
-        self.end_pos.get() - self.start_pos.get()
-    }
-}
-
-pub(crate) fn get_seek_info(project: Project, options: SeekOptions) -> SeekInfo {
-    if options.use_time_selection {
-        if let Some(r) = project.time_selection() {
-            return SeekInfo::from_time_range(r);
-        }
-    }
-    if options.use_loop_points {
-        if let Some(r) = project.loop_points() {
-            return SeekInfo::from_time_range(r);
-        }
-    }
-    if options.use_regions {
-        let bm = project.current_bookmark();
-        if let Some(i) = bm.region_index {
-            if let Some(bm) = project.find_bookmark_by_index(i) {
-                let info = bm.basic_info();
-                if let Some(end_pos) = info.region_end_position {
-                    return SeekInfo::new(info.position, end_pos);
-                }
-            }
-        }
-    }
-    if options.use_project {
-        let length = project.length();
-        if length.get() > 0.0 {
-            return SeekInfo::new(
-                PositionInSeconds::new(0.0),
-                PositionInSeconds::new(length.get()),
-            );
-        }
-    }
-    // Last fallback: Viewport seeking. We always have a viewport
-    let result = Reaper::get()
-        .medium_reaper()
-        .get_set_arrange_view_2_get(project.context(), 0, 0);
-    SeekInfo::new(result.start_time, result.end_time)
 }
 
 impl ReaperTarget {
@@ -633,57 +579,6 @@ impl<'a> Target<'a> for ReaperTarget {
         }
     }
 
-    fn textual_value(&self, key: TargetPropKey, context: Self::Context) -> Option<String> {
-        use ReaperTarget::*;
-        match self {
-            SendOsc(t) => t.textual_value(key, context),
-            SendMidi(t) => t.textual_value(key, ()),
-            TrackPeak(t) => t.textual_value(key, context),
-            Action(t) => t.textual_value(key, context),
-            FxParameter(t) => t.textual_value(key, context),
-            TrackVolume(t) => t.textual_value(key, context),
-            TrackPan(t) => t.textual_value(key, context),
-            TrackWidth(t) => t.textual_value(key, context),
-            TrackArm(t) => t.textual_value(key, context),
-            TrackRouteVolume(t) => t.textual_value(key, context),
-            TrackSelection(t) => t.textual_value(key, context),
-            TrackMute(t) => t.textual_value(key, context),
-            TrackPhase(t) => t.textual_value(key, context),
-            TrackShow(t) => t.textual_value(key, context),
-            TrackSolo(t) => t.textual_value(key, context),
-            TrackAutomationMode(t) => t.textual_value(key, context),
-            TrackRoutePan(t) => t.textual_value(key, context),
-            TrackRouteMute(t) => t.textual_value(key, context),
-            TrackRoutePhase(t) => t.textual_value(key, context),
-            TrackRouteMono(t) => t.textual_value(key, context),
-            TrackRouteAutomationMode(t) => t.textual_value(key, context),
-            Tempo(t) => t.textual_value(key, context),
-            Playrate(t) => t.textual_value(key, context),
-            AutomationModeOverride(t) => t.textual_value(key, context),
-            FxEnable(t) => t.textual_value(key, context),
-            FxOpen(t) => t.textual_value(key, context),
-            // Discrete
-            FxPreset(t) => t.textual_value(key, context),
-            LoadFxSnapshot(t) => t.textual_value(key, context),
-            // Discrete
-            SelectedTrack(t) => t.textual_value(key, context),
-            // Discrete
-            FxNavigate(t) => t.textual_value(key, context),
-            AllTrackFxEnable(t) => t.textual_value(key, context),
-            Transport(t) => t.textual_value(key, context),
-            AutomationTouchState(t) => t.textual_value(key, context),
-            GoToBookmark(t) => t.textual_value(key, context),
-            Seek(t) => t.textual_value(key, context),
-            ClipTransport(t) => t.textual_value(key, context),
-            ClipSeek(t) => t.textual_value(key, context),
-            ClipVolume(t) => t.textual_value(key, context),
-            LoadMappingSnapshot(t) => t.textual_value(key, context),
-            EnableMappings(t) => t.textual_value(key, context),
-            EnableInstances(t) => t.textual_value(key, context),
-            NavigateWithinGroup(t) => t.textual_value(key, context),
-        }
-    }
-
     fn control_type(&self, context: ControlContext) -> ControlType {
         self.control_type_and_character(context).0
     }
@@ -736,20 +631,6 @@ pub fn current_value_of_bookmark(
     };
     let is_current = relevant_index == Some(index);
     convert_bool_to_unit_value(is_current)
-}
-
-pub(crate) fn current_value_of_seek(
-    project: Project,
-    options: SeekOptions,
-    pos: PositionInSeconds,
-) -> UnitValue {
-    let info = get_seek_info(project, options);
-    if pos < info.start_pos {
-        UnitValue::MIN
-    } else {
-        let pos_within_range = pos.get() - info.start_pos.get();
-        UnitValue::new_clamped(pos_within_range / info.length())
-    }
 }
 
 /// Converts a number of possible values to a step size.
@@ -805,10 +686,14 @@ pub fn format_value_as_pan(value: UnitValue) -> String {
 }
 
 pub fn format_value_as_on_off(value: UnitValue) -> &'static str {
-    if value.is_zero() {
-        "Off"
-    } else {
+    format_bool_as_on_off(!value.is_zero())
+}
+
+pub fn format_bool_as_on_off(value: bool) -> &'static str {
+    if value {
         "On"
+    } else {
+        "Off"
     }
 }
 

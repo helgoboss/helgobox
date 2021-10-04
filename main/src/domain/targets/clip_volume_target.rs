@@ -1,12 +1,12 @@
 use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db,
-    reaper_volume_unit_value,
+    reaper_volume_unit_value, volume_unit_value,
 };
 use crate::domain::{
     ClipChangedEvent, ControlContext, HitInstructionReturnValue, InstanceStateChanged,
     MappingControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::Volume;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -72,15 +72,30 @@ impl RealearnTarget for ClipVolumeTarget {
             _ => (false, None),
         }
     }
+
+    fn text_value(&self, context: ControlContext) -> Option<String> {
+        Some(self.volume(context)?.to_string())
+    }
+
+    fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
+        Some(NumericValue::Decimal(self.volume(context)?.db().get()))
+    }
+}
+
+impl ClipVolumeTarget {
+    fn volume(&self, context: ControlContext) -> Option<Volume> {
+        let instance_state = context.instance_state.borrow();
+        let reaper_volume = instance_state.get_slot(self.slot_index).ok()?.volume();
+        Some(Volume::from_reaper_value(reaper_volume))
+    }
 }
 
 impl<'a> Target<'a> for ClipVolumeTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        let instance_state = context.instance_state.borrow();
-        let volume = instance_state.get_slot(self.slot_index).ok()?.volume();
-        Some(AbsoluteValue::Continuous(reaper_volume_unit_value(volume)))
+        let volume = self.volume(context)?;
+        Some(AbsoluteValue::Continuous(volume_unit_value(volume)))
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

@@ -14,6 +14,7 @@ pub struct FxParameterTarget {
     pub poll_for_feedback: bool,
 }
 
+// TODO-high Implement textual feedback
 impl RealearnTarget for FxParameterTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         use GetParameterStepSizesResult::*;

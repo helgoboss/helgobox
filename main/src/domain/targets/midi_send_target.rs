@@ -1,8 +1,7 @@
-use crate::domain::ui_util::{format_raw_midi, log_target_output, OutputReason};
+use crate::domain::ui_util::OutputReason;
 use crate::domain::{
-    ControlContext, FeedbackAudioHookTask, FeedbackOutput, HitInstructionReturnValue,
-    MappingControlContext, MidiDestination, RealTimeReaperTarget, RealearnTarget,
-    SendMidiDestination, TargetCharacter,
+    ControlContext, FeedbackOutput, HitInstructionReturnValue, MappingControlContext,
+    MidiDestination, RealTimeReaperTarget, RealearnTarget, SendMidiDestination, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, RawMidiPattern, Target, UnitValue,

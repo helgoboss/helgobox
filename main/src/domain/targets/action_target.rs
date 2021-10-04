@@ -1,7 +1,7 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    ActionInvocationType, AdditionalFeedbackEvent, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, TargetCharacter,
+    format_bool_as_on_off, ActionInvocationType, AdditionalFeedbackEvent, ControlContext,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use helgoboss_midi::U14;
@@ -118,6 +118,10 @@ impl RealearnTarget for ActionTarget {
             _ => (false, None),
         }
     }
+
+    fn text_value(&self, _: ControlContext) -> Option<String> {
+        Some(format_bool_as_on_off(self.action.is_on()?).to_string())
+    }
 }
 
 impl<'a> Target<'a> for ActionTarget {
@@ -154,9 +158,7 @@ impl ActionTarget {
             );
         }
     }
-}
 
-impl ActionTarget {
     fn invoke_with_unit_value(&self, v: UnitValue) {
         self.action.invoke(v.get(), false, Some(self.project))
     }

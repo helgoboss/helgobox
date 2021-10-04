@@ -3,8 +3,10 @@ use crate::domain::{
     ControlContext, FxDisplayType, HitInstructionReturnValue, MappingControlContext,
     RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
-use reaper_high::{ChangeEvent, FxChain, Project, Track};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
+};
+use reaper_high::{ChangeEvent, Fx, FxChain, Project, Track};
 use reaper_medium::FxChainVisibility;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -137,17 +139,38 @@ impl RealearnTarget for FxNavigateTarget {
         let index = if value == 0 { None } else { Some(value - 1) };
         Ok(shown_fx_unit_value(&self.fx_chain, index))
     }
+
+    fn text_value(&self, _: ControlContext) -> Option<String> {
+        Some(self.current_fx()?.name().into_string())
+    }
+
+    fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
+        let index = self.current_fx_index()?;
+        Some(NumericValue::Discrete(index as i32 + 1))
+    }
 }
 
-impl<'a> Target<'a> for FxNavigateTarget {
-    type Context = ControlContext<'a>;
-
-    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let fx_count = self.fx_chain.fx_count();
-        // Because we count "<No FX>" as a possible value, this is equal.
-        let max_value = fx_count;
+impl FxNavigateTarget {
+    fn current_fx(&self) -> Option<Fx> {
         use FxDisplayType::*;
-        let fx_index = match self.display_type {
+        match self.display_type {
+            FloatingWindow => self
+                .fx_chain
+                .index_based_fxs()
+                .find(|fx| fx.floating_window().is_some()),
+            Chain => {
+                use FxChainVisibility::*;
+                match self.fx_chain.visibility() {
+                    Hidden | Visible(None) | Unknown(_) => None,
+                    Visible(Some(i)) => Some(self.fx_chain.fx_by_index_untracked(i)),
+                }
+            }
+        }
+    }
+
+    fn current_fx_index(&self) -> Option<u32> {
+        use FxDisplayType::*;
+        match self.display_type {
             FloatingWindow => self
                 .fx_chain
                 .index_based_fxs()
@@ -160,7 +183,18 @@ impl<'a> Target<'a> for FxNavigateTarget {
                     Visible(Some(i)) => Some(i),
                 }
             }
-        };
+        }
+    }
+}
+
+impl<'a> Target<'a> for FxNavigateTarget {
+    type Context = ControlContext<'a>;
+
+    fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
+        let fx_count = self.fx_chain.fx_count();
+        // Because we count "<No FX>" as a possible value, this is equal.
+        let max_value = fx_count;
+        let fx_index = self.current_fx_index();
         let actual_value = fx_index.map(|i| i + 1).unwrap_or(0);
         Some(AbsoluteValue::Discrete(Fraction::new(
             actual_value,

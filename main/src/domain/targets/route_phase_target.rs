@@ -52,6 +52,10 @@ impl RealearnTarget for RoutePhaseTarget {
     fn supports_automatic_feedback(&self) -> bool {
         self.poll_for_feedback
     }
+
+    fn text_value(&self, context: ControlContext) -> Option<String> {
+        Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).to_string())
+    }
 }
 
 impl<'a> Target<'a> for RoutePhaseTarget {

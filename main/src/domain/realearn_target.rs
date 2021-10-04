@@ -10,7 +10,10 @@ use crate::domain::{
     TrackExclusivity,
 };
 use enum_dispatch::enum_dispatch;
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, RawMidiEvent, UnitValue};
+use helgoboss_learn::{
+    target_prop_keys, AbsoluteValue, ControlType, ControlValue, NumericValue, RawMidiEvent, Target,
+    TargetPropValue, UnitValue,
+};
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
 use reaper_medium::{CommandId, MidiOutputDeviceId};
 use std::collections::HashSet;
@@ -44,6 +47,7 @@ pub trait RealearnTarget {
                 .invoke_as_trigger(Some(track.project()));
         }
     }
+
     /// Parses the given text as a target value and returns it as unit value.
     fn parse_as_value(
         &self,
@@ -53,6 +57,7 @@ pub trait RealearnTarget {
         let _ = context;
         parse_unit_value_from_percentage(text)
     }
+
     /// Parses the given text as a target step size and returns it as unit value.
     fn parse_as_step_size(
         &self,
@@ -62,6 +67,7 @@ pub trait RealearnTarget {
         let _ = context;
         parse_unit_value_from_percentage(text)
     }
+
     /// This converts the given normalized value to a discrete value.
     ///
     /// Used for displaying discrete target values in edit fields.
@@ -88,10 +94,27 @@ pub trait RealearnTarget {
         let _ = input;
         Err("not supported")
     }
+
     /// Formats the given value without unit.
+    ///
+    /// Shown in the mapping panel text field for continuous targets.
     fn format_value_without_unit(&self, value: UnitValue, context: ControlContext) -> String {
         self.format_as_discrete_or_percentage(value, context)
     }
+
+    /// Shown as default textual feedback.
+    fn text_value(&self, context: ControlContext) -> Option<String> {
+        let _ = context;
+        None
+    }
+
+    /// Usable in textual feedback expressions as
+    /// [`helgoboss_learn::target_prop_keys::NUMERIC_VALUE`]. Don't implement for on/off values!
+    fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
+        let _ = context;
+        None
+    }
+
     /// Formats the given step size without unit.
     fn format_step_size_without_unit(
         &self,
@@ -100,7 +123,9 @@ pub trait RealearnTarget {
     ) -> String {
         self.format_as_discrete_or_percentage(step_size, context)
     }
+
     /// Reusable function
+    // TODO-medium Never overwritten. Can be factored out!
     fn format_as_discrete_or_percentage(
         &self,
         value: UnitValue,
@@ -120,12 +145,15 @@ pub trait RealearnTarget {
         let _ = context;
         false
     }
+
     /// If this returns true, a step size will not be printed (e.g. because it's already in the
     /// edit field).
     fn hide_formatted_step_size(&self, context: ControlContext) -> bool {
         let _ = context;
         false
     }
+
+    /// For mapping panel.
     fn value_unit(&self, context: ControlContext) -> &'static str {
         if self.character(context) == TargetCharacter::Discrete {
             ""
@@ -133,6 +161,12 @@ pub trait RealearnTarget {
             "%"
         }
     }
+
+    /// For textual feedback.
+    fn numeric_value_unit(&self, context: ControlContext) -> &'static str {
+        self.value_unit(context)
+    }
+
     fn step_size_unit(&self, context: ControlContext) -> &'static str {
         if self.character(context) == TargetCharacter::Discrete {
             ""
@@ -145,6 +179,7 @@ pub trait RealearnTarget {
         self.format_value_generic(value, context)
     }
 
+    // TODO-medium Never overwritten. Can be factored out!
     fn format_value_generic(&self, value: UnitValue, context: ControlContext) -> String {
         format!(
             "{} {}",
@@ -262,6 +297,63 @@ pub trait RealearnTarget {
             text.parse().map_err(|_| "not a discrete value")?,
             context,
         )
+    }
+
+    /// Returns a value for the given key if the target supports it.
+    ///
+    /// You don't need to implement the commonly supported prop values here! They will
+    /// be handed out automatically as a fallback by the calling method in case you return `None`.
+    //
+    // Requiring owned strings here makes the API more pleasant and is probably not a big deal
+    // performance-wise (feedback strings don't get large). If we want to optimize this in future,
+    // don't use Cows. The only real performance win would be to use a writer API.
+    // With Cows, we would still need to turn ReaperStr into owned String. With writer API,
+    // we could just read borrowed ReaperStr as str and write into the result buffer. However, in
+    // practice we don't often get borrowed strings from Reaper anyway.
+    // TODO-low Use a formatter API instead of returning owned strings (for this to work, we also
+    //  need to adjust the textual feedback expression parsing to take advantage of it).
+    fn prop_value(&self, key: &str, context: ControlContext) -> Option<TargetPropValue> {
+        let _ = key;
+        let _ = context;
+        None
+    }
+}
+
+pub fn get_realearn_target_prop_value_with_fallback<'a>(
+    target: &(impl RealearnTarget + Target<'a, Context = ControlContext<'a>>),
+    key: &str,
+    context: ControlContext<'a>,
+) -> Option<TargetPropValue> {
+    target.prop_value(key, context).or_else(|| {
+        let res = match key {
+            target_prop_keys::TEXT_VALUE => TargetPropValue::Text(target.text_value(context)?),
+            target_prop_keys::NUMERIC_VALUE => {
+                TargetPropValue::Numeric(target.numeric_value(context)?)
+            }
+            target_prop_keys::NUMERIC_VALUE_UNIT => {
+                TargetPropValue::Text(target.numeric_value_unit(context).to_string())
+            }
+            target_prop_keys::NORMALIZED_VALUE => {
+                TargetPropValue::Normalized(target.current_value(context)?.to_unit_value())
+            }
+            // At the moment we don't care about a proper maximum value for fractions.
+            "track.index" => TargetPropValue::Index(target.track()?.index()?),
+            "track.name" => TargetPropValue::Text(get_track_name(target.track()?)),
+            "fx.index" => TargetPropValue::Index(target.fx()?.index()),
+            "fx.name" => TargetPropValue::Text(target.fx()?.name().into_string()),
+            "route.index" => TargetPropValue::Index(target.route()?.index()),
+            "route.name" => TargetPropValue::Text(target.route()?.name().into_string()),
+            _ => return None,
+        };
+        Some(res)
+    })
+}
+
+pub fn get_track_name(t: &Track) -> String {
+    if let Some(n) = t.name() {
+        n.into_string()
+    } else {
+        "<Master>".to_string()
     }
 }
 

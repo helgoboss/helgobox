@@ -1,5 +1,4 @@
 use crate::domain::{InstanceId, OwnedIncomingMidiMessage};
-use core::fmt;
 use derive_more::Display;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, MidiSourceValue, UnitValue,
@@ -49,9 +48,12 @@ pub fn parse_value_from_db(text: &str) -> Result<UnitValue, &'static str> {
 }
 
 pub fn format_value_as_db_without_unit(value: UnitValue) -> String {
-    let db = Volume::try_from_soft_normalized_value(value.get())
-        .unwrap_or(Volume::MIN)
-        .db();
+    let volume = Volume::try_from_soft_normalized_value(value.get()).unwrap_or(Volume::MIN);
+    format_volume_as_db_without_unit(volume)
+}
+
+pub fn format_volume_as_db_without_unit(volume: Volume) -> String {
+    let db = volume.db();
     if db == Db::MINUS_INF {
         "-inf".to_string()
     } else {
@@ -127,10 +129,6 @@ pub fn log_lifecycle_output(instance_id: &InstanceId, msg: impl Display) {
 
 pub fn log_target_output(instance_id: &InstanceId, msg: impl Display) {
     log_output(instance_id, OutputReason::Target, msg);
-}
-
-pub fn log_system_output(instance_id: &InstanceId, msg: impl Display) {
-    log_output(instance_id, OutputReason::System, msg);
 }
 
 #[derive(Copy, Clone, Debug, Display)]

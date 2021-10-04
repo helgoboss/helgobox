@@ -1,10 +1,10 @@
 use crate::domain::{
-    convert_count_to_step_size, convert_unit_value_to_track_index, selected_track_unit_value,
-    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    TargetCharacter,
+    convert_count_to_step_size, convert_unit_value_to_track_index, get_track_name,
+    selected_track_unit_value, ControlContext, HitInstructionReturnValue, MappingControlContext,
+    RealearnTarget, TargetCharacter,
 };
 use helgoboss_learn::{
-    AbsoluteValue, ControlType, ControlValue, Fraction, Target, TargetPropKey, UnitValue,
+    AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
 use reaper_high::{ChangeEvent, Project, Reaper, Track};
 use reaper_medium::{CommandId, MasterTrackBehavior};
@@ -125,6 +125,15 @@ impl RealearnTarget for SelectedTrackTarget {
         let index = if value == 0 { None } else { Some(value - 1) };
         Ok(selected_track_unit_value(self.project, index))
     }
+
+    fn text_value(&self, _: ControlContext) -> Option<String> {
+        Some(get_track_name(&self.selected_track()?))
+    }
+
+    fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
+        let index = self.selected_track()?.index()?;
+        Some(NumericValue::Discrete(index as i32 + 1))
+    }
 }
 
 impl<'a> Target<'a> for SelectedTrackTarget {
@@ -136,25 +145,6 @@ impl<'a> Target<'a> for SelectedTrackTarget {
             .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)
             .and_then(|t| t.index());
         Some(self.value_for(track_index))
-    }
-
-    fn textual_value(&self, key: TargetPropKey, _: Self::Context) -> Option<String> {
-        use TargetPropKey::*;
-        let res = match key {
-            Default => {
-                if let Some(t) = self.selected_track() {
-                    if let Some(n) = t.name() {
-                        n.into_string()
-                    } else {
-                        "<Master>".to_string()
-                    }
-                } else {
-                    "".to_string()
-                }
-            }
-            _ => return None,
-        };
-        Some(res)
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

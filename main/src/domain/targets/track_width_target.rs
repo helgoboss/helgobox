@@ -6,7 +6,7 @@ use crate::domain::{
     width_unit_value, ControlContext, HitInstructionReturnValue, MappingControlContext, PanExt,
     RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{AvailablePanValue, ChangeEvent, Project, Track, Width};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -83,13 +83,27 @@ impl RealearnTarget for TrackWidthTarget {
             _ => (false, None),
         }
     }
+
+    fn text_value(&self, _: ControlContext) -> Option<String> {
+        Some(format!("{:.2}", self.width().reaper_value().get()))
+    }
+
+    fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
+        Some(NumericValue::Decimal(self.width().reaper_value().get()))
+    }
+}
+
+impl TrackWidthTarget {
+    fn width(&self) -> Width {
+        self.track.width()
+    }
 }
 
 impl<'a> Target<'a> for TrackWidthTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let val = width_unit_value(self.track.width());
+        let val = width_unit_value(self.width());
         Some(AbsoluteValue::Continuous(val))
     }
 

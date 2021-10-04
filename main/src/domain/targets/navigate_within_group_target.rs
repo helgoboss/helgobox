@@ -15,6 +15,7 @@ pub struct NavigateWithinGroupTarget {
     pub exclusivity: SimpleExclusivity,
 }
 
+// TODO-high Implement textual feedback
 impl NavigateWithinGroupTarget {
     fn count(&self, context: ControlContext) -> u32 {
         context

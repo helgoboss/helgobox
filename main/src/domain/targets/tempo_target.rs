@@ -3,8 +3,8 @@ use crate::domain::{
     parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value, ControlContext,
     HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use reaper_high::{ChangeEvent, Project};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+use reaper_high::{ChangeEvent, Project, Tempo};
 use reaper_medium::UndoBehavior;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -87,13 +87,27 @@ impl RealearnTarget for TempoTarget {
             _ => (false, None),
         }
     }
+
+    fn text_value(&self, _: ControlContext) -> Option<String> {
+        Some(format!("{:.2}", self.tempo().bpm().get()))
+    }
+
+    fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
+        Some(NumericValue::Decimal(self.tempo().bpm().get()))
+    }
+}
+
+impl TempoTarget {
+    fn tempo(&self) -> Tempo {
+        self.project.tempo()
+    }
 }
 
 impl<'a> Target<'a> for TempoTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let val = tempo_unit_value(self.project.tempo());
+        let val = tempo_unit_value(self.tempo());
         Some(AbsoluteValue::Continuous(val))
     }
 

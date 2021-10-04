@@ -12,6 +12,7 @@ pub struct FxPresetTarget {
     pub fx: Fx,
 }
 
+// TODO-high Implement textual feedback
 impl RealearnTarget for FxPresetTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         // `+ 1` because "<no preset>" is also a possible value.

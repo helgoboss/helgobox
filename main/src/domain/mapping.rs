@@ -1,12 +1,12 @@
 use crate::domain::{
-    ActivationChange, ActivationCondition, AdditionalFeedbackEvent, ControlContext, ControlOptions,
-    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
-    InstanceStateChanged, MappingActivationEffect, MappingControlContext, MappingData, MidiSource,
-    Mode, ParameterArray, ParameterSlice, PersistentMappingProcessingState, RealSource,
-    RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget, Tag,
-    TargetCharacter, TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement,
-    VirtualFeedbackValue, VirtualSource, VirtualSourceValue, VirtualTarget,
-    COMPARTMENT_PARAMETER_COUNT,
+    get_realearn_target_prop_value_with_fallback, ActivationChange, ActivationCondition,
+    AdditionalFeedbackEvent, ControlContext, ControlOptions, ExtendedProcessorContext,
+    FeedbackResolution, GroupId, HitInstructionReturnValue, InstanceStateChanged,
+    MappingActivationEffect, MappingControlContext, MappingData, MidiSource, Mode, ParameterArray,
+    ParameterSlice, PersistentMappingProcessingState, RealSource, RealTimeReaperTarget,
+    RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget, Tag, TargetCharacter,
+    TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue,
+    VirtualSource, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -14,8 +14,8 @@ use enum_map::Enum;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlType,
     ControlValue, FeedbackValue, GroupInteraction, MidiSourceValue, ModeControlOptions,
-    ModeControlResult, ModeFeedbackOptions, OscSource, RawMidiEvent, SourceCharacter, Target,
-    TargetPropKey, UnitValue, ValueFormatter, ValueParser,
+    ModeControlResult, ModeFeedbackOptions, NumericValue, OscSource, RawMidiEvent, SourceCharacter,
+    Target, TargetPropValue, UnitValue, ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -843,11 +843,11 @@ impl MainMapping {
         // - This leaves us with asking the mode. That means the user needs to explicitly choose
         //   whether it wants numerical or textual feedback.
         let feedback_value = if self.core.mode.wants_textual_feedback() {
-            FeedbackValue::Textual(
-                self.core
-                    .mode
-                    .query_textual_feedback(self.targets.first(), control_context),
-            )
+            FeedbackValue::Textual(self.core.mode.query_textual_feedback(|key| {
+                self.targets.first().and_then(|t| {
+                    get_realearn_target_prop_value_with_fallback(t, key, control_context)
+                })
+            }))
         } else {
             FeedbackValue::Numeric(combined_target_value)
         };
@@ -1512,6 +1512,22 @@ impl RealearnTarget for CompoundMappingTarget {
         }
     }
 
+    fn text_value(&self, context: ControlContext) -> Option<String> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.text_value(context),
+            Virtual(_) => None,
+        }
+    }
+
+    fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.numeric_value(context),
+            Virtual(_) => None,
+        }
+    }
+
     fn control_type_and_character(
         &self,
         context: ControlContext,
@@ -1756,6 +1772,22 @@ impl RealearnTarget for CompoundMappingTarget {
             Virtual(_) => Err("not supported for virtual targets"),
         }
     }
+
+    fn prop_value(&self, key: &str, context: ControlContext) -> Option<TargetPropValue> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.prop_value(key, context),
+            Virtual(_) => None,
+        }
+    }
+
+    fn numeric_value_unit(&self, context: ControlContext) -> &'static str {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.numeric_value_unit(context),
+            Virtual(_) => "",
+        }
+    }
 }
 
 impl<'a> Target<'a> for CompoundMappingTarget {
@@ -1766,14 +1798,6 @@ impl<'a> Target<'a> for CompoundMappingTarget {
         match self {
             Reaper(t) => t.current_value(context),
             Virtual(t) => t.current_value(()),
-        }
-    }
-
-    fn textual_value(&self, key: TargetPropKey, context: Self::Context) -> Option<String> {
-        use CompoundMappingTarget::*;
-        match self {
-            Reaper(t) => t.textual_value(key, context),
-            Virtual(_) => None,
         }
     }
 

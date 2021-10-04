@@ -3,7 +3,8 @@ use crate::domain::{
     HitInstructionReturnValue, InstanceStateChanged, MappingControlContext, RealearnTarget,
     TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+use reaper_medium::PositionInSeconds;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipSeekTarget {
@@ -70,6 +71,31 @@ impl RealearnTarget for ClipSeekTarget {
             },
             _ => (false, None),
         }
+    }
+
+    fn text_value(&self, context: ControlContext) -> Option<String> {
+        let seconds = self.position_in_seconds(context)?;
+        Some(format!("{:.3} s", seconds.get()))
+    }
+
+    fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
+        let seconds = self.position_in_seconds(context)?;
+        Some(NumericValue::Decimal(seconds.get()))
+    }
+
+    fn numeric_value_unit(&self, _: ControlContext) -> &'static str {
+        "s"
+    }
+}
+
+impl ClipSeekTarget {
+    fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
+        let instance_state = context.instance_state.borrow();
+        let secs = instance_state
+            .get_slot(self.slot_index)
+            .ok()?
+            .position_in_seconds();
+        Some(secs)
     }
 }
 

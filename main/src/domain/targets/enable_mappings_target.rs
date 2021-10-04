@@ -1,8 +1,8 @@
 use crate::domain::{
-    ControlContext, DomainEvent, Exclusivity, HitInstruction, HitInstructionContext,
-    HitInstructionReturnValue, InstanceStateChanged, MappingCompartment, MappingControlContext,
-    MappingControlResult, MappingData, MappingEnabledChangeRequestedEvent, RealearnTarget,
-    TagScope, TargetCharacter,
+    format_value_as_on_off, ControlContext, DomainEvent, Exclusivity, HitInstruction,
+    HitInstructionContext, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,
+    MappingControlContext, MappingControlResult, MappingData, MappingEnabledChangeRequestedEvent,
+    RealearnTarget, TagScope, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::collections::HashSet;
@@ -125,6 +125,10 @@ impl RealearnTarget for EnableMappingsTarget {
             }
             _ => (false, None),
         }
+    }
+
+    fn text_value(&self, context: ControlContext) -> Option<String> {
+        Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).to_string())
     }
 }
 
