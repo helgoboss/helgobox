@@ -2,9 +2,14 @@ use crate::domain::{
     AdditionalFeedbackEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
     RealearnTarget, ReaperTargetType, SeekOptions, TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
+};
 use reaper_high::{Project, Reaper};
-use reaper_medium::{GetLoopTimeRange2Result, PositionInSeconds, SetEditCurPosOptions};
+use reaper_medium::{
+    GetLoopTimeRange2Result, PositionInSeconds, SetEditCurPosOptions, TimeFormattingMode,
+    TimeFormattingModeOverride,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeekTarget {
@@ -73,6 +78,31 @@ impl RealearnTarget for SeekTarget {
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
         Some(ReaperTargetType::Seek)
+    }
+
+    fn prop_value(&self, key: &str, _: ControlContext) -> Option<PropValue> {
+        if let Some(pos_type) = key.strip_prefix("position.") {
+            use TimeFormattingMode::*;
+            use TimeFormattingModeOverride::*;
+            let mode_override = match pos_type {
+                "project_default" => ProjectDefault,
+                "time" => Mode(Time),
+                "measures_beats_time" => Mode(MeasuresBeatsTime),
+                "measures_beats" => Mode(MeasuresBeats),
+                "seconds" => Mode(Seconds),
+                "samples" => Mode(Samples),
+                "hmsf" => Mode(HoursMinutesSecondsFrames),
+                _ => return None,
+            };
+            let text = Reaper::get().medium_reaper().format_timestr_pos(
+                self.position_in_seconds(),
+                32,
+                mode_override,
+            );
+            Some(PropValue::Text(text.into_string()))
+        } else {
+            None
+        }
     }
 }
 
