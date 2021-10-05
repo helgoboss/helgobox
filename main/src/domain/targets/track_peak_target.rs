@@ -1,7 +1,7 @@
 use crate::domain::ui_util::{
     format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
-use crate::domain::{ControlContext, RealearnTarget, TargetCharacter};
+use crate::domain::{ControlContext, RealearnTarget, ReaperTargetType, TargetCharacter};
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target, UnitValue};
 use reaper_high::{Project, Reaper, Track, Volume};
 use reaper_medium::{ReaperVolumeValue, TrackAttributeKey};
@@ -80,5 +80,9 @@ impl RealearnTarget for TrackPeakTarget {
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
         Some(NumericValue::Decimal(self.peak()?.db().get()))
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::TrackPeak)
     }
 }

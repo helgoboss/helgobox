@@ -1,7 +1,8 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_bool_as_on_off, ActionInvocationType, AdditionalFeedbackEvent, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
+    TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use helgoboss_midi::U14;
@@ -121,6 +122,10 @@ impl RealearnTarget for ActionTarget {
 
     fn text_value(&self, _: ControlContext) -> Option<String> {
         Some(format_bool_as_on_off(self.action.is_on()?).to_string())
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::Action)
     }
 }
 

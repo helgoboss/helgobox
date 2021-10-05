@@ -1,9 +1,9 @@
 use crate::domain::ui_util::{fx_parameter_unit_value, parse_unit_value_from_percentage};
 use crate::domain::{
     AdditionalFeedbackEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, TargetCharacter,
+    RealearnTarget, ReaperTargetType, TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Track};
 use reaper_medium::{GetParameterStepSizesResult, ReaperNormalizedFxParamValue};
 use std::convert::TryInto;
@@ -14,7 +14,6 @@ pub struct FxParameterTarget {
     pub poll_for_feedback: bool,
 }
 
-// TODO-high Implement textual feedback
 impl RealearnTarget for FxParameterTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         use GetParameterStepSizesResult::*;
@@ -178,6 +177,22 @@ impl RealearnTarget for FxParameterTarget {
         let step_size = self.param.step_size().ok_or("not supported")?;
         let result = (value as f64 * step_size).try_into()?;
         Ok(result)
+    }
+
+    fn text_value(&self, _: ControlContext) -> Option<String> {
+        Some(self.param.formatted_value().into_string())
+    }
+
+    fn prop_value(&self, key: &str, _: ControlContext) -> Option<PropValue> {
+        match key {
+            "fx_parameter.index" => Some(PropValue::Index(self.param.index())),
+            "fx_parameter.name" => Some(PropValue::Text(self.param.name().into_string())),
+            _ => None,
+        }
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::FxParameter)
     }
 }
 

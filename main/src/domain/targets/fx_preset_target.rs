@@ -1,9 +1,11 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
     ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    TargetCharacter,
+    ReaperTargetType, TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
+};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
 use reaper_medium::FxPresetRef;
 
@@ -12,7 +14,6 @@ pub struct FxPresetTarget {
     pub fx: Fx,
 }
 
-// TODO-high Implement textual feedback
 impl RealearnTarget for FxPresetTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         // `+ 1` because "<no preset>" is also a possible value.
@@ -116,6 +117,19 @@ impl RealearnTarget for FxPresetTarget {
     ) -> Result<UnitValue, &'static str> {
         let index = if value == 0 { None } else { Some(value - 1) };
         Ok(fx_preset_unit_value(&self.fx, index))
+    }
+
+    fn text_value(&self, _: ControlContext) -> Option<String> {
+        Some(self.fx.preset_name()?.into_string())
+    }
+
+    fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
+        let index = self.fx.preset_index().ok().flatten()?;
+        Some(NumericValue::Discrete(index as i32 + 1))
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::FxPreset)
     }
 }
 

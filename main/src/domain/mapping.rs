@@ -2,11 +2,12 @@ use crate::domain::{
     get_realearn_target_prop_value_with_fallback, ActivationChange, ActivationCondition,
     AdditionalFeedbackEvent, ControlContext, ControlOptions, ExtendedProcessorContext,
     FeedbackResolution, GroupId, HitInstructionReturnValue, InstanceStateChanged,
-    MappingActivationEffect, MappingControlContext, MappingData, MidiSource, Mode, ParameterArray,
-    ParameterSlice, PersistentMappingProcessingState, RealSource, RealTimeReaperTarget,
-    RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget, Tag, TargetCharacter,
-    TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue,
-    VirtualSource, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    MappingActivationEffect, MappingControlContext, MappingData, MappingInfo, MidiSource, Mode,
+    ParameterArray, ParameterSlice, PersistentMappingProcessingState, RealSource,
+    RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget,
+    ReaperTargetType, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
+    VirtualControlElement, VirtualFeedbackValue, VirtualSource, VirtualSourceValue, VirtualTarget,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -14,8 +15,8 @@ use enum_map::Enum;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlType,
     ControlValue, FeedbackValue, GroupInteraction, MidiSourceValue, ModeControlOptions,
-    ModeControlResult, ModeFeedbackOptions, NumericValue, OscSource, RawMidiEvent, SourceCharacter,
-    Target, TargetPropValue, UnitValue, ValueFormatter, ValueParser,
+    ModeControlResult, ModeFeedbackOptions, NumericValue, OscSource, PropValue, RawMidiEvent,
+    SourceCharacter, Target, UnitValue, ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -140,6 +141,7 @@ impl MappingExtension {
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
+    name: Option<String>,
     tags: Vec<Tag>,
     /// Is `Some` if the user-provided target data is complete.
     unresolved_target: Option<UnresolvedCompoundMappingTarget>,
@@ -170,6 +172,7 @@ impl MainMapping {
         compartment: MappingCompartment,
         id: MappingId,
         group_id: GroupId,
+        name: String,
         tags: Vec<Tag>,
         source: CompoundMappingSource,
         mode: Mode,
@@ -191,6 +194,7 @@ impl MainMapping {
                 options,
                 time_of_last_control: None,
             },
+            name: Some(name),
             tags,
             unresolved_target,
             targets: vec![],
@@ -199,6 +203,12 @@ impl MainMapping {
             activation_state: Default::default(),
             extension,
             initial_target_value_snapshot: None,
+        }
+    }
+
+    pub fn take_mapping_info(&mut self) -> MappingInfo {
+        MappingInfo {
+            name: self.name.take().unwrap_or_default(),
         }
     }
 
@@ -843,11 +853,11 @@ impl MainMapping {
         // - This leaves us with asking the mode. That means the user needs to explicitly choose
         //   whether it wants numerical or textual feedback.
         let feedback_value = if self.core.mode.wants_textual_feedback() {
-            FeedbackValue::Textual(self.core.mode.query_textual_feedback(|key| {
-                self.targets.first().and_then(|t| {
-                    get_realearn_target_prop_value_with_fallback(t, key, control_context)
-                })
-            }))
+            FeedbackValue::Textual(
+                self.core
+                    .mode
+                    .query_textual_feedback(|key| self.get_prop_value(key, control_context)),
+            )
         } else {
             FeedbackValue::Numeric(combined_target_value)
         };
@@ -858,6 +868,23 @@ impl MainMapping {
                 with_source_feedback: with_source_feedback && !self.core.is_echo(),
             },
         )
+    }
+
+    fn get_prop_value(&self, key: &str, control_context: ControlContext) -> Option<PropValue> {
+        if let Some(target_key) = key.strip_prefix("target.") {
+            self.targets.first().and_then(|t| {
+                get_realearn_target_prop_value_with_fallback(t, target_key, control_context)
+            })
+        } else {
+            match key {
+                "mapping.name" => {
+                    let instance_state = control_context.instance_state.borrow();
+                    let info = instance_state.get_mapping_info(self.qualified_id())?;
+                    Some(PropValue::Text(info.name.clone()))
+                }
+                _ => None,
+            }
+        }
     }
 
     pub fn given_or_current_value(
@@ -1773,7 +1800,7 @@ impl RealearnTarget for CompoundMappingTarget {
         }
     }
 
-    fn prop_value(&self, key: &str, context: ControlContext) -> Option<TargetPropValue> {
+    fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.prop_value(key, context),
@@ -1786,6 +1813,14 @@ impl RealearnTarget for CompoundMappingTarget {
         match self {
             Reaper(t) => t.numeric_value_unit(context),
             Virtual(_) => "",
+        }
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.reaper_target_type(),
+            Virtual(_) => None,
         }
     }
 }

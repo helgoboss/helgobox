@@ -1,8 +1,8 @@
 use crate::domain::{
     all_track_fx_enable_unit_value, change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
-    TrackExclusivity,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
+    TargetCharacter, TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -60,6 +60,10 @@ impl RealearnTarget for AllTrackFxEnableTarget {
 
     fn text_value(&self, context: ControlContext) -> Option<String> {
         Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).to_string())
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::AllTrackFxEnable)
     }
 }
 

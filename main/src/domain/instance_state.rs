@@ -39,6 +39,11 @@ pub struct InstanceState {
     /// - Set by target "ReaLearn: Navigate within group".
     /// - Non-redundant state!
     active_mapping_by_group: EnumMap<MappingCompartment, HashMap<GroupId, MappingId>>,
+    /// Additional info about mappings.
+    ///
+    /// - Completely derived from mappings, so it's redundant state.
+    /// - Could be kept in main processor because it's only accessed by the processing layer.
+    mapping_infos: HashMap<QualifiedMappingId, MappingInfo>,
     /// The mappings which are on.
     ///
     /// - "on" = enabled & control or feedback enabled & mapping active & target active
@@ -57,6 +62,11 @@ pub struct InstanceState {
     active_instance_tags: HashSet<Tag>,
 }
 
+#[derive(Debug)]
+pub struct MappingInfo {
+    pub name: String,
+}
+
 impl InstanceState {
     pub fn new(
         instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
@@ -67,10 +77,23 @@ impl InstanceState {
             slot_contents_changed_subject: Default::default(),
             mappings_by_group: Default::default(),
             active_mapping_by_group: Default::default(),
+            mapping_infos: Default::default(),
             on_mappings: Default::default(),
             active_mapping_tags: Default::default(),
             active_instance_tags: Default::default(),
         }
+    }
+
+    pub fn set_mapping_infos(&mut self, mapping_infos: HashMap<QualifiedMappingId, MappingInfo>) {
+        self.mapping_infos = mapping_infos;
+    }
+
+    pub fn update_mapping_info(&mut self, id: QualifiedMappingId, info: MappingInfo) {
+        self.mapping_infos.insert(id, info);
+    }
+
+    pub fn get_mapping_info(&self, id: QualifiedMappingId) -> Option<&MappingInfo> {
+        self.mapping_infos.get(&id)
     }
 
     pub fn only_these_mapping_tags_are_active(

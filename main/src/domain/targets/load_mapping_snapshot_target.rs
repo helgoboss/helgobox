@@ -1,6 +1,7 @@
 use crate::domain::{
     ControlContext, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
-    MappingControlContext, MappingControlResult, RealearnTarget, TagScope, TargetCharacter,
+    MappingControlContext, MappingControlResult, RealearnTarget, ReaperTargetType, TagScope,
+    TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
@@ -11,6 +12,10 @@ pub struct LoadMappingSnapshotTarget {
 }
 
 impl RealearnTarget for LoadMappingSnapshotTarget {
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::LoadMappingSnapshot)
+    }
+
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
             ControlType::AbsoluteContinuousRetriggerable,

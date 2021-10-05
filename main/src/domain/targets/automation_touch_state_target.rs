@@ -2,7 +2,8 @@ use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, touched_unit_value,
     AdditionalFeedbackEvent, BackboneState, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, TargetCharacter, TouchedParameterType, TrackExclusivity,
+    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TouchedParameterType,
+    TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -82,6 +83,10 @@ impl RealearnTarget for AutomationTouchStateTarget {
 
     fn text_value(&self, context: ControlContext) -> Option<String> {
         Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).to_string())
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::AutomationTouchState)
     }
 }
 

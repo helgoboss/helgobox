@@ -1,7 +1,7 @@
 use crate::domain::{
     AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, ControlContext, FeedbackResolution,
     HitInstructionReturnValue, InstanceStateChanged, MappingControlContext, RealearnTarget,
-    TargetCharacter,
+    ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_medium::PositionInSeconds;
@@ -85,6 +85,10 @@ impl RealearnTarget for ClipSeekTarget {
 
     fn numeric_value_unit(&self, _: ControlContext) -> &'static str {
         "s"
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::ClipSeek)
     }
 }
 

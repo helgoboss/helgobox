@@ -33,15 +33,16 @@ use crate::application::{
     AutomationModeOverrideType, BookmarkAnchorType, ConcreteFxInstruction,
     ConcreteTrackInstruction, MackieLcdScope, MackieSevenSegmentDisplayScope, MappingModel,
     MidiSourceType, ModeModel, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType,
-    ReaperTargetType, Session, SharedMapping, SharedSession, SourceCategory, SourceModel,
-    TargetCategory, TargetModel, TargetModelWithContext, TargetUnit, TrackRouteSelectorType,
+    Session, SharedMapping, SharedSession, SourceCategory, SourceModel, TargetCategory,
+    TargetModel, TargetModelWithContext, TargetUnit, TrackRouteSelectorType,
     VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
     WeakSession,
 };
 use crate::base::Global;
 use crate::domain::{
     control_element_domains, ClipInfo, ControlContext, Exclusivity, FeedbackSendBehavior,
-    SendMidiDestination, SimpleExclusivity, SlotContent, WithControlContext, CLIP_SLOT_COUNT,
+    ReaperTargetType, SendMidiDestination, SimpleExclusivity, SlotContent, WithControlContext,
+    CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,

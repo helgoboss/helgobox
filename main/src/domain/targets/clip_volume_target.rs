@@ -4,7 +4,7 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     ClipChangedEvent, ControlContext, HitInstructionReturnValue, InstanceStateChanged,
-    MappingControlContext, RealearnTarget, TargetCharacter,
+    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::Volume;
@@ -79,6 +79,10 @@ impl RealearnTarget for ClipVolumeTarget {
 
     fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
         Some(NumericValue::Decimal(self.volume(context)?.db().get()))
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::ClipVolume)
     }
 }
 

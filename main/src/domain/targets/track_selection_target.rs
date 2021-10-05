@@ -2,7 +2,7 @@ use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, track_selected_unit_value,
     ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    TargetCharacter, TrackExclusivity,
+    ReaperTargetType, TargetCharacter, TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper, Track};
@@ -95,6 +95,10 @@ impl RealearnTarget for TrackSelectionTarget {
 
     fn text_value(&self, context: ControlContext) -> Option<String> {
         Some(format_value_as_on_off(self.current_value(context)?.to_unit_value()).to_string())
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::TrackSelection)
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_fx_index, shown_fx_unit_value,
     ControlContext, FxDisplayType, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, TargetCharacter,
+    RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -147,6 +147,10 @@ impl RealearnTarget for FxNavigateTarget {
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
         let index = self.current_fx_index()?;
         Some(NumericValue::Discrete(index as i32 + 1))
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::FxNavigate)
     }
 }
 

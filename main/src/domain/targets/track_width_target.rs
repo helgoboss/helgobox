@@ -4,7 +4,7 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     width_unit_value, ControlContext, HitInstructionReturnValue, MappingControlContext, PanExt,
-    RealearnTarget, TargetCharacter,
+    RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{AvailablePanValue, ChangeEvent, Project, Track, Width};
@@ -90,6 +90,10 @@ impl RealearnTarget for TrackWidthTarget {
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
         Some(NumericValue::Decimal(self.width().reaper_value().get()))
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::TrackWidth)
     }
 }
 

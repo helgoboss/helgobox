@@ -1,6 +1,6 @@
 use crate::domain::{
     AdditionalFeedbackEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, SeekOptions, TargetCharacter,
+    RealearnTarget, ReaperTargetType, SeekOptions, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{Project, Reaper};
@@ -69,6 +69,10 @@ impl RealearnTarget for SeekTarget {
 
     fn numeric_value_unit(&self, _: ControlContext) -> &'static str {
         "s"
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::Seek)
     }
 }
 

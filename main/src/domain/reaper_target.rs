@@ -2,7 +2,7 @@ use crate::base::default_util::is_default;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    AbsoluteValue, ControlType, ControlValue, NumericValue, Target, TargetPropValue, UnitValue,
+    AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
@@ -17,7 +17,7 @@ use rxrust::prelude::*;
 
 use crate::domain::{
     EnableInstancesTarget, EnableMappingsTarget, HitInstructionReturnValue,
-    LoadMappingSnapshotTarget, NavigateWithinGroupTarget, RealearnTarget,
+    LoadMappingSnapshotTarget, NavigateWithinGroupTarget, RealearnTarget, ReaperTargetType,
     RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget, TrackPhaseTarget,
 };
 use serde::{Deserialize, Serialize};

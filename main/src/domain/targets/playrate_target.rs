@@ -3,9 +3,9 @@ use crate::domain::{
     format_value_as_playback_speed_factor_without_unit, parse_step_size_from_playback_speed_factor,
     parse_value_from_playback_speed_factor, playback_speed_factor_span, playrate_unit_value,
     ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    TargetCharacter,
+    ReaperTargetType, TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, PlayRate, Project};
 use reaper_medium::NormalizedPlayRate;
 
@@ -14,7 +14,6 @@ pub struct PlayrateTarget {
     pub project: Project,
 }
 
-// TODO-high Implement textual feedback
 impl RealearnTarget for PlayrateTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (
@@ -91,13 +90,36 @@ impl RealearnTarget for PlayrateTarget {
             _ => (false, None),
         }
     }
+
+    fn text_value(&self, _: ControlContext) -> Option<String> {
+        Some(format!(
+            "{:.2}",
+            self.playrate().playback_speed_factor().get()
+        ))
+    }
+
+    fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
+        Some(NumericValue::Decimal(
+            self.playrate().playback_speed_factor().get(),
+        ))
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::Playrate)
+    }
+}
+
+impl PlayrateTarget {
+    fn playrate(&self) -> PlayRate {
+        self.project.play_rate()
+    }
 }
 
 impl<'a> Target<'a> for PlayrateTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let val = playrate_unit_value(self.project.play_rate());
+        let val = playrate_unit_value(self.playrate());
         Some(AbsoluteValue::Continuous(val))
     }
 

@@ -1,6 +1,7 @@
 use crate::domain::{
     format_value_as_pan, pan_unit_value, parse_value_from_pan, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, PanExt, RealearnTarget, TargetCharacter,
+    HitInstructionReturnValue, MappingControlContext, PanExt, RealearnTarget, ReaperTargetType,
+    TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{AvailablePanValue, ChangeEvent, Pan, Project, Track};
@@ -90,6 +91,10 @@ impl RealearnTarget for TrackPanTarget {
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
         Some(NumericValue::Decimal(self.pan().reaper_value().get()))
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::TrackPan)
     }
 }
 

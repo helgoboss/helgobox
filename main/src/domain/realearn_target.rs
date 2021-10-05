@@ -6,16 +6,20 @@ use crate::domain::{
     AdditionalFeedbackEvent, DomainEventHandler, Exclusivity, ExtendedProcessorContext,
     FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceId, InstanceStateChanged, MainMapping,
     MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
-    RealTimeReaperTarget, RealTimeSender, SharedInstanceState, Tag, TagScope, TargetCharacter,
-    TrackExclusivity,
+    RealTimeReaperTarget, RealTimeSender, ReaperTarget, SharedInstanceState, Tag, TagScope,
+    TargetCharacter, TrackExclusivity,
 };
+use derive_more::Display;
 use enum_dispatch::enum_dispatch;
+use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    target_prop_keys, AbsoluteValue, ControlType, ControlValue, NumericValue, RawMidiEvent, Target,
-    TargetPropValue, UnitValue,
+    target_prop_keys, AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue,
+    RawMidiEvent, Target, UnitValue,
 };
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
 use reaper_medium::{CommandId, MidiOutputDeviceId};
+use serde_repr::*;
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt::Debug;
@@ -28,6 +32,8 @@ pub trait RealearnTarget {
     fn character(&self, context: ControlContext) -> TargetCharacter {
         self.control_type_and_character(context).1
     }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType>;
 
     fn control_type_and_character(&self, context: ControlContext)
         -> (ControlType, TargetCharacter);
@@ -312,37 +318,38 @@ pub trait RealearnTarget {
     // practice we don't often get borrowed strings from Reaper anyway.
     // TODO-low Use a formatter API instead of returning owned strings (for this to work, we also
     //  need to adjust the textual feedback expression parsing to take advantage of it).
-    fn prop_value(&self, key: &str, context: ControlContext) -> Option<TargetPropValue> {
+    fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
         let _ = key;
         let _ = context;
         None
     }
 }
 
+/// `key` must not have the `target.` prefix anymore when calling this!
 pub fn get_realearn_target_prop_value_with_fallback<'a>(
     target: &(impl RealearnTarget + Target<'a, Context = ControlContext<'a>>),
     key: &str,
     context: ControlContext<'a>,
-) -> Option<TargetPropValue> {
+) -> Option<PropValue> {
     target.prop_value(key, context).or_else(|| {
         let res = match key {
-            target_prop_keys::TEXT_VALUE => TargetPropValue::Text(target.text_value(context)?),
-            target_prop_keys::NUMERIC_VALUE => {
-                TargetPropValue::Numeric(target.numeric_value(context)?)
-            }
+            target_prop_keys::TEXT_VALUE => PropValue::Text(target.text_value(context)?),
+            target_prop_keys::NUMERIC_VALUE => PropValue::Numeric(target.numeric_value(context)?),
             target_prop_keys::NUMERIC_VALUE_UNIT => {
-                TargetPropValue::Text(target.numeric_value_unit(context).to_string())
+                PropValue::Text(target.numeric_value_unit(context).to_string())
             }
             target_prop_keys::NORMALIZED_VALUE => {
-                TargetPropValue::Normalized(target.current_value(context)?.to_unit_value())
+                PropValue::Normalized(target.current_value(context)?.to_unit_value())
             }
             // At the moment we don't care about a proper maximum value for fractions.
-            "track.index" => TargetPropValue::Index(target.track()?.index()?),
-            "track.name" => TargetPropValue::Text(get_track_name(target.track()?)),
-            "fx.index" => TargetPropValue::Index(target.fx()?.index()),
-            "fx.name" => TargetPropValue::Text(target.fx()?.name().into_string()),
-            "route.index" => TargetPropValue::Index(target.route()?.index()),
-            "route.name" => TargetPropValue::Text(target.route()?.name().into_string()),
+            "type.name" => PropValue::Text(target.reaper_target_type()?.short_name().to_string()),
+            "type.long_name" => PropValue::Text(target.reaper_target_type()?.to_string()),
+            "track.index" => PropValue::Index(target.track()?.index()?),
+            "track.name" => PropValue::Text(get_track_name(target.track()?)),
+            "fx.index" => PropValue::Index(target.fx()?.index()),
+            "fx.name" => PropValue::Text(target.fx()?.name().into_string()),
+            "route.index" => PropValue::Index(target.route()?.index()),
+            "route.name" => PropValue::Text(target.route()?.name().into_string()),
             _ => return None,
         };
         Some(res)
@@ -428,4 +435,589 @@ pub struct HitInstructionContext<'a> {
     pub domain_event_handler: &'a dyn DomainEventHandler,
     pub logger: &'a slog::Logger,
     pub processor_context: ExtendedProcessorContext<'a>,
+}
+
+/// Type of a target
+///
+/// Display implementation produces single-line medium-length names that are supposed to be shown
+/// e.g. in the dropdown.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Serialize_repr,
+    Deserialize_repr,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum ReaperTargetType {
+    // Global targets
+    #[display(fmt = "Global: Last touched")]
+    LastTouched = 20,
+    #[display(fmt = "Global: Set automation mode override")]
+    AutomationModeOverride = 26,
+
+    // Project targets
+    #[display(fmt = "Project: Invoke REAPER action")]
+    Action = 0,
+    #[display(fmt = "Project: Invoke transport action")]
+    Transport = 16,
+    #[display(fmt = "Project: Navigate between tracks")]
+    SelectedTrack = 14,
+    #[display(fmt = "Project: Seek")]
+    Seek = 23,
+    #[display(fmt = "Project: Set playrate")]
+    Playrate = 11,
+    #[display(fmt = "Project: Set tempo")]
+    Tempo = 10,
+
+    // Marker/region targets
+    #[display(fmt = "Marker/region: Go to")]
+    GoToBookmark = 22,
+
+    // Track targets
+    #[display(fmt = "Track: Arm/disarm")]
+    TrackArm = 5,
+    #[display(fmt = "Track: Enable/disable all FX")]
+    AllTrackFxEnable = 15,
+    #[display(fmt = "Track: Mute/unmute")]
+    TrackMute = 7,
+    #[display(fmt = "Track: Peak")]
+    TrackPeak = 34,
+    #[display(fmt = "Track: Phase invert/normal")]
+    TrackPhase = 39,
+    #[display(fmt = "Track: Select/unselect")]
+    TrackSelection = 6,
+    #[display(fmt = "Track: Set automation mode")]
+    TrackAutomationMode = 25,
+    #[display(fmt = "Track: Set automation touch state")]
+    AutomationTouchState = 21,
+    #[display(fmt = "Track: Set pan")]
+    TrackPan = 4,
+    #[display(fmt = "Track: Set stereo pan width")]
+    TrackWidth = 17,
+    #[display(fmt = "Track: Set volume")]
+    TrackVolume = 2,
+    #[display(fmt = "Track: Show/hide")]
+    TrackShow = 24,
+    #[display(fmt = "Track: Solo/unsolo")]
+    TrackSolo = 8,
+
+    // FX chain targets
+    #[display(fmt = "FX chain: Navigate between FXs")]
+    // FX targets
+    FxNavigate = 28,
+    #[display(fmt = "FX: Enable/disable")]
+    FxEnable = 12,
+    #[display(fmt = "FX: Load snapshot")]
+    LoadFxSnapshot = 19,
+    #[display(fmt = "FX: Navigate between presets")]
+    FxPreset = 13,
+    #[display(fmt = "FX: Open/close")]
+    FxOpen = 27,
+    #[display(fmt = "FX: Set parameter value")]
+    FxParameter = 1,
+
+    // Send targets
+    #[display(fmt = "Send: Automation mode")]
+    TrackSendAutomationMode = 42,
+    #[display(fmt = "Send: Mono/stereo")]
+    TrackSendMono = 41,
+    #[display(fmt = "Send: Mute/unmute")]
+    TrackSendMute = 18,
+    #[display(fmt = "Send: Phase invert/normal")]
+    TrackSendPhase = 40,
+    #[display(fmt = "Send: Set pan")]
+    TrackSendPan = 9,
+    #[display(fmt = "Send: Set volume")]
+    TrackSendVolume = 3,
+
+    // Clip targets
+    #[display(fmt = "Clip: Invoke transport action")]
+    ClipTransport = 31,
+    #[display(fmt = "Clip: Seek")]
+    ClipSeek = 32,
+    #[display(fmt = "Clip: Volume")]
+    ClipVolume = 33,
+
+    // Misc
+    #[display(fmt = "MIDI: Send message")]
+    SendMidi = 29,
+    #[display(fmt = "OSC: Send message")]
+    SendOsc = 30,
+
+    // ReaLearn targets
+    #[display(fmt = "ReaLearn: Enable/disable instances")]
+    EnableInstances = 38,
+    #[display(fmt = "ReaLearn: Enable/disable mappings")]
+    EnableMappings = 36,
+    #[display(fmt = "ReaLearn: Load mapping snapshot")]
+    LoadMappingSnapshot = 35,
+    #[display(fmt = "ReaLearn: Navigate within group")]
+    NavigateWithinGroup = 37,
+}
+
+impl Default for ReaperTargetType {
+    fn default() -> Self {
+        ReaperTargetType::FxParameter
+    }
+}
+
+impl ReaperTargetType {
+    pub fn from_target(target: &ReaperTarget) -> ReaperTargetType {
+        match target {
+            ReaperTarget::Action(_) => ReaperTargetType::Action,
+            ReaperTarget::FxParameter(_) => ReaperTargetType::FxParameter,
+            ReaperTarget::TrackVolume(_) => ReaperTargetType::TrackVolume,
+            ReaperTarget::TrackPeak(_) => ReaperTargetType::TrackPeak,
+            ReaperTarget::TrackRouteVolume(_) => ReaperTargetType::TrackSendVolume,
+            ReaperTarget::TrackPan(_) => ReaperTargetType::TrackPan,
+            ReaperTarget::TrackWidth(_) => ReaperTargetType::TrackWidth,
+            ReaperTarget::TrackArm(_) => ReaperTargetType::TrackArm,
+            ReaperTarget::TrackSelection(_) => ReaperTargetType::TrackSelection,
+            ReaperTarget::TrackMute(_) => ReaperTargetType::TrackMute,
+            ReaperTarget::TrackPhase(_) => ReaperTargetType::TrackPhase,
+            ReaperTarget::TrackSolo(_) => ReaperTargetType::TrackSolo,
+            ReaperTarget::TrackRoutePan(_) => ReaperTargetType::TrackSendPan,
+            ReaperTarget::TrackRouteMute(_) => ReaperTargetType::TrackSendMute,
+            ReaperTarget::TrackRoutePhase(_) => ReaperTargetType::TrackSendPhase,
+            ReaperTarget::TrackRouteMono(_) => ReaperTargetType::TrackSendMono,
+            ReaperTarget::TrackRouteAutomationMode(_) => ReaperTargetType::TrackSendAutomationMode,
+            ReaperTarget::Tempo(_) => ReaperTargetType::Tempo,
+            ReaperTarget::Playrate(_) => ReaperTargetType::Playrate,
+            ReaperTarget::FxEnable(_) => ReaperTargetType::FxEnable,
+            ReaperTarget::FxPreset(_) => ReaperTargetType::FxPreset,
+            ReaperTarget::SelectedTrack(_) => ReaperTargetType::SelectedTrack,
+            ReaperTarget::AllTrackFxEnable(_) => ReaperTargetType::AllTrackFxEnable,
+            ReaperTarget::Transport(_) => ReaperTargetType::Transport,
+            ReaperTarget::LoadFxSnapshot(_) => ReaperTargetType::LoadFxSnapshot,
+            ReaperTarget::AutomationTouchState(_) => ReaperTargetType::AutomationTouchState,
+            ReaperTarget::GoToBookmark(_) => ReaperTargetType::GoToBookmark,
+            ReaperTarget::Seek(_) => ReaperTargetType::Seek,
+            ReaperTarget::TrackShow(_) => ReaperTargetType::TrackShow,
+            ReaperTarget::TrackAutomationMode(_) => ReaperTargetType::TrackAutomationMode,
+            ReaperTarget::AutomationModeOverride(_) => ReaperTargetType::AutomationModeOverride,
+            ReaperTarget::FxOpen(_) => ReaperTargetType::FxOpen,
+            ReaperTarget::FxNavigate(_) => ReaperTargetType::FxNavigate,
+            ReaperTarget::SendMidi(_) => ReaperTargetType::SendMidi,
+            ReaperTarget::SendOsc(_) => ReaperTargetType::SendOsc,
+            ReaperTarget::ClipTransport(_) => ReaperTargetType::ClipTransport,
+            ReaperTarget::ClipSeek(_) => ReaperTargetType::ClipSeek,
+            ReaperTarget::ClipVolume(_) => ReaperTargetType::ClipVolume,
+            ReaperTarget::LoadMappingSnapshot(_) => ReaperTargetType::LoadMappingSnapshot,
+            ReaperTarget::EnableMappings(_) => ReaperTargetType::EnableMappings,
+            ReaperTarget::EnableInstances(_) => ReaperTargetType::EnableInstances,
+            ReaperTarget::NavigateWithinGroup(_) => ReaperTargetType::NavigateWithinGroup,
+        }
+    }
+
+    pub fn supports_feedback_resolution(self) -> bool {
+        use ReaperTargetType::*;
+        matches!(self, Seek | ClipSeek)
+    }
+
+    pub fn supports_poll_for_feedback(self) -> bool {
+        use ReaperTargetType::*;
+        matches!(
+            self,
+            FxParameter
+                | TrackSendMute
+                | TrackSendPhase
+                | TrackSendMono
+                | TrackSendAutomationMode
+                | AllTrackFxEnable
+                | TrackShow
+                | TrackPhase
+        )
+    }
+
+    pub fn supports_track(self) -> bool {
+        use ReaperTargetType::*;
+        match self {
+            FxParameter
+            | TrackVolume
+            | TrackPeak
+            | TrackSendVolume
+            | TrackPan
+            | TrackWidth
+            | TrackArm
+            | TrackSelection
+            | TrackMute
+            | TrackPhase
+            | TrackShow
+            | TrackAutomationMode
+            | TrackSolo
+            | TrackSendPan
+            | TrackSendMute
+            | TrackSendPhase
+            | TrackSendAutomationMode
+            | TrackSendMono
+            | FxEnable
+            | FxOpen
+            | FxNavigate
+            | FxPreset
+            | AllTrackFxEnable
+            | LoadFxSnapshot
+            | AutomationTouchState
+            | ClipTransport
+            | Action => true,
+            Tempo
+            | Playrate
+            | SelectedTrack
+            | Transport
+            | LastTouched
+            | GoToBookmark
+            | Seek
+            | SendMidi
+            | SendOsc
+            | AutomationModeOverride
+            | ClipSeek
+            | ClipVolume
+            | LoadMappingSnapshot
+            | EnableMappings
+            | EnableInstances
+            | NavigateWithinGroup => false,
+        }
+    }
+
+    pub fn supports_track_must_be_selected(self) -> bool {
+        use ReaperTargetType::*;
+        self.supports_track() && !matches!(self, TrackSelection | Action)
+    }
+
+    pub fn supports_track_scrolling(self) -> bool {
+        use ReaperTargetType::*;
+        matches!(self, TrackSelection | SelectedTrack)
+    }
+
+    pub fn supports_slot(self) -> bool {
+        use ReaperTargetType::*;
+        matches!(self, ClipSeek | ClipTransport | ClipVolume)
+    }
+
+    pub fn supports_fx(self) -> bool {
+        use ReaperTargetType::*;
+        match self {
+            FxParameter | FxOpen | FxEnable | FxPreset | LoadFxSnapshot => true,
+            TrackSendVolume
+            | TrackSendPan
+            | TrackSendMute
+            | TrackSendPhase
+            | TrackSendMono
+            | TrackSendAutomationMode
+            | TrackVolume
+            | TrackPeak
+            | TrackPan
+            | TrackWidth
+            | TrackArm
+            | TrackSelection
+            | TrackMute
+            | TrackPhase
+            | TrackSolo
+            | Action
+            | Tempo
+            | Playrate
+            | SelectedTrack
+            | AllTrackFxEnable
+            | Transport
+            | LastTouched
+            | AutomationTouchState
+            | GoToBookmark
+            | Seek
+            | TrackShow
+            | TrackAutomationMode
+            | AutomationModeOverride
+            | SendMidi
+            | SendOsc
+            | ClipTransport
+            | ClipSeek
+            | ClipVolume
+            | FxNavigate
+            | LoadMappingSnapshot
+            | EnableMappings
+            | EnableInstances
+            | NavigateWithinGroup => false,
+        }
+    }
+
+    pub fn supports_tags(self) -> bool {
+        use ReaperTargetType::*;
+        match self {
+            FxParameter
+            | FxOpen
+            | FxEnable
+            | FxPreset
+            | LoadFxSnapshot
+            | TrackSendVolume
+            | TrackSendPan
+            | TrackSendMute
+            | TrackSendPhase
+            | TrackSendMono
+            | TrackSendAutomationMode
+            | TrackVolume
+            | TrackPeak
+            | TrackPan
+            | TrackWidth
+            | TrackArm
+            | TrackSelection
+            | TrackMute
+            | TrackPhase
+            | TrackSolo
+            | Action
+            | Tempo
+            | Playrate
+            | SelectedTrack
+            | AllTrackFxEnable
+            | Transport
+            | LastTouched
+            | AutomationTouchState
+            | GoToBookmark
+            | Seek
+            | TrackShow
+            | TrackAutomationMode
+            | AutomationModeOverride
+            | SendMidi
+            | SendOsc
+            | ClipTransport
+            | ClipSeek
+            | ClipVolume
+            | FxNavigate
+            | NavigateWithinGroup => false,
+            LoadMappingSnapshot | EnableMappings | EnableInstances => true,
+        }
+    }
+
+    pub fn supports_fx_chain(self) -> bool {
+        use ReaperTargetType::*;
+        self.supports_fx() || matches!(self, FxNavigate)
+    }
+
+    pub fn supports_fx_display_type(self) -> bool {
+        use ReaperTargetType::*;
+        matches!(self, FxOpen | FxNavigate)
+    }
+
+    pub fn supports_send(self) -> bool {
+        use ReaperTargetType::*;
+        match self {
+            TrackSendVolume
+            | TrackSendPan
+            | TrackSendMute
+            | TrackSendPhase
+            | TrackSendMono
+            | TrackSendAutomationMode => true,
+            FxParameter
+            | TrackVolume
+            | TrackPeak
+            | TrackPan
+            | TrackWidth
+            | TrackArm
+            | TrackSelection
+            | TrackMute
+            | TrackPhase
+            | TrackSolo
+            | FxEnable
+            | FxPreset
+            | Action
+            | Tempo
+            | Playrate
+            | SelectedTrack
+            | AllTrackFxEnable
+            | Transport
+            | LoadFxSnapshot
+            | LastTouched
+            | AutomationTouchState
+            | GoToBookmark
+            | Seek
+            | TrackShow
+            | TrackAutomationMode
+            | AutomationModeOverride
+            | FxOpen
+            | SendMidi
+            | SendOsc
+            | ClipTransport
+            | ClipSeek
+            | ClipVolume
+            | FxNavigate
+            | LoadMappingSnapshot
+            | EnableMappings
+            | EnableInstances
+            | NavigateWithinGroup => false,
+        }
+    }
+
+    pub fn supports_track_exclusivity(self) -> bool {
+        use ReaperTargetType::*;
+        match self {
+            TrackArm | TrackSelection | AllTrackFxEnable | TrackMute | TrackPhase | TrackSolo
+            | AutomationTouchState | TrackShow | TrackAutomationMode => true,
+            TrackSendVolume
+            | TrackSendPan
+            | TrackSendMute
+            | TrackSendPhase
+            | TrackSendAutomationMode
+            | TrackSendMono
+            | FxParameter
+            | TrackVolume
+            | TrackPeak
+            | TrackPan
+            | TrackWidth
+            | FxEnable
+            | FxPreset
+            | Action
+            | Tempo
+            | Playrate
+            | SelectedTrack
+            | Transport
+            | LoadFxSnapshot
+            | LastTouched
+            | GoToBookmark
+            | Seek
+            | AutomationModeOverride
+            | FxOpen
+            | SendMidi
+            | SendOsc
+            | ClipTransport
+            | ClipSeek
+            | ClipVolume
+            | FxNavigate
+            | LoadMappingSnapshot
+            | EnableMappings
+            | EnableInstances
+            | NavigateWithinGroup => false,
+        }
+    }
+
+    pub fn supports_exclusivity(self) -> bool {
+        use ReaperTargetType::*;
+        match self {
+            EnableMappings | EnableInstances | NavigateWithinGroup => true,
+            TrackSendVolume
+            | TrackSendPan
+            | TrackSendMute
+            | TrackSendPhase
+            | TrackSendMono
+            | TrackSendAutomationMode
+            | FxParameter
+            | TrackVolume
+            | TrackPeak
+            | TrackPan
+            | TrackWidth
+            | FxEnable
+            | FxPreset
+            | Action
+            | Tempo
+            | Playrate
+            | SelectedTrack
+            | Transport
+            | LoadFxSnapshot
+            | LastTouched
+            | GoToBookmark
+            | Seek
+            | AutomationModeOverride
+            | FxOpen
+            | SendMidi
+            | SendOsc
+            | ClipTransport
+            | ClipSeek
+            | ClipVolume
+            | FxNavigate
+            | LoadMappingSnapshot
+            | TrackArm
+            | AllTrackFxEnable
+            | TrackMute
+            | TrackPhase
+            | TrackSelection
+            | TrackAutomationMode
+            | AutomationTouchState
+            | TrackShow
+            | TrackSolo => false,
+        }
+    }
+
+    pub fn supports_control(&self) -> bool {
+        true
+    }
+
+    pub fn supports_feedback(&self) -> bool {
+        use ReaperTargetType::*;
+        !matches!(self, SendMidi | SendOsc)
+    }
+
+    pub fn hint(&self) -> &'static str {
+        use ReaperTargetType::*;
+        match self {
+            FxEnable => "No feedback from automation",
+            FxPreset => "Automatic feedback since REAPER v6.13",
+            Action => "Limited feedback only",
+            ClipTransport => "Experimental target, record not supported",
+            TrackSendMute
+            | TrackSendPhase
+            | TrackSendMono
+            | TrackSendAutomationMode
+            | AllTrackFxEnable
+            | TrackShow
+            | TrackPhase => "Automatic feedback via polling only",
+            TrackPeak => "Feedback only, no control",
+            SendMidi => "Has limitations (see user guide)",
+            _ => "",
+        }
+    }
+
+    /// Produces a shorter name than the Display implementation.
+    ///
+    /// For example, it doesn't contain the leading context information.
+    pub fn short_name(&self) -> &'static str {
+        use ReaperTargetType::*;
+        match self {
+            LastTouched => "Last touched",
+            AutomationModeOverride => "Automation override",
+            Action => "Action",
+            Transport => "Transport",
+            SelectedTrack => "Navigate tracks",
+            Seek => "Seek",
+            Playrate => "Playrate",
+            Tempo => "Tempo",
+            GoToBookmark => "Go to bookmark",
+            TrackArm => "(Dis)arm track",
+            AllTrackFxEnable => "Enable/disable all track FX",
+            TrackMute => "(Un)mute track",
+            TrackPhase => "Track phase",
+            TrackSelection => "(Un)select track",
+            TrackAutomationMode => "Track automation mode",
+            AutomationTouchState => "Automation touch state",
+            TrackPan => "Track pan",
+            TrackWidth => "Track pan width",
+            TrackVolume => "Track volume",
+            TrackPeak => "Track peak",
+            TrackShow => "Show/hide track",
+            TrackSolo => "(Un)solo track",
+            FxNavigate => "Navigate FXs",
+            FxEnable => "Enable/disable FX",
+            LoadFxSnapshot => "Load FX snapshot",
+            FxPreset => "Navigate FX presets",
+            FxOpen => "Open/close FX",
+            FxParameter => "FX parameter value",
+            TrackSendMute => "(Un)mute send",
+            TrackSendPhase => "Send phase",
+            TrackSendMono => "Send mono/stereo",
+            TrackSendAutomationMode => "Send automation mode",
+            TrackSendPan => "Send pan",
+            TrackSendVolume => "Send volume",
+            SendMidi => "Send MIDI",
+            SendOsc => "Send OSC",
+            ClipTransport => "Clip transport",
+            ClipSeek => "Clip seek",
+            ClipVolume => "Clip volume",
+            LoadMappingSnapshot => "Load mapping snapshot",
+            EnableMappings => "Enable/disable mappings",
+            EnableInstances => "Enable/disable instances",
+            NavigateWithinGroup => "Navigate within group",
+        }
+    }
 }

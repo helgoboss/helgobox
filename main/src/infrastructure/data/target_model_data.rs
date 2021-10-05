@@ -4,16 +4,17 @@ use reaper_high::{BookmarkType, Fx, Guid, Reaper};
 
 use crate::application::{
     AutomationModeOverrideType, BookmarkAnchorType, FxParameterPropValues, FxPropValues,
-    FxSnapshot, RealearnAutomationMode, RealearnTrackArea, ReaperTargetType, TargetCategory,
-    TargetModel, TargetUnit, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
-    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
+    FxSnapshot, RealearnAutomationMode, RealearnTrackArea, TargetCategory, TargetModel, TargetUnit,
+    TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType, VirtualControlElementType,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_some_default};
 use crate::base::notification;
 use crate::domain::{
     get_fx_chain, ActionInvocationType, Exclusivity, ExtendedProcessorContext, FxDisplayType,
-    GroupId, MappingCompartment, OscDeviceId, SeekOptions, SendMidiDestination, SoloBehavior, Tag,
-    TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
+    GroupId, MappingCompartment, OscDeviceId, ReaperTargetType, SeekOptions, SendMidiDestination,
+    SoloBehavior, Tag, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction,
+    VirtualTrack,
 };
 use crate::infrastructure::data::VirtualControlElementIdData;
 use crate::infrastructure::plugin::App;

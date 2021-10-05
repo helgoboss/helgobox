@@ -3,7 +3,7 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    TargetCharacter,
+    ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, Volume};
@@ -86,6 +86,10 @@ impl RealearnTarget for TrackVolumeTarget {
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
         Some(NumericValue::Decimal(self.volume().db().get()))
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::TrackVolume)
     }
 }
 

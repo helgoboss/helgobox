@@ -6,7 +6,7 @@ use crate::domain::{
     FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior, GroupId,
     HitInstructionContext, InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged,
     IoUpdatedEvent, MainMapping, MainSourceMessage, MappingActivationEffect, MappingCompartment,
-    MappingControlResult, MappingId, MidiDestination, MidiSource, NormalRealTimeTask,
+    MappingControlResult, MappingId, MappingInfo, MidiDestination, MidiSource, NormalRealTimeTask,
     OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext,
     QualifiedMappingId, QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
     RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperMessage, ReaperTarget,
@@ -952,6 +952,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         );
 
         let mut mappings_by_group: HashMap<GroupId, Vec<MappingId>> = HashMap::new();
+        let mut mapping_infos: HashMap<QualifiedMappingId, MappingInfo> = HashMap::new();
         let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
         self.collections.target_touch_dependent_mappings[compartment].clear();
         self.collections.beat_dependent_feedback_mappings[compartment].clear();
@@ -966,6 +967,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     .entry(m.group_id())
                     .or_default()
                     .push(m.id());
+                mapping_infos.insert(m.qualified_id(), m.take_mapping_info());
                 let control_context = self.basics.control_context();
                 m.init_target_and_activation(
                     ExtendedProcessorContext::new(
@@ -996,10 +998,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             })
             .collect();
         // Update instance state
-        self.basics
-            .instance_state
-            .borrow_mut()
-            .set_mappings_by_group(compartment, mappings_by_group);
+        {
+            let mut instance_state = self.basics.instance_state.borrow_mut();
+            instance_state.set_mappings_by_group(compartment, mappings_by_group);
+            instance_state.set_mapping_infos(mapping_infos);
+        }
         // Put into hash map in order to quickly look up mappings by ID
         let mapping_tuples = mappings.into_iter().map(|m| (m.id(), m));
         if compartment == MappingCompartment::ControllerMappings {
@@ -1798,6 +1801,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             &mapping,
         );
         let id = QualifiedMappingId::new(compartment, mapping.id());
+        self.basics
+            .instance_state
+            .borrow_mut()
+            .update_mapping_info(id, mapping.take_mapping_info());
         self.update_map_entries(compartment, *mapping);
         self.send_diff_feedback(diff_feedback);
         self.update_single_mapping_on_state(id);

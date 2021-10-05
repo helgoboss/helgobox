@@ -2,9 +2,12 @@ use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value, convert_unit_to_discrete_value,
     ControlContext, GroupId, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
     InstanceStateChanged, MappingCompartment, MappingControlContext, MappingControlResult,
-    MappingId, RealearnTarget, SimpleExclusivity, TargetCharacter,
+    MappingId, QualifiedMappingId, RealearnTarget, ReaperTargetType, SimpleExclusivity,
+    TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NavigateWithinGroupTarget {
@@ -15,7 +18,6 @@ pub struct NavigateWithinGroupTarget {
     pub exclusivity: SimpleExclusivity,
 }
 
-// TODO-high Implement textual feedback
 impl NavigateWithinGroupTarget {
     fn count(&self, context: ControlContext) -> u32 {
         context
@@ -166,12 +168,30 @@ impl RealearnTarget for NavigateWithinGroupTarget {
             _ => (false, None),
         }
     }
+
+    fn text_value(&self, context: ControlContext) -> Option<String> {
+        let (mapping_id, _) = self.current_mapping_with_position(context)?;
+        let instance_state = context.instance_state.borrow();
+        let info = instance_state
+            .get_mapping_info(QualifiedMappingId::new(self.compartment, mapping_id))?;
+        Some(info.name.clone())
+    }
+
+    fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
+        let (_, fraction) = self.current_mapping_with_position(context)?;
+        Some(NumericValue::Discrete(fraction.actual() as i32 + 1))
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::NavigateWithinGroup)
+    }
 }
 
-impl<'a> Target<'a> for NavigateWithinGroupTarget {
-    type Context = ControlContext<'a>;
-
-    fn current_value(&self, context: ControlContext) -> Option<AbsoluteValue> {
+impl NavigateWithinGroupTarget {
+    fn current_mapping_with_position(
+        &self,
+        context: ControlContext,
+    ) -> Option<(MappingId, Fraction)> {
         let instance_state = context.instance_state.borrow();
         if let Some(mapping_id) =
             instance_state.get_active_mapping_within_group(self.compartment, self.group_id)
@@ -182,14 +202,23 @@ impl<'a> Target<'a> for NavigateWithinGroupTarget {
             if !mapping_ids.is_empty() {
                 let max_value = mapping_ids.len() - 1;
                 if let Some(index) = mapping_ids.iter().position(|id| *id == mapping_id) {
-                    return Some(AbsoluteValue::Discrete(Fraction::new(
-                        index as _,
-                        max_value as _,
-                    )));
+                    return Some((mapping_id, Fraction::new(index as _, max_value as _)));
                 }
             }
         }
-        Some(AbsoluteValue::Continuous(UnitValue::MIN))
+        None
+    }
+}
+
+impl<'a> Target<'a> for NavigateWithinGroupTarget {
+    type Context = ControlContext<'a>;
+
+    fn current_value(&self, context: ControlContext) -> Option<AbsoluteValue> {
+        let fraction = self
+            .current_mapping_with_position(context)
+            .map(|(_, f)| f)
+            .unwrap_or(Fraction::MIN);
+        Some(AbsoluteValue::Discrete(fraction))
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

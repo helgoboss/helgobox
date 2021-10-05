@@ -1,7 +1,7 @@
 use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
     ControlContext, FeedbackOutput, HitInstructionReturnValue, MappingControlContext, OscDeviceId,
-    OscFeedbackTask, RealearnTarget, TargetCharacter,
+    OscFeedbackTask, RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, FeedbackValue, OscArgDescriptor, OscTypeTag, Target,
@@ -45,6 +45,10 @@ impl OscSendTarget {
 }
 
 impl RealearnTarget for OscSendTarget {
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::SendOsc)
+    }
+
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         if let Some(desc) = self.arg_descriptor {
             use OscTypeTag::*;

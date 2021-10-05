@@ -198,7 +198,7 @@ impl MappingModel {
     pub fn changed_non_processing_relevant(
         &self,
     ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.name.changed()
+        observable::never()
     }
 
     /// Fires whenever a property has changed that has an effect on control/feedback processing.
@@ -223,6 +223,7 @@ impl MappingModel {
             )
             .merge(self.advanced_settings.changed())
             .merge(self.tags.changed())
+            .merge(self.name.changed())
     }
 
     /// Fires whenever a property has changed that has an effect on control/feedback processing
@@ -329,6 +330,7 @@ impl MappingModel {
             self.compartment,
             id,
             self.group_id.get(),
+            self.name.get_ref().clone(),
             merged_tags,
             source,
             mode,

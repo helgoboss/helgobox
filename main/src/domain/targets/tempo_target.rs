@@ -1,7 +1,8 @@
 use crate::domain::{
     bpm_span, format_step_size_as_bpm_without_unit, format_value_as_bpm_without_unit,
     parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, TargetCharacter,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
+    TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Tempo};
@@ -89,11 +90,15 @@ impl RealearnTarget for TempoTarget {
     }
 
     fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(format!("{:.2}", self.tempo().bpm().get()))
+        Some(format!("{:.2} bpm", self.tempo().bpm().get()))
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
         Some(NumericValue::Decimal(self.tempo().bpm().get()))
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::Tempo)
     }
 }
 

@@ -1,7 +1,8 @@
 use crate::domain::ui_util::OutputReason;
 use crate::domain::{
     ControlContext, FeedbackOutput, HitInstructionReturnValue, MappingControlContext,
-    MidiDestination, RealTimeReaperTarget, RealearnTarget, SendMidiDestination, TargetCharacter,
+    MidiDestination, RealTimeReaperTarget, RealearnTarget, ReaperTargetType, SendMidiDestination,
+    TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, RawMidiPattern, Target, UnitValue,
@@ -191,6 +192,10 @@ impl RealearnTarget for MidiSendTarget {
             text.parse().map_err(|_| "not a discrete value")?,
             context,
         )
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        Some(ReaperTargetType::SendMidi)
     }
 }
 
