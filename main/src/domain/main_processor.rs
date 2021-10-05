@@ -443,12 +443,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 if let Some(value) = t.current_value(control_context) {
                                     match previous_target_values[compartment].entry(*mapping_id) {
                                         Entry::Occupied(mut e) => {
-                                            if (e.get().to_unit_value().get()
-                                                - value.to_unit_value().get())
-                                            .abs()
-                                                <= FEEDBACK_EPSILON
+                                            if e.get().to_unit_value().get()
+                                                == value.to_unit_value().get()
                                             {
-                                                // Value hasn't changed significantly.
+                                                // Value hasn't changed.
                                                 (false, None)
                                             } else {
                                                 // Value has changed.
