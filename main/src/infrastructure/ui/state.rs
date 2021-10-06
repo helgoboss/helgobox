@@ -1,5 +1,8 @@
 use crate::base::{prop, Prop};
-use crate::domain::{CompoundMappingSource, GroupId, MappingCompartment, ReaperTarget, Tag};
+use crate::domain::{
+    CompoundMappingSource, CompoundMappingSourceAddress, GroupId, MappingCompartment, ReaperTarget,
+    Tag,
+};
 
 use crate::application::{MappingModel, Session};
 use crate::infrastructure::ui::Item;

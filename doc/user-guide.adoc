@@ -5,7 +5,7 @@
 :sectnumlevels: 2
 
 |===
-|Last update of text: |`2021-09-28 (v2.11.0-pre.2)`
+|Last update of text: |`2021-10-06 (v2.11.0-pre.3)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 

@@ -369,18 +369,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             match event {
                 SourceReleased(e) => {
                     debug!(self.logger, "Source of instance {} released", e.instance_id);
-                    let other_instance_took_over =
-                        if let Some(source) = RealSource::from_feedback_value(&e.feedback_value) {
-                            // We also allow the instance to take over which released the source in
-                            // the first place! Simply because in the meanwhile, this instance
-                            // could have found a new usage for it! E.g. likely to happen with
-                            // preset changes.
-                            self.main_processors
-                                .iter()
-                                .any(|p| p.maybe_takeover_source(&source))
-                        } else {
-                            false
-                        };
+                    // We also allow the instance to take over which released the source in
+                    // the first place! Simply because in the meanwhile, this instance
+                    // could have found a new usage for it! E.g. likely to happen with
+                    // preset changes.
+                    let other_instance_took_over = self
+                        .main_processors
+                        .iter()
+                        .any(|p| p.maybe_takeover_source(&e.feedback_value));
                     if !other_instance_took_over {
                         if let Some(p) = self
                             .main_processors
@@ -644,6 +640,7 @@ impl<EH: DomainEventHandler> Drop for RealearnControlSurfaceMiddleware<EH> {
     }
 }
 
+/// For pushing deallocation to main thread (vs. doing it in the audio thread).
 #[derive(Clone, Debug)]
 pub struct GarbageBin {
     sender: crossbeam_channel::Sender<Garbage>,
@@ -657,6 +654,7 @@ impl GarbageBin {
         Self { sender }
     }
 
+    /// Pushes deallocation to the main thread.
     pub fn dispose(&self, garbage: Garbage) {
         self.sender.try_send(garbage).unwrap();
     }

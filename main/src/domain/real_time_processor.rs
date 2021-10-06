@@ -984,12 +984,11 @@ impl RealTimeProcessor {
     }
 
     fn send_midi_feedback(&self, value: MidiSourceValue<RawShortMessage>, caller: Caller) {
-        if let MidiSourceValue::Raw(evts) = value {
+        if let Some(evts) = value.to_raw() {
             // TODO-medium We can implement in a way so we only need one host.process_events() call.
-            for evt in &evts {
+            for evt in evts {
                 send_raw_midi_to_fx_output(evt.bytes(), SampleOffset::ZERO, caller);
             }
-            self.garbage_bin.dispose(Garbage::RawMidiEvents(evts));
         } else {
             let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
             if shorts[0].is_none() {
@@ -998,6 +997,9 @@ impl RealTimeProcessor {
             for short in shorts.iter().flatten() {
                 self.send_short_midi_to_fx_output(Event::without_offset(*short), caller);
             }
+        }
+        if let Some(garbage) = value.into_garbage() {
+            self.garbage_bin.dispose(Garbage::RawMidiEvents(garbage));
         }
     }
 

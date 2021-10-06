@@ -98,15 +98,14 @@ impl RealearnAudioHook {
             use FeedbackAudioHookTask::*;
             match task {
                 MidiDeviceFeedback(dev_id, value) => {
-                    if let MidiSourceValue::Raw(events) = value {
+                    if let Some(events) = value.to_raw() {
                         MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
                             if let Some(mo) = mo {
-                                for event in &events {
+                                for event in events {
                                     mo.send_msg(&*event, SendMidiTime::Instantly);
                                 }
                             }
                         });
-                        self.garbage_bin.dispose(Garbage::RawMidiEvents(events));
                     } else {
                         let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
                         if shorts[0].is_none() {
@@ -119,6 +118,9 @@ impl RealearnAudioHook {
                                 }
                             }
                         });
+                    }
+                    if let Some(garbage) = value.into_garbage() {
+                        self.garbage_bin.dispose(Garbage::RawMidiEvents(garbage));
                     }
                 }
                 SendMidi(dev_id, raw_midi_events) => {

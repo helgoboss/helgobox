@@ -48,12 +48,29 @@ impl<'a> Target<'a> for VirtualTarget {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
+/// With virtual sources it's easy: The control element is the address.
+pub type VirtualSourceAddress = VirtualControlElement;
+
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct VirtualSource {
     control_element: VirtualControlElement,
 }
 
 impl VirtualSource {
+    pub fn feedback_address(&self) -> &VirtualSourceAddress {
+        &self.control_element
+    }
+
+    /// Checks if this and the given source share the same address.
+    ///
+    /// Used for:
+    ///
+    /// - Source filtering
+    /// - Feedback diffing
+    pub fn source_address_matches(&self, other: &Self) -> bool {
+        self.control_element == other.control_element
+    }
+
     pub fn new(control_element: VirtualControlElement) -> VirtualSource {
         VirtualSource { control_element }
     }

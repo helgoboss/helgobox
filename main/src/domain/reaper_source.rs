@@ -5,7 +5,7 @@ use helgoboss_learn::{
 };
 use std::convert::TryInto;
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ReaperSource {
     MidiDeviceChanges,
     RealearnInstanceStart,

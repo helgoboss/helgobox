@@ -1,14 +1,15 @@
 use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
-    ClipChangedEvent, CompoundFeedbackValue, CompoundMappingSource, CompoundMappingTarget,
-    ControlContext, ControlInput, ControlMode, DeviceFeedbackOutput, DomainEvent,
-    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackDestinations,
-    FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior, GroupId,
-    HitInstructionContext, InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged,
-    IoUpdatedEvent, MainMapping, MainSourceMessage, MappingActivationEffect, MappingCompartment,
-    MappingControlResult, MappingId, MappingInfo, MidiDestination, MidiSource, NormalRealTimeTask,
-    OrderedMappingIdSet, OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext,
-    QualifiedMappingId, QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
+    ClipChangedEvent, CompoundFeedbackValue, CompoundMappingSource, CompoundMappingSourceAddress,
+    CompoundMappingTarget, ControlContext, ControlInput, ControlMode, DeviceFeedbackOutput,
+    DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
+    FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
+    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, MainMapping,
+    MainSourceMessage, MappingActivationEffect, MappingCompartment, MappingControlResult,
+    MappingId, MappingInfo, MidiDestination, MidiSource, NormalRealTimeTask, OrderedMappingIdSet,
+    OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedMappingId,
+    QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
     RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperMessage, ReaperTarget,
     SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
     TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
@@ -200,21 +201,25 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// This is a very important principle when using multiple instances. It allows feedback to
     /// not be accidentally cleared while still guaranteeing that feedback for non-used control
     /// elements are cleared eventually - independently from the order of instance processing.
-    pub fn maybe_takeover_source(&self, source: &RealSource) -> bool {
-        if let Some(mapping_with_source) = self
-            .all_mappings()
-            .find(|m| m.feedback_is_effectively_on() && m.has_this_real_source(source))
-        {
+    pub fn maybe_takeover_source(&self, feedback_value: &SourceFeedbackValue) -> bool {
+        if let Some(mapping_with_source) = self.all_mappings().find(|m| {
+            m.feedback_is_effectively_on() && m.source_address_matches_with_value(feedback_value)
+        }) {
             if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
                 if self.basics.instance_feedback_is_effectively_enabled() {
-                    debug!(self.basics.logger, "Taking over source {:?}...", source);
+                    debug!(
+                        self.basics.logger,
+                        "Taking over source {:?}...",
+                        mapping_with_source.source()
+                    );
                     let feedback = followed_mapping.feedback(true, self.basics.control_context());
                     self.send_feedback(FeedbackReason::TakeOverSource, feedback);
                     true
                 } else {
                     debug!(
                         self.basics.logger,
-                        "No source takeover of {:?} because feedback effectively disabled", source
+                        "No source takeover of {:?} because feedback effectively disabled",
+                        mapping_with_source.source()
                     );
                     false
                 }
@@ -695,7 +700,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 if m.feedback_is_effectively_on() {
                     // Mark source as used
-                    unused_sources.remove(&m.qualified_source());
+                    if let Some(addr) = m.source().extract_feedback_address() {
+                        unused_sources.remove(&addr);
+                    }
                 }
             }
             self.process_mapping_updates_due_to_parameter_changes(
@@ -747,7 +754,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 if m.feedback_is_effectively_on() {
                     // Mark source as used
-                    unused_sources.remove(&m.qualified_source());
+                    if let Some(addr) = m.source().extract_feedback_address() {
+                        unused_sources.remove(&addr);
+                    }
                 }
             }
             self.process_mapping_updates_due_to_parameter_changes(
@@ -861,7 +870,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             for compartment in MappingCompartment::enum_iter() {
                 self.handle_feedback_after_having_updated_all_mappings(
                     compartment,
-                    &HashSet::new(),
+                    &HashMap::new(),
                 );
             }
         } else {
@@ -898,7 +907,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 if m.feedback_is_effectively_on() {
                     // Mark source as used
-                    unused_sources.remove(&m.qualified_source());
+                    if let Some(addr) = m.source().extract_feedback_address() {
+                        unused_sources.remove(&addr);
+                    }
                 }
             }
             if !activation_updates.is_empty() {
@@ -977,7 +988,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 );
                 if m.feedback_is_effectively_on() {
                     // Mark source as used
-                    unused_sources.remove(&m.qualified_source());
+                    if let Some(addr) = m.source().extract_feedback_address() {
+                        unused_sources.remove(&addr);
+                    }
                 }
                 if m.needs_refresh_when_target_touched() {
                     self.collections.target_touch_dependent_mappings[compartment].insert(m.id());
@@ -1412,7 +1425,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         compartment: MappingCompartment,
         mapping_activation_updates: Vec<ActivationChange>,
         target_activation_updates: Vec<ActivationChange>,
-        unused_sources: &HashSet<QualifiedSource>,
+        unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
         changed_mappings: impl Iterator<Item = MappingId>,
     ) {
         // Send feedback
@@ -1646,17 +1659,21 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         compartment: MappingCompartment,
         include_virtual: bool,
-    ) -> HashSet<QualifiedSource> {
+    ) -> HashMap<CompoundMappingSourceAddress, QualifiedSource> {
         if include_virtual {
             self.all_mappings_in_compartment(compartment)
                 .filter(|m| m.feedback_is_effectively_on())
-                .map(MainMapping::qualified_source)
+                .filter_map(|m| {
+                    Some((m.source().extract_feedback_address()?, m.qualified_source()))
+                })
                 .collect()
         } else {
             self.collections.mappings[compartment]
                 .values()
                 .filter(|m| m.feedback_is_effectively_on())
-                .map(MainMapping::qualified_source)
+                .filter_map(|m| {
+                    Some((m.source().extract_feedback_address()?, m.qualified_source()))
+                })
                 .collect()
         }
     }
@@ -1664,7 +1681,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn handle_feedback_after_having_updated_all_mappings(
         &mut self,
         compartment: MappingCompartment,
-        now_unused_sources: &HashSet<QualifiedSource>,
+        now_unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
     ) {
         self.send_off_feedback_for_unused_sources(now_unused_sources);
         self.send_feedback(
@@ -1676,7 +1693,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn handle_feedback_after_having_updated_particular_mappings(
         &mut self,
         compartment: MappingCompartment,
-        now_unused_sources: &HashSet<QualifiedSource>,
+        now_unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
         mapping_ids: impl Iterator<Item = MappingId>,
     ) {
         self.send_off_feedback_for_unused_sources(now_unused_sources);
@@ -1687,8 +1704,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// Indicate via off feedback the sources which are not in use anymore.
-    fn send_off_feedback_for_unused_sources(&self, now_unused_sources: &HashSet<QualifiedSource>) {
-        for s in now_unused_sources {
+    fn send_off_feedback_for_unused_sources(
+        &self,
+        now_unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
+    ) {
+        for s in now_unused_sources.values() {
             self.send_feedback(FeedbackReason::ClearUnusedSource, s.off_feedback());
         }
     }
@@ -1859,7 +1879,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             // An existing mapping is being overwritten.
             if previous_mapping.feedback_is_effectively_on() {
                 // And its light is currently on.
-                if mapping.source() == previous_mapping.source() {
+                if mapping
+                    .source()
+                    .source_address_matches(previous_mapping.source())
+                {
                     // Source is the same.
                     if mapping.feedback_is_effectively_on() {
                         // Lights should still be on.

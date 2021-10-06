@@ -361,7 +361,7 @@ impl MappingRowsPanel {
         }
         if let Some(filter_source) = main_state.source_filter.get_ref() {
             let mapping_source = mapping.source_model.create_source();
-            if mapping_source != *filter_source {
+            if !mapping_source.source_address_matches(filter_source) {
                 return false;
             }
         }

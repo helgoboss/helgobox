@@ -74,7 +74,7 @@ pub trait DomainEventHandler: Debug {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub enum RealSource {
     Midi(MidiSource),
     Osc(OscSource),
@@ -82,6 +82,23 @@ pub enum RealSource {
 }
 
 impl RealSource {
+    /// Checks if this and the given source share the same address.
+    ///
+    /// Used for:
+    ///
+    /// - Source virtualization
+    /// - Find mapping by source
+    /// - Learn mapping reassigning source
+    // TODO-high This should probably be called value_matches and take a value
+    pub fn source_address_matches(&self, other: &Self) -> bool {
+        use RealSource::*;
+        match (self, other) {
+            (Osc(s1), Osc(s2)) => s1.source_address_matches(s2),
+            (Midi(s1), Midi(s2)) => s1.source_address_matches(s2),
+            _ => false,
+        }
+    }
+
     pub fn into_compound_source(self) -> CompoundMappingSource {
         use RealSource::*;
         match self {
@@ -98,14 +115,6 @@ impl RealSource {
             Osc(s) => Some(Self::Osc(s)),
             Reaper(s) => Some(Self::Reaper(s)),
             Virtual(_) | Never => None,
-        }
-    }
-
-    pub fn from_feedback_value(value: &SourceFeedbackValue) -> Option<Self> {
-        use SourceFeedbackValue::*;
-        match value {
-            Midi(v) => MidiSource::from_source_value(v.clone()).map(Self::Midi),
-            Osc(v) => Some(Self::Osc(OscSource::from_source_value(v.clone(), None))),
         }
     }
 }

@@ -6,17 +6,18 @@ use crate::domain::{
     ParameterArray, ParameterSlice, PersistentMappingProcessingState, RealSource,
     RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget,
     ReaperTargetType, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
-    VirtualControlElement, VirtualFeedbackValue, VirtualSource, VirtualSourceValue, VirtualTarget,
-    COMPARTMENT_PARAMETER_COUNT,
+    VirtualControlElement, VirtualFeedbackValue, VirtualSource, VirtualSourceAddress,
+    VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlType,
-    ControlValue, FeedbackValue, GroupInteraction, MidiSourceValue, ModeControlOptions,
-    ModeControlResult, ModeFeedbackOptions, NumericValue, OscSource, PropValue, RawMidiEvent,
-    SourceCharacter, Target, UnitValue, ValueFormatter, ValueParser,
+    ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
+    ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericValue, OscSource,
+    OscSourceAddress, PropValue, RawMidiEvent, SourceCharacter, Target, UnitValue, ValueFormatter,
+    ValueParser,
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -515,19 +516,10 @@ impl MainMapping {
     }
 
     /// Checks if this mapping has the given real source. Used for taking over sources.
-    pub fn has_this_real_source(&self, source: &RealSource) -> bool {
-        match &self.core.source {
-            CompoundMappingSource::Midi(self_source) => {
-                matches!(source, RealSource::Midi(s) if s == self_source)
-            }
-            CompoundMappingSource::Osc(self_source) => {
-                matches!(source, RealSource::Osc(s) if s == self_source)
-            }
-            CompoundMappingSource::Reaper(self_source) => {
-                matches!(source, RealSource::Reaper(s) if s == self_source)
-            }
-            CompoundMappingSource::Virtual(_) | CompoundMappingSource::Never => false,
-        }
+    pub fn source_address_matches_with_value(&self, feedback_value: &SourceFeedbackValue) -> bool {
+        self.core
+            .source
+            .value_has_same_feedback_address(feedback_value)
     }
 
     pub fn targets(&self) -> &[CompoundMappingTarget] {
@@ -1191,7 +1183,8 @@ impl MappingCore {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+// PartialEq because we want to put it into a Prop.
+#[derive(Clone, PartialEq, Debug)]
 pub enum CompoundMappingSource {
     Never,
     Midi(MidiSource),
@@ -1200,7 +1193,14 @@ pub enum CompoundMappingSource {
     Reaper(ReaperSource),
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub enum CompoundMappingSourceAddress {
+    Midi(MidiSourceAddress),
+    Osc(OscSourceAddress),
+    Virtual(VirtualSourceAddress),
+}
+
+#[derive(Clone, Debug)]
 pub struct QualifiedSource {
     pub compartment: MappingCompartment,
     pub id: MappingId,
@@ -1223,6 +1223,50 @@ impl QualifiedSource {
 }
 
 impl CompoundMappingSource {
+    pub fn extract_feedback_address(&self) -> Option<CompoundMappingSourceAddress> {
+        use CompoundMappingSource::*;
+        match self {
+            Midi(s) => Some(CompoundMappingSourceAddress::Midi(
+                s.extract_feedback_address()?,
+            )),
+            Osc(s) => Some(CompoundMappingSourceAddress::Osc(
+                s.feedback_address().clone(),
+            )),
+            Virtual(s) => Some(CompoundMappingSourceAddress::Virtual(*s.feedback_address())),
+            _ => None,
+        }
+    }
+
+    /// Checks if the given message is directed to the same address as the one of this source.
+    ///
+    /// Used for:
+    ///
+    /// -  Source takeover (feedback)
+    pub fn value_has_same_feedback_address(&self, value: &SourceFeedbackValue) -> bool {
+        use CompoundMappingSource::*;
+        match (self, value) {
+            (Osc(s), SourceFeedbackValue::Osc(v)) => s.value_has_same_feedback_address(v),
+            (Midi(s), SourceFeedbackValue::Midi(v)) => s.value_has_same_feedback_address(v),
+            _ => false,
+        }
+    }
+
+    /// Checks if this and the given source share the same address.
+    ///
+    /// Used for:
+    ///
+    /// - Source filtering
+    /// - Feedback diffing
+    pub fn source_address_matches(&self, other: &Self) -> bool {
+        use CompoundMappingSource::*;
+        match (self, other) {
+            (Osc(s1), Osc(s2)) => s1.source_address_matches(s2),
+            (Midi(s1), Midi(s2)) => s1.source_address_matches(s2),
+            (Virtual(s1), Virtual(s2)) => s1.source_address_matches(s2),
+            _ => false,
+        }
+    }
+
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
         use CompoundMappingSource::*;
         match self {

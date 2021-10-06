@@ -290,11 +290,22 @@ impl Session {
                 return false;
             }
             let mapping_source = m.source_model.create_source();
-            match (mapping_source, actual_virt_source, actual_real_source) {
-                (Virtual(map_source), Some(act_source), _) => map_source == act_source,
-                (Midi(map_source), _, RealSource::Midi(act_source)) => map_source == *act_source,
-                (Osc(map_source), _, RealSource::Osc(act_source)) => map_source == *act_source,
-                _ => false,
+            if let (Virtual(vs1), Some(vs2)) = (&mapping_source, &actual_virt_source) {
+                // The mapping source is virtual and the actual source has a virtual counterpart.
+                // In this case, we consider the sources as matches if the virtual control elements
+                // match.
+                // TODO-high This should probably be called value_matches and take a value
+                vs1.feedback_address() == vs2.feedback_address()
+            } else {
+                // Either mapping source is real or the actual source has no virtual counterpart.
+                if let Some(ms) = RealSource::from_compound_source(mapping_source) {
+                    // This means the mapping source is real. Now we can compare apples with apples.
+                    ms.source_address_matches(actual_real_source)
+                } else {
+                    // This means the mapping source is virtual but the actual source has no
+                    // virtual counterpart. Doesn't match!
+                    false
+                }
             }
         })
     }
@@ -648,8 +659,9 @@ impl Session {
                 // Since virtual mappings support conditional activation, too!
                 continue;
             }
+            // This should always yield Some because controller mappings always have real sources.
             if let Some(s) = RealSource::from_compound_source(m.source_model.create_source()) {
-                if s == *source {
+                if s.source_address_matches(source) {
                     let virtual_source =
                         VirtualSource::new(m.target_model.create_control_element());
                     return Some(virtual_source);
@@ -1116,16 +1128,17 @@ impl Session {
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) {
-        let ignore_sources = match compartment {
-            MappingCompartment::ControllerMappings => {
-                // When batch-learning controller mappings, we just want to learn sources that have
-                // not yet been learned. Otherwise when we move a fader, we create many mappings in
-                // one go.
-                self.mappings(compartment)
-                    .map(|m| m.borrow().source_model.create_source())
-                    .collect()
-            }
-            MappingCompartment::MainMappings => HashSet::new(),
+        let ignore_sources: Vec<_> = match compartment {
+            // When batch-learning controller mappings, we just want to learn sources that have
+            // not yet been learned. Otherwise when we move a fader, we create many mappings in
+            // one go.
+            MappingCompartment::ControllerMappings => self
+                .mappings(compartment)
+                .map(|m| m.borrow().source_model.create_source())
+                .collect(),
+            // When batch-learning main mappings, we always wait for a target touch between the
+            // mappings, so this is not necessary.
+            MappingCompartment::MainMappings => vec![],
         };
         let mapping = self.add_default_mapping(compartment, initial_group_id, control_element_type);
         let qualified_mapping_id = mapping.borrow().qualified_id();
@@ -1286,7 +1299,7 @@ impl Session {
                 Rc::downgrade(session),
                 mapping.clone(),
                 true,
-                HashSet::new(),
+                vec![],
                 mapping.borrow().compartment() != MappingCompartment::ControllerMappings,
             );
         } else {
@@ -1299,7 +1312,7 @@ impl Session {
         session: WeakSession,
         mapping: SharedMapping,
         reenable_control_after_touched: bool,
-        ignore_sources: HashSet<CompoundMappingSource>,
+        ignore_sources: Vec<CompoundMappingSource>,
         allow_virtual_sources: bool,
     ) {
         let (mapping_id, osc_arg_index_hint) = {
@@ -1313,7 +1326,7 @@ impl Session {
                 allow_virtual_sources,
                 osc_arg_index_hint,
             )
-            .filter(move |s| !ignore_sources.contains(s))
+            .filter(move |s| !ignore_sources.iter().any(|is| is.source_address_matches(s)))
             // We have this explicit stop criteria because we listen to global REAPER
             // events.
             .take_until(self.party_is_over())
