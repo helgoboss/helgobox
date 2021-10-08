@@ -204,7 +204,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// elements are cleared eventually - independently from the order of instance processing.
     pub fn maybe_takeover_source(&self, feedback_value: &SourceFeedbackValue) -> bool {
         if let Some(mapping_with_source) = self.all_mappings().find(|m| {
-            m.feedback_is_effectively_on() && m.source_address_matches_with_value(feedback_value)
+            m.feedback_is_effectively_on()
+                && m.source()
+                    .has_same_feedback_address_as_value(feedback_value)
         }) {
             if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
                 if self.basics.instance_feedback_is_effectively_enabled() {
@@ -1889,7 +1891,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // And its light is currently on.
                 if mapping
                     .source()
-                    .source_address_matches(previous_mapping.source())
+                    .has_same_feedback_address_as_source(previous_mapping.source())
                 {
                     // Source is the same.
                     if mapping.feedback_is_effectively_on() {

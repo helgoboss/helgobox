@@ -65,9 +65,8 @@ impl VirtualSource {
     ///
     /// Used for:
     ///
-    /// - Source filtering
     /// - Feedback diffing
-    pub fn source_address_matches(&self, other: &Self) -> bool {
+    pub fn has_same_feedback_address_as_source(&self, other: &Self) -> bool {
         self.control_element == other.control_element
     }
 

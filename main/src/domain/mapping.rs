@@ -516,13 +516,6 @@ impl MainMapping {
         &self.core.source
     }
 
-    /// Checks if this mapping has the given real source. Used for taking over sources.
-    pub fn source_address_matches_with_value(&self, feedback_value: &SourceFeedbackValue) -> bool {
-        self.core
-            .source
-            .value_has_same_feedback_address(feedback_value)
-    }
-
     pub fn targets(&self) -> &[CompoundMappingTarget] {
         &self.targets
     }
@@ -1225,16 +1218,6 @@ impl QualifiedSource {
 
 impl CompoundMappingSource {
     // TODO-high CONTINUE
-    //  1. Get the signatures of the mappings in the source types right
-    //     (CompoundMappingSource, RealSource; MidiSource, OscSource, VirtualSource).
-    //     In particular, the following use cases should pass messages as arguments to match against
-    //     instead of complete sources:
-    //     - Source filtering
-    //     - Learn mapping reassigning source
-    //     - Find first mapping by source
-    //     - Learn many
-    //  2. Make sure source filtering/learning stuff uses *different* methods than feedback-related
-    //     stuff. The logic is just different (asymmetric vs symmetric matching).
     //  3. Implement logic for filtering/learning exactly one time, no repetition. This logic should
     //     be more inclusive than the feedback logic. E.g. a NOTE ON should match both a note number
     //     source and a note velocity source. A (fixed) RAW message should match a RAW source with
@@ -1272,11 +1255,11 @@ impl CompoundMappingSource {
     /// Used for:
     ///
     /// -  Source takeover (feedback)
-    pub fn value_has_same_feedback_address(&self, value: &SourceFeedbackValue) -> bool {
+    pub fn has_same_feedback_address_as_value(&self, value: &SourceFeedbackValue) -> bool {
         use CompoundMappingSource::*;
         match (self, value) {
-            (Osc(s), SourceFeedbackValue::Osc(v)) => s.value_has_same_feedback_address(v),
-            (Midi(s), SourceFeedbackValue::Midi(v)) => s.value_has_same_feedback_address(v),
+            (Osc(s), SourceFeedbackValue::Osc(v)) => s.has_same_feedback_address_as_value(v),
+            (Midi(s), SourceFeedbackValue::Midi(v)) => s.has_same_feedback_address_as_value(v),
             _ => false,
         }
     }
@@ -1286,12 +1269,12 @@ impl CompoundMappingSource {
     /// Used for:
     ///
     /// - Feedback diffing
-    pub fn source_address_matches(&self, other: &Self) -> bool {
+    pub fn has_same_feedback_address_as_source(&self, other: &Self) -> bool {
         use CompoundMappingSource::*;
         match (self, other) {
-            (Osc(s1), Osc(s2)) => s1.source_address_matches(s2),
-            (Midi(s1), Midi(s2)) => s1.source_address_matches(s2),
-            (Virtual(s1), Virtual(s2)) => s1.source_address_matches(s2),
+            (Osc(s1), Osc(s2)) => s1.has_same_feedback_address_as_source(s2),
+            (Midi(s1), Midi(s2)) => s1.has_same_feedback_address_as_source(s2),
+            (Virtual(s1), Virtual(s2)) => s1.has_same_feedback_address_as_source(s2),
             _ => false,
         }
     }
