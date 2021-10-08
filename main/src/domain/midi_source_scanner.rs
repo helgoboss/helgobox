@@ -350,7 +350,7 @@ mod tests {
 
     mod scanning {
         use super::*;
-        use helgoboss_midi::test_util::{channel, control_change, nrpn, u14};
+        use helgoboss_midi::test_util::{channel, control_change, nrpn_14_bit, u14};
         use helgoboss_midi::{ParameterNumberMessage, ParameterNumberMessageScanner};
 
         #[test]
@@ -397,7 +397,7 @@ mod tests {
             assert_eq!(
                 source_4_nrpn.unwrap(),
                 MidiScanResult {
-                    value: MidiSourceValue::ParameterNumber(nrpn(1, 99, 0)),
+                    value: MidiSourceValue::ParameterNumber(nrpn_14_bit(1, 99, 259)),
                     dev_id: None,
                     character: None
                 }

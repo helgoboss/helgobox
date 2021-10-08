@@ -948,8 +948,10 @@ async fn fx_by_name() {
     chain.remove_fx(&eq).unwrap();
     moment().await;
     // Then
-    // TODO-medium Why no "gone" feedback?
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))]
+    );
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
@@ -1014,8 +1016,10 @@ async fn fx_by_id() {
     chain.remove_fx(&eq).unwrap();
     moment().await;
     // Then
-    // TODO-medium Why no "gone" feedback?
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))]
+    );
     // When
     send_midi(note_on(0, 64, 0)).await;
     // Then
@@ -1150,8 +1154,10 @@ async fn conditional_activation_modifiers() {
         .unwrap();
     moment().await;
     // Then
-    // TODO-medium Why no "gone" feedback?
-    assert_eq!(realearn.pop_feedback(), vec![]);
+    assert_eq!(
+        realearn.pop_feedback(),
+        vec![Midi(Plain(note_on(0, 64, 0)))]
+    );
     // When
     send_midi(note_on(0, 64, 127)).await;
     // Then
