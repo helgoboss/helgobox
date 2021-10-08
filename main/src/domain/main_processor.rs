@@ -215,6 +215,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         "Taking over source {:?}...",
                         mapping_with_source.source()
                     );
+                    // TODO-low Shouldn't we update the single mapping-on state here?
                     let feedback = followed_mapping.feedback(true, self.basics.control_context());
                     self.send_feedback(FeedbackReason::TakeOverSource, feedback);
                     true
@@ -1610,6 +1611,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         &self,
         feedback_output: DeviceFeedbackOutput,
     ) {
+        self.update_on_mappings();
         if self
             .basics
             .feedback_output
@@ -1628,7 +1630,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 self.send_feedback(FeedbackReason::SuspendInstance, self.feedback_all_zero());
             }
         }
-        self.update_on_mappings();
     }
 
     /// When feedback gets globally disabled.
