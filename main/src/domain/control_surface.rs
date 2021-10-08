@@ -1,6 +1,6 @@
 use crate::base::Global;
 use crate::domain::{
-    ActivationChange, BackboneState, CompoundMappingSource, DeviceChangeDetector,
+    ActivationChange, AudioHookState, BackboneState, CompoundMappingSource, DeviceChangeDetector,
     DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, EelTransformation,
     FeedbackOutput, FeedbackRealTimeTask, InstanceId, LifecycleMidiData, MainProcessor,
     NormalRealTimeTask, OscDeviceId, OscInputDevice, OscScanResult, RealTimeCompoundMappingTarget,
@@ -68,6 +68,7 @@ pub enum Garbage {
     ActivationChanges(Vec<ActivationChange>),
     NormalRealTimeTask(NormalRealTimeTask),
     FeedbackRealTimeTask(FeedbackRealTimeTask),
+    AudioHookState(AudioHookState),
 }
 
 #[derive(Debug)]

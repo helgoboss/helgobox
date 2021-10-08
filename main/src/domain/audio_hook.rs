@@ -61,7 +61,7 @@ pub struct RealearnAudioHook {
 
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
-enum AudioHookState {
+pub enum AudioHookState {
     Normal,
     // This is not the instance-specific learning but the global one.
     LearningSource {
@@ -274,7 +274,11 @@ impl RealearnAudioHook {
                         midi_scanner: Default::default(),
                     }
                 }
-                StopCapturingMidi => self.state = AudioHookState::Normal,
+                StopCapturingMidi => {
+                    let last_state = std::mem::replace(&mut self.state, AudioHookState::Normal);
+                    self.garbage_bin
+                        .dispose(Garbage::AudioHookState(last_state));
+                }
             }
         }
     }
