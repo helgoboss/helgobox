@@ -102,7 +102,10 @@ impl MidiScanResult {
         let vec = vec![raw_event];
         let res = MidiScanResult {
             dev_id,
-            value: MidiSourceValue::Raw(vec),
+            value: MidiSourceValue::Raw {
+                feedback_address_info: None,
+                events: vec,
+            },
             character: None,
         };
         Ok(res)

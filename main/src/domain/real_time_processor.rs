@@ -1030,9 +1030,10 @@ impl RealTimeProcessor {
                                     LifecycleMidiMessage::Raw(data) => {
                                         if self.output_logging_enabled {
                                             permit_alloc(|| {
-                                                self.log_lifecycle_output(MidiSourceValue::Raw(
-                                                    vec![*data.clone()],
-                                                ));
+                                                self.log_lifecycle_output(MidiSourceValue::Raw {
+                                                    feedback_address_info: None,
+                                                    events: vec![*data.clone()],
+                                                });
                                             });
                                         }
                                         mo.send_msg(&**data, SendMidiTime::Instantly);
@@ -1058,7 +1059,10 @@ impl RealTimeProcessor {
                 LifecycleMidiMessage::Raw(data) => {
                     if self.output_logging_enabled {
                         permit_alloc(|| {
-                            self.log_lifecycle_output(MidiSourceValue::Raw(vec![*data.clone()]));
+                            self.log_lifecycle_output(MidiSourceValue::Raw {
+                                feedback_address_info: None,
+                                events: vec![*data.clone()],
+                            });
                         });
                     }
                     send_raw_midi_to_fx_output(data.bytes(), SampleOffset::ZERO, caller)
