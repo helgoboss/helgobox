@@ -1255,6 +1255,7 @@ impl CompoundMappingSource {
     /// Used for:
     ///
     /// -  Source takeover (feedback)
+    ///
     pub fn has_same_feedback_address_as_value(&self, value: &SourceFeedbackValue) -> bool {
         use CompoundMappingSource::*;
         match (self, value) {
@@ -1286,11 +1287,16 @@ impl CompoundMappingSource {
     /// - Source learning (including source virtualization)
     /// - Source filtering/finding (including source virtualization)
     pub fn would_react_to(&self, value: IncomingCompoundSourceValue) -> bool {
+        self.control(value).is_some()
+    }
+
+    pub fn control(&self, value: IncomingCompoundSourceValue) -> Option<ControlValue> {
         use CompoundMappingSource::*;
         match (self, value) {
-            (Midi(s), IncomingCompoundSourceValue::Midi(v)) => s.control(v).is_some(),
-            (Osc(s), IncomingCompoundSourceValue::Osc(m)) => s.control(m).is_some(),
-            _ => false,
+            (Midi(s), IncomingCompoundSourceValue::Midi(v)) => s.control(v),
+            (Osc(s), IncomingCompoundSourceValue::Osc(m)) => s.control(m),
+            (Virtual(s), IncomingCompoundSourceValue::Virtual(m)) => s.control(m),
+            _ => None,
         }
     }
 
@@ -2156,6 +2162,7 @@ impl MessageCaptureResult {
 pub enum IncomingCompoundSourceValue<'a> {
     Midi(&'a MidiSourceValue<'a, RawShortMessage>),
     Osc(&'a OscMessage),
+    Virtual(&'a VirtualSourceValue),
 }
 
 pub enum InputDescriptor {

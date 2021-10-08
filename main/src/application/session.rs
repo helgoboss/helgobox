@@ -13,8 +13,8 @@ use crate::domain::{
     MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId, OscFeedbackTask,
     ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealTimeSender,
     RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue, Tag,
-    TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualTrack,
-    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
+    VirtualTrack, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::{enum_map, EnumMap};
@@ -281,7 +281,9 @@ impl Session {
         compartment: MappingCompartment,
         source_value: IncomingCompoundSourceValue,
     ) -> Option<&SharedMapping> {
-        let actual_virt_source = self.virtualize_if_possible(source_value);
+        let actual_virt_source = self
+            .virtualize_if_possible(source_value)
+            .map(VirtualSource::from_source_value);
         let instance_state = self.instance_state.borrow();
         use CompoundMappingSource::*;
         self.mappings(compartment).find(|m| {
@@ -625,17 +627,20 @@ impl Session {
         event: MessageCaptureEvent,
     ) -> Option<CompoundMappingSource> {
         if event.allow_virtual_sources {
-            if let Some(virt_source) = self.virtualize_if_possible(event.result.message()) {
+            if let Some(virt_source) = self
+                .virtualize_if_possible(event.result.message())
+                .map(VirtualSource::from_source_value)
+            {
                 return Some(CompoundMappingSource::Virtual(virt_source));
             }
         }
         CompoundMappingSource::from_message_capture_event(event)
     }
 
-    fn virtualize_if_possible(
+    pub fn virtualize_if_possible(
         &self,
         source_value: IncomingCompoundSourceValue,
-    ) -> Option<VirtualSource> {
+    ) -> Option<VirtualSourceValue> {
         let instance_state = self.instance_state.borrow();
         for m in self.mappings(MappingCompartment::ControllerMappings) {
             let m = m.borrow();
@@ -649,9 +654,11 @@ impl Session {
                 // Since virtual mappings support conditional activation, too!
                 continue;
             }
-            if m.source_model.create_source().would_react_to(source_value) {
-                let virtual_source = VirtualSource::new(m.target_model.create_control_element());
-                return Some(virtual_source);
+            if let Some(cv) = m.source_model.create_source().control(source_value) {
+                return Some(VirtualSourceValue::new(
+                    m.target_model.create_control_element(),
+                    cv,
+                ));
             }
         }
         None

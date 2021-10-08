@@ -1,5 +1,8 @@
 use crate::base::{prop, Prop};
-use crate::domain::{GroupId, MappingCompartment, MessageCaptureResult, ReaperTarget, Tag};
+use crate::domain::{
+    CompoundMappingSource, GroupId, IncomingCompoundSourceValue, MappingCompartment,
+    MessageCaptureResult, ReaperTarget, Tag, VirtualSourceValue,
+};
 
 use crate::application::{MappingModel, Session};
 use crate::infrastructure::ui::Item;
@@ -16,12 +19,37 @@ pub type SharedMainState = Rc<RefCell<MainState>>;
 pub struct MainState {
     pub target_filter: Prop<Option<ReaperTarget>>,
     pub is_learning_target_filter: Prop<bool>,
-    pub source_filter: Prop<Option<MessageCaptureResult>>,
+    pub source_filter: Prop<Option<SourceFilter>>,
     pub is_learning_source_filter: Prop<bool>,
     pub active_compartment: Prop<MappingCompartment>,
     pub displayed_group: EnumMap<MappingCompartment, Prop<Option<GroupFilter>>>,
     pub search_expression: Prop<SearchExpression>,
     pub status_msg: Prop<String>,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct SourceFilter {
+    /// Only can match mappings with real sources.
+    pub message_capture_result: MessageCaptureResult,
+    /// If the incoming message was successfully virtualized
+    /// (can match main mappings with virtual sources).
+    pub virtual_source_value: Option<VirtualSourceValue>,
+}
+
+impl SourceFilter {
+    pub fn matches(&self, source: &CompoundMappingSource) -> bool {
+        // First try real source matching.
+        if source.would_react_to(self.message_capture_result.message()) {
+            return true;
+        }
+        // Then try virtual source matching (if the message was virtualized before).
+        if let Some(v) = self.virtual_source_value {
+            if source.would_react_to(IncomingCompoundSourceValue::Virtual(&v)) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]

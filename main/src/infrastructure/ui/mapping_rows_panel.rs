@@ -359,9 +359,9 @@ impl MappingRowsPanel {
                 }
             }
         }
-        if let Some(capture_result) = main_state.source_filter.get_ref() {
+        if let Some(source_filter) = main_state.source_filter.get_ref() {
             let mapping_source = mapping.source_model.create_source();
-            if !mapping_source.would_react_to(capture_result.message()) {
+            if !source_filter.matches(&mapping_source) {
                 return false;
             }
         }

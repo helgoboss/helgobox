@@ -41,6 +41,7 @@ use crate::infrastructure::ui::{
     add_firewall_rule, copy_object_to_clipboard, copy_text_to_clipboard, get_object_from_clipboard,
     get_text_from_clipboard, ClipboardObject, GroupFilter, GroupPanel, IndependentPanelManager,
     MappingRowsPanel, SearchExpression, SharedIndependentPanelManager, SharedMainState,
+    SourceFilter,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
@@ -727,6 +728,7 @@ impl HeaderPanel {
                     .borrow()
                     .incoming_msg_captured(
                         true,
+                        // TODO-high Make virtual filtering work again
                         active_compartment != MappingCompartment::ControllerMappings,
                         None,
                     )
@@ -740,11 +742,19 @@ impl HeaderPanel {
                     .is_learning_source_filter
                     .set(false);
             })
-            .do_async(move |_session, capture_event: MessageCaptureEvent| {
-                main_state_2
-                    .borrow_mut()
-                    .source_filter
-                    .set(Some(capture_event.result));
+            .do_async(move |session, capture_event: MessageCaptureEvent| {
+                let virtual_source_value = if capture_event.allow_virtual_sources {
+                    session
+                        .borrow()
+                        .virtualize_if_possible(capture_event.result.message())
+                } else {
+                    None
+                };
+                let filter = SourceFilter {
+                    message_capture_result: capture_event.result,
+                    virtual_source_value,
+                };
+                main_state_2.borrow_mut().source_filter.set(Some(filter));
             });
         }
     }
