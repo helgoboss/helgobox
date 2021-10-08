@@ -1,13 +1,15 @@
 use super::none_if_minus_one;
 use crate::application::{
-    MackieSevenSegmentDisplayScope, MidiSourceType, ReaperSourceType, SourceCategory, SourceModel,
-    VirtualControlElementType,
+    MidiSourceType, ReaperSourceType, SourceCategory, SourceModel, VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
 use crate::base::notification;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::VirtualControlElementIdData;
-use helgoboss_learn::{DisplayType, MidiClockTransportMessage, OscTypeTag, SourceCharacter};
+use helgoboss_learn::{
+    DisplayType, MackieSevenSegmentDisplayScope, MidiClockTransportMessage, OscTypeTag,
+    SourceCharacter,
+};
 use helgoboss_midi::{Channel, U14, U7};
 use semver::Version;
 use serde::{Deserialize, Serialize};

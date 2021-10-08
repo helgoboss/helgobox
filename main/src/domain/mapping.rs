@@ -1218,11 +1218,6 @@ impl QualifiedSource {
 
 impl CompoundMappingSource {
     // TODO-high CONTINUE
-    //  3. Implement logic for filtering/learning exactly one time, no repetition. This logic should
-    //     be more inclusive than the feedback logic. E.g. a NOTE ON should match both a note number
-    //     source and a note velocity source. A (fixed) RAW message should match a RAW source with
-    //     variable portions. However, it's not necessary to match RAW e.g. with short messages.
-    //     And feedback-only sources don't need to be matched with at all.
     //  4. Implement logic for feedback-related stuff exactly one time, no repetition. It's
     //     important to keep this logic simple. In particular, it needs to be
     //     executable as a hash function, so it should be symmetric. For this,

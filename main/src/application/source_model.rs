@@ -4,13 +4,12 @@ use crate::domain::{
     MidiSource, ReaperSource, VirtualControlElement, VirtualControlElementId, VirtualSource,
     VirtualTarget,
 };
-use core::iter;
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
-    ControlValue, DetailedSourceCharacter, DisplayPositions, DisplayType,
-    DisplayTypeSpecificSettings, LcdPortions, MidiClockTransportMessage, OscArgDescriptor,
-    OscSource, OscTypeTag, SourceCharacter, UnitValue,
+    ControlValue, DetailedSourceCharacter, DisplaySpec, DisplayType, MackieLcdScope,
+    MackieSevenSegmentDisplayScope, MidiClockTransportMessage, OscArgDescriptor, OscSource,
+    OscTypeTag, SourceCharacter, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -19,8 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use std::borrow::Cow;
 use std::fmt;
-use std::fmt::{Display, Formatter};
-use std::ops::Range;
+use std::fmt::Display;
 
 /// A model for creating sources
 #[derive(Clone, Debug)]
@@ -312,18 +310,15 @@ impl SourceModel {
                         script: EelMidiSourceScript::compile(self.midi_script.get_ref()).ok(),
                     },
                     Display => MidiSource::Display {
-                        type_specific_settings: {
+                        spec: {
                             use DisplayType::*;
                             match self.display_type.get() {
-                                MackieLcd => DisplayTypeSpecificSettings::MackieLcd {
-                                    portions: self.mackie_lcd_scope().lcd_portions(),
+                                MackieLcd => DisplaySpec::MackieLcd {
+                                    scope: self.mackie_lcd_scope(),
                                 },
                                 MackieSevenSegmentDisplay => {
-                                    DisplayTypeSpecificSettings::MackieSevenSegmentDisplay {
-                                        positions: self
-                                            .seven_segment_display_scope
-                                            .get_ref()
-                                            .positions(),
+                                    DisplaySpec::MackieSevenSegmentDisplay {
+                                        scope: self.seven_segment_display_scope.get(),
                                     }
                                 }
                             }
@@ -812,116 +807,6 @@ impl ReaperSourceType {
             MidiDeviceChanges => Self::MidiDeviceChanges,
             RealearnInstanceStart => Self::RealearnInstanceStart,
         }
-    }
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Eq,
-    PartialEq,
-    Hash,
-    Debug,
-    IntoEnumIterator,
-    TryFromPrimitive,
-    IntoPrimitive,
-    Display,
-    Serialize_repr,
-    Deserialize_repr,
-)]
-#[repr(usize)]
-pub enum MackieSevenSegmentDisplayScope {
-    #[display(fmt = "All")]
-    All = 0,
-    #[display(fmt = ".... Assignment")]
-    Assignment = 1,
-    #[display(fmt = ".... Time code")]
-    Tc = 2,
-    #[display(fmt = "........ Left 3 digits (hours/bars)")]
-    TcLeft3Digits = 3,
-    #[display(fmt = "........ Left 2 digits (minutes/beats)")]
-    TcLeft2Digits = 4,
-    #[display(fmt = "........ Right 2 digits (seconds/sub)")]
-    TcRight2Digits = 5,
-    #[display(fmt = "........ Right 3 digits (frames/ticks)")]
-    TcRight3Digits = 6,
-}
-
-impl MackieSevenSegmentDisplayScope {
-    pub fn positions(&self) -> DisplayPositions {
-        use MackieSevenSegmentDisplayScope::*;
-        let positions = match self {
-            All => vec![0x0B, 0x0A, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
-            Assignment => vec![0x0B, 0x0A],
-            Tc => vec![9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
-            TcLeft3Digits => vec![9, 8, 7],
-            TcLeft2Digits => vec![6, 5],
-            TcRight2Digits => vec![4, 3],
-            TcRight3Digits => vec![2, 1, 0],
-        };
-        DisplayPositions::new(positions)
-    }
-}
-
-impl Default for MackieSevenSegmentDisplayScope {
-    fn default() -> Self {
-        MackieSevenSegmentDisplayScope::All
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub struct MackieLcdScope {
-    pub channel: Option<u8>,
-    pub line: Option<u8>,
-}
-
-impl MackieLcdScope {
-    pub fn new(channel: Option<u8>, line: Option<u8>) -> Self {
-        Self { channel, line }
-    }
-
-    pub fn generate_all_combinations() -> Vec<MackieLcdScope> {
-        iter::once(Self::new(None, None))
-            .chain((0..2).map(|l| Self::new(None, Some(l))))
-            .chain((0..8).map(|ch| Self::new(Some(ch), None)))
-            .chain((0..8).flat_map(|ch| (0..2).map(move |l| Self::new(Some(ch), Some(l)))))
-            .collect()
-    }
-
-    pub fn lcd_portions(&self) -> LcdPortions {
-        const CHANNEL_LEN: u8 = 7;
-        const CHANNEL_COUNT: u8 = 8;
-        const LINE_COUNT: u8 = 2;
-        const LINE_LEN: u8 = CHANNEL_COUNT * CHANNEL_LEN;
-        fn range(start: u8, len: u8) -> Range<u8> {
-            start..(start + len)
-        }
-        let ranges = match (self.channel, self.line) {
-            (None, None) => vec![range(0, LINE_COUNT * LINE_LEN)],
-            (None, Some(l)) => vec![range(l * LINE_LEN, LINE_LEN)],
-            (Some(ch), None) => (0..LINE_COUNT)
-                .map(|l| range(l * LINE_LEN + ch * CHANNEL_LEN, CHANNEL_LEN))
-                .collect(),
-            (Some(ch), Some(l)) => vec![range(l * LINE_LEN + ch * CHANNEL_LEN, CHANNEL_LEN)],
-        };
-        LcdPortions::new(ranges)
-    }
-}
-
-impl Display for MackieLcdScope {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if let Some(ch) = self.channel {
-            write!(f, "Channel {}", ch + 1)?;
-        } else {
-            f.write_str("All channels")?;
-        };
-        f.write_str(", ")?;
-        if let Some(l) = self.line {
-            write!(f, "line {}", l + 1)?;
-        } else {
-            f.write_str("multiline")?;
-        };
-        Ok(())
     }
 }
 

@@ -8,9 +8,10 @@ use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     check_mode_applicability, format_percentage_without_unit, AbsoluteMode, AbsoluteValue,
     ButtonUsage, ControlValue, DetailedSourceCharacter, DisplayType, EncoderUsage, FeedbackType,
-    FireMode, GroupInteraction, MidiClockTransportMessage, ModeApplicabilityCheckInput,
-    ModeParameter, OscTypeTag, OutOfRangeBehavior, PercentIo, SoftSymmetricUnitValue,
-    SourceCharacter, TakeoverMode, Target, UnitValue, ValueSequence,
+    FireMode, GroupInteraction, MackieLcdScope, MackieSevenSegmentDisplayScope,
+    MidiClockTransportMessage, ModeApplicabilityCheckInput, ModeParameter, OscTypeTag,
+    OutOfRangeBehavior, PercentIo, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target,
+    UnitValue, ValueSequence,
 };
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use reaper_high::{
@@ -31,12 +32,11 @@ use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
     get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
     AutomationModeOverrideType, BookmarkAnchorType, ConcreteFxInstruction,
-    ConcreteTrackInstruction, MackieLcdScope, MackieSevenSegmentDisplayScope, MappingModel,
-    MidiSourceType, ModeModel, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType,
-    Session, SharedMapping, SharedSession, SourceCategory, SourceModel, TargetCategory,
-    TargetModel, TargetModelWithContext, TargetUnit, TrackRouteSelectorType,
-    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
-    WeakSession,
+    ConcreteTrackInstruction, MappingModel, MidiSourceType, ModeModel, RealearnAutomationMode,
+    RealearnTrackArea, ReaperSourceType, Session, SharedMapping, SharedSession, SourceCategory,
+    SourceModel, TargetCategory, TargetModel, TargetModelWithContext, TargetUnit,
+    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
+    VirtualTrackType, WeakSession,
 };
 use crate::base::Global;
 use crate::domain::{
