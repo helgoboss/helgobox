@@ -1,8 +1,5 @@
 use crate::base::{prop, Prop};
-use crate::domain::{
-    CompoundMappingSource, CompoundMappingSourceAddress, GroupId, MappingCompartment, ReaperTarget,
-    Tag,
-};
+use crate::domain::{GroupId, MappingCompartment, MessageCaptureResult, ReaperTarget, Tag};
 
 use crate::application::{MappingModel, Session};
 use crate::infrastructure::ui::Item;
@@ -19,7 +16,7 @@ pub type SharedMainState = Rc<RefCell<MainState>>;
 pub struct MainState {
     pub target_filter: Prop<Option<ReaperTarget>>,
     pub is_learning_target_filter: Prop<bool>,
-    pub source_filter: Prop<Option<CompoundMappingSource>>,
+    pub source_filter: Prop<Option<MessageCaptureResult>>,
     pub is_learning_source_filter: Prop<bool>,
     pub active_compartment: Prop<MappingCompartment>,
     pub displayed_group: EnumMap<MappingCompartment, Prop<Option<GroupFilter>>>,

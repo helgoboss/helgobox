@@ -22,7 +22,7 @@ use crate::application::{
 };
 use crate::base::when;
 use crate::domain::{
-    ControlInput, GroupId, MappingCompartment, OscDeviceId, ReaperTarget,
+    ControlInput, GroupId, MappingCompartment, MessageCaptureEvent, OscDeviceId, ReaperTarget,
     COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
@@ -725,7 +725,7 @@ impl HeaderPanel {
             when(
                 self.session()
                     .borrow()
-                    .source_touched(
+                    .incoming_msg_captured(
                         true,
                         active_compartment != MappingCompartment::ControllerMappings,
                         None,
@@ -740,8 +740,11 @@ impl HeaderPanel {
                     .is_learning_source_filter
                     .set(false);
             })
-            .do_async(move |_session, source| {
-                main_state_2.borrow_mut().source_filter.set(Some(source));
+            .do_async(move |_session, capture_event: MessageCaptureEvent| {
+                main_state_2
+                    .borrow_mut()
+                    .source_filter
+                    .set(Some(capture_event.result));
             });
         }
     }

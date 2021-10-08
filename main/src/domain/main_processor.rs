@@ -7,18 +7,19 @@ use crate::domain::{
     FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
     InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, MainMapping,
     MainSourceMessage, MappingActivationEffect, MappingCompartment, MappingControlResult,
-    MappingId, MappingInfo, MidiDestination, MidiSource, NormalRealTimeTask, OrderedMappingIdSet,
-    OrderedMappingMap, OscDeviceId, OscFeedbackTask, ProcessorContext, QualifiedMappingId,
-    QualifiedSource, RealFeedbackValue, RealSource, RealTimeSender,
-    RealearnMonitoringFxParameterValueChangedEvent, RealearnTarget, ReaperMessage, ReaperTarget,
-    SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
-    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
+    MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult, MidiDestination,
+    MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId,
+    OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedMappingId, QualifiedSource,
+    RealFeedbackValue, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
+    RealearnTarget, ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString,
+    SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent,
+    UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
 use helgoboss_learn::{
     AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
-    ModeControlOptions, OscSource, RawMidiEvent, Target, BASE_EPSILON, FEEDBACK_EPSILON,
+    ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
 };
 use std::borrow::Cow;
 
@@ -1053,16 +1054,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         {
             use NormalRealTimeToMainThreadTask::*;
             match task {
-                LearnMidiSource {
-                    source,
+                CaptureMidi {
+                    scan_result,
                     allow_virtual_sources,
                 } => {
+                    let event = MessageCaptureEvent {
+                        result: MessageCaptureResult::Midi(scan_result),
+                        allow_virtual_sources,
+                        osc_arg_index_hint: None,
+                    };
                     self.basics
                         .event_handler
-                        .handle_event(DomainEvent::LearnedSource {
-                            source: RealSource::Midi(source),
-                            allow_virtual_sources,
-                        });
+                        .handle_event(DomainEvent::CapturedIncomingMessage(event));
                 }
                 FullResyncToRealTimeProcessorPlease => {
                     // We cannot provide everything that the real-time processor needs so we need
@@ -1353,13 +1356,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 allow_virtual_sources,
                 osc_arg_index_hint,
             } => {
-                let source = OscSource::from_source_value(msg.clone(), osc_arg_index_hint);
+                let scan_result = OscScanResult {
+                    message: msg.clone(),
+                    dev_id: None,
+                };
+                let event = MessageCaptureEvent {
+                    result: MessageCaptureResult::Osc(scan_result),
+                    allow_virtual_sources,
+                    osc_arg_index_hint,
+                };
                 self.basics
                     .event_handler
-                    .handle_event(DomainEvent::LearnedSource {
-                        source: RealSource::Osc(source),
-                        allow_virtual_sources,
-                    });
+                    .handle_event(DomainEvent::CapturedIncomingMessage(event));
             }
             ControlMode::Disabled => {}
         }
@@ -2079,8 +2087,8 @@ pub enum NormalMainTask {
 /// A task which is sent from time to time from real-time to main processor.
 #[derive(Debug)]
 pub enum NormalRealTimeToMainThreadTask {
-    LearnMidiSource {
-        source: MidiSource,
+    CaptureMidi {
+        scan_result: MidiScanResult,
         allow_virtual_sources: bool,
     },
     /// This is sent by the real-time processor after it has not been called for a while because

@@ -2,7 +2,7 @@ use crate::domain::{
     classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
     Event, FeedbackSendBehavior, Garbage, GarbageBin, InputMatchResult, InstanceId,
     LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator,
-    MidiMessageClassification, MidiSource, MidiSourceScanner, NormalRealTimeToMainThreadTask,
+    MidiMessageClassification, MidiScanResult, MidiScanner, NormalRealTimeToMainThreadTask,
     OrderedMappingMap, OwnedIncomingMidiMessage, PartialControlMatch,
     PersistentMappingProcessingState, QualifiedMappingId, RealTimeCompoundMappingTarget,
     RealTimeMapping, RealTimeReaperTarget, SampleOffset, SendMidiDestination, VirtualSourceValue,
@@ -54,8 +54,8 @@ pub struct RealTimeProcessor {
     // Scanners for more complex MIDI message types
     nrpn_scanner: PollingParameterNumberMessageScanner,
     cc_14_bit_scanner: ControlChange14BitMessageScanner,
-    // For source learning
-    midi_source_scanner: MidiSourceScanner,
+    // For MIDI capturing
+    midi_scanner: MidiScanner,
     // For MIDI timing clock calculations
     midi_clock_calculator: MidiClockCalculator,
     sample_rate: Hz,
@@ -95,7 +95,7 @@ impl RealTimeProcessor {
             cc_14_bit_scanner: Default::default(),
             midi_control_input: MidiControlInput::FxInput,
             midi_feedback_output: None,
-            midi_source_scanner: Default::default(),
+            midi_scanner: Default::default(),
             midi_clock_calculator: Default::default(),
             control_is_globally_enabled: true,
             feedback_is_globally_enabled: true,
@@ -393,7 +393,7 @@ impl RealTimeProcessor {
                         allow_virtual_sources,
                         osc_arg_index_hint: None,
                     };
-                    self.midi_source_scanner.reset();
+                    self.midi_scanner.reset();
                 }
                 DisableControl => {
                     permit_alloc(|| {
@@ -486,7 +486,7 @@ impl RealTimeProcessor {
         }
     }
 
-    /// This should *not* be called by the global audio hook when it's globally learning sources
+    /// This should *not* be called by the global audio hook when it's globally capturing MIDI
     /// because we want to pause controlling in that case!
     fn run_from_audio_hook_control_and_learn(&mut self) {
         match self.control_mode {
@@ -509,9 +509,9 @@ impl RealTimeProcessor {
                 allow_virtual_sources,
                 ..
             } => {
-                // Poll source scanner if we are learning a source currently (local learning)
-                if let Some((source, _)) = self.midi_source_scanner.poll() {
-                    self.learn_source(source, allow_virtual_sources);
+                // For local learning/filtering
+                if let Some(res) = self.midi_scanner.poll() {
+                    self.send_captured_midi(res, allow_virtual_sources);
                 }
             }
         }
@@ -723,19 +723,18 @@ impl RealTimeProcessor {
                 if self.input_logging_enabled {
                     self.log_learn_input(event.payload());
                 }
-                let source = match event.payload() {
+                let scan_result = match event.payload() {
                     IncomingMidiMessage::Short(short_msg) => {
-                        self.midi_source_scanner.feed_short(short_msg, None)
+                        self.midi_scanner.feed_short(short_msg, None)
                     }
                     IncomingMidiMessage::SysEx(bytes) => {
                         // It's okay here to temporarily permit allocation because crackling during
                         // learning is not a showstopper.
-                        let source = permit_alloc(|| MidiSource::from_raw(bytes));
-                        Some(source)
+                        permit_alloc(|| MidiScanResult::try_from_bytes(bytes, None).ok())
                     }
                 };
-                if let Some(source) = source {
-                    self.learn_source(source, allow_virtual_sources);
+                if let Some(source) = scan_result {
+                    self.send_captured_midi(source, allow_virtual_sources);
                 }
                 true
             }
@@ -782,7 +781,7 @@ impl RealTimeProcessor {
         matched: bool,
     ) {
         // It's okay to crackle when logging input.
-        if let Ok(msg) = permit_alloc(|| msg.try_to_owned()) {
+        if let Ok(msg) = permit_alloc(|| msg.try_into_owned()) {
             self.control_main_task_sender
                 .try_send(ControlMainTask::LogControlInput {
                     value: msg,
@@ -810,22 +809,22 @@ impl RealTimeProcessor {
     /// Might allocate!
     fn log_lifecycle_output(&self, value: MidiSourceValue<RawShortMessage>) {
         // It's okay to crackle when logging input.
-        if let Ok(value) = permit_alloc(|| value.try_to_owned()) {
+        if let Ok(value) = permit_alloc(|| value.try_into_owned()) {
             self.normal_main_task_sender
                 .try_send(NormalRealTimeToMainThreadTask::LogLifecycleOutput { value })
                 .unwrap();
         }
     }
 
-    fn learn_source(&mut self, source: MidiSource, allow_virtual_sources: bool) {
+    fn send_captured_midi(&mut self, scan_result: MidiScanResult, allow_virtual_sources: bool) {
         // If plug-in dropped, the receiver might be gone already because main processor is
         // unregistered synchronously.
-        let _ = self.normal_main_task_sender.try_send(
-            NormalRealTimeToMainThreadTask::LearnMidiSource {
-                source,
-                allow_virtual_sources,
-            },
-        );
+        let _ =
+            self.normal_main_task_sender
+                .try_send(NormalRealTimeToMainThreadTask::CaptureMidi {
+                    scan_result,
+                    allow_virtual_sources,
+                });
     }
 
     /// Returns whether this message matched.

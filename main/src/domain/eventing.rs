@@ -1,30 +1,31 @@
 use crate::domain::{
-    CompoundMappingSource, CompoundMappingTarget, MappingCompartment, MappingId, MidiSource,
-    ParameterArray, ProjectionFeedbackValue, QualifiedMappingId, ReaperSource, SourceFeedbackValue,
+    CompoundMappingTarget, MappingCompartment, MappingId, MessageCaptureResult, ParameterArray,
+    ProjectionFeedbackValue, QualifiedMappingId,
 };
-use helgoboss_learn::{AbsoluteValue, OscSource};
+use helgoboss_learn::AbsoluteValue;
 use std::collections::HashSet;
 use std::fmt::Debug;
 
 /// An event which is sent to upper layers and processed there
 #[derive(Debug)]
 pub enum DomainEvent<'a> {
-    LearnedSource {
-        source: RealSource,
-        allow_virtual_sources: bool,
-    },
+    CapturedIncomingMessage(MessageCaptureEvent),
     UpdatedOnMappings(HashSet<QualifiedMappingId>),
     UpdatedSingleMappingOnState(UpdatedSingleMappingOnStateEvent),
-    UpdatedParameter {
-        index: u32,
-        value: f32,
-    },
+    UpdatedParameter { index: u32, value: f32 },
     UpdatedAllParameters(Box<ParameterArray>),
     TargetValueChanged(TargetValueChangedEvent<'a>),
     ProjectionFeedback(ProjectionFeedbackValue),
     MappingMatched(MappingMatchedEvent),
     FullResyncRequested,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
+}
+
+#[derive(Clone, Debug)]
+pub struct MessageCaptureEvent {
+    pub result: MessageCaptureResult,
+    pub allow_virtual_sources: bool,
+    pub osc_arg_index_hint: Option<u32>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -71,50 +72,5 @@ pub trait DomainEventHandler: Debug {
             compartment,
             mapping_id,
         )));
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum RealSource {
-    Midi(MidiSource),
-    Osc(OscSource),
-    Reaper(ReaperSource),
-}
-
-impl RealSource {
-    /// Checks if this and the given source share the same address.
-    ///
-    /// Used for:
-    ///
-    /// - Source virtualization
-    /// - Find mapping by source
-    /// - Learn mapping reassigning source
-    // TODO-high This should probably be called value_matches and take a value
-    pub fn source_address_matches(&self, other: &Self) -> bool {
-        use RealSource::*;
-        match (self, other) {
-            (Osc(s1), Osc(s2)) => s1.source_address_matches(s2),
-            (Midi(s1), Midi(s2)) => s1.source_address_matches(s2),
-            _ => false,
-        }
-    }
-
-    pub fn into_compound_source(self) -> CompoundMappingSource {
-        use RealSource::*;
-        match self {
-            Midi(s) => CompoundMappingSource::Midi(s),
-            Osc(s) => CompoundMappingSource::Osc(s),
-            Reaper(s) => CompoundMappingSource::Reaper(s),
-        }
-    }
-
-    pub fn from_compound_source(s: CompoundMappingSource) -> Option<Self> {
-        use CompoundMappingSource::*;
-        match s {
-            Midi(s) => Some(Self::Midi(s)),
-            Osc(s) => Some(Self::Osc(s)),
-            Reaper(s) => Some(Self::Reaper(s)),
-            Virtual(_) | Never => None,
-        }
     }
 }

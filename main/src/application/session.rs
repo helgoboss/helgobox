@@ -8,12 +8,13 @@ use crate::base::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
-    InstanceContainer, InstanceId, MainMapping, MappingCompartment, MappingId, MappingMatchedEvent,
-    MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
-    OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
-    RealSource, RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState,
-    SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualFx,
-    VirtualSource, VirtualTrack, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId, MainMapping,
+    MappingCompartment, MappingId, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
+    MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId, OscFeedbackTask,
+    ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealTimeSender,
+    RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue, Tag,
+    TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualTrack,
+    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::{enum_map, EnumMap};
@@ -30,9 +31,8 @@ use std::fmt::Debug;
 
 use core::iter;
 use helgoboss_learn::AbsoluteValue;
-use helgoboss_midi::Channel;
 use itertools::Itertools;
-use reaper_medium::{MidiInputDeviceId, RecordingInput};
+use reaper_medium::RecordingInput;
 use std::rc::{Rc, Weak};
 
 pub trait SessionUi {
@@ -87,7 +87,7 @@ pub struct Session {
     parameter_settings_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     mapping_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     group_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
-    source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
+    incoming_msg_captured_subject: LocalSubject<'static, MessageCaptureEvent, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     group_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
@@ -216,7 +216,7 @@ impl Session {
             parameter_settings_changed_subject: Default::default(),
             mapping_changed_subject: Default::default(),
             group_changed_subject: Default::default(),
-            source_touched_subject: Default::default(),
+            incoming_msg_captured_subject: Default::default(),
             mapping_subscriptions: Default::default(),
             group_subscriptions: Default::default(),
             normal_main_task_sender,
@@ -279,9 +279,9 @@ impl Session {
     pub fn find_mapping_with_source(
         &self,
         compartment: MappingCompartment,
-        actual_real_source: &RealSource,
+        source_value: IncomingCompoundSourceValue,
     ) -> Option<&SharedMapping> {
-        let actual_virt_source = self.virtualize_if_possible(actual_real_source);
+        let actual_virt_source = self.virtualize_if_possible(source_value);
         let instance_state = self.instance_state.borrow();
         use CompoundMappingSource::*;
         self.mappings(compartment).find(|m| {
@@ -297,15 +297,7 @@ impl Session {
                 // TODO-high This should probably be called value_matches and take a value
                 vs1.feedback_address() == vs2.feedback_address()
             } else {
-                // Either mapping source is real or the actual source has no virtual counterpart.
-                if let Some(ms) = RealSource::from_compound_source(mapping_source) {
-                    // This means the mapping source is real. Now we can compare apples with apples.
-                    ms.source_address_matches(actual_real_source)
-                } else {
-                    // This means the mapping source is virtual but the actual source has no
-                    // virtual counterpart. Doesn't match!
-                    false
-                }
+                mapping_source.would_react_to(source_value)
             }
         })
     }
@@ -624,28 +616,26 @@ impl Session {
             .merge(self.output_logging_enabled.changed())
     }
 
-    pub fn learn_source(&mut self, source: RealSource, allow_virtual_sources: bool) {
-        self.source_touched_subject
-            .next(self.create_compound_source(source, allow_virtual_sources));
+    pub fn captured_incoming_message(&mut self, event: MessageCaptureEvent) {
+        self.incoming_msg_captured_subject.next(event);
     }
 
     pub fn create_compound_source(
         &self,
-        source: RealSource,
-        allow_virtual_sources: bool,
-    ) -> CompoundMappingSource {
-        if allow_virtual_sources {
-            if let Some(virt_source) = self.virtualize_if_possible(&source) {
-                CompoundMappingSource::Virtual(virt_source)
-            } else {
-                source.into_compound_source()
+        event: MessageCaptureEvent,
+    ) -> Option<CompoundMappingSource> {
+        if event.allow_virtual_sources {
+            if let Some(virt_source) = self.virtualize_if_possible(event.result.message()) {
+                return Some(CompoundMappingSource::Virtual(virt_source));
             }
-        } else {
-            source.into_compound_source()
         }
+        CompoundMappingSource::from_message_capture_event(event)
     }
 
-    fn virtualize_if_possible(&self, source: &RealSource) -> Option<VirtualSource> {
+    fn virtualize_if_possible(
+        &self,
+        source_value: IncomingCompoundSourceValue,
+    ) -> Option<VirtualSource> {
         let instance_state = self.instance_state.borrow();
         for m in self.mappings(MappingCompartment::ControllerMappings) {
             let m = m.borrow();
@@ -659,24 +649,20 @@ impl Session {
                 // Since virtual mappings support conditional activation, too!
                 continue;
             }
-            // This should always yield Some because controller mappings always have real sources.
-            if let Some(s) = RealSource::from_compound_source(m.source_model.create_source()) {
-                if s.source_address_matches(source) {
-                    let virtual_source =
-                        VirtualSource::new(m.target_model.create_control_element());
-                    return Some(virtual_source);
-                }
+            if m.source_model.create_source().would_react_to(source_value) {
+                let virtual_source = VirtualSource::new(m.target_model.create_control_element());
+                return Some(virtual_source);
             }
         }
         None
     }
 
-    pub fn source_touched(
+    pub fn incoming_msg_captured(
         &self,
         reenable_control_after_touched: bool,
         allow_virtual_sources: bool,
         osc_arg_index_hint: Option<u32>,
-    ) -> impl LocalObservable<'static, Item = CompoundMappingSource, Err = ()> + 'static {
+    ) -> impl LocalObservable<'static, Item = MessageCaptureEvent, Err = ()> + 'static {
         // TODO-low We should migrate this to the nice async-await mechanism that we use for global
         //  learning (via REAPER action). That way we don't need the subject and also don't need
         //  to pass the information through multiple processors whether we allow virtual sources.
@@ -694,16 +680,18 @@ impl Session {
             .unwrap();
         let rt_sender = self.normal_real_time_task_sender.clone();
         let main_sender = self.normal_main_task_sender.clone();
-        self.source_touched_subject.clone().finalize(move || {
-            if reenable_control_after_touched {
-                rt_sender
-                    .send(NormalRealTimeTask::ReturnToControlMode)
-                    .unwrap();
-                main_sender
-                    .try_send(NormalMainTask::ReturnToControlMode)
-                    .unwrap();
-            }
-        })
+        self.incoming_msg_captured_subject
+            .clone()
+            .finalize(move || {
+                if reenable_control_after_touched {
+                    rt_sender
+                        .send(NormalRealTimeTask::ReturnToControlMode)
+                        .unwrap();
+                    main_sender
+                        .try_send(NormalMainTask::ReturnToControlMode)
+                        .unwrap();
+                }
+            })
     }
 
     fn resubscribe_to_mappings(
@@ -1321,27 +1309,35 @@ impl Session {
         };
         self.mapping_which_learns_source.set(Some(mapping_id));
         when(
-            self.source_touched(
+            self.incoming_msg_captured(
                 reenable_control_after_touched,
                 allow_virtual_sources,
                 osc_arg_index_hint,
             )
-            .filter(move |s| !ignore_sources.iter().any(|is| is.source_address_matches(s)))
+            .filter(move |capture_event: &MessageCaptureEvent| {
+                !ignore_sources
+                    .iter()
+                    .any(|is| is.would_react_to(capture_event.result.message()))
+            })
             // We have this explicit stop criteria because we listen to global REAPER
             // events.
             .take_until(self.party_is_over())
+            // If the user stops learning manually without ever touching the controller.
             .take_until(self.mapping_which_learns_source.changed_to(None))
+            // We listen to just one message!
             .take(1),
         )
         .with(session)
         .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
-        .do_async(|session, source| {
+        .do_async(|session, event: MessageCaptureEvent| {
             let session = session.borrow();
             if let Some(qualified_id) = session.mapping_which_learns_source.get_ref() {
                 if let Some((_, m)) =
                     session.find_mapping_and_index_by_id(qualified_id.compartment, qualified_id.id)
                 {
-                    m.borrow_mut().source_model.apply_from_source(&source);
+                    if let Some(source) = session.create_compound_source(event) {
+                        m.borrow_mut().source_model.apply_from_source(&source);
+                    }
                 }
             }
         });
@@ -2146,13 +2142,8 @@ impl DomainEventHandler for WeakSession {
         let session = self.upgrade().expect("session not existing anymore");
         use DomainEvent::*;
         match event {
-            LearnedSource {
-                source,
-                allow_virtual_sources,
-            } => {
-                session
-                    .borrow_mut()
-                    .learn_source(source, allow_virtual_sources);
+            CapturedIncomingMessage(event) => {
+                session.borrow_mut().captured_incoming_message(event);
             }
             UpdatedOnMappings(on_mappings) => {
                 session
@@ -2261,16 +2252,6 @@ pub type SharedSession = Rc<RefCell<Session>>;
 /// Always use this when storing a reference to a session. This avoids memory leaks and ghost
 /// sessions.
 pub type WeakSession = Weak<RefCell<Session>>;
-
-pub enum InputDescriptor {
-    Midi {
-        device_id: MidiInputDeviceId,
-        channel: Option<Channel>,
-    },
-    Osc {
-        device_id: OscDeviceId,
-    },
-}
 
 pub fn empty_parameter_settings() -> Vec<ParameterSetting> {
     vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize]

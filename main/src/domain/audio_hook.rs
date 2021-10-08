@@ -1,6 +1,6 @@
 use crate::domain::{
     classify_midi_message, Event, Garbage, GarbageBin, IncomingMidiMessage, InstanceId,
-    MidiControlInput, MidiMessageClassification, MidiSource, MidiSourceScanner, RealTimeProcessor,
+    MidiControlInput, MidiMessageClassification, MidiScanResult, MidiScanner, RealTimeProcessor,
 };
 use assert_no_alloc::*;
 use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
@@ -21,7 +21,7 @@ const FEEDBACK_TASK_BULK_SIZE: usize = 1000;
 /// preferences, the VST processing is executed in another thread than the audio hook!
 pub type SharedRealTimeProcessor = Arc<Mutex<RealTimeProcessor>>;
 
-type LearnSourceSender = async_channel::Sender<(MidiInputDeviceId, MidiSource)>;
+type MidiCaptureSender = async_channel::Sender<MidiScanResult>;
 
 // This kind of tasks is always processed, even after a rebirth when multiple processor syncs etc.
 // have already accumulated. Because at the moment there's no way to request a full resync of all
@@ -35,8 +35,8 @@ pub enum NormalAudioHookTask {
     // processor.
     AddRealTimeProcessor(InstanceId, SharedRealTimeProcessor),
     RemoveRealTimeProcessor(InstanceId),
-    StartLearningSources(LearnSourceSender),
-    StopLearningSources,
+    StartCapturingMidi(MidiCaptureSender),
+    StopCapturingMidi,
 }
 
 /// A global feedback task (which is potentially sent very frequently).
@@ -65,8 +65,8 @@ enum AudioHookState {
     Normal,
     // This is not the instance-specific learning but the global one.
     LearningSource {
-        sender: LearnSourceSender,
-        midi_source_scanner: MidiSourceScanner,
+        sender: MidiCaptureSender,
+        midi_scanner: MidiScanner,
     },
 }
 
@@ -145,7 +145,7 @@ impl RealearnAudioHook {
             }
             AudioHookState::LearningSource {
                 sender,
-                midi_source_scanner,
+                midi_scanner,
             } => {
                 for (_, p) in self.real_time_processors.iter() {
                     p.lock_recover()
@@ -155,18 +155,16 @@ impl RealearnAudioHook {
                     dev.with_midi_input(|mi| {
                         if let Some(mi) = mi {
                             for e in mi.get_read_buf() {
-                                if let Some(source) =
-                                    scan_midi_source_for_learning(dev.id(), e, midi_source_scanner)
-                                {
-                                    let _ = sender.try_send((dev.id(), source));
+                                if let Some(res) = scan_midi(dev.id(), e, midi_scanner) {
+                                    let _ = sender.try_send(res);
                                 }
                             }
                         }
                     });
                 }
-                if let Some((source, Some(dev_id))) = midi_source_scanner.poll() {
+                if let Some(res) = midi_scanner.poll() {
                     // Source detected via polling. Return to normal mode.
-                    let _ = sender.try_send((dev_id, source));
+                    let _ = sender.try_send(res);
                 }
             }
         };
@@ -270,13 +268,13 @@ impl RealearnAudioHook {
                         self.garbage_bin.dispose(Garbage::RealTimeProcessor(proc));
                     }
                 }
-                StartLearningSources(sender) => {
+                StartCapturingMidi(sender) => {
                     self.state = AudioHookState::LearningSource {
                         sender,
-                        midi_source_scanner: Default::default(),
+                        midi_scanner: Default::default(),
                     }
                 }
-                StopLearningSources => self.state = AudioHookState::Normal,
+                StopCapturingMidi => self.state = AudioHookState::Normal,
             }
         }
     }
@@ -302,23 +300,22 @@ impl OnAudioBuffer for RealearnAudioHook {
     }
 }
 
-fn scan_midi_source_for_learning(
+fn scan_midi(
     dev_id: MidiInputDeviceId,
     evt: &MidiEvent,
-    midi_source_scanner: &mut MidiSourceScanner,
-) -> Option<MidiSource> {
+    midi_scanner: &mut MidiScanner,
+) -> Option<MidiScanResult> {
     let msg = IncomingMidiMessage::from_reaper(evt.message()).ok()?;
     if classify_midi_message(msg) != MidiMessageClassification::Normal {
         return None;
     }
     use IncomingMidiMessage::*;
     match msg {
-        Short(short_msg) => midi_source_scanner.feed_short(short_msg, Some(dev_id)),
+        Short(short_msg) => midi_scanner.feed_short(short_msg, Some(dev_id)),
         SysEx(bytes) => {
             // It's okay here to temporarily permit allocation because crackling during learning
             // is not a showstopper.
-            let source = permit_alloc(|| MidiSource::from_raw(bytes));
-            Some(source)
+            permit_alloc(|| MidiScanResult::try_from_bytes(bytes, Some(dev_id)).ok())
         }
     }
 }

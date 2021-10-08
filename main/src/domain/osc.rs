@@ -300,3 +300,9 @@ impl OscDeviceId {
         self.0.to_string().chars().take(5).collect()
     }
 }
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct OscScanResult {
+    pub message: OscMessage,
+    pub dev_id: Option<OscDeviceId>,
+}

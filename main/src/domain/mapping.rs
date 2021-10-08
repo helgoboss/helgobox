@@ -2,12 +2,12 @@ use crate::domain::{
     get_realearn_target_prop_value_with_fallback, ActivationChange, ActivationCondition,
     AdditionalFeedbackEvent, ControlContext, ControlOptions, ExtendedProcessorContext,
     FeedbackResolution, GroupId, HitInstructionReturnValue, InstanceStateChanged,
-    MappingActivationEffect, MappingControlContext, MappingData, MappingInfo, MidiSource, Mode,
-    ParameterArray, ParameterSlice, PersistentMappingProcessingState, RealSource,
-    RealTimeReaperTarget, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget,
-    ReaperTargetType, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
-    VirtualControlElement, VirtualFeedbackValue, VirtualSource, VirtualSourceAddress,
-    VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    MappingActivationEffect, MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent,
+    MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult, ParameterArray, ParameterSlice,
+    PersistentMappingProcessingState, RealTimeReaperTarget, RealearnTarget, ReaperMessage,
+    ReaperSource, ReaperTarget, ReaperTargetType, Tag, TargetCharacter, TrackExclusivity,
+    UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue, VirtualSource,
+    VirtualSourceAddress, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -19,13 +19,14 @@ use helgoboss_learn::{
     OscSourceAddress, PropValue, RawMidiEvent, SourceCharacter, Target, UnitValue, ValueFormatter,
     ValueParser,
 };
-use helgoboss_midi::{RawShortMessage, ShortMessage};
+use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::borrow::Cow;
 
 use indexmap::map::IndexMap;
 use indexmap::set::IndexSet;
 use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
+use reaper_medium::MidiInputDeviceId;
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
@@ -1223,6 +1224,35 @@ impl QualifiedSource {
 }
 
 impl CompoundMappingSource {
+    // TODO-high CONTINUE
+    //  1. Get the signatures of the mappings in the source types right
+    //     (CompoundMappingSource, RealSource; MidiSource, OscSource, VirtualSource).
+    //     In particular, the following use cases should pass messages as arguments to match against
+    //     instead of complete sources:
+    //     - Source filtering
+    //     - Learn mapping reassigning source
+    //     - Find first mapping by source
+    //     - Learn many
+    //  2. Make sure source filtering/learning stuff uses *different* methods than feedback-related
+    //     stuff. The logic is just different (asymmetric vs symmetric matching).
+    //  3. Implement logic for filtering/learning exactly one time, no repetition. This logic should
+    //     be more inclusive than the feedback logic. E.g. a NOTE ON should match both a note number
+    //     source and a note velocity source. A (fixed) RAW message should match a RAW source with
+    //     variable portions. However, it's not necessary to match RAW e.g. with short messages.
+    //     And feedback-only sources don't need to be matched with at all.
+    //  4. Implement logic for feedback-related stuff exactly one time, no repetition. It's
+    //     important to keep this logic simple. In particular, it needs to be
+    //     executable as a hash function, so it should be symmetric. For this,
+    //     it probably makes most sense to design the (hashable) SourceAddress types in a way so
+    //     they are very cheap to create and then to ALWAYS extract these and compare these.
+    //     Even FeedbackSourceValue should be able to extract these (for source takeover), so it
+    //     will need to contain some extra information for RAW messages. It's not
+    //     necessary to match RAW with e.g. short messages. So we can let the SourceAddress types
+    //     be based on lightweight enum variants and use the derived hash logic.
+    //  5. In 4, RAW should match with RAW by comparing the pattern bytes. If this causes
+    //     performance issues with source takeover, consider introducing some borrowed variant
+    //     and compare this.
+
     pub fn extract_feedback_address(&self) -> Option<CompoundMappingSourceAddress> {
         use CompoundMappingSource::*;
         match self {
@@ -1255,7 +1285,6 @@ impl CompoundMappingSource {
     ///
     /// Used for:
     ///
-    /// - Source filtering
     /// - Feedback diffing
     pub fn source_address_matches(&self, other: &Self) -> bool {
         use CompoundMappingSource::*;
@@ -1265,6 +1294,38 @@ impl CompoundMappingSource {
             (Virtual(s1), Virtual(s2)) => s1.source_address_matches(s2),
             _ => false,
         }
+    }
+
+    /// Checks if this mapping would react to the given message.
+    ///
+    /// Used for:
+    ///
+    /// - Source learning (including source virtualization)
+    /// - Source filtering/finding (including source virtualization)
+    pub fn would_react_to(&self, value: IncomingCompoundSourceValue) -> bool {
+        use CompoundMappingSource::*;
+        match (self, value) {
+            (Midi(s), IncomingCompoundSourceValue::Midi(v)) => s.control(v).is_some(),
+            (Osc(s), IncomingCompoundSourceValue::Osc(m)) => s.control(m).is_some(),
+            _ => false,
+        }
+    }
+
+    pub fn from_message_capture_event(event: MessageCaptureEvent) -> Option<Self> {
+        use MessageCaptureResult::*;
+        let res = match event.result {
+            Midi(scan_result) => {
+                let midi_source =
+                    MidiSource::from_source_value(scan_result.value, scan_result.character)?;
+                Self::Midi(midi_source)
+            }
+            Osc(msg) => {
+                let osc_source =
+                    OscSource::from_source_value(msg.message, event.osc_arg_index_hint);
+                Self::Osc(osc_source)
+            }
+        };
+        Some(res)
     }
 
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
@@ -1991,6 +2052,7 @@ pub(crate) enum ControlMode {
     Disabled,
     Controlling,
     LearningSource {
+        /// Just passed through
         allow_virtual_sources: bool,
         osc_arg_index_hint: Option<u32>,
     },
@@ -2072,3 +2134,53 @@ fn target_is_effectively_active(
 
 pub type OrderedMappingMap<T> = IndexMap<MappingId, T>;
 pub type OrderedMappingIdSet = IndexSet<MappingId>;
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum MessageCaptureResult {
+    Midi(MidiScanResult),
+    Osc(OscScanResult),
+}
+
+impl MessageCaptureResult {
+    pub fn message(&self) -> IncomingCompoundSourceValue {
+        use MessageCaptureResult::*;
+        match self {
+            Midi(res) => IncomingCompoundSourceValue::Midi(&res.value),
+            Osc(res) => IncomingCompoundSourceValue::Osc(&res.message),
+        }
+    }
+
+    pub fn to_input_descriptor(&self, ignore_midi_channel: bool) -> Option<InputDescriptor> {
+        use MessageCaptureResult::*;
+        let res = match self {
+            Midi(r) => InputDescriptor::Midi {
+                device_id: r.dev_id?,
+                channel: if ignore_midi_channel {
+                    None
+                } else {
+                    r.value.channel()
+                },
+            },
+            Osc(r) => InputDescriptor::Osc {
+                device_id: r.dev_id?,
+            },
+        };
+        Some(res)
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum IncomingCompoundSourceValue<'a> {
+    Midi(&'a MidiSourceValue<'a, RawShortMessage>),
+    Osc(&'a OscMessage),
+}
+
+pub enum InputDescriptor {
+    Midi {
+        device_id: MidiInputDeviceId,
+        channel: Option<Channel>,
+    },
+    Osc {
+        device_id: OscDeviceId,
+    },
+}

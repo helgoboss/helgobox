@@ -1,14 +1,15 @@
 use crate::application::{
-    InputDescriptor, Session, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    Session, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::default_util::is_default;
 use crate::base::{notification, Global};
 use crate::domain::{
     ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, EnableInstancesArgs, Exclusivity,
-    FeedbackAudioHookTask, Garbage, GarbageBin, GroupId, InstanceContainer, InstanceId,
-    InstanceOrchestrationEvent, MainProcessor, MappingCompartment, MidiSource, NormalAudioHookTask,
-    OscDeviceId, OscFeedbackProcessor, OscFeedbackTask, RealSource, RealTimeSender,
-    RealearnAudioHook, RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    FeedbackAudioHookTask, Garbage, GarbageBin, GroupId, InputDescriptor, InstanceContainer,
+    InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment, MessageCaptureEvent,
+    MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
+    OscFeedbackTask, OscScanResult, RealTimeSender, RealearnAudioHook,
+    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetContext, ReaperTarget,
     SharedRealTimeProcessor, Tag,
 };
@@ -21,12 +22,11 @@ use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use crate::infrastructure::ui::MessagePanel;
-use helgoboss_learn::OscSource;
 
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{
-    ActionValueChange, CommandId, HookPostCommand, HookPostCommand2, MidiInputDeviceId, ReaProject,
+    ActionValueChange, CommandId, HookPostCommand, HookPostCommand2, ReaProject,
     RegistrationHandle, SectionContext, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
@@ -889,21 +889,21 @@ impl App {
         self.show_message_panel("ReaLearn", "Touch some control elements!", || {
             App::stop_learning_sources();
         });
-        let midi_receiver = self.request_next_midi_sources();
-        let osc_receiver = self.request_next_osc_sources();
+        let midi_receiver = self.request_next_midi_messages();
+        let osc_receiver = self.request_next_osc_messages();
         loop {
-            let next_source = tokio::select! {
-                Ok((dev_id, source)) = midi_receiver.recv() => {
-                    Some(QualifiedRealSource::Midi(dev_id, source))
+            let next_capture_result = tokio::select! {
+                Ok(r) = midi_receiver.recv() => {
+                    Some(MessageCaptureResult::Midi(r))
                 }
-                Ok((dev_id, source)) = osc_receiver.recv() => {
-                    Some(QualifiedRealSource::Osc(dev_id, source))
+                Ok(r) = osc_receiver.recv() => {
+                    Some(MessageCaptureResult::Osc(r))
                 }
                 else => None
             };
-            if let Some(s) = next_source {
+            if let Some(r) = next_capture_result {
                 if let Some((session, mapping)) =
-                    self.find_first_relevant_session_with_source(compartment, &s)
+                    self.find_first_relevant_session_with_source_matching(compartment, &r)
                 {
                     self.close_message_panel();
                     session
@@ -951,11 +951,12 @@ impl App {
             );
             return Err("no ReaLearn instance");
         }
-        let real_source = self
-            .prompt_for_next_real_source("Touch a control element!")
+        let capture_result = self
+            .prompt_for_next_message("Touch a control element!")
             .await?;
-        let session = if let Some(s) =
-            self.find_first_relevant_session_with_input_from(&real_source)
+        let session = if let Some(s) = capture_result
+            .to_input_descriptor(false)
+            .and_then(|id| self.find_first_relevant_session_with_input_from(&id))
         {
             s
         } else {
@@ -969,7 +970,7 @@ impl App {
             .await?;
         self.close_message_panel();
         let (session, mapping) = if let Some((session, mapping)) =
-            self.find_first_relevant_session_with_source(compartment, &real_source)
+            self.find_first_relevant_session_with_source_matching(compartment, &capture_result)
         {
             // There's already a mapping with that source. Change target of that mapping.
             mapping.borrow_mut().target_model.apply_from_target(
@@ -989,8 +990,14 @@ impl App {
                     VirtualControlElementType::Multi,
                 );
                 let mut m = mapping.borrow_mut();
-                let compound_source =
-                    s.create_compound_source(real_source.into_unqualified_real_source(), true);
+                let event = MessageCaptureEvent {
+                    result: capture_result,
+                    allow_virtual_sources: true,
+                    osc_arg_index_hint: None,
+                };
+                let compound_source = s
+                    .create_compound_source(event)
+                    .ok_or("couldn't create compound source")?;
                 m.source_model.apply_from_source(&compound_source);
                 m.target_model
                     .apply_from_target(&reaper_target, s.extended_context(), compartment);
@@ -1021,21 +1028,21 @@ impl App {
         Ok(())
     }
 
-    async fn prompt_for_next_real_source(
+    async fn prompt_for_next_message(
         &self,
         msg: &str,
-    ) -> Result<QualifiedRealSource, &'static str> {
+    ) -> Result<MessageCaptureResult, &'static str> {
         self.show_message_panel("ReaLearn", msg, || {
             App::stop_learning_sources();
         });
-        let midi_receiver = self.request_next_midi_sources();
-        let osc_receiver = self.request_next_osc_sources();
+        let midi_receiver = self.request_next_midi_messages();
+        let osc_receiver = self.request_next_osc_messages();
         tokio::select! {
-            Ok((dev_id, source)) = midi_receiver.recv() => {
-                Ok(QualifiedRealSource::Midi(dev_id, source))
+            Ok(r) = midi_receiver.recv() => {
+                Ok(MessageCaptureResult::Midi(r))
             }
-            Ok((dev_id, source)) = osc_receiver.recv() => {
-                Ok(QualifiedRealSource::Osc(dev_id, source))
+            Ok(r) = osc_receiver.recv() => {
+                Ok(MessageCaptureResult::Osc(r))
             }
             else => Err("stopped learning")
         }
@@ -1044,28 +1051,26 @@ impl App {
     fn stop_learning_sources() {
         App::get()
             .audio_hook_task_sender
-            .try_send(NormalAudioHookTask::StopLearningSources)
+            .try_send(NormalAudioHookTask::StopCapturingMidi)
             .unwrap();
         App::get()
             .control_surface_main_task_sender
-            .try_send(RealearnControlSurfaceMainTask::StopLearning)
+            .try_send(RealearnControlSurfaceMainTask::StopCapturingOsc)
             .unwrap();
     }
 
-    fn request_next_midi_sources(
-        &self,
-    ) -> async_channel::Receiver<(MidiInputDeviceId, MidiSource)> {
+    fn request_next_midi_messages(&self) -> async_channel::Receiver<MidiScanResult> {
         let (sender, receiver) = async_channel::bounded(500);
         self.audio_hook_task_sender
-            .try_send(NormalAudioHookTask::StartLearningSources(sender))
+            .try_send(NormalAudioHookTask::StartCapturingMidi(sender))
             .unwrap();
         receiver
     }
 
-    fn request_next_osc_sources(&self) -> async_channel::Receiver<(OscDeviceId, OscSource)> {
+    fn request_next_osc_messages(&self) -> async_channel::Receiver<OscScanResult> {
         let (sender, receiver) = async_channel::bounded(500);
         self.control_surface_main_task_sender
-            .try_send(RealearnControlSurfaceMainTask::StartLearningSources(sender))
+            .try_send(RealearnControlSurfaceMainTask::StartCapturingOsc(sender))
             .unwrap();
         receiver
     }
@@ -1083,7 +1088,7 @@ impl App {
     fn stop_learning_targets() {
         App::get()
             .control_surface_main_task_sender
-            .try_send(RealearnControlSurfaceMainTask::StopLearning)
+            .try_send(RealearnControlSurfaceMainTask::StopCapturingOsc)
             .unwrap();
     }
 
@@ -1181,42 +1186,44 @@ impl App {
 
     fn find_first_relevant_session_with_input_from(
         &self,
-        real_source: &QualifiedRealSource,
+        input_descriptor: &InputDescriptor,
     ) -> Option<SharedSession> {
-        self.find_first_session_with_input_from(Some(Reaper::get().current_project()), real_source)
-            .or_else(|| self.find_first_session_with_input_from(None, real_source))
+        self.find_first_session_with_input_from(
+            Some(Reaper::get().current_project()),
+            input_descriptor,
+        )
+        .or_else(|| self.find_first_session_with_input_from(None, input_descriptor))
     }
 
     fn find_first_session_with_input_from(
         &self,
         project: Option<Project>,
-        real_source: &QualifiedRealSource,
+        input_descriptor: &InputDescriptor,
     ) -> Option<SharedSession> {
-        let input_descriptor = real_source.to_input_descriptor(false);
         self.find_session(|session| {
             let session = session.borrow();
             session.context().project() == project && session.receives_input_from(&input_descriptor)
         })
     }
 
-    fn find_first_relevant_session_with_source(
+    fn find_first_relevant_session_with_source_matching(
         &self,
         compartment: MappingCompartment,
-        real_source: &QualifiedRealSource,
+        capture_result: &MessageCaptureResult,
     ) -> Option<(SharedSession, SharedMapping)> {
-        self.find_first_session_with_source(
+        self.find_first_session_with_source_matching(
             Some(Reaper::get().current_project()),
             compartment,
-            real_source,
+            capture_result,
         )
-        .or_else(|| self.find_first_session_with_source(None, compartment, real_source))
+        .or_else(|| self.find_first_session_with_source_matching(None, compartment, capture_result))
     }
 
-    fn find_first_session_with_source(
+    fn find_first_session_with_source_matching(
         &self,
         project: Option<Project>,
         compartment: MappingCompartment,
-        real_source: &QualifiedRealSource,
+        capture_result: &MessageCaptureResult,
     ) -> Option<(SharedSession, SharedMapping)> {
         self.sessions.borrow().iter().find_map(|session| {
             let session = session.upgrade()?;
@@ -1225,12 +1232,11 @@ impl App {
                 if s.context().project() != project {
                     return None;
                 }
-                let input_descriptor = real_source.to_input_descriptor(true);
+                let input_descriptor = capture_result.to_input_descriptor(true)?;
                 if !s.receives_input_from(&input_descriptor) {
                     return None;
                 }
-                let unqualified_real_source = real_source.clone().into_unqualified_real_source();
-                s.find_mapping_with_source(compartment, &unqualified_real_source)?
+                s.find_mapping_with_source(compartment, capture_result.message())?
                     .clone()
             };
             Some((session, mapping))
@@ -1407,35 +1413,6 @@ fn determine_module_base_address() -> Option<usize> {
         .plugin_context()
         .h_instance()?;
     Some(hinstance.as_ptr() as usize)
-}
-
-#[derive(Clone)]
-enum QualifiedRealSource {
-    Midi(MidiInputDeviceId, MidiSource),
-    Osc(OscDeviceId, OscSource),
-}
-
-impl QualifiedRealSource {
-    fn to_input_descriptor(&self, ignore_midi_channel: bool) -> InputDescriptor {
-        match self {
-            QualifiedRealSource::Midi(dev_id, source) => InputDescriptor::Midi {
-                device_id: *dev_id,
-                channel: if ignore_midi_channel {
-                    None
-                } else {
-                    source.channel()
-                },
-            },
-            QualifiedRealSource::Osc(dev_id, _) => InputDescriptor::Osc { device_id: *dev_id },
-        }
-    }
-
-    fn into_unqualified_real_source(self) -> RealSource {
-        match self {
-            QualifiedRealSource::Midi(_, s) => RealSource::Midi(s),
-            QualifiedRealSource::Osc(_, s) => RealSource::Osc(s),
-        }
-    }
 }
 
 impl HookPostCommand for App {
