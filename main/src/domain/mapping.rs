@@ -1217,20 +1217,14 @@ impl QualifiedSource {
 }
 
 impl CompoundMappingSource {
-    // TODO-high CONTINUE
-    //  4. Implement logic for feedback-related stuff exactly one time, no repetition. It's
-    //     important to keep this logic simple. In particular, it needs to be
-    //     executable as a hash function, so it should be symmetric. For this,
-    //     it probably makes most sense to design the (hashable) SourceAddress types in a way so
-    //     they are very cheap to create and then to ALWAYS extract these and compare these.
-    //     Even FeedbackSourceValue should be able to extract these (for source takeover), so it
-    //     will need to contain some extra information for RAW messages. It's not
-    //     necessary to match RAW with e.g. short messages. So we can let the SourceAddress types
-    //     be based on lightweight enum variants and use the derived hash logic.
-    //  5. In 4, RAW should match with RAW by comparing the pattern bytes. If this causes
-    //     performance issues with source takeover, consider introducing some borrowed variant
-    //     and compare this.
-
+    /// Extracts the address of the source control element for feedback purposes.
+    ///
+    /// Use this if you really need an owned representation of the source address. If you just want
+    /// to compare addresses, use [`Self::has_same_feedback_address_as_value`]
+    /// or [`Self::has_same_feedback_address_as_source`] instead. It can avoid the cloning.
+    // TODO-high There are quite some places in which we are fine with a borrowed version but
+    //  the problem is the MIDI source can't simply give us a borrowed one. Maybe we should
+    //  create one at MIDI source creation time! But for this we need to make MidiSource a struct.
     pub fn extract_feedback_address(&self) -> Option<CompoundMappingSourceAddress> {
         use CompoundMappingSource::*;
         match self {

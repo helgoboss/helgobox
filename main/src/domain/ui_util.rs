@@ -159,7 +159,6 @@ pub fn format_midi_source_value(value: &MidiSourceValue<RawShortMessage>) -> Str
                 .collect();
             serde_json::to_string(&event_strings).unwrap()
         }
-        DisplaySpecific(_) => String::new(),
         BorrowedSysEx(bytes) => format_raw_midi(bytes),
     }
 }
