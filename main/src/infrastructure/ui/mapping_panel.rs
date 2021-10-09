@@ -995,6 +995,7 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
+    #[allow(clippy::single_match)]
     fn handle_source_line_3_combo_box_2_change(&mut self) {
         let b = self
             .view

@@ -728,7 +728,6 @@ impl HeaderPanel {
                     .borrow()
                     .incoming_msg_captured(
                         true,
-                        // TODO-high Make virtual filtering work again
                         active_compartment != MappingCompartment::ControllerMappings,
                         None,
                     )

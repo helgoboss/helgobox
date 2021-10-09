@@ -1,11 +1,11 @@
 use crate::base::Global;
 use crate::domain::{
-    ActivationChange, AudioHookState, BackboneState, CompoundMappingSource, DeviceChangeDetector,
+    ActivationChange, BackboneState, CompoundMappingSource, DeviceChangeDetector,
     DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, EelTransformation,
     FeedbackOutput, FeedbackRealTimeTask, InstanceId, LifecycleMidiData, MainProcessor,
-    NormalRealTimeTask, OscDeviceId, OscInputDevice, OscScanResult, RealTimeCompoundMappingTarget,
-    RealTimeMapping, ReaperMessage, ReaperTarget, SharedRealTimeProcessor, SourceFeedbackValue,
-    TouchedParameterType,
+    MidiCaptureSender, NormalRealTimeTask, OscDeviceId, OscInputDevice, OscScanResult,
+    RealTimeCompoundMappingTarget, RealTimeMapping, ReaperMessage, ReaperTarget,
+    SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{ModeGarbage, RawMidiEvent};
@@ -68,7 +68,7 @@ pub enum Garbage {
     ActivationChanges(Vec<ActivationChange>),
     NormalRealTimeTask(NormalRealTimeTask),
     FeedbackRealTimeTask(FeedbackRealTimeTask),
-    AudioHookState(AudioHookState),
+    MidiCaptureSender(MidiCaptureSender),
 }
 
 #[derive(Debug)]

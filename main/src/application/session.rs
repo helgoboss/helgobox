@@ -281,9 +281,7 @@ impl Session {
         compartment: MappingCompartment,
         source_value: IncomingCompoundSourceValue,
     ) -> Option<&SharedMapping> {
-        let actual_virt_source = self
-            .virtualize_if_possible(source_value)
-            .map(VirtualSource::from_source_value);
+        let virtual_source_value = self.virtualize_if_possible(source_value);
         let instance_state = self.instance_state.borrow();
         use CompoundMappingSource::*;
         self.mappings(compartment).find(|m| {
@@ -292,14 +290,10 @@ impl Session {
                 return false;
             }
             let mapping_source = m.source_model.create_source();
-            if let (Virtual(vs1), Some(vs2)) = (&mapping_source, &actual_virt_source) {
-                // The mapping source is virtual and the actual source has a virtual counterpart.
-                // In this case, we consider the sources as matches if the virtual control elements
-                // match.
-                // TODO-high This should probably be called value_matches and take a value
-                vs1.feedback_address() == vs2.feedback_address()
+            if let (Virtual(virtual_source), Some(v)) = (&mapping_source, &virtual_source_value) {
+                virtual_source.control(v).is_some()
             } else {
-                mapping_source.would_react_to(source_value)
+                mapping_source.control(source_value).is_some()
             }
         })
     }
@@ -1324,7 +1318,7 @@ impl Session {
             .filter(move |capture_event: &MessageCaptureEvent| {
                 !ignore_sources
                     .iter()
-                    .any(|is| is.would_react_to(capture_event.result.message()))
+                    .any(|is| is.control(capture_event.result.message()).is_some())
             })
             // We have this explicit stop criteria because we listen to global REAPER
             // events.

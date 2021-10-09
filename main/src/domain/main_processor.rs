@@ -437,6 +437,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.poll_for_feedback()
     }
 
+    #[allow(clippy::float_cmp)]
     fn poll_for_feedback(&mut self) {
         for compartment in MappingCompartment::enum_iter() {
             for mapping_id in self.collections.milli_dependent_feedback_mappings[compartment].iter()
@@ -452,6 +453,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 if let Some(value) = t.current_value(control_context) {
                                     match previous_target_values[compartment].entry(*mapping_id) {
                                         Entry::Occupied(mut e) => {
+                                            // We really want to resend if there's the slightest
+                                            // difference. It's okay to have direct comparison
+                                            // because we know the source of these two values is
+                                            // the same.
                                             if e.get().to_unit_value().get()
                                                 == value.to_unit_value().get()
                                             {

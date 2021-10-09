@@ -21,7 +21,7 @@ const FEEDBACK_TASK_BULK_SIZE: usize = 1000;
 /// preferences, the VST processing is executed in another thread than the audio hook!
 pub type SharedRealTimeProcessor = Arc<Mutex<RealTimeProcessor>>;
 
-type MidiCaptureSender = async_channel::Sender<MidiScanResult>;
+pub type MidiCaptureSender = async_channel::Sender<MidiScanResult>;
 
 // This kind of tasks is always processed, even after a rebirth when multiple processor syncs etc.
 // have already accumulated. Because at the moment there's no way to request a full resync of all
@@ -276,8 +276,9 @@ impl RealearnAudioHook {
                 }
                 StopCapturingMidi => {
                     let last_state = std::mem::replace(&mut self.state, AudioHookState::Normal);
-                    self.garbage_bin
-                        .dispose(Garbage::AudioHookState(last_state));
+                    if let AudioHookState::LearningSource { sender, .. } = last_state {
+                        self.garbage_bin.dispose(Garbage::MidiCaptureSender(sender));
+                    }
                 }
             }
         }

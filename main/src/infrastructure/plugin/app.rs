@@ -1202,7 +1202,7 @@ impl App {
     ) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
-            session.context().project() == project && session.receives_input_from(&input_descriptor)
+            session.context().project() == project && session.receives_input_from(input_descriptor)
         })
     }
 

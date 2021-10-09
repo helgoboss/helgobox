@@ -1269,16 +1269,12 @@ impl CompoundMappingSource {
         }
     }
 
-    /// Checks if this mapping would react to the given message.
+    /// Can also be used to check if this mapping would react to the given message.
     ///
     /// Used for:
     ///
     /// - Source learning (including source virtualization)
     /// - Source filtering/finding (including source virtualization)
-    pub fn would_react_to(&self, value: IncomingCompoundSourceValue) -> bool {
-        self.control(value).is_some()
-    }
-
     pub fn control(&self, value: IncomingCompoundSourceValue) -> Option<ControlValue> {
         use CompoundMappingSource::*;
         match (self, value) {
