@@ -17,6 +17,7 @@ use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use std::borrow::Cow;
+use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::Display;
 
@@ -36,7 +37,7 @@ pub struct SourceModel {
     pub raw_midi_pattern: Prop<String>,
     pub midi_script: Prop<String>,
     pub display_type: Prop<DisplayType>,
-    pub seven_segment_display_scope: Prop<MackieSevenSegmentDisplayScope>,
+    pub display_id: Prop<Option<u8>>,
     pub line: Prop<Option<u8>>,
     // OSC
     pub osc_address_pattern: Prop<String>,
@@ -67,7 +68,7 @@ impl Default for SourceModel {
             raw_midi_pattern: prop("".to_owned()),
             midi_script: prop("".to_owned()),
             display_type: prop(Default::default()),
-            seven_segment_display_scope: prop(Default::default()),
+            display_id: prop(Default::default()),
             line: prop(None),
             osc_address_pattern: prop("".to_owned()),
             osc_arg_index: prop(Some(0)),
@@ -94,7 +95,7 @@ impl SourceModel {
             .merge(self.raw_midi_pattern.changed())
             .merge(self.midi_script.changed())
             .merge(self.display_type.changed())
-            .merge(self.seven_segment_display_scope.changed())
+            .merge(self.display_id.changed())
             .merge(self.line.changed())
             .merge(self.control_element_type.changed())
             .merge(self.control_element_id.changed())
@@ -310,19 +311,7 @@ impl SourceModel {
                         script: EelMidiSourceScript::compile(self.midi_script.get_ref()).ok(),
                     },
                     Display => MidiSource::Display {
-                        spec: {
-                            use DisplayType::*;
-                            match self.display_type.get() {
-                                MackieLcd => DisplaySpec::MackieLcd {
-                                    scope: self.mackie_lcd_scope(),
-                                },
-                                MackieSevenSegmentDisplay => {
-                                    DisplaySpec::MackieSevenSegmentDisplay {
-                                        scope: self.seven_segment_display_scope.get(),
-                                    }
-                                }
-                            }
-                        },
+                        spec: self.display_spec(),
                     },
                 };
                 CompoundMappingSource::Midi(midi_source)
@@ -350,11 +339,30 @@ impl SourceModel {
         }
     }
 
+    fn display_spec(&self) -> DisplaySpec {
+        use DisplayType::*;
+        match self.display_type.get() {
+            MackieLcd => DisplaySpec::MackieLcd {
+                scope: self.mackie_lcd_scope(),
+            },
+            MackieSevenSegmentDisplay => DisplaySpec::MackieSevenSegmentDisplay {
+                scope: self.mackie_7_segment_display_scope(),
+            },
+        }
+    }
+
     pub fn mackie_lcd_scope(&self) -> MackieLcdScope {
         MackieLcdScope::new(
-            self.channel.get().map(|ch| ch.get().min(7)),
+            self.display_id.get().map(|ch| ch.min(7)),
             self.line.get().map(|l| l.min(1)),
         )
+    }
+
+    pub fn mackie_7_segment_display_scope(&self) -> MackieSevenSegmentDisplayScope {
+        self.display_id
+            .get()
+            .and_then(|id| MackieSevenSegmentDisplayScope::try_from(id as usize).ok())
+            .unwrap_or_default()
     }
 
     fn osc_arg_descriptor(&self) -> Option<OscArgDescriptor> {
@@ -388,67 +396,12 @@ impl SourceModel {
                 | ProgramChangeNumber
         )
     }
-
-    pub fn supports_midi_message_number(&self) -> bool {
-        if !self.is_midi() {
-            return false;
-        }
-        use MidiSourceType::*;
-        matches!(
-            self.midi_source_type.get(),
-            ControlChangeValue | NoteVelocity | PolyphonicKeyPressureAmount
-        )
-    }
-
-    pub fn supports_14_bit(&self) -> bool {
-        if !self.is_midi() {
-            return false;
-        }
-        use MidiSourceType::*;
-        matches!(
-            self.midi_source_type.get(),
-            ControlChangeValue | ParameterNumberValue
-        )
-    }
-
-    pub fn supports_parameter_number_message_number(&self) -> bool {
-        if !self.is_midi() {
-            return false;
-        }
-        self.supports_parameter_number_message_props()
-    }
-
-    pub fn supports_is_registered(&self) -> bool {
-        if !self.is_midi() {
-            return false;
-        }
-        self.supports_parameter_number_message_props()
-    }
-
-    pub fn supports_display_scope(&self) -> bool {
-        if !self.is_midi() {
-            return false;
-        }
-        self.midi_source_type.get() == MidiSourceType::Display
-    }
-
-    pub fn supports_custom_character(&self) -> bool {
-        if !self.is_midi() {
-            return false;
-        }
-        use MidiSourceType::*;
-        matches!(
-            self.midi_source_type.get(),
-            ControlChangeValue | ParameterNumberValue | Raw
-        )
+    pub fn display_count(&self) -> u32 {
+        self.display_type.get().display_count()
     }
 
     fn is_midi(&self) -> bool {
         self.category.get() == SourceCategory::Midi
-    }
-
-    fn supports_parameter_number_message_props(&self) -> bool {
-        self.midi_source_type.get() == MidiSourceType::ParameterNumberValue
     }
 
     pub fn is_midi_script(&self) -> bool {
@@ -694,7 +647,7 @@ impl MidiSourceType {
         }
     }
 
-    pub fn number_label(&self) -> &'static str {
+    pub fn number_label(self) -> &'static str {
         use MidiSourceType::*;
         match self {
             ControlChangeValue => "CC number",
@@ -704,12 +657,42 @@ impl MidiSourceType {
         }
     }
 
-    pub fn supports_control(&self) -> bool {
+    pub fn supports_midi_message_number(self) -> bool {
         use MidiSourceType::*;
-        !matches!(*self, Script | Display)
+        matches!(
+            self,
+            ControlChangeValue | NoteVelocity | PolyphonicKeyPressureAmount
+        )
     }
 
-    pub fn supports_feedback(&self) -> bool {
+    pub fn supports_parameter_number_message_number(self) -> bool {
+        self.supports_parameter_number_message_props()
+    }
+
+    pub fn supports_14_bit(self) -> bool {
+        use MidiSourceType::*;
+        matches!(self, ControlChangeValue | ParameterNumberValue)
+    }
+
+    pub fn supports_is_registered(self) -> bool {
+        self.supports_parameter_number_message_props()
+    }
+
+    pub fn supports_custom_character(self) -> bool {
+        use MidiSourceType::*;
+        matches!(self, ControlChangeValue | ParameterNumberValue | Raw)
+    }
+
+    fn supports_parameter_number_message_props(self) -> bool {
+        self == MidiSourceType::ParameterNumberValue
+    }
+
+    pub fn supports_control(self) -> bool {
+        use MidiSourceType::*;
+        !matches!(self, Script | Display)
+    }
+
+    pub fn supports_feedback(self) -> bool {
         use MidiSourceType::*;
         !matches!(self, ClockTempo | ClockTransport)
     }

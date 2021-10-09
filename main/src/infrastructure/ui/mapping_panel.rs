@@ -8,10 +8,9 @@ use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     check_mode_applicability, format_percentage_without_unit, AbsoluteMode, AbsoluteValue,
     ButtonUsage, ControlValue, DetailedSourceCharacter, DisplayType, EncoderUsage, FeedbackType,
-    FireMode, GroupInteraction, MackieLcdScope, MackieSevenSegmentDisplayScope,
-    MidiClockTransportMessage, ModeApplicabilityCheckInput, ModeParameter, OscTypeTag,
-    OutOfRangeBehavior, PercentIo, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target,
-    UnitValue, ValueSequence,
+    FireMode, GroupInteraction, MackieSevenSegmentDisplayScope, MidiClockTransportMessage,
+    ModeApplicabilityCheckInput, ModeParameter, OscTypeTag, OutOfRangeBehavior, PercentIo,
+    SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue, ValueSequence,
 };
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use reaper_high::{
@@ -909,48 +908,68 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
+    #[allow(clippy::single_match)]
     fn handle_source_line_4_combo_box_change(&mut self) {
         let b = self.view.require_control(root::ID_SOURCE_NUMBER_COMBO_BOX);
-        let value = match b.selected_combo_box_item_data() {
-            -1 => None,
-            id => Some(U7::new(id as _)),
-        };
-        self.mapping.source_model.midi_message_number.set(value);
+        use SourceCategory::*;
+        match self.mapping.source_model.category.get() {
+            Midi => {
+                use MidiSourceType::*;
+                match self.mapping.source_model.midi_source_type.get() {
+                    Display => {
+                        let value = match self.mapping.source_model.display_type.get() {
+                            DisplayType::MackieLcd => match b.selected_combo_box_item_data() {
+                                -1 => None,
+                                id => Some(id as u8),
+                            },
+                            DisplayType::MackieSevenSegmentDisplay => {
+                                Some(b.selected_combo_box_item_index() as u8)
+                            }
+                        };
+                        self.mapping.source_model.display_id.set(value);
+                    }
+                    t if t.supports_midi_message_number() => {
+                        let value = match b.selected_combo_box_item_data() {
+                            -1 => None,
+                            id => Some(U7::new(id as _)),
+                        };
+                        self.mapping.source_model.midi_message_number.set(value);
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
     }
 
     fn handle_source_line_5_combo_box_change(&mut self) {
         let b = self
             .view
             .require_control(root::ID_SOURCE_CHARACTER_COMBO_BOX);
-        let i = b.selected_combo_box_item_index();
         use SourceCategory::*;
         match self.mapping.source_model.category.get() {
-            Midi if self.mapping.source_model.supports_display_scope() => {
-                match self.mapping.source_model.display_type.get() {
-                    DisplayType::MackieLcd => {
-                        let scopes = MackieLcdScope::generate_all_combinations();
-                        let scope = scopes.get(i).expect("invalid Mackie LCD scope");
+            Midi => {
+                use MidiSourceType::*;
+                match self.mapping.source_model.midi_source_type.get() {
+                    Display => {
+                        let value = match b.selected_combo_box_item_data() {
+                            -1 => None,
+                            id => Some(id as u8),
+                        };
+                        self.mapping.source_model.line.set(value);
+                    }
+                    t if t.supports_custom_character() => {
+                        let i = b.selected_combo_box_item_index();
                         self.mapping
                             .source_model
-                            .channel
-                            .set_without_notification(scope.channel.map(Channel::new));
-                        self.mapping.source_model.line.set(scope.line);
+                            .custom_character
+                            .set(i.try_into().expect("invalid source character"));
                     }
-                    DisplayType::MackieSevenSegmentDisplay => {
-                        self.mapping
-                            .source_model
-                            .seven_segment_display_scope
-                            .set(i.try_into().expect("invalid 7-segment display scope"));
-                    }
+                    _ => {}
                 }
             }
-            Midi if self.mapping.source_model.supports_custom_character() => {
-                self.mapping
-                    .source_model
-                    .custom_character
-                    .set(i.try_into().expect("invalid source character"));
-            }
             Osc => {
+                let i = b.selected_combo_box_item_index();
                 self.mapping
                     .source_model
                     .osc_arg_type_tag
@@ -2305,7 +2324,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_mapping_feedback_send_behavior_combo_box();
         self.fill_source_category_combo_box();
         self.fill_source_channel_combo_box();
-        self.fill_source_midi_message_number_combo_box();
         self.fill_mode_out_of_range_behavior_combo_box();
         self.fill_mode_group_interaction_combo_box();
         self.fill_mode_takeover_mode_combo_box();
@@ -2627,7 +2645,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let text = match self.source.category.get() {
             Midi => match self.source.midi_source_type.get() {
                 MidiSourceType::ClockTransport => Some("Message"),
-                MidiSourceType::Display => Some("Sub type"),
+                MidiSourceType::Display => Some("Protocol"),
                 _ => None,
             },
             _ => None,
@@ -2662,14 +2680,21 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_check_box_2(&self) {
         use SourceCategory::*;
         let state = match self.source.category.get() {
-            Midi if self.source.supports_14_bit() => Some((
-                "14-bit values",
-                self.source
-                    .is_14_bit
-                    .get()
-                    // 14-bit == None not yet supported
-                    .unwrap_or(false),
-            )),
+            Midi => {
+                match self.source.midi_source_type.get() {
+                    t if t.supports_14_bit() => {
+                        Some((
+                            "14-bit values",
+                            self.source
+                                .is_14_bit
+                                .get()
+                                // 14-bit == None not yet supported
+                                .unwrap_or(false),
+                        ))
+                    }
+                    _ => None,
+                }
+            }
             Osc => Some(("Is relative", self.source.osc_arg_is_relative.get())),
             _ => None,
         };
@@ -2679,14 +2704,19 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_line_4_check_box(&self) {
         use SourceCategory::*;
         let state = match self.source.category.get() {
-            Midi if self.source.supports_is_registered() => Some((
-                "RPN",
-                self.source
-                    .is_registered
-                    .get()
-                    // registered == None not yet supported
-                    .unwrap_or(false),
-            )),
+            Midi => {
+                match self.source.midi_source_type.get() {
+                    t if t.supports_is_registered() => Some((
+                        "RPN",
+                        self.source
+                            .is_registered
+                            .get()
+                            // registered == None not yet supported
+                            .unwrap_or(false),
+                    )),
+                    _ => None,
+                }
+            }
             _ => None,
         };
         self.invalidate_check_box(root::ID_SOURCE_RPN_CHECK_BOX, state);
@@ -2714,10 +2744,17 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_line_4_label(&self) {
         use SourceCategory::*;
         let text = match self.source.category.get() {
-            Midi if self.source.supports_midi_message_number()
-                || self.source.supports_parameter_number_message_number() =>
-            {
-                Some(self.source.midi_source_type.get().number_label())
+            Midi => {
+                use MidiSourceType::*;
+                match self.source.midi_source_type.get() {
+                    Display => Some("Display"),
+                    t if t.supports_midi_message_number()
+                        || t.supports_parameter_number_message_number() =>
+                    {
+                        Some(t.number_label())
+                    }
+                    _ => None,
+                }
             }
             Virtual => Some("ID"),
             Osc => Some("Argument"),
@@ -2732,13 +2769,56 @@ impl<'a> ImmutableMappingPanel<'a> {
         let b = self.view.require_control(root::ID_SOURCE_NUMBER_COMBO_BOX);
         use SourceCategory::*;
         match self.source.category.get() {
-            Midi if self.source.supports_midi_message_number() => {
-                b.show();
-                let data = match self.source.midi_message_number.get() {
-                    None => -1,
-                    Some(n) => n.get() as _,
-                };
-                b.select_combo_box_item_by_data(data).unwrap();
+            Midi => {
+                use MidiSourceType::*;
+                match self.source.midi_source_type.get() {
+                    Display => {
+                        b.show();
+                        match self.source.display_type.get() {
+                            DisplayType::MackieLcd => {
+                                let display_count = self.source.display_count() as isize;
+                                b.fill_combo_box_with_data_vec(
+                                    iter::once((-1isize, "<All>".to_string()))
+                                        .chain(
+                                            (0..display_count)
+                                                .map(|i| (i as isize, (i + 1).to_string())),
+                                        )
+                                        .collect(),
+                                );
+                                let data = match self.source.mackie_lcd_scope().channel {
+                                    None => -1,
+                                    Some(n) => n as _,
+                                };
+                                b.select_combo_box_item_by_data(data).unwrap();
+                            }
+                            DisplayType::MackieSevenSegmentDisplay => {
+                                b.fill_combo_box_indexed(
+                                    MackieSevenSegmentDisplayScope::into_enum_iter(),
+                                );
+                                b.select_combo_box_item_by_index(
+                                    self.source.mackie_7_segment_display_scope().into(),
+                                )
+                                .unwrap();
+                            }
+                        }
+                    }
+                    t if t.supports_midi_message_number() => {
+                        b.fill_combo_box_with_data_vec(
+                            iter::once((-1isize, "<Any> (no feedback)".to_string()))
+                                .chain((0..128).map(|i| (i as isize, i.to_string())))
+                                .collect(),
+                        );
+                        b.show();
+                        let data = match self.source.midi_message_number.get() {
+                            None => -1,
+                            Some(n) => n.get() as _,
+                        };
+                        b.select_combo_box_item_by_data(data).unwrap();
+                    }
+                    _ => {
+                        b.hide();
+                    }
+                }
             }
             _ => {
                 b.hide();
@@ -2752,12 +2832,15 @@ impl<'a> ImmutableMappingPanel<'a> {
         }
         use SourceCategory::*;
         let text = match self.source.category.get() {
-            Midi if self.source.supports_parameter_number_message_number() => {
-                match self.source.parameter_number_message_number.get() {
-                    None => Some("".to_owned()),
-                    Some(n) => Some(n.to_string()),
+            Midi => match self.source.midi_source_type.get() {
+                t if t.supports_parameter_number_message_number() => {
+                    match self.source.parameter_number_message_number.get() {
+                        None => Some("".to_owned()),
+                        Some(n) => Some(n.to_string()),
+                    }
                 }
-            }
+                _ => None,
+            },
             Osc => Some(format_osc_arg_index(self.source.osc_arg_index.get())),
             Virtual => Some(self.source.control_element_id.get().to_string()),
             _ => None,
@@ -2840,8 +2923,20 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_source_line_5_label(&self) {
         use SourceCategory::*;
         let text = match self.source.category.get() {
-            Midi if self.source.supports_display_scope() => Some("Scope"),
-            Midi if self.source.supports_custom_character() => Some("Character"),
+            Midi => {
+                use MidiSourceType::*;
+                match self.source.midi_source_type.get() {
+                    Display => {
+                        if self.source.display_type.get().line_count() > 1 {
+                            Some("Line")
+                        } else {
+                            None
+                        }
+                    }
+                    t if t.supports_custom_character() => Some("Character"),
+                    _ => None,
+                }
+            }
             Osc => Some("Type"),
             _ => None,
         };
@@ -2856,30 +2951,39 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_SOURCE_CHARACTER_COMBO_BOX);
         use SourceCategory::*;
         match self.source.category.get() {
-            Midi if self.source.supports_display_scope() => {
-                b.show();
-                match self.source.display_type.get() {
-                    DisplayType::MackieLcd => {
-                        let scopes = MackieLcdScope::generate_all_combinations();
-                        b.fill_combo_box_indexed(scopes.iter());
-                        let scope = self.source.mackie_lcd_scope();
-                        let i = scopes.iter().position(|s| s == &scope).unwrap_or_default();
-                        b.select_combo_box_item_by_index(i).unwrap();
+            Midi => {
+                use MidiSourceType::*;
+                match self.source.midi_source_type.get() {
+                    Display => {
+                        b.show();
+                        let line_count = self.source.display_type.get().line_count();
+                        if line_count > 1 {
+                            b.fill_combo_box_with_data_vec(
+                                iter::once((-1isize, "<Multiline>".to_string()))
+                                    .chain(
+                                        (0..line_count).map(|i| (i as isize, (i + 1).to_string())),
+                                    )
+                                    .collect(),
+                            );
+                            let data = match self.source.line.get() {
+                                None => -1,
+                                Some(n) => n.min(line_count) as _,
+                            };
+                            b.select_combo_box_item_by_data(data).unwrap();
+                        } else {
+                            b.hide();
+                        }
                     }
-                    DisplayType::MackieSevenSegmentDisplay => {
-                        b.fill_combo_box_indexed(MackieSevenSegmentDisplayScope::into_enum_iter());
-                        b.select_combo_box_item_by_index(
-                            self.source.seven_segment_display_scope.get().into(),
-                        )
-                        .unwrap();
+                    t if t.supports_custom_character() => {
+                        b.show();
+                        b.fill_combo_box_indexed(SourceCharacter::into_enum_iter());
+                        b.select_combo_box_item_by_index(self.source.custom_character.get().into())
+                            .unwrap();
+                    }
+                    _ => {
+                        b.hide();
                     }
                 }
-            }
-            Midi if self.source.supports_custom_character() => {
-                b.show();
-                b.fill_combo_box_indexed(SourceCharacter::into_enum_iter());
-                b.select_combo_box_item_by_index(self.source.custom_character.get().into())
-                    .unwrap();
             }
             Osc => {
                 b.show();
@@ -4394,10 +4498,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.panel.when(source.display_type.changed(), |view, _| {
             view.invalidate_source_controls();
         });
-        self.panel
-            .when(source.seven_segment_display_scope.changed(), |view, _| {
-                view.invalidate_source_line_5_combo_box();
-            });
+        self.panel.when(source.display_id.changed(), |view, _| {
+            view.invalidate_source_line_4_combo_box();
+        });
         self.panel.when(source.line.changed(), |view, _| {
             view.invalidate_source_line_5_combo_box();
         });
@@ -5516,16 +5619,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             ),
             _ => {}
         };
-    }
-
-    fn fill_source_midi_message_number_combo_box(&self) {
-        self.view
-            .require_control(root::ID_SOURCE_NUMBER_COMBO_BOX)
-            .fill_combo_box_with_data_vec(
-                iter::once((-1isize, "<Any> (no feedback)".to_string()))
-                    .chain((0..128).map(|i| (i as isize, i.to_string())))
-                    .collect(),
-            )
     }
 
     fn fill_mode_type_combo_box(&self) {

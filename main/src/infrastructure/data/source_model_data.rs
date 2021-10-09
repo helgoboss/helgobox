@@ -6,10 +6,7 @@ use crate::base::default_util::is_default;
 use crate::base::notification;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::VirtualControlElementIdData;
-use helgoboss_learn::{
-    DisplayType, MackieSevenSegmentDisplayScope, MidiClockTransportMessage, OscTypeTag,
-    SourceCharacter,
-};
+use helgoboss_learn::{DisplayType, MidiClockTransportMessage, OscTypeTag, SourceCharacter};
 use helgoboss_midi::{Channel, U14, U7};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -53,9 +50,9 @@ pub struct SourceModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub display_type: DisplayType,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub line: Option<u8>,
+    pub display_id: Option<u8>,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub seven_segment_display_scope: MackieSevenSegmentDisplayScope,
+    pub line: Option<u8>,
     // OSC
     #[serde(default, skip_serializing_if = "is_default")]
     pub osc_address_pattern: String,
@@ -92,7 +89,7 @@ impl SourceModelData {
             raw_midi_pattern: model.raw_midi_pattern.get_ref().clone(),
             midi_script: model.midi_script.get_ref().clone(),
             display_type: model.display_type.get(),
-            seven_segment_display_scope: model.seven_segment_display_scope.get(),
+            display_id: model.display_id.get(),
             line: model.line.get(),
             osc_address_pattern: model.osc_address_pattern.get_ref().clone(),
             osc_arg_index: model.osc_arg_index.get(),
@@ -190,8 +187,8 @@ impl SourceModelData {
             .display_type
             .set_with_optional_notification(self.display_type, with_notification);
         model
-            .seven_segment_display_scope
-            .set_with_optional_notification(self.seven_segment_display_scope, with_notification);
+            .display_id
+            .set_with_optional_notification(self.display_id, with_notification);
         model
             .line
             .set_with_optional_notification(self.line, with_notification);
