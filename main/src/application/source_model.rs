@@ -9,7 +9,7 @@ use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     ControlValue, DetailedSourceCharacter, DisplaySpec, DisplayType, MackieLcdScope,
     MackieSevenSegmentDisplayScope, MidiClockTransportMessage, OscArgDescriptor, OscSource,
-    OscTypeTag, SourceCharacter, UnitValue,
+    OscTypeTag, SiniConE24Scope, SourceCharacter, UnitValue,
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -348,14 +348,18 @@ impl SourceModel {
             MackieSevenSegmentDisplay => DisplaySpec::MackieSevenSegmentDisplay {
                 scope: self.mackie_7_segment_display_scope(),
             },
+            SiniConE24 => DisplaySpec::SiniConE24 {
+                scope: self.sinicon_e24_scope(),
+            },
         }
     }
 
     pub fn mackie_lcd_scope(&self) -> MackieLcdScope {
-        MackieLcdScope::new(
-            self.display_id.get().map(|ch| ch.min(7)),
-            self.line.get().map(|l| l.min(1)),
-        )
+        MackieLcdScope::new(self.display_id.get(), self.line.get())
+    }
+
+    pub fn sinicon_e24_scope(&self) -> SiniConE24Scope {
+        SiniConE24Scope::new(self.display_id.get(), self.line.get())
     }
 
     pub fn mackie_7_segment_display_scope(&self) -> MackieSevenSegmentDisplayScope {
@@ -396,7 +400,7 @@ impl SourceModel {
                 | ProgramChangeNumber
         )
     }
-    pub fn display_count(&self) -> u32 {
+    pub fn display_count(&self) -> u8 {
         self.display_type.get().display_count()
     }
 

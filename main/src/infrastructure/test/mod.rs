@@ -950,7 +950,9 @@ async fn fx_by_name() {
     // Then
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0)))]
+        // vec![Midi(Plain(note_on(0, 64, 0)))],
+        vec![],
+        "gone feedback"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -1018,7 +1020,9 @@ async fn fx_by_id() {
     // Then
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0)))]
+        // vec![Midi(Plain(note_on(0, 64, 0)))],
+        vec![],
+        "gone feedback"
     );
     // When
     send_midi(note_on(0, 64, 0)).await;
@@ -1156,7 +1160,9 @@ async fn conditional_activation_modifiers() {
     // Then
     assert_eq!(
         realearn.pop_feedback(),
-        vec![Midi(Plain(note_on(0, 64, 0)))]
+        // vec![Midi(Plain(note_on(0, 64, 0)))],
+        vec![],
+        "gone feedback"
     );
     // When
     send_midi(note_on(0, 64, 127)).await;

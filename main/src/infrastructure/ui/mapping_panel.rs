@@ -917,12 +917,13 @@ impl<'a> MutableMappingPanel<'a> {
                 use MidiSourceType::*;
                 match self.mapping.source_model.midi_source_type.get() {
                     Display => {
+                        use DisplayType::*;
                         let value = match self.mapping.source_model.display_type.get() {
-                            DisplayType::MackieLcd => match b.selected_combo_box_item_data() {
+                            MackieLcd | SiniConE24 => match b.selected_combo_box_item_data() {
                                 -1 => None,
                                 id => Some(id as u8),
                             },
-                            DisplayType::MackieSevenSegmentDisplay => {
+                            MackieSevenSegmentDisplay => {
                                 Some(b.selected_combo_box_item_index() as u8)
                             }
                         };
@@ -2774,8 +2775,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                 match self.source.midi_source_type.get() {
                     Display => {
                         b.show();
+                        use DisplayType::*;
                         match self.source.display_type.get() {
-                            DisplayType::MackieLcd => {
+                            MackieLcd | SiniConE24 => {
                                 let display_count = self.source.display_count() as isize;
                                 b.fill_combo_box_with_data_vec(
                                     iter::once((-1isize, "<All>".to_string()))
@@ -2791,7 +2793,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                                 };
                                 b.select_combo_box_item_by_data(data).unwrap();
                             }
-                            DisplayType::MackieSevenSegmentDisplay => {
+                            MackieSevenSegmentDisplay => {
                                 b.fill_combo_box_indexed(
                                     MackieSevenSegmentDisplayScope::into_enum_iter(),
                                 );
