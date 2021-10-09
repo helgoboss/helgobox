@@ -5,7 +5,7 @@
 :sectnumlevels: 2
 
 |===
-|Last update of text: |`2021-10-06 (v2.11.0-pre.3)`
+|Last update of text: |`2021-10-09 (v2.11.0-pre.3)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -1385,11 +1385,9 @@ E0 [0gfe dcba] [0nml kjih]
 ----
 
 [#script-source]
-====== Script
+====== MIDI Script
 
-This source is feedback-only and exists for enabling more complex feedback use cases such as controlling LCD displays.
-It lets you write an EEL script that will be executed whenever ReaLearn "feels" like it needs to send some feedback
-to the MIDI device.
+This source is feedback-only and exists for enabling more complex feedback use cases such as controlling LCDs that are not yet supported by the <<display-source>> source. It lets you write an EEL script that will be executed whenever ReaLearn "feels" like it needs to send some feedback to the MIDI device.
 
 * *Script:* The EEL script. Is disabled if the script contains more than one line.
 * *…:* Opens the script in a separate window (for multi-line scripts).
@@ -1418,6 +1416,25 @@ msg_size = 3;
 1[] = 0x4b; 
 2[] = y * 64; 
 ----
+
+TIP: Prefer the <<display-source>> source over this one whenever possible. Unlike the display source, the MIDI script source is not capable of processing textual target properties. Plus, it can't handle feedback relay correctly.
+
+[#display-source]
+====== Display
+
+This is a feedback-only source used to display text on MIDI-controllable hardware displays (LCDs, OLED displays, 7-segment displays, etc.).
+
+* *Protocol:* Lets you choose the display protocol, which tells ReaLearn how it should communicate with the hardware display and which options it supports.
+** *Mackie LCD:* Use this for MCU-compatible LCDs. Depending on your particular control surface, there can be up to 8 LCDs, each of which has up to 2 lines.
+** *Mackie 7-segment display:* Use this for MCU-compatible 7-segment displays (you know, the ones which only show digits). There's usually one small assignment display and a larger one for showing the time code.
+** *SiniCon E24:* Use this with the https://www.sinicon.io/[SiniCon E24 controller].
+* *Display:* Choose the particular display or display portion to which you want to send text.
+* *Line:* Choose the line number.
+
+CAUTION: ReaLearn allows you to spread your text over all available displays and lines. This is great if you need to display a lot of text but one display doesn't provide enough space. But be aware: Replacing feedback with other feedback ("feedback relay") doesn't work so nicely anymore if you make use of this feature.
+
+If you want to know how to define which text shall be sent to the displays, please see <<textual-feedback,textual feedback>>.
+
 
 [#category-osc]
 ===== Category "OSC"
@@ -1771,6 +1788,7 @@ Invokes a transport-related action.
 ** *Repeat:* Enables repeat for the containing project if the incoming absolute control value is greater than 0%,
  otherwise disables it.
 
+[#navigate_between_tracks_target]
 ====== Project: Navigate between tracks
 
 Steps through tracks. To be used with endless rotary encoders or previous/next-style "Incremental buttons".
@@ -1806,6 +1824,20 @@ If you tick multiple options, this is the order of fallbacks:
 * If there are no loop points, the current region is used.
 * If there's no current region, the project will be used.
 * If the project is empty, the viewport will be used.
+
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|target.position.project_default | Position in the current ruler time unit
+|target.position.time | _minute:second.milli_
+|target.position.measures_beats_time | _measure.beat.milli_
+|target.position.measures_beats | _measure.beat.milli_
+|target.position.seconds | _second.milli_
+|target.position.samples | _sample_
+|target.position.hmsf | _hour:minute:second:milli_
+|===
+
 
 ====== Project: Set playrate
 
@@ -2019,6 +2051,21 @@ Makes the FX instance visible if the incoming control value is greater than 0%, 
 Sets the value of a particular track FX parameter.
 
 * *Parameter:* The parameter to be controlled. Please note that both the _By ID_ selector and the _By Position_ selector address the FX by its position in the FX chain. The difference between the two is that _By ID_ shows a dropdown containing the available parameters and _By Position_ lets you enter the position as a number in a text field. Latter is useful if at the time of choosing the position, the FX is not available.
+
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|
+target.fx_parameter.index
+|
+Zero-based index of the resolved FX parameter.
+
+|
+target.fx_parameter.name
+|
+Name of the resolved FX parameter.
+|===
 
 ====== Send: Automation mode
 
@@ -2353,7 +2400,9 @@ These are relevant for the control direction only:
  latter, _Inverse target value_ allows for exclusivity between completely different target types and completely
  custom groupings - independent of e.g. organization of tracks into folders.
 ** *Inverse target value (on only):* Variation of _Inverse target value_ that applies the inverse only when the target value is > 0%.
-* *Feedback transformation (EEL):* This is like _Control transformation (EEL)_ (see further below) but used for
+* *Textual:* By default, ReaLearn sends numeric feedback values to the controller. If you tick this checkbox, you can
+send textual feedback values instead. This only works with sources that are capable of displaying text: That is any <<category-osc,OSC source>> with argument type _String_ and the <<display-source, MIDI Display source>>.
+* *Feedback transformation (EEL):* This field is available only with numeric feedback. It's like _Control transformation (EEL)_ (see further below) but used for
  translating a target value back to a source value for feedback purposes. It usually makes most
  sense if it's exactly the reverse of the control transformation. Be aware: Here `x` is the desired
  source value (= output value) and `y` is the current target value (= input value), so you must
@@ -2363,6 +2412,98 @@ These are relevant for the control direction only:
 .. Apply reverse.
 .. Apply transformation.
 .. Apply source interval.
+[#textual-feedback]
+* *Textual feedback expression:* This field is available only with textual feedback. Here you define which text is going to be sent to the source _whenever the target value changes_ and also - for your convenience - immediately at the moment of entering the text.
+** Whatever text you enter here, will be sent verbatim to the source.
+** Of course, entering a fixed text here is not very exciting. Most likely you want to display dynamic text such as the name of the currently selected track or the current target value, nicely formatted!
+** You can do that by using placeholders, delimited by double braces. Example: `{{target.text_value}}`.
+** Which placeholders are available, depends very much on the type of the mapping target. However, there are some which are available for (almost) any target:
++
+[cols="m,1"]
+|===
+|
+mapping.name
+|
+Name of the mapping. Contains the explicitly assigned mapping name, never an automatically generated one.
+
+|
+target.text_value
+|
+Short text representing the current target value, including a possible unit.
+
+If the target value can be represented using some kind of name, this name is preferred over a possibly alternative numeric representation. Example: Let's assume the 4th track in our project is called "Guitar" and the mapping target is <<navigate_between_tracks_target>>. Then `target.text_value` contains the text _Guitar_, not the text _4_.
+
+This is the default value shown if textual feedback is enabled and the textual feedback
+expression is empty.
+
+|
+target.numeric_value
+|
+The current target value as a "human-friendly" number without its unit.
+
+The purpose of this placeholder is to allow for more freedom in formatting numerical target values than
+when using `target.text_value`. Future versions of ReaLearn might extend textual feedback
+expressions in a way so the user can define how exactly the numerical value is formatted
+(e.g. the number of digits after the decimal point).
+
+|
+target.numeric_value.unit
+|
+Contains the unit of `target.numeric_value` (e.g. _dB_).
+
+|
+target.normalized_value
+|
+The current target value as normalized number, that is, a value between 0.0 and 1.0 (the so-called unit interval). You can think of this number as a percentage, and indeed, it's currently always formatted as percentage.
+
+This value is available for most targets and good if you need a totally uniform and predictable representation of the target value that doesn't differ between target types.
+
+By default, this number is formatted as percentage _without_ the percent sign. Future versions of ReaLearn might offer user-defined
+formatting. This will also be the preferred form to format on/off states in a
+custom way (where 0% represents _off_).
+
+|
+target.type.name
+|
+Short name representing the type of the mapping target.
+
+|
+target.type.long_name
+|
+Long name representing the type of the mapping target.
+
+|
+target.track.index
+|
+Zero-based index of the first resolved target track (if supported).
+
+|
+target.track.name
+|
+Name of the first resolved target track (if supported).
+
+|
+target.fx.index
+|
+Zero-based index of the first resolved target FX (if supported).
+
+|
+target.fx.name
+|
+Name of the first resolved target FX (if supported).
+
+|
+target.route.index
+|
+Zero-based index of the first resolved target send/receive/output (if supported).
+
+|
+target.route.name
+|
+Name of the first resolved target send/receive/output (if supported).
+|===
++
+For target-specific placeholders, please look up the corresponding <<target>> section.
 
 The following elements are relevant for all kinds of sources. For rotary encoders they are relevant only in
 _feedback_ direction, not in _control_ direction.
