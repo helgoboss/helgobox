@@ -1,5 +1,5 @@
-use clipboard::{ClipboardContext, ClipboardProvider};
 use reaper_high::{resolve_symbols_from_text, ActionKind, Reaper};
+use crate::infrastructure::ui::get_text_from_clipboard;
 
 pub fn register_resolve_symbols_action() {
     Reaper::get().register_action(
@@ -15,10 +15,6 @@ pub fn register_resolve_symbols_action() {
 }
 
 fn resolve_symbols_from_clipboard() -> Result<(), Box<dyn std::error::Error>> {
-    let mut clipboard: ClipboardContext =
-        ClipboardProvider::new().map_err(|_| "Couldn't obtain clipboard.")?;
-    let text = clipboard
-        .get_contents()
-        .map_err(|_| "Couldn't read from clipboard.")?;
+    let text = get_text_from_clipboard().ok_or("Couldn't read from clipboard.")?;
     resolve_symbols_from_text(&text)
 }
