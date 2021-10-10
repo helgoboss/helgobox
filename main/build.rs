@@ -2,9 +2,11 @@ fn main() {
     // Generate "built" file (containing build-time information)
     built::write_built_file().expect("Failed to acquire build-time information");
 
-    // Optionally generate bindings
+    // Optionally generate bindings and dialogs
     #[cfg(feature = "generate")]
     codegen::generate_bindings();
+    #[cfg(all(feature = "generate", target_family = "unix"))]
+    codegen::generate_dialogs();
 
     // Embed or compile dialogs
     #[cfg(target_family = "windows")]
@@ -63,40 +65,10 @@ fn compile_eel() {
     build.compile("wdl-eel");
 }
 
-/// Compiles dialog windows using SWELL's dialog generator (too obscure to be ported to Rust)
+/// Compiles dialog windows code which was previously generated via PHP script.
 #[cfg(target_family = "unix")]
 fn compile_dialogs() {
-    use std::io::Read;
-    // Make RC file SWELL-compatible.
-    // ResEdit uses WS_CHILDWINDOW but SWELL understands WS_CHILD only. Rename it.
-    let mut rc_file =
-        std::fs::File::open("src/infrastructure/ui/msvc/msvc.rc").expect("couldn't find msvc.rc");
-    let mut rc_buf = vec![];
-    rc_file
-        .read_to_end(&mut rc_buf)
-        .expect("couldn't read msvc.rc");
-    let (original_rc_content, ..) = encoding_rs::UTF_16LE.decode(&rc_buf);
-    let modified_rc_content = original_rc_content.replace("WS_CHILDWINDOW", "WS_CHILD");
-    std::fs::write("../target/realearn.modified.rc", modified_rc_content)
-        .expect("couldn't write modified RC file");
-    // Use PHP to translate SWELL-compatible RC file to C++
-    let result = std::process::Command::new("php")
-        .arg("lib/WDL/WDL/swell/mac_resgen.php")
-        .arg("../target/realearn.modified.rc")
-        .output()
-        .expect("PHP dialog translator result not available");
-    std::fs::copy(
-        "../target/realearn.modified.rc_mac_dlg",
-        "src/infrastructure/ui/realearn.rc_mac_dlg",
-    )
-    .unwrap();
-    std::fs::copy(
-        "../target/realearn.modified.rc_mac_menu",
-        "src/infrastructure/ui/realearn.rc_mac_menu",
-    )
-    .unwrap();
-    assert!(result.status.success(), "PHP dialog translator failed");
-    // Compile the resulting C++ file
+    // Compile the C++ file resulting from the PHP script execution in the generate step.
     let mut build = cc::Build::new();
     build
         .cpp(true)
@@ -130,6 +102,42 @@ mod codegen {
     pub fn generate_bindings() {
         generate_core_bindings();
         generate_infrastructure_bindings();
+    }
+
+    /// Generates dialog window C++ code from resource file using SWELL's PHP-based dialog generator
+    /// (too obscure to be ported to Rust).
+    #[cfg(target_family = "unix")]
+    pub fn generate_dialogs() {
+        use std::io::Read;
+        // Make RC file SWELL-compatible.
+        // ResEdit uses WS_CHILDWINDOW but SWELL understands WS_CHILD only. Rename it.
+        let mut rc_file = std::fs::File::open("src/infrastructure/ui/msvc/msvc.rc")
+            .expect("couldn't find msvc.rc");
+        let mut rc_buf = vec![];
+        rc_file
+            .read_to_end(&mut rc_buf)
+            .expect("couldn't read msvc.rc");
+        let (original_rc_content, ..) = encoding_rs::UTF_16LE.decode(&rc_buf);
+        let modified_rc_content = original_rc_content.replace("WS_CHILDWINDOW", "WS_CHILD");
+        std::fs::write("../target/realearn.modified.rc", modified_rc_content)
+            .expect("couldn't write modified RC file");
+        // Use PHP to translate SWELL-compatible RC file to C++
+        let result = std::process::Command::new("php")
+            .arg("lib/WDL/WDL/swell/mac_resgen.php")
+            .arg("../target/realearn.modified.rc")
+            .output()
+            .expect("PHP dialog translator result not available");
+        std::fs::copy(
+            "../target/realearn.modified.rc_mac_dlg",
+            "src/infrastructure/ui/realearn.rc_mac_dlg",
+        )
+        .unwrap();
+        std::fs::copy(
+            "../target/realearn.modified.rc_mac_menu",
+            "src/infrastructure/ui/realearn.rc_mac_menu",
+        )
+        .unwrap();
+        assert!(result.status.success(), "PHP dialog generation failed");
     }
 
     fn generate_core_bindings() {
