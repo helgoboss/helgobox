@@ -7,13 +7,13 @@ build = "build.rs"
 license = "GPL-3.0"
 
 [features]
-default = ["prometheus"]
+default = []
 
 # Regenerate bindings (for dialog resource IDs and EEL functions)
 generate = []
 
-# Expose metrics endpoint in prometheus format (via projection server)
-prometheus = ["serde_prometheus"]
+# Measure performance and expose metrics endpoint in prometheus format (via projection server)
+realearn-meter = ["reaper-high/reaper-meter", "serde_prometheus"]
 
 [dependencies]
 reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }

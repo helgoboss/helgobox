@@ -226,6 +226,11 @@ cargo build --features generate
 cargo fmt
 ```
 
+On Linux and macOS, this also regenerates the files `realearn.rc_mac_dlg` and `realearn.rc_mac_menu` using PHP.
+This needs to be done after adjusting the Windows dialog resource file. So the best is to use the `generate`
+feature only on Linux/WSL, which regenerates resource ID bindings and executes PHP in one go, so the macOS and
+Linux dialog files can not go out of sync! These files must be checked into the source code repository whenever changed. 
+
 ### GUI
 
 The basic GUI skeleton is based on the Windows dialog resource file [msvc.rc](main/src/infrastructure/ui/msvc/msvc.rc). 
@@ -249,13 +254,13 @@ visible is to execute REAPER with a debugger.
 
 ### Metrics
 
-It's also possible to make ReaLearn collect execution metrics by setting the environment variable `REALEARN_METER`. 
-If this environment variable is set (value doesn't matter), ReaLearn will continuously record histograms of control
-surface (`IReaperControlSurface`) method execution times. Control surface metrics are the most relevant metrics for
-ReaLearn because the processing is done in control surface methods for the most part. That also means ReaLearn's logic
-is largely executed in the main thread, not in the audio thread - which is atypical for a VST plug-in. That's also why 
-REAPER's built-in FX performance measuring is not too interesting in case of ReaLearn because all it does in the audio
-thread is processing some MIDI messages.
+It's possible to make ReaLearn collect execution metrics by building ReaLearn with the feature `realearn-meter` and
+setting the environment variable `REALEARN_METER`. If this environment variable is set (value doesn't matter), ReaLearn
+will continuously record histograms of control surface (`IReaperControlSurface`) method execution times. Control surface
+metrics are the most relevant metrics for ReaLearn because the processing is done in control surface methods for the
+most part. That also means ReaLearn's logic is largely executed in the main thread, not in the audio thread - which is
+atypical for a VST plug-in. That's also why REAPER's built-in FX performance measuring is not too interesting in case of
+ReaLearn because all it does in the audio thread is processing some MIDI messages.
 
 Metrics will be exposed in the following ways:
 

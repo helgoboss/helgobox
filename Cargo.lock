@@ -141,9 +141,9 @@ dependencies = [
 
 [[package]]
 name = "aspect"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba3f55a9bdf36dc7756a50fe239b5c457304a0c72fe5d8125ea4612fc161c6ca"
+checksum = "b3927b415bba088539aaaf872d19752c7d00101a25ead1d123fcd7633f9c224d"
 dependencies = [
  "aspect-weave",
 ]
@@ -1157,9 +1157,9 @@ dependencies = [
 
 [[package]]
 name = "flate2"
-version = "1.0.21"
+version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80edafed416a46fb378521624fab1cfa2eb514784fd8921adbe8a8d8321da811"
+checksum = "1e6988e897c1c9c485f43b47a529cef42fde0547f9d8d41a7062518f1d8fc53f"
 dependencies = [
  "cfg-if 1.0.0",
  "crc32fast",
@@ -1991,9 +1991,9 @@ dependencies = [
 
 [[package]]
 name = "metered"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cc55196b7848af51b943d1b6fc2669383a735f09438c2dbea9bc1d19e2f76e1"
+checksum = "3f36652b6bf9c822adae73dc00def57f8ace762f14428339b2a7dd6589d372ff"
 dependencies = [
  "aspect",
  "atomic",
@@ -2005,9 +2005,9 @@ dependencies = [
 
 [[package]]
 name = "metered-macro"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d777bb55da80da315bb5c86bff74709ec1a11bf64f9d662be13234f7ea834c34"
+checksum = "1e7a3760cebfa88dc786e9a75654e01297b28a0ab28cd94e686a42f96823b9ff"
 dependencies = [
  "aspect-weave",
  "heck",
@@ -3034,7 +3034,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#a134cef24e79649da44c60c24fa22b3f0c4dde43"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d6566ae98fee8c1e9f40b0735f30ed4def6fccf"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -3060,7 +3060,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#a134cef24e79649da44c60c24fa22b3f0c4dde43"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d6566ae98fee8c1e9f40b0735f30ed4def6fccf"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -3074,7 +3074,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#a134cef24e79649da44c60c24fa22b3f0c4dde43"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d6566ae98fee8c1e9f40b0735f30ed4def6fccf"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.9",
@@ -3084,13 +3084,14 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#a134cef24e79649da44c60c24fa22b3f0c4dde43"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d6566ae98fee8c1e9f40b0735f30ed4def6fccf"
 dependencies = [
  "c_str_macro",
  "derive_more",
  "enumflags2",
  "helgoboss-midi",
  "libc",
+ "metered",
  "reaper-low",
  "reaper-macros",
  "ref-cast",
@@ -3102,7 +3103,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#a134cef24e79649da44c60c24fa22b3f0c4dde43"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#8d6566ae98fee8c1e9f40b0735f30ed4def6fccf"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",

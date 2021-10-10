@@ -11,7 +11,7 @@ use crossbeam_channel::Receiver;
 use helgoboss_learn::{ModeGarbage, RawMidiEvent};
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware, Fx,
-    FxParameter, MainTaskMiddleware, MeterMiddleware, Project, Reaper,
+    FxParameter, MainTaskMiddleware, Project, Reaper,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
@@ -44,7 +44,8 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
     additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
     instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
-    meter_middleware: MeterMiddleware,
+    #[cfg(feature = "realearn-meter")]
+    meter_middleware: reaper_high::MeterMiddleware,
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
     counter: u64,
@@ -191,7 +192,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             server_task_receiver,
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
-            meter_middleware: MeterMiddleware::new(logger.clone()),
+            #[cfg(feature = "realearn-meter")]
+            meter_middleware: reaper_high::MeterMiddleware::new(logger.clone()),
             main_task_middleware: MainTaskMiddleware::new(
                 logger.clone(),
                 Global::get().task_sender(),
@@ -250,6 +252,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.emit_device_changes_as_reaper_source_messages();
         self.process_incoming_osc_messages();
         self.run_main_processors();
+        #[cfg(feature = "realearn-meter")]
         if self.metrics_enabled {
             self.process_metrics();
         }
@@ -270,6 +273,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
                 LogDebugInfo => {
                     self.log_debug_info();
+                    #[cfg(feature = "realearn-meter")]
                     self.meter_middleware.log_metrics();
                 }
                 StartLearningTargets(sender) => {
@@ -299,12 +303,15 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             use RealearnControlSurfaceServerTask::*;
             match t {
                 ProvidePrometheusMetrics(sender) => {
+                    #[cfg(feature = "realearn-meter")]
                     let text = serde_prometheus::to_string(
                         self.meter_middleware.metrics(),
                         Some("realearn"),
                         HashMap::new(),
                     )
                     .unwrap();
+                    #[cfg(not(feature = "realearn-meter"))]
+                    let text = String::new();
                     let _ = sender.send(text);
                 }
             }
@@ -317,6 +324,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
+    #[cfg(feature = "realearn-meter")]
     fn process_metrics(&mut self) {
         // Roughly every 10 seconds
         if self.counter % (30 * 10) == 0 {
@@ -573,25 +581,33 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
     fn run(&mut self) {
+        #[cfg(feature = "realearn-meter")]
         if self.metrics_enabled {
-            let elapsed = MeterMiddleware::measure(|| {
+            let elapsed = reaper_high::MeterMiddleware::measure(|| {
                 self.run_internal();
             });
             self.meter_middleware.record_run(elapsed);
         } else {
             self.run_internal();
         }
+        #[cfg(not(feature = "realearn-meter"))]
+        {
+            self.run_internal();
+        }
     }
 
     fn handle_event(&self, event: ControlSurfaceEvent) -> bool {
+        #[cfg(feature = "realearn-meter")]
         if self.metrics_enabled {
-            let elapsed = MeterMiddleware::measure(|| {
+            let elapsed = reaper_high::MeterMiddleware::measure(|| {
                 self.handle_event_internal(event);
             });
             self.meter_middleware.record_event(event, elapsed)
         } else {
             self.handle_event_internal(event)
         }
+        #[cfg(not(feature = "realearn-meter"))]
+        self.handle_event_internal(event)
     }
 
     fn get_touch_state(&self, args: GetTouchStateArgs) -> bool {

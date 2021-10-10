@@ -392,24 +392,18 @@ fn handle_session_route(session_id: String) -> Result<Json, Response<&'static st
     Ok(reply::json(&SessionResponseData {}))
 }
 
+#[cfg(feature = "realearn-meter")]
 async fn handle_metrics_route(
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
 ) -> Result<Box<dyn Reply>, Rejection> {
-    #[cfg(feature = "prometheus")]
-    {
-        let (sender, receiver) = tokio::sync::oneshot::channel();
-        control_surface_task_sender
-            .try_send(RealearnControlSurfaceServerTask::ProvidePrometheusMetrics(
-                sender,
-            ))
-            .unwrap();
-        let snapshot: Result<Result<String, String>, _> = receiver.await.map(Ok);
-        process_send_result(snapshot).await
-    }
-    #[cfg(not(feature = "prometheus"))]
-    {
-        Err(metrics_not_supported())
-    }
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    control_surface_task_sender
+        .try_send(RealearnControlSurfaceServerTask::ProvidePrometheusMetrics(
+            sender,
+        ))
+        .unwrap();
+    let snapshot: Result<Result<String, String>, _> = receiver.await.map(Ok);
+    process_send_result(snapshot).await
 }
 
 async fn start_server(
@@ -448,6 +442,8 @@ async fn start_server(
                 handle_patch_controller_route(percent_decode(controller_id), req)
             })
         });
+
+    #[cfg(feature = "realearn-meter")]
     let metrics_route = warp::get()
         .and(warp::path!("realearn" / "metrics"))
         .and_then(move || handle_metrics_route(control_surface_task_sender.clone()));
@@ -499,9 +495,10 @@ async fn start_server(
         .or(controller_route)
         .or(controller_routing_route)
         .or(patch_controller_route)
-        .or(metrics_route)
-        .or(ws_route)
-        .with(cors);
+        .or(ws_route);
+    #[cfg(feature = "realearn-meter")]
+    let routes = routes.or(metrics_route);
+    let routes = routes.with(cors);
     let (_, http_future) = warp::serve(routes.clone())
         .bind_with_graceful_shutdown(([0, 0, 0, 0], http_port), async move {
             http_shutdown_receiver.recv().await.unwrap()
