@@ -1,5 +1,5 @@
-use reaper_high::{resolve_symbols_from_text, ActionKind, Reaper};
 use crate::infrastructure::ui::get_text_from_clipboard;
+use reaper_high::{resolve_symbols_from_text, ActionKind, Reaper};
 
 pub fn register_resolve_symbols_action() {
     Reaper::get().register_action(
