@@ -164,7 +164,7 @@ including Rust setup:
 ```sh
 # Install native dependencies
 sudo apt update
-sudo apt install curl git build-essential pkg-config php nasm llvm-dev libclang-dev clang xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev -y
+sudo apt install curl git build-essential pkg-config php nasm llvm-dev libclang-dev clang -y
 
 # Install Rust (copied from the official Linux installation instructions)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (default)
@@ -192,10 +192,6 @@ Some words about the native dependencies:
   absolute mode work.
 - `llvm-dev`, `libclang-dev` and `clang` are necessary for building with feature `generate` (to generate
   bindings to C).
-- `xorg-dev` and `libxcb-*` are necessary for clipboard access via
-  [clipboard](https://crates.io/crates/clipboard) crate (previously ReaLearn
-  [implemented](https://github.com/helgoboss/realearn/commit/c3e28e92b758a42339ebd5997be9a1368decacf4) its own
-  clipboard code via SWELL but that had character encoding issues)
 
 #### macOS
 
