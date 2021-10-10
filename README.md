@@ -2,6 +2,7 @@
 
 [![Windows x86_64](https://github.com/helgoboss/realearn/actions/workflows/windows-x86_64.yml/badge.svg)](https://github.com/helgoboss/realearn/actions/workflows/windows-x86_64.yml)
 [![macOS x86_64](https://github.com/helgoboss/realearn/actions/workflows/macos-x86_64.yml/badge.svg)](https://github.com/helgoboss/realearn/actions/workflows/macos-x86_64.yml)
+[![macOS aarch64](https://github.com/helgoboss/realearn/actions/workflows/macos-aarch64.yml/badge.svg)](https://github.com/helgoboss/realearn/actions/workflows/macos-aarch64.yml)
 [![Linux x86_64](https://github.com/helgoboss/realearn/actions/workflows/linux-x86_64.yml/badge.svg)](https://github.com/helgoboss/realearn/actions/workflows/linux-x86_64.yml)
 [![GitHub license](https://img.shields.io/badge/license-GPL-blue.svg)](https://raw.githubusercontent.com/helgoboss/realearn/master/LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-orange.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=9CTAK2KKA8Z2S&source=url)
