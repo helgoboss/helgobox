@@ -1,0 +1,34 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+  # For quickly detecting important differences in runner configurations
+  schedule:
+    - cron: '0 5 * * MON'
+
+name: Linux armv7
+
+jobs:
+  check:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          target: armv7-unknown-linux-gnueabihf
+          override: true
+      - name: cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --target armv7-unknown-linux-gnueabihf

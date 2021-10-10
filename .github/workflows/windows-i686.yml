@@ -1,0 +1,33 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+  # For quickly detecting important differences in runner configurations
+  schedule:
+    - cron: '0 5 * * MON'
+
+name: Windows i686
+
+jobs:
+  check:
+    name: Build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable-i686-pc-windows-msvc
+          target: i686-pc-windows-msvc
+          override: true
+      - name: cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --target i686-pc-windows-msvc

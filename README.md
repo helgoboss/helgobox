@@ -1,9 +1,12 @@
 # ReaLearn
 
 [![Windows x86_64](https://github.com/helgoboss/realearn/actions/workflows/windows-x86_64.yml/badge.svg)](https://github.com/helgoboss/realearn/actions/workflows/windows-x86_64.yml)
+[![Windows i686](https://github.com/helgoboss/realearn/actions/workflows/windows-i686.yml/badge.svg)](https://github.com/helgoboss/realearn/actions/workflows/windows-i686.yml)
 [![macOS x86_64](https://github.com/helgoboss/realearn/actions/workflows/macos-x86_64.yml/badge.svg)](https://github.com/helgoboss/realearn/actions/workflows/macos-x86_64.yml)
 [![macOS aarch64](https://github.com/helgoboss/realearn/actions/workflows/macos-aarch64.yml/badge.svg)](https://github.com/helgoboss/realearn/actions/workflows/macos-aarch64.yml)
 [![Linux x86_64](https://github.com/helgoboss/realearn/actions/workflows/linux-x86_64.yml/badge.svg)](https://github.com/helgoboss/realearn/actions/workflows/linux-x86_64.yml)
+[![Linux aarch64](https://github.com/helgoboss/realearn/actions/workflows/linux-aarch64.yml/badge.svg)](https://github.com/helgoboss/realearn/actions/workflows/linux-aarch64.yml)
+[![Linux armv7](https://github.com/helgoboss/realearn/actions/workflows/linux-armv7.yml/badge.svg)](https://github.com/helgoboss/realearn/actions/workflows/linux-armv7.yml)
 [![GitHub license](https://img.shields.io/badge/license-GPL-blue.svg)](https://raw.githubusercontent.com/helgoboss/realearn/master/LICENSE)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-orange.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=9CTAK2KKA8Z2S&source=url)
 
@@ -203,7 +206,6 @@ should provide you with the necessary instructions if something is missing.
 # Install Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # choose 1 (default)
 source $HOME/.cargo/env
-# Using nightly is not necessary if you want to build just the low-level or medium-level API!
 rustup default stable-x86_64-apple-darwin
 
 # Clone ReaLearn
