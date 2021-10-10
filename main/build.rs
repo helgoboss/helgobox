@@ -52,6 +52,7 @@ fn compile_eel() {
     let mut build = cc::Build::new();
     build
         .warnings(false)
+        .define("WDL_ALLOW_UNSIGNED_DEFAULT_CHAR", None)
         .file("lib/WDL/WDL/eel2/nseel-cfunc.c")
         .file("lib/WDL/WDL/eel2/nseel-compiler.c")
         .file("lib/WDL/WDL/eel2/nseel-caltab.c")
