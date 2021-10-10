@@ -52,6 +52,7 @@ fn compile_eel() {
     let mut build = cc::Build::new();
     build
         .warnings(false)
+        // To make it compile for ARM targets (armv7 and aarch64) whose char type is unsigned.
         .define("WDL_ALLOW_UNSIGNED_DEFAULT_CHAR", None)
         .file("lib/WDL/WDL/eel2/nseel-cfunc.c")
         .file("lib/WDL/WDL/eel2/nseel-compiler.c")
@@ -60,6 +61,10 @@ fn compile_eel() {
         .file("lib/WDL/WDL/eel2/nseel-lextab.c")
         .file("lib/WDL/WDL/eel2/nseel-ram.c")
         .file("lib/WDL/WDL/eel2/nseel-yylex.c");
+    if target_arch == "arm" {
+        // To make it compile for Linux armv7 targets.
+        build.flag_if_supported("-marm");
+    }
     if let Some(f) = asm_object_file {
         build.object(f);
     }
