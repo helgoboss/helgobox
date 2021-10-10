@@ -254,13 +254,13 @@ visible is to execute REAPER with a debugger.
 
 ### Metrics
 
-It's possible to make ReaLearn collect execution metrics by building ReaLearn with the feature `realearn-meter` and
-setting the environment variable `REALEARN_METER`. If this environment variable is set (value doesn't matter), ReaLearn
-will continuously record histograms of control surface (`IReaperControlSurface`) method execution times. Control surface
-metrics are the most relevant metrics for ReaLearn because the processing is done in control surface methods for the
-most part. That also means ReaLearn's logic is largely executed in the main thread, not in the audio thread - which is
-atypical for a VST plug-in. That's also why REAPER's built-in FX performance measuring is not too interesting in case of
-ReaLearn because all it does in the audio thread is processing some MIDI messages.
+It's possible to make ReaLearn collect execution metrics by building ReaLearn with the feature `realearn-meter` (the
+default) and setting the environment variable `REALEARN_METER`. If this environment variable is set (value doesn't
+matter), ReaLearn will continuously record histograms of control surface (`IReaperControlSurface`) method execution
+times. Control surface metrics are the most relevant metrics for ReaLearn because the processing is done in control
+surface methods for the most part. That also means ReaLearn's logic is largely executed in the main thread, not in the
+audio thread - which is atypical for a VST plug-in. That's also why REAPER's built-in FX performance measuring is not
+too interesting in case of ReaLearn because all it does in the audio thread is processing some MIDI messages.
 
 Metrics will be exposed in the following ways:
 
