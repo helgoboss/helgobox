@@ -109,7 +109,8 @@ impl SourceModel {
         use SourceCategory::*;
         match self.category.get() {
             Midi => self.midi_source_type.get().supports_control(),
-            Osc | Virtual | Reaper => true,
+            Osc => self.osc_arg_type_tag.get().supports_control(),
+            Virtual | Reaper => true,
             // Main use case: Group interaction (follow-only).
             Never => true,
         }
@@ -119,7 +120,8 @@ impl SourceModel {
         use SourceCategory::*;
         match self.category.get() {
             Midi => self.midi_source_type.get().supports_feedback(),
-            Osc | Virtual => true,
+            Osc => self.osc_arg_type_tag.get().supports_feedback(),
+            Virtual => true,
             Reaper | Never => false,
         }
     }
