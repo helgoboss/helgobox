@@ -238,7 +238,7 @@ impl HeaderPanel {
             let group_id = self.active_group_id();
             let last_focused_fx_id = App::get().previously_focused_fx().and_then(|fx| {
                 if fx.is_available() {
-                    FxId::from_fx(&fx, false).ok()
+                    FxId::from_fx(&fx, true).ok()
                 } else {
                     None
                 }
@@ -2265,15 +2265,24 @@ fn edit_fx_id(fx_id: &FxId) -> Result<FxId, EditFxIdError> {
         .medium_reaper()
         .get_user_inputs(
             "ReaLearn",
-            2,
-            "FX file name,FX preset name,separator=;,extrawidth=80",
-            format!("{};{}", fx_id.file_name(), fx_id.preset_name()),
+            3,
+            "FX name,FX file name,FX preset name,separator=;,extrawidth=80",
+            format!(
+                "{};{};{}",
+                fx_id.name(),
+                fx_id.file_name(),
+                fx_id.preset_name()
+            ),
             512,
         )
         .ok_or(EditFxIdError::Cancelled)?;
     let split: Vec<_> = csv.to_str().split(';').collect();
-    if let [file_name, preset_name] = split.as_slice() {
-        let new_fx_id = FxId::new(file_name.to_string(), preset_name.to_string());
+    if let [name, file_name, preset_name] = split.as_slice() {
+        let new_fx_id = FxId {
+            name: name.to_string(),
+            file_name: file_name.to_string(),
+            preset_name: preset_name.to_string(),
+        };
         Ok(new_fx_id)
     } else {
         Err(EditFxIdError::Unexpected("couldn't split"))

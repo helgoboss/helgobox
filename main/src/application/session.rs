@@ -557,7 +557,7 @@ impl Session {
                 };
                 let fx_id = currently_focused_fx
                     .as_ref()
-                    .and_then(|f| FxId::from_fx(f, true).ok());
+                    .and_then(|f| FxId::from_fx(f, false).ok());
                 s.borrow_mut()
                     .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
             }

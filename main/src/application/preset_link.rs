@@ -15,47 +15,73 @@ pub trait PresetLinkManager: fmt::Debug {
 #[derive(Clone, Eq, PartialEq, Hash, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxId {
-    file_name: String,
     #[serde(default, skip_serializing_if = "is_default")]
-    preset_name: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub file_name: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub preset_name: String,
 }
 
 impl fmt::Display for FxId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        if self.preset_name.is_empty() {
-            write!(f, "{}", self.file_name)
-        } else {
-            write!(f, "{} / {}", self.file_name, self.preset_name)
+        fn dash_if_empty(s: &str) -> &str {
+            if s.is_empty() {
+                "-"
+            } else {
+                s
+            }
         }
+        write!(
+            f,
+            "Name: {} | File: {} | Preset: {}",
+            dash_if_empty(&self.name),
+            dash_if_empty(&self.file_name),
+            dash_if_empty(&self.preset_name)
+        )
     }
 }
 
 impl FxId {
-    pub fn new(file_name: String, preset_name: String) -> FxId {
-        FxId {
-            file_name,
-            preset_name,
+    pub fn from_fx(fx: &Fx, most_relevant_only: bool) -> Result<FxId, &'static str> {
+        let fx_info = fx.info()?;
+        let mut fx_id = FxId {
+            name: fx_info.effect_name.trim().to_string(),
+            ..Default::default()
+        };
+        if !fx_id.name.is_empty() && most_relevant_only {
+            return Ok(fx_id);
         }
+        fx_id.file_name = fx_info
+            .file_name
+            .to_str()
+            .ok_or("invalid FX file name")?
+            .trim()
+            .to_string();
+        if !fx_id.file_name.is_empty() && most_relevant_only {
+            return Ok(fx_id);
+        }
+        fx_id.preset_name = fx
+            .preset_name()
+            .map(|s| s.to_str().trim().to_string())
+            .unwrap_or_default();
+        Ok(fx_id)
     }
 
-    pub fn from_fx(fx: &Fx, complete: bool) -> Result<FxId, &'static str> {
-        let fx_info = fx.info()?;
-        let file_name = fx_info.file_name.to_str().ok_or("invalid FX file name")?;
-        let id = FxId {
-            file_name: file_name.to_string(),
-            preset_name: if complete {
-                fx.preset_name()
-                    .map(|s| s.into_string())
-                    .unwrap_or_default()
-            } else {
-                String::new()
-            },
-        };
-        Ok(id)
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn has_name(&self) -> bool {
+        !self.name.is_empty()
     }
 
     pub fn file_name(&self) -> &str {
         &self.file_name
+    }
+
+    pub fn has_file_name(&self) -> bool {
+        !self.file_name.is_empty()
     }
 
     pub fn preset_name(&self) -> &str {
@@ -66,10 +92,25 @@ impl FxId {
         !self.preset_name.is_empty()
     }
 
-    /// The pattern FX ID can contain wildcards.
+    /// Every field in the pattern that's filled must match!
+    ///
+    /// The pattern FX ID fields can contain wildcards.
     pub fn matches(&self, fx_id_pattern: &FxId) -> bool {
-        self.file_name_matches(fx_id_pattern)
-            && (!fx_id_pattern.has_preset_name() || self.preset_name_matches(fx_id_pattern))
+        if fx_id_pattern.has_name() && !self.name_matches(fx_id_pattern) {
+            return false;
+        }
+        if fx_id_pattern.has_file_name() && !self.file_name_matches(fx_id_pattern) {
+            return false;
+        }
+        if fx_id_pattern.has_preset_name() && !self.preset_name_matches(fx_id_pattern) {
+            return false;
+        }
+        true
+    }
+
+    fn name_matches(&self, fx_id_pattern: &FxId) -> bool {
+        let wild_match = wildmatch::WildMatch::new(&fx_id_pattern.name);
+        wild_match.matches(self.name())
     }
 
     fn file_name_matches(&self, fx_id_pattern: &FxId) -> bool {
