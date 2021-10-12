@@ -43,18 +43,21 @@ jobs:
             lib-file-name: librealearn.so
             target: x86_64-unknown-linux-gnu
             use-cross: false
+            strip-cmd: strip
           - artifact: linux-aarch64
             os: ubuntu-latest
             toolchain-suffix: x86_64-unknown-linux-gnu
             lib-file-name: librealearn.so
             target: aarch64-unknown-linux-gnu
             use-cross: true
+            strip-cmd: aarch64-linux-gnu-strip
           - artifact: linux-armv7
             os: ubuntu-latest
             toolchain-suffix: x86_64-unknown-linux-gnu
             lib-file-name: librealearn.so
             target: armv7-unknown-linux-gnueabihf
             use-cross: true
+            strip-cmd: arm-linux-gnueabihf-strip
     env:
       MACOSX_DEPLOYMENT_TARGET: 10.7 # This is relevant for macOS builds only (and only if not overridden).
     steps:
@@ -75,7 +78,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install nasm
+          sudo apt-get install nasm binutils-arm-linux-gnueabihf binutils-aarch64-linux-gnu
       # Override SDK root and deployment target (macOS aarch64 only)
       - name: Set SDKROOT
         if: matrix.target == 'aarch64-apple-darwin'
@@ -95,7 +98,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           cp target/${{ matrix.target }}/release/${{ matrix.lib-file-name }} target/${{ matrix.target }}/release/librealearn-debug.so
-          strip target/${{ matrix.target }}/release/${{ matrix.lib-file-name }}
+          ${{ strip-cmd }} target/${{ matrix.target }}/release/${{ matrix.lib-file-name }}
       - name: Strip debug symbols from macOS binary
         if: matrix.os == 'macos-latest'
         run: |
