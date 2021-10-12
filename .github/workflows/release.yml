@@ -98,7 +98,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           cp target/${{ matrix.target }}/release/${{ matrix.lib-file-name }} target/${{ matrix.target }}/release/librealearn-debug.so
-          ${{ strip-cmd }} target/${{ matrix.target }}/release/${{ matrix.lib-file-name }}
+          ${{ matrix.strip-cmd }} target/${{ matrix.target }}/release/${{ matrix.lib-file-name }}
       - name: Strip debug symbols from macOS binary
         if: matrix.os == 'macos-latest'
         run: |
