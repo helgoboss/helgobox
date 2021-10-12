@@ -5,7 +5,7 @@
 :sectnumlevels: 2
 
 |===
-|Last update of text: |`2021-10-09 (v2.11.0-pre.3)`
+|Last update of text: |`2021-10-12 (v2.11.0-pre.4)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -790,14 +790,15 @@ compartment contains the missing piece of the puzzle:
 *** Location: REAPER resource directory (REAPER → Actions → Show action list… → Show REAPER resource path in
  explorer/finder) at `Data/helgoboss/realearn/auto-load-configs/fx.json`.
 ** *_Arbitrary FX ID:_* If you have added a link already, you will see them here in a list. What you see, is the
- so-called _FX ID_, which by default simply corresponds to the plug-in's file name (e.g. `reasynth.dll`).
+ so-called _FX ID_, which by default simply corresponds to the plug-in's original name (e.g. `VSTi: ReaSynth (Cockos)`).
 *** *&lt;Edit FX ID…&gt;:* With this, you can edit the FX ID manually.
-**** *FX file name:* Allows you to adjust the plug-in file name that triggers the preset change. This is
- especially useful if you want to use wildcards to automatically match similar-named plug-ins (e.g. VST2
- and VST3 at once): You can use `*` for matching zero or arbitrary many characters and `?` for matching
- exactly one arbitrary character. E.g. `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2)
- and `Pianoteq 7 STAGE.vst3` (VST3).
-**** *FX preset name:* Maybe the FX file name is not enough for you to decide which preset you want to load.
+**** _All fields_:  All the fields below support wildcards. E.g. instead on relying on the original plug-in name you could match plug-ins with similar file names (e.g. VST2
+and VST3 at once): You can use `\*` for matching zero or arbitrary many characters and `?` for matching
+exactly one arbitrary character. E.g. `Pianoteq 7 STAGE.*` would match both `Pianoteq 7 STAGE.dll` (VST2)
+and `Pianoteq 7 STAGE.vst3` (VST3).
+**** *FX name:* Allows you to adjust the (original) plug-in name that triggers the preset change.
+**** *FX file name:* Allows you to adjust the plug-in file name that triggers the preset change.
+**** *FX preset name:* Maybe the FX name or file name is not enough for you to decide which preset you want to load.
  Good news: You can add a preset name as additional criteria! E.g. if you have use a sampler, you can load
  different ReaLearn presets depending on which sample library is loaded into your sampler. Just add two
  links with the same FX file name (e.g. `Kontakt 5.dll`) but different preset names. You can also use
