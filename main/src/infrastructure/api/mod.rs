@@ -3,10 +3,10 @@ mod mapping {
     use super::source::*;
     use super::target::*;
     use schemars::JsonSchema;
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
     use ts_rs::TS;
 
-    #[derive(Default, Serialize, JsonSchema, TS)]
+    #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
     pub struct Mapping {
         /// An optional key that you can assign to this mapping in order to refer
         /// to it from somewhere else.
@@ -44,17 +44,17 @@ mod mapping {
         pub target: Option<Target>,
     }
 
-    #[derive(Serialize, JsonSchema, TS)]
+    #[derive(Serialize, Deserialize, JsonSchema, TS)]
     pub enum Lifecycle {
         Normal,
     }
 
-    #[derive(Serialize, JsonSchema, TS)]
+    #[derive(Serialize, Deserialize, JsonSchema, TS)]
     pub enum FeedbackBehavior {
         Normal,
     }
 
-    #[derive(Serialize, JsonSchema, TS)]
+    #[derive(Serialize, Deserialize, JsonSchema, TS)]
     pub enum Active {
         Always,
     }
@@ -65,11 +65,11 @@ mod source {
     use osc::*;
     use reaper::*;
     use schemars::JsonSchema;
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
     use ts_rs::TS;
     use virt::*;
 
-    #[derive(Serialize, JsonSchema, TS)]
+    #[derive(Serialize, Deserialize, JsonSchema, TS)]
     #[serde(tag = "type")]
     pub enum Source {
         None,
@@ -95,10 +95,10 @@ mod source {
 
     pub mod reaper {
         use schemars::JsonSchema;
-        use serde::Serialize;
+        use serde::{Deserialize, Serialize};
         use ts_rs::TS;
 
-        #[derive(Serialize, JsonSchema, TS)]
+        #[derive(Serialize, Deserialize, JsonSchema, TS)]
         pub enum ReaperSource {
             MidiDeviceChanges,
             RealearnInstanceStart,
@@ -107,10 +107,10 @@ mod source {
 
     pub mod midi {
         use schemars::JsonSchema;
-        use serde::Serialize;
+        use serde::{Deserialize, Serialize};
         use ts_rs::TS;
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiNoteVelocitySource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
@@ -118,13 +118,13 @@ mod source {
             pub key_number: Option<u8>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiNoteKeyNumberSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiPolyphonicKeyPressureAmountSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
@@ -132,7 +132,7 @@ mod source {
             pub key_number: Option<u8>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiControlChangeValueSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
@@ -144,25 +144,25 @@ mod source {
             pub fourteen_bit: Option<bool>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiProgramChangeNumberSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiChannelPressureAmountSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiPitchBendChangeValueSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiParameterNumberValueSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
@@ -176,19 +176,19 @@ mod source {
             pub character: Option<SourceCharacter>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiClockTempoSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             reserved: Option<String>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiClockTransportSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub message: Option<MidiClockTransportMessage>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiRawSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub pattern: Option<String>,
@@ -196,19 +196,19 @@ mod source {
             pub character: Option<SourceCharacter>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiScriptSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub script: Option<String>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MidiDisplaySource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub spec: Option<MidiDisplaySpec>,
         }
 
-        #[derive(Serialize, JsonSchema, TS)]
+        #[derive(Serialize, Deserialize, JsonSchema, TS)]
         pub enum SourceCharacter {
             Range,
             Button,
@@ -218,14 +218,14 @@ mod source {
             StatefulButton,
         }
 
-        #[derive(Serialize, JsonSchema, TS)]
+        #[derive(Serialize, Deserialize, JsonSchema, TS)]
         pub enum MidiClockTransportMessage {
             Start,
             Continue,
             Stop,
         }
 
-        #[derive(Serialize, JsonSchema, TS)]
+        #[derive(Serialize, Deserialize, JsonSchema, TS)]
         #[serde(tag = "type")]
         pub enum MidiDisplaySpec {
             MackieLcd(MackieLcdSpec),
@@ -233,7 +233,7 @@ mod source {
             SiniConE24(SiniConE24Spec),
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MackieLcdSpec {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
@@ -241,13 +241,13 @@ mod source {
             pub line: Option<u8>,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct MackieSevenSegmentDisplaySpec {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub scope: Option<MackieSevenSegmentDisplayScope>,
         }
 
-        #[derive(Serialize, JsonSchema, TS)]
+        #[derive(Serialize, Deserialize, JsonSchema, TS)]
         pub enum MackieSevenSegmentDisplayScope {
             All,
             Assignment,
@@ -258,7 +258,7 @@ mod source {
             TcFramesTicks,
         }
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct SiniConE24Spec {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub cell_index: Option<u8>,
@@ -269,10 +269,10 @@ mod source {
 
     pub mod osc {
         use schemars::JsonSchema;
-        use serde::Serialize;
+        use serde::{Deserialize, Serialize};
         use ts_rs::TS;
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct OscSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub reserved: Option<u8>,
@@ -281,10 +281,10 @@ mod source {
 
     pub mod virt {
         use schemars::JsonSchema;
-        use serde::Serialize;
+        use serde::{Deserialize, Serialize};
         use ts_rs::TS;
 
-        #[derive(Default, Serialize, JsonSchema, TS)]
+        #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
         pub struct VirtualSource {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub reserved: Option<u8>,
@@ -294,10 +294,10 @@ mod source {
 
 mod glue {
     use schemars::JsonSchema;
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
     use ts_rs::TS;
 
-    #[derive(Default, Serialize, JsonSchema, TS)]
+    #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
     pub struct Glue {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub source_interval: Option<(f64, f64)>,
@@ -306,16 +306,16 @@ mod glue {
 
 mod target {
     use schemars::JsonSchema;
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
     use ts_rs::TS;
 
-    #[derive(Default, Serialize, JsonSchema, TS)]
+    #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
     pub struct Target {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub unit: Option<TargetUnit>,
     }
 
-    #[derive(Serialize, JsonSchema, TS)]
+    #[derive(Serialize, Deserialize, JsonSchema, TS)]
     pub enum TargetUnit {
         Native,
         Percent,
@@ -422,5 +422,15 @@ mod tests {
         };
         let json = serde_json::to_string_pretty(&mapping).unwrap();
         std::fs::write("src/infrastructure/api/example.json", json).unwrap();
+    }
+
+    #[test]
+    fn example_from_lua() {
+        use mlua::{Lua, LuaSerdeExt};
+        let lua = Lua::new();
+        let value = lua.load(include_str!("example.lua")).eval().unwrap();
+        let mapping: Mapping = lua.from_value(value).unwrap();
+        let json = serde_json::to_string_pretty(&mapping).unwrap();
+        std::fs::write("src/infrastructure/api/example_from_lua.json", json).unwrap();
     }
 }

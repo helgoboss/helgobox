@@ -496,6 +496,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bstr"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba3569f383e8f1598449f1a423e72e99569137b47740b1da11ef19af3d5c3223"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "buf_redux"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1194,6 +1203,15 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "erased-serde"
+version = "0.3.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3de9ad4541d99dc22b59134e7ff8dc3d6c988c89ecd7324bf10a8362b07a2afa"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -2057,6 +2075,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "lua-src"
+version = "543.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b72914332bf1ef0e1185b229135d639f11a4a8ccfd32852db8e52419c04c0247"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "luajit-src"
+version = "210.2.0+resty5f13855"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49f85722ea9e022305a077b916c9271011a195ee8dc9b2b764fc78b0378e3b72"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "lzw"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2203,6 +2239,23 @@ dependencies = [
  "net2",
  "winapi 0.2.8",
  "ws2_32-sys",
+]
+
+[[package]]
+name = "mlua"
+version = "0.6.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4235d7e740d73d7429df6f176c81b248f05c39d67264d45a7d8cecb67c227f6f"
+dependencies = [
+ "bstr",
+ "cc",
+ "erased-serde",
+ "lua-src",
+ "luajit-src",
+ "num-traits",
+ "once_cell",
+ "pkg-config",
+ "serde",
 ]
 
 [[package]]
@@ -3150,6 +3203,7 @@ dependencies = [
  "itertools",
  "lazycell",
  "maplit",
+ "mlua",
  "nanoid",
  "num_enum 0.5.4",
  "once_cell",

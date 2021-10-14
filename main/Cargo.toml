@@ -146,6 +146,8 @@ approx = "0.3.2"
 ts-rs = { version = "4.0.0", features = ["serde-compat"] }
 # For the API
 schemars = "0.8.6"
+# For the API
+mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize"] }
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

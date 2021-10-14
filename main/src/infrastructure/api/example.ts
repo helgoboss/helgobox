@@ -6,7 +6,8 @@ const mapping: Mapping = {
         type: "MidiDisplay",
         spec: {
             type: "MackieLcd",
-            channel: 0
+            channel: 5,
+            line: 2
         }
     }
 }
