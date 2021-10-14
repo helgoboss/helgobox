@@ -60,101 +60,6 @@
         "Always"
       ]
     },
-    "ChannelPressureAmountSource": {
-      "type": "object",
-      "properties": {
-        "channel": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        }
-      }
-    },
-    "ClockTempoSource": {
-      "type": "object",
-      "properties": {
-        "reserved": {
-          "type": "string"
-        }
-      }
-    },
-    "ClockTransportSource": {
-      "type": "object",
-      "properties": {
-        "message": {
-          "$ref": "#/definitions/MidiClockTransportMessage"
-        }
-      }
-    },
-    "ControlChangeValueSource": {
-      "type": "object",
-      "properties": {
-        "channel": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        },
-        "character": {
-          "$ref": "#/definitions/SourceCharacter"
-        },
-        "controller_number": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        },
-        "fourteen_bit": {
-          "type": "boolean"
-        }
-      }
-    },
-    "DisplaySource": {
-      "type": "object",
-      "properties": {
-        "spec": {
-          "$ref": "#/definitions/DisplaySpec"
-        }
-      }
-    },
-    "DisplaySpec": {
-      "oneOf": [
-        {
-          "type": "object",
-          "required": [
-            "MackieLcd"
-          ],
-          "properties": {
-            "MackieLcd": {
-              "$ref": "#/definitions/MackieLcdSpec"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "MackieSevenSegmentDisplay"
-          ],
-          "properties": {
-            "MackieSevenSegmentDisplay": {
-              "$ref": "#/definitions/MackieSevenSegmentDisplaySpec"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "SiniConE24"
-          ],
-          "properties": {
-            "SiniConE24": {
-              "$ref": "#/definitions/SiniConE24Spec"
-            }
-          },
-          "additionalProperties": false
-        }
-      ]
-    },
     "FeedbackBehavior": {
       "type": "string",
       "enum": [
@@ -163,9 +68,6 @@
     },
     "Glue": {
       "type": "object",
-      "required": [
-        "source_interval"
-      ],
       "properties": {
         "source_interval": {
           "type": "array",
@@ -190,21 +92,6 @@
         "Normal"
       ]
     },
-    "MackieLcdSpec": {
-      "type": "object",
-      "properties": {
-        "channel": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        },
-        "line": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        }
-      }
-    },
     "MackieSevenSegmentDisplayScope": {
       "type": "string",
       "enum": [
@@ -217,14 +104,6 @@
         "TcFramesTicks"
       ]
     },
-    "MackieSevenSegmentDisplaySpec": {
-      "type": "object",
-      "properties": {
-        "scope": {
-          "$ref": "#/definitions/MackieSevenSegmentDisplayScope"
-        }
-      }
-    },
     "MidiClockTransportMessage": {
       "type": "string",
       "enum": [
@@ -233,359 +112,424 @@
         "Stop"
       ]
     },
-    "MidiSource": {
+    "MidiDisplaySpec": {
       "oneOf": [
         {
           "type": "object",
           "required": [
-            "NoteVelocity"
+            "type"
           ],
           "properties": {
-            "NoteVelocity": {
-              "$ref": "#/definitions/NoteVelocitySource"
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "line": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MackieLcd"
+              ]
             }
-          },
-          "additionalProperties": false
+          }
         },
         {
           "type": "object",
           "required": [
-            "NoteKeyNumber"
+            "type"
           ],
           "properties": {
-            "NoteKeyNumber": {
-              "$ref": "#/definitions/NoteKeyNumberSource"
+            "scope": {
+              "$ref": "#/definitions/MackieSevenSegmentDisplayScope"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MackieSevenSegmentDisplay"
+              ]
             }
-          },
-          "additionalProperties": false
+          }
         },
         {
           "type": "object",
           "required": [
-            "PolyphonicKeyPressureAmount"
+            "type"
           ],
           "properties": {
-            "PolyphonicKeyPressureAmount": {
-              "$ref": "#/definitions/PolyphonicKeyPressureAmountSource"
+            "cell_index": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "item_index": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "SiniConE24"
+              ]
             }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "ControlChangeValue"
-          ],
-          "properties": {
-            "ControlChangeValue": {
-              "$ref": "#/definitions/ControlChangeValueSource"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "ProgramChangeNumber"
-          ],
-          "properties": {
-            "ProgramChangeNumber": {
-              "$ref": "#/definitions/ProgramChangeNumberSource"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "ChannelPressureAmount"
-          ],
-          "properties": {
-            "ChannelPressureAmount": {
-              "$ref": "#/definitions/ChannelPressureAmountSource"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "PitchBendChangeValue"
-          ],
-          "properties": {
-            "PitchBendChangeValue": {
-              "$ref": "#/definitions/PitchBendChangeValueSource"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "ParameterNumberValue"
-          ],
-          "properties": {
-            "ParameterNumberValue": {
-              "$ref": "#/definitions/ParameterNumberValueSource"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "ClockTempo"
-          ],
-          "properties": {
-            "ClockTempo": {
-              "$ref": "#/definitions/ClockTempoSource"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "ClockTransport"
-          ],
-          "properties": {
-            "ClockTransport": {
-              "$ref": "#/definitions/ClockTransportSource"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "Raw"
-          ],
-          "properties": {
-            "Raw": {
-              "$ref": "#/definitions/RawSource"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "Script"
-          ],
-          "properties": {
-            "Script": {
-              "$ref": "#/definitions/ScriptSource"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "Display"
-          ],
-          "properties": {
-            "Display": {
-              "$ref": "#/definitions/DisplaySource"
-            }
-          },
-          "additionalProperties": false
+          }
         }
       ]
-    },
-    "NoteKeyNumberSource": {
-      "type": "object",
-      "properties": {
-        "channel": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        }
-      }
-    },
-    "NoteVelocitySource": {
-      "type": "object",
-      "properties": {
-        "channel": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        },
-        "key_number": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        }
-      }
-    },
-    "OscSource": {
-      "type": "object",
-      "required": [
-        "number"
-      ],
-      "properties": {
-        "number": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        }
-      }
-    },
-    "ParameterNumberValueSource": {
-      "type": "object",
-      "properties": {
-        "channel": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        },
-        "character": {
-          "$ref": "#/definitions/SourceCharacter"
-        },
-        "fourteen_bit": {
-          "type": "boolean"
-        },
-        "number": {
-          "type": "integer",
-          "format": "uint16",
-          "minimum": 0.0
-        },
-        "registered": {
-          "type": "boolean"
-        }
-      }
-    },
-    "PitchBendChangeValueSource": {
-      "type": "object",
-      "properties": {
-        "channel": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        }
-      }
-    },
-    "PolyphonicKeyPressureAmountSource": {
-      "type": "object",
-      "properties": {
-        "channel": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        },
-        "key_number": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        }
-      }
-    },
-    "ProgramChangeNumberSource": {
-      "type": "object",
-      "properties": {
-        "channel": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        }
-      }
-    },
-    "RawSource": {
-      "type": "object",
-      "properties": {
-        "character": {
-          "$ref": "#/definitions/SourceCharacter"
-        },
-        "pattern": {
-          "type": "string"
-        }
-      }
-    },
-    "ReaperSource": {
-      "type": "string",
-      "enum": [
-        "MidiDeviceChanges",
-        "RealearnInstanceStart"
-      ]
-    },
-    "ScriptSource": {
-      "type": "object",
-      "properties": {
-        "script": {
-          "type": "string"
-        }
-      }
-    },
-    "SiniConE24Spec": {
-      "type": "object",
-      "properties": {
-        "cell_index": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        },
-        "item_index": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        }
-      }
     },
     "Source": {
       "oneOf": [
         {
-          "type": "string",
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "None"
+              ]
+            }
+          }
+        },
+        {
+          "type": [
+            "object",
+            "string"
+          ],
           "enum": [
-            "None"
-          ]
+            "MidiDeviceChanges",
+            "RealearnInstanceStart"
+          ],
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "Reaper"
+              ]
+            }
+          }
         },
         {
           "type": "object",
           "required": [
-            "Reaper"
+            "type"
           ],
           "properties": {
-            "Reaper": {
-              "$ref": "#/definitions/ReaperSource"
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "key_number": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiNoteVelocity"
+              ]
             }
-          },
-          "additionalProperties": false
+          }
         },
         {
           "type": "object",
           "required": [
-            "Midi"
+            "type"
           ],
           "properties": {
-            "Midi": {
-              "$ref": "#/definitions/MidiSource"
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiNoteKeyNumber"
+              ]
             }
-          },
-          "additionalProperties": false
+          }
         },
         {
           "type": "object",
           "required": [
-            "Osc"
+            "type"
           ],
           "properties": {
-            "Osc": {
-              "$ref": "#/definitions/OscSource"
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "key_number": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiPolyphonicKeyPressureAmount"
+              ]
             }
-          },
-          "additionalProperties": false
+          }
         },
         {
           "type": "object",
           "required": [
-            "Virtual"
+            "type"
           ],
           "properties": {
-            "Virtual": {
-              "$ref": "#/definitions/VirtualSource"
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "character": {
+              "$ref": "#/definitions/SourceCharacter"
+            },
+            "controller_number": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "fourteen_bit": {
+              "type": "boolean"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiControlChangeValue"
+              ]
             }
-          },
-          "additionalProperties": false
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiProgramChangeNumber"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiChannelPressureAmount"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiPitchBendChangeValue"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "character": {
+              "$ref": "#/definitions/SourceCharacter"
+            },
+            "fourteen_bit": {
+              "type": "boolean"
+            },
+            "number": {
+              "type": "integer",
+              "format": "uint16",
+              "minimum": 0.0
+            },
+            "registered": {
+              "type": "boolean"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiParameterNumberValue"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "reserved": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiClockTempo"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "message": {
+              "$ref": "#/definitions/MidiClockTransportMessage"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiClockTransport"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "character": {
+              "$ref": "#/definitions/SourceCharacter"
+            },
+            "pattern": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiRaw"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "script": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiScript"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "spec": {
+              "$ref": "#/definitions/MidiDisplaySpec"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiDisplay"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "reserved": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "Osc"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "reserved": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "Virtual"
+              ]
+            }
+          }
         }
       ]
     },
@@ -614,19 +558,6 @@
         "Native",
         "Percent"
       ]
-    },
-    "VirtualSource": {
-      "type": "object",
-      "required": [
-        "number"
-      ],
-      "properties": {
-        "number": {
-          "type": "integer",
-          "format": "uint8",
-          "minimum": 0.0
-        }
-      }
     }
   }
 }

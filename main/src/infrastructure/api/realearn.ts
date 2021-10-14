@@ -23,89 +23,87 @@ export type FeedbackBehavior = "Normal";
 export type Active = "Always";
 
 export type Source =
-  | "None"
-  | ReaperSource
-  | MidiSource
-  | OscSource
-  | VirtualSource;
+  | { type: "None" }
+  | { type: "Reaper" } & ReaperSource
+  | { type: "MidiNoteVelocity" } & MidiNoteVelocitySource
+  | { type: "MidiNoteKeyNumber" } & MidiNoteKeyNumberSource
+  | { type: "MidiPolyphonicKeyPressureAmount" }
+    & MidiPolyphonicKeyPressureAmountSource
+  | { type: "MidiControlChangeValue" } & MidiControlChangeValueSource
+  | { type: "MidiProgramChangeNumber" } & MidiProgramChangeNumberSource
+  | { type: "MidiChannelPressureAmount" } & MidiChannelPressureAmountSource
+  | { type: "MidiPitchBendChangeValue" } & MidiPitchBendChangeValueSource
+  | { type: "MidiParameterNumberValue" } & MidiParameterNumberValueSource
+  | { type: "MidiClockTempo" } & MidiClockTempoSource
+  | { type: "MidiClockTransport" } & MidiClockTransportSource
+  | { type: "MidiRaw" } & MidiRawSource
+  | { type: "MidiScript" } & MidiScriptSource
+  | { type: "MidiDisplay" } & MidiDisplaySource
+  | { type: "Osc" } & OscSource
+  | { type: "Virtual" } & VirtualSource;
 
 export type ReaperSource = "MidiDeviceChanges" | "RealearnInstanceStart";
 
-export type MidiSource =
-  | NoteVelocitySource
-  | NoteKeyNumberSource
-  | PolyphonicKeyPressureAmountSource
-  | ControlChangeValueSource
-  | ProgramChangeNumberSource
-  | ChannelPressureAmountSource
-  | PitchBendChangeValueSource
-  | ParameterNumberValueSource
-  | ClockTempoSource
-  | ClockTransportSource
-  | RawSource
-  | ScriptSource
-  | DisplaySource;
-
-export interface NoteVelocitySource {
-  channel: number | null;
-  key_number: number | null;
+export interface MidiNoteVelocitySource {
+  channel?: number;
+  key_number?: number;
 }
 
-export interface NoteKeyNumberSource {
-  channel: number | null;
+export interface MidiNoteKeyNumberSource {
+  channel?: number;
 }
 
-export interface PolyphonicKeyPressureAmountSource {
-  channel: number | null;
-  key_number: number | null;
+export interface MidiPolyphonicKeyPressureAmountSource {
+  channel?: number;
+  key_number?: number;
 }
 
-export interface ControlChangeValueSource {
-  channel: number | null;
-  controller_number: number | null;
-  character: SourceCharacter | null;
-  fourteen_bit: boolean | null;
+export interface MidiControlChangeValueSource {
+  channel?: number;
+  controller_number?: number;
+  character?: SourceCharacter;
+  fourteen_bit?: boolean;
 }
 
-export interface ProgramChangeNumberSource {
-  channel: number | null;
+export interface MidiProgramChangeNumberSource {
+  channel?: number;
 }
 
-export interface ChannelPressureAmountSource {
-  channel: number | null;
+export interface MidiChannelPressureAmountSource {
+  channel?: number;
 }
 
-export interface PitchBendChangeValueSource {
-  channel: number | null;
+export interface MidiPitchBendChangeValueSource {
+  channel?: number;
 }
 
-export interface ParameterNumberValueSource {
-  channel: number | null;
-  number: number | null;
-  fourteen_bit: boolean | null;
-  registered: boolean | null;
-  character: SourceCharacter | null;
+export interface MidiParameterNumberValueSource {
+  channel?: number;
+  number?: number;
+  fourteen_bit?: boolean;
+  registered?: boolean;
+  character?: SourceCharacter;
 }
 
-export interface ClockTempoSource {
-  reserved: string | null;
+export interface MidiClockTempoSource {
+  reserved?: string;
 }
 
-export interface ClockTransportSource {
-  message: MidiClockTransportMessage | null;
+export interface MidiClockTransportSource {
+  message?: MidiClockTransportMessage;
 }
 
-export interface RawSource {
-  pattern: string | null;
-  character: SourceCharacter | null;
+export interface MidiRawSource {
+  pattern?: string;
+  character?: SourceCharacter;
 }
 
-export interface ScriptSource {
-  script: string | null;
+export interface MidiScriptSource {
+  script?: string;
 }
 
-export interface DisplaySource {
-  spec: DisplaySpec | null;
+export interface MidiDisplaySource {
+  spec?: MidiDisplaySpec;
 }
 
 export type SourceCharacter =
@@ -118,18 +116,18 @@ export type SourceCharacter =
 
 export type MidiClockTransportMessage = "Start" | "Continue" | "Stop";
 
-export type DisplaySpec =
-  | MackieLcdSpec
-  | MackieSevenSegmentDisplaySpec
-  | SiniConE24Spec;
+export type MidiDisplaySpec =
+  | { type: "MackieLcd" } & MackieLcdSpec
+  | { type: "MackieSevenSegmentDisplay" } & MackieSevenSegmentDisplaySpec
+  | { type: "SiniConE24" } & SiniConE24Spec;
 
 export interface MackieLcdSpec {
-  channel: number | null;
-  line: number | null;
+  channel?: number;
+  line?: number;
 }
 
 export interface MackieSevenSegmentDisplaySpec {
-  scope: MackieSevenSegmentDisplayScope | null;
+  scope?: MackieSevenSegmentDisplayScope;
 }
 
 export type MackieSevenSegmentDisplayScope =
@@ -142,24 +140,24 @@ export type MackieSevenSegmentDisplayScope =
   | "TcFramesTicks";
 
 export interface SiniConE24Spec {
-  cell_index: number | null;
-  item_index: number | null;
+  cell_index?: number;
+  item_index?: number;
 }
 
 export interface OscSource {
-  number: number;
+  reserved?: number;
 }
 
 export interface VirtualSource {
-  number: number;
+  reserved?: number;
 }
 
 export interface Glue {
-  source_interval: [number, number];
+  source_interval?: [number, number];
 }
 
 export interface Target {
-  unit: TargetUnit | null;
+  unit?: TargetUnit;
 }
 
 export type TargetUnit = "Native" | "Percent";

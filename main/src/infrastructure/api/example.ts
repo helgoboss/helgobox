@@ -3,6 +3,10 @@ import {Mapping} from "./realearn";
 
 const mapping: Mapping = {
     source: {
-
+        type: "MidiDisplay",
+        spec: {
+            type: "MackieLcd",
+            channel: 0
+        }
     }
 }

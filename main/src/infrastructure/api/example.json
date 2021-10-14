@@ -15,14 +15,11 @@
   "on_activate": "Normal",
   "on_deactivate": "Normal",
   "source": {
-    "Midi": {
-      "ControlChangeValue": {
-        "channel": 0,
-        "controller_number": 64,
-        "character": "Button",
-        "fourteen_bit": false
-      }
-    }
+    "type": "MidiControlChangeValue",
+    "channel": 0,
+    "controller_number": 64,
+    "character": "Button",
+    "fourteen_bit": false
   },
   "glue": {
     "source_interval": [

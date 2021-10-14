@@ -70,10 +70,25 @@ mod source {
     use virt::*;
 
     #[derive(Serialize, JsonSchema, TS)]
+    #[serde(tag = "type")]
     pub enum Source {
         None,
         Reaper(ReaperSource),
-        Midi(MidiSource),
+        // MIDI
+        MidiNoteVelocity(MidiNoteVelocitySource),
+        MidiNoteKeyNumber(MidiNoteKeyNumberSource),
+        MidiPolyphonicKeyPressureAmount(MidiPolyphonicKeyPressureAmountSource),
+        MidiControlChangeValue(MidiControlChangeValueSource),
+        MidiProgramChangeNumber(MidiProgramChangeNumberSource),
+        MidiChannelPressureAmount(MidiChannelPressureAmountSource),
+        MidiPitchBendChangeValue(MidiPitchBendChangeValueSource),
+        MidiParameterNumberValue(MidiParameterNumberValueSource),
+        MidiClockTempo(MidiClockTempoSource),
+        MidiClockTransport(MidiClockTransportSource),
+        MidiRaw(MidiRawSource),
+        MidiScript(MidiScriptSource),
+        MidiDisplay(MidiDisplaySource),
+        // OSC
         Osc(OscSource),
         Virtual(VirtualSource),
     }
@@ -95,96 +110,102 @@ mod source {
         use serde::Serialize;
         use ts_rs::TS;
 
-        #[derive(Serialize, JsonSchema, TS)]
-        pub enum MidiSource {
-            NoteVelocity(NoteVelocitySource),
-            NoteKeyNumber(NoteKeyNumberSource),
-            PolyphonicKeyPressureAmount(PolyphonicKeyPressureAmountSource),
-            ControlChangeValue(ControlChangeValueSource),
-            ProgramChangeNumber(ProgramChangeNumberSource),
-            ChannelPressureAmount(ChannelPressureAmountSource),
-            PitchBendChangeValue(PitchBendChangeValueSource),
-            ParameterNumberValue(ParameterNumberValueSource),
-            ClockTempo(ClockTempoSource),
-            ClockTransport(ClockTransportSource),
-            Raw(RawSource),
-            Script(ScriptSource),
-            Display(DisplaySource),
-        }
-
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct NoteVelocitySource {
+        pub struct MidiNoteVelocitySource {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub key_number: Option<u8>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct NoteKeyNumberSource {
+        pub struct MidiNoteKeyNumberSource {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct PolyphonicKeyPressureAmountSource {
+        pub struct MidiPolyphonicKeyPressureAmountSource {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub key_number: Option<u8>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct ControlChangeValueSource {
+        pub struct MidiControlChangeValueSource {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub controller_number: Option<u8>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub character: Option<SourceCharacter>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub fourteen_bit: Option<bool>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct ProgramChangeNumberSource {
+        pub struct MidiProgramChangeNumberSource {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct ChannelPressureAmountSource {
+        pub struct MidiChannelPressureAmountSource {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct PitchBendChangeValueSource {
+        pub struct MidiPitchBendChangeValueSource {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct ParameterNumberValueSource {
+        pub struct MidiParameterNumberValueSource {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub number: Option<u16>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub fourteen_bit: Option<bool>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub registered: Option<bool>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub character: Option<SourceCharacter>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct ClockTempoSource {
+        pub struct MidiClockTempoSource {
+            #[serde(skip_serializing_if = "Option::is_none")]
             reserved: Option<String>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct ClockTransportSource {
+        pub struct MidiClockTransportSource {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub message: Option<MidiClockTransportMessage>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct RawSource {
+        pub struct MidiRawSource {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub pattern: Option<String>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub character: Option<SourceCharacter>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct ScriptSource {
+        pub struct MidiScriptSource {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub script: Option<String>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
-        pub struct DisplaySource {
-            pub spec: Option<DisplaySpec>,
+        pub struct MidiDisplaySource {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub spec: Option<MidiDisplaySpec>,
         }
 
         #[derive(Serialize, JsonSchema, TS)]
@@ -205,7 +226,8 @@ mod source {
         }
 
         #[derive(Serialize, JsonSchema, TS)]
-        pub enum DisplaySpec {
+        #[serde(tag = "type")]
+        pub enum MidiDisplaySpec {
             MackieLcd(MackieLcdSpec),
             MackieSevenSegmentDisplay(MackieSevenSegmentDisplaySpec),
             SiniConE24(SiniConE24Spec),
@@ -213,12 +235,15 @@ mod source {
 
         #[derive(Default, Serialize, JsonSchema, TS)]
         pub struct MackieLcdSpec {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub channel: Option<u8>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub line: Option<u8>,
         }
 
         #[derive(Default, Serialize, JsonSchema, TS)]
         pub struct MackieSevenSegmentDisplaySpec {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub scope: Option<MackieSevenSegmentDisplayScope>,
         }
 
@@ -235,7 +260,9 @@ mod source {
 
         #[derive(Default, Serialize, JsonSchema, TS)]
         pub struct SiniConE24Spec {
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub cell_index: Option<u8>,
+            #[serde(skip_serializing_if = "Option::is_none")]
             pub item_index: Option<u8>,
         }
     }
@@ -247,7 +274,8 @@ mod source {
 
         #[derive(Default, Serialize, JsonSchema, TS)]
         pub struct OscSource {
-            pub number: u8,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub reserved: Option<u8>,
         }
     }
 
@@ -258,7 +286,8 @@ mod source {
 
         #[derive(Default, Serialize, JsonSchema, TS)]
         pub struct VirtualSource {
-            pub number: u8,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            pub reserved: Option<u8>,
         }
     }
 }
@@ -270,7 +299,8 @@ mod glue {
 
     #[derive(Default, Serialize, JsonSchema, TS)]
     pub struct Glue {
-        pub source_interval: (f64, f64),
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub source_interval: Option<(f64, f64)>,
     }
 }
 
@@ -281,6 +311,7 @@ mod target {
 
     #[derive(Default, Serialize, JsonSchema, TS)]
     pub struct Target {
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub unit: Option<TargetUnit>,
     }
 
@@ -304,18 +335,35 @@ mod tests {
 
     ts_rs::export! {
         // Mapping
-        Mapping, Lifecycle, FeedbackBehavior, Active,
+        Mapping,
+        Lifecycle,
+        FeedbackBehavior,
+        Active,
         // Source
         Source,
         // REAPER source
         ReaperSource,
         // MIDI source
-        MidiSource, NoteVelocitySource, NoteKeyNumberSource,
-        PolyphonicKeyPressureAmountSource, ControlChangeValueSource, ProgramChangeNumberSource,
-        ChannelPressureAmountSource, PitchBendChangeValueSource, ParameterNumberValueSource,
-        ClockTempoSource, ClockTransportSource, RawSource, ScriptSource, DisplaySource,
-        SourceCharacter, MidiClockTransportMessage, DisplaySpec, MackieLcdSpec,
-        MackieSevenSegmentDisplaySpec, MackieSevenSegmentDisplayScope, SiniConE24Spec,
+        MidiNoteVelocitySource,
+        MidiNoteKeyNumberSource,
+        MidiPolyphonicKeyPressureAmountSource,
+        MidiControlChangeValueSource,
+        MidiProgramChangeNumberSource,
+        MidiChannelPressureAmountSource,
+        MidiPitchBendChangeValueSource,
+        MidiParameterNumberValueSource,
+        MidiClockTempoSource,
+        MidiClockTransportSource,
+        MidiRawSource,
+        MidiScriptSource,
+        MidiDisplaySource,
+        SourceCharacter,
+        MidiClockTransportMessage,
+        MidiDisplaySpec,
+        MackieLcdSpec,
+        MackieSevenSegmentDisplaySpec,
+        MackieSevenSegmentDisplayScope,
+        SiniConE24Spec,
         // OSC source
         OscSource,
         // Virtual source
@@ -323,7 +371,8 @@ mod tests {
         // Glue
         Glue,
         // Target
-        Target, TargetUnit
+        Target,
+        TargetUnit
 
         => "src/infrastructure/api/realearn.ts"
     }
@@ -355,16 +404,16 @@ mod tests {
             feedback_behavior: Some(FeedbackBehavior::Normal),
             on_activate: Some(Lifecycle::Normal),
             on_deactivate: Some(Lifecycle::Normal),
-            source: Some(Source::Midi(MidiSource::ControlChangeValue(
-                ControlChangeValueSource {
+            source: Some(Source::MidiControlChangeValue(
+                MidiControlChangeValueSource {
                     channel: Some(0),
                     controller_number: Some(64),
                     character: Some(SourceCharacter::Button),
                     fourteen_bit: Some(false),
                 },
-            ))),
+            )),
             glue: Some(Glue {
-                source_interval: (0.3, 0.7),
+                source_interval: Some((0.3, 0.7)),
             }),
             target: Some(Target {
                 unit: Some(TargetUnit::Percent),
