@@ -30,4 +30,5 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --target i686-pc-windows-msvc
+          # We build with --release because without that, LLVM runs out of memory on GitHub actions
+          args: --release --target i686-pc-windows-msvc
