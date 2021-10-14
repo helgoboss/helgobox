@@ -1,3 +1,4 @@
+mod api;
 mod data;
 mod plugin;
 mod server;
