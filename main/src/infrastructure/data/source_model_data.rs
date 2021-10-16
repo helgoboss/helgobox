@@ -66,9 +66,9 @@ pub struct SourceModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
-    control_element_index: VirtualControlElementIdData,
+    pub control_element_index: VirtualControlElementIdData,
     #[serde(default, skip_serializing_if = "is_default")]
-    reaper_source_type: ReaperSourceType,
+    pub reaper_source_type: ReaperSourceType,
 }
 
 impl SourceModelData {

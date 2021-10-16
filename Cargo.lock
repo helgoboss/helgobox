@@ -1659,9 +1659,9 @@ dependencies = [
 
 [[package]]
 name = "helgoboss-midi"
-version = "0.3.1"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95a3835d4e50b1a8dec937ce339d48c344fe315ad8ea8099f732531efa3d5ebd"
+checksum = "0be82fc8124a8a73d66d3ca37276fbe778a683c10bcf811e2887715527f00534"
 dependencies = [
  "core-error",
  "derive_more",

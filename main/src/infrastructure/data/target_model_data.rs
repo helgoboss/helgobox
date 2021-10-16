@@ -35,56 +35,56 @@ pub struct TargetModelData {
     pub r#type: ReaperTargetType,
     // Action target
     #[serde(default, skip_serializing_if = "is_default")]
-    command_name: Option<String>,
+    pub command_name: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
-    invocation_type: ActionInvocationType,
+    pub invocation_type: ActionInvocationType,
     // Until ReaLearn 1.0.0-beta6
     #[serde(default, skip_serializing)]
-    invoke_relative: Option<bool>,
+    pub invoke_relative: Option<bool>,
     #[serde(default, skip_serializing_if = "is_default")]
-    with_track: bool,
+    pub with_track: bool,
     // Track target
     #[serde(flatten)]
-    track_data: TrackData,
+    pub track_data: TrackData,
     #[serde(default, skip_serializing_if = "is_default")]
-    enable_only_if_track_is_selected: bool,
+    pub enable_only_if_track_is_selected: bool,
     // FX target
     #[serde(flatten)]
-    fx_data: FxData,
+    pub fx_data: FxData,
     #[serde(default, skip_serializing_if = "is_default")]
-    enable_only_if_fx_has_focus: bool,
+    pub enable_only_if_fx_has_focus: bool,
     // Track route target
     #[serde(flatten)]
-    track_route_data: TrackRouteData,
+    pub track_route_data: TrackRouteData,
     // FX parameter target
     #[serde(flatten)]
-    fx_parameter_data: FxParameterData,
+    pub fx_parameter_data: FxParameterData,
     // Track selection target (replaced with `track_exclusivity` since v2.4.0)
     #[serde(default, skip_serializing_if = "is_default")]
-    select_exclusively: Option<bool>,
+    pub select_exclusively: Option<bool>,
     // Track solo target (since v2.4.0, also changed default from "ignore routing" to "in place")
     #[serde(default, skip_serializing_if = "is_none_or_some_default")]
-    solo_behavior: Option<SoloBehavior>,
+    pub solo_behavior: Option<SoloBehavior>,
     // Toggleable track targets (since v2.4.0)
     #[serde(default, skip_serializing_if = "is_default")]
-    track_exclusivity: TrackExclusivity,
+    pub track_exclusivity: TrackExclusivity,
     // Transport target
     #[serde(default, skip_serializing_if = "is_default")]
-    transport_action: TransportAction,
+    pub transport_action: TransportAction,
     #[serde(default, skip_serializing_if = "is_default")]
-    control_element_type: VirtualControlElementType,
+    pub control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
-    control_element_index: VirtualControlElementIdData,
+    pub control_element_index: VirtualControlElementIdData,
     #[serde(default, skip_serializing_if = "is_default")]
-    fx_snapshot: Option<FxSnapshot>,
+    pub fx_snapshot: Option<FxSnapshot>,
     #[serde(default, skip_serializing_if = "is_default")]
-    touched_parameter_type: TouchedParameterType,
+    pub touched_parameter_type: TouchedParameterType,
     // Bookmark target
     #[serde(flatten)]
-    bookmark_data: BookmarkData,
+    pub bookmark_data: BookmarkData,
     // Seek target
     #[serde(flatten)]
-    seek_options: SeekOptions,
+    pub seek_options: SeekOptions,
     // Track show target
     #[serde(default, skip_serializing_if = "is_default")]
     pub track_area: RealearnTrackArea,
@@ -647,7 +647,7 @@ fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct FxParameterData {
+pub struct FxParameterData {
     #[serde(rename = "paramType", default, skip_serializing_if = "is_default")]
     r#type: Option<VirtualFxParameterType>,
     #[serde(
@@ -669,7 +669,7 @@ struct FxParameterData {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct TrackRouteData {
+pub struct TrackRouteData {
     #[serde(
         rename = "routeSelectorType",
         default,
@@ -702,7 +702,7 @@ struct TrackRouteData {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct FxData {
+pub struct FxData {
     /// Since 1.12.0-pre8. This is an option because we changed the default and wanted an easy
     /// way to detect when an old preset is loaded.
     // TODO-low If we would have a look at the version number at deserialization time, we could
@@ -736,7 +736,7 @@ struct FxData {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct TrackData {
+pub struct TrackData {
     // None means "This" track
     #[serde(rename = "trackGUID", default, skip_serializing_if = "is_default")]
     guid: Option<String>,
@@ -1085,7 +1085,7 @@ fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct BookmarkData {
+pub struct BookmarkData {
     #[serde(rename = "bookmarkAnchor", default, skip_serializing_if = "is_default")]
     anchor: BookmarkAnchorType,
     #[serde(rename = "bookmarkRef", default, skip_serializing_if = "is_default")]

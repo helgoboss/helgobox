@@ -6,23 +6,23 @@
     "master"
   ],
   "group": "faders",
-  "visible_in_projection": true,
+  "visibleInProjection": true,
   "enabled": true,
-  "control_enabled": true,
-  "feedback_enabled": true,
+  "controlEnabled": true,
+  "feedbackEnabled": true,
   "active": "Always",
-  "feedback_behavior": "Normal",
-  "on_activate": "Normal",
-  "on_deactivate": "Normal",
+  "feedbackBehavior": "Normal",
+  "onActivate": "Normal",
+  "onDeactivate": "Normal",
   "source": {
     "type": "MidiControlChangeValue",
     "channel": 0,
-    "controller_number": 64,
+    "controllerNumber": 64,
     "character": "Button",
-    "fourteen_bit": false
+    "fourteenBit": false
   },
   "glue": {
-    "source_interval": [
+    "sourceInterval": [
       0.3,
       0.7
     ]

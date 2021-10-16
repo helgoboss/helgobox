@@ -17,30 +17,30 @@ use std::borrow::BorrowMut;
 pub struct MappingModelData {
     // Saved since ReaLearn 1.12.0
     #[serde(default, skip_serializing_if = "is_default")]
-    id: Option<MappingId>,
+    pub id: Option<MappingId>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub name: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub group_id: GroupId,
-    source: SourceModelData,
-    mode: ModeModelData,
-    target: TargetModelData,
+    pub source: SourceModelData,
+    pub mode: ModeModelData,
+    pub target: TargetModelData,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
-    is_enabled: bool,
+    pub is_enabled: bool,
     #[serde(flatten)]
-    enabled_data: EnabledData,
+    pub enabled_data: EnabledData,
     #[serde(flatten)]
-    activation_condition_data: ActivationConditionData,
+    pub activation_condition_data: ActivationConditionData,
     #[serde(default, skip_serializing_if = "is_default")]
-    prevent_echo_feedback: bool,
+    pub prevent_echo_feedback: bool,
     #[serde(default, skip_serializing_if = "is_default")]
-    send_feedback_after_control: bool,
+    pub send_feedback_after_control: bool,
     #[serde(default, skip_serializing_if = "is_default")]
-    advanced: Option<serde_yaml::mapping::Mapping>,
+    pub advanced: Option<serde_yaml::mapping::Mapping>,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
-    visible_in_projection: bool,
+    pub visible_in_projection: bool,
 }
 
 impl MappingModelData {

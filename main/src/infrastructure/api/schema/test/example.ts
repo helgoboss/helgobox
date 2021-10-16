@@ -1,5 +1,4 @@
-import * as realearn from './realearn';
-import {Mapping} from "./realearn";
+import {Mapping} from "../generated/realearn"
 
 const mapping: Mapping = {
     source: {

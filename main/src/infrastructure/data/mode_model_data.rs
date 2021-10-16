@@ -14,71 +14,71 @@ use std::time::Duration;
 #[serde(rename_all = "camelCase")]
 pub struct ModeModelData {
     #[serde(default, skip_serializing_if = "is_default")]
-    r#type: AbsoluteMode,
+    pub r#type: AbsoluteMode,
     #[serde(default, skip_serializing_if = "is_default")]
-    min_source_value: UnitValue,
+    pub min_source_value: UnitValue,
     #[serde(default = "unit_value_one", skip_serializing_if = "is_unit_value_one")]
-    max_source_value: UnitValue,
+    pub max_source_value: UnitValue,
     #[serde(default, skip_serializing_if = "is_default")]
-    min_target_value: UnitValue,
+    pub min_target_value: UnitValue,
     #[serde(default = "unit_value_one", skip_serializing_if = "is_unit_value_one")]
-    max_target_value: UnitValue,
+    pub max_target_value: UnitValue,
     #[serde(default, skip_serializing_if = "is_default")]
-    min_target_jump: UnitValue,
+    pub min_target_jump: UnitValue,
     #[serde(default = "unit_value_one", skip_serializing_if = "is_unit_value_one")]
-    max_target_jump: UnitValue,
+    pub max_target_jump: UnitValue,
     #[serde(
         default = "default_step_size",
         skip_serializing_if = "is_default_step_size"
     )]
-    min_step_size: SoftSymmetricUnitValue,
+    pub min_step_size: SoftSymmetricUnitValue,
     #[serde(
         default = "default_step_size",
         skip_serializing_if = "is_default_step_size"
     )]
-    max_step_size: SoftSymmetricUnitValue,
+    pub max_step_size: SoftSymmetricUnitValue,
     #[serde(default, skip_serializing_if = "is_default")]
-    min_press_millis: u64,
+    pub min_press_millis: u64,
     #[serde(default, skip_serializing_if = "is_default")]
-    max_press_millis: u64,
+    pub max_press_millis: u64,
     #[serde(default, skip_serializing_if = "is_default")]
-    turbo_rate: u64,
+    pub turbo_rate: u64,
     #[serde(default, skip_serializing_if = "is_default")]
-    eel_control_transformation: String,
+    pub eel_control_transformation: String,
     #[serde(default, skip_serializing_if = "is_default")]
-    eel_feedback_transformation: String,
+    pub eel_feedback_transformation: String,
     #[serde(default, skip_serializing_if = "is_default")]
-    reverse_is_enabled: bool,
+    pub reverse_is_enabled: bool,
     // Serialization skipped because this is deprecated in favor of out_of_range_behavior
     // since ReaLearn v1.11.0.
     #[serde(default, skip_serializing)]
-    ignore_out_of_range_source_values_is_enabled: bool,
+    pub ignore_out_of_range_source_values_is_enabled: bool,
     #[serde(default, skip_serializing_if = "is_default")]
-    out_of_range_behavior: OutOfRangeBehavior,
+    pub out_of_range_behavior: OutOfRangeBehavior,
     #[serde(default, skip_serializing_if = "is_default")]
-    fire_mode: FireMode,
+    pub fire_mode: FireMode,
     #[serde(default, skip_serializing_if = "is_default")]
-    round_target_value: bool,
+    pub round_target_value: bool,
     // Serialization skipped because this is deprecated in favor of takeover_mode
     // since ReaLearn v2.8.0-pre3.
     #[serde(default, skip_serializing)]
-    scale_mode_enabled: bool,
+    pub scale_mode_enabled: bool,
     #[serde(default, skip_serializing_if = "is_default")]
-    takeover_mode: TakeoverMode,
+    pub takeover_mode: TakeoverMode,
     #[serde(default, skip_serializing_if = "is_default")]
-    button_usage: ButtonUsage,
+    pub button_usage: ButtonUsage,
     #[serde(default, skip_serializing_if = "is_default")]
-    encoder_usage: EncoderUsage,
+    pub encoder_usage: EncoderUsage,
     #[serde(default, skip_serializing_if = "is_default")]
-    rotate_is_enabled: bool,
+    pub rotate_is_enabled: bool,
     #[serde(default, skip_serializing_if = "is_default")]
-    make_absolute_enabled: bool,
+    pub make_absolute_enabled: bool,
     #[serde(default, skip_serializing_if = "is_default")]
-    group_interaction: GroupInteraction,
+    pub group_interaction: GroupInteraction,
     #[serde(default, skip_serializing_if = "is_default")]
-    target_value_sequence: ValueSequence,
+    pub target_value_sequence: ValueSequence,
     #[serde(default, skip_serializing_if = "is_default")]
-    feedback_type: FeedbackType,
+    pub feedback_type: FeedbackType,
 }
 
 fn default_step_size() -> SoftSymmetricUnitValue {
