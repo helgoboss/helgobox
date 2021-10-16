@@ -385,7 +385,7 @@ impl App {
         // Control surface
         let middleware = sleeping_state.control_surface.middleware_mut();
         middleware.set_osc_input_devices(osc_input_devices);
-        sleeping_state.control_surface.middleware().wake_up();
+        middleware.wake_up();
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
             .expect("couldn't register ReaLearn control surface");

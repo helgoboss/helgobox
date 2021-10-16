@@ -58,7 +58,11 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     collections: Collections,
     /// Contains IDs of those mappings who need to be polled as frequently as possible.
     poll_control_mappings: EnumMap<MappingCompartment, OrderedMappingIdSet>,
+    last_feedback: LastFeedback,
 }
+
+#[derive(Debug, Default)]
+pub struct LastFeedback {}
 
 #[derive(Debug)]
 struct Basics<EH: DomainEventHandler> {
@@ -190,6 +194,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 previous_target_values: Default::default(),
             },
             poll_control_mappings: Default::default(),
+            last_feedback: Default::default(),
         }
     }
 
@@ -202,8 +207,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// This is a very important principle when using multiple instances. It allows feedback to
     /// not be accidentally cleared while still guaranteeing that feedback for non-used control
     /// elements are cleared eventually - independently from the order of instance processing.
-    pub fn maybe_takeover_source(&self, feedback_value: &SourceFeedbackValue) -> bool {
-        if let Some(mapping_with_source) = self.all_mappings().find(|m| {
+    pub fn maybe_takeover_source(&mut self, feedback_value: &SourceFeedbackValue) -> bool {
+        if let Some(mapping_with_source) = Self::all_mappings(&self.collections).find(|m| {
             m.feedback_is_effectively_on()
                 && m.source()
                     .has_same_feedback_address_as_value(feedback_value)
@@ -217,7 +222,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     );
                     // TODO-low Shouldn't we update the single mapping-on state here?
                     let feedback = followed_mapping.feedback(true, self.basics.control_context());
-                    self.send_feedback(FeedbackReason::TakeOverSource, feedback);
+                    self.basics.send_feedback(
+                        &self.collections.mappings_with_virtual_targets,
+                        FeedbackReason::TakeOverSource,
+                        feedback,
+                        &mut self.last_feedback,
+                    );
                     true
                 } else {
                     debug!(
@@ -239,7 +249,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// to take over. This is called if no takeover happened and it's safe to really turn the lights
     /// off.
     pub fn finally_switch_off_source(
-        &self,
+        &mut self,
         feedback_output: FeedbackOutput,
         feedback_value: SourceFeedbackValue,
     ) {
@@ -251,6 +261,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             feedback_output,
             FeedbackReason::FinallySwitchOffSource,
             feedback_value,
+            &mut self.last_feedback,
         );
     }
 
@@ -341,6 +352,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     .collections
                                     .mappings_with_virtual_targets,
                             },
+                            &mut self.last_feedback,
                         );
                         (control_result, m.group_interaction())
                     } else {
@@ -371,6 +383,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     } else {
                         GroupInteractionProcessing::Off
                     },
+                    &mut self.last_feedback,
                 );
             }
         }
@@ -409,6 +422,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 ManualFeedbackProcessing::On {
                     mappings_with_virtual_targets: &self.collections.mappings_with_virtual_targets,
                 },
+                &mut self.last_feedback,
             );
             (control_result, m.group_interaction())
         };
@@ -422,6 +436,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 control_value,
                 group_interaction,
             }),
+            &mut self.last_feedback,
         );
         Ok(())
     }
@@ -449,7 +464,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         .process_feedback_related_reaper_event_for_mapping(
                             m,
                             &self.collections.mappings_with_virtual_targets,
-                            &mut |t| {
+                            &mut self.last_feedback,
+                            &mut |t, _| {
                                 if let Some(value) = t.current_value(control_context) {
                                     match previous_target_values[compartment].entry(*mapping_id) {
                                         Entry::Occupied(mut e) => {
@@ -493,9 +509,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .try_iter()
             .take(FEEDBACK_TASK_BULK_SIZE)
         {
-            self.process_feedback_related_reaper_event(|target| {
-                target.value_changed_from_instance_feedback_event(&event)
-            });
+            Self::process_feedback_related_reaper_event(
+                &self.basics,
+                &self.collections,
+                &mut self.last_feedback,
+                |target, _| target.value_changed_from_instance_feedback_event(&event),
+            );
         }
     }
 
@@ -522,9 +541,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         {
                             if let Some(m) = self.collections.mappings[compartment].get(mapping_id)
                             {
-                                self.process_feedback_related_reaper_event_for_mapping(
+                                Self::process_feedback_related_reaper_event_for_mapping(
+                                    &self.basics,
+                                    &self.collections,
                                     m,
-                                    &mut |target| {
+                                    &mut self.last_feedback,
+                                    &mut |target, _| {
                                         target.value_changed_from_instance_feedback_event(
                                             &instance_event,
                                         )
@@ -535,9 +557,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                 } else {
                     // Other property of clip changed.
-                    self.process_feedback_related_reaper_event(|target| {
-                        target.value_changed_from_instance_feedback_event(&instance_event)
-                    });
+                    Self::process_feedback_related_reaper_event(
+                        &self.basics,
+                        &self.collections,
+                        &mut self.last_feedback,
+                        |target, _| {
+                            target.value_changed_from_instance_feedback_event(&instance_event)
+                        },
+                    );
                 }
             }
         }
@@ -594,7 +621,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 } else {
                     None
                 };
-                self.send_feedback(FeedbackReason::Normal, fb);
+                self.basics.send_feedback(
+                    &self.collections.mappings_with_virtual_targets,
+                    FeedbackReason::Normal,
+                    fb,
+                    &mut self.last_feedback,
+                );
             }
         }
     }
@@ -1184,7 +1216,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             )
     }
 
-    pub fn process_additional_feedback_event(&self, event: &AdditionalFeedbackEvent) {
+    pub fn process_additional_feedback_event(&mut self, event: &AdditionalFeedbackEvent) {
         if let AdditionalFeedbackEvent::BeatChanged(_) = event {
             // This is fired very frequently so we don't want to iterate over all mappings,
             // just the ones that need to be notified for feedback or whatever.
@@ -1193,21 +1225,30 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.collections.beat_dependent_feedback_mappings[compartment].iter()
                 {
                     if let Some(m) = self.collections.mappings[compartment].get(mapping_id) {
-                        self.process_feedback_related_reaper_event_for_mapping(m, &mut |target| {
-                            target.value_changed_from_additional_feedback_event(event)
-                        });
+                        Self::process_feedback_related_reaper_event_for_mapping(
+                            &self.basics,
+                            &self.collections,
+                            m,
+                            &mut self.last_feedback,
+                            &mut |target, _| {
+                                target.value_changed_from_additional_feedback_event(event)
+                            },
+                        );
                     }
                 }
             }
         } else {
             // Okay, not fired that frequently, we can iterate over all mappings.
-            self.process_feedback_related_reaper_event(|target| {
-                target.value_changed_from_additional_feedback_event(event)
-            });
+            Self::process_feedback_related_reaper_event(
+                &self.basics,
+                &self.collections,
+                &mut self.last_feedback,
+                |target, _| target.value_changed_from_additional_feedback_event(event),
+            );
         }
     }
 
-    pub fn process_control_surface_change_event(&self, event: &ChangeEvent) {
+    pub fn process_control_surface_change_event(&mut self, event: &ChangeEvent) {
         if ReaperTarget::is_potential_change_event(event) {
             // Handle dynamic target changes and target activation depending on REAPER state.
             //
@@ -1232,9 +1273,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .try_send(NormalMainTask::RefreshAllTargets)
                 .unwrap();
         }
-        self.process_feedback_related_reaper_event(|target| {
-            target.process_change_event(event, self.basics.control_context())
-        });
+        Self::process_feedback_related_reaper_event(
+            &self.basics,
+            &self.collections,
+            &mut self.last_feedback,
+            |target, basics| target.process_change_event(event, basics.control_context()),
+        );
     }
 
     /// The given function should return if the current target value is affected by this change
@@ -1245,29 +1289,39 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// non-rx change detection technique, we can do it right here, feedback without delay and
     /// avoid a redundant query.
     fn process_feedback_related_reaper_event(
-        &self,
-        mut f: impl Fn(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
+        basics: &Basics<EH>,
+        collections: &Collections,
+        last_feedback: &mut LastFeedback,
+        mut f: impl Fn(&ReaperTarget, &Basics<EH>) -> (bool, Option<AbsoluteValue>),
     ) {
         for compartment in MappingCompartment::enum_iter() {
             // Mappings with virtual targets don't need to be considered here because they don't
             // cause feedback themselves.
-            for m in self.collections.mappings[compartment].values() {
-                self.process_feedback_related_reaper_event_for_mapping(m, &mut f);
+            for m in collections.mappings[compartment].values() {
+                Self::process_feedback_related_reaper_event_for_mapping(
+                    basics,
+                    collections,
+                    m,
+                    last_feedback,
+                    &mut f,
+                );
             }
         }
     }
 
     fn process_feedback_related_reaper_event_for_mapping(
-        &self,
+        basics: &Basics<EH>,
+        collections: &Collections,
         m: &MainMapping,
-        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
+        last_feedback: &mut LastFeedback,
+        f: &mut impl FnMut(&ReaperTarget, &Basics<EH>) -> (bool, Option<AbsoluteValue>),
     ) {
-        self.basics
-            .process_feedback_related_reaper_event_for_mapping(
-                m,
-                &self.collections.mappings_with_virtual_targets,
-                f,
-            );
+        basics.process_feedback_related_reaper_event_for_mapping(
+            m,
+            &collections.mappings_with_virtual_targets,
+            last_feedback,
+            f,
+        );
     }
 
     pub fn notify_target_touched(&self) {
@@ -1300,6 +1354,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 &mut self.collections.mappings[MappingCompartment::MainMappings],
                 msg,
                 &self.collections.parameters,
+                &mut self.last_feedback,
             );
         for r in results {
             control_mapping_stage_three(
@@ -1308,6 +1363,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 r.compartment,
                 r.control_result,
                 GroupInteractionProcessing::On(r.group_interaction_input),
+                &mut self.last_feedback,
             )
         }
         self.process_mappings_with_real_targets(msg);
@@ -1347,6 +1403,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             &mut self.collections.mappings[MappingCompartment::MainMappings],
                             msg,
                             &self.collections.parameters,
+                            &mut self.last_feedback,
                         );
                     for r in results {
                         control_mapping_stage_three(
@@ -1355,6 +1412,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             r.compartment,
                             r.control_result,
                             GroupInteractionProcessing::On(r.group_interaction_input),
+                            &mut self.last_feedback,
                         )
                     }
                     self.process_mappings_with_real_targets(msg);
@@ -1411,6 +1469,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             .collections
                             .mappings_with_virtual_targets,
                     },
+                    &mut self.last_feedback,
                 );
                 enforce_target_refresh = true;
                 let extended_control_result = ExtendedMappingControlResult {
@@ -1431,6 +1490,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     r.compartment,
                     r.control_result,
                     GroupInteractionProcessing::On(r.group_interaction_input),
+                    &mut self.last_feedback,
                 )
             }
         }
@@ -1493,7 +1553,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let instance_is_enabled = self.control_is_effectively_enabled()
             && self.basics.instance_feedback_is_effectively_enabled();
         let on_mappings = if instance_is_enabled {
-            self.all_mappings()
+            Self::all_mappings(&self.collections)
                 .filter(|m| m.is_effectively_on())
                 .map(MainMapping::qualified_id)
                 .collect()
@@ -1505,21 +1565,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .handle_event(DomainEvent::UpdatedOnMappings(on_mappings));
     }
 
-    fn send_feedback(
-        &self,
-        reason: FeedbackReason,
-        feedback_values: impl IntoIterator<Item = CompoundFeedbackValue>,
-    ) {
-        self.basics.send_feedback(
-            &self.collections.mappings_with_virtual_targets,
-            reason,
-            feedback_values,
-        );
-    }
-
-    fn all_mappings(&self) -> impl Iterator<Item = &MainMapping> {
-        self.all_mappings_without_virtual_targets()
-            .chain(self.collections.mappings_with_virtual_targets.values())
+    // TODO-medium Make this a method of Collections
+    fn all_mappings(collections: &Collections) -> impl Iterator<Item = &MainMapping> {
+        Self::all_mappings_without_virtual_targets(collections)
+            .chain(collections.mappings_with_virtual_targets.values())
     }
 
     /// Includes virtual mappings if the controller mapping compartment is queried.
@@ -1536,19 +1585,26 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         )
     }
 
-    fn all_mappings_without_virtual_targets(&self) -> impl Iterator<Item = &MainMapping> {
+    fn all_mappings_without_virtual_targets(
+        collections: &Collections,
+    ) -> impl Iterator<Item = &MainMapping> {
         MappingCompartment::enum_iter()
-            .map(move |compartment| self.collections.mappings[compartment].values())
+            .map(move |compartment| collections.mappings[compartment].values())
             .flatten()
     }
 
-    pub fn send_all_feedback(&self) {
-        self.send_feedback(FeedbackReason::Normal, self.feedback_all());
+    pub fn send_all_feedback(&mut self) {
+        self.basics.send_feedback(
+            &self.collections.mappings_with_virtual_targets,
+            FeedbackReason::Normal,
+            self.feedback_all(),
+            &mut self.last_feedback,
+        );
     }
 
     fn feedback_all(&self) -> Vec<CompoundFeedbackValue> {
         // Virtual targets don't cause feedback themselves
-        self.all_mappings_without_virtual_targets()
+        Self::all_mappings_without_virtual_targets(&self.collections)
             .filter_map(|m| {
                 if m.feedback_is_effectively_on() {
                     m.feedback(true, self.basics.control_context())
@@ -1613,7 +1669,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn handle_change_of_some_upper_floor_instance(
-        &self,
+        &mut self,
         feedback_output: DeviceFeedbackOutput,
     ) {
         self.update_on_mappings();
@@ -1632,32 +1688,41 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 self.send_all_feedback();
             } else {
                 debug!(self.basics.logger, "Cancelling instance...");
-                self.send_feedback(FeedbackReason::SuspendInstance, self.feedback_all_zero());
+                self.basics.send_feedback(
+                    &self.collections.mappings_with_virtual_targets,
+                    FeedbackReason::SuspendInstance,
+                    self.feedback_all_zero(),
+                    &mut self.last_feedback,
+                );
             }
         }
     }
 
     /// When feedback gets globally disabled.
-    fn clear_all_feedback_allowing_source_takeover(&self) {
+    fn clear_all_feedback_allowing_source_takeover(&mut self) {
         debug!(
             self.basics.logger,
             "Clearing all feedback allowing source takeover..."
         );
-        self.send_feedback(
+        self.basics.send_feedback(
+            &self.collections.mappings_with_virtual_targets,
             FeedbackReason::ClearAllAllowingSourceTakeover,
             self.feedback_all_zero(),
+            &mut self.last_feedback,
         );
     }
 
     /// When main processor goes away for good.
-    fn clear_all_feedback_preventing_source_takeover(&self) {
+    fn clear_all_feedback_preventing_source_takeover(&mut self) {
         debug!(
             self.basics.logger,
             "Clearing all feedback preventing source takeover..."
         );
-        self.send_feedback(
+        self.basics.send_feedback(
+            &self.collections.mappings_with_virtual_targets,
             FeedbackReason::ClearAllPreventingSourceTakeover,
             self.feedback_all_zero(),
+            &mut self.last_feedback,
         );
     }
 
@@ -1665,7 +1730,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // Mappings with virtual targets should not be included here because they might not be in
         // use and therefore should not *directly* send zeros. However, they will receive zeros
         // if one of the main mappings with virtual sources are connected to them.
-        self.all_mappings_without_virtual_targets()
+        Self::all_mappings_without_virtual_targets(&self.collections)
             .filter(|m| m.feedback_is_effectively_on())
             .filter_map(|m| m.off_feedback())
             .collect()
@@ -1700,9 +1765,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         now_unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
     ) {
         self.send_off_feedback_for_unused_sources(now_unused_sources);
-        self.send_feedback(
+        self.basics.send_feedback(
+            &self.collections.mappings_with_virtual_targets,
             FeedbackReason::Normal,
             self.feedback_all_in_compartment(compartment),
+            &mut self.last_feedback,
         );
     }
 
@@ -1713,19 +1780,26 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         mapping_ids: impl Iterator<Item = MappingId>,
     ) {
         self.send_off_feedback_for_unused_sources(now_unused_sources);
-        self.send_feedback(
+        self.basics.send_feedback(
+            &self.collections.mappings_with_virtual_targets,
             FeedbackReason::Normal,
             self.feedback_particular_mappings(compartment, mapping_ids),
+            &mut self.last_feedback,
         );
     }
 
     /// Indicate via off feedback the sources which are not in use anymore.
     fn send_off_feedback_for_unused_sources(
-        &self,
+        &mut self,
         now_unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
     ) {
         for s in now_unused_sources.values() {
-            self.send_feedback(FeedbackReason::ClearUnusedSource, s.off_feedback());
+            self.basics.send_feedback(
+                &self.collections.mappings_with_virtual_targets,
+                FeedbackReason::ClearUnusedSource,
+                s.off_feedback(),
+                &mut self.last_feedback,
+            );
         }
     }
 
@@ -1878,7 +1952,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 } else {
                     Fb::unused(m.off_feedback())
                 };
-                self.send_feedback(fb.0, fb.1);
+                self.basics.send_feedback(
+                    &self.collections.mappings_with_virtual_targets,
+                    fb.0,
+                    fb.1,
+                    &mut self.last_feedback,
+                );
             }
         }
         self.update_single_mapping_on_state(id);
@@ -1951,9 +2030,19 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn send_diff_feedback(&self, (fb1, fb2): (Fb, Fb)) {
-        self.send_feedback(fb1.0, fb1.1);
-        self.send_feedback(fb2.0, fb2.1);
+    fn send_diff_feedback(&mut self, (fb1, fb2): (Fb, Fb)) {
+        self.basics.send_feedback(
+            &self.collections.mappings_with_virtual_targets,
+            fb1.0,
+            fb1.1,
+            &mut self.last_feedback,
+        );
+        self.basics.send_feedback(
+            &self.collections.mappings_with_virtual_targets,
+            fb2.0,
+            fb2.1,
+            &mut self.last_feedback,
+        );
     }
 
     fn update_map_entries(&mut self, compartment: MappingCompartment, mapping: MainMapping) {
@@ -2016,6 +2105,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 ManualFeedbackProcessing::On {
                     mappings_with_virtual_targets: &self.collections.mappings_with_virtual_targets,
                 },
+                &mut self.last_feedback,
             );
             Some(control_result)
         } else {
@@ -2028,6 +2118,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 id.compartment,
                 control_result,
                 GroupInteractionProcessing::Off,
+                &mut self.last_feedback,
             );
         }
     }
@@ -2243,6 +2334,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         mapping_id: MappingId,
         control_value: ControlValue,
         control_was_successful: bool,
+        last_feedback: &mut LastFeedback,
     ) {
         if let Some(m) = collections.mappings[compartment].get(&mapping_id) {
             // Group interaction
@@ -2261,7 +2353,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         compartment,
                         mapping_id,
                         group_id,
-                        |other_mapping, basics, parameters| {
+                        last_feedback,
+                        |other_mapping, basics, parameters, last_feedback| {
                             let options = ControlOptions {
                                 // Previous mappings in this transaction could affect
                                 // subsequent mappings!
@@ -2275,6 +2368,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                 control_value,
                                 options,
                                 ManualFeedbackProcessing::Off,
+                                last_feedback,
                             )
                         },
                     );
@@ -2303,7 +2397,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             compartment,
                             mapping_id,
                             group_id,
-                            |other_mapping, basics, parameters| {
+                            last_feedback,
+                            |other_mapping, basics, parameters, _| {
                                 let control_context = basics.control_context();
                                 other_mapping.control_from_target_via_group_interaction(
                                     normalized_target_value,
@@ -2336,7 +2431,13 @@ impl<EH: DomainEventHandler> Basics<EH> {
         compartment: MappingCompartment,
         mapping_id: MappingId,
         group_id: GroupId,
-        f: impl Fn(&mut MainMapping, &Basics<EH>, &ParameterArray) -> MappingControlResult,
+        last_feedback: &mut LastFeedback,
+        f: impl Fn(
+            &mut MainMapping,
+            &Basics<EH>,
+            &ParameterArray,
+            &mut LastFeedback,
+        ) -> MappingControlResult,
     ) {
         let other_mappings = collections.mappings[compartment]
             .values_mut()
@@ -2351,7 +2452,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
         // TODO-low Rust question 958: Figure out the difference to the for loop.
         let mut hit_instructions = vec![];
         for other_mapping in other_mappings {
-            let other_control_result = f(other_mapping, self, &collections.parameters);
+            let other_control_result =
+                f(other_mapping, self, &collections.parameters, last_feedback);
             if let Some(new_value) = other_control_result.new_target_value {
                 self.notify_target_value_changed(other_mapping, new_value);
             }
@@ -2359,6 +2461,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 &collections.mappings_with_virtual_targets,
                 FeedbackReason::Normal,
                 other_control_result.feedback_value,
+                last_feedback,
             );
             if let Some(hi) = other_control_result.hit_instruction {
                 hit_instructions.push(hi);
@@ -2385,7 +2488,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
         &self,
         m: &MainMapping,
         mappings_with_virtual_targets: &OrderedMappingMap<MainMapping>,
-        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
+        last_feedback: &mut LastFeedback,
+        f: &mut impl FnMut(&ReaperTarget, &Basics<EH>) -> (bool, Option<AbsoluteValue>),
     ) {
         // It's enough if one of the resolved targets is affected. Then we are going to need the
         // values of all of them!
@@ -2409,7 +2513,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 // changes for examples and especially in case of on/off targets this
                 // can lead to horribly wrong feedback. Previously we didn't have this
                 // issue because we always deferred to the next main loop cycle.
-                let (value_changed, new_value) = f(target);
+                let (value_changed, new_value) = f(target, self);
                 if value_changed {
                     at_least_one_target_is_affected = true;
                 }
@@ -2439,6 +2543,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 mappings_with_virtual_targets,
                 FeedbackReason::Normal,
                 feedback_value,
+                last_feedback,
             );
             self.notify_target_value_changed(m, new_value);
         }
@@ -2466,6 +2571,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         main_mappings: &mut OrderedMappingMap<MainMapping>,
         msg: MainSourceMessage,
         parameters: &ParameterArray,
+        last_feedback: &mut LastFeedback,
     ) -> Vec<ExtendedMappingControlResult> {
         // Control
         let mut extended_control_results: Vec<_> = mappings_with_virtual_targets
@@ -2496,6 +2602,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             enforce_target_refresh: false,
                         },
                         parameters,
+                        last_feedback,
                     )
                 } else {
                     vec![]
@@ -2509,6 +2616,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             extended_control_results
                 .iter_mut()
                 .filter_map(|r| r.control_result.feedback_value.take()),
+            last_feedback,
         );
         extended_control_results
     }
@@ -2519,6 +2627,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         mappings_with_virtual_targets: &OrderedMappingMap<MainMapping>,
         feedback_reason: FeedbackReason,
         feedback_values: impl IntoIterator<Item = CompoundFeedbackValue>,
+        last_feedback: &mut LastFeedback,
     ) {
         for feedback_value in feedback_values.into_iter() {
             match feedback_value {
@@ -2554,6 +2663,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                     self.send_direct_feedback(
                                         feedback_reason,
                                         final_feedback_value,
+                                        last_feedback,
                                     );
                                 }
                             }
@@ -2561,7 +2671,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                     }
                 }
                 CompoundFeedbackValue::Real(final_feedback_value) => {
-                    self.send_direct_feedback(feedback_reason, final_feedback_value);
+                    self.send_direct_feedback(feedback_reason, final_feedback_value, last_feedback);
                 }
             }
         }
@@ -2572,6 +2682,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_output: FeedbackOutput,
         feedback_reason: FeedbackReason,
         source_feedback_value: SourceFeedbackValue,
+        last_feedback: &mut LastFeedback,
     ) {
         // No interference with other instances.
         trace!(
@@ -2644,6 +2755,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         &self,
         feedback_reason: FeedbackReason,
         feedback_value: RealFeedbackValue,
+        last_feedback: &mut LastFeedback,
     ) {
         if feedback_reason.is_always_allowed() || self.instance_feedback_is_effectively_enabled() {
             if let Some(feedback_output) = self.feedback_output {
@@ -2669,6 +2781,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             feedback_output,
                             feedback_reason,
                             source_feedback_value,
+                            last_feedback,
                         );
                     }
                 }
@@ -2697,6 +2810,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         value: VirtualSourceValue,
         options: ControlOptions,
         parameters: &ParameterArray,
+        last_feedback: &mut LastFeedback,
     ) -> Vec<ExtendedMappingControlResult> {
         // Controller mappings can't have virtual sources, so for now we only need to check
         // main mappings.
@@ -2718,6 +2832,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                         control_value,
                         options,
                         ManualFeedbackProcessing::Off,
+                        last_feedback,
                     );
                     if let Some(new_value) = control_result.new_target_value {
                         self.notify_target_value_changed(m, new_value);
@@ -2811,10 +2926,17 @@ fn control_mapping_stage_one_and_two<EH: DomainEventHandler>(
     control_value: ControlValue,
     options: ControlOptions,
     feedback_handling: ManualFeedbackProcessing,
+    last_feedback: &mut LastFeedback,
 ) -> MappingControlResult {
     let mut control_result =
         control_mapping_stage_one(basics, parameters, m, control_value, options);
-    control_mapping_stage_two(basics, &mut control_result, m, feedback_handling);
+    control_mapping_stage_two(
+        basics,
+        &mut control_result,
+        m,
+        feedback_handling,
+        last_feedback,
+    );
     control_result
 }
 
@@ -2854,6 +2976,7 @@ fn control_mapping_stage_two<EH: DomainEventHandler>(
     control_result: &mut MappingControlResult,
     m: &mut MainMapping,
     feedback_handling: ManualFeedbackProcessing,
+    last_feedback: &mut LastFeedback,
 ) {
     if let Some(new_value) = control_result.new_target_value {
         basics.notify_target_value_changed(m, new_value);
@@ -2866,6 +2989,7 @@ fn control_mapping_stage_two<EH: DomainEventHandler>(
             mappings_with_virtual_targets,
             FeedbackReason::Normal,
             control_result.feedback_value.take(),
+            last_feedback,
         );
     }
 }
@@ -2886,6 +3010,7 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
     compartment: MappingCompartment,
     control_result: MappingControlResult,
     group_interaction_processing: GroupInteractionProcessing,
+    last_feedback: &mut LastFeedback,
 ) {
     if let Some(hi) = control_result.hit_instruction {
         let control_context = basics.control_context();
@@ -2922,6 +3047,7 @@ fn control_mapping_stage_three<EH: DomainEventHandler>(
                 input.mapping_id,
                 input.control_value,
                 control_result.successful,
+                last_feedback,
             );
         }
     }

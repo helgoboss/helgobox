@@ -3036,6 +3036,7 @@ dependencies = [
  "sys-info",
  "tempfile",
  "tokio",
+ "twox-hash",
  "url",
  "uuid",
  "validator",
@@ -4017,6 +4018,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59b11b2b5241ba34be09c3cc85a36e56e48f9888862e19cedf23336d35316ed1"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "twox-hash"
+version = "1.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f559b464de2e2bdabcac6a210d12e9b5a5973c251e102c44c585c71d51bd78e"
+dependencies = [
+ "cfg-if 1.0.0",
+ "rand 0.8.4",
+ "static_assertions",
 ]
 
 [[package]]

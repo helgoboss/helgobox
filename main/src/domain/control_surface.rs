@@ -227,9 +227,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     /// Called when waking up ReaLearn (first instance appears again or the first time).
-    pub fn wake_up(&self) {
+    pub fn wake_up(&mut self) {
         self.change_detection_middleware.reset(|e| {
-            for m in &self.main_processors {
+            for m in &mut self.main_processors {
                 m.process_control_surface_change_event(&e);
             }
             self.rx_middleware.handle_change(e);
@@ -286,7 +286,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     self.state = State::CapturingOsc(sender);
                 }
                 SendAllFeedback => {
-                    for m in &self.main_processors {
+                    for m in &mut self.main_processors {
                         m.send_all_feedback();
                     }
                 }
@@ -384,12 +384,12 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     // preset changes.
                     let other_instance_took_over = self
                         .main_processors
-                        .iter()
+                        .iter_mut()
                         .any(|p| p.maybe_takeover_source(&e.feedback_value));
                     if !other_instance_took_over {
                         if let Some(p) = self
                             .main_processors
-                            .iter()
+                            .iter_mut()
                             .find(|p| p.instance_id() == &e.instance_id)
                         {
                             // Finally safe to switch off lights!
@@ -428,7 +428,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                         if let Some(feedback_output) = e.feedback_output {
                             // Give lower-floor instances the chance to cancel or reactivate.
                             self.main_processors
-                                .iter()
+                                .iter_mut()
                                 .filter(|p| p.instance_id() != &e.instance_id)
                                 .for_each(|p| {
                                     p.handle_change_of_some_upper_floor_instance(feedback_output)

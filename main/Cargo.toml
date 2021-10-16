@@ -142,6 +142,8 @@ enum_dispatch = "0.3.6"
 indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/clion-workaround", features = ["std"] }
 # For comparing floating point numbers in tests
 approx = "0.3.2"
+# For duplicate detection of non-primitive feedback messages
+twox-hash = "1.6.1"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
