@@ -1487,6 +1487,19 @@ pub enum SourceFeedbackValue {
     Osc(OscMessage),
 }
 
+impl SourceFeedbackValue {
+    pub fn extract_address(&self) -> CompoundMappingSourceAddress {
+        use SourceFeedbackValue::*;
+        match self {
+            Midi(v) => CompoundMappingSourceAddress::Midi(
+                v.extract_feedback_address()
+                    .expect("couldn't extract feedback address"),
+            ),
+            Osc(v) => CompoundMappingSourceAddress::Osc(v.addr.clone()),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum UnresolvedCompoundMappingTarget {
     Reaper(UnresolvedReaperTarget),

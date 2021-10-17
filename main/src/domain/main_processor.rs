@@ -22,7 +22,7 @@ use helgoboss_learn::{
     ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
 };
 use std::borrow::Cow;
-use std::cell::Cell;
+use std::cell::RefCell;
 
 use crate::domain::ui_util::{
     format_incoming_midi_message, format_midi_source_value, format_osc_message, format_osc_packet,
@@ -80,12 +80,13 @@ struct Basics<EH: DomainEventHandler> {
     input_logging_enabled: bool,
     output_logging_enabled: bool,
     channels: Channels,
-    // Using Cell in the processing layer is an exception. We do it here because we can't
+    // Using RefCell in the processing layer is an exception. We do it here because we can't
     // safely make feedback processing mutable. I tried (see branch
     // "experiment/feedback-change-detection-mutable") but it the end it turned out to be impossible
     // because the reaper-rs control surface doesn't emit feedback-triggering events in a mutable
     // context. Rightfully so, because it's potentially reentrant!
-    last_feedback_checksum: Cell<Option<FeedbackChecksum>>,
+    last_feedback_checksum_by_address:
+        RefCell<HashMap<CompoundMappingSourceAddress, FeedbackChecksum>>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -284,7 +285,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     instance_orchestration_event_sender,
                     integration_test_feedback_sender: None,
                 },
-                last_feedback_checksum: Default::default(),
+                last_feedback_checksum_by_address: Default::default(),
             },
             collections: Collections {
                 mappings: Default::default(),
@@ -2334,7 +2335,7 @@ impl FeedbackReason {
 
 impl<EH: DomainEventHandler> Basics<EH> {
     pub fn clear_last_feedback(&self) {
-        self.last_feedback_checksum.set(None);
+        self.last_feedback_checksum_by_address.borrow_mut().clear();
     }
 
     pub fn control_context(&self) -> ControlContext {
@@ -2688,9 +2689,15 @@ impl<EH: DomainEventHandler> Basics<EH> {
         source_feedback_value: SourceFeedbackValue,
     ) {
         // No interference with other instances.
-        let checksum = Some(FeedbackChecksum::from_value(&source_feedback_value));
-        let last_feedback_checksum = self.last_feedback_checksum.replace(checksum);
-        if checksum == last_feedback_checksum {
+        // This is not super cheap for OSC and MIDI Raw because it has to clone the address string.
+        // On the other hand, address strings are not large, so what.
+        let address = source_feedback_value.extract_address();
+        let checksum = FeedbackChecksum::from_value(&source_feedback_value);
+        let previous_checksum = self
+            .last_feedback_checksum_by_address
+            .borrow_mut()
+            .insert(address, checksum);
+        if Some(checksum) == previous_checksum {
             trace!(
                 self.logger,
                 "Block feedback because duplicate (reason: {:?}): {:?}",
