@@ -2324,7 +2324,6 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn fill_all_controls(&self) {
         self.fill_mapping_feedback_send_behavior_combo_box();
         self.fill_source_category_combo_box();
-        self.fill_source_channel_combo_box();
         self.fill_mode_out_of_range_behavior_combo_box();
         self.fill_mode_group_interaction_combo_box();
         self.fill_mode_takeover_mode_combo_box();
@@ -2662,6 +2661,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         match self.source.category.get() {
             Midi if self.source.supports_channel() => {
+                b.fill_combo_box_with_data_small(
+                    iter::once((-1isize, "<Any> (no feedback)".to_string()))
+                        .chain((0..16).map(|i| (i as isize, (i + 1).to_string()))),
+                );
                 b.show();
                 match self.source.channel.get() {
                     None => {
@@ -5607,19 +5610,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             Reaper => b.fill_combo_box_indexed(ReaperSourceType::into_enum_iter()),
             Virtual => b.fill_combo_box_indexed(VirtualControlElementType::into_enum_iter()),
             Osc | Never => {}
-        };
-    }
-
-    #[allow(clippy::single_match)]
-    fn fill_source_channel_combo_box(&self) {
-        let b = self.view.require_control(root::ID_SOURCE_CHANNEL_COMBO_BOX);
-        use SourceCategory::*;
-        match self.source.category.get() {
-            Midi => b.fill_combo_box_with_data_small(
-                iter::once((-1isize, "<Any> (no feedback)".to_string()))
-                    .chain((0..16).map(|i| (i as isize, (i + 1).to_string()))),
-            ),
-            _ => {}
         };
     }
 
