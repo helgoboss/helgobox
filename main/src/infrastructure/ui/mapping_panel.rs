@@ -3,6 +3,7 @@ use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{
     EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
 };
+use derive_more::Display;
 
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -10,14 +11,15 @@ use helgoboss_learn::{
     ButtonUsage, ControlValue, DetailedSourceCharacter, DisplayType, EncoderUsage, FeedbackType,
     FireMode, GroupInteraction, MackieSevenSegmentDisplayScope, MidiClockTransportMessage,
     ModeApplicabilityCheckInput, ModeParameter, OscTypeTag, OutOfRangeBehavior, PercentIo,
-    SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue, ValueSequence,
+    RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
+    ValueSequence, VirtualColor,
 };
 use helgoboss_midi::{Channel, ShortMessageType, U7};
 use reaper_high::{
     BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
 };
 use reaper_low::raw;
-use reaper_medium::{InitialAction, PromptForActionResult, SectionId};
+use reaper_medium::{InitialAction, PromptForActionResult, SectionId, WindowContext};
 use rxrust::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::convert::TryInto;
@@ -336,6 +338,29 @@ impl MappingPanel {
             .source_model
             .control_element_id
             .set(text.parse().unwrap_or_default());
+        Ok(())
+    }
+
+    fn feedback_type_button_pressed(&self) -> Result<(), &'static str> {
+        let mapping = self.displayed_mapping().ok_or("no mapping set")?;
+        let current_color = mapping.borrow().mode_model.feedback_color.get_ref().clone();
+        let current_background_color = mapping
+            .borrow()
+            .mode_model
+            .feedback_background_color
+            .get_ref()
+            .clone();
+        let instruction = prompt_for_color(
+            self.view.require_window(),
+            current_color,
+            current_background_color,
+        )?;
+        let mut mapping = mapping.borrow_mut();
+        let relevant_prop = match instruction.target {
+            ColorTarget::Color => &mut mapping.mode_model.feedback_color,
+            ColorTarget::BackgroundColor => &mut mapping.mode_model.feedback_background_color,
+        };
+        relevant_prop.set(instruction.color);
         Ok(())
     }
 
@@ -1114,17 +1139,13 @@ impl<'a> MutableMappingPanel<'a> {
         );
     }
 
-    fn update_mode_use_textual_feedback(&mut self) {
-        self.update_mode_hint(ModeParameter::UseTextualFeedback);
-        let is_checked = self
+    fn update_mode_feedback_type(&mut self) {
+        self.update_mode_hint(ModeParameter::FeedbackType);
+        let index = self
             .view
-            .require_control(root::ID_SETTINGS_TEXTUAL_FEEDBACK_CHECK_BOX)
-            .is_checked();
-        let feedback_type = if is_checked {
-            FeedbackType::Textual
-        } else {
-            FeedbackType::Numerical
-        };
+            .require_control(root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX)
+            .selected_combo_box_item_index();
+        let feedback_type = index.try_into().expect("unknown feedback type");
         self.mapping.mode_model.feedback_type.set(feedback_type);
     }
 
@@ -2330,6 +2351,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.fill_mode_button_usage_combo_box();
         self.fill_mode_encoder_usage_combo_box();
         self.fill_mode_fire_mode_combo_box();
+        self.fill_mode_feedback_type_combo_box();
         self.fill_target_category_combo_box();
     }
 
@@ -4537,7 +4559,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_fire_controls(None);
         self.invalidate_mode_rotate_check_box();
         self.invalidate_mode_make_absolute_check_box();
-        self.invalidate_mode_use_textual_feedback_check_box();
+        self.invalidate_mode_feedback_type_combo_box();
         self.invalidate_mode_out_of_range_behavior_combo_box();
         self.invalidate_mode_group_interaction_combo_box();
         self.invalidate_mode_round_target_value_check_box();
@@ -4577,14 +4599,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_control(root::ID_SETTINGS_STEP_SIZE_LABEL_TEXT)
             .set_text(step_label);
-        let feedback_text_label = if self.mapping.mode_model.feedback_type.get().is_textual() {
-            "Textual feedback expression"
-        } else {
-            "Feedback transformation (EEL)"
-        };
-        self.view
-            .require_control(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL)
-            .set_text(feedback_text_label);
     }
 
     fn invalidate_mode_control_visibilities(&self) {
@@ -4664,15 +4678,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                 || is_relevant(ModeParameter::TextualFeedbackExpression);
             self.enable_if(
                 show_feedback_transformation,
-                &[
-                    root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_LABEL,
-                    root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
-                ],
+                &[root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL],
             );
-            let show_use_textual_feedback = is_relevant(ModeParameter::UseTextualFeedback);
+            let show_feedback_type = is_relevant(ModeParameter::FeedbackType);
             self.enable_if(
-                show_use_textual_feedback,
-                &[root::ID_SETTINGS_TEXTUAL_FEEDBACK_CHECK_BOX],
+                show_feedback_type,
+                &[root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX],
             );
         }
         // For knobs/faders and buttons
@@ -5116,10 +5127,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_checked(self.mode.rotate.get());
     }
 
-    fn invalidate_mode_use_textual_feedback_check_box(&self) {
+    fn invalidate_mode_feedback_type_combo_box(&self) {
         self.view
-            .require_control(root::ID_SETTINGS_TEXTUAL_FEEDBACK_CHECK_BOX)
-            .set_checked(self.mode.feedback_type.get().is_textual());
+            .require_control(root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX)
+            .select_combo_box_item_by_index(self.mode.feedback_type.get().into())
+            .unwrap();
     }
 
     fn invalidate_mode_make_absolute_check_box(&self) {
@@ -5647,6 +5659,12 @@ impl<'a> ImmutableMappingPanel<'a> {
             .fill_combo_box_indexed(FireMode::into_enum_iter());
     }
 
+    fn fill_mode_feedback_type_combo_box(&self) {
+        self.view
+            .require_control(root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX)
+            .fill_combo_box_indexed(FeedbackType::into_enum_iter());
+    }
+
     fn fill_mode_takeover_mode_combo_box(&self) {
         self.view
             .require_control(root::ID_MODE_TAKEOVER_MODE)
@@ -5744,9 +5762,6 @@ impl View for MappingPanel {
             root::ID_SOURCE_SCRIPT_DETAIL_BUTTON => self.edit_midi_source_script(),
             // Mode
             root::ID_SETTINGS_ROTATE_CHECK_BOX => self.write(|p| p.update_mode_rotate()),
-            root::ID_SETTINGS_TEXTUAL_FEEDBACK_CHECK_BOX => {
-                self.write(|p| p.update_mode_use_textual_feedback())
-            }
             root::ID_SETTINGS_MAKE_ABSOLUTE_CHECK_BOX => {
                 self.write(|p| p.update_mode_make_absolute())
             }
@@ -5755,6 +5770,9 @@ impl View for MappingPanel {
             }
             root::ID_SETTINGS_REVERSE_CHECK_BOX => self.write(|p| p.update_mode_reverse()),
             root::ID_SETTINGS_RESET_BUTTON => self.write(|p| p.reset_mode()),
+            root::IDC_MODE_FEEDBACK_TYPE_BUTTON => {
+                let _ = self.feedback_type_button_pressed();
+            }
             // Target
             root::ID_TARGET_CHECK_BOX_1 => self.write(|p| p.handle_target_check_box_1_change()),
             root::ID_TARGET_CHECK_BOX_2 => self.write(|p| p.handle_target_check_box_2_change()),
@@ -5819,6 +5837,7 @@ impl View for MappingPanel {
             root::ID_MODE_BUTTON_FILTER_COMBO_BOX => self.write(|p| p.update_button_usage()),
             root::ID_MODE_RELATIVE_FILTER_COMBO_BOX => self.write(|p| p.update_encoder_usage()),
             root::ID_MODE_FIRE_COMBO_BOX => self.write(|p| p.update_mode_fire_mode()),
+            root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX => self.write(|p| p.update_mode_feedback_type()),
             // Target
             root::ID_TARGET_CATEGORY_COMBO_BOX => self.write(|p| p.update_target_category()),
             root::ID_TARGET_TYPE_COMBO_BOX => self.write(|p| p.update_target_type()),
@@ -6403,6 +6422,117 @@ fn prompt_for_predefined_control_element_name(
     let result_index = window.open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
     let item = pure_menu.find_item_by_id(result_index)?;
     Some(item.invoke_handler())
+}
+
+#[derive(Copy, Clone, Display)]
+enum ColorTarget {
+    #[display(fmt = "Text color (if supported)")]
+    Color,
+    #[display(fmt = "Background color (if supported)")]
+    BackgroundColor,
+}
+
+struct ChangeColorInstruction {
+    target: ColorTarget,
+    color: Option<VirtualColor>,
+}
+
+impl ChangeColorInstruction {
+    fn new(target: ColorTarget, color: Option<VirtualColor>) -> Self {
+        Self { target, color }
+    }
+}
+
+fn prompt_for_color(
+    window: Window,
+    color: Option<VirtualColor>,
+    background_color: Option<VirtualColor>,
+) -> Result<ChangeColorInstruction, &'static str> {
+    let menu_bar = MenuBar::new_popup_menu();
+    enum MenuAction {
+        ControllerDefault(ColorTarget),
+        OpenColorPicker(ColorTarget),
+        UseColorProp(ColorTarget, &'static str),
+    }
+    let pure_menu = {
+        use swell_ui::menu_tree::*;
+        use MenuAction::*;
+        let create_color_target_menu = |color_target: ColorTarget| {
+            let relevant_color = match color_target {
+                ColorTarget::Color => &color,
+                ColorTarget::BackgroundColor => &background_color,
+            };
+            menu(
+                color_target.to_string(),
+                IntoIterator::into_iter([
+                    item_with_opts(
+                        "<Use controller default>",
+                        ItemOpts {
+                            enabled: true,
+                            checked: relevant_color.is_none(),
+                        },
+                        move || ControllerDefault(color_target),
+                    ),
+                    item_with_opts(
+                        "<Fixed color>",
+                        ItemOpts {
+                            enabled: true,
+                            checked: matches!(relevant_color, Some(VirtualColor::Rgb(_))),
+                        },
+                        move || OpenColorPicker(color_target),
+                    ),
+                ])
+                .chain(IntoIterator::into_iter(["target.track.color", "target.bookmark.color"]).map(|key| {
+                    item_with_opts(
+                        key,
+                        ItemOpts {
+                            enabled: true,
+                            checked: {
+                                matches!(relevant_color, Some(VirtualColor::Prop{prop}) if key == prop)
+                            },
+                        },
+                        move || UseColorProp(color_target, key),
+                    )
+                }))
+                .collect(),
+            )
+        };
+        let entries = vec![
+            create_color_target_menu(ColorTarget::Color),
+            create_color_target_menu(ColorTarget::BackgroundColor),
+        ];
+        let mut root_menu = root_menu(entries);
+        root_menu.index(1);
+        fill_menu(menu_bar.menu(), &root_menu);
+        root_menu
+    };
+    let result_index = window
+        .open_popup_menu(menu_bar.menu(), Window::cursor_pos())
+        .ok_or("color selection cancelled")?;
+    let item = pure_menu
+        .find_item_by_id(result_index)
+        .ok_or("unknown item picked")?;
+    let instruction = match item.invoke_handler() {
+        MenuAction::ControllerDefault(target) => ChangeColorInstruction::new(target, None),
+        MenuAction::UseColorProp(target, key) => ChangeColorInstruction::new(
+            target,
+            Some(VirtualColor::Prop {
+                prop: key.to_string(),
+            }),
+        ),
+        MenuAction::OpenColorPicker(target) => {
+            let reaper = Reaper::get().medium_reaper();
+            if let Some(native_color) =
+                reaper.gr_select_color(WindowContext::Win(window.raw_non_null()))
+            {
+                let reaper_medium::RgbColor { r, g, b } = reaper.color_from_native(native_color);
+                ChangeColorInstruction::new(target, Some(VirtualColor::Rgb(RgbColor::new(r, g, b))))
+            } else {
+                return Err("color picking cancelled");
+            }
+        }
+    };
+    Ok(instruction)
 }
 
 fn prompt_for_predefined_raw_midi_pattern(window: Window) -> Option<String> {

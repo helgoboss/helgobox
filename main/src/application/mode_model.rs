@@ -6,6 +6,7 @@ use helgoboss_learn::{
     ButtonUsage, DetailedSourceCharacter, DiscreteIncrement, EncoderUsage, FeedbackType, FireMode,
     GroupInteraction, Interval, ModeApplicabilityCheckInput, ModeParameter, ModeSettings,
     OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue, ValueSequence,
+    VirtualColor,
 };
 
 use rxrust::prelude::*;
@@ -54,6 +55,8 @@ pub struct ModeModel {
     pub target_value_sequence: Prop<ValueSequence>,
     pub feedback_type: Prop<FeedbackType>,
     pub textual_feedback_expression: Prop<String>,
+    pub feedback_color: Prop<Option<VirtualColor>>,
+    pub feedback_background_color: Prop<Option<VirtualColor>>,
 }
 
 impl Default for ModeModel {
@@ -84,6 +87,8 @@ impl Default for ModeModel {
             target_value_sequence: prop(Default::default()),
             feedback_type: prop(Default::default()),
             textual_feedback_expression: prop(Default::default()),
+            feedback_color: prop(Default::default()),
+            feedback_background_color: prop(Default::default()),
         }
     }
 }
@@ -116,6 +121,10 @@ impl ModeModel {
             .set(def.eel_feedback_transformation.get_ref().clone());
         self.textual_feedback_expression
             .set(def.textual_feedback_expression.get_ref().clone());
+        self.feedback_color
+            .set(def.feedback_color.get_ref().clone());
+        self.feedback_background_color
+            .set(def.feedback_background_color.get_ref().clone());
         self.out_of_range_behavior
             .set(def.out_of_range_behavior.get());
         self.fire_mode.set(def.fire_mode.get());
@@ -153,6 +162,8 @@ impl ModeModel {
             .merge(self.eel_control_transformation.changed())
             .merge(self.eel_feedback_transformation.changed())
             .merge(self.textual_feedback_expression.changed())
+            .merge(self.feedback_color.changed())
+            .merge(self.feedback_background_color.changed())
             .merge(self.step_interval.changed())
             .merge(self.rotate.changed())
             .merge(self.press_duration_interval.changed())
@@ -344,6 +355,8 @@ impl ModeModel {
             } else {
                 String::new()
             },
+            feedback_color: self.feedback_color.get_ref().clone(),
+            feedback_background_color: self.feedback_background_color.get_ref().clone(),
         })
     }
 }

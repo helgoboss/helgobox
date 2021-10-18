@@ -5,6 +5,7 @@ use crate::infrastructure::plugin::App;
 use helgoboss_learn::{
     AbsoluteMode, ButtonUsage, EncoderUsage, FeedbackType, FireMode, GroupInteraction, Interval,
     OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue, ValueSequence,
+    VirtualColor,
 };
 use serde::{Deserialize, Serialize};
 use slog::debug;
@@ -47,6 +48,10 @@ pub struct ModeModelData {
     eel_control_transformation: String,
     #[serde(default, skip_serializing_if = "is_default")]
     eel_feedback_transformation: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    feedback_color: Option<VirtualColor>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    feedback_background_color: Option<VirtualColor>,
     #[serde(default, skip_serializing_if = "is_default")]
     reverse_is_enabled: bool,
     // Serialization skipped because this is deprecated in favor of out_of_range_behavior
@@ -118,6 +123,8 @@ impl ModeModelData {
             } else {
                 model.eel_feedback_transformation.get_ref().clone()
             },
+            feedback_color: model.feedback_color.get_ref().clone(),
+            feedback_background_color: model.feedback_background_color.get_ref().clone(),
             reverse_is_enabled: model.reverse.get(),
             // Not used anymore since ReaLearn v1.11.0
             ignore_out_of_range_source_values_is_enabled: false,
@@ -212,6 +219,15 @@ impl ModeModelData {
         model
             .textual_feedback_expression
             .set_with_optional_notification(textual_fb_expression, with_notification);
+        model
+            .feedback_color
+            .set_with_optional_notification(self.feedback_color.clone(), with_notification);
+        model
+            .feedback_background_color
+            .set_with_optional_notification(
+                self.feedback_background_color.clone(),
+                with_notification,
+            );
         model
             .reverse
             .set_with_optional_notification(self.reverse_is_enabled, with_notification);

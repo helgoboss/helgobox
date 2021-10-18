@@ -839,11 +839,11 @@ impl MainMapping {
         // - This leaves us with asking the mode. That means the user needs to explicitly choose
         //   whether it wants numerical or textual feedback.
         let feedback_value = if self.core.mode.wants_textual_feedback() {
-            FeedbackValue::Textual(
-                self.core
-                    .mode
-                    .query_textual_feedback(|key| self.get_prop_value(key, control_context)),
-            )
+            let v = self
+                .core
+                .mode
+                .query_textual_feedback(&|key| self.get_prop_value(key, control_context));
+            FeedbackValue::Textual(v)
         } else {
             FeedbackValue::Numeric(combined_target_value)
         };
@@ -1222,7 +1222,7 @@ impl CompoundMappingSource {
     /// Use this if you really need an owned representation of the source address. If you just want
     /// to compare addresses, use [`Self::has_same_feedback_address_as_value`]
     /// or [`Self::has_same_feedback_address_as_source`] instead. It can avoid the cloning.
-    // TODO-high There are quite some places in which we are fine with a borrowed version but
+    // TODO-medium There are quite some places in which we are fine with a borrowed version but
     //  the problem is the MIDI source can't simply give us a borrowed one. Maybe we should
     //  create one at MIDI source creation time! But for this we need to make MidiSource a struct.
     pub fn extract_feedback_address(&self) -> Option<CompoundMappingSourceAddress> {

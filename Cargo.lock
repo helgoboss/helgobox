@@ -2962,7 +2962,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.11.0-pre.8"
+version = "2.11.0-pre.9"
 dependencies = [
  "approx",
  "arboard",
@@ -3051,7 +3051,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d62f24a873dd908aa5509d8672b119d736359d42"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#15d2b6f96bf9728ce006e447610d10e82fd850fc"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -3077,7 +3077,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d62f24a873dd908aa5509d8672b119d736359d42"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#15d2b6f96bf9728ce006e447610d10e82fd850fc"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -3091,7 +3091,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d62f24a873dd908aa5509d8672b119d736359d42"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#15d2b6f96bf9728ce006e447610d10e82fd850fc"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.9",
@@ -3101,7 +3101,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d62f24a873dd908aa5509d8672b119d736359d42"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#15d2b6f96bf9728ce006e447610d10e82fd850fc"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -3120,7 +3120,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#d62f24a873dd908aa5509d8672b119d736359d42"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#15d2b6f96bf9728ce006e447610d10e82fd850fc"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
@@ -4026,7 +4026,7 @@ version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f559b464de2e2bdabcac6a210d12e9b5a5973c251e102c44c585c71d51bd78e"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "rand 0.8.4",
  "static_assertions",
 ]

@@ -62,6 +62,10 @@ impl Window {
         self.raw
     }
 
+    pub fn raw_non_null(self) -> NonNull<raw::HWND__> {
+        unsafe { NonNull::new_unchecked(self.raw) }
+    }
+
     pub fn find_control(self, control_id: u32) -> Option<Window> {
         let hwnd = unsafe { Swell::get().GetDlgItem(self.raw, control_id as i32) };
         Window::new(hwnd)
