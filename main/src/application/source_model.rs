@@ -355,6 +355,7 @@ impl SourceModel {
                 // TODO-low Not so nice to have runtime state in this descriptor.
                 last_sent_background_color: Default::default(),
             },
+            LaunchpadProScrollingText => DisplaySpec::LaunchpadProScrollingText,
         }
     }
 

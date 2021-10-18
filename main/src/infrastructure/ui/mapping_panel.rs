@@ -951,6 +951,7 @@ impl<'a> MutableMappingPanel<'a> {
                             MackieSevenSegmentDisplay => {
                                 Some(b.selected_combo_box_item_index() as u8)
                             }
+                            LaunchpadProScrollingText => return,
                         };
                         self.mapping.source_model.display_id.set(value);
                     }
@@ -2771,9 +2772,16 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         let text = match self.source.category.get() {
             Midi => {
+                use DisplayType::*;
                 use MidiSourceType::*;
                 match self.source.midi_source_type.get() {
-                    Display => Some("Display"),
+                    Display => {
+                        if matches!(self.source.display_type.get(), LaunchpadProScrollingText) {
+                            None
+                        } else {
+                            Some("Display")
+                        }
+                    }
                     t if t.supports_midi_message_number()
                         || t.supports_parameter_number_message_number() =>
                     {
@@ -2799,10 +2807,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 use MidiSourceType::*;
                 match self.source.midi_source_type.get() {
                     Display => {
-                        b.show();
                         use DisplayType::*;
                         match self.source.display_type.get() {
                             MackieLcd | SiniConE24 => {
+                                b.show();
                                 let display_count = self.source.display_count() as isize;
                                 b.fill_combo_box_with_data_vec(
                                     iter::once((-1isize, "<All>".to_string()))
@@ -2819,6 +2827,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                                 b.select_combo_box_item_by_data(data).unwrap();
                             }
                             MackieSevenSegmentDisplay => {
+                                b.show();
                                 b.fill_combo_box_indexed(
                                     MackieSevenSegmentDisplayScope::into_enum_iter(),
                                 );
@@ -2826,6 +2835,9 @@ impl<'a> ImmutableMappingPanel<'a> {
                                     self.source.mackie_7_segment_display_scope().into(),
                                 )
                                 .unwrap();
+                            }
+                            LaunchpadProScrollingText => {
+                                b.hide();
                             }
                         }
                     }
