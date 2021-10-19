@@ -30,6 +30,7 @@ pub enum Source {
     MackieLcd(MackieLcd),
     MackieSevenSegmentDisplay(MackieSevenSegmentDisplay),
     SiniConE24Display(SiniConE24Display),
+    LaunchpadProScrollingTextDisplay(LaunchpadProScrollingTextDisplay),
     // OSC
     Osc(OscSource),
     Virtual(VirtualSource),
@@ -250,6 +251,14 @@ mod midi {
         pub cell_index: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub item_index: Option<u8>,
+    }
+
+    #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+    #[serde(rename_all = "camelCase")]
+    #[serde(deny_unknown_fields)]
+    pub struct LaunchpadProScrollingTextDisplay {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reserved: Option<String>,
     }
 }
 

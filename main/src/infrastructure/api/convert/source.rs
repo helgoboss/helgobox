@@ -46,6 +46,7 @@ pub fn convert_source(s: Source) -> Result<SourceModelData, Box<dyn Error>> {
             MackieLcd(_) => DisplayType::MackieLcd,
             MackieSevenSegmentDisplay(_) => DisplayType::MackieSevenSegmentDisplay,
             SiniConE24Display(_) => DisplayType::SiniConE24,
+            LaunchpadProScrollingTextDisplay(_) => DisplayType::LaunchpadProScrollingText,
             _ => Default::default(),
         },
         display_id: match &s {
@@ -118,7 +119,8 @@ fn convert_category(s: &Source) -> SourceCategory {
         | MidiScript(_)
         | MackieLcd(_)
         | MackieSevenSegmentDisplay(_)
-        | SiniConE24Display(_) => SourceCategory::Midi,
+        | SiniConE24Display(_)
+        | LaunchpadProScrollingTextDisplay(_) => SourceCategory::Midi,
         Osc(_) => SourceCategory::Osc,
         Virtual(_) => SourceCategory::Virtual,
     }
