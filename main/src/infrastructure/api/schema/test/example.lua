@@ -33,22 +33,22 @@ return Mapping {
         "master"
     },
     group = "faders",
-    visibleInProjection = true,
+    visible_in_projection = true,
     enabled = true,
-    controlEnabled = true,
-    feedbackEnabled = true,
+    control_enabled = true,
+    feedback_enabled = true,
     active = "Always",
-    feedbackBehavior = "Normal",
-    onActivate = "Normal",
-    onDeactivate = "Normal",
+    feedback_behavior = "Normal",
+    on_activate = "Normal",
+    on_deactivate = "Normal",
     source = MidiNoteVelocityValueSource {
         channel = 0,
-        controllerNumber = 64,
+        controller_number = 64,
         character = "Button",
-        fourteenBit = false,
+        fourteen_bit = false,
     },
     glue = {
-        sourceInterval = {
+        source_interval = {
             0.3,
             0.7
         }

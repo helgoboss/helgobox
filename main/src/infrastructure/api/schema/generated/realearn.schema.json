@@ -1,0 +1,655 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mapping",
+  "type": "object",
+  "properties": {
+    "active": {
+      "$ref": "#/definitions/Active"
+    },
+    "control_enabled": {
+      "type": "boolean"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "feedback_behavior": {
+      "$ref": "#/definitions/FeedbackBehavior"
+    },
+    "feedback_enabled": {
+      "type": "boolean"
+    },
+    "glue": {
+      "$ref": "#/definitions/Glue"
+    },
+    "group": {
+      "type": "string"
+    },
+    "key": {
+      "description": "An optional key that you can assign to this mapping in order to refer to it from somewhere else.\n\nThis key should be unique within this list of mappings.",
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "on_activate": {
+      "$ref": "#/definitions/Lifecycle"
+    },
+    "on_deactivate": {
+      "$ref": "#/definitions/Lifecycle"
+    },
+    "source": {
+      "$ref": "#/definitions/Source"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "target": {
+      "$ref": "#/definitions/Target"
+    },
+    "visible_in_projection": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "Active": {
+      "type": "string",
+      "enum": [
+        "Always"
+      ]
+    },
+    "FeedbackBehavior": {
+      "type": "string",
+      "enum": [
+        "Normal",
+        "SendFeedbackAfterControl",
+        "PreventEchoFeedback"
+      ]
+    },
+    "Glue": {
+      "type": "object",
+      "properties": {
+        "source_interval": {
+          "type": "array",
+          "items": [
+            {
+              "type": "number",
+              "format": "double"
+            },
+            {
+              "type": "number",
+              "format": "double"
+            }
+          ],
+          "maxItems": 2,
+          "minItems": 2
+        }
+      },
+      "additionalProperties": false
+    },
+    "Lifecycle": {
+      "type": "string",
+      "enum": [
+        "Normal"
+      ]
+    },
+    "MackieSevenSegmentDisplayScope": {
+      "type": "string",
+      "enum": [
+        "All",
+        "Assignment",
+        "Tc",
+        "TcHoursBars",
+        "TcMinutesBeats",
+        "TcSecondsSub",
+        "TcFramesTicks"
+      ]
+    },
+    "MidiClockTransportMessage": {
+      "type": "string",
+      "enum": [
+        "Start",
+        "Continue",
+        "Stop"
+      ]
+    },
+    "OscArgKind": {
+      "type": "string",
+      "enum": [
+        "Float",
+        "Double",
+        "Bool",
+        "Nil",
+        "Inf",
+        "Int",
+        "String",
+        "Blob",
+        "Time",
+        "Long",
+        "Char",
+        "Color",
+        "Midi",
+        "Array"
+      ]
+    },
+    "OscArgument": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "kind": {
+          "$ref": "#/definitions/OscArgKind"
+        },
+        "relative": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Source": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "None"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "reserved": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiDeviceChanges"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "reserved": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "RealearnInstanceStart"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "key_number": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiNoteVelocity"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiNoteKeyNumber"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "key_number": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiPolyphonicKeyPressureAmount"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "character": {
+              "$ref": "#/definitions/SourceCharacter"
+            },
+            "controller_number": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "fourteen_bit": {
+              "type": "boolean"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiControlChangeValue"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiProgramChangeNumber"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiChannelPressureAmount"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiPitchBendChangeValue"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "character": {
+              "$ref": "#/definitions/SourceCharacter"
+            },
+            "fourteen_bit": {
+              "type": "boolean"
+            },
+            "number": {
+              "type": "integer",
+              "format": "uint16",
+              "minimum": 0.0
+            },
+            "registered": {
+              "type": "boolean"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiParameterNumberValue"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "reserved": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiClockTempo"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "message": {
+              "$ref": "#/definitions/MidiClockTransportMessage"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiClockTransport"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "character": {
+              "$ref": "#/definitions/SourceCharacter"
+            },
+            "pattern": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiRaw"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "script": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MidiScript"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "channel": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "line": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MackieLcd"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "scope": {
+              "$ref": "#/definitions/MackieSevenSegmentDisplayScope"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "MackieSevenSegmentDisplay"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "cell_index": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "item_index": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "SiniConE24Display"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "reserved": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "LaunchpadProScrollingTextDisplay"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "address": {
+              "type": "string"
+            },
+            "argument": {
+              "$ref": "#/definitions/OscArgument"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "Osc"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "kind",
+            "type"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/definitions/VirtualControlElementId"
+            },
+            "kind": {
+              "$ref": "#/definitions/VirtualControlElementKind"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "Virtual"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SourceCharacter": {
+      "type": "string",
+      "enum": [
+        "Range",
+        "Button",
+        "Relative1",
+        "Relative2",
+        "Relative3",
+        "StatefulButton"
+      ]
+    },
+    "Target": {
+      "type": "object",
+      "properties": {
+        "unit": {
+          "$ref": "#/definitions/TargetUnit"
+        }
+      }
+    },
+    "TargetUnit": {
+      "type": "string",
+      "enum": [
+        "Native",
+        "Percent"
+      ]
+    },
+    "VirtualControlElementId": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "VirtualControlElementKind": {
+      "type": "string",
+      "enum": [
+        "Multi",
+        "Button"
+      ]
+    }
+  }
+}

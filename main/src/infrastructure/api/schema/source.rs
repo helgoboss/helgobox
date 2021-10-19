@@ -48,7 +48,7 @@ mod midi {
     use ts_rs::TS;
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiNoteVelocitySource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -58,7 +58,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiNoteKeyNumberSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -66,7 +66,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiPolyphonicKeyPressureAmountSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -76,7 +76,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiControlChangeValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -90,7 +90,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiProgramChangeNumberSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -98,7 +98,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiChannelPressureAmountSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -106,7 +106,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiPitchBendChangeValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -114,7 +114,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiParameterNumberValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -130,7 +130,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiClockTempoSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -138,7 +138,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiDeviceChangesSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -146,7 +146,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct RealearnInstanceStartSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -154,7 +154,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiClockTransportSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -162,7 +162,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiRawSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -172,7 +172,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiScriptSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -209,7 +209,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MackieLcd {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -219,7 +219,7 @@ mod midi {
     }
 
     #[derive(Copy, Clone, Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MackieSevenSegmentDisplay {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -244,7 +244,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct SiniConE24Display {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -254,7 +254,7 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct LaunchpadProScrollingTextDisplay {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -268,7 +268,7 @@ mod osc {
     use ts_rs::TS;
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct OscSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -278,19 +278,19 @@ mod osc {
     }
 
     #[derive(Copy, Clone, Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct OscArgument {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub index: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub r#type: Option<OscArgType>,
+        pub kind: Option<OscArgKind>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub relative: Option<bool>,
     }
 
     #[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
-    pub enum OscArgType {
+    pub enum OscArgKind {
         Float,
         Double,
         Bool,
@@ -307,7 +307,7 @@ mod osc {
         Array,
     }
 
-    impl Default for OscArgType {
+    impl Default for OscArgKind {
         fn default() -> Self {
             Self::Float
         }
@@ -320,11 +320,11 @@ mod virt {
     use ts_rs::TS;
 
     #[derive(Clone, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "camelCase")]
+    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct VirtualSource {
         pub id: VirtualControlElementId,
-        pub r#type: VirtualControlElementType,
+        pub kind: VirtualControlElementKind,
     }
 
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
@@ -335,7 +335,7 @@ mod virt {
     }
 
     #[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
-    pub enum VirtualControlElementType {
+    pub enum VirtualControlElementKind {
         Multi,
         Button,
     }
