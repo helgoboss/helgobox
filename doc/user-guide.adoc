@@ -1431,10 +1431,11 @@ This is a feedback-only source used to display text on MIDI-controllable hardwar
 ** *SiniCon E24:* Use this with the https://www.sinicon.io/[SiniCon E24 controller].
 * *Display:* Choose the particular display or display portion to which you want to send text.
 * *Line:* Choose the line number.
+* *Launchpad Pro - Scrolling text:* Displays looped scrolling text on a Novation Launchpad Pro. Only seems to work if you set _Feedback output_ to `MIDIOUT2 (Launchpad Pro)`.
 
-CAUTION: ReaLearn allows you to spread your text over all available displays and lines. This is great if you need to display a lot of text but one display doesn't provide enough space. But be aware: Replacing feedback with other feedback ("feedback relay") doesn't work so nicely anymore if you make use of this feature.
+CAUTION: For controllers with multiple displays and lines, ReaLearn allows you to spread your text over all available displays and lines. This is great if you need to display a lot of text but one display doesn't provide enough space. But be aware: Replacing feedback with other feedback ("feedback relay") doesn't work so nicely anymore if you make use of this feature.
 
-If you want to know how to define which text shall be sent to the displays, please see <<textual-feedback,textual feedback>>.
+If you want to know how to define which text shall be sent to the displays, please see <<textual-feedback,textual feedback>> in the *Tuning* section.
 
 
 [#category-osc]
@@ -2401,24 +2402,18 @@ These are relevant for the control direction only:
  latter, _Inverse target value_ allows for exclusivity between completely different target types and completely
  custom groupings - independent of e.g. organization of tracks into folders.
 ** *Inverse target value (on only):* Variation of _Inverse target value_ that applies the inverse only when the target value is > 0%.
-* *Textual:* By default, ReaLearn sends numeric feedback values to the controller. If you tick this checkbox, you can
-send textual feedback values instead. This only works with sources that are capable of displaying text: That is any <<category-osc,OSC source>> with argument type _String_ and the <<display-source, MIDI Display source>>.
-* *Feedback transformation (EEL):* This field is available only with numeric feedback. It's like _Control transformation (EEL)_ (see further below) but used for
- translating a target value back to a source value for feedback purposes. It usually makes most
- sense if it's exactly the reverse of the control transformation. Be aware: Here `x` is the desired
- source value (= output value) and `y` is the current target value (= input value), so you must
- assign the desired source value to `x`. Example: `x = y * 2`. ReaLearn's feedback processing order is like this
- since version 2:
+* *Feedback type:* Determines whether to send numeric or textual feedback to the source.
+** *Numeric feedback: Transformation (EEL):* Sends numeric feedback to the source. This is the default. The text field below allows you to specify an optional feedback transformation formula, which is much like _Control transformation (EEL)_ (see further below) but used for translating a target value back to a source value for feedback purposes. Be aware: Here `x` is the desired source value (= output value) and `y` is the current target value (= input value), so you must assign the desired source value to `x`. Example: `x = y * 2`. ReaLearn's feedback processing order is like this since version 2:
 .. Apply target interval.
 .. Apply reverse.
 .. Apply transformation.
 .. Apply source interval.
 [#textual-feedback]
-* *Textual feedback expression:* This field is available only with textual feedback. Here you define which text is going to be sent to the source _whenever the target value changes_ and also - for your convenience - immediately at the moment of entering the text.
-** Whatever text you enter here, will be sent verbatim to the source.
-** Of course, entering a fixed text here is not very exciting. Most likely you want to display dynamic text such as the name of the currently selected track or the current target value, nicely formatted!
-** You can do that by using placeholders, delimited by double braces. Example: `{{target.text_value}}`.
-** Which placeholders are available, depends very much on the type of the mapping target. However, there are some which are available for (almost) any target:
+** *Textual feedback: Text expression:* With this option, ReaLearn will send textual feedback values to the source. This only works with sources that are capable of displaying text: That is any <<category-osc,OSC source>> with argument type _String_ and the <<display-source, MIDI Display source>>. The field below contains the _textual feedback expression_. Here you define which text is going to be sent to the source _whenever the target value changes_ and also - for your convenience - immediately at the moment of entering the text.
+*** Whatever text you enter here, will be sent verbatim to the source.
+*** Of course, entering a fixed text here is not very exciting. Most likely you want to display dynamic text such as the name of the currently selected track or the current target value, nicely formatted!
+*** You can do that by using placeholders, delimited by double braces. Example: `{{target.text_value}}`.
+*** Which placeholders are available, depends very much on the type of the mapping target. However, there are some which are available for (almost) any target:
 +
 [cols="m,1"]
 |===
@@ -2505,6 +2500,26 @@ Name of the first resolved target send/receive/output (if supported).
 |===
 +
 For target-specific placeholders, please look up the corresponding <<target>> section.
+* *`...`:* Provides options to change the _feedback style_. At the moment, it's all about setting colors. Expect more style properties to follow in future versions of ReaLearn.
+** *Text color / Background color:* With this you can define the color and background color of the displayed text. Of course this will only work if the display source supports it!
+*** *<Default color>:* Chooses the default color, that is the one which is preferred for the corresponding controller and display type.
+*** *<Pick color...>:* Opens a color picker so you can choose the color of your choice.
+*** *_Property name_:* Maybe you don't want a fixed color but a dynamic one that changes whenever your target changes. Choose one of the following properties to make that happen:
++
+[cols="m,1"]
+|===
+|
+target.track.color
+|
+Custom color of the first resolved target track (if supported).
+
+|
+target.bookmark.color
+|
+Custom color of the resolved marker or region.
+
+Only works with the <<_markerregion_go_to>> target.
+|===
 
 The following elements are relevant for all kinds of sources. For rotary encoders they are relevant only in
 _feedback_ direction, not in _control_ direction.

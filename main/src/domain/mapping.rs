@@ -15,9 +15,9 @@ use enum_map::Enum;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlType,
     ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
-    ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericValue, OscSource,
-    OscSourceAddress, PropValue, RawMidiEvent, SourceCharacter, Target, UnitValue, ValueFormatter,
-    ValueParser,
+    ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
+    OscSource, OscSourceAddress, PropValue, RawMidiEvent, SourceCharacter, Target, UnitValue,
+    ValueFormatter, ValueParser,
 };
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -804,6 +804,7 @@ impl MainMapping {
         context: ControlContext,
     ) -> Option<CompoundFeedbackValue> {
         self.feedback_entry_point(true, true, new_target_value?, context)
+            .map(CompoundFeedbackValue::normal)
     }
 
     /// Returns `None` when used on mappings with virtual targets.
@@ -818,6 +819,7 @@ impl MainMapping {
             self.current_aggregated_target_value(context)?,
             context,
         )
+        .map(CompoundFeedbackValue::normal)
     }
 
     /// This is the primary entry point to feedback!
@@ -829,7 +831,7 @@ impl MainMapping {
         with_source_feedback: bool,
         combined_target_value: AbsoluteValue,
         control_context: ControlContext,
-    ) -> Option<CompoundFeedbackValue> {
+    ) -> Option<SpecificCompoundFeedbackValue> {
         // - We shouldn't ask the source if it wants the given numerical feedback value or a textual
         //   value because a virtual source wouldn't know! Even asking a real source wouldn't make
         //   much sense because real sources could be capable of processing both numerical and
@@ -839,13 +841,17 @@ impl MainMapping {
         // - This leaves us with asking the mode. That means the user needs to explicitly choose
         //   whether it wants numerical or textual feedback.
         let feedback_value = if self.core.mode.wants_textual_feedback() {
-            FeedbackValue::Textual(
-                self.core
-                    .mode
-                    .query_textual_feedback(|key| self.get_prop_value(key, control_context)),
-            )
+            let v = self
+                .core
+                .mode
+                .query_textual_feedback(&|key| self.get_prop_value(key, control_context));
+            FeedbackValue::Textual(v)
         } else {
-            FeedbackValue::Numeric(combined_target_value)
+            let style = self
+                .core
+                .mode
+                .feedback_style(&|key| self.get_prop_value(key, control_context));
+            FeedbackValue::Numeric(NumericFeedbackValue::new(style, combined_target_value))
         };
         self.feedback_given_target_value(
             Cow::Owned(feedback_value),
@@ -907,7 +913,7 @@ impl MainMapping {
         &self,
         feedback_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
-    ) -> Option<CompoundFeedbackValue> {
+    ) -> Option<SpecificCompoundFeedbackValue> {
         use FeedbackValue::*;
         let mode_value = match feedback_value.as_ref() {
             // Process numeric value via mode
@@ -916,8 +922,8 @@ impl MainMapping {
                     source_is_virtual: self.core.source.is_virtual(),
                     max_discrete_source_value: self.core.source.max_discrete_value(),
                 };
-                let mode_value = self.core.mode.feedback_with_options(*v, options)?;
-                Cow::Owned(Numeric(mode_value))
+                let mode_value = self.core.mode.feedback_with_options(v.value, options)?;
+                Cow::Owned(Numeric(NumericFeedbackValue::new(v.style, mode_value)))
             }
             // Textual feedback is not processed (created by the mode in the first place).
             _ => feedback_value,
@@ -929,8 +935,8 @@ impl MainMapping {
         &self,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
-    ) -> Option<CompoundFeedbackValue> {
-        CompoundFeedbackValue::from_mode_value(
+    ) -> Option<SpecificCompoundFeedbackValue> {
+        SpecificCompoundFeedbackValue::from_mode_value(
             self.core.compartment,
             self.id(),
             &self.core.source,
@@ -952,6 +958,7 @@ impl MainMapping {
                 with_source_feedback: true,
             },
         )
+        .map(CompoundFeedbackValue::normal)
     }
 
     fn manual_feedback_after_control_if_enabled(
@@ -971,6 +978,7 @@ impl MainMapping {
                     self.current_aggregated_target_value(context)?,
                     context,
                 )
+                .map(CompoundFeedbackValue::feedback_after_control)
             } else {
                 None
             }
@@ -1203,7 +1211,7 @@ pub struct QualifiedSource {
 
 impl QualifiedSource {
     pub fn off_feedback(&self) -> Option<CompoundFeedbackValue> {
-        CompoundFeedbackValue::from_mode_value(
+        SpecificCompoundFeedbackValue::from_mode_value(
             self.compartment,
             self.id,
             &self.source,
@@ -1213,6 +1221,7 @@ impl QualifiedSource {
                 with_source_feedback: true,
             },
         )
+        .map(CompoundFeedbackValue::normal)
     }
 }
 
@@ -1222,7 +1231,7 @@ impl CompoundMappingSource {
     /// Use this if you really need an owned representation of the source address. If you just want
     /// to compare addresses, use [`Self::has_same_feedback_address_as_value`]
     /// or [`Self::has_same_feedback_address_as_source`] instead. It can avoid the cloning.
-    // TODO-high There are quite some places in which we are fine with a borrowed version but
+    // TODO-medium There are quite some places in which we are fine with a borrowed version but
     //  the problem is the MIDI source can't simply give us a borrowed one. Maybe we should
     //  create one at MIDI source creation time! But for this we need to make MidiSource a struct.
     pub fn extract_feedback_address(&self) -> Option<CompoundMappingSourceAddress> {
@@ -1375,7 +1384,29 @@ impl CompoundMappingSource {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum CompoundFeedbackValue {
+pub struct CompoundFeedbackValue {
+    pub value: SpecificCompoundFeedbackValue,
+    pub is_feedback_after_control: bool,
+}
+
+impl CompoundFeedbackValue {
+    pub fn normal(value: SpecificCompoundFeedbackValue) -> Self {
+        Self {
+            value,
+            is_feedback_after_control: false,
+        }
+    }
+
+    pub fn feedback_after_control(value: SpecificCompoundFeedbackValue) -> Self {
+        Self {
+            value,
+            is_feedback_after_control: true,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum SpecificCompoundFeedbackValue {
     Virtual {
         value: VirtualFeedbackValue,
         destinations: FeedbackDestinations,
@@ -1397,20 +1428,20 @@ impl FeedbackDestinations {
     }
 }
 
-impl CompoundFeedbackValue {
+impl SpecificCompoundFeedbackValue {
     pub fn from_mode_value(
         compartment: MappingCompartment,
         id: MappingId,
         source: &CompoundMappingSource,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
-    ) -> Option<CompoundFeedbackValue> {
+    ) -> Option<SpecificCompoundFeedbackValue> {
         if destinations.is_all_off() {
             return None;
         }
         let val = if let CompoundMappingSource::Virtual(vs) = &source {
             // Virtual source
-            CompoundFeedbackValue::Virtual {
+            SpecificCompoundFeedbackValue::Virtual {
                 destinations,
                 value: vs.feedback(mode_value.into_owned()),
             }
@@ -1422,7 +1453,7 @@ impl CompoundFeedbackValue {
                 // TODO-medium Support textual projection feedback
                 mode_value
                     .to_numeric()
-                    .map(|v| ProjectionFeedbackValue::new(compartment, id, v.to_unit_value()))
+                    .map(|v| ProjectionFeedbackValue::new(compartment, id, v.value.to_unit_value()))
             } else {
                 None
             };
@@ -1431,7 +1462,7 @@ impl CompoundFeedbackValue {
             } else {
                 None
             };
-            CompoundFeedbackValue::Real(RealFeedbackValue::new(projection, source)?)
+            SpecificCompoundFeedbackValue::Real(RealFeedbackValue::new(projection, source)?)
         };
         Some(val)
     }
@@ -1485,6 +1516,19 @@ impl ProjectionFeedbackValue {
 pub enum SourceFeedbackValue {
     Midi(MidiSourceValue<'static, RawShortMessage>),
     Osc(OscMessage),
+}
+
+impl SourceFeedbackValue {
+    pub fn extract_address(&self) -> CompoundMappingSourceAddress {
+        use SourceFeedbackValue::*;
+        match self {
+            Midi(v) => CompoundMappingSourceAddress::Midi(
+                v.extract_feedback_address()
+                    .expect("couldn't extract feedback address"),
+            ),
+            Osc(v) => CompoundMappingSourceAddress::Osc(v.addr.clone()),
+        }
+    }
 }
 
 #[derive(Debug)]

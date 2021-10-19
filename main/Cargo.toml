@@ -1,6 +1,6 @@
 [package]
 name = "realearn"
-version = "2.11.0-pre.8"
+version = "2.11.0-pre.9"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
@@ -148,6 +148,8 @@ ts-rs = { version = "4.0.0", features = ["serde-compat"] }
 schemars = "0.8.6"
 # For the API
 mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize"] }
+# For duplicate detection of non-primitive feedback messages
+twox-hash = "1.6.1"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

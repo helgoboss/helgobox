@@ -12,8 +12,8 @@ use crate::domain::{
     OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedMappingId, QualifiedSource,
     RealFeedbackValue, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
     RealearnTarget, ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString,
-    SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent,
-    UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
+    SourceFeedbackValue, SourceReleasedEvent, SpecificCompoundFeedbackValue,
+    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -22,6 +22,7 @@ use helgoboss_learn::{
     ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
 };
 use std::borrow::Cow;
+use std::cell::RefCell;
 
 use crate::domain::ui_util::{
     format_incoming_midi_message, format_midi_source_value, format_osc_message, format_osc_packet,
@@ -29,15 +30,16 @@ use crate::domain::ui_util::{
     log_target_output,
 };
 use ascii::{AsciiString, ToAsciiChar};
-use helgoboss_midi::RawShortMessage;
+use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
-use rosc::{OscMessage, OscPacket};
+use rosc::{OscMessage, OscPacket, OscType};
 use slog::{debug, trace};
 use smallvec::SmallVec;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::hash::{Hash, Hasher};
 
 // This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
@@ -78,6 +80,110 @@ struct Basics<EH: DomainEventHandler> {
     input_logging_enabled: bool,
     output_logging_enabled: bool,
     channels: Channels,
+    // Using RefCell in the processing layer is an exception. We do it here because we can't
+    // safely make feedback processing mutable. I tried (see branch
+    // "experiment/feedback-change-detection-mutable") but it the end it turned out to be impossible
+    // because the reaper-rs control surface doesn't emit feedback-triggering events in a mutable
+    // context. Rightfully so, because it's potentially reentrant!
+    last_feedback_checksum_by_address:
+        RefCell<HashMap<CompoundMappingSourceAddress, FeedbackChecksum>>,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+enum FeedbackChecksum {
+    MidiPlain(RawShortMessage),
+    MidiParameterNumber(ParameterNumberMessage),
+    MidiControlChange14Bit(ControlChange14BitMessage),
+    // For OSC and raw MIDI
+    Hashed(u64),
+}
+
+impl FeedbackChecksum {
+    fn from_value(v: &SourceFeedbackValue) -> Self {
+        use SourceFeedbackValue::*;
+        match v {
+            Midi(v) => Self::from_midi(v),
+            Osc(v) => Self::from_osc(v),
+        }
+    }
+
+    fn from_midi(v: &MidiSourceValue<RawShortMessage>) -> Self {
+        use MidiSourceValue::*;
+        match v {
+            Plain(v) => FeedbackChecksum::MidiPlain(*v),
+            ParameterNumber(v) => FeedbackChecksum::MidiParameterNumber(*v),
+            ControlChange14Bit(v) => FeedbackChecksum::MidiControlChange14Bit(*v),
+            Raw { events, .. } => {
+                let mut hasher = twox_hash::XxHash64::default();
+                events.hash(&mut hasher);
+                FeedbackChecksum::Hashed(hasher.finish())
+            }
+            Tempo(_) | BorrowedSysEx(_) => unreachable!("never sent as feedback"),
+        }
+    }
+
+    fn from_osc(v: &OscMessage) -> Self {
+        let mut hasher = twox_hash::XxHash64::default();
+        // OscMessage doesn't implement Hash, probably because it contains floating point numbers.
+        // We don't care about floating point hash/equality issues because we just want a checksum
+        // for comparing current feedback with last feedback.
+        v.addr.hash(&mut hasher);
+        for arg in &v.args {
+            hash_osc_arg(arg, &mut hasher);
+        }
+        FeedbackChecksum::Hashed(hasher.finish())
+    }
+}
+
+fn hash_osc_arg<H: Hasher>(arg: &OscType, hasher: &mut H) {
+    use OscType::*;
+    match arg {
+        Int(v) => {
+            (0, v).hash(hasher);
+        }
+        Float(v) => {
+            (1, v.to_ne_bytes()).hash(hasher);
+        }
+        String(v) => {
+            (2, v).hash(hasher);
+        }
+        Blob(v) => {
+            (3, v).hash(hasher);
+        }
+        Time(v) => {
+            (4, v).hash(hasher);
+        }
+        Long(v) => {
+            (5, v).hash(hasher);
+        }
+        Double(v) => {
+            (6, v.to_ne_bytes()).hash(hasher);
+        }
+        Char(v) => {
+            (7, v).hash(hasher);
+        }
+        Color(v) => {
+            (8, (v.red, v.green, v.red, v.alpha)).hash(hasher);
+        }
+        Midi(v) => {
+            (9, (v.port, v.status, v.data1, v.data2)).hash(hasher);
+        }
+        Bool(v) => {
+            (10, v).hash(hasher);
+        }
+        Array(v) => {
+            11.hash(hasher);
+            for a in &v.content {
+                hash_osc_arg(a, hasher);
+            }
+        }
+        Nil => {
+            12.hash(hasher);
+        }
+        Inf => {
+            13.hash(hasher);
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -179,6 +285,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     instance_orchestration_event_sender,
                     integration_test_feedback_sender: None,
                 },
+                last_feedback_checksum_by_address: Default::default(),
             },
             collections: Collections {
                 mappings: Default::default(),
@@ -251,6 +358,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             feedback_output,
             FeedbackReason::FinallySwitchOffSource,
             feedback_value,
+            false,
         );
     }
 
@@ -874,6 +982,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.basics.logger,
             "Updating feedback_is_globally_enabled to {}", is_enabled
         );
+        self.basics.clear_last_feedback();
         self.basics.feedback_is_globally_enabled = is_enabled;
         if is_enabled {
             for compartment in MappingCompartment::enum_iter() {
@@ -947,6 +1056,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         input_logging_enabled: bool,
         output_logging_enabled: bool,
     ) {
+        self.basics.clear_last_feedback();
         self.basics.input_logging_enabled = input_logging_enabled;
         self.basics.output_logging_enabled = output_logging_enabled;
         let released_event = self.io_released_event();
@@ -968,7 +1078,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             mappings.len(),
             compartment
         );
-
+        self.basics.clear_last_feedback();
         let mut mappings_by_group: HashMap<GroupId, Vec<MappingId>> = HashMap::new();
         let mut mapping_infos: HashMap<QualifiedMappingId, MappingInfo> = HashMap::new();
         let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
@@ -1543,6 +1653,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn send_all_feedback(&self) {
+        self.basics.clear_last_feedback();
         self.send_feedback(FeedbackReason::Normal, self.feedback_all());
     }
 
@@ -1810,6 +1921,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             compartment,
             mapping.id()
         );
+        self.basics.clear_last_feedback();
         // Refresh
         let control_context = self.basics.control_context();
         mapping.init_target_and_activation(
@@ -2223,6 +2335,10 @@ impl FeedbackReason {
 }
 
 impl<EH: DomainEventHandler> Basics<EH> {
+    pub fn clear_last_feedback(&self) {
+        self.last_feedback_checksum_by_address.borrow_mut().clear();
+    }
+
     pub fn control_context(&self) -> ControlContext {
         ControlContext {
             feedback_audio_hook_task_sender: &self.channels.feedback_audio_hook_task_sender,
@@ -2429,12 +2545,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
             let with_projection_feedback = mapping_feedback_is_effectively_on;
             let with_source_feedback = self.instance_feedback_is_effectively_enabled()
                 && mapping_feedback_is_effectively_on;
-            let feedback_value = m.feedback_entry_point(
-                with_projection_feedback,
-                with_source_feedback,
-                new_value,
-                self.control_context(),
-            );
+            let feedback_value = m
+                .feedback_entry_point(
+                    with_projection_feedback,
+                    with_source_feedback,
+                    new_value,
+                    self.control_context(),
+                )
+                .map(CompoundFeedbackValue::normal);
             self.send_feedback(
                 mappings_with_virtual_targets,
                 FeedbackReason::Normal,
@@ -2521,8 +2639,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_values: impl IntoIterator<Item = CompoundFeedbackValue>,
     ) {
         for feedback_value in feedback_values.into_iter() {
-            match feedback_value {
-                CompoundFeedbackValue::Virtual {
+            match feedback_value.value {
+                SpecificCompoundFeedbackValue::Virtual {
                     destinations,
                     value,
                 } => {
@@ -2537,31 +2655,36 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                 // Virtual source matched virtual target. The following method
                                 // will always produce real target values (because controller
                                 // mappings can't have virtual sources).
-                                if let Some(CompoundFeedbackValue::Real(final_feedback_value)) = m
-                                    .feedback_given_target_value(
-                                        // This clone is unavoidable because we are producing
-                                        // real feedback values and these will be sent to another
-                                        //  thread, so they must be self-contained.
-                                        Cow::Borrowed(value.feedback_value()),
-                                        FeedbackDestinations {
-                                            with_source_feedback: destinations.with_source_feedback
-                                                && m.feedback_is_enabled(),
-                                            ..destinations
-                                        },
-                                    )
-                                {
+                                if let Some(SpecificCompoundFeedbackValue::Real(
+                                    final_feedback_value,
+                                )) = m.feedback_given_target_value(
+                                    // This clone is unavoidable because we are producing
+                                    // real feedback values and these will be sent to another
+                                    //  thread, so they must be self-contained.
+                                    Cow::Borrowed(value.feedback_value()),
+                                    FeedbackDestinations {
+                                        with_source_feedback: destinations.with_source_feedback
+                                            && m.feedback_is_enabled(),
+                                        ..destinations
+                                    },
+                                ) {
                                     // Successful virtual-to-real feedback
                                     self.send_direct_feedback(
                                         feedback_reason,
                                         final_feedback_value,
+                                        feedback_value.is_feedback_after_control,
                                     );
                                 }
                             }
                         }
                     }
                 }
-                CompoundFeedbackValue::Real(final_feedback_value) => {
-                    self.send_direct_feedback(feedback_reason, final_feedback_value);
+                SpecificCompoundFeedbackValue::Real(final_feedback_value) => {
+                    self.send_direct_feedback(
+                        feedback_reason,
+                        final_feedback_value,
+                        feedback_value.is_feedback_after_control,
+                    );
                 }
             }
         }
@@ -2572,8 +2695,26 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_output: FeedbackOutput,
         feedback_reason: FeedbackReason,
         source_feedback_value: SourceFeedbackValue,
+        is_feedback_after_control: bool,
     ) {
         // No interference with other instances.
+        // This is not super cheap for OSC and MIDI Raw because it has to clone the address string.
+        // On the other hand, address strings are not large, so what.
+        let address = source_feedback_value.extract_address();
+        let checksum = FeedbackChecksum::from_value(&source_feedback_value);
+        let previous_checksum = self
+            .last_feedback_checksum_by_address
+            .borrow_mut()
+            .insert(address, checksum);
+        if !is_feedback_after_control && Some(checksum) == previous_checksum {
+            trace!(
+                self.logger,
+                "Block feedback because duplicate (reason: {:?}): {:?}",
+                feedback_reason,
+                source_feedback_value
+            );
+            return;
+        }
         trace!(
             self.logger,
             "Schedule sending feedback because {:?}: {:?}",
@@ -2581,61 +2722,60 @@ impl<EH: DomainEventHandler> Basics<EH> {
             source_feedback_value
         );
         if let Some(test_sender) = self.channels.integration_test_feedback_sender.as_ref() {
+            // Integration test
             // Test receiver could already be gone (if the test didn't wait long enough).
             let _ = test_sender.send(source_feedback_value);
         } else {
-            match source_feedback_value {
-                SourceFeedbackValue::Midi(v) => {
-                    if let FeedbackOutput::Midi(midi_output) = feedback_output {
-                        match midi_output {
-                            MidiDestination::FxOutput => {
-                                if self.output_logging_enabled {
-                                    log_feedback_output(
-                                        &self.instance_id,
-                                        format_midi_source_value(&v),
-                                    );
-                                }
-                                self.channels
-                                    .feedback_real_time_task_sender
-                                    .send(FeedbackRealTimeTask::FxOutputFeedback(v))
-                                    .unwrap();
+            // Production
+            match (source_feedback_value, feedback_output) {
+                (SourceFeedbackValue::Midi(v), FeedbackOutput::Midi(midi_output)) => {
+                    match midi_output {
+                        MidiDestination::FxOutput => {
+                            if self.output_logging_enabled {
+                                log_feedback_output(
+                                    &self.instance_id,
+                                    format_midi_source_value(&v),
+                                );
                             }
-                            MidiDestination::Device(dev_id) => {
-                                // We send to the audio hook in this case (the default case) because there's
-                                // only one audio hook (not one per instance as with real-time processors),
-                                // so it can guarantee us a globally deterministic order. This is necessary
-                                // to achieve "eventual feedback consistency" by using instance
-                                // orchestration techniques in the main thread. If
-                                // we don't do that, we can prepare the most perfect
-                                // feedback ordering in the backbone control surface (main
-                                // thread, in order to support multiple instances with the same device) ...
-                                // it won't be useful at all if the real-time processors send the feedback
-                                // in the order of instance instantiation.
-                                if self.output_logging_enabled {
-                                    log_feedback_output(
-                                        &self.instance_id,
-                                        format_midi_source_value(&v),
-                                    );
-                                }
-                                self.channels
-                                    .feedback_audio_hook_task_sender
-                                    .send(FeedbackAudioHookTask::MidiDeviceFeedback(dev_id, v))
-                                    .unwrap();
+                            self.channels
+                                .feedback_real_time_task_sender
+                                .send(FeedbackRealTimeTask::FxOutputFeedback(v))
+                                .unwrap();
+                        }
+                        MidiDestination::Device(dev_id) => {
+                            // We send to the audio hook in this case (the default case) because there's
+                            // only one audio hook (not one per instance as with real-time processors),
+                            // so it can guarantee us a globally deterministic order. This is necessary
+                            // to achieve "eventual feedback consistency" by using instance
+                            // orchestration techniques in the main thread. If
+                            // we don't do that, we can prepare the most perfect
+                            // feedback ordering in the backbone control surface (main
+                            // thread, in order to support multiple instances with the same device) ...
+                            // it won't be useful at all if the real-time processors send the feedback
+                            // in the order of instance instantiation.
+                            if self.output_logging_enabled {
+                                log_feedback_output(
+                                    &self.instance_id,
+                                    format_midi_source_value(&v),
+                                );
                             }
+                            self.channels
+                                .feedback_audio_hook_task_sender
+                                .send(FeedbackAudioHookTask::MidiDeviceFeedback(dev_id, v))
+                                .unwrap();
                         }
                     }
                 }
-                SourceFeedbackValue::Osc(msg) => {
-                    if let FeedbackOutput::Osc(dev_id) = feedback_output {
-                        if self.output_logging_enabled {
-                            log_feedback_output(&self.instance_id, format_osc_message(&msg));
-                        }
-                        self.channels
-                            .osc_feedback_task_sender
-                            .try_send(OscFeedbackTask::new(dev_id, msg))
-                            .unwrap();
+                (SourceFeedbackValue::Osc(msg), FeedbackOutput::Osc(dev_id)) => {
+                    if self.output_logging_enabled {
+                        log_feedback_output(&self.instance_id, format_osc_message(&msg));
                     }
+                    self.channels
+                        .osc_feedback_task_sender
+                        .try_send(OscFeedbackTask::new(dev_id, msg))
+                        .unwrap();
                 }
+                _ => {}
             }
         }
     }
@@ -2644,6 +2784,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         &self,
         feedback_reason: FeedbackReason,
         feedback_value: RealFeedbackValue,
+        is_feedback_after_control: bool,
     ) {
         if feedback_reason.is_always_allowed() || self.instance_feedback_is_effectively_enabled() {
             if let Some(feedback_output) = self.feedback_output {
@@ -2669,6 +2810,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             feedback_output,
                             feedback_reason,
                             source_feedback_value,
+                            is_feedback_after_control,
                         );
                     }
                 }

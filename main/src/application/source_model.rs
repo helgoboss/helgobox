@@ -352,7 +352,10 @@ impl SourceModel {
             },
             SiniConE24 => DisplaySpec::SiniConE24 {
                 scope: self.sinicon_e24_scope(),
+                // TODO-low Not so nice to have runtime state in this descriptor.
+                last_sent_background_color: Default::default(),
             },
+            LaunchpadProScrollingText => DisplaySpec::LaunchpadProScrollingText,
         }
     }
 

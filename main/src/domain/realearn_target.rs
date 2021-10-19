@@ -14,7 +14,7 @@ use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     target_prop_keys, AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue,
-    RawMidiEvent, Target, UnitValue,
+    RawMidiEvent, RgbColor, Target, UnitValue,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
@@ -346,6 +346,7 @@ pub fn get_realearn_target_prop_value_with_fallback<'a>(
             "type.long_name" => PropValue::Text(target.reaper_target_type()?.to_string()),
             "track.index" => PropValue::Index(target.track()?.index()?),
             "track.name" => PropValue::Text(get_track_name(target.track()?)),
+            "track.color" => PropValue::Color(get_track_color(target.track()?)?),
             "fx.index" => PropValue::Index(target.fx()?.index()),
             "fx.name" => PropValue::Text(target.fx()?.name().into_string()),
             "route.index" => PropValue::Index(target.route()?.index()),
@@ -362,6 +363,11 @@ pub fn get_track_name(t: &Track) -> String {
     } else {
         "<Master>".to_string()
     }
+}
+
+pub fn get_track_color(t: &Track) -> Option<RgbColor> {
+    let reaper_medium::RgbColor { r, g, b } = t.custom_color()?;
+    Some(RgbColor::new(r, g, b))
 }
 
 pub trait InstanceContainer: Debug {
