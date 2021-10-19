@@ -6478,7 +6478,7 @@ fn prompt_for_color(
                 color_target.to_string(),
                 IntoIterator::into_iter([
                     item_with_opts(
-                        "<Use controller default>",
+                        "<Default color>",
                         ItemOpts {
                             enabled: true,
                             checked: relevant_color.is_none(),
@@ -6486,7 +6486,7 @@ fn prompt_for_color(
                         move || ControllerDefault(color_target),
                     ),
                     item_with_opts(
-                        "<Fixed color>",
+                        "<Pick color...>",
                         ItemOpts {
                             enabled: true,
                             checked: matches!(relevant_color, Some(VirtualColor::Rgb(_))),

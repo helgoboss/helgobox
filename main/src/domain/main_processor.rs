@@ -12,8 +12,8 @@ use crate::domain::{
     OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedMappingId, QualifiedSource,
     RealFeedbackValue, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
     RealearnTarget, ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString,
-    SourceFeedbackValue, SourceReleasedEvent, TargetValueChangedEvent,
-    UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
+    SourceFeedbackValue, SourceReleasedEvent, SpecificCompoundFeedbackValue,
+    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -358,6 +358,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             feedback_output,
             FeedbackReason::FinallySwitchOffSource,
             feedback_value,
+            false,
         );
     }
 
@@ -2544,12 +2545,14 @@ impl<EH: DomainEventHandler> Basics<EH> {
             let with_projection_feedback = mapping_feedback_is_effectively_on;
             let with_source_feedback = self.instance_feedback_is_effectively_enabled()
                 && mapping_feedback_is_effectively_on;
-            let feedback_value = m.feedback_entry_point(
-                with_projection_feedback,
-                with_source_feedback,
-                new_value,
-                self.control_context(),
-            );
+            let feedback_value = m
+                .feedback_entry_point(
+                    with_projection_feedback,
+                    with_source_feedback,
+                    new_value,
+                    self.control_context(),
+                )
+                .map(CompoundFeedbackValue::normal);
             self.send_feedback(
                 mappings_with_virtual_targets,
                 FeedbackReason::Normal,
@@ -2636,8 +2639,8 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_values: impl IntoIterator<Item = CompoundFeedbackValue>,
     ) {
         for feedback_value in feedback_values.into_iter() {
-            match feedback_value {
-                CompoundFeedbackValue::Virtual {
+            match feedback_value.value {
+                SpecificCompoundFeedbackValue::Virtual {
                     destinations,
                     value,
                 } => {
@@ -2652,31 +2655,36 @@ impl<EH: DomainEventHandler> Basics<EH> {
                                 // Virtual source matched virtual target. The following method
                                 // will always produce real target values (because controller
                                 // mappings can't have virtual sources).
-                                if let Some(CompoundFeedbackValue::Real(final_feedback_value)) = m
-                                    .feedback_given_target_value(
-                                        // This clone is unavoidable because we are producing
-                                        // real feedback values and these will be sent to another
-                                        //  thread, so they must be self-contained.
-                                        Cow::Borrowed(value.feedback_value()),
-                                        FeedbackDestinations {
-                                            with_source_feedback: destinations.with_source_feedback
-                                                && m.feedback_is_enabled(),
-                                            ..destinations
-                                        },
-                                    )
-                                {
+                                if let Some(SpecificCompoundFeedbackValue::Real(
+                                    final_feedback_value,
+                                )) = m.feedback_given_target_value(
+                                    // This clone is unavoidable because we are producing
+                                    // real feedback values and these will be sent to another
+                                    //  thread, so they must be self-contained.
+                                    Cow::Borrowed(value.feedback_value()),
+                                    FeedbackDestinations {
+                                        with_source_feedback: destinations.with_source_feedback
+                                            && m.feedback_is_enabled(),
+                                        ..destinations
+                                    },
+                                ) {
                                     // Successful virtual-to-real feedback
                                     self.send_direct_feedback(
                                         feedback_reason,
                                         final_feedback_value,
+                                        feedback_value.is_feedback_after_control,
                                     );
                                 }
                             }
                         }
                     }
                 }
-                CompoundFeedbackValue::Real(final_feedback_value) => {
-                    self.send_direct_feedback(feedback_reason, final_feedback_value);
+                SpecificCompoundFeedbackValue::Real(final_feedback_value) => {
+                    self.send_direct_feedback(
+                        feedback_reason,
+                        final_feedback_value,
+                        feedback_value.is_feedback_after_control,
+                    );
                 }
             }
         }
@@ -2687,6 +2695,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         feedback_output: FeedbackOutput,
         feedback_reason: FeedbackReason,
         source_feedback_value: SourceFeedbackValue,
+        is_feedback_after_control: bool,
     ) {
         // No interference with other instances.
         // This is not super cheap for OSC and MIDI Raw because it has to clone the address string.
@@ -2697,7 +2706,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
             .last_feedback_checksum_by_address
             .borrow_mut()
             .insert(address, checksum);
-        if Some(checksum) == previous_checksum {
+        if !is_feedback_after_control && Some(checksum) == previous_checksum {
             trace!(
                 self.logger,
                 "Block feedback because duplicate (reason: {:?}): {:?}",
@@ -2775,6 +2784,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         &self,
         feedback_reason: FeedbackReason,
         feedback_value: RealFeedbackValue,
+        is_feedback_after_control: bool,
     ) {
         if feedback_reason.is_always_allowed() || self.instance_feedback_is_effectively_enabled() {
             if let Some(feedback_output) = self.feedback_output {
@@ -2800,6 +2810,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                             feedback_output,
                             feedback_reason,
                             source_feedback_value,
+                            is_feedback_after_control,
                         );
                     }
                 }

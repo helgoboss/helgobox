@@ -4,7 +4,8 @@ use crate::domain::{
     OscFeedbackTask, RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{
-    AbsoluteValue, ControlType, ControlValue, FeedbackValue, OscArgDescriptor, OscTypeTag, Target,
+    AbsoluteValue, ControlType, ControlValue, FeedbackValue, NumericFeedbackValue,
+    OscArgDescriptor, OscTypeTag, Target,
 };
 use rosc::OscMessage;
 
@@ -87,7 +88,9 @@ impl RealearnTarget for OscSendTarget {
         let msg = OscMessage {
             addr: self.address_pattern.clone(),
             args: if let Some(desc) = self.arg_descriptor {
-                desc.to_concrete_args(FeedbackValue::Numeric(AbsoluteValue::Continuous(value)))
+                let fb_value =
+                    NumericFeedbackValue::new(Default::default(), AbsoluteValue::Continuous(value));
+                desc.to_concrete_args(FeedbackValue::Numeric(fb_value))
                     .ok_or("sending of this OSC type not supported")?
             } else {
                 vec![]
