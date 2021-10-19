@@ -53,7 +53,6 @@ pub struct ModeModelData {
     pub feedback_color: Option<VirtualColor>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub feedback_background_color: Option<VirtualColor>,
-    #[serde(default, skip_serializing_if = "is_default")]
     // Serialization skipped because this is deprecated in favor of out_of_range_behavior
     // since ReaLearn v1.11.0.
     #[serde(default, skip_serializing)]
