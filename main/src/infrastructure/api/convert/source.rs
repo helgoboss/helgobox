@@ -75,7 +75,7 @@ pub fn convert_source(s: Source) -> Result<SourceModelData, Box<dyn Error>> {
         osc_arg_type: match &s {
             Osc(s) => s
                 .argument
-                .map(|arg| convert_osc_arg_type(arg.r#type.unwrap_or_default()))
+                .map(|arg| convert_osc_arg_type(arg.kind.unwrap_or_default()))
                 .unwrap_or_default(),
             _ => Default::default(),
         },
@@ -84,7 +84,7 @@ pub fn convert_source(s: Source) -> Result<SourceModelData, Box<dyn Error>> {
             _ => false,
         },
         control_element_type: match &s {
-            Virtual(s) => convert_control_element_type(s.r#type),
+            Virtual(s) => convert_control_element_type(s.kind),
             _ => Default::default(),
         },
         control_element_index: match &s {
@@ -227,9 +227,9 @@ fn convert_mackie_seven_segment_display_scope(
     }
 }
 
-fn convert_osc_arg_type(s: OscArgType) -> helgoboss_learn::OscTypeTag {
+fn convert_osc_arg_type(s: OscArgKind) -> helgoboss_learn::OscTypeTag {
     use helgoboss_learn::OscTypeTag as T;
-    use OscArgType::*;
+    use OscArgKind::*;
     match s {
         Float => T::Float,
         Double => T::Double,
@@ -249,10 +249,10 @@ fn convert_osc_arg_type(s: OscArgType) -> helgoboss_learn::OscTypeTag {
 }
 
 fn convert_control_element_type(
-    s: VirtualControlElementType,
+    s: VirtualControlElementKind,
 ) -> application::VirtualControlElementType {
     use application::VirtualControlElementType as T;
-    use VirtualControlElementType::*;
+    use VirtualControlElementKind::*;
     match s {
         Multi => T::Multi,
         Button => T::Button,
