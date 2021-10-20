@@ -28,7 +28,7 @@ pub struct Mapping {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback_enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub active: Option<Active>,
+    pub activation_condition: Option<ActivationCondition>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback_behavior: Option<FeedbackBehavior>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -45,7 +45,7 @@ pub struct Mapping {
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
 pub enum Lifecycle {
-    Normal,
+    Todo,
 }
 
 #[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
@@ -56,6 +56,46 @@ pub enum FeedbackBehavior {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-pub enum Active {
-    Always,
+#[serde(tag = "kind")]
+pub enum ActivationCondition {
+    Modifier(ModifierActivationCondition),
+    Bank(BankActivationCondition),
+    Eel(EelActivationCondition),
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "snake_case")]
+#[serde(deny_unknown_fields)]
+pub struct ModifierActivationCondition {
+    pub modifiers: Vec<ModifierState>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "snake_case")]
+#[serde(deny_unknown_fields)]
+pub struct ModifierState {
+    pub parameter: ParamRef,
+    pub on: bool,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "snake_case")]
+#[serde(deny_unknown_fields)]
+pub struct BankActivationCondition {
+    pub parameter: ParamRef,
+    pub bank_index: u32,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "snake_case")]
+#[serde(deny_unknown_fields)]
+pub struct EelActivationCondition {
+    pub condition: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(untagged)]
+pub enum ParamRef {
+    Index(u32),
+    Key(String),
 }

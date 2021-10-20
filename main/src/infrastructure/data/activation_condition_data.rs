@@ -4,7 +4,7 @@ use crate::application::{
 use crate::base::default_util::is_default;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivationConditionData {
     #[serde(default, skip_serializing_if = "is_default")]

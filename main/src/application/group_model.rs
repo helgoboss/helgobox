@@ -11,6 +11,7 @@ use std::rc::{Rc, Weak};
 pub struct GroupModel {
     compartment: MappingCompartment,
     id: GroupId,
+    key: Option<String>,
     pub name: Prop<String>,
     pub tags: Prop<Vec<Tag>>,
     pub control_is_enabled: Prop<bool>,
@@ -50,17 +51,22 @@ pub fn share_group(group: GroupModel) -> SharedGroup {
 
 impl GroupModel {
     pub fn new_from_ui(compartment: MappingCompartment, name: String) -> Self {
-        Self::new_internal(compartment, GroupId::random(), name)
+        Self::new_internal(compartment, GroupId::random(), None, name)
     }
 
-    pub fn new_from_data(compartment: MappingCompartment, id: GroupId) -> Self {
-        Self::new_internal(compartment, id, "".to_string())
+    pub fn new_from_data(
+        compartment: MappingCompartment,
+        id: GroupId,
+        key: Option<String>,
+    ) -> Self {
+        Self::new_internal(compartment, id, key, "".to_string())
     }
 
     pub fn default_for_compartment(compartment: MappingCompartment) -> Self {
         Self {
             compartment,
             id: Default::default(),
+            key: None,
             name: Default::default(),
             tags: Default::default(),
             control_is_enabled: prop(true),
@@ -69,9 +75,15 @@ impl GroupModel {
         }
     }
 
-    fn new_internal(compartment: MappingCompartment, id: GroupId, name: String) -> Self {
+    fn new_internal(
+        compartment: MappingCompartment,
+        id: GroupId,
+        key: Option<String>,
+        name: String,
+    ) -> Self {
         Self {
             id,
+            key,
             name: prop(name),
             ..Self::default_for_compartment(compartment)
         }
@@ -83,6 +95,10 @@ impl GroupModel {
 
     pub fn id(&self) -> GroupId {
         self.id
+    }
+
+    pub fn key(&self) -> Option<&String> {
+        self.key.as_ref()
     }
 
     pub fn is_default_group(&self) -> bool {

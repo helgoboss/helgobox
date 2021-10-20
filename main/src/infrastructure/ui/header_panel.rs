@@ -2394,7 +2394,9 @@ fn edit_compartment_parameter_internal(
     let out_settings: Vec<_> = csv
         .to_str()
         .split(';')
-        .map(|name| ParameterSetting {
+        .zip(settings)
+        .map(|(name, old_setting)| ParameterSetting {
+            key: old_setting.key.clone(),
             name: name.trim().to_owned(),
         })
         .collect();

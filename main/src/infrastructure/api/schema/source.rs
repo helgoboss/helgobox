@@ -6,7 +6,7 @@ use ts_rs::TS;
 pub use virt::*;
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(tag = "type")]
+#[serde(tag = "kind")]
 pub enum Source {
     // None
     #[serde(rename = "None")]

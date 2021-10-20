@@ -1,10 +1,16 @@
+mod compartment;
 mod glue;
+mod group;
 mod mapping;
+mod parameter;
 mod source;
 mod target;
 
+pub use compartment::*;
 pub use glue::*;
+pub use group::*;
 pub use mapping::*;
+pub use parameter::*;
 pub use source::*;
 pub use target::*;
 
@@ -17,7 +23,7 @@ mod tests {
         Mapping,
         Lifecycle,
         FeedbackBehavior,
-        Active,
+        ActivationCondition,
         // Source
         Source,
         // MIDI source
@@ -79,10 +85,10 @@ mod tests {
             enabled: Some(true),
             control_enabled: Some(true),
             feedback_enabled: Some(true),
-            active: Some(Active::Always),
+            activation_condition: None,
             feedback_behavior: Some(FeedbackBehavior::Normal),
-            on_activate: Some(Lifecycle::Normal),
-            on_deactivate: Some(Lifecycle::Normal),
+            on_activate: Some(Lifecycle::Todo),
+            on_deactivate: Some(Lifecycle::Todo),
             source: Some(Source::MidiControlChangeValue(
                 MidiControlChangeValueSource {
                     channel: Some(0),

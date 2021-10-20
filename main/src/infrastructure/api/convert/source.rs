@@ -7,7 +7,6 @@ use crate::infrastructure::data::SourceModelData;
 use helgoboss_learn::DisplayType;
 use helgoboss_midi::{Channel, U14};
 use std::convert::TryInto;
-use std::error::Error;
 
 pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
     use Source::*;
