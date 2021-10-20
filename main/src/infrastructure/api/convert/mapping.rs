@@ -1,5 +1,7 @@
 use super::convert_source;
 use crate::domain::{GroupId, MappingId, Tag};
+use crate::infrastructure::api::convert::glue::convert_glue;
+use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{ActivationConditionData, EnabledData, MappingModelData};
 use std::error::Error;
@@ -8,7 +10,7 @@ use std::str::FromStr;
 pub fn convert_mapping(
     m: Mapping,
     group_by_key: impl Fn(&str) -> Option<GroupId>,
-) -> Result<MappingModelData, Box<dyn Error>> {
+) -> ConversionResult<MappingModelData> {
     let v = MappingModelData {
         id: Some(MappingId::random()),
         name: m.name.unwrap_or_default(),
@@ -29,7 +31,7 @@ pub fn convert_mapping(
             }
         },
         source: convert_source(m.source.unwrap_or_default())?,
-        mode: todo!(),
+        mode: convert_glue(m.glue.unwrap_or_default())?,
         target: todo!(),
         is_enabled: m.enabled.unwrap_or(true),
         enabled_data: convert_enabled_data(&m),
