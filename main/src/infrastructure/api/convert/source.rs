@@ -1,5 +1,6 @@
 use crate::application;
 use crate::application::{MidiSourceType, ReaperSourceType, SourceCategory};
+use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data;
 use crate::infrastructure::data::SourceModelData;
@@ -8,7 +9,7 @@ use helgoboss_midi::{Channel, U14};
 use std::convert::TryInto;
 use std::error::Error;
 
-pub fn convert_source(s: Source) -> Result<SourceModelData, Box<dyn Error>> {
+pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
     use Source::*;
     let data = SourceModelData {
         category: convert_category(&s),
@@ -148,7 +149,7 @@ fn convert_midi_source_type(s: &Source) -> MidiSourceType {
     }
 }
 
-fn convert_midi_channel(s: &Source) -> Result<Option<Channel>, Box<dyn Error>> {
+fn convert_midi_channel(s: &Source) -> ConversionResult<Option<Channel>> {
     use Source::*;
     let ch = match s {
         MidiNoteVelocity(s) => s.channel,
@@ -169,7 +170,7 @@ fn convert_midi_channel(s: &Source) -> Result<Option<Channel>, Box<dyn Error>> {
     }
 }
 
-fn convert_midi_number(s: &Source) -> Result<Option<U14>, Box<dyn Error>> {
+fn convert_midi_number(s: &Source) -> ConversionResult<Option<U14>> {
     use Source::*;
     let n = match s {
         MidiNoteVelocity(s) => s.key_number.map(|n| n as u16),

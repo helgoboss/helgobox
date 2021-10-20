@@ -92,7 +92,8 @@ mod tests {
                 },
             )),
             glue: Some(Glue {
-                source_interval: Some((0.3, 0.7)),
+                source_interval: Some(Interval(0.3, 0.7)),
+                ..Default::default()
             }),
             target: Some(Target {
                 unit: Some(TargetUnit::Percent),
