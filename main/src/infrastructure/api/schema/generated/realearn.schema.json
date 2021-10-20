@@ -55,10 +55,32 @@
   },
   "additionalProperties": false,
   "definitions": {
+    "AbsoluteMode": {
+      "type": "string",
+      "enum": [
+        "Normal",
+        "IncrementalButton",
+        "ToggleButton"
+      ]
+    },
     "Active": {
       "type": "string",
       "enum": [
         "Always"
+      ]
+    },
+    "ButtonFilter": {
+      "type": "string",
+      "enum": [
+        "PressOnly",
+        "ReleaseOnly"
+      ]
+    },
+    "EncoderFilter": {
+      "type": "string",
+      "enum": [
+        "IncrementOnly",
+        "DecrementOnly"
       ]
     },
     "FeedbackBehavior": {
@@ -69,26 +91,248 @@
         "PreventEchoFeedback"
       ]
     },
+    "FeedbackKind": {
+      "type": "string",
+      "enum": [
+        "Numeric",
+        "Text"
+      ]
+    },
+    "FireMode": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "press_duration_interval": {
+              "$ref": "#/definitions/Interval_for_uint32"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "Normal"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "timeout": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "AfterTimeout"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "rate": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "timeout": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "AfterTimeoutKeepFiring"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "max_duration": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "OnSinglePress"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "reserved": {
+              "type": "integer",
+              "format": "uint32",
+              "minimum": 0.0
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "OnDoublePress"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "Glue": {
       "type": "object",
       "properties": {
+        "absolute_mode": {
+          "$ref": "#/definitions/AbsoluteMode"
+        },
+        "button_filter": {
+          "$ref": "#/definitions/ButtonFilter"
+        },
+        "control_transformation": {
+          "type": "string"
+        },
+        "encoder_filter": {
+          "$ref": "#/definitions/EncoderFilter"
+        },
+        "feedback_background_color": {
+          "$ref": "#/definitions/VirtualColor"
+        },
+        "feedback_foreground_color": {
+          "$ref": "#/definitions/VirtualColor"
+        },
+        "feedback_kind": {
+          "$ref": "#/definitions/FeedbackKind"
+        },
+        "feedback_transformation": {
+          "type": "string"
+        },
+        "fire_mode": {
+          "$ref": "#/definitions/FireMode"
+        },
+        "interaction": {
+          "$ref": "#/definitions/Interaction"
+        },
+        "jump_interval": {
+          "$ref": "#/definitions/Interval_for_double"
+        },
+        "make_absolute": {
+          "type": "boolean"
+        },
+        "out_of_range_behavior": {
+          "$ref": "#/definitions/OutOfRangeBehavior"
+        },
+        "reverse": {
+          "type": "boolean"
+        },
+        "round_target_value": {
+          "type": "boolean"
+        },
         "source_interval": {
-          "type": "array",
-          "items": [
-            {
-              "type": "number",
-              "format": "double"
-            },
-            {
-              "type": "number",
-              "format": "double"
-            }
-          ],
-          "maxItems": 2,
-          "minItems": 2
+          "$ref": "#/definitions/Interval_for_double"
+        },
+        "step_factor_interval": {
+          "$ref": "#/definitions/Interval_for_int32"
+        },
+        "step_size_interval": {
+          "$ref": "#/definitions/Interval_for_double"
+        },
+        "takeover_mode": {
+          "$ref": "#/definitions/TakeoverMode"
+        },
+        "target_interval": {
+          "$ref": "#/definitions/Interval_for_double"
+        },
+        "target_value_sequence": {
+          "type": "string"
+        },
+        "wrap": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false
+    },
+    "Interaction": {
+      "type": "string",
+      "enum": [
+        "SameControl",
+        "SameTargetValue",
+        "InverseControl",
+        "InverseTargetValue",
+        "InverseTargetValueOnOnly"
+      ]
+    },
+    "Interval_for_double": {
+      "type": "array",
+      "items": [
+        {
+          "type": "number",
+          "format": "double"
+        },
+        {
+          "type": "number",
+          "format": "double"
+        }
+      ],
+      "maxItems": 2,
+      "minItems": 2
+    },
+    "Interval_for_int32": {
+      "type": "array",
+      "items": [
+        {
+          "type": "integer",
+          "format": "int32"
+        },
+        {
+          "type": "integer",
+          "format": "int32"
+        }
+      ],
+      "maxItems": 2,
+      "minItems": 2
+    },
+    "Interval_for_uint32": {
+      "type": "array",
+      "items": [
+        {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      ],
+      "maxItems": 2,
+      "minItems": 2
     },
     "Lifecycle": {
       "type": "string",
@@ -151,6 +395,48 @@
         }
       },
       "additionalProperties": false
+    },
+    "OutOfRangeBehavior": {
+      "type": "string",
+      "enum": [
+        "MinOrMax",
+        "Min",
+        "Ignore"
+      ]
+    },
+    "PropColor": {
+      "type": "object",
+      "required": [
+        "prop"
+      ],
+      "properties": {
+        "prop": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "RgbColor": {
+      "type": "array",
+      "items": [
+        {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        }
+      ],
+      "maxItems": 3,
+      "minItems": 3
     },
     "Source": {
       "oneOf": [
@@ -617,6 +903,15 @@
         "StatefulButton"
       ]
     },
+    "TakeoverMode": {
+      "type": "string",
+      "enum": [
+        "PickUp",
+        "LongTimeNoSee",
+        "Parallel",
+        "CatchUp"
+      ]
+    },
     "Target": {
       "type": "object",
       "properties": {
@@ -630,6 +925,16 @@
       "enum": [
         "Native",
         "Percent"
+      ]
+    },
+    "VirtualColor": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/RgbColor"
+        },
+        {
+          "$ref": "#/definitions/PropColor"
+        }
       ]
     },
     "VirtualControlElementId": {

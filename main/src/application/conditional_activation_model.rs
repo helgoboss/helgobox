@@ -41,9 +41,9 @@ impl Default for ActivationType {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
 pub struct ModifierConditionModel {
     #[serde(rename = "paramIndex")]
-    param_index: Option<u32>,
+    pub param_index: Option<u32>,
     #[serde(rename = "isOn")]
-    is_on: bool,
+    pub is_on: bool,
 }
 
 impl ModifierConditionModel {
@@ -75,9 +75,9 @@ impl ModifierConditionModel {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
 pub struct BankConditionModel {
     #[serde(rename = "paramIndex")]
-    param_index: u32,
+    pub param_index: u32,
     #[serde(rename = "programIndex")]
-    bank_index: u32,
+    pub bank_index: u32,
 }
 
 impl BankConditionModel {

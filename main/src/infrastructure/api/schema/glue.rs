@@ -66,7 +66,7 @@ impl Default for AbsoluteMode {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(tag = "type")]
+#[serde(tag = "kind")]
 pub enum FireMode {
     Normal(NormalFireMode),
     AfterTimeout(AfterTimeoutFireMode),

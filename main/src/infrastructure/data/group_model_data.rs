@@ -10,22 +10,33 @@ use std::borrow::BorrowMut;
 pub struct GroupModelData {
     // Because default group UUID is the default, it won't be serialized.
     #[serde(default, skip_serializing_if = "is_default")]
-    id: GroupId,
+    pub id: GroupId,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub key: Option<String>,
     // Because default group name is empty, it won't be serialized.
     #[serde(default, skip_serializing_if = "is_default")]
-    name: String,
+    pub name: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
     #[serde(flatten)]
-    enabled_data: EnabledData,
+    pub enabled_data: EnabledData,
     #[serde(flatten)]
-    activation_condition_data: ActivationConditionData,
+    pub activation_condition_data: ActivationConditionData,
 }
 
 impl GroupModelData {
+    pub fn key_matches(&self, key: &str) -> bool {
+        if let Some(k) = self.key.as_ref() {
+            k == key
+        } else {
+            false
+        }
+    }
+
     pub fn from_model(model: &GroupModel) -> GroupModelData {
         GroupModelData {
             id: model.id(),
+            key: model.key().cloned(),
             name: model.name.get_ref().clone(),
             tags: model.tags.get_ref().clone(),
             enabled_data: EnabledData {
@@ -39,7 +50,7 @@ impl GroupModelData {
     }
 
     pub fn to_model(&self, compartment: MappingCompartment) -> GroupModel {
-        let mut model = GroupModel::new_from_data(compartment, self.id);
+        let mut model = GroupModel::new_from_data(compartment, self.id, self.key.clone());
         self.apply_to_model(&mut model);
         model
     }

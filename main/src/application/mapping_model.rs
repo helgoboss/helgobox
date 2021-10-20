@@ -22,6 +22,7 @@ use std::rc::Rc;
 #[derive(Clone, Debug)]
 pub struct MappingModel {
     id: MappingId,
+    key: Option<String>,
     compartment: MappingCompartment,
     pub name: Prop<String>,
     pub tags: Prop<Vec<Tag>>,
@@ -69,9 +70,14 @@ fn get_default_target_category_for_compartment(compartment: MappingCompartment) 
 }
 
 impl MappingModel {
-    pub fn new(compartment: MappingCompartment, initial_group_id: GroupId) -> Self {
+    pub fn new(
+        compartment: MappingCompartment,
+        initial_group_id: GroupId,
+        key: Option<String>,
+    ) -> Self {
         Self {
             id: MappingId::random(),
+            key,
             compartment,
             name: Default::default(),
             tags: Default::default(),
@@ -95,6 +101,10 @@ impl MappingModel {
 
     pub fn id(&self) -> MappingId {
         self.id
+    }
+
+    pub fn key(&self) -> Option<&String> {
+        self.key.as_ref()
     }
 
     pub fn qualified_id(&self) -> QualifiedMappingId {

@@ -984,7 +984,7 @@ impl Session {
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) -> SharedMapping {
-        let mut mapping = MappingModel::new(compartment, initial_group_id);
+        let mut mapping = MappingModel::new(compartment, initial_group_id, None);
         mapping
             .name
             .set_without_notification(self.generate_name_for_new_mapping(compartment));
@@ -2121,6 +2121,8 @@ impl Session {
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParameterSetting {
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub key: Option<String>,
     #[serde(rename = "name", default, skip_serializing_if = "is_default")]
     pub name: String,
 }

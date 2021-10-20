@@ -152,7 +152,28 @@ export interface VirtualSource {
 }
 
 export interface Glue {
-  source_interval?: [number, number];
+  absolute_mode?: AbsoluteMode;
+  source_interval?: Interval<number>;
+  target_interval?: Interval<number>;
+  reverse?: boolean;
+  wrap?: boolean;
+  jump_interval?: Interval<number>;
+  step_size_interval?: Interval<number>;
+  step_factor_interval?: Interval<number>;
+  feedback_transformation?: string;
+  feedback_foreground_color?: VirtualColor;
+  feedback_background_color?: VirtualColor;
+  out_of_range_behavior?: OutOfRangeBehavior;
+  takeover_mode?: TakeoverMode;
+  round_target_value?: boolean;
+  control_transformation?: string;
+  button_filter?: ButtonFilter;
+  encoder_filter?: EncoderFilter;
+  make_absolute?: boolean;
+  interaction?: Interaction;
+  target_value_sequence?: string;
+  feedback_kind?: FeedbackKind;
+  fire_mode?: FireMode;
 }
 
 export interface Target {

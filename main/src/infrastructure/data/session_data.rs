@@ -462,6 +462,7 @@ fn get_parameter_data_map(
                 return None;
             }
             let data = ParameterData {
+                key: settings.key.clone(),
                 value,
                 name: settings.name.clone(),
             };
@@ -474,6 +475,7 @@ fn get_parameter_settings(data_map: &HashMap<u32, ParameterData>) -> Vec<Paramet
     let mut settings = empty_parameter_settings();
     for (i, p) in data_map.iter() {
         settings[*i as usize] = ParameterSetting {
+            key: p.key.clone(),
             name: p.name.clone(),
         };
     }

@@ -19,6 +19,8 @@ pub struct MappingModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub id: Option<MappingId>,
     #[serde(default, skip_serializing_if = "is_default")]
+    pub key: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub name: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
@@ -47,6 +49,7 @@ impl MappingModelData {
     pub fn from_model(model: &MappingModel) -> MappingModelData {
         MappingModelData {
             id: Some(model.id()),
+            key: model.key().cloned(),
             name: model.name.get_ref().clone(),
             tags: model.tags.get_ref().clone(),
             group_id: model.group_id.get(),
@@ -111,7 +114,7 @@ impl MappingModelData {
         preset_version: Option<&Version>,
     ) -> MappingModel {
         // Preliminary group ID
-        let mut model = MappingModel::new(compartment, GroupId::default());
+        let mut model = MappingModel::new(compartment, GroupId::default(), self.key.clone());
         self.apply_to_model_internal(
             &mut model,
             context,
