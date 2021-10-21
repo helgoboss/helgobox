@@ -1,6 +1,6 @@
 use crate::application::ParameterSetting;
+use crate::infrastructure::api::convert::to_data::ConversionResult;
 use crate::infrastructure::api::schema::*;
-use crate::infrastructure::api::to_data::ConversionResult;
 
 pub fn convert_parameter(p: Parameter) -> ConversionResult<ParameterSetting> {
     let data = ParameterSetting {
