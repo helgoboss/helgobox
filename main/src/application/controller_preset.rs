@@ -1,4 +1,4 @@
-use crate::application::{GroupModel, MappingModel, ParameterSetting, Preset};
+use crate::application::{CompartmentModel, Preset};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -6,10 +6,7 @@ use std::fmt;
 pub struct ControllerPreset {
     id: String,
     name: String,
-    default_group: GroupModel,
-    groups: Vec<GroupModel>,
-    mappings: Vec<MappingModel>,
-    parameters: HashMap<u32, ParameterSetting>,
+    data: CompartmentModel,
     custom_data: HashMap<String, serde_json::Value>,
 }
 
@@ -17,19 +14,13 @@ impl ControllerPreset {
     pub fn new(
         id: String,
         name: String,
-        default_group: GroupModel,
-        groups: Vec<GroupModel>,
-        mappings: Vec<MappingModel>,
-        parameters: HashMap<u32, ParameterSetting>,
+        data: CompartmentModel,
         custom_data: HashMap<String, serde_json::Value>,
     ) -> ControllerPreset {
         ControllerPreset {
             id,
             name,
-            default_group,
-            groups,
-            mappings,
-            parameters,
+            data,
             custom_data,
         }
     }
@@ -42,17 +33,8 @@ impl ControllerPreset {
         self.custom_data.insert(key, value);
     }
 
-    pub fn update_realearn_data(
-        &mut self,
-        default_group: GroupModel,
-        groups: Vec<GroupModel>,
-        mappings: Vec<MappingModel>,
-        parameters: HashMap<u32, ParameterSetting>,
-    ) {
-        self.default_group = default_group;
-        self.groups = groups;
-        self.mappings = mappings;
-        self.parameters = parameters;
+    pub fn update_realearn_data(&mut self, data: CompartmentModel) {
+        self.data = data;
     }
 }
 
@@ -65,20 +47,8 @@ impl Preset for ControllerPreset {
         &self.name
     }
 
-    fn default_group(&self) -> &GroupModel {
-        &self.default_group
-    }
-
-    fn groups(&self) -> &Vec<GroupModel> {
-        &self.groups
-    }
-
-    fn mappings(&self) -> &Vec<MappingModel> {
-        &self.mappings
-    }
-
-    fn parameters(&self) -> &HashMap<u32, ParameterSetting> {
-        &self.parameters
+    fn data(&self) -> &CompartmentModel {
+        &self.data
     }
 }
 

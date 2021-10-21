@@ -1,5 +1,5 @@
-use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::*;
+use crate::infrastructure::api::to_data::ConversionResult;
 use crate::infrastructure::data::ModeModelData;
 use helgoboss_learn::{SoftSymmetricUnitValue, UnitValue};
 use std::convert::TryInto;

@@ -151,7 +151,7 @@ impl Default for SendMidiDestination {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SeekOptions {
     #[serde(default, skip_serializing_if = "is_default")]

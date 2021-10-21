@@ -11,13 +11,3 @@ pub struct ParameterData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub name: String,
 }
-
-impl ParameterData {
-    pub fn key_matches(&self, key: &str) -> bool {
-        if let Some(k) = self.key.as_ref() {
-            k == key
-        } else {
-            false
-        }
-    }
-}

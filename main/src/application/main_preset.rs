@@ -1,47 +1,20 @@
-use crate::application::{GroupModel, MappingModel, ParameterSetting, Preset, SharedMapping};
-use std::collections::HashMap;
+use crate::application::{CompartmentModel, Preset, SharedMapping};
 use std::fmt;
 
 #[derive(Clone, Debug)]
 pub struct MainPreset {
     id: String,
     name: String,
-    default_group: GroupModel,
-    groups: Vec<GroupModel>,
-    mappings: Vec<MappingModel>,
-    parameters: HashMap<u32, ParameterSetting>,
+    data: CompartmentModel,
 }
 
 impl MainPreset {
-    pub fn new(
-        id: String,
-        name: String,
-        default_group: GroupModel,
-        groups: Vec<GroupModel>,
-        mappings: Vec<MappingModel>,
-        parameters: HashMap<u32, ParameterSetting>,
-    ) -> MainPreset {
-        MainPreset {
-            id,
-            name,
-            default_group,
-            groups,
-            mappings,
-            parameters,
-        }
+    pub fn new(id: String, name: String, data: CompartmentModel) -> MainPreset {
+        MainPreset { id, name, data }
     }
 
-    pub fn update_data(
-        &mut self,
-        default_group: GroupModel,
-        groups: Vec<GroupModel>,
-        mappings: Vec<MappingModel>,
-        parameters: HashMap<u32, ParameterSetting>,
-    ) {
-        self.default_group = default_group;
-        self.groups = groups;
-        self.mappings = mappings;
-        self.parameters = parameters;
+    pub fn update_data(&mut self, data: CompartmentModel) {
+        self.data = data;
     }
 }
 
@@ -54,20 +27,8 @@ impl Preset for MainPreset {
         &self.name
     }
 
-    fn default_group(&self) -> &GroupModel {
-        &self.default_group
-    }
-
-    fn groups(&self) -> &Vec<GroupModel> {
-        &self.groups
-    }
-
-    fn mappings(&self) -> &Vec<MappingModel> {
-        &self.mappings
-    }
-
-    fn parameters(&self) -> &HashMap<u32, ParameterSetting> {
-        &self.parameters
+    fn data(&self) -> &CompartmentModel {
+        &self.data
     }
 }
 
