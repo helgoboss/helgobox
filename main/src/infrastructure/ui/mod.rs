@@ -46,5 +46,8 @@ mod dialog_util;
 
 mod util;
 
-mod realearn_clipboard;
-pub use realearn_clipboard::*;
+mod clipboard;
+pub use clipboard::*;
+
+mod import;
+pub use import::*;

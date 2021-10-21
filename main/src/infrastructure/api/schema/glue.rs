@@ -40,6 +40,7 @@ pub struct Glue {
     pub button_filter: Option<ButtonFilter>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encoder_filter: Option<EncoderFilter>,
+    // TODO-high Consider a RelativeMode enum instead (just like AbsoluteMode)!
     #[serde(skip_serializing_if = "Option::is_none")]
     pub make_absolute: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]

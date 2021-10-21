@@ -23,7 +23,7 @@ use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TargetModelData {
     #[serde(default, skip_serializing_if = "is_default")]
@@ -645,7 +645,7 @@ fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxParameterData {
     #[serde(rename = "paramType", default, skip_serializing_if = "is_default")]
@@ -667,7 +667,7 @@ pub struct FxParameterData {
     expression: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackRouteData {
     #[serde(
@@ -700,7 +700,7 @@ pub struct TrackRouteData {
     expression: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FxData {
     /// Since 1.12.0-pre8. This is an option because we changed the default and wanted an easy
@@ -734,7 +734,7 @@ pub struct FxData {
     expression: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackData {
     // None means "This" track
@@ -1083,7 +1083,7 @@ fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BookmarkData {
     #[serde(rename = "bookmarkAnchor", default, skip_serializing_if = "is_default")]

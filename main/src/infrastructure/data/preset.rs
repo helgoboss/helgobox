@@ -203,15 +203,14 @@ impl<P: Preset, PD: PresetData<P = P>> PresetManager for FileBasedPresetManager<
             None => return false,
             Some(c) => c,
         };
-        if mappings.len() != preset.mappings().len() {
+        if mappings.len() != preset.data().mappings.len() {
             return true;
         }
-        mappings
-            .iter()
-            .zip(preset.mappings().iter())
-            .any(|(actual_mapping, preset_mapping)| {
+        mappings.iter().zip(preset.data().mappings.iter()).any(
+            |(actual_mapping, preset_mapping)| {
                 !mappings_are_equal(&actual_mapping.borrow(), preset_mapping)
-            })
+            },
+        )
     }
 
     fn parameter_settings_are_dirty(
@@ -223,7 +222,7 @@ impl<P: Preset, PD: PresetData<P = P>> PresetManager for FileBasedPresetManager<
             None => return false,
             Some(c) => c,
         };
-        parameter_settings != preset.parameters()
+        parameter_settings != &preset.data().parameters
     }
 
     fn groups_are_dirty(
@@ -236,15 +235,15 @@ impl<P: Preset, PD: PresetData<P = P>> PresetManager for FileBasedPresetManager<
             None => return false,
             Some(c) => c,
         };
-        if groups.len() != preset.groups().len() {
+        if groups.len() != preset.data().groups.len() {
             return true;
         }
-        if !groups_are_equal(&default_group.borrow(), preset.default_group()) {
+        if !groups_are_equal(&default_group.borrow(), &preset.data().default_group) {
             return true;
         }
         groups
             .iter()
-            .zip(preset.groups().iter())
+            .zip(preset.data().groups.iter())
             .any(|(actual_group, preset_group)| {
                 !groups_are_equal(&actual_group.borrow(), preset_group)
             })

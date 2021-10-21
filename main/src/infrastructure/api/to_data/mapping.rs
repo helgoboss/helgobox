@@ -2,10 +2,10 @@ use super::convert_source;
 use crate::application;
 use crate::application::{BankConditionModel, ModifierConditionModel};
 use crate::domain::{GroupId, MappingId, Tag};
-use crate::infrastructure::api::convert::glue::convert_glue;
-use crate::infrastructure::api::convert::target::convert_target;
-use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::*;
+use crate::infrastructure::api::to_data::glue::convert_glue;
+use crate::infrastructure::api::to_data::target::convert_target;
+use crate::infrastructure::api::to_data::ConversionResult;
 use crate::infrastructure::data::{ActivationConditionData, EnabledData, MappingModelData};
 use std::str::FromStr;
 

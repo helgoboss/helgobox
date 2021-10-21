@@ -26,9 +26,7 @@ use crate::domain::{
     COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
-use crate::infrastructure::data::{
-    ExtendedPresetManager, MappingModelData, OscDevice, SessionData,
-};
+use crate::infrastructure::data::{ExtendedPresetManager, MappingModelData, OscDevice};
 use crate::infrastructure::plugin::{
     warn_about_failed_server_start, App, RealearnPluginParameters,
 };
@@ -39,9 +37,9 @@ use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_object_to_clipboard, copy_text_to_clipboard, get_object_from_clipboard,
-    get_text_from_clipboard, ClipboardObject, GroupFilter, GroupPanel, IndependentPanelManager,
-    MappingRowsPanel, SearchExpression, SharedIndependentPanelManager, SharedMainState,
-    SourceFilter,
+    get_text_from_clipboard, read_import, ClipboardObject, GroupFilter, GroupPanel, ImportData,
+    IndependentPanelManager, MappingRowsPanel, SearchExpression, SharedIndependentPanelManager,
+    SharedMainState, SourceFilter,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
@@ -1629,20 +1627,27 @@ impl HeaderPanel {
             .set_enabled(is_set);
     }
 
-    pub fn import_from_clipboard(&self) -> Result<(), String> {
-        let json =
+    pub fn import_from_clipboard(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let text =
             get_text_from_clipboard().ok_or_else(|| "Couldn't read from clipboard.".to_string())?;
-        let session_data: SessionData = serde_json::from_str(json.as_str()).map_err(|e| {
-            format!(
-                "Clipboard content doesn't look like a proper ReaLearn export. Details:\n\n{}",
-                e
-            )
-        })?;
         let plugin_parameters = self
             .plugin_parameters
             .upgrade()
             .expect("plugin params gone");
-        plugin_parameters.apply_session_data(&session_data);
+        match read_import(&text)? {
+            ImportData::Session(session_data) => {
+                plugin_parameters.apply_session_data(&session_data);
+            }
+            ImportData::Compartment(c) => {
+                let session = self.session();
+                let mut session = session.borrow_mut();
+                // For now, let's assume that the imported data is always tailored to the running
+                // ReaLearn version.
+                let version = App::version();
+                let model = c.data.to_model(Some(version), c.kind);
+                session.replace_compartment(c.kind, Some(model), self.session.clone());
+            }
+        }
         Ok(())
     }
 
@@ -1724,28 +1729,14 @@ impl HeaderPanel {
             MappingCompartment::MainMappings => session.active_main_preset_id(),
         }
         .ok_or("no active preset")?;
-        let mappings: Vec<_> = session
-            .mappings(compartment)
-            .map(|ptr| ptr.borrow().clone())
-            .collect();
-        let default_group = session.default_group(compartment).borrow().clone();
-        let parameter_settings = session.non_default_parameter_settings_by_compartment(compartment);
-        let groups = session
-            .groups(compartment)
-            .map(|ptr| ptr.borrow().clone())
-            .collect();
+        let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let preset_manager = App::get().controller_preset_manager();
                 let mut controller_preset = preset_manager
                     .find_by_id(preset_id)
                     .ok_or("controller preset not found")?;
-                controller_preset.update_realearn_data(
-                    default_group,
-                    groups,
-                    mappings,
-                    parameter_settings,
-                );
+                controller_preset.update_realearn_data(compartment_model);
                 preset_manager
                     .borrow_mut()
                     .update_preset(controller_preset)?;
@@ -1755,7 +1746,7 @@ impl HeaderPanel {
                 let mut main_preset = preset_manager
                     .find_by_id(preset_id)
                     .ok_or("main preset not found")?;
-                main_preset.update_data(default_group, groups, mappings, parameter_settings);
+                main_preset.update_data(compartment_model);
                 preset_manager.borrow_mut().update_preset(main_preset)?;
             }
         };
@@ -1808,17 +1799,8 @@ impl HeaderPanel {
         let session = self.session();
         let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
-        let mappings: Vec<_> = session
-            .mappings(compartment)
-            .map(|ptr| ptr.borrow().clone())
-            .collect();
-        let param_settings = session.non_default_parameter_settings_by_compartment(compartment);
         let preset_id = slug::slugify(&preset_name);
-        let default_group = session.default_group(compartment).borrow().clone();
-        let groups = session
-            .groups(compartment)
-            .map(|ptr| ptr.borrow().clone())
-            .collect();
+        let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let custom_data = session
@@ -1828,10 +1810,7 @@ impl HeaderPanel {
                 let controller = ControllerPreset::new(
                     preset_id.clone(),
                     preset_name,
-                    default_group,
-                    groups,
-                    mappings,
-                    param_settings,
+                    compartment_model,
                     custom_data,
                 );
                 App::get()
@@ -1841,14 +1820,8 @@ impl HeaderPanel {
                 session.activate_controller_preset(Some(preset_id), self.session.clone())?;
             }
             MappingCompartment::MainMappings => {
-                let main_preset = MainPreset::new(
-                    preset_id.clone(),
-                    preset_name,
-                    default_group,
-                    groups,
-                    mappings,
-                    param_settings,
-                );
+                let main_preset =
+                    MainPreset::new(preset_id.clone(), preset_name, compartment_model);
                 App::get()
                     .main_preset_manager()
                     .borrow_mut()
@@ -2097,8 +2070,10 @@ impl View for HeaderPanel {
             root::ID_CLEAR_TARGET_FILTER_BUTTON => self.clear_target_filter(),
             root::ID_CLEAR_SEARCH_BUTTON => self.clear_search_expression(),
             root::ID_IMPORT_BUTTON => {
-                if let Err(msg) = self.import_from_clipboard() {
-                    self.view.require_window().alert("ReaLearn", msg);
+                if let Err(error) = self.import_from_clipboard() {
+                    self.view
+                        .require_window()
+                        .alert("ReaLearn", error.to_string());
                 }
             }
             root::ID_EXPORT_BUTTON => self.export_to_clipboard(),
