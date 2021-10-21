@@ -1,13 +1,15 @@
-use crate::infrastructure::api;
-use crate::infrastructure::data::{QualifiedCompartmentModelData, SessionData};
-use derive_more::Display;
-use mlua::{ChunkMode, HookTriggers};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use derive_more::Display;
+use mlua::{ChunkMode, HookTriggers};
+use serde::{Deserialize, Serialize};
+
+use crate::infrastructure::api;
+use crate::infrastructure::data::{QualifiedCompartmentModelData, SessionData};
 
 pub enum ImportData {
     Session(SessionData),
@@ -50,6 +52,7 @@ fn read_import_from_json(text: &str) -> Result<ImportData, Box<dyn Error>> {
 }
 
 fn read_import_from_lua(text: &str) -> Result<ImportData, Box<dyn Error>> {
+    use crate::infrastructure::api::convert;
     use mlua::{Lua, LuaSerdeExt};
     let lua = Lua::new();
     let instant = Instant::now();
@@ -81,7 +84,7 @@ fn read_import_from_lua(text: &str) -> Result<ImportData, Box<dyn Error>> {
     let api_data: ApiData = lua.from_value(value)?;
     let import_data = match api_data {
         ApiData::Compartment(c) => {
-            let compartment_data = api::to_data::convert_compartment(c)?;
+            let compartment_data = convert::to_data::convert_compartment(c)?;
             ImportData::Compartment(compartment_data)
         }
     };

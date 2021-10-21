@@ -1,7 +1,7 @@
 use crate::application;
 use crate::application::{MidiSourceType, ReaperSourceType, SourceCategory};
+use crate::infrastructure::api::convert::to_data::ConversionResult;
 use crate::infrastructure::api::schema::*;
-use crate::infrastructure::api::to_data::ConversionResult;
 use crate::infrastructure::data;
 use crate::infrastructure::data::SourceModelData;
 use helgoboss_learn::DisplayType;
