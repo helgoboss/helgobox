@@ -1,12 +1,12 @@
+use std::collections::HashMap;
+
 use crate::application::ParameterSetting;
+use crate::infrastructure::api::convert::to_data::convert_mapping;
 use crate::infrastructure::api::convert::to_data::group::convert_group;
 use crate::infrastructure::api::convert::to_data::parameter::convert_parameter;
-use crate::infrastructure::api::convert::to_data::{
-    convert_mapping, convert_multiple, ConversionResult,
-};
+use crate::infrastructure::api::convert::{convert_multiple, ConversionResult};
 use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{CompartmentModelData, QualifiedCompartmentModelData};
-use std::collections::HashMap;
 
 pub fn convert_compartment(c: Compartment) -> ConversionResult<QualifiedCompartmentModelData> {
     let parameters: HashMap<u32, ParameterSetting> = {

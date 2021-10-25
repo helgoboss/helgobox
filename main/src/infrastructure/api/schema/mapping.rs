@@ -29,6 +29,7 @@ pub struct Mapping {
     pub feedback_enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub activation_condition: Option<ActivationCondition>,
+    // TODO-high Make this a part of the source?
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback_behavior: Option<FeedbackBehavior>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -98,4 +99,17 @@ pub struct EelActivationCondition {
 pub enum ParamRef {
     Index(u32),
     Key(String),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(untagged)]
+pub enum VirtualControlElementId {
+    Indexed(u32),
+    Named(String),
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+pub enum VirtualControlElementKind {
+    Multi,
+    Button,
 }

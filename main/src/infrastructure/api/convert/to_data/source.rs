@@ -1,8 +1,9 @@
-use crate::application;
 use crate::application::{MidiSourceType, ReaperSourceType, SourceCategory};
-use crate::infrastructure::api::convert::to_data::ConversionResult;
+use crate::infrastructure::api::convert::to_data::{
+    convert_control_element_id, convert_control_element_type,
+};
+use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::*;
-use crate::infrastructure::data;
 use crate::infrastructure::data::SourceModelData;
 use helgoboss_learn::DisplayType;
 use helgoboss_midi::{Channel, U14};
@@ -245,25 +246,5 @@ fn convert_osc_arg_type(s: OscArgKind) -> helgoboss_learn::OscTypeTag {
         Color => T::Color,
         Midi => T::Midi,
         Array => T::Array,
-    }
-}
-
-fn convert_control_element_type(
-    s: VirtualControlElementKind,
-) -> application::VirtualControlElementType {
-    use application::VirtualControlElementType as T;
-    use VirtualControlElementKind::*;
-    match s {
-        Multi => T::Multi,
-        Button => T::Button,
-    }
-}
-
-fn convert_control_element_id(s: VirtualControlElementId) -> data::VirtualControlElementIdData {
-    use data::VirtualControlElementIdData as T;
-    use VirtualControlElementId::*;
-    match s {
-        Indexed(i) => T::Indexed(i),
-        Named(s) => T::Named(s),
     }
 }

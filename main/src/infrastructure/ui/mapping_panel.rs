@@ -366,7 +366,8 @@ impl MappingPanel {
 
     fn handle_target_line_4_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
-        match mapping.borrow().target_model.r#type.get() {
+        let target_type = mapping.borrow().target_model.r#type.get();
+        match target_type {
             ReaperTargetType::Action => {
                 let reaper = Reaper::get().medium_reaper();
                 use InitialAction::*;

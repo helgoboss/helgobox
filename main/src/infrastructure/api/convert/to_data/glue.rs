@@ -1,4 +1,4 @@
-use crate::infrastructure::api::convert::to_data::ConversionResult;
+use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::ModeModelData;
 use helgoboss_learn::{SoftSymmetricUnitValue, UnitValue};
@@ -8,20 +8,20 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
     let source_interval = convert_unit_value_interval(g.source_interval.unwrap_or(UNIT_INTERVAL))?;
     let target_interval = convert_unit_value_interval(g.target_interval.unwrap_or(UNIT_INTERVAL))?;
     let jump_interval = convert_unit_value_interval(g.jump_interval.unwrap_or(UNIT_INTERVAL))?;
-    if g.step_size_interval.is_some() && g.step_factor_interval.is_some() {
-        Err("Only one of `step_size_interval` and `step_factor_interval` can be set")?;
-    }
-    let step_interval = if let Some(step_factor_interval) = g.step_factor_interval {
-        convert_factor_interval(step_factor_interval)
+    let conv_step_size_interval = if let Some(ssi) = g.step_size_interval {
+        Some(convert_step_size_interval(ssi)?)
     } else {
-        let uv_interval = convert_unit_value_interval(
-            g.step_size_interval.unwrap_or(DEFAULT_STEP_SIZE_INTERVAL),
-        )?;
-        helgoboss_learn::Interval::new(
-            uv_interval.min_val().to_symmetric(),
-            uv_interval.max_val().to_symmetric(),
-        )
+        None
     };
+    let conv_step_factor_interval = g.step_factor_interval.map(convert_step_factor_interval);
+    if let (Some(ssi), Some(sfi)) = (conv_step_size_interval, conv_step_factor_interval) {
+        if ssi != sfi {
+            Err("Only one of `step_size_interval` and `step_factor_interval` can be set")?;
+        }
+    }
+    let step_interval = conv_step_factor_interval
+        .or(conv_step_size_interval)
+        .unwrap_or_else(|| convert_step_size_interval(DEFAULT_STEP_SIZE_INTERVAL).unwrap());
     let fire_mode = g.fire_mode.unwrap_or_default();
     let data = ModeModelData {
         r#type: {
@@ -128,7 +128,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
             }
         },
         rotate_is_enabled: g.wrap.unwrap_or_default(),
-        make_absolute_enabled: g.make_absolute.unwrap_or_default(),
+        make_absolute_enabled: g.relative_mode.unwrap_or_default() == RelativeMode::MakeAbsolute,
         group_interaction: {
             use helgoboss_learn::GroupInteraction as T;
             if let Some(i) = g.interaction {
@@ -161,6 +161,26 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
     Ok(data)
 }
 
+fn convert_step_factor_interval(
+    i: Interval<i32>,
+) -> helgoboss_learn::Interval<SoftSymmetricUnitValue> {
+    helgoboss_learn::Interval::new_auto(
+        SoftSymmetricUnitValue::new(i.0 as f64 / 100.0),
+        SoftSymmetricUnitValue::new(i.1 as f64 / 100.0),
+    )
+}
+
+fn convert_step_size_interval(
+    i: Interval<f64>,
+) -> ConversionResult<helgoboss_learn::Interval<SoftSymmetricUnitValue>> {
+    let uv_interval = convert_unit_value_interval(i)?;
+    let result = helgoboss_learn::Interval::new(
+        uv_interval.min_val().to_symmetric(),
+        uv_interval.max_val().to_symmetric(),
+    );
+    Ok(result)
+}
+
 fn convert_unit_value_interval(
     interval: Interval<f64>,
 ) -> ConversionResult<helgoboss_learn::Interval<UnitValue>> {
@@ -168,15 +188,6 @@ fn convert_unit_value_interval(
         interval.0.try_into()?,
         interval.1.try_into()?,
     ))
-}
-
-fn convert_factor_interval(
-    factor_interval: Interval<i32>,
-) -> helgoboss_learn::Interval<SoftSymmetricUnitValue> {
-    helgoboss_learn::Interval::new_auto(
-        SoftSymmetricUnitValue::new(factor_interval.0 as _),
-        SoftSymmetricUnitValue::new(factor_interval.1 as _),
-    )
 }
 
 fn convert_virtual_color(color: VirtualColor) -> helgoboss_learn::VirtualColor {

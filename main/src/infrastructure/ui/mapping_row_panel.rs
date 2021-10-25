@@ -515,6 +515,7 @@ impl MappingRowPanel {
             PasteObjectInPlace(ClipboardObject),
             PasteMappings(Vec<MappingModelData>),
             CopyPart(ObjectType),
+            CopyMappingAsLua,
             MoveMappingToGroup(Option<GroupId>),
             LogDebugInfo,
         }
@@ -605,6 +606,7 @@ impl MappingRowPanel {
                         .collect(),
                 ),
                 item("Log debug info", move || MenuAction::LogDebugInfo),
+                item("Copy as Lua snippet", move || MenuAction::CopyMappingAsLua),
             ];
             let mut root_menu = root_menu(entries);
             root_menu.index(1);
@@ -647,8 +649,22 @@ impl MappingRowPanel {
                 );
             }
             MenuAction::CopyPart(obj_type) => {
-                let _ =
-                    copy_mapping_object(self.session(), mapping_compartment, mapping_id, obj_type);
+                let _ = copy_mapping_object(
+                    self.session(),
+                    mapping_compartment,
+                    mapping_id,
+                    obj_type,
+                    false,
+                );
+            }
+            MenuAction::CopyMappingAsLua => {
+                let _ = copy_mapping_object(
+                    self.session(),
+                    mapping_compartment,
+                    mapping_id,
+                    ObjectType::Mapping,
+                    true,
+                );
             }
             MenuAction::MoveMappingToGroup(group_id) => {
                 let _ = move_mapping_to_group(
@@ -766,7 +782,8 @@ fn copy_mapping_object(
     compartment: MappingCompartment,
     mapping_id: MappingId,
     object_type: ObjectType,
-) -> Result<(), &'static str> {
+    as_lua: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let session = session.borrow();
     let (_, mapping) = session
         .find_mapping_and_index_by_id(compartment, mapping_id)
@@ -783,7 +800,9 @@ fn copy_mapping_object(
             ClipboardObject::Target(Box::new(TargetModelData::from_model(&mapping.target_model)))
         }
     };
-    copy_object_to_clipboard(object)
+    copy_object_to_clipboard(object, as_lua, |group_id| {
+        session.find_group_key_by_id(compartment, group_id)
+    })
 }
 
 enum ObjectType {

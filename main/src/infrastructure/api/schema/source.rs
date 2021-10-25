@@ -130,28 +130,16 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
-    pub struct MidiClockTempoSource {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        reserved: Option<String>,
-    }
+    pub struct MidiClockTempoSource;
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
-    pub struct MidiDeviceChangesSource {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        reserved: Option<String>,
-    }
+    pub struct MidiDeviceChangesSource;
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
-    pub struct RealearnInstanceStartSource {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        reserved: Option<String>,
-    }
+    pub struct RealearnInstanceStartSource;
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
     #[serde(rename_all = "snake_case")]
@@ -254,12 +242,8 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
-    pub struct LaunchpadProScrollingTextDisplay {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        reserved: Option<String>,
-    }
+    pub struct LaunchpadProScrollingTextDisplay;
 }
 
 mod osc {
@@ -315,6 +299,7 @@ mod osc {
 }
 
 mod virt {
+    use crate::infrastructure::api::schema::{VirtualControlElementId, VirtualControlElementKind};
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
     use ts_rs::TS;
@@ -325,18 +310,5 @@ mod virt {
     pub struct VirtualSource {
         pub id: VirtualControlElementId,
         pub kind: VirtualControlElementKind,
-    }
-
-    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(untagged)]
-    pub enum VirtualControlElementId {
-        Indexed(u32),
-        Named(String),
-    }
-
-    #[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
-    pub enum VirtualControlElementKind {
-        Multi,
-        Button,
     }
 }

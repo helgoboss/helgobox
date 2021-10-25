@@ -628,7 +628,12 @@ impl HeaderPanel {
             .map(|m| MappingModelData::from_model(&*m.borrow()))
             .collect();
         let obj = ClipboardObject::Mappings(mapping_datas);
-        let _ = copy_object_to_clipboard(obj);
+        let session = self.session();
+        let session = session.borrow();
+        let compartment = self.active_compartment();
+        let _ = copy_object_to_clipboard(obj, false, |group_id| {
+            session.find_group_key_by_id(compartment, group_id)
+        });
     }
 
     fn auto_name_listed_mappings(&self) {

@@ -1,7 +1,6 @@
 use crate::domain::GroupId;
-use crate::infrastructure::api::convert::to_data::{
-    convert_activation, convert_tags, ConversionResult,
-};
+use crate::infrastructure::api::convert::to_data::{convert_activation, convert_tags};
+use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{EnabledData, GroupModelData};
 
