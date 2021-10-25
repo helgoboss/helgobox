@@ -40,9 +40,8 @@ pub struct Glue {
     pub button_filter: Option<ButtonFilter>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encoder_filter: Option<EncoderFilter>,
-    // TODO-high Consider a RelativeMode enum instead (just like AbsoluteMode)!
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub make_absolute: Option<bool>,
+    pub relative_mode: Option<RelativeMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interaction: Option<Interaction>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -63,6 +62,18 @@ pub enum AbsoluteMode {
 impl Default for AbsoluteMode {
     fn default() -> Self {
         AbsoluteMode::Normal
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+pub enum RelativeMode {
+    Normal,
+    MakeAbsolute,
+}
+
+impl Default for RelativeMode {
+    fn default() -> Self {
+        Self::Normal
     }
 }
 
@@ -116,12 +127,8 @@ pub struct OnSinglePressFireMode {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
-pub struct OnDoublePressFireMode {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    reserved: Option<u32>,
-}
+pub struct OnDoublePressFireMode;
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(untagged)]

@@ -290,8 +290,7 @@ impl TargetModelData {
         let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
         let fx_prop_values = deserialize_fx(
             &self.fx_data,
-            context.map(|c| (c, compartment)),
-            &virtual_track,
+            context.map(|c| (c, compartment, &virtual_track)),
         );
         model.set_fx_from_prop_values(fx_prop_values, with_notification, context, compartment);
         model
@@ -435,7 +434,7 @@ impl TargetModelData {
     }
 }
 
-fn serialize_track(track: TrackPropValues) -> TrackData {
+pub fn serialize_track(track: TrackPropValues) -> TrackData {
     use VirtualTrackType::*;
     match track.r#type {
         This => TrackData {
@@ -711,7 +710,7 @@ pub struct FxData {
     //  negatively effect some prerelease testers. Another way to get rid of the redundant
     //  "fxAnchor" property would be to set this to none if the target type doesn't support FX.
     #[serde(rename = "fxAnchor", default, skip_serializing_if = "is_default")]
-    anchor: Option<VirtualFxType>,
+    pub anchor: Option<VirtualFxType>,
     /// The only reason this is an option is that in ReaLearn < 1.11.0 we allowed the FX
     /// index to be undefined (-1). However, going with a default of 0 is also okay so
     /// `None` and `Some(0)` means essentially the same thing to us now.
@@ -721,17 +720,17 @@ pub struct FxData {
         default,
         skip_serializing_if = "is_none_or_some_default"
     )]
-    index: Option<u32>,
+    pub index: Option<u32>,
     /// Since 1.12.0-pre1
     #[serde(rename = "fxGUID", default, skip_serializing_if = "is_default")]
-    guid: Option<String>,
+    pub guid: Option<String>,
     /// Since 1.12.0-pre8
     #[serde(rename = "fxName", default, skip_serializing_if = "is_default")]
-    name: Option<String>,
+    pub name: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
-    is_input_fx: bool,
+    pub is_input_fx: bool,
     #[serde(rename = "fxExpression", default, skip_serializing_if = "is_default")]
-    expression: Option<String>,
+    pub expression: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -752,7 +751,7 @@ pub struct TrackData {
     expression: Option<String>,
 }
 
-fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
+pub fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
     match track_data {
         TrackData {
             guid: None,
@@ -834,10 +833,10 @@ fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
     }
 }
 
-fn deserialize_fx(
+/// The context and so on is only necessary if you want to load < 1.12.0 presets.
+pub fn deserialize_fx(
     fx_data: &FxData,
-    ctx: Option<(ExtendedProcessorContext, MappingCompartment)>,
-    virtual_track: &VirtualTrack,
+    ctx: Option<(ExtendedProcessorContext, MappingCompartment, &VirtualTrack)>,
 ) -> FxPropValues {
     match fx_data {
         // Special case: <Focused> for ReaLearn < 2.8.0-pre4.
@@ -855,8 +854,8 @@ fn deserialize_fx(
             is_input_fx,
             ..
         } => {
-            let (context, compartment) =
-                ctx.expect("trying to load pre-1.12.0 FX target without processor context");
+            let (context, compartment, virtual_track) =
+                ctx.expect("trying to load < 1.12.0 FX target without processor context");
             let fx =
                 get_guid_based_fx_at_index(context, virtual_track, *is_input_fx, *i, compartment)
                     .ok();
@@ -975,7 +974,7 @@ fn deserialize_fx(
     }
 }
 
-fn deserialize_fx_parameter(param_data: &FxParameterData) -> FxParameterPropValues {
+pub fn deserialize_fx_parameter(param_data: &FxParameterData) -> FxParameterPropValues {
     match param_data {
         // This is the case for versions < 2.8.0.
         FxParameterData {
@@ -1087,15 +1086,15 @@ fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
 #[serde(rename_all = "camelCase")]
 pub struct BookmarkData {
     #[serde(rename = "bookmarkAnchor", default, skip_serializing_if = "is_default")]
-    anchor: BookmarkAnchorType,
+    pub anchor: BookmarkAnchorType,
     #[serde(rename = "bookmarkRef", default, skip_serializing_if = "is_default")]
-    r#ref: u32,
+    pub r#ref: u32,
     #[serde(
         rename = "bookmarkIsRegion",
         default,
         skip_serializing_if = "is_default"
     )]
-    is_region: bool,
+    pub is_region: bool,
 }
 
 pub fn get_guid_based_fx_at_index(

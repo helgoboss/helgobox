@@ -101,9 +101,7 @@ mod tests {
                 source_interval: Some(Interval(0.3, 0.7)),
                 ..Default::default()
             }),
-            target: Some(Target {
-                unit: Some(TargetUnit::Percent),
-            }),
+            target: None,
             ..Default::default()
         };
         let json = serde_json::to_string_pretty(&mapping).unwrap();

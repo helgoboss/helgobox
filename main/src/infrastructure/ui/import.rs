@@ -1,6 +1,5 @@
-use std::collections::HashMap;
 use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -58,7 +57,7 @@ fn read_import_from_lua(text: &str) -> Result<ImportData, Box<dyn Error>> {
     let instant = Instant::now();
     lua.set_hook(
         HookTriggers::every_nth_instruction(10),
-        move |_lua, debug| {
+        move |_lua, _debug| {
             if instant.elapsed() > Duration::from_millis(200) {
                 Err(mlua::Error::ExternalError(Arc::new(
                     RealearnScriptError::Timeout,

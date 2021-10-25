@@ -4,15 +4,15 @@ use crate::application::{BankConditionModel, ModifierConditionModel};
 use crate::domain::{GroupId, MappingId, Tag};
 use crate::infrastructure::api::convert::to_data::glue::convert_glue;
 use crate::infrastructure::api::convert::to_data::target::convert_target;
-use crate::infrastructure::api::convert::to_data::ConversionResult;
+use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{ActivationConditionData, EnabledData, MappingModelData};
 use std::str::FromStr;
 
 pub fn convert_mapping(
     m: Mapping,
-    group_by_key: impl FnOnce(&str) -> Option<GroupId>,
-    param_by_key: &impl Fn(&str) -> Option<u32>,
+    group_id_by_key: impl FnOnce(&str) -> Option<GroupId>,
+    param_index_by_key: &impl Fn(&str) -> Option<u32>,
 ) -> ConversionResult<MappingModelData> {
     let v = MappingModelData {
         id: Some(MappingId::random()),
@@ -21,7 +21,9 @@ pub fn convert_mapping(
         tags: convert_tags(m.tags.unwrap_or_default())?,
         group_id: {
             if let Some(key) = m.group {
-                group_by_key(&key).ok_or_else(|| format!("Group {} not defined", key))?
+                group_id_by_key(&key)
+                    .or_else(|| GroupId::from_str(&key).ok())
+                    .ok_or_else(|| format!("Group {} not defined", key))?
             } else {
                 GroupId::default()
             }
@@ -37,7 +39,7 @@ pub fn convert_mapping(
             }
         },
         activation_condition_data: if let Some(cond) = m.activation_condition {
-            convert_activation(cond, param_by_key)?
+            convert_activation(cond, param_index_by_key)?
         } else {
             Default::default()
         },

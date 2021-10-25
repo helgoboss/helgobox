@@ -1,6 +1,10 @@
+use crate::domain::GroupId;
+use crate::infrastructure::api::convert::from_data;
+use crate::infrastructure::api::schema;
 use crate::infrastructure::data::{
     MappingModelData, ModeModelData, SourceModelData, TargetModelData,
 };
+use crate::infrastructure::ui::lua_serializer;
 use arboard::Clipboard;
 use serde::{Deserialize, Serialize};
 
@@ -14,9 +18,44 @@ pub enum ClipboardObject {
     Target(Box<TargetModelData>),
 }
 
-pub fn copy_object_to_clipboard(object: ClipboardObject) -> Result<(), &'static str> {
-    let json = serde_json::to_string_pretty(&object).map_err(|_| "couldn't serialize object")?;
-    copy_text_to_clipboard(json);
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(untagged)]
+pub enum LuaObject {
+    Mappings(Vec<schema::Mapping>),
+    Mapping(Box<schema::Mapping>),
+    Source(Box<schema::Source>),
+    Mode(Box<schema::Glue>),
+    Target(Box<schema::Target>),
+}
+
+pub fn copy_object_to_clipboard(
+    object: ClipboardObject,
+    as_lua: bool,
+    group_key_by_id: impl Fn(GroupId) -> Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let text = if as_lua {
+        use ClipboardObject::*;
+        let lua_object = match object {
+            Source(s) => LuaObject::Source(Box::new(from_data::convert_source(*s)?)),
+            Mappings(mappings) => {
+                let lua_mappings: Result<Vec<_>, _> = mappings
+                    .into_iter()
+                    .map(|m| from_data::convert_mapping(m, |id| group_key_by_id(id)))
+                    .collect();
+                LuaObject::Mappings(lua_mappings?)
+            }
+            Mapping(m) => LuaObject::Mapping(Box::new(from_data::convert_mapping(*m, |id| {
+                group_key_by_id(id)
+            })?)),
+            Mode(m) => LuaObject::Mode(Box::new(from_data::convert_glue(*m)?)),
+            Target(t) => LuaObject::Target(Box::new(from_data::convert_target(*t)?)),
+        };
+        lua_serializer::to_string(&lua_object)?
+    } else {
+        serde_json::to_string_pretty(&object).map_err(|_| "couldn't serialize object")?
+    };
+    copy_text_to_clipboard(text);
     Ok(())
 }
 

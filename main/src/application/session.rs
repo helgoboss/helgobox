@@ -909,6 +909,15 @@ impl Session {
             .find(|g| g.borrow().id() == id)
     }
 
+    pub fn find_group_key_by_id(
+        &self,
+        compartment: MappingCompartment,
+        id: GroupId,
+    ) -> Option<String> {
+        let group = self.find_group_by_id(compartment, id)?;
+        group.borrow().key().cloned()
+    }
+
     pub fn find_group_by_id_including_default_group(
         &self,
         compartment: MappingCompartment,

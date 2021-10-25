@@ -516,8 +516,8 @@ pub enum ReaperTargetType {
 
     // FX chain targets
     #[display(fmt = "FX chain: Navigate between FXs")]
-    // FX targets
     FxNavigate = 28,
+    // FX targets
     #[display(fmt = "FX: Enable/disable")]
     FxEnable = 12,
     #[display(fmt = "FX: Load snapshot")]
