@@ -32,7 +32,7 @@ pub enum LuaObject {
 pub fn copy_object_to_clipboard(
     object: ClipboardObject,
     as_lua: bool,
-    group_key_by_id: impl Fn(GroupId) -> Option<String>,
+    group_key_by_id: impl Fn(GroupId) -> Option<String> + Copy,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let text = if as_lua {
         use ClipboardObject::*;
@@ -41,15 +41,17 @@ pub fn copy_object_to_clipboard(
             Mappings(mappings) => {
                 let lua_mappings: Result<Vec<_>, _> = mappings
                     .into_iter()
-                    .map(|m| from_data::convert_mapping(m, |id| group_key_by_id(id)))
+                    .map(|m| from_data::convert_mapping(m, group_key_by_id))
                     .collect();
                 LuaObject::Mappings(lua_mappings?)
             }
-            Mapping(m) => LuaObject::Mapping(Box::new(from_data::convert_mapping(*m, |id| {
-                group_key_by_id(id)
-            })?)),
+            Mapping(m) => {
+                LuaObject::Mapping(Box::new(from_data::convert_mapping(*m, group_key_by_id)?))
+            }
             Mode(m) => LuaObject::Mode(Box::new(from_data::convert_glue(*m)?)),
-            Target(t) => LuaObject::Target(Box::new(from_data::convert_target(*t)?)),
+            Target(t) => {
+                LuaObject::Target(Box::new(from_data::convert_target(*t, group_key_by_id)?))
+            }
         };
         lua_serializer::to_string(&lua_object)?
     } else {

@@ -1,13 +1,12 @@
 use crate::application::{MidiSourceType, ReaperSourceType, SourceCategory};
 use crate::infrastructure::api::convert::from_data::{
-    convert_control_element_id, convert_control_element_kind,
+    convert_control_element_id, convert_control_element_kind, convert_osc_argument,
 };
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema;
 use crate::infrastructure::data::SourceModelData;
 use helgoboss_learn::{
-    DisplayType, MackieSevenSegmentDisplayScope, MidiClockTransportMessage, OscTypeTag,
-    SourceCharacter,
+    DisplayType, MackieSevenSegmentDisplayScope, MidiClockTransportMessage, SourceCharacter,
 };
 use helgoboss_midi::{Channel, U14};
 use std::convert::TryInto;
@@ -225,39 +224,4 @@ fn convert_mackie_seven_segment_display_scope(
         TcFramesTicks => T::TcFramesTicks,
     };
     Some(res)
-}
-
-fn convert_osc_argument(
-    arg_index: Option<u32>,
-    arg_type: OscTypeTag,
-    arg_is_relative: bool,
-) -> Option<schema::OscArgument> {
-    let arg_index = arg_index?;
-    let arg = schema::OscArgument {
-        index: Some(arg_index),
-        kind: Some(convert_osc_arg_kind(arg_type)),
-        relative: Some(arg_is_relative),
-    };
-    Some(arg)
-}
-
-fn convert_osc_arg_kind(v: OscTypeTag) -> schema::OscArgKind {
-    use schema::OscArgKind as T;
-    use OscTypeTag::*;
-    match v {
-        Float => T::Float,
-        Double => T::Double,
-        Bool => T::Bool,
-        Nil => T::Nil,
-        Inf => T::Inf,
-        Int => T::Int,
-        String => T::String,
-        Blob => T::Blob,
-        Time => T::Time,
-        Long => T::Long,
-        Char => T::Char,
-        Color => T::Color,
-        Midi => T::Midi,
-        Array => T::Array,
-    }
 }

@@ -1,4 +1,6 @@
-use crate::infrastructure::api::schema::{VirtualControlElementId, VirtualControlElementKind};
+use crate::infrastructure::api::schema::{
+    OscArgument, VirtualControlElementId, VirtualControlElementKind,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -411,76 +413,104 @@ pub struct FxParameterValueTarget {
     pub poll_for_feedback: Option<bool>,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+// TODO-high Rename "send" to "route"
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct SendAutomationModeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    pub route: RouteDescriptor,
+    pub mode: AutomationMode,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub poll_for_feedback: Option<bool>,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct SendMonoStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    pub route: RouteDescriptor,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub poll_for_feedback: Option<bool>,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct SendMuteStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    pub route: RouteDescriptor,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub poll_for_feedback: Option<bool>,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct SendPhaseTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    pub route: RouteDescriptor,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub poll_for_feedback: Option<bool>,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct SendPanTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    pub route: RouteDescriptor,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct SendVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    pub route: RouteDescriptor,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct ClipTransportActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output: Option<ClipOutput>,
+    pub clip: ClipDescriptor,
+    pub action: TransportAction,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_bar: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub buffered: Option<bool>,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct ClipSeekTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    pub clip: ClipDescriptor,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub feedback_resolution: Option<FeedbackResolution>,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct ClipVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    pub clip: ClipDescriptor,
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
@@ -489,6 +519,11 @@ pub struct ClipVolumeTarget {
 pub struct SendMidiTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    // TODO-high Do we want to support other ways of expressing MIDI messages in future? Maybe enum?
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination: Option<MidiDestination>,
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
@@ -497,6 +532,12 @@ pub struct SendMidiTarget {
 pub struct SendOscTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub argument: Option<OscArgument>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination: Option<OscDestination>,
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
@@ -505,6 +546,10 @@ pub struct SendOscTarget {
 pub struct EnableInstancesTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exclusivity: Option<InstanceExclusivity>,
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
@@ -513,6 +558,10 @@ pub struct EnableInstancesTarget {
 pub struct EnableMappingsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exclusivity: Option<MappingExclusivity>,
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
@@ -521,6 +570,10 @@ pub struct EnableMappingsTarget {
 pub struct LoadMappingSnapshotsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_mappings_only: Option<bool>,
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
@@ -529,6 +582,10 @@ pub struct LoadMappingSnapshotsTarget {
 pub struct CycleThroughGroupMappingsTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exclusivity: Option<GroupMappingExclusivity>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema, TS)]
@@ -536,7 +593,8 @@ pub struct CycleThroughGroupMappingsTarget {
 #[serde(deny_unknown_fields)]
 pub struct VirtualTarget {
     pub id: VirtualControlElementId,
-    pub kind: VirtualControlElementKind,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<VirtualControlElementKind>,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
@@ -587,7 +645,7 @@ pub enum ReaperCommand {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(tag = "kind")]
+#[serde(tag = "address")]
 pub enum TrackDescriptor {
     This {
         #[serde(flatten)]
@@ -648,12 +706,35 @@ pub enum FeedbackResolution {
     High,
 }
 
+impl Default for FeedbackResolution {
+    fn default() -> Self {
+        Self::Beat
+    }
+}
+
 #[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
 pub enum TrackExclusivity {
     WithinProject,
     WithinFolder,
     WithinProjectOnOnly,
     WithinFolderOnOnly,
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+pub enum InstanceExclusivity {
+    Exclusive,
+    ExclusiveOnOnly,
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+pub enum MappingExclusivity {
+    Exclusive,
+    ExclusiveOnOnly,
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+pub enum GroupMappingExclusivity {
+    Exclusive,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
@@ -705,7 +786,7 @@ pub struct FxDescriptorCommons {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(tag = "kind")]
+#[serde(tag = "address")]
 pub enum FxDescriptor {
     This {
         #[serde(flatten)]
@@ -752,7 +833,7 @@ impl Default for FxDescriptor {
 // The best default for this would be a <This> FX chain but we don't have this yet!
 // Therefore we don't implement Default at all for now. We can still do it later.
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(tag = "kind")]
+#[serde(tag = "address")]
 pub enum FxChainDescriptor {
     Track {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -807,22 +888,115 @@ pub enum FxSnapshotContent {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(tag = "kind")]
+#[serde(tag = "address")]
 pub enum FxParameterDescriptor {
     Dynamic {
-        fx: FxDescriptor,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        fx: Option<FxDescriptor>,
         expression: String,
     },
     ById {
-        fx: FxDescriptor,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        fx: Option<FxDescriptor>,
         index: u32,
     },
     ByIndex {
-        fx: FxDescriptor,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        fx: Option<FxDescriptor>,
         index: u32,
     },
     ByName {
-        fx: FxDescriptor,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        fx: Option<FxDescriptor>,
         name: String,
     },
+}
+
+#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(rename_all = "snake_case")]
+#[serde(deny_unknown_fields)]
+pub struct RouteDescriptorCommons {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub track: Option<TrackDescriptor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<TrackRouteKind>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[serde(tag = "address")]
+pub enum RouteDescriptor {
+    Dynamic {
+        #[serde(flatten)]
+        commons: RouteDescriptorCommons,
+        expression: String,
+    },
+    ById {
+        #[serde(flatten)]
+        commons: RouteDescriptorCommons,
+        id: Option<String>,
+    },
+    ByIndex {
+        #[serde(flatten)]
+        commons: RouteDescriptorCommons,
+        index: u32,
+    },
+    ByName {
+        #[serde(flatten)]
+        commons: RouteDescriptorCommons,
+        name: String,
+    },
+}
+
+#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+pub enum TrackRouteKind {
+    Send,
+    Receive,
+    HardwareOutput,
+}
+
+impl Default for TrackRouteKind {
+    fn default() -> Self {
+        Self::Send
+    }
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[serde(tag = "address")]
+pub enum ClipDescriptor {
+    Slot { index: u32 },
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[serde(tag = "kind")]
+pub enum ClipOutput {
+    Track {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        track: Option<TrackDescriptor>,
+    },
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[serde(tag = "kind")]
+pub enum MidiDestination {
+    FxOutput,
+    FeedbackOutput,
+}
+
+impl Default for MidiDestination {
+    fn default() -> Self {
+        Self::FeedbackOutput
+    }
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[serde(tag = "kind")]
+pub enum OscDestination {
+    FeedbackOutput,
+    Device { id: String },
+}
+
+impl Default for OscDestination {
+    fn default() -> Self {
+        Self::FeedbackOutput
+    }
 }

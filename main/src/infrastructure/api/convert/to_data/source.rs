@@ -85,7 +85,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             _ => false,
         },
         control_element_type: match &s {
-            Virtual(s) => convert_control_element_type(s.kind),
+            Virtual(s) => convert_control_element_type(s.kind.unwrap_or_default()),
             _ => Default::default(),
         },
         control_element_index: match &s {

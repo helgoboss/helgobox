@@ -1,7 +1,7 @@
 use crate::application::ActivationType;
 use crate::domain::GroupId;
 use crate::infrastructure::api::convert::from_data::{
-    convert_glue, convert_source, convert_target,
+    convert_glue, convert_group_id, convert_source, convert_tags, convert_target,
 };
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema;
@@ -10,24 +10,13 @@ use crate::infrastructure::data::MappingModelData;
 
 pub fn convert_mapping(
     data: MappingModelData,
-    group_key_by_id: impl FnOnce(GroupId) -> Option<String>,
+    group_key_by_id: impl Fn(GroupId) -> Option<String> + Copy,
 ) -> ConversionResult<schema::Mapping> {
     let mapping = schema::Mapping {
         key: data.key,
         name: Some(data.name),
-        tags: {
-            let tags = data.tags.iter().map(|t| t.to_string()).collect();
-            Some(tags)
-        },
-        group: {
-            if data.group_id.is_default() {
-                None
-            } else {
-                let group_id = data.group_id;
-                let key = group_key_by_id(group_id).unwrap_or_else(|| group_id.to_string());
-                Some(key)
-            }
-        },
+        tags: convert_tags(&data.tags),
+        group: convert_group_id(data.group_id, group_key_by_id),
         visible_in_projection: Some(data.visible_in_projection),
         enabled: Some(data.is_enabled),
         control_enabled: Some(data.enabled_data.control_is_enabled),
@@ -79,7 +68,7 @@ pub fn convert_mapping(
         on_deactivate: None,
         source: Some(convert_source(data.source)?),
         glue: Some(convert_glue(data.mode)?),
-        target: Some(convert_target(data.target)?),
+        target: Some(convert_target(data.target, group_key_by_id)?),
     };
     Ok(mapping)
 }
