@@ -247,6 +247,7 @@ mod midi {
 }
 
 mod osc {
+    use crate::infrastructure::api::schema::OscArgument;
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
     use ts_rs::TS;
@@ -259,42 +260,6 @@ mod osc {
         pub address: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub argument: Option<OscArgument>,
-    }
-
-    #[derive(Copy, Clone, Default, Serialize, Deserialize, JsonSchema, TS)]
-    #[serde(rename_all = "snake_case")]
-    #[serde(deny_unknown_fields)]
-    pub struct OscArgument {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub index: Option<u32>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub kind: Option<OscArgKind>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub relative: Option<bool>,
-    }
-
-    #[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
-    pub enum OscArgKind {
-        Float,
-        Double,
-        Bool,
-        Nil,
-        Inf,
-        Int,
-        String,
-        Blob,
-        Time,
-        Long,
-        Char,
-        Color,
-        Midi,
-        Array,
-    }
-
-    impl Default for OscArgKind {
-        fn default() -> Self {
-            Self::Float
-        }
     }
 }
 
@@ -309,6 +274,7 @@ mod virt {
     #[serde(deny_unknown_fields)]
     pub struct VirtualSource {
         pub id: VirtualControlElementId,
-        pub kind: VirtualControlElementKind,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub kind: Option<VirtualControlElementKind>,
     }
 }

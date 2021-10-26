@@ -674,9 +674,9 @@ pub struct TrackRouteData {
         default,
         skip_serializing_if = "is_default"
     )]
-    selector_type: Option<TrackRouteSelectorType>,
+    pub selector_type: Option<TrackRouteSelectorType>,
     #[serde(rename = "routeType", default, skip_serializing_if = "is_default")]
-    r#type: TrackRouteType,
+    pub r#type: TrackRouteType,
     /// The only reason this is an option is that in ReaLearn < 1.11.0 we allowed the send
     /// index to be undefined (-1). However, going with a default of 0 is also okay so
     /// `None` and `Some(0)` means essentially the same thing to us now.
@@ -686,17 +686,17 @@ pub struct TrackRouteData {
         default,
         skip_serializing_if = "is_none_or_some_default"
     )]
-    index: Option<u32>,
+    pub index: Option<u32>,
     #[serde(rename = "routeGuid", default, skip_serializing_if = "is_default")]
-    guid: Option<String>,
+    pub guid: Option<String>,
     #[serde(rename = "routeName", default, skip_serializing_if = "is_default")]
-    name: Option<String>,
+    pub name: Option<String>,
     #[serde(
         rename = "routeExpression",
         default,
         skip_serializing_if = "is_default"
     )]
-    expression: Option<String>,
+    pub expression: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -1015,7 +1015,7 @@ pub fn deserialize_fx_parameter(param_data: &FxParameterData) -> FxParameterProp
     }
 }
 
-fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
+pub fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
     match data {
         // This is the case for versions < 2.8.0.
         TrackRouteData {
