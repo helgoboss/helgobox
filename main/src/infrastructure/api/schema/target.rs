@@ -36,12 +36,12 @@ pub enum Target {
     CycleThroughFxPresets(CycleThroughFxPresetsTarget),
     FxVisibility(FxVisibilityTarget),
     FxParameterValue(FxParameterValueTarget),
-    SendAutomationMode(SendAutomationModeTarget),
-    SendMonoState(SendMonoStateTarget),
-    SendMuteState(SendMuteStateTarget),
-    SendPhase(SendPhaseTarget),
-    SendPan(SendPanTarget),
-    SendVolume(SendVolumeTarget),
+    RouteAutomationMode(RouteAutomationModeTarget),
+    RouteMonoState(RouteMonoStateTarget),
+    RouteMuteState(RouteMuteStateTarget),
+    RoutePhase(RoutePhaseTarget),
+    RoutePan(RoutePanTarget),
+    RouteVolume(RouteVolumeTarget),
     ClipTransportAction(ClipTransportActionTarget),
     ClipSeek(ClipSeekTarget),
     ClipVolume(ClipVolumeTarget),
@@ -413,11 +413,10 @@ pub struct FxParameterValueTarget {
     pub poll_for_feedback: Option<bool>,
 }
 
-// TODO-high Rename "send" to "route"
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
-pub struct SendAutomationModeTarget {
+pub struct RouteAutomationModeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub route: RouteDescriptor,
@@ -429,7 +428,7 @@ pub struct SendAutomationModeTarget {
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
-pub struct SendMonoStateTarget {
+pub struct RouteMonoStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub route: RouteDescriptor,
@@ -440,7 +439,7 @@ pub struct SendMonoStateTarget {
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
-pub struct SendMuteStateTarget {
+pub struct RouteMuteStateTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub route: RouteDescriptor,
@@ -451,7 +450,7 @@ pub struct SendMuteStateTarget {
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
-pub struct SendPhaseTarget {
+pub struct RoutePhaseTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub route: RouteDescriptor,
@@ -462,7 +461,7 @@ pub struct SendPhaseTarget {
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
-pub struct SendPanTarget {
+pub struct RoutePanTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub route: RouteDescriptor,
@@ -471,7 +470,7 @@ pub struct SendPanTarget {
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
-pub struct SendVolumeTarget {
+pub struct RouteVolumeTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub route: RouteDescriptor,
