@@ -21,8 +21,8 @@ use crate::infrastructure::api::schema::{
     CycleThroughTracksTarget, EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget,
     FxParameterValueTarget, FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget,
     LoadFxSnapshotTarget, LoadMappingSnapshotsTarget, PlayRateTarget, ReaperActionTarget,
-    SeekTarget, SendAutomationModeTarget, SendMidiTarget, SendMonoStateTarget, SendMuteStateTarget,
-    SendOscTarget, SendPanTarget, SendPhaseTarget, SendVolumeTarget, TempoTarget,
+    RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget,
+    RoutePhaseTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget, TempoTarget,
     TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
     TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget, TrackPhaseTarget,
     TrackSelectionStateTarget, TrackSoloStateTarget, TrackVisibilityTarget, TrackVolumeTarget,
@@ -155,32 +155,32 @@ fn convert_real_target(
             poll_for_feedback: Some(data.poll_for_feedback),
             parameter: convert_fx_parameter_descriptor(data),
         }),
-        TrackSendAutomationMode => T::SendAutomationMode(SendAutomationModeTarget {
+        TrackSendAutomationMode => T::RouteAutomationMode(RouteAutomationModeTarget {
             commons,
             mode: convert_automation_mode(data.track_automation_mode),
             poll_for_feedback: Some(data.poll_for_feedback),
             route: convert_route_descriptor(data),
         }),
-        TrackSendMono => T::SendMonoState(SendMonoStateTarget {
+        TrackSendMono => T::RouteMonoState(RouteMonoStateTarget {
             commons,
             poll_for_feedback: Some(data.poll_for_feedback),
             route: convert_route_descriptor(data),
         }),
-        TrackSendMute => T::SendMuteState(SendMuteStateTarget {
+        TrackSendMute => T::RouteMuteState(RouteMuteStateTarget {
             commons,
             poll_for_feedback: Some(data.poll_for_feedback),
             route: convert_route_descriptor(data),
         }),
-        TrackSendPhase => T::SendPhase(SendPhaseTarget {
+        TrackSendPhase => T::RoutePhase(RoutePhaseTarget {
             commons,
             poll_for_feedback: Some(data.poll_for_feedback),
             route: convert_route_descriptor(data),
         }),
-        TrackSendPan => T::SendPan(SendPanTarget {
+        TrackSendPan => T::RoutePan(RoutePanTarget {
             commons,
             route: convert_route_descriptor(data),
         }),
-        TrackSendVolume => T::SendVolume(SendVolumeTarget {
+        TrackSendVolume => T::RouteVolume(RouteVolumeTarget {
             commons,
             route: convert_route_descriptor(data),
         }),

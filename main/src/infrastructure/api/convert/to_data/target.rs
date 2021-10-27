@@ -410,7 +410,7 @@ pub fn convert_target(
                 ..init(d.commons)
             }
         }
-        Target::SendAutomationMode(d) => {
+        Target::RouteAutomationMode(d) => {
             let route_desc = convert_route_desc(d.route)?;
             let track_desc = route_desc.track_desc;
             TargetModelData {
@@ -424,7 +424,7 @@ pub fn convert_target(
                 ..init(d.commons)
             }
         }
-        Target::SendMonoState(d) => {
+        Target::RouteMonoState(d) => {
             let route_desc = convert_route_desc(d.route)?;
             let track_desc = route_desc.track_desc;
             TargetModelData {
@@ -437,7 +437,7 @@ pub fn convert_target(
                 ..init(d.commons)
             }
         }
-        Target::SendMuteState(d) => {
+        Target::RouteMuteState(d) => {
             let route_desc = convert_route_desc(d.route)?;
             let track_desc = route_desc.track_desc;
             TargetModelData {
@@ -450,7 +450,7 @@ pub fn convert_target(
                 ..init(d.commons)
             }
         }
-        Target::SendPhase(d) => {
+        Target::RoutePhase(d) => {
             let route_desc = convert_route_desc(d.route)?;
             let track_desc = route_desc.track_desc;
             TargetModelData {
@@ -463,7 +463,7 @@ pub fn convert_target(
                 ..init(d.commons)
             }
         }
-        Target::SendPan(d) => {
+        Target::RoutePan(d) => {
             let route_desc = convert_route_desc(d.route)?;
             let track_desc = route_desc.track_desc;
             TargetModelData {
@@ -475,7 +475,7 @@ pub fn convert_target(
                 ..init(d.commons)
             }
         }
-        Target::SendVolume(d) => {
+        Target::RouteVolume(d) => {
             let route_desc = convert_route_desc(d.route)?;
             let track_desc = route_desc.track_desc;
             TargetModelData {
