@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct Compartment {
     pub kind: CompartmentKind,

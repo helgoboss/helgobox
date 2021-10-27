@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct Mapping {
     /// An optional key that you can assign to this mapping in order to refer
@@ -55,14 +54,12 @@ pub enum ActivationCondition {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct ModifierActivationCondition {
     pub modifiers: Vec<ModifierState>,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct ModifierState {
     pub parameter: ParamRef,
@@ -70,7 +67,6 @@ pub struct ModifierState {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct BankActivationCondition {
     pub parameter: ParamRef,
@@ -78,7 +74,6 @@ pub struct BankActivationCondition {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct EelActivationCondition {
     pub condition: String,
@@ -111,7 +106,6 @@ impl Default for VirtualControlElementKind {
 }
 
 #[derive(Copy, Clone, Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct OscArgument {
     #[serde(skip_serializing_if = "Option::is_none")]

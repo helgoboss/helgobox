@@ -61,7 +61,6 @@ impl Default for Target {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TargetCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -81,7 +80,6 @@ impl Default for TargetUnit {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct LastTouchedTarget {
     #[serde(flatten)]
@@ -89,7 +87,6 @@ pub struct LastTouchedTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct AutomationModeOverrideTarget {
     #[serde(flatten)]
@@ -99,7 +96,6 @@ pub struct AutomationModeOverrideTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct ReaperActionTarget {
     #[serde(flatten)]
@@ -113,7 +109,6 @@ pub struct ReaperActionTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TransportActionTarget {
     #[serde(flatten)]
@@ -122,7 +117,6 @@ pub struct TransportActionTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct CycleThroughTracksTarget {
     #[serde(flatten)]
@@ -134,7 +128,6 @@ pub struct CycleThroughTracksTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct SeekTarget {
     #[serde(flatten)]
@@ -156,7 +149,6 @@ pub struct SeekTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct PlayRateTarget {
     #[serde(flatten)]
@@ -164,7 +156,6 @@ pub struct PlayRateTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TempoTarget {
     #[serde(flatten)]
@@ -172,7 +163,6 @@ pub struct TempoTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct GoToBookmarkTarget {
     #[serde(flatten)]
@@ -185,7 +175,6 @@ pub struct GoToBookmarkTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackArmStateTarget {
     #[serde(flatten)]
@@ -197,7 +186,6 @@ pub struct TrackArmStateTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct AllTrackFxOnOffStateTarget {
     #[serde(flatten)]
@@ -211,7 +199,6 @@ pub struct AllTrackFxOnOffStateTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackMuteStateTarget {
     #[serde(flatten)]
@@ -223,7 +210,6 @@ pub struct TrackMuteStateTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackPeakTarget {
     #[serde(flatten)]
@@ -233,7 +219,6 @@ pub struct TrackPeakTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackPhaseTarget {
     #[serde(flatten)]
@@ -247,7 +232,6 @@ pub struct TrackPhaseTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackSelectionStateTarget {
     #[serde(flatten)]
@@ -263,7 +247,6 @@ pub struct TrackSelectionStateTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackAutomationModeTarget {
     #[serde(flatten)]
@@ -276,7 +259,6 @@ pub struct TrackAutomationModeTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackAutomationTouchStateTarget {
     #[serde(flatten)]
@@ -289,7 +271,6 @@ pub struct TrackAutomationTouchStateTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackPanTarget {
     #[serde(flatten)]
@@ -299,7 +280,6 @@ pub struct TrackPanTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackWidthTarget {
     #[serde(flatten)]
@@ -309,7 +289,6 @@ pub struct TrackWidthTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackVolumeTarget {
     #[serde(flatten)]
@@ -319,7 +298,6 @@ pub struct TrackVolumeTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackVisibilityTarget {
     #[serde(flatten)]
@@ -334,7 +312,6 @@ pub struct TrackVisibilityTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackSoloStateTarget {
     #[serde(flatten)]
@@ -348,7 +325,6 @@ pub struct TrackSoloStateTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct CycleThroughFxTarget {
     #[serde(flatten)]
@@ -359,7 +335,6 @@ pub struct CycleThroughFxTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct FxOnOffStateTarget {
     #[serde(flatten)]
@@ -369,7 +344,6 @@ pub struct FxOnOffStateTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct LoadFxSnapshotTarget {
     #[serde(flatten)]
@@ -381,7 +355,6 @@ pub struct LoadFxSnapshotTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct CycleThroughFxPresetsTarget {
     #[serde(flatten)]
@@ -391,7 +364,6 @@ pub struct CycleThroughFxPresetsTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct FxVisibilityTarget {
     #[serde(flatten)]
@@ -403,7 +375,6 @@ pub struct FxVisibilityTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct FxParameterValueTarget {
     #[serde(flatten)]
@@ -414,7 +385,6 @@ pub struct FxParameterValueTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct RouteAutomationModeTarget {
     #[serde(flatten)]
@@ -426,7 +396,6 @@ pub struct RouteAutomationModeTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct RouteMonoStateTarget {
     #[serde(flatten)]
@@ -437,7 +406,6 @@ pub struct RouteMonoStateTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct RouteMuteStateTarget {
     #[serde(flatten)]
@@ -448,7 +416,6 @@ pub struct RouteMuteStateTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct RoutePhaseTarget {
     #[serde(flatten)]
@@ -459,7 +426,6 @@ pub struct RoutePhaseTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct RoutePanTarget {
     #[serde(flatten)]
@@ -468,7 +434,6 @@ pub struct RoutePanTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct RouteVolumeTarget {
     #[serde(flatten)]
@@ -477,7 +442,6 @@ pub struct RouteVolumeTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct ClipTransportActionTarget {
     #[serde(flatten)]
@@ -493,7 +457,6 @@ pub struct ClipTransportActionTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct ClipSeekTarget {
     #[serde(flatten)]
@@ -504,7 +467,6 @@ pub struct ClipSeekTarget {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct ClipVolumeTarget {
     #[serde(flatten)]
@@ -513,7 +475,6 @@ pub struct ClipVolumeTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct SendMidiTarget {
     #[serde(flatten)]
@@ -525,7 +486,6 @@ pub struct SendMidiTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct SendOscTarget {
     #[serde(flatten)]
@@ -539,7 +499,6 @@ pub struct SendOscTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct EnableInstancesTarget {
     #[serde(flatten)]
@@ -551,7 +510,6 @@ pub struct EnableInstancesTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct EnableMappingsTarget {
     #[serde(flatten)]
@@ -563,7 +521,6 @@ pub struct EnableMappingsTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct LoadMappingSnapshotsTarget {
     #[serde(flatten)]
@@ -575,7 +532,6 @@ pub struct LoadMappingSnapshotsTarget {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct CycleThroughGroupMappingsTarget {
     #[serde(flatten)]
@@ -587,7 +543,6 @@ pub struct CycleThroughGroupMappingsTarget {
 }
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct VirtualTarget {
     pub id: VirtualControlElementId,
@@ -691,7 +646,6 @@ impl Default for TrackDescriptor {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct TrackDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -776,7 +730,6 @@ pub enum BookmarkRef {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct FxDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -866,7 +819,6 @@ impl Default for FxDisplayKind {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct FxSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -910,7 +862,6 @@ pub enum FxParameterDescriptor {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct RouteDescriptorCommons {
     #[serde(skip_serializing_if = "Option::is_none")]
