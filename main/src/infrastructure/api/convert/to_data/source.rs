@@ -81,7 +81,7 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             _ => Default::default(),
         },
         osc_arg_is_relative: match &s {
-            Osc(s) => s.argument.and_then(|arg| arg.relative).unwrap_or(false),
+            Osc(s) => s.relative.unwrap_or(false),
             _ => false,
         },
         control_element_type: match &s {

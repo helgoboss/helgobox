@@ -136,11 +136,8 @@ pub fn convert_source(data: SourceModelData) -> ConversionResult<schema::Source>
         Osc => {
             let s = schema::OscSource {
                 address: Some(data.osc_address_pattern),
-                argument: convert_osc_argument(
-                    data.osc_arg_index,
-                    data.osc_arg_type,
-                    data.osc_arg_is_relative,
-                ),
+                argument: convert_osc_argument(data.osc_arg_index, data.osc_arg_type),
+                relative: Some(data.osc_arg_is_relative),
             };
             schema::Source::Osc(s)
         }

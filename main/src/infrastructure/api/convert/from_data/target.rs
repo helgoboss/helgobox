@@ -330,7 +330,7 @@ fn convert_real_target(
         SendOsc => T::SendOsc(SendOscTarget {
             commons,
             address: Some(data.osc_address_pattern),
-            argument: convert_osc_argument(data.osc_arg_index, data.osc_arg_type, false),
+            argument: convert_osc_argument(data.osc_arg_index, data.osc_arg_type),
             destination: {
                 use schema::OscDestination as T;
                 let v = match data.osc_dev_id {
