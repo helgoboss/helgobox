@@ -500,7 +500,7 @@ pub fn serialize_track(track: TrackPropValues) -> TrackData {
     }
 }
 
-fn serialize_fx(fx: FxPropValues) -> FxData {
+pub fn serialize_fx(fx: FxPropValues) -> FxData {
     use VirtualFxType::*;
     match fx.r#type {
         This => FxData {
@@ -570,7 +570,7 @@ fn serialize_fx(fx: FxPropValues) -> FxData {
     }
 }
 
-fn serialize_fx_parameter(param: FxParameterPropValues) -> FxParameterData {
+pub fn serialize_fx_parameter(param: FxParameterPropValues) -> FxParameterData {
     use VirtualFxParameterType::*;
     match param.r#type {
         Dynamic => FxParameterData {
@@ -604,7 +604,7 @@ fn serialize_fx_parameter(param: FxParameterPropValues) -> FxParameterData {
     }
 }
 
-fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
+pub fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
     use TrackRouteSelectorType::*;
     match route.selector_type {
         Dynamic => TrackRouteData {

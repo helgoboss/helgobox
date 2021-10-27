@@ -2,6 +2,7 @@ use super::convert_source;
 use crate::application;
 use crate::application::{BankConditionModel, ModifierConditionModel};
 use crate::domain::{GroupId, MappingId, Tag};
+use crate::infrastructure::api::convert::to_data::convert_group_key;
 use crate::infrastructure::api::convert::to_data::glue::convert_glue;
 use crate::infrastructure::api::convert::to_data::target::convert_target;
 use crate::infrastructure::api::convert::ConversionResult;
@@ -11,7 +12,7 @@ use std::str::FromStr;
 
 pub fn convert_mapping(
     m: Mapping,
-    group_id_by_key: impl FnOnce(&str) -> Option<GroupId>,
+    group_id_by_key: impl Fn(&str) -> Option<GroupId> + Copy,
     param_index_by_key: &impl Fn(&str) -> Option<u32>,
 ) -> ConversionResult<MappingModelData> {
     let v = MappingModelData {
@@ -19,18 +20,10 @@ pub fn convert_mapping(
         key: m.key,
         name: m.name.unwrap_or_default(),
         tags: convert_tags(m.tags.unwrap_or_default())?,
-        group_id: {
-            if let Some(key) = m.group {
-                group_id_by_key(&key)
-                    .or_else(|| GroupId::from_str(&key).ok())
-                    .ok_or_else(|| format!("Group {} not defined", key))?
-            } else {
-                GroupId::default()
-            }
-        },
+        group_id: convert_group_key(m.group, group_id_by_key)?,
         source: convert_source(m.source.unwrap_or_default())?,
         mode: convert_glue(m.glue.unwrap_or_default())?,
-        target: convert_target(m.target.unwrap_or_default())?,
+        target: convert_target(m.target.unwrap_or_default(), group_id_by_key)?,
         is_enabled: m.enabled.unwrap_or(true),
         enabled_data: {
             EnabledData {

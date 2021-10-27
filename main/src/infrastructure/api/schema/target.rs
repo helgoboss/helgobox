@@ -843,7 +843,7 @@ pub enum FxChainDescriptor {
     },
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 pub enum TrackFxChain {
     Normal,
     Input,
@@ -867,7 +867,7 @@ impl Default for FxDisplayKind {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Serialize, Deserialize, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct FxSnapshot {
@@ -877,8 +877,7 @@ pub struct FxSnapshot {
     pub fx_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preset_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<FxSnapshotContent>,
+    pub content: FxSnapshotContent,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
@@ -973,6 +972,12 @@ pub enum ClipOutput {
         #[serde(skip_serializing_if = "Option::is_none")]
         track: Option<TrackDescriptor>,
     },
+}
+
+impl Default for ClipOutput {
+    fn default() -> Self {
+        Self::Track { track: None }
+    }
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]

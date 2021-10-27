@@ -10,6 +10,7 @@ use std::io;
 use std::net::{Ipv4Addr, SocketAddrV4, ToSocketAddrs, UdpSocket};
 
 use core::mem;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -298,6 +299,14 @@ impl OscDeviceId {
 
     pub fn fmt_short(&self) -> String {
         self.0.to_string().chars().take(5).collect()
+    }
+}
+
+impl FromStr for OscDeviceId {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(OscDeviceId(s.parse().map_err(|_| "invalid OSC device ID")?))
     }
 }
 
