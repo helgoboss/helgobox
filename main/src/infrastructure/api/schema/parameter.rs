@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct Parameter {
     pub index: u32,

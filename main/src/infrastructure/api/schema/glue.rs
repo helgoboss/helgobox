@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct Glue {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -94,7 +93,6 @@ impl Default for FireMode {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct NormalFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -102,7 +100,6 @@ pub struct NormalFireMode {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct AfterTimeoutFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -110,7 +107,6 @@ pub struct AfterTimeoutFireMode {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct AfterTimeoutKeepFiringFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -119,7 +115,6 @@ pub struct AfterTimeoutKeepFiringFireMode {
 }
 
 #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct OnSinglePressFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -141,7 +136,6 @@ pub enum VirtualColor {
 pub struct RgbColor(pub u8, pub u8, pub u8);
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
 #[serde(deny_unknown_fields)]
 pub struct PropColor {
     pub prop: String,
