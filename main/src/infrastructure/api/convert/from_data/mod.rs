@@ -36,14 +36,11 @@ fn convert_control_element_kind(
 fn convert_osc_argument(
     arg_index: Option<u32>,
     arg_type: OscTypeTag,
-    arg_is_relative: bool,
 ) -> Option<schema::OscArgument> {
     let arg_index = arg_index?;
     let arg = schema::OscArgument {
         index: Some(arg_index),
         kind: Some(convert_osc_arg_kind(arg_type)),
-        // TODO-high "relative" doesn't make sense for "Send OSC" target.
-        relative: Some(arg_is_relative),
     };
     Some(arg)
 }

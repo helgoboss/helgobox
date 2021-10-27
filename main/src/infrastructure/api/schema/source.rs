@@ -260,6 +260,8 @@ mod osc {
         pub address: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub argument: Option<OscArgument>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub relative: Option<bool>,
     }
 }
 

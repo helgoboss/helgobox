@@ -128,8 +128,6 @@ pub struct OscArgument {
     pub index: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<OscArgKind>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub relative: Option<bool>,
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
