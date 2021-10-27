@@ -310,10 +310,9 @@ fn convert_real_target(
                     fx_name: Some(s.fx_name.clone()),
                     preset_name: s.preset_name.clone(),
                     content: {
-                        let v = schema::FxSnapshotContent::Chunk {
+                        schema::FxSnapshotContent::Chunk {
                             chunk: (*s.chunk).clone(),
-                        };
-                        Some(v)
+                        }
                     },
                 })
             },
