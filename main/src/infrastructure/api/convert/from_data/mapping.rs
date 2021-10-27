@@ -1,7 +1,7 @@
 use crate::application::ActivationType;
 use crate::domain::GroupId;
 use crate::infrastructure::api::convert::from_data::{
-    convert_glue, convert_group_id, convert_source, convert_tags, convert_target,
+    convert_glue, convert_group_id, convert_source, convert_tags, convert_target, NewSourceProps,
 };
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema;
@@ -50,23 +50,17 @@ pub fn convert_mapping(
                 })),
             }
         },
-        feedback_behavior: {
-            use schema::FeedbackBehavior as T;
-            let v = if data.prevent_echo_feedback {
-                // Took precedence if both checkboxes were ticked (was possible in ReaLearn < 2.10.0).
-                T::PreventEchoFeedback
-            } else if data.send_feedback_after_control {
-                T::SendFeedbackAfterControl
-            } else {
-                T::Normal
-            };
-            Some(v)
-        },
         // TODO-high
         on_activate: None,
         // TODO-high
         on_deactivate: None,
-        source: Some(convert_source(data.source)?),
+        source: {
+            let new_source_props = NewSourceProps {
+                prevent_echo_feedback: data.prevent_echo_feedback,
+                send_feedback_after_control: data.send_feedback_after_control,
+            };
+            Some(convert_source(data.source, new_source_props)?)
+        },
         glue: Some(convert_glue(data.mode)?),
         target: Some(convert_target(data.target, group_key_by_id)?),
     };

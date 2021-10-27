@@ -29,9 +29,6 @@ pub struct Mapping {
     pub feedback_enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub activation_condition: Option<ActivationCondition>,
-    // TODO-high Make this a part of the source?
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub feedback_behavior: Option<FeedbackBehavior>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_activate: Option<Lifecycle>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -47,13 +44,6 @@ pub struct Mapping {
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
 pub enum Lifecycle {
     Todo,
-}
-
-#[derive(Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
-pub enum FeedbackBehavior {
-    Normal,
-    SendFeedbackAfterControl,
-    PreventEchoFeedback,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]

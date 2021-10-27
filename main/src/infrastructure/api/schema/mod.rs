@@ -86,11 +86,11 @@ mod tests {
             control_enabled: Some(true),
             feedback_enabled: Some(true),
             activation_condition: None,
-            feedback_behavior: Some(FeedbackBehavior::Normal),
             on_activate: Some(Lifecycle::Todo),
             on_deactivate: Some(Lifecycle::Todo),
             source: Some(Source::MidiControlChangeValue(
                 MidiControlChangeValueSource {
+                    feedback_behavior: Some(FeedbackBehavior::Normal),
                     channel: Some(0),
                     controller_number: Some(64),
                     character: Some(SourceCharacter::Button),

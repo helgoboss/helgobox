@@ -37,7 +37,6 @@ pub fn copy_object_to_clipboard(
     let text = if as_lua {
         use ClipboardObject::*;
         let lua_object = match object {
-            Source(s) => LuaObject::Source(Box::new(from_data::convert_source(*s)?)),
             Mappings(mappings) => {
                 let lua_mappings: Result<Vec<_>, _> = mappings
                     .into_iter()
@@ -52,6 +51,10 @@ pub fn copy_object_to_clipboard(
             Target(t) => {
                 LuaObject::Target(Box::new(from_data::convert_target(*t, group_key_by_id)?))
             }
+            // In order to cleanly support this, we must move the feedback (send) behavior from
+            // the mapping model to the source model. We only did this in the API schema so far.
+            // Just choosing e.g. feedback send behavior "Normal" could result in surprises!
+            Source(_) => unimplemented!("Lua source export not supported at the moment"),
         };
         lua_serializer::to_string(&lua_object)?
     } else {
