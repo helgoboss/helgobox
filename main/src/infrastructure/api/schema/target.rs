@@ -518,7 +518,6 @@ pub struct ClipVolumeTarget {
 pub struct SendMidiTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
-    // TODO-high Do we want to support other ways of expressing MIDI messages in future? Maybe enum?
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

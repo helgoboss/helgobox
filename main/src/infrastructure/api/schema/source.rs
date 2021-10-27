@@ -42,7 +42,22 @@ impl Default for Source {
     }
 }
 
+// Only makes sense for sources that support both control *and* feedback.
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+pub enum FeedbackBehavior {
+    Normal,
+    SendFeedbackAfterControl,
+    PreventEchoFeedback,
+}
+
+impl Default for FeedbackBehavior {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
 mod midi {
+    use crate::infrastructure::api::schema::FeedbackBehavior;
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
     use ts_rs::TS;
@@ -51,6 +66,8 @@ mod midi {
     #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiNoteVelocitySource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub feedback_behavior: Option<FeedbackBehavior>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -62,6 +79,8 @@ mod midi {
     #[serde(deny_unknown_fields)]
     pub struct MidiNoteKeyNumberSource {
         #[serde(skip_serializing_if = "Option::is_none")]
+        pub feedback_behavior: Option<FeedbackBehavior>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
     }
 
@@ -69,6 +88,8 @@ mod midi {
     #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiPolyphonicKeyPressureAmountSource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub feedback_behavior: Option<FeedbackBehavior>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -79,6 +100,8 @@ mod midi {
     #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiControlChangeValueSource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub feedback_behavior: Option<FeedbackBehavior>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -94,6 +117,8 @@ mod midi {
     #[serde(deny_unknown_fields)]
     pub struct MidiProgramChangeNumberSource {
         #[serde(skip_serializing_if = "Option::is_none")]
+        pub feedback_behavior: Option<FeedbackBehavior>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
     }
 
@@ -101,6 +126,8 @@ mod midi {
     #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiChannelPressureAmountSource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub feedback_behavior: Option<FeedbackBehavior>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
     }
@@ -110,6 +137,8 @@ mod midi {
     #[serde(deny_unknown_fields)]
     pub struct MidiPitchBendChangeValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
+        pub feedback_behavior: Option<FeedbackBehavior>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
     }
 
@@ -117,6 +146,8 @@ mod midi {
     #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiParameterNumberValueSource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub feedback_behavior: Option<FeedbackBehavior>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -150,9 +181,12 @@ mod midi {
     }
 
     #[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+    // TODO-high Remove snake_case
     #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct MidiRawSource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub feedback_behavior: Option<FeedbackBehavior>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub pattern: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -247,7 +281,7 @@ mod midi {
 }
 
 mod osc {
-    use crate::infrastructure::api::schema::OscArgument;
+    use crate::infrastructure::api::schema::{FeedbackBehavior, OscArgument};
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
     use ts_rs::TS;
@@ -256,6 +290,8 @@ mod osc {
     #[serde(rename_all = "snake_case")]
     #[serde(deny_unknown_fields)]
     pub struct OscSource {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub feedback_behavior: Option<FeedbackBehavior>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub address: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]

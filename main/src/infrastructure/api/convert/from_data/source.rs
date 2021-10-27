@@ -11,7 +11,27 @@ use helgoboss_learn::{
 use helgoboss_midi::{Channel, U14};
 use std::convert::TryInto;
 
-pub fn convert_source(data: SourceModelData) -> ConversionResult<schema::Source> {
+pub struct NewSourceProps {
+    pub prevent_echo_feedback: bool,
+    pub send_feedback_after_control: bool,
+}
+
+pub fn convert_source(
+    data: SourceModelData,
+    new_source_props: NewSourceProps,
+) -> ConversionResult<schema::Source> {
+    let feedback_behavior = {
+        use schema::FeedbackBehavior as T;
+        let v = if new_source_props.prevent_echo_feedback {
+            // Took precedence if both checkboxes were ticked (was possible in ReaLearn < 2.10.0).
+            T::PreventEchoFeedback
+        } else if new_source_props.send_feedback_after_control {
+            T::SendFeedbackAfterControl
+        } else {
+            T::Normal
+        };
+        Some(v)
+    };
     use SourceCategory::*;
     let source = match data.category {
         Never => schema::Source::NoneSource,
@@ -20,6 +40,7 @@ pub fn convert_source(data: SourceModelData) -> ConversionResult<schema::Source>
             match data.r#type {
                 ControlChangeValue => {
                     let s = schema::MidiControlChangeValueSource {
+                        feedback_behavior,
                         channel: convert_channel(data.channel),
                         controller_number: convert_controller_number(data.number),
                         character: convert_character(data.character),
@@ -29,6 +50,7 @@ pub fn convert_source(data: SourceModelData) -> ConversionResult<schema::Source>
                 }
                 NoteVelocity => {
                     let s = schema::MidiNoteVelocitySource {
+                        feedback_behavior,
                         channel: convert_channel(data.channel),
                         key_number: convert_key_number(data.number),
                     };
@@ -36,30 +58,35 @@ pub fn convert_source(data: SourceModelData) -> ConversionResult<schema::Source>
                 }
                 NoteKeyNumber => {
                     let s = schema::MidiNoteKeyNumberSource {
+                        feedback_behavior,
                         channel: convert_channel(data.channel),
                     };
                     schema::Source::MidiNoteKeyNumber(s)
                 }
                 PitchBendChangeValue => {
                     let s = schema::MidiPitchBendChangeValueSource {
+                        feedback_behavior,
                         channel: convert_channel(data.channel),
                     };
                     schema::Source::MidiPitchBendChangeValue(s)
                 }
                 ChannelPressureAmount => {
                     let s = schema::MidiChannelPressureAmountSource {
+                        feedback_behavior,
                         channel: convert_channel(data.channel),
                     };
                     schema::Source::MidiChannelPressureAmount(s)
                 }
                 ProgramChangeNumber => {
                     let s = schema::MidiProgramChangeNumberSource {
+                        feedback_behavior,
                         channel: convert_channel(data.channel),
                     };
                     schema::Source::MidiProgramChangeNumber(s)
                 }
                 ParameterNumberValue => {
                     let s = schema::MidiParameterNumberValueSource {
+                        feedback_behavior,
                         channel: convert_channel(data.channel),
                         number: convert_parameter_number(data.number),
                         fourteen_bit: data.is_14_bit,
@@ -70,6 +97,7 @@ pub fn convert_source(data: SourceModelData) -> ConversionResult<schema::Source>
                 }
                 PolyphonicKeyPressureAmount => {
                     let s = schema::MidiPolyphonicKeyPressureAmountSource {
+                        feedback_behavior,
                         channel: convert_channel(data.channel),
                         key_number: convert_key_number(data.number),
                     };
@@ -87,6 +115,7 @@ pub fn convert_source(data: SourceModelData) -> ConversionResult<schema::Source>
                 }
                 Raw => {
                     let s = schema::MidiRawSource {
+                        feedback_behavior,
                         pattern: Some(data.raw_midi_pattern),
                         character: convert_character(data.character),
                     };
@@ -135,6 +164,7 @@ pub fn convert_source(data: SourceModelData) -> ConversionResult<schema::Source>
         }
         Osc => {
             let s = schema::OscSource {
+                feedback_behavior,
                 address: Some(data.osc_address_pattern),
                 argument: convert_osc_argument(data.osc_arg_index, data.osc_arg_type),
                 relative: Some(data.osc_arg_is_relative),
