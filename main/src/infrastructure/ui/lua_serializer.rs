@@ -193,10 +193,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         Err(Error::Unsupported)
     }
 
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.current_indent += 1;
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
         self.has_value = false;
-        self.output += "{";
+        let len = len.ok_or_else(|| Error::Message("length of seq not given".to_string()))?;
+        if len > 0 {
+            self.current_indent += 1;
+            self.output += "{";
+        }
         Ok(self)
     }
 
@@ -262,12 +265,16 @@ impl<'a> ser::SerializeSeq for &'a mut Serializer {
     }
 
     fn end(self) -> Result<()> {
-        self.current_indent -= 1;
         if self.has_value {
+            self.current_indent -= 1;
             self.output += "\n";
             indent(&mut self.output, self.current_indent, self.indent);
+            self.output += "}";
+        } else {
+            // It's important to not encode an empty sequence as "{}" because this will
+            // be interpreted as map on deserialization.
+            self.output += "nil";
         }
-        self.output += "}";
         Ok(())
     }
 }
