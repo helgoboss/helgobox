@@ -1,10 +1,13 @@
 use crate::application;
+use crate::application::{BankConditionModel, ModifierConditionModel};
 use crate::domain::GroupId;
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::{
-    OscArgKind, VirtualControlElementId, VirtualControlElementKind,
+    ActivationCondition, ModifierState, OscArgKind, ParamRef, VirtualControlElementId,
+    VirtualControlElementKind,
 };
 use crate::infrastructure::data;
+use crate::infrastructure::data::ActivationConditionData;
 pub use compartment::*;
 pub use mapping::*;
 use source::*;
@@ -61,14 +64,80 @@ fn convert_osc_arg_type(s: OscArgKind) -> helgoboss_learn::OscTypeTag {
 
 fn convert_group_key(
     group_key: Option<String>,
-    group_id_by_key: impl Fn(&str) -> Option<GroupId>,
+    context: &impl ApiToDataConversionContext,
 ) -> ConversionResult<GroupId> {
     let group_id = if let Some(key) = group_key {
-        group_id_by_key(&key)
+        context
+            .group_id_by_key(&key)
             .or_else(|| GroupId::from_str(&key).ok())
             .ok_or_else(|| format!("Group {} not defined", key))?
     } else {
         GroupId::default()
     };
     Ok(group_id)
+}
+
+pub trait ApiToDataConversionContext {
+    fn group_id_by_key(&self, key: &str) -> Option<GroupId>;
+    fn param_index_by_key(&self, key: &str) -> Option<u32>;
+}
+
+fn convert_activation(
+    a: ActivationCondition,
+    param_index_by_key: &impl Fn(&str) -> Option<u32>,
+) -> ConversionResult<ActivationConditionData> {
+    use application::ActivationType;
+    use ActivationCondition::*;
+    let data = match a {
+        Modifier(c) => {
+            let create_model =
+                |state: Option<&ModifierState>| -> ConversionResult<ModifierConditionModel> {
+                    let res = if let Some(s) = state {
+                        ModifierConditionModel {
+                            param_index: Some(resolve_parameter_ref(
+                                &s.parameter,
+                                param_index_by_key,
+                            )?),
+                            is_on: s.on,
+                        }
+                    } else {
+                        Default::default()
+                    };
+                    Ok(res)
+                };
+            ActivationConditionData {
+                activation_type: ActivationType::Modifiers,
+                modifier_condition_1: create_model(c.modifiers.get(0))?,
+                modifier_condition_2: create_model(c.modifiers.get(1))?,
+                ..Default::default()
+            }
+        }
+        Bank(c) => ActivationConditionData {
+            activation_type: ActivationType::Bank,
+            program_condition: BankConditionModel {
+                param_index: resolve_parameter_ref(&c.parameter, param_index_by_key)?,
+                bank_index: c.bank_index,
+            },
+            ..Default::default()
+        },
+        Eel(c) => ActivationConditionData {
+            activation_type: ActivationType::Eel,
+            eel_condition: c.condition,
+            ..Default::default()
+        },
+    };
+    Ok(data)
+}
+
+fn resolve_parameter_ref(
+    param_ref: &ParamRef,
+    param_index_by_key: &impl Fn(&str) -> Option<u32>,
+) -> ConversionResult<u32> {
+    let res = match param_ref {
+        ParamRef::Index(i) => *i,
+        ParamRef::Key(key) => {
+            param_index_by_key(&key).ok_or_else(|| format!("Parameter {} not defined", key))?
+        }
+    };
+    Ok(res)
 }

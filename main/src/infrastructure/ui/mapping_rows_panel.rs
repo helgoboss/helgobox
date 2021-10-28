@@ -3,9 +3,9 @@ use std::rc::{Rc, Weak};
 
 use crate::base::when;
 use crate::infrastructure::ui::{
-    bindings::root, get_object_from_clipboard, paste_mappings, util, ClipboardObject,
-    IndependentPanelManager, MainState, MappingRowPanel, SharedIndependentPanelManager,
-    SharedMainState,
+    bindings::root, deserialize_data_object_from_json, get_text_from_clipboard, paste_mappings,
+    util, DataObject, IndependentPanelManager, MainState, MappingRowPanel,
+    SharedIndependentPanelManager, SharedMainState,
 };
 use reaper_high::Reaper;
 use reaper_low::raw;
@@ -515,7 +515,8 @@ impl MappingRowsPanel {
         let pure_menu = {
             use swell_ui::menu_tree::*;
             let shared_session = self.session();
-            let clipboard_object = get_object_from_clipboard();
+            let data_object_from_clipboard = get_text_from_clipboard()
+                .and_then(|text| deserialize_data_object_from_json(&text).ok());
             let main_state = self.main_state.borrow();
             let group_id = main_state
                 .displayed_group_for_active_compartment()
@@ -523,12 +524,12 @@ impl MappingRowsPanel {
                 .unwrap_or_default();
             let compartment = main_state.active_compartment.get();
             let entries = vec![{
-                let desc = match clipboard_object {
-                    Some(ClipboardObject::Mapping(m)) => Some((
+                let desc = match data_object_from_clipboard {
+                    Some(DataObject::Mapping(m)) => Some((
                         format!("Paste mapping \"{}\" (insert here)", &m.name),
                         vec![*m],
                     )),
-                    Some(ClipboardObject::Mappings(vec)) => {
+                    Some(DataObject::Mappings(vec)) => {
                         Some((format!("Paste {} mappings (insert here)", vec.len()), vec))
                     }
                     _ => None,

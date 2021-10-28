@@ -26,7 +26,9 @@ use crate::domain::{
     COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
-use crate::infrastructure::data::{ExtendedPresetManager, MappingModelData, OscDevice};
+use crate::infrastructure::data::{
+    CompartmentInSession, ExtendedPresetManager, MappingModelData, OscDevice,
+};
 use crate::infrastructure::plugin::{
     warn_about_failed_server_start, App, RealearnPluginParameters,
 };
@@ -36,14 +38,16 @@ use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
-    add_firewall_rule, copy_object_to_clipboard, copy_text_to_clipboard, get_object_from_clipboard,
-    get_text_from_clipboard, read_import, ClipboardObject, GroupFilter, GroupPanel, ImportData,
-    IndependentPanelManager, MappingRowsPanel, SearchExpression, SharedIndependentPanelManager,
-    SharedMainState, SourceFilter,
+    add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
+    deserialize_data_object, deserialize_data_object_from_json, get_text_from_clipboard,
+    serialize_data_object_to_json, serialize_data_object_to_lua, DataObject, GroupFilter,
+    GroupPanel, IndependentPanelManager, MappingRowsPanel, SearchExpression,
+    SharedIndependentPanelManager, SharedMainState, SourceFilter,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
 use std::cell::{Cell, RefCell};
+use std::error::Error;
 use std::net::Ipv4Addr;
 
 const OSC_INDEX_OFFSET: isize = 1000;
@@ -183,10 +187,12 @@ impl HeaderPanel {
         let menu_bar = MenuBar::new_popup_menu();
         enum MenuAction {
             None,
-            CopyListedMappings,
+            CopyListedMappingsAsJson,
+            CopyListedMappingsAsLua,
             AutoNameListedMappings,
             MoveListedMappingsToGroup(Option<GroupId>),
             PasteReplaceAllInGroup(Vec<MappingModelData>),
+            PasteFromLuaReplaceAllInGroup(String),
             ToggleAutoCorrectSettings,
             ToggleInputLogging,
             ToggleOutputLogging,
@@ -229,7 +235,10 @@ impl HeaderPanel {
             let preset_link_manager = preset_link_manager.borrow();
             let main_preset_manager = App::get().main_preset_manager();
             let main_preset_manager = main_preset_manager.borrow();
-            let clipboard_object = get_object_from_clipboard();
+            let text_in_clipboard = get_text_from_clipboard();
+            let data_object = text_in_clipboard
+                .as_ref()
+                .and_then(|text| deserialize_data_object_from_json(text).ok());
             let session = self.session();
             let session = session.borrow();
             let compartment = self.active_compartment();
@@ -242,9 +251,11 @@ impl HeaderPanel {
                 }
             });
             let entries = vec![
-                item("Copy listed mappings", || MenuAction::CopyListedMappings),
+                item("Copy listed mappings", || {
+                    MenuAction::CopyListedMappingsAsJson
+                }),
                 {
-                    if let Some(ClipboardObject::Mappings(vec)) = clipboard_object {
+                    if let Some(DataObject::Mappings(vec)) = data_object {
                         item(
                             format!("Paste {} mappings (replace all in group)", vec.len()),
                             move || MenuAction::PasteReplaceAllInGroup(vec),
@@ -335,6 +346,27 @@ impl HeaderPanel {
                             )
                         })
                         .collect(),
+                ),
+                menu(
+                    "Advanced",
+                    vec![
+                        item(
+                            "Copy listed mappings as Lua (include default values)",
+                            || MenuAction::CopyListedMappingsAsLua,
+                        ),
+                        item_with_opts(
+                            "Paste from Lua (replace all in group)",
+                            ItemOpts {
+                                enabled: text_in_clipboard.is_some(),
+                                checked: false,
+                            },
+                            move || {
+                                MenuAction::PasteFromLuaReplaceAllInGroup(
+                                    text_in_clipboard.unwrap(),
+                                )
+                            },
+                        ),
+                    ],
                 ),
                 separator(),
                 menu(
@@ -508,13 +540,19 @@ impl HeaderPanel {
         // Execute action
         match result {
             MenuAction::None => {}
-            MenuAction::CopyListedMappings => self.copy_listed_mappings(),
+            MenuAction::CopyListedMappingsAsJson => {
+                self.copy_listed_mappings_as_json().unwrap();
+            }
             MenuAction::AutoNameListedMappings => self.auto_name_listed_mappings(),
             MenuAction::MoveListedMappingsToGroup(group_id) => {
                 let _ = self.move_listed_mappings_to_group(group_id);
             }
             MenuAction::PasteReplaceAllInGroup(mapping_datas) => {
                 self.paste_replace_all_in_group(mapping_datas)
+            }
+            MenuAction::CopyListedMappingsAsLua => self.copy_listed_mappings_as_lua(true).unwrap(),
+            MenuAction::PasteFromLuaReplaceAllInGroup(text) => {
+                self.paste_from_lua_replace_all_in_group(&text);
             }
             MenuAction::EditNewOscDevice => edit_new_osc_device(),
             MenuAction::EditExistingOscDevice(dev_id) => edit_existing_osc_device(dev_id),
@@ -621,19 +659,38 @@ impl HeaderPanel {
         Ok(())
     }
 
-    fn copy_listed_mappings(&self) {
+    fn copy_listed_mappings_as_json(&self) -> Result<(), Box<dyn Error>> {
+        let data_object = self.get_listened_mappings_as_data_object();
+        let json = serialize_data_object_to_json(data_object)?;
+        copy_text_to_clipboard(json);
+        Ok(())
+    }
+
+    fn copy_listed_mappings_as_lua(
+        &self,
+        include_default_values: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        let data_object = self.get_listened_mappings_as_data_object();
+        let json = {
+            let session = self.session();
+            let session = session.borrow();
+            let compartment_in_session = CompartmentInSession {
+                session: &session,
+                compartment: self.active_compartment(),
+            };
+            serialize_data_object_to_lua(data_object, &compartment_in_session)?
+        };
+        copy_text_to_clipboard(json);
+        Ok(())
+    }
+
+    fn get_listened_mappings_as_data_object(&self) -> DataObject {
         let mapping_datas = self
             .get_listened_mappings()
             .iter()
             .map(|m| MappingModelData::from_model(&*m.borrow()))
             .collect();
-        let obj = ClipboardObject::Mappings(mapping_datas);
-        let session = self.session();
-        let session = session.borrow();
-        let compartment = self.active_compartment();
-        let _ = copy_object_to_clipboard(obj, false, |group_id| {
-            session.find_group_key_by_id(compartment, group_id)
-        });
+        DataObject::Mappings(mapping_datas)
     }
 
     fn auto_name_listed_mappings(&self) {
@@ -691,6 +748,33 @@ impl HeaderPanel {
         MappingRowsPanel::filtered_mappings(&session, &main_state, compartment, false)
             .cloned()
             .collect()
+    }
+
+    fn paste_from_lua_replace_all_in_group(&self, text: &str) {
+        if let Err(e) = self.paste_from_lua_replace_all_in_group_internal(text) {
+            self.view.require_window().alert("ReaLearn", e.to_string());
+        }
+    }
+
+    fn paste_from_lua_replace_all_in_group_internal(
+        &self,
+        text: &str,
+    ) -> Result<(), Box<dyn Error>> {
+        let api_object = deserialize_api_object_from_lua(text)?;
+        let api_mappings = api_object
+            .into_mappings()
+            .ok_or("Can only paste a list of mappings into a mapping group.")?;
+        let data_mappings = {
+            let session = self.session();
+            let session = session.borrow();
+            let compartment_in_session = CompartmentInSession {
+                session: &session,
+                compartment: self.active_compartment(),
+            };
+            DataObject::try_from_api_mappings(api_mappings, &compartment_in_session)?
+        };
+        self.paste_replace_all_in_group(data_mappings);
+        Ok(())
     }
 
     // https://github.com/rust-lang/rust-clippy/issues/6066
@@ -1639,18 +1723,46 @@ impl HeaderPanel {
             .plugin_parameters
             .upgrade()
             .expect("plugin params gone");
-        match read_import(&text)? {
-            ImportData::Session(session_data) => {
-                plugin_parameters.apply_session_data(&session_data);
+        let data_object = {
+            let session = self.session();
+            let session = session.borrow();
+            let compartment_in_session = CompartmentInSession {
+                session: &session,
+                compartment: self.active_compartment(),
+            };
+            deserialize_data_object(&text, &compartment_in_session)?
+        };
+        match data_object {
+            DataObject::Session(d) => {
+                if self.view.require_window().confirm(
+                    "ReaLearn",
+                    "Do you want to continue replacing the complete ReaLearn session with the data in the clipboard?",
+                ) {
+                    plugin_parameters.apply_session_data(&*d);
+                }
             }
-            ImportData::Compartment(c) => {
-                let session = self.session();
-                let mut session = session.borrow_mut();
-                // For now, let's assume that the imported data is always tailored to the running
-                // ReaLearn version.
-                let version = App::version();
-                let model = c.data.to_model(Some(version), c.kind);
-                session.replace_compartment(c.kind, Some(model), self.session.clone());
+            DataObject::Compartment(c) => {
+                if self.view.require_window().confirm(
+                    "ReaLearn",
+                    format!("Do you want to continue replacing the {} compartment with the data in the clipboard?", c.kind),
+                ) {
+                    let session = self.session();
+                    let mut session = session.borrow_mut();
+                    // For now, let's assume that the imported data is always tailored to the running
+                    // ReaLearn version.
+                    let version = App::version();
+                    let model = c.data.to_model(Some(version), c.kind);
+                    session.replace_compartment(c.kind, Some(model), self.session.clone());
+                }
+            }
+            DataObject::Mappings(_) => {
+                return Err("The clipboard contains just a lose collection of mappings. Please import them using the context menus.".into())
+            }
+            DataObject::Mapping(_) => {
+                return Err("The clipboard contains just one single mapping. Please import it using the context menus.".into())
+            }
+            _ => {
+                return Err("The clipboard contains only a part of a mapping. Please import it using the context menus in the mapping area.".into())
             }
         }
         Ok(())

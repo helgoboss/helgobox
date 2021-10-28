@@ -6,7 +6,7 @@ use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct QualifiedCompartmentModelData {
     pub kind: MappingCompartment,
     pub data: CompartmentModelData,

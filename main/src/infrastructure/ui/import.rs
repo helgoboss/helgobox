@@ -7,30 +7,120 @@ use derive_more::Display;
 use mlua::{ChunkMode, HookTriggers};
 use serde::{Deserialize, Serialize};
 
-use crate::infrastructure::api;
-use crate::infrastructure::data::{QualifiedCompartmentModelData, SessionData};
+use crate::infrastructure::api::convert::from_data::DataToApiConversionContext;
+use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
+use crate::infrastructure::api::convert::{from_data, to_data};
+use crate::infrastructure::api::schema;
+use crate::infrastructure::data::{
+    MappingModelData, ModeModelData, QualifiedCompartmentModelData, SessionData, SourceModelData,
+    TargetModelData,
+};
+use crate::infrastructure::ui::lua_serializer;
 
-pub enum ImportData {
-    Session(SessionData),
-    Compartment(QualifiedCompartmentModelData),
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(untagged)]
+pub enum DataObject {
+    Session(Box<SessionData>),
+    Compartment(Box<QualifiedCompartmentModelData>),
+    Mappings(Vec<MappingModelData>),
+    Mapping(Box<MappingModelData>),
+    Source(Box<SourceModelData>),
+    Mode(Box<ModeModelData>),
+    Target(Box<TargetModelData>),
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum ApiData {
-    Compartment(api::schema::Compartment),
+pub enum ApiObject {
+    Compartment(Box<schema::Compartment>),
+    Mappings(Vec<schema::Mapping>),
+    Mapping(Box<schema::Mapping>),
 }
 
-pub fn read_import(text: &str) -> Result<ImportData, Box<dyn Error>> {
-    let json_import_err = match read_import_from_json(text) {
-        Ok(import_data) => {
-            return Ok(import_data);
+impl DataObject {
+    pub fn try_from_api_object(
+        api_object: ApiObject,
+        conversion_context: &impl ApiToDataConversionContext,
+    ) -> Result<Self, Box<dyn Error>> {
+        let data_object = match api_object {
+            ApiObject::Compartment(c) => {
+                let data_compartment = to_data::convert_compartment(*c)?;
+                DataObject::Compartment(Box::new(data_compartment))
+            }
+            ApiObject::Mappings(mappings) => {
+                let data_mappings = Self::try_from_api_mappings(mappings, conversion_context);
+                DataObject::Mappings(data_mappings?)
+            }
+            ApiObject::Mapping(m) => {
+                let data_mapping = to_data::convert_mapping(*m, conversion_context)?;
+                DataObject::Mapping(Box::new(data_mapping))
+            }
+        };
+        Ok(data_object)
+    }
+
+    pub fn try_from_api_mappings(
+        api_mappings: Vec<schema::Mapping>,
+        conversion_context: &impl ApiToDataConversionContext,
+    ) -> Result<Vec<MappingModelData>, Box<dyn Error>> {
+        api_mappings
+            .into_iter()
+            .map(|m| to_data::convert_mapping(m, conversion_context))
+            .collect()
+    }
+}
+
+impl ApiObject {
+    pub fn try_from_data_object(
+        data_object: DataObject,
+        conversion_context: &impl DataToApiConversionContext,
+    ) -> Result<Self, Box<dyn Error>> {
+        let api_object = match data_object {
+            DataObject::Compartment(c) => {
+                let api_compartment = from_data::convert_compartment(*c, conversion_context)?;
+                ApiObject::Compartment(Box::new(api_compartment))
+            }
+            DataObject::Session(_) => todo!("session API not yet implemented"),
+            DataObject::Mappings(mappings) => {
+                let api_mappings: Result<Vec<_>, _> = mappings
+                    .into_iter()
+                    .map(|m| from_data::convert_mapping(m, conversion_context))
+                    .collect();
+                ApiObject::Mappings(api_mappings?)
+            }
+            DataObject::Mapping(m) => {
+                let api_mapping = from_data::convert_mapping(*m, conversion_context)?;
+                ApiObject::Mapping(Box::new(api_mapping))
+            }
+            _ => Err("conversion from source/mode/target data object not supported at the moment")?,
+        };
+        Ok(api_object)
+    }
+
+    pub fn into_mappings(self) -> Option<Vec<schema::Mapping>> {
+        match self {
+            ApiObject::Mappings(mappings) => Some(mappings),
+            ApiObject::Mapping(m) => Some(vec![*m]),
+            _ => None,
+        }
+    }
+}
+
+/// Attempts to deserialize a data object supporting both JSON and Lua.
+pub fn deserialize_data_object(
+    text: &str,
+    conversion_context: &impl ApiToDataConversionContext,
+) -> Result<DataObject, Box<dyn Error>> {
+    let json_err = match deserialize_data_object_from_json(text) {
+        Ok(o) => {
+            return Ok(o);
         }
         Err(e) => e,
     };
-    let lua_import_err = match read_import_from_lua(text) {
-        Ok(import_data) => {
-            return Ok(import_data);
+    let lua_err = match deserialize_data_object_from_lua(text, conversion_context) {
+        Ok(o) => {
+            return Ok(o);
         }
         Err(e) => e,
     };
@@ -38,20 +128,39 @@ pub fn read_import(text: &str) -> Result<ImportData, Box<dyn Error>> {
         "Clipboard content doesn't look like proper ReaLearn import data:\n\n\
         Invalid JSON: \n\
         {}\n\n\
-        Invalid Lua script: \n\
+        Invalid Lua: \n\
         {}",
-        json_import_err, lua_import_err
+        json_err, lua_err
     );
     Err(msg.into())
 }
 
-fn read_import_from_json(text: &str) -> Result<ImportData, Box<dyn Error>> {
-    let session_data: SessionData = serde_json::from_str(text)?;
-    Ok(ImportData::Session(session_data))
+pub fn deserialize_data_object_from_json(text: &str) -> Result<DataObject, Box<dyn Error>> {
+    Ok(serde_json::from_str(&text)?)
 }
 
-fn read_import_from_lua(text: &str) -> Result<ImportData, Box<dyn Error>> {
-    use crate::infrastructure::api::convert;
+pub fn deserialize_data_object_from_lua(
+    text: &str,
+    conversion_context: &impl ApiToDataConversionContext,
+) -> Result<DataObject, Box<dyn Error>> {
+    let api_object = deserialize_api_object_from_lua(text)?;
+    let data_object = DataObject::try_from_api_object(api_object, conversion_context)?;
+    Ok(data_object)
+}
+
+pub fn serialize_data_object_to_json(object: DataObject) -> Result<String, Box<dyn Error>> {
+    Ok(serde_json::to_string_pretty(&object).map_err(|_| "couldn't serialize object")?)
+}
+
+pub fn serialize_data_object_to_lua(
+    data_object: DataObject,
+    conversion_context: &impl DataToApiConversionContext,
+) -> Result<String, Box<dyn Error>> {
+    let api_object = ApiObject::try_from_data_object(data_object, conversion_context)?;
+    Ok(lua_serializer::to_string(&api_object)?)
+}
+
+pub fn deserialize_api_object_from_lua(text: &str) -> Result<ApiObject, Box<dyn Error>> {
     use mlua::{Lua, LuaSerdeExt};
     let lua = Lua::new();
     let instant = Instant::now();
@@ -80,14 +189,7 @@ fn read_import_from_lua(text: &str) -> Result<ImportData, Box<dyn Error>> {
         }
         e => Box::new(e),
     })?;
-    let api_data: ApiData = lua.from_value(value)?;
-    let import_data = match api_data {
-        ApiData::Compartment(c) => {
-            let compartment_data = convert::to_data::convert_compartment(c)?;
-            ImportData::Compartment(compartment_data)
-        }
-    };
-    Ok(import_data)
+    Ok(lua.from_value(value)?)
 }
 
 #[derive(Debug, Display)]

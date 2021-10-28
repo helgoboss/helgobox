@@ -4,13 +4,13 @@ use crate::application::{
     VirtualTrackType,
 };
 use crate::domain::{
-    ActionInvocationType, Exclusivity, FeedbackResolution, FxDisplayType, GroupId,
-    ReaperTargetType, SendMidiDestination, SoloBehavior, TouchedParameterType, TrackExclusivity,
-    TrackRouteType, TransportAction,
+    ActionInvocationType, Exclusivity, FeedbackResolution, FxDisplayType, ReaperTargetType,
+    SendMidiDestination, SoloBehavior, TouchedParameterType, TrackExclusivity, TrackRouteType,
+    TransportAction,
 };
 use crate::infrastructure::api::convert::from_data::{
     convert_control_element_id, convert_control_element_kind, convert_group_id,
-    convert_osc_argument, convert_tags,
+    convert_osc_argument, convert_tags, DataToApiConversionContext,
 };
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema;
@@ -35,18 +35,18 @@ use crate::infrastructure::data::{
 
 pub fn convert_target(
     data: TargetModelData,
-    group_key_by_id: impl Fn(GroupId) -> Option<String>,
+    context: &impl DataToApiConversionContext,
 ) -> ConversionResult<schema::Target> {
     use TargetCategory::*;
     match data.category {
-        Reaper => convert_real_target(data, group_key_by_id),
+        Reaper => convert_real_target(data, context),
         Virtual => Ok(convert_virtual_target(data)),
     }
 }
 
 fn convert_real_target(
     data: TargetModelData,
-    group_key_by_id: impl Fn(GroupId) -> Option<String>,
+    context: &impl DataToApiConversionContext,
 ) -> ConversionResult<schema::Target> {
     use schema::Target as T;
     use ReaperTargetType::*;
@@ -381,7 +381,7 @@ fn convert_real_target(
                     Exclusive | ExclusiveOnOnly => Some(T::Exclusive),
                 }
             },
-            group: convert_group_id(data.group_id, group_key_by_id),
+            group: convert_group_id(data.group_id, context),
         }),
     };
     Ok(target)
