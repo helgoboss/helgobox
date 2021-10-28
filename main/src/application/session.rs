@@ -909,13 +909,26 @@ impl Session {
             .find(|g| g.borrow().id() == id)
     }
 
-    pub fn find_group_key_by_id(
+    pub fn find_group_by_key(
         &self,
         compartment: MappingCompartment,
-        id: GroupId,
-    ) -> Option<String> {
-        let group = self.find_group_by_id(compartment, id)?;
-        group.borrow().key().cloned()
+        key: &str,
+    ) -> Option<&SharedGroup> {
+        self.groups[compartment]
+            .iter()
+            .find(|g| g.borrow().key().map(|k| k == key).unwrap_or(false))
+    }
+
+    pub fn find_parameter_setting_by_key(
+        &self,
+        compartment: MappingCompartment,
+        key: &str,
+    ) -> Option<(u32, &ParameterSetting)> {
+        self.parameter_settings[compartment]
+            .iter()
+            .enumerate()
+            .find(|(_, s)| s.key.as_ref().map(|k| k == key).unwrap_or(false))
+            .map(|(i, s)| (i as u32, s))
     }
 
     pub fn find_group_by_id_including_default_group(

@@ -6,7 +6,7 @@ use crate::base::when;
 use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget};
 
 use crate::infrastructure::data::{
-    MappingModelData, ModeModelData, SourceModelData, TargetModelData,
+    CompartmentInSession, MappingModelData, ModeModelData, SourceModelData, TargetModelData,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
@@ -16,8 +16,9 @@ use crate::infrastructure::ui::bindings::root::{
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::{format_tags_as_csv, symbols};
 use crate::infrastructure::ui::{
-    copy_object_to_clipboard, get_object_from_clipboard, util, ClipboardObject,
-    IndependentPanelManager, SharedMainState,
+    copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
+    get_text_from_clipboard, serialize_data_object_to_json, serialize_data_object_to_lua, util,
+    ApiObject, DataObject, IndependentPanelManager, SharedMainState,
 };
 use core::iter;
 use reaper_high::Reaper;
@@ -25,6 +26,7 @@ use reaper_low::raw;
 use rxrust::prelude::*;
 use slog::debug;
 use std::cell::{Ref, RefCell};
+use std::error::Error;
 use std::ops::Deref;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
@@ -509,14 +511,76 @@ impl MappingRowPanel {
         );
     }
 
+    fn notify_user_on_error(&self, result: Result<(), Box<dyn Error>>) {
+        if let Err(e) = result {
+            self.view.require_window().alert("ReaLearn", e.to_string());
+        }
+    }
+
+    fn paste_from_lua_replace(&self, text: &str) -> Result<(), Box<dyn Error>> {
+        let api_object = deserialize_api_object_from_lua(text)?;
+        if !matches!(api_object, ApiObject::Mapping(_)) {
+            Err("There's more than one mapping in the clipboard.")?;
+        }
+        let data_object = {
+            let session = self.session();
+            let session = session.borrow();
+            let compartment_in_session = CompartmentInSession {
+                session: &session,
+                compartment: self.active_compartment(),
+            };
+            DataObject::try_from_api_object(api_object, &compartment_in_session)?
+        };
+        paste_data_object_in_place(data_object, self.session(), self.mapping_triple()?)?;
+        Ok(())
+    }
+
+    fn paste_from_lua_insert_below(&self, text: &str) -> Result<(), Box<dyn Error>> {
+        let api_object = deserialize_api_object_from_lua(text)?;
+        let api_mappings = api_object
+            .into_mappings()
+            .ok_or("Can only insert a list of mappings.")?;
+        let data_mappings = {
+            let session = self.session();
+            let session = session.borrow();
+            let compartment_in_session = CompartmentInSession {
+                session: &session,
+                compartment: self.active_compartment(),
+            };
+            DataObject::try_from_api_mappings(api_mappings, &compartment_in_session)?
+        };
+        let triple = self.mapping_triple()?;
+        paste_mappings(
+            data_mappings,
+            self.session(),
+            triple.compartment,
+            Some(triple.mapping_id),
+            triple.group_id,
+        )
+    }
+
+    fn mapping_triple(&self) -> Result<MappingTriple, &'static str> {
+        let mapping = self.mapping.borrow();
+        let mapping = mapping.as_ref().ok_or("row contains no mapping")?;
+        let mapping = mapping.borrow();
+        let triple = MappingTriple {
+            compartment: mapping.compartment(),
+            mapping_id: mapping.id(),
+            group_id: mapping.group_id.get(),
+        };
+        Ok(triple)
+    }
+
     fn open_context_menu(&self, location: Point<Pixels>) -> Result<(), &'static str> {
         enum MenuAction {
             None,
-            PasteObjectInPlace(ClipboardObject),
+            PasteObjectInPlace(DataObject),
             PasteMappings(Vec<MappingModelData>),
             CopyPart(ObjectType),
-            CopyMappingAsLua,
             MoveMappingToGroup(Option<GroupId>),
+            CopyMappingAsLua,
+            PasteFromLuaReplace(String),
+            PasteFromLuaInsertBelow(String),
             LogDebugInfo,
         }
         impl Default for MenuAction {
@@ -533,29 +597,33 @@ impl MappingRowPanel {
             let mapping = mapping.as_ref().ok_or("row contains no mapping")?;
             let mapping = mapping.borrow();
             let compartment = mapping.compartment();
-            let clipboard_object = get_object_from_clipboard();
-            let clipboard_object_2 = clipboard_object.clone();
+            let text_from_clipboard = get_text_from_clipboard();
+            let data_object_from_clipboard = text_from_clipboard
+                .as_ref()
+                .and_then(|text| deserialize_data_object_from_json(&text).ok());
+            let text_from_clipboard_clone = text_from_clipboard.clone();
+            let data_object_from_clipboard_clone = data_object_from_clipboard.clone();
             let group_id = mapping.group_id.get();
             let entries = vec![
                 item("Copy", || MenuAction::CopyPart(ObjectType::Mapping)),
                 {
-                    let desc = match clipboard_object {
-                        Some(ClipboardObject::Mapping(m)) => Some((
+                    let desc = match data_object_from_clipboard {
+                        Some(DataObject::Mapping(m)) => Some((
                             format!("Paste mapping \"{}\" (replace)", &m.name),
-                            ClipboardObject::Mapping(m),
+                            DataObject::Mapping(m),
                         )),
-                        Some(ClipboardObject::Source(s)) => Some((
+                        Some(DataObject::Source(s)) => Some((
                             format!("Paste source ({})", s.category),
-                            ClipboardObject::Source(s),
+                            DataObject::Source(s),
                         )),
-                        Some(ClipboardObject::Mode(m)) => {
-                            Some(("Paste mode".to_owned(), ClipboardObject::Mode(m)))
+                        Some(DataObject::Mode(m)) => {
+                            Some(("Paste mode".to_owned(), DataObject::Mode(m)))
                         }
-                        Some(ClipboardObject::Target(t)) => Some((
+                        Some(DataObject::Target(t)) => Some((
                             format!("Paste target ({})", t.category),
-                            ClipboardObject::Target(t),
+                            DataObject::Target(t),
                         )),
-                        None | Some(ClipboardObject::Mappings(_)) => None,
+                        _ => None,
                     };
                     if let Some((label, obj)) = desc {
                         item(label, move || MenuAction::PasteObjectInPlace(obj))
@@ -564,12 +632,12 @@ impl MappingRowPanel {
                     }
                 },
                 {
-                    let desc = match clipboard_object_2 {
-                        Some(ClipboardObject::Mapping(m)) => Some((
+                    let desc = match data_object_from_clipboard_clone {
+                        Some(DataObject::Mapping(m)) => Some((
                             format!("Paste mapping \"{}\" (insert below)", &m.name),
                             vec![*m],
                         )),
-                        Some(ClipboardObject::Mappings(vec)) => {
+                        Some(DataObject::Mappings(vec)) => {
                             Some((format!("Paste {} mappings below", vec.len()), vec))
                         }
                         _ => None,
@@ -605,8 +673,35 @@ impl MappingRowPanel {
                         }))
                         .collect(),
                 ),
-                item("Log debug info", move || MenuAction::LogDebugInfo),
-                item("Copy as Lua snippet", move || MenuAction::CopyMappingAsLua),
+                menu(
+                    "Advanced",
+                    vec![
+                        item("Copy as Lua (include default values)", || {
+                            MenuAction::CopyMappingAsLua
+                        }),
+                        item_with_opts(
+                            "Paste from Lua (replace)",
+                            ItemOpts {
+                                enabled: text_from_clipboard.is_some(),
+                                checked: false,
+                            },
+                            move || MenuAction::PasteFromLuaReplace(text_from_clipboard.unwrap()),
+                        ),
+                        item_with_opts(
+                            "Paste from Lua (insert below)",
+                            ItemOpts {
+                                enabled: text_from_clipboard_clone.is_some(),
+                                checked: false,
+                            },
+                            move || {
+                                MenuAction::PasteFromLuaInsertBelow(
+                                    text_from_clipboard_clone.unwrap(),
+                                )
+                            },
+                        ),
+                        item("Log debug info", || MenuAction::LogDebugInfo),
+                    ],
+                ),
             ];
             let mut root_menu = root_menu(entries);
             root_menu.index(1);
@@ -622,37 +717,33 @@ impl MappingRowPanel {
             .find_item_by_id(result_index)
             .expect("selected menu item not found")
             .invoke_handler();
-        let (mapping_id, mapping_compartment, mapping_group_id) = {
-            let mapping = self.mapping.borrow();
-            let mapping = mapping.as_ref().ok_or("row contains no mapping")?;
-            let mapping = mapping.borrow();
-            (mapping.id(), mapping.compartment(), mapping.group_id.get())
-        };
+        let triple = self.mapping_triple()?;
         match result {
             MenuAction::None => {}
             MenuAction::PasteObjectInPlace(obj) => {
-                let _ = paste_object_in_place(
-                    obj,
-                    self.session(),
-                    mapping_compartment,
-                    mapping_id,
-                    mapping_group_id,
-                );
+                let _ = paste_data_object_in_place(obj, self.session(), triple);
+            }
+            MenuAction::PasteFromLuaReplace(text) => {
+                self.notify_user_on_error(self.paste_from_lua_replace(&text));
             }
             MenuAction::PasteMappings(datas) => {
-                let _ = paste_mappings(
+                let result = paste_mappings(
                     datas,
                     self.session(),
-                    mapping_compartment,
-                    Some(mapping_id),
-                    mapping_group_id,
+                    triple.compartment,
+                    Some(triple.mapping_id),
+                    triple.group_id,
                 );
+                self.notify_user_on_error(result);
+            }
+            MenuAction::PasteFromLuaInsertBelow(text) => {
+                self.notify_user_on_error(self.paste_from_lua_insert_below(&text));
             }
             MenuAction::CopyPart(obj_type) => {
                 copy_mapping_object(
                     self.session(),
-                    mapping_compartment,
-                    mapping_id,
+                    triple.compartment,
+                    triple.mapping_id,
                     obj_type,
                     false,
                 )
@@ -661,8 +752,8 @@ impl MappingRowPanel {
             MenuAction::CopyMappingAsLua => {
                 let _ = copy_mapping_object(
                     self.session(),
-                    mapping_compartment,
-                    mapping_id,
+                    triple.compartment,
+                    triple.mapping_id,
                     ObjectType::Mapping,
                     true,
                 )
@@ -671,15 +762,15 @@ impl MappingRowPanel {
             MenuAction::MoveMappingToGroup(group_id) => {
                 let _ = move_mapping_to_group(
                     self.session(),
-                    mapping_compartment,
-                    mapping_id,
+                    triple.compartment,
+                    triple.mapping_id,
                     group_id,
                 );
             }
             MenuAction::LogDebugInfo => self
                 .session()
                 .borrow()
-                .log_mapping(mapping_compartment, mapping_id),
+                .log_mapping(triple.compartment, triple.mapping_id),
         }
         Ok(())
     }
@@ -784,27 +875,31 @@ fn copy_mapping_object(
     compartment: MappingCompartment,
     mapping_id: MappingId,
     object_type: ObjectType,
-    as_lua: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+    to_lua: bool,
+) -> Result<(), Box<dyn Error>> {
     let session = session.borrow();
     let (_, mapping) = session
         .find_mapping_and_index_by_id(compartment, mapping_id)
         .ok_or("mapping not found")?;
     use ObjectType::*;
     let mapping = mapping.borrow();
-    let object = match object_type {
-        Mapping => ClipboardObject::Mapping(Box::new(MappingModelData::from_model(&mapping))),
-        Source => {
-            ClipboardObject::Source(Box::new(SourceModelData::from_model(&mapping.source_model)))
-        }
-        Mode => ClipboardObject::Mode(Box::new(ModeModelData::from_model(&mapping.mode_model))),
-        Target => {
-            ClipboardObject::Target(Box::new(TargetModelData::from_model(&mapping.target_model)))
-        }
+    let data_object = match object_type {
+        Mapping => DataObject::Mapping(Box::new(MappingModelData::from_model(&mapping))),
+        Source => DataObject::Source(Box::new(SourceModelData::from_model(&mapping.source_model))),
+        Mode => DataObject::Mode(Box::new(ModeModelData::from_model(&mapping.mode_model))),
+        Target => DataObject::Target(Box::new(TargetModelData::from_model(&mapping.target_model))),
     };
-    copy_object_to_clipboard(object, as_lua, |group_id| {
-        session.find_group_key_by_id(compartment, group_id)
-    })
+    let text = if to_lua {
+        let compartment_in_session = CompartmentInSession {
+            session: &session,
+            compartment,
+        };
+        serialize_data_object_to_lua(data_object, &compartment_in_session)?
+    } else {
+        serialize_data_object_to_json(data_object)?
+    };
+    copy_text_to_clipboard(text);
+    Ok(())
 }
 
 enum ObjectType {
@@ -814,37 +909,35 @@ enum ObjectType {
     Target,
 }
 
-pub fn paste_object_in_place(
-    obj: ClipboardObject,
+fn paste_data_object_in_place(
+    data_object: DataObject,
     session: SharedSession,
-    compartment: MappingCompartment,
-    mapping_id: MappingId,
-    group_id: GroupId,
+    triple: MappingTriple,
 ) -> Result<(), &'static str> {
     let session = session.borrow();
     let (_, mapping) = session
-        .find_mapping_and_index_by_id(compartment, mapping_id)
+        .find_mapping_and_index_by_id(triple.compartment, triple.mapping_id)
         .ok_or("mapping not found")?;
     let mut mapping = mapping.borrow_mut();
-    match obj {
-        ClipboardObject::Mapping(mut m) => {
-            m.group_id = group_id;
+    match data_object {
+        DataObject::Mapping(mut m) => {
+            m.group_id = triple.group_id;
             m.apply_to_model(&mut mapping, session.extended_context());
         }
-        ClipboardObject::Source(s) => {
-            s.apply_to_model(&mut mapping.source_model, compartment);
+        DataObject::Source(s) => {
+            s.apply_to_model(&mut mapping.source_model, triple.compartment);
         }
-        ClipboardObject::Mode(m) => {
+        DataObject::Mode(m) => {
             m.apply_to_model(&mut mapping.mode_model);
         }
-        ClipboardObject::Target(t) => {
+        DataObject::Target(t) => {
             t.apply_to_model(
                 &mut mapping.target_model,
-                compartment,
+                triple.compartment,
                 session.extended_context(),
             );
         }
-        ClipboardObject::Mappings(_) => return Err("can't paste a list of mappings in place"),
+        _ => return Err("can only paste mapping, source, mode and target in place"),
     };
     Ok(())
 }
@@ -858,7 +951,7 @@ pub fn paste_mappings(
     compartment: MappingCompartment,
     below_mapping_id: Option<MappingId>,
     group_id: GroupId,
-) -> Result<(), &'static str> {
+) -> Result<(), Box<dyn Error>> {
     let mut session = session.borrow_mut();
     let index = if let Some(id) = below_mapping_id {
         session
@@ -880,3 +973,9 @@ pub fn paste_mappings(
 }
 
 const SOURCE_MATCH_INDICATOR_TIMER_ID: usize = 571;
+
+struct MappingTriple {
+    compartment: MappingCompartment,
+    mapping_id: MappingId,
+    group_id: GroupId,
+}

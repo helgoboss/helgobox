@@ -2,13 +2,21 @@ mod source;
 pub use source::*;
 mod glue;
 pub use glue::*;
+mod group;
+pub use group::*;
+mod parameter;
+pub use parameter::*;
 mod mapping;
 pub use mapping::*;
+mod compartment;
+pub use compartment::*;
 mod target;
-use crate::application::VirtualControlElementType;
+
+use crate::application::{ActivationType, VirtualControlElementType};
 use crate::domain::{GroupId, Tag};
 use crate::infrastructure::api::schema;
-use crate::infrastructure::data::VirtualControlElementIdData;
+use crate::infrastructure::api::schema::ParamRef;
+use crate::infrastructure::data::{ActivationConditionData, VirtualControlElementIdData};
 use helgoboss_learn::OscTypeTag;
 pub use target::*;
 
@@ -73,14 +81,51 @@ fn convert_tags(tags: &Vec<Tag>) -> Option<Vec<String>> {
 
 fn convert_group_id(
     group_id: GroupId,
-    group_key_by_id: impl Fn(GroupId) -> Option<String>,
+    context: &impl DataToApiConversionContext,
 ) -> Option<String> {
     {
         if group_id.is_default() {
             None
         } else {
-            let key = group_key_by_id(group_id).unwrap_or_else(|| group_id.to_string());
+            let key = context
+                .group_key_by_id(group_id)
+                .unwrap_or_else(|| group_id.to_string());
             Some(key)
         }
+    }
+}
+
+pub trait DataToApiConversionContext {
+    fn group_key_by_id(&self, group_id: GroupId) -> Option<String>;
+}
+
+fn convert_activation_condition(
+    condition_data: ActivationConditionData,
+) -> Option<schema::ActivationCondition> {
+    use schema::ActivationCondition as T;
+    use ActivationType::*;
+    match condition_data.activation_type {
+        Always => None,
+        Modifiers => Some(T::Modifier(schema::ModifierActivationCondition {
+            modifiers: IntoIterator::into_iter([
+                condition_data.modifier_condition_1,
+                condition_data.modifier_condition_2,
+            ])
+            .filter_map(|c| {
+                let state = schema::ModifierState {
+                    parameter: ParamRef::Index(c.param_index?),
+                    on: c.is_on,
+                };
+                Some(state)
+            })
+            .collect(),
+        })),
+        Bank => Some(T::Bank(schema::BankActivationCondition {
+            parameter: ParamRef::Index(condition_data.program_condition.param_index),
+            bank_index: condition_data.program_condition.bank_index,
+        })),
+        Eel => Some(T::Eel(schema::EelActivationCondition {
+            condition: condition_data.eel_condition,
+        })),
     }
 }

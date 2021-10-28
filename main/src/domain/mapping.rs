@@ -1992,6 +1992,8 @@ impl QualifiedMappingId {
     TryFromPrimitive,
     IntoPrimitive,
     Display,
+    Serialize,
+    Deserialize,
 )]
 #[repr(usize)]
 pub enum MappingCompartment {

@@ -5,12 +5,12 @@ use crate::application::{
     VirtualTrackType,
 };
 use crate::domain::{
-    ActionInvocationType, Exclusivity, FxDisplayType, GroupId, ReaperTargetType, SeekOptions,
+    ActionInvocationType, Exclusivity, FxDisplayType, ReaperTargetType, SeekOptions,
     SendMidiDestination, TrackRouteType,
 };
 use crate::infrastructure::api::convert::to_data::{
     convert_control_element_id, convert_control_element_type, convert_group_key,
-    convert_osc_arg_type, convert_tags,
+    convert_osc_arg_type, convert_tags, ApiToDataConversionContext,
 };
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::*;
@@ -24,7 +24,7 @@ use std::rc::Rc;
 
 pub fn convert_target(
     t: Target,
-    group_id_by_key: impl Fn(&str) -> Option<GroupId>,
+    context: &impl ApiToDataConversionContext,
 ) -> ConversionResult<TargetModelData> {
     let data = match t {
         Target::LastTouched(d) => TargetModelData {
@@ -613,7 +613,7 @@ pub fn convert_target(
                     Some(Exclusive) => T::Exclusive,
                 }
             },
-            group_id: convert_group_key(d.group, group_id_by_key)?,
+            group_id: convert_group_key(d.group, context)?,
             ..init(d.commons)
         },
         Target::Virtual(d) => TargetModelData {

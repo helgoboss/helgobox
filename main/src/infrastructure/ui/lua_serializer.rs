@@ -112,7 +112,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         if self.serialize_string_as_identifier {
             fn is_identifier_char(ch: char) -> bool {
                 (ch.is_ascii_alphanumeric() && ch.is_lowercase()) || ch == '_'
-            };
+            }
             let contains_non_identifier_chars = v.contains(|ch: char| !is_identifier_char(ch));
             if contains_non_identifier_chars {
                 return Err(Error::Message(format!(

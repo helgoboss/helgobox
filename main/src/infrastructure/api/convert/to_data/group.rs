@@ -7,7 +7,7 @@ use crate::infrastructure::data::{EnabledData, GroupModelData};
 pub fn convert_group(
     g: Group,
     is_default_group: bool,
-    param_by_key: &impl Fn(&str) -> Option<u32>,
+    param_index_by_key: impl Fn(&str) -> Option<u32>,
 ) -> ConversionResult<GroupModelData> {
     let data = GroupModelData {
         id: if is_default_group {
@@ -25,7 +25,7 @@ pub fn convert_group(
             }
         },
         activation_condition_data: if let Some(cond) = g.activation_condition {
-            convert_activation(cond, param_by_key)?
+            convert_activation(cond, &param_index_by_key)?
         } else {
             Default::default()
         },
