@@ -40,7 +40,7 @@ use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, get_text_from_clipboard,
-    serialize_data_object_to_json, serialize_data_object_to_lua, DataObject, GroupFilter,
+    serialize_data_object_to_json, serialize_data_object_to_lua, DataObject, Envelope, GroupFilter,
     GroupPanel, IndependentPanelManager, MappingRowsPanel, SearchExpression,
     SharedIndependentPanelManager, SharedMainState, SourceFilter,
 };
@@ -255,10 +255,10 @@ impl HeaderPanel {
                     MenuAction::CopyListedMappingsAsJson
                 }),
                 {
-                    if let Some(DataObject::Mappings { value: vec }) = data_object {
+                    if let Some(DataObject::Mappings(env)) = data_object {
                         item(
-                            format!("Paste {} mappings (replace all in group)", vec.len()),
-                            move || MenuAction::PasteReplaceAllInGroup(vec),
+                            format!("Paste {} mappings (replace all in group)", env.value.len()),
+                            move || MenuAction::PasteReplaceAllInGroup(env.value),
                         )
                     } else {
                         disabled_item("Paste mappings (replace all in group)")
@@ -690,9 +690,9 @@ impl HeaderPanel {
             .iter()
             .map(|m| MappingModelData::from_model(&*m.borrow()))
             .collect();
-        DataObject::Mappings {
+        DataObject::Mappings(Envelope {
             value: mapping_datas,
-        }
+        })
     }
 
     fn auto_name_listed_mappings(&self) {
@@ -1735,7 +1735,7 @@ impl HeaderPanel {
             deserialize_data_object(&text, &compartment_in_session)?
         };
         match data_object {
-            DataObject::Session{value: d} => {
+            DataObject::Session(Envelope { value: d}) => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
                     "Do you want to continue replacing the complete ReaLearn session with the data in the clipboard?",
@@ -1743,7 +1743,7 @@ impl HeaderPanel {
                     plugin_parameters.apply_session_data(&*d);
                 }
             }
-            DataObject::Compartment{value: c} => {
+            DataObject::Compartment(Envelope {value: c}) => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
                     format!("Do you want to continue replacing the {} compartment with the data in the clipboard?", c.kind),
@@ -1776,9 +1776,9 @@ impl HeaderPanel {
             .upgrade()
             .expect("plugin params gone");
         let session_data = plugin_parameters.create_session_data();
-        let json = serialize_data_object_to_json(DataObject::Session {
+        let json = serialize_data_object_to_json(DataObject::Session(Envelope {
             value: Box::new(session_data),
-        })
+        }))
         .unwrap();
         copy_text_to_clipboard(json);
     }

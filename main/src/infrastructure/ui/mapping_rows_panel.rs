@@ -4,7 +4,7 @@ use std::rc::{Rc, Weak};
 use crate::base::when;
 use crate::infrastructure::ui::{
     bindings::root, deserialize_data_object_from_json, get_text_from_clipboard, paste_mappings,
-    util, DataObject, IndependentPanelManager, MainState, MappingRowPanel,
+    util, DataObject, Envelope, IndependentPanelManager, MainState, MappingRowPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
 use reaper_high::Reaper;
@@ -525,11 +525,11 @@ impl MappingRowsPanel {
             let compartment = main_state.active_compartment.get();
             let entries = vec![{
                 let desc = match data_object_from_clipboard {
-                    Some(DataObject::Mapping { value: m }) => Some((
+                    Some(DataObject::Mapping(Envelope { value: m })) => Some((
                         format!("Paste mapping \"{}\" (insert here)", &m.name),
                         vec![*m],
                     )),
-                    Some(DataObject::Mappings { value: vec }) => {
+                    Some(DataObject::Mappings(Envelope { value: vec })) => {
                         Some((format!("Paste {} mappings (insert here)", vec.len()), vec))
                     }
                     _ => None,

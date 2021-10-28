@@ -18,37 +18,28 @@ use crate::infrastructure::data::{
 use crate::infrastructure::ui::lua_serializer;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Envelope<T> {
+    pub value: T,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum DataObject {
-    Session {
-        value: Box<SessionData>,
-    },
-    Compartment {
-        value: Box<QualifiedCompartmentModelData>,
-    },
-    Mappings {
-        value: Vec<MappingModelData>,
-    },
-    Mapping {
-        value: Box<MappingModelData>,
-    },
-    Source {
-        value: Box<SourceModelData>,
-    },
-    Mode {
-        value: Box<ModeModelData>,
-    },
-    Target {
-        value: Box<TargetModelData>,
-    },
+    Session(Envelope<Box<SessionData>>),
+    Compartment(Envelope<Box<QualifiedCompartmentModelData>>),
+    Mappings(Envelope<Vec<MappingModelData>>),
+    Mapping(Envelope<Box<MappingModelData>>),
+    Source(Envelope<Box<SourceModelData>>),
+    Mode(Envelope<Box<ModeModelData>>),
+    Target(Envelope<Box<TargetModelData>>),
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ApiObject {
-    Compartment { value: Box<schema::Compartment> },
-    Mappings { value: Vec<schema::Mapping> },
-    Mapping { value: Box<schema::Mapping> },
+    Compartment(Envelope<Box<schema::Compartment>>),
+    Mappings(Envelope<Vec<schema::Mapping>>),
+    Mapping(Envelope<Box<schema::Mapping>>),
 }
 
 impl DataObject {
@@ -57,23 +48,23 @@ impl DataObject {
         conversion_context: &impl ApiToDataConversionContext,
     ) -> Result<Self, Box<dyn Error>> {
         let data_object = match api_object {
-            ApiObject::Compartment { value: c } => {
+            ApiObject::Compartment(Envelope { value: c }) => {
                 let data_compartment = to_data::convert_compartment(*c)?;
-                DataObject::Compartment {
+                DataObject::Compartment(Envelope {
                     value: Box::new(data_compartment),
-                }
+                })
             }
-            ApiObject::Mappings { value: mappings } => {
+            ApiObject::Mappings(Envelope { value: mappings }) => {
                 let data_mappings = Self::try_from_api_mappings(mappings, conversion_context);
-                DataObject::Mappings {
+                DataObject::Mappings(Envelope {
                     value: data_mappings?,
-                }
+                })
             }
-            ApiObject::Mapping { value: m } => {
+            ApiObject::Mapping(Envelope { value: m }) => {
                 let data_mapping = to_data::convert_mapping(*m, conversion_context)?;
-                DataObject::Mapping {
+                DataObject::Mapping(Envelope {
                     value: Box::new(data_mapping),
-                }
+                })
             }
         };
         Ok(data_object)
@@ -96,27 +87,27 @@ impl ApiObject {
         conversion_context: &impl DataToApiConversionContext,
     ) -> Result<Self, Box<dyn Error>> {
         let api_object = match data_object {
-            DataObject::Compartment { value: c } => {
+            DataObject::Compartment(Envelope { value: c }) => {
                 let api_compartment = from_data::convert_compartment(*c, conversion_context)?;
-                ApiObject::Compartment {
+                ApiObject::Compartment(Envelope {
                     value: Box::new(api_compartment),
-                }
+                })
             }
-            DataObject::Session { .. } => todo!("session API not yet implemented"),
-            DataObject::Mappings { value: mappings } => {
+            DataObject::Session(Envelope { .. }) => todo!("session API not yet implemented"),
+            DataObject::Mappings(Envelope { value: mappings }) => {
                 let api_mappings: Result<Vec<_>, _> = mappings
                     .into_iter()
                     .map(|m| from_data::convert_mapping(m, conversion_context))
                     .collect();
-                ApiObject::Mappings {
+                ApiObject::Mappings(Envelope {
                     value: api_mappings?,
-                }
+                })
             }
-            DataObject::Mapping { value: m } => {
+            DataObject::Mapping(Envelope { value: m }) => {
                 let api_mapping = from_data::convert_mapping(*m, conversion_context)?;
-                ApiObject::Mapping {
+                ApiObject::Mapping(Envelope {
                     value: Box::new(api_mapping),
-                }
+                })
             }
             _ => Err("conversion from source/mode/target data object not supported at the moment")?,
         };
@@ -125,8 +116,8 @@ impl ApiObject {
 
     pub fn into_mappings(self) -> Option<Vec<schema::Mapping>> {
         match self {
-            ApiObject::Mappings { value: mappings } => Some(mappings),
-            ApiObject::Mapping { value: m } => Some(vec![*m]),
+            ApiObject::Mappings(Envelope { value: mappings }) => Some(mappings),
+            ApiObject::Mapping(Envelope { value: m }) => Some(vec![*m]),
             _ => None,
         }
     }
