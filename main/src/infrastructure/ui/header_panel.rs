@@ -255,7 +255,7 @@ impl HeaderPanel {
                     MenuAction::CopyListedMappingsAsJson
                 }),
                 {
-                    if let Some(DataObject::Mappings(vec)) = data_object {
+                    if let Some(DataObject::Mappings { value: vec }) = data_object {
                         item(
                             format!("Paste {} mappings (replace all in group)", vec.len()),
                             move || MenuAction::PasteReplaceAllInGroup(vec),
@@ -690,7 +690,9 @@ impl HeaderPanel {
             .iter()
             .map(|m| MappingModelData::from_model(&*m.borrow()))
             .collect();
-        DataObject::Mappings(mapping_datas)
+        DataObject::Mappings {
+            value: mapping_datas,
+        }
     }
 
     fn auto_name_listed_mappings(&self) {
@@ -1733,7 +1735,7 @@ impl HeaderPanel {
             deserialize_data_object(&text, &compartment_in_session)?
         };
         match data_object {
-            DataObject::Session(d) => {
+            DataObject::Session{value: d} => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
                     "Do you want to continue replacing the complete ReaLearn session with the data in the clipboard?",
@@ -1741,7 +1743,7 @@ impl HeaderPanel {
                     plugin_parameters.apply_session_data(&*d);
                 }
             }
-            DataObject::Compartment(c) => {
+            DataObject::Compartment{value: c} => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
                     format!("Do you want to continue replacing the {} compartment with the data in the clipboard?", c.kind),
@@ -1755,10 +1757,10 @@ impl HeaderPanel {
                     session.replace_compartment(c.kind, Some(model), self.session.clone());
                 }
             }
-            DataObject::Mappings(_) => {
+            DataObject::Mappings{..} => {
                 return Err("The clipboard contains just a lose collection of mappings. Please import them using the context menus.".into())
             }
-            DataObject::Mapping(_) => {
+            DataObject::Mapping{..} => {
                 return Err("The clipboard contains just one single mapping. Please import it using the context menus.".into())
             }
             _ => {
@@ -1774,8 +1776,10 @@ impl HeaderPanel {
             .upgrade()
             .expect("plugin params gone");
         let session_data = plugin_parameters.create_session_data();
-        let json =
-            serde_json::to_string_pretty(&session_data).expect("couldn't serialize session data");
+        let json = serialize_data_object_to_json(DataObject::Session {
+            value: Box::new(session_data),
+        })
+        .unwrap();
         copy_text_to_clipboard(json);
     }
 

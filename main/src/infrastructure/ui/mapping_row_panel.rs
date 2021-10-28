@@ -519,7 +519,7 @@ impl MappingRowPanel {
 
     fn paste_from_lua_replace(&self, text: &str) -> Result<(), Box<dyn Error>> {
         let api_object = deserialize_api_object_from_lua(text)?;
-        if !matches!(api_object, ApiObject::Mapping(_)) {
+        if !matches!(api_object, ApiObject::Mapping { value: _ }) {
             Err("There's more than one mapping in the clipboard.")?;
         }
         let data_object = {
@@ -608,20 +608,20 @@ impl MappingRowPanel {
                 item("Copy", || MenuAction::CopyPart(ObjectType::Mapping)),
                 {
                     let desc = match data_object_from_clipboard {
-                        Some(DataObject::Mapping(m)) => Some((
+                        Some(DataObject::Mapping { value: m }) => Some((
                             format!("Paste mapping \"{}\" (replace)", &m.name),
-                            DataObject::Mapping(m),
+                            DataObject::Mapping { value: m },
                         )),
-                        Some(DataObject::Source(s)) => Some((
+                        Some(DataObject::Source { value: s }) => Some((
                             format!("Paste source ({})", s.category),
-                            DataObject::Source(s),
+                            DataObject::Source { value: s },
                         )),
-                        Some(DataObject::Mode(m)) => {
-                            Some(("Paste mode".to_owned(), DataObject::Mode(m)))
+                        Some(DataObject::Mode { value: m }) => {
+                            Some(("Paste mode".to_owned(), DataObject::Mode { value: m }))
                         }
-                        Some(DataObject::Target(t)) => Some((
+                        Some(DataObject::Target { value: t }) => Some((
                             format!("Paste target ({})", t.category),
-                            DataObject::Target(t),
+                            DataObject::Target { value: t },
                         )),
                         _ => None,
                     };
@@ -633,11 +633,11 @@ impl MappingRowPanel {
                 },
                 {
                     let desc = match data_object_from_clipboard_clone {
-                        Some(DataObject::Mapping(m)) => Some((
+                        Some(DataObject::Mapping { value: m }) => Some((
                             format!("Paste mapping \"{}\" (insert below)", &m.name),
                             vec![*m],
                         )),
-                        Some(DataObject::Mappings(vec)) => {
+                        Some(DataObject::Mappings { value: vec }) => {
                             Some((format!("Paste {} mappings below", vec.len()), vec))
                         }
                         _ => None,
@@ -884,10 +884,18 @@ fn copy_mapping_object(
     use ObjectType::*;
     let mapping = mapping.borrow();
     let data_object = match object_type {
-        Mapping => DataObject::Mapping(Box::new(MappingModelData::from_model(&mapping))),
-        Source => DataObject::Source(Box::new(SourceModelData::from_model(&mapping.source_model))),
-        Mode => DataObject::Mode(Box::new(ModeModelData::from_model(&mapping.mode_model))),
-        Target => DataObject::Target(Box::new(TargetModelData::from_model(&mapping.target_model))),
+        Mapping => DataObject::Mapping {
+            value: Box::new(MappingModelData::from_model(&mapping)),
+        },
+        Source => DataObject::Source {
+            value: Box::new(SourceModelData::from_model(&mapping.source_model)),
+        },
+        Mode => DataObject::Mode {
+            value: Box::new(ModeModelData::from_model(&mapping.mode_model)),
+        },
+        Target => DataObject::Target {
+            value: Box::new(TargetModelData::from_model(&mapping.target_model)),
+        },
     };
     let text = if to_lua {
         let compartment_in_session = CompartmentInSession {
@@ -920,17 +928,17 @@ fn paste_data_object_in_place(
         .ok_or("mapping not found")?;
     let mut mapping = mapping.borrow_mut();
     match data_object {
-        DataObject::Mapping(mut m) => {
+        DataObject::Mapping { value: mut m } => {
             m.group_id = triple.group_id;
             m.apply_to_model(&mut mapping, session.extended_context());
         }
-        DataObject::Source(s) => {
+        DataObject::Source { value: s } => {
             s.apply_to_model(&mut mapping.source_model, triple.compartment);
         }
-        DataObject::Mode(m) => {
+        DataObject::Mode { value: m } => {
             m.apply_to_model(&mut mapping.mode_model);
         }
-        DataObject::Target(t) => {
+        DataObject::Target { value: t } => {
             t.apply_to_model(
                 &mut mapping.target_model,
                 triple.compartment,
