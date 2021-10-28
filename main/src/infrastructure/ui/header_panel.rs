@@ -235,10 +235,12 @@ impl HeaderPanel {
             let preset_link_manager = preset_link_manager.borrow();
             let main_preset_manager = App::get().main_preset_manager();
             let main_preset_manager = main_preset_manager.borrow();
-            let text_in_clipboard = get_text_from_clipboard();
-            let data_object = text_in_clipboard
+            let text_from_clipboard = get_text_from_clipboard();
+            let data_object_from_clipboard = text_from_clipboard
                 .as_ref()
                 .and_then(|text| deserialize_data_object_from_json(text).ok());
+            let clipboard_could_contain_lua =
+                text_from_clipboard.is_some() && data_object_from_clipboard.is_none();
             let session = self.session();
             let session = session.borrow();
             let compartment = self.active_compartment();
@@ -255,7 +257,7 @@ impl HeaderPanel {
                     MenuAction::CopyListedMappingsAsJson
                 }),
                 {
-                    if let Some(DataObject::Mappings(env)) = data_object {
+                    if let Some(DataObject::Mappings(env)) = data_object_from_clipboard {
                         item(
                             format!("Paste {} mappings (replace all in group)", env.value.len()),
                             move || MenuAction::PasteReplaceAllInGroup(env.value),
@@ -357,12 +359,12 @@ impl HeaderPanel {
                         item_with_opts(
                             "Paste from Lua (replace all in group)",
                             ItemOpts {
-                                enabled: text_in_clipboard.is_some(),
+                                enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
                             move || {
                                 MenuAction::PasteFromLuaReplaceAllInGroup(
-                                    text_in_clipboard.unwrap(),
+                                    text_from_clipboard.unwrap(),
                                 )
                             },
                         ),

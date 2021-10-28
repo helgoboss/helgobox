@@ -601,6 +601,8 @@ impl MappingRowPanel {
             let data_object_from_clipboard = text_from_clipboard
                 .as_ref()
                 .and_then(|text| deserialize_data_object_from_json(&text).ok());
+            let clipboard_could_contain_lua =
+                text_from_clipboard.is_some() && data_object_from_clipboard.is_none();
             let text_from_clipboard_clone = text_from_clipboard.clone();
             let data_object_from_clipboard_clone = data_object_from_clipboard.clone();
             let group_id = mapping.group_id.get();
@@ -683,7 +685,7 @@ impl MappingRowPanel {
                         item_with_opts(
                             "Paste from Lua (replace)",
                             ItemOpts {
-                                enabled: text_from_clipboard.is_some(),
+                                enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
                             move || MenuAction::PasteFromLuaReplace(text_from_clipboard.unwrap()),
@@ -691,7 +693,7 @@ impl MappingRowPanel {
                         item_with_opts(
                             "Paste from Lua (insert below)",
                             ItemOpts {
-                                enabled: text_from_clipboard_clone.is_some(),
+                                enabled: clipboard_could_contain_lua,
                                 checked: false,
                             },
                             move || {
