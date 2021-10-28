@@ -158,8 +158,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackArm,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 ..init(d.commons)
             }
@@ -169,8 +169,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::AllTrackFxEnable,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
                 ..init(d.commons)
@@ -181,8 +181,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackMute,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 ..init(d.commons)
             }
@@ -192,8 +192,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackPeak,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 ..init(d.commons)
             }
         }
@@ -202,8 +202,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackPhase,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
                 ..init(d.commons)
@@ -214,8 +214,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackSelection,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 scroll_arrange_view: d.scroll_arrange_view.unwrap_or_default(),
                 scroll_mixer: d.scroll_mixer.unwrap_or_default(),
@@ -227,8 +227,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackAutomationMode,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 track_automation_mode: convert_automation_mode(d.mode),
                 ..init(d.commons)
@@ -239,8 +239,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::AutomationTouchState,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 touched_parameter_type: {
                     use domain::TouchedParameterType as T;
@@ -259,8 +259,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackPan,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 ..init(d.commons)
             }
         }
@@ -269,8 +269,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackWidth,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 ..init(d.commons)
             }
         }
@@ -279,8 +279,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackVolume,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 ..init(d.commons)
             }
         }
@@ -289,8 +289,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackShow,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
                 track_area: {
@@ -307,8 +307,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackSolo,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
                 solo_behavior: {
                     use domain::SoloBehavior as T;
@@ -330,8 +330,8 @@ pub fn convert_target(
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::FxNavigate,
                 fx_display_type: convert_fx_display_kind(d.display_kind.unwrap_or_default()),
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 fx_data: FxData {
                     is_input_fx: chain_desc.is_input_fx,
                     ..Default::default()
@@ -345,9 +345,10 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::FxEnable,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 fx_data: fx_desc.fx_data,
+                enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
                 ..init(d.commons)
             }
         }
@@ -357,9 +358,10 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::LoadFxSnapshot,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 fx_data: fx_desc.fx_data,
+                enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
                 fx_snapshot: d.snapshot.map(|s| application::FxSnapshot {
                     fx_type: s.fx_kind.unwrap_or_default(),
                     fx_name: s.fx_name.unwrap_or_default(),
@@ -377,9 +379,10 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::FxPreset,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 fx_data: fx_desc.fx_data,
+                enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
                 ..init(d.commons)
             }
         }
@@ -389,9 +392,10 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::FxOpen,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 fx_data: fx_desc.fx_data,
+                enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
                 fx_display_type: convert_fx_display_kind(d.display_kind.unwrap_or_default()),
                 ..init(d.commons)
             }
@@ -403,9 +407,10 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::FxParameter,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 fx_data: fx_desc.fx_data,
+                enable_only_if_fx_has_focus: fx_desc.fx_must_have_focus,
                 fx_parameter_data: fx_parameter_desc.fx_parameter_data,
                 ..init(d.commons)
             }
@@ -416,8 +421,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackSendAutomationMode,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
                 poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
                 track_automation_mode: convert_automation_mode(d.mode),
@@ -430,8 +435,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackSendMono,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
                 poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
                 ..init(d.commons)
@@ -443,8 +448,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackSendMute,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
                 poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
                 ..init(d.commons)
@@ -456,8 +461,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackSendPhase,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
                 poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
                 ..init(d.commons)
@@ -469,8 +474,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackSendPan,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
                 ..init(d.commons)
             }
@@ -481,8 +486,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::TrackSendVolume,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
                 ..init(d.commons)
             }
@@ -495,8 +500,8 @@ pub fn convert_target(
             TargetModelData {
                 category: TargetCategory::Reaper,
                 r#type: ReaperTargetType::ClipTransport,
-                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_data: track_desc.track_data,
+                enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 slot_index: clip_desc.slot_index,
                 transport_action: convert_transport_action(d.action),
                 next_bar: d.next_bar.unwrap_or(false),

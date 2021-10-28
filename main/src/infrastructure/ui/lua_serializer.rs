@@ -24,7 +24,7 @@ pub struct Serializer {
     output: String,
     current_indent: usize,
     has_value: bool,
-    omit_quotes: bool,
+    serialize_string_as_identifier: bool,
     indent: &'static str,
 }
 
@@ -36,7 +36,7 @@ where
         output: String::new(),
         current_indent: 0,
         has_value: false,
-        omit_quotes: false,
+        serialize_string_as_identifier: false,
         indent: "    ",
     };
     value.serialize(&mut serializer)?;
@@ -109,12 +109,29 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        if self.omit_quotes {
+        if self.serialize_string_as_identifier {
+            fn is_identifier_char(ch: char) -> bool {
+                (ch.is_ascii_alphanumeric() && ch.is_lowercase()) || ch == '_'
+            };
+            let contains_non_identifier_chars = v.contains(|ch: char| !is_identifier_char(ch));
+            if contains_non_identifier_chars {
+                return Err(Error::Message(format!(
+                    "can't serialize string {:?} as identifier",
+                    v
+                )));
+            }
             self.output += v;
         } else {
-            self.output += "\"";
-            self.output += v;
-            self.output += "\"";
+            let contains_newlines = v.contains(&['\r', '\n'][..]);
+            if contains_newlines {
+                self.output += "[[\n";
+                self.output += v;
+                self.output += "]]";
+            } else {
+                self.output += "\"";
+                self.output.extend(v.escape_default());
+                self.output += "\"";
+            }
         }
         Ok(())
     }
@@ -167,21 +184,13 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         self,
         _name: &'static str,
         _variant_index: u32,
-        variant: &'static str,
-        value: &T,
+        _variant: &'static str,
+        _value: &T,
     ) -> Result<()>
     where
         T: ?Sized + Serialize,
     {
-        self.output += "{\n";
-        self.current_indent += 1;
-        variant.serialize(&mut *self)?;
-        self.output += " = ";
-        value.serialize(&mut *self)?;
-        self.current_indent -= 1;
-        indent(&mut self.output, self.current_indent, self.indent);
-        self.output += "\n}";
-        Ok(())
+        Err(Error::Unsupported)
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
@@ -293,9 +302,9 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
     {
         self.output += "\n";
         indent(&mut self.output, self.current_indent, self.indent);
-        self.omit_quotes = true;
+        self.serialize_string_as_identifier = true;
         key.serialize(&mut **self)?;
-        self.omit_quotes = false;
+        self.serialize_string_as_identifier = false;
         self.has_value = true;
         Ok(())
     }

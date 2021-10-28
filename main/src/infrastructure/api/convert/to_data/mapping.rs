@@ -1,6 +1,9 @@
 use super::convert_source;
 use crate::application;
-use crate::application::{BankConditionModel, ModifierConditionModel};
+use crate::application::{
+    BankConditionModel, LifecycleMidiMessageModel, LifecycleModel, MappingExtensionModel,
+    ModifierConditionModel, RawByteArrayMidiMessage,
+};
 use crate::domain::{GroupId, MappingId, Tag};
 use crate::infrastructure::api::convert::to_data::convert_group_key;
 use crate::infrastructure::api::convert::to_data::glue::convert_glue;
@@ -8,6 +11,7 @@ use crate::infrastructure::api::convert::to_data::target::convert_target;
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{ActivationConditionData, EnabledData, MappingModelData};
+use std::convert::TryInto;
 use std::str::FromStr;
 
 pub fn convert_mapping(
@@ -62,7 +66,7 @@ pub fn convert_mapping(
         },
         prevent_echo_feedback,
         send_feedback_after_control,
-        advanced: convert_advanced(m.on_activate, m.on_deactivate),
+        advanced: convert_advanced(m.on_activate, m.on_deactivate, m.unprocessed)?,
         visible_in_projection: m.visible_in_projection.unwrap_or(true),
     };
     Ok(v)
@@ -78,14 +82,70 @@ fn convert_tag(tag_string: String) -> ConversionResult<Tag> {
 }
 
 fn convert_advanced(
-    on_activate: Option<Lifecycle>,
-    on_deactivate: Option<Lifecycle>,
-) -> Option<serde_yaml::mapping::Mapping> {
-    if on_activate.is_none() && on_deactivate.is_none() {
-        return None;
+    on_activate: Option<LifecycleHook>,
+    on_deactivate: Option<LifecycleHook>,
+    unprocessed: Option<serde_json::Map<String, serde_json::Value>>,
+) -> ConversionResult<Option<serde_yaml::mapping::Mapping>> {
+    fn into_yaml_mapping(value: serde_yaml::Value) -> serde_yaml::mapping::Mapping {
+        if let serde_yaml::Value::Mapping(m) = value {
+            m
+        } else {
+            panic!("must serialize as YAML mapping")
+        }
     }
-    // TODO-high
-    None
+    if on_activate.is_none() && on_deactivate.is_none() && unprocessed.is_none() {
+        return Ok(None);
+    }
+    let extension_model = MappingExtensionModel {
+        on_activate: convert_lifecycle_hook(on_activate)?,
+        on_deactivate: convert_lifecycle_hook(on_deactivate)?,
+    };
+    let value = serde_yaml::to_value(&extension_model)?;
+    let mut mapping = into_yaml_mapping(value);
+    if let Some(u) = unprocessed {
+        let unprocessed_value = serde_yaml::to_value(&u)?;
+        let unprocessed_mapping = into_yaml_mapping(unprocessed_value);
+        for (key, value) in unprocessed_mapping.into_iter() {
+            mapping.insert(key, value);
+        }
+    }
+    Ok(Some(mapping))
+}
+
+fn convert_lifecycle_hook(hook: Option<LifecycleHook>) -> ConversionResult<LifecycleModel> {
+    let v = LifecycleModel {
+        send_midi_feedback: {
+            let actions: Result<Vec<_>, _> = hook
+                .unwrap_or_default()
+                .send_midi_feedback
+                .unwrap_or_default()
+                .into_iter()
+                .map(convert_send_midi_feedback_action)
+                .collect();
+            actions?
+        },
+    };
+    Ok(v)
+}
+
+fn convert_send_midi_feedback_action(
+    action: SendMidiFeedbackAction,
+) -> ConversionResult<LifecycleMidiMessageModel> {
+    let v = match action {
+        SendMidiFeedbackAction::Raw { message } => {
+            LifecycleMidiMessageModel::Raw(convert_raw_midi_message(message)?)
+        }
+    };
+    Ok(v)
+}
+
+fn convert_raw_midi_message(msg: RawMidiMessage) -> ConversionResult<application::RawMidiMessage> {
+    use application::RawMidiMessage as T;
+    let v = match msg {
+        RawMidiMessage::HexString(s) => T::HexString(s.try_into()?),
+        RawMidiMessage::ByteArray(a) => T::ByteArray(RawByteArrayMidiMessage(a)),
+    };
+    Ok(v)
 }
 
 pub fn convert_activation(

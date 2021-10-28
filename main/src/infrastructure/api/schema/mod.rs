@@ -18,45 +18,45 @@ pub use target::*;
 mod tests {
     use super::*;
 
-    ts_rs::export! {
-        // Mapping
-        Mapping,
-        Lifecycle,
-        FeedbackBehavior,
-        ActivationCondition,
-        // Source
-        Source,
-        // MIDI source
-        MidiNoteVelocitySource,
-        MidiNoteKeyNumberSource,
-        MidiPolyphonicKeyPressureAmountSource,
-        MidiControlChangeValueSource,
-        MidiProgramChangeNumberSource,
-        MidiChannelPressureAmountSource,
-        MidiPitchBendChangeValueSource,
-        MidiParameterNumberValueSource,
-        MidiClockTempoSource,
-        MidiClockTransportSource,
-        MidiRawSource,
-        MidiScriptSource,
-        SourceCharacter,
-        MidiClockTransportMessage,
-        MackieLcd,
-        MackieSevenSegmentDisplay,
-        MackieSevenSegmentDisplayScope,
-        SiniConE24Display,
-        // OSC source
-        OscSource,
-        // Virtual source
-        VirtualSource,
-        // Glue
-        Glue,
-        // Target
-        Target,
-        TargetUnit
-
-        => "src/infrastructure/api/schema/generated/realearn.ts"
-    }
+    // ts_rs::export! {
+    //     // Mapping
+    //     Mapping,
+    //     LifecycleHook,
+    //     FeedbackBehavior,
+    //     ActivationCondition,
+    //     // Source
+    //     Source,
+    //     // MIDI source
+    //     MidiNoteVelocitySource,
+    //     MidiNoteKeyNumberSource,
+    //     MidiPolyphonicKeyPressureAmountSource,
+    //     MidiControlChangeValueSource,
+    //     MidiProgramChangeNumberSource,
+    //     MidiChannelPressureAmountSource,
+    //     MidiPitchBendChangeValueSource,
+    //     MidiParameterNumberValueSource,
+    //     MidiClockTempoSource,
+    //     MidiClockTransportSource,
+    //     MidiRawSource,
+    //     MidiScriptSource,
+    //     SourceCharacter,
+    //     MidiClockTransportMessage,
+    //     MackieLcd,
+    //     MackieSevenSegmentDisplay,
+    //     MackieSevenSegmentDisplayScope,
+    //     SiniConE24Display,
+    //     // OSC source
+    //     OscSource,
+    //     // Virtual source
+    //     VirtualSource,
+    //     // Glue
+    //     Glue,
+    //     // Target
+    //     Target,
+    //     TargetUnit
+    //
+    //     => "src/infrastructure/api/schema/generated/realearn.ts"
+    // }
 
     #[test]
     fn export_json_schema() {
@@ -86,8 +86,6 @@ mod tests {
             control_enabled: Some(true),
             feedback_enabled: Some(true),
             activation_condition: None,
-            on_activate: Some(Lifecycle::Todo),
-            on_deactivate: Some(Lifecycle::Todo),
             source: Some(Source::MidiControlChangeValue(
                 MidiControlChangeValueSource {
                     feedback_behavior: Some(FeedbackBehavior::Normal),

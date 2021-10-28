@@ -649,13 +649,14 @@ impl MappingRowPanel {
                 );
             }
             MenuAction::CopyPart(obj_type) => {
-                let _ = copy_mapping_object(
+                copy_mapping_object(
                     self.session(),
                     mapping_compartment,
                     mapping_id,
                     obj_type,
                     false,
-                );
+                )
+                .unwrap();
             }
             MenuAction::CopyMappingAsLua => {
                 let _ = copy_mapping_object(
@@ -664,7 +665,8 @@ impl MappingRowPanel {
                     mapping_id,
                     ObjectType::Mapping,
                     true,
-                );
+                )
+                .unwrap();
             }
             MenuAction::MoveMappingToGroup(group_id) => {
                 let _ = move_mapping_to_group(
