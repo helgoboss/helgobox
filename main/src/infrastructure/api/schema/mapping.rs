@@ -3,7 +3,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Mapping {
     /// An optional key that you can assign to this mapping in order to refer
@@ -29,20 +29,36 @@ pub struct Mapping {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub activation_condition: Option<ActivationCondition>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_activate: Option<Lifecycle>,
+    pub on_activate: Option<LifecycleHook>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_deactivate: Option<Lifecycle>,
+    pub on_deactivate: Option<LifecycleHook>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<Source>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub glue: Option<Glue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target: Option<Target>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unprocessed: Option<serde_json::Map<String, serde_json::Value>>,
+}
+
+#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+pub struct LifecycleHook {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub send_midi_feedback: Option<Vec<SendMidiFeedbackAction>>,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
-pub enum Lifecycle {
-    Todo,
+#[serde(tag = "kind")]
+pub enum SendMidiFeedbackAction {
+    Raw { message: RawMidiMessage },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+#[serde(untagged)]
+pub enum RawMidiMessage {
+    HexString(String),
+    ByteArray(Vec<u8>),
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, TS)]
