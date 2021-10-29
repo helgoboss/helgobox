@@ -425,18 +425,28 @@ _controller_ compartment is shown:
 ** ReaLearn FX is disabled.
 ** Project is paused and ReaLearn track is not armed.
 ** ReaLearn FX is on input FX chain and track is not armed.
-* *Import from clipboard / Export to clipboard:* Pressing the export button copies a _complete_ dump
- of ReaLearn's current settings (including all mappings, even controller mappings) to the clipboard. Pressing the
- import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard. This
- is a very powerful feature because the dump's data format is
+* *Export to clipboard:* Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance or edit them in a text editor.
+** *Export session as JSON:* Copies a _complete_ dump of ReaLearn's current settings (including all mappings, even controller mappings) to the clipboard. The dump's data format is
  https://www.json.org/json-en.html[JSON], a wide-spread data exchange format. It's a text format,
- so if you are familiar with the search&amp;replace feature of your favorite text editor, this is your
- entrance ticket to batch editing. You can also use it for some very basic A/B testing (1. Press
- _Export to clipboard_, 2. change some settings and test them, 3. Restore the old settings by
- pressing _Import from clipboard_). For the programmers and script junkies out there: It's perfectly
- possible to program ReaLearn from outside by passing it a snippet of JSON via https://www.reaper.fm/sdk/vst/vst_ext.php[REAPER's named parameter
- mechanism] (search for `named_parameter_name`). Parameter name
- is `set-state&quot;`.
+ so if you are familiar with the search & replace feature of your favorite text editor, this is one way to do batch editing. However, recent versions of ReaLearn provide a much better way of doing that: _ReaLearn Script_. Read about the other export options for learning more about it.
++
+[TIP]
+====
+You can also use the export for some very basic A/B testing:
+
+1. Choose _Export session as JSON_
+2. Change some settings and test them
+3. Restore the old settings by pressing _Import from clipboard_).
+====
++
+[TIP]
+====
+For the programmers and script junkies out there: It's perfectly possible to program ReaLearn from outside by passing it a snippet of JSON via https://www.reaper.fm/sdk/vst/vst_ext.php[REAPER's named parameter mechanism] (search for `named_parameter_name`). Parameter name is `set-state`.
+====
+** *Export main/controller compartment as JSON:* Copies a dump of the currently visible compartment to the clipboard. It contains about the same data that a compartment preset would contain.
+** *Export main/controller compartment as Lua:* Copies a dump of the currently visible compartment to the clipboard as Lua code (ReaLearn Script). This form of Lua export skips properties that correspond to ReaLearn's default values, resulting in a minimal result. Perfect for pasting in a forum or programming ReaLearn with focus on only those properties that matter to you.
+** *Export main/controller compartment as Lua (include default values):*  This Lua export includes even those properties that correspond to ReaLearn's default values, resulting in more text. This gives you the perfect starting point if you want to extensively modify the current compartment (using the Lua programming language) or build a compartment from scratch, using even properties that you haven't touched yet in the user interface!
+* *Import from clipboard:* Pressing the import button does the opposite: It restores whatever ReaLearn dump is currently in the clipboard.
 * *Projection:* This is a quite unique feature that allows you to project a schematic representation
  of your currently active controller to a mobile device (e.g. a tablet computer). You can put this device close
  to your controller in order to see immediately which control element is mapped to which parameter.
@@ -615,6 +625,10 @@ on macOS) with the following entries:
  This is practical because it's completely up to you how to put these parameters to use. Perfect for preset authors:
  The parameter names are saved together with the compartment preset. Parameter values will be reset whenever you load
  a preset (just the ones in that compartment).
+* *Advanced:* Provides access to expert features.
+** *Copy listed mappings as Lua:* Like _Copy listed mappings_ but generates Lua code instead.
+** *Copy listed mappings as Lua (include default values):* Generates Lua code that contains even those properties that correspond to ReaLearn's defaults.
+** *Paste from Lua (replace all in group):* Like _Paste mappings (replace all in group)_ but treats the clipboard content as Lua code.
 * *Send feedback now:* Usually ReaLearn sends feedback whenever something changed to keep the LEDs
  or motorized faders of your controller in sync with REAPER at all times. There might be situations
  where it doesn't work though. In this case you can send feedback manually using this button.
@@ -838,12 +852,18 @@ Each mapping row provides a context menu (accessible via right-click on Windows 
 which allows you access to the following functionality:
 
 * *Copy:* Copies this mapping to the clipboard.
-* *Paste mapping (replace):* Replaces this mapping with the mapping in the clipboard. If the clipboard contains just
+* *Paste (replace):* Replaces this mapping with the mapping in the clipboard. If the clipboard contains just
  a part of a mapping (source, mode or target), then just this part gets replaced.
-* *Paste mapping (insert below):* Creates a new mapping that's like the mapping in the clipboard and places it below
+* *Paste (insert below):* Creates a new mapping that's like the mapping in the clipboard and places it below
  this mapping.
 * *Copy part:* Copies just a part of the mapping (source, mode or target).
 * *Move to group:* Lets you move this mapping to another mapping group.
+* *Advanced:* Provides access to expert features.
+** *Copy as Lua:* Copies this mapping as Lua code. This is an indispensable tool if you want to build your mappings in Lua because it gives you a readily executable code snippet that you can adjust as desired.
+** *Copy as Lua (include default values):* Includes even default values.
+** *Paste from Lua (replaces):* Like _Paste (replace)_ but treats the clipboard content as Lua code.
+** *Paste from Lua (insert below):* Like _Paste (insert below)_ but treats the clipboard content as Lua code.
+** *Log debug info:* Logs debug information about this particular mapping.
 
 [#mapping-panel]
 === Mapping panel
