@@ -1749,7 +1749,7 @@ impl HeaderPanel {
             DataObject::Compartment(Envelope {value: c}) => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
-                    format!("Do you want to continue replacing the {} compartment with the data in the clipboard?", c.kind),
+                    format!("Do you want to continue replacing the {} with the data in the clipboard?", c.kind),
                 ) {
                     let session = self.session();
                     let mut session = session.borrow_mut();
@@ -1792,22 +1792,15 @@ impl HeaderPanel {
         let compartment = self.active_compartment();
         let pure_menu = {
             use swell_ui::menu_tree::*;
-            let compartment_label = match compartment {
-                MappingCompartment::ControllerMappings => "controller compartment",
-                MappingCompartment::MainMappings => "main compartment",
-            };
             let entries = vec![
                 item("Export session as JSON", || {
                     MenuAction::ExportSession(SerializationFormat::Json)
                 }),
-                item(format!("Export {} as JSON", compartment_label), || {
+                item(format!("Export {} as JSON", compartment), || {
                     MenuAction::ExportCompartment(SerializationFormat::Json)
                 }),
                 item(
-                    format!(
-                        "Export {} as Lua (include default values)",
-                        compartment_label
-                    ),
+                    format!("Export {} as Lua (include default values)", compartment),
                     || MenuAction::ExportCompartment(SerializationFormat::LuaWithDefaultValues),
                 ),
             ];

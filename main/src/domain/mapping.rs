@@ -1999,9 +1999,9 @@ impl QualifiedMappingId {
 pub enum MappingCompartment {
     // It's important for `RealTimeProcessor` logic that this is the first element! We use array
     // destructuring.
-    #[display(fmt = "Controller mappings")]
+    #[display(fmt = "controller compartment")]
     ControllerMappings,
-    #[display(fmt = "Main mappings")]
+    #[display(fmt = "main compartment")]
     MainMappings,
 }
 
