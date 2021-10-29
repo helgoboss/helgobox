@@ -6,7 +6,6 @@ use ts_rs::TS;
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Compartment {
-    pub kind: CompartmentKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_group: Option<Group>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -15,10 +14,4 @@ pub struct Compartment {
     pub groups: Option<Vec<Group>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mappings: Option<Vec<Mapping>>,
-}
-
-#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
-pub enum CompartmentKind {
-    Controller,
-    Main,
 }

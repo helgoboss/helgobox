@@ -7,12 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct QualifiedCompartmentModelData {
-    pub kind: MappingCompartment,
-    pub data: CompartmentModelData,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompartmentModelData {
     #[serde(default, skip_serializing_if = "is_default")]
