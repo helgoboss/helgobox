@@ -1074,9 +1074,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     ) {
         debug!(
             self.basics.logger,
-            "Updating {} {}...",
+            "Updating {} mappings in {}...",
             mappings.len(),
-            compartment
+            compartment,
         );
         self.basics.clear_last_feedback();
         let mut mappings_by_group: HashMap<GroupId, Vec<MappingId>> = HashMap::new();
@@ -1917,9 +1917,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     ) {
         debug!(
             self.basics.logger,
-            "Updating single {} {:?}...",
+            "Updating single mapping {:?} in {}...",
+            mapping.id(),
             compartment,
-            mapping.id()
         );
         self.basics.clear_last_feedback();
         // Refresh
@@ -1963,7 +1963,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     ) {
         debug!(
             self.basics.logger,
-            "Updating persistent processing state of {} {:?}", id.compartment, id.id,
+            "Updating persistent processing state of mapping {:?} in {}", id.id, id.compartment
         );
         // Sync to real-time processor
         self.basics

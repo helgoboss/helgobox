@@ -233,7 +233,7 @@ impl RealTimeProcessor {
                     permit_alloc(|| {
                         debug!(
                             self.logger,
-                            "Updating {} {}...",
+                            "Updating {} mappings in {}...",
                             mappings.len(),
                             compartment
                         );
@@ -270,9 +270,9 @@ impl RealTimeProcessor {
                     permit_alloc(|| {
                         debug!(
                             self.logger,
-                            "Updating single {} {:?}...",
+                            "Updating single mapping {:?} in {}...",
+                            m.id(),
                             compartment,
-                            m.id()
                         );
                     });
                     // Send lifecycle MIDI
@@ -293,7 +293,7 @@ impl RealTimeProcessor {
                     permit_alloc(|| {
                         debug!(
                             self.logger,
-                            "Updating persistent state of {} {:?}...", id.compartment, id.id
+                            "Updating persistent state of {:?} in {}...", id.id, id.compartment
                         );
                     });
                     // Update
