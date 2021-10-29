@@ -14,6 +14,7 @@ mod target;
 
 use crate::application::{ActivationType, VirtualControlElementType};
 use crate::domain::{GroupId, Tag};
+use crate::infrastructure::api::convert::defaults;
 use crate::infrastructure::api::schema;
 use crate::infrastructure::api::schema::ParamRef;
 use crate::infrastructure::data::{ActivationConditionData, VirtualControlElementIdData};
@@ -31,26 +32,28 @@ fn convert_control_element_id(v: VirtualControlElementIdData) -> schema::Virtual
 
 fn convert_control_element_kind(
     v: VirtualControlElementType,
-) -> Option<schema::VirtualControlElementKind> {
-    use schema::VirtualControlElementKind as T;
+    style: ConversionStyle,
+) -> Option<schema::VirtualControlElementCharacter> {
+    use schema::VirtualControlElementCharacter as T;
     use VirtualControlElementType::*;
     let res = match v {
         Multi => T::Multi,
         Button => T::Button,
     };
-    Some(res)
+    style.required_value(res)
 }
 
 fn convert_osc_argument(
     arg_index: Option<u32>,
     arg_type: OscTypeTag,
+    style: ConversionStyle,
 ) -> Option<schema::OscArgument> {
     let arg_index = arg_index?;
     let arg = schema::OscArgument {
-        index: Some(arg_index),
-        kind: Some(convert_osc_arg_kind(arg_type)),
+        index: style.required_value_with_default(arg_index, defaults::OSC_ARG_INDEX),
+        kind: style.required_value(convert_osc_arg_kind(arg_type)),
     };
-    Some(arg)
+    style.required_value(arg)
 }
 
 fn convert_osc_arg_kind(v: OscTypeTag) -> schema::OscArgKind {
@@ -74,9 +77,9 @@ fn convert_osc_arg_kind(v: OscTypeTag) -> schema::OscArgKind {
     }
 }
 
-fn convert_tags(tags: &Vec<Tag>) -> Option<Vec<String>> {
+fn convert_tags(tags: &Vec<Tag>, style: ConversionStyle) -> Option<Vec<String>> {
     let tags = tags.iter().map(|t| t.to_string()).collect();
-    Some(tags)
+    style.required_value(tags)
 }
 
 fn convert_group_id(
@@ -99,6 +102,68 @@ pub trait DataToApiConversionContext {
     fn group_key_by_id(&self, group_id: GroupId) -> Option<String>;
 }
 
+#[derive(Copy, Clone)]
+pub enum ConversionStyle {
+    Minimal,
+    IncludeDefaultValues,
+}
+
+impl ConversionStyle {
+    pub fn required_value<T: PartialEq + Default>(&self, value: T) -> Option<T> {
+        self.required_value_with_default(value, T::default())
+    }
+
+    pub fn required_value_with_default<T: PartialEq>(
+        &self,
+        value: T,
+        default_value: T,
+    ) -> Option<T> {
+        use ConversionStyle::*;
+        match self {
+            Minimal => {
+                if value == default_value {
+                    None
+                } else {
+                    Some(value)
+                }
+            }
+            IncludeDefaultValues => Some(value),
+        }
+    }
+
+    pub fn optional_value<T: PartialEq + Default>(&self, value: Option<T>) -> Option<T> {
+        self.optional_value_with_default(value, T::default())
+    }
+
+    pub fn optional_value_with_default<T: PartialEq>(
+        &self,
+        value: Option<T>,
+        default_value: T,
+    ) -> Option<T> {
+        use ConversionStyle::*;
+        match self {
+            Minimal => {
+                if let Some(v) = value {
+                    if v == default_value {
+                        None
+                    } else {
+                        Some(v)
+                    }
+                } else {
+                    None
+                }
+            }
+            IncludeDefaultValues => {
+                if value.is_some() {
+                    value
+                } else {
+                    Some(default_value)
+                }
+            }
+        }
+    }
+}
+
 fn convert_activation_condition(
     condition_data: ActivationConditionData,
 ) -> Option<schema::ActivationCondition> {
@@ -106,26 +171,39 @@ fn convert_activation_condition(
     use ActivationType::*;
     match condition_data.activation_type {
         Always => None,
-        Modifiers => Some(T::Modifier(schema::ModifierActivationCondition {
-            modifiers: IntoIterator::into_iter([
-                condition_data.modifier_condition_1,
-                condition_data.modifier_condition_2,
-            ])
-            .filter_map(|c| {
-                let state = schema::ModifierState {
-                    parameter: ParamRef::Index(c.param_index?),
-                    on: c.is_on,
-                };
-                Some(state)
-            })
-            .collect(),
-        })),
-        Bank => Some(T::Bank(schema::BankActivationCondition {
-            parameter: ParamRef::Index(condition_data.program_condition.param_index),
-            bank_index: condition_data.program_condition.bank_index,
-        })),
-        Eel => Some(T::Eel(schema::EelActivationCondition {
-            condition: condition_data.eel_condition,
-        })),
+        Modifiers => {
+            let condition = schema::ModifierActivationCondition {
+                modifiers: {
+                    let mod_conditions = IntoIterator::into_iter([
+                        condition_data.modifier_condition_1,
+                        condition_data.modifier_condition_2,
+                    ]);
+                    let mod_states: Vec<_> = mod_conditions
+                        .filter_map(|c| {
+                            let state = schema::ModifierState {
+                                parameter: ParamRef::Index(c.param_index?),
+                                on: c.is_on,
+                            };
+                            Some(state)
+                        })
+                        .collect();
+                    Some(mod_states)
+                },
+            };
+            Some(T::Modifier(condition))
+        }
+        Bank => {
+            let condition = schema::BankActivationCondition {
+                parameter: ParamRef::Index(condition_data.program_condition.param_index),
+                bank_index: condition_data.program_condition.bank_index,
+            };
+            Some(T::Bank(condition))
+        }
+        Eel => {
+            let condition = schema::EelActivationCondition {
+                condition: condition_data.eel_condition,
+            };
+            Some(T::Eel(condition))
+        }
     }
 }

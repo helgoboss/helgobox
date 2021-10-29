@@ -9,7 +9,7 @@ use crate::infrastructure::api::convert::to_data::target::convert_target;
 use crate::infrastructure::api::convert::to_data::{
     convert_activation, convert_group_key, ApiToDataConversionContext,
 };
-use crate::infrastructure::api::convert::ConversionResult;
+use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{EnabledData, MappingModelData};
 use std::convert::TryInto;
@@ -52,11 +52,15 @@ pub fn convert_mapping(
         source: convert_source(m.source.unwrap_or_default())?,
         mode: convert_glue(m.glue.unwrap_or_default())?,
         target: convert_target(m.target.unwrap_or_default(), context)?,
-        is_enabled: m.enabled.unwrap_or(true),
+        is_enabled: m.enabled.unwrap_or(defaults::MAPPING_ENABLED),
         enabled_data: {
             EnabledData {
-                control_is_enabled: m.control_enabled.unwrap_or(true),
-                feedback_is_enabled: m.feedback_enabled.unwrap_or(true),
+                control_is_enabled: m
+                    .control_enabled
+                    .unwrap_or(defaults::MAPPING_CONTROL_ENABLED),
+                feedback_is_enabled: m
+                    .feedback_enabled
+                    .unwrap_or(defaults::MAPPING_FEEDBACK_ENABLED),
             }
         },
         activation_condition_data: if let Some(cond) = m.activation_condition {
@@ -67,7 +71,9 @@ pub fn convert_mapping(
         prevent_echo_feedback,
         send_feedback_after_control,
         advanced: convert_advanced(m.on_activate, m.on_deactivate, m.unprocessed)?,
-        visible_in_projection: m.visible_in_projection.unwrap_or(true),
+        visible_in_projection: m
+            .visible_in_projection
+            .unwrap_or(defaults::MAPPING_VISIBLE_IN_PROJECTION),
     };
     Ok(v)
 }

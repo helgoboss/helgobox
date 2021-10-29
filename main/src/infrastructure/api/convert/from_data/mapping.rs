@@ -3,9 +3,9 @@ use crate::application::{
 };
 use crate::infrastructure::api::convert::from_data::{
     convert_activation_condition, convert_glue, convert_group_id, convert_source, convert_tags,
-    convert_target, DataToApiConversionContext, NewSourceProps,
+    convert_target, ConversionStyle, DataToApiConversionContext, NewSourceProps,
 };
-use crate::infrastructure::api::convert::ConversionResult;
+use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::api::schema;
 use crate::infrastructure::api::schema::LifecycleHook;
 use crate::infrastructure::data::MappingModelData;
@@ -13,30 +13,40 @@ use crate::infrastructure::data::MappingModelData;
 pub fn convert_mapping(
     data: MappingModelData,
     context: &impl DataToApiConversionContext,
+    style: ConversionStyle,
 ) -> ConversionResult<schema::Mapping> {
-    let advanced = convert_advanced(data.advanced)?;
+    let advanced = convert_advanced(data.advanced, style)?;
     let mapping = schema::Mapping {
-        key: data.key,
-        name: Some(data.name),
-        tags: convert_tags(&data.tags),
+        key: style.optional_value(data.key),
+        name: style.required_value(data.name),
+        tags: convert_tags(&data.tags, style),
         group: convert_group_id(data.group_id, context),
-        visible_in_projection: Some(data.visible_in_projection),
-        enabled: Some(data.is_enabled),
-        control_enabled: Some(data.enabled_data.control_is_enabled),
-        feedback_enabled: Some(data.enabled_data.feedback_is_enabled),
+        visible_in_projection: style.required_value_with_default(
+            data.visible_in_projection,
+            defaults::MAPPING_VISIBLE_IN_PROJECTION,
+        ),
+        enabled: style.required_value_with_default(data.is_enabled, defaults::MAPPING_ENABLED),
+        control_enabled: style.required_value_with_default(
+            data.enabled_data.control_is_enabled,
+            defaults::MAPPING_CONTROL_ENABLED,
+        ),
+        feedback_enabled: style.required_value_with_default(
+            data.enabled_data.feedback_is_enabled,
+            defaults::MAPPING_FEEDBACK_ENABLED,
+        ),
         activation_condition: convert_activation_condition(data.activation_condition_data),
-        on_activate: advanced.extension_desc.on_activate,
-        on_deactivate: advanced.extension_desc.on_deactivate,
+        on_activate: style.optional_value(advanced.extension_desc.on_activate),
+        on_deactivate: style.optional_value(advanced.extension_desc.on_deactivate),
         source: {
             let new_source_props = NewSourceProps {
                 prevent_echo_feedback: data.prevent_echo_feedback,
                 send_feedback_after_control: data.send_feedback_after_control,
             };
-            Some(convert_source(data.source, new_source_props)?)
+            style.required_value(convert_source(data.source, new_source_props, style)?)
         },
-        glue: Some(convert_glue(data.mode)?),
-        target: Some(convert_target(data.target, context)?),
-        unprocessed: advanced.unprocessed,
+        glue: style.required_value(convert_glue(data.mode, style)?),
+        target: style.required_value(convert_target(data.target, context, style)?),
+        unprocessed: style.optional_value(advanced.unprocessed),
     };
     Ok(mapping)
 }
@@ -55,6 +65,7 @@ struct ExtensionDesc {
 
 fn convert_advanced(
     advanced: Option<serde_yaml::mapping::Mapping>,
+    style: ConversionStyle,
 ) -> ConversionResult<AdvancedDesc> {
     let mut advanced = match advanced {
         None => return Ok(Default::default()),
@@ -73,7 +84,7 @@ fn convert_advanced(
     let desc = AdvancedDesc {
         extension_desc: {
             let extension_model = serde_yaml::from_value(serde_yaml::Value::Mapping(known_yaml))?;
-            convert_extension_model(extension_model)?
+            convert_extension_model(extension_model, style)?
         },
         // Sort out unknown properties as "unprocessed"
         unprocessed: {
@@ -90,16 +101,18 @@ fn convert_advanced(
 
 fn convert_extension_model(
     extension_model: MappingExtensionModel,
+    style: ConversionStyle,
 ) -> ConversionResult<ExtensionDesc> {
     let desc = ExtensionDesc {
-        on_activate: convert_lifecycle_model(extension_model.on_activate)?,
-        on_deactivate: convert_lifecycle_model(extension_model.on_deactivate)?,
+        on_activate: convert_lifecycle_model(extension_model.on_activate, style)?,
+        on_deactivate: convert_lifecycle_model(extension_model.on_deactivate, style)?,
     };
     Ok(desc)
 }
 
 fn convert_lifecycle_model(
     lifecycle_model: LifecycleModel,
+    style: ConversionStyle,
 ) -> ConversionResult<Option<schema::LifecycleHook>> {
     let hook = LifecycleHook {
         send_midi_feedback: {
@@ -108,10 +121,10 @@ fn convert_lifecycle_model(
                 .into_iter()
                 .map(convert_lifecycle_midi_message_model)
                 .collect();
-            Some(actions?)
+            style.required_value(actions?)
         },
     };
-    Ok(Some(hook))
+    Ok(style.required_value(hook))
 }
 
 fn convert_lifecycle_midi_message_model(

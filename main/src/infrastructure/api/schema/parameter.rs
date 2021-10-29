@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct Parameter {
     pub index: u32,

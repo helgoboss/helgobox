@@ -1,8 +1,8 @@
 use crate::application::{MidiSourceType, ReaperSourceType, SourceCategory};
 use crate::infrastructure::api::convert::from_data::{
-    convert_control_element_id, convert_control_element_kind, convert_osc_argument,
+    convert_control_element_id, convert_control_element_kind, convert_osc_argument, ConversionStyle,
 };
-use crate::infrastructure::api::convert::ConversionResult;
+use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::api::schema;
 use crate::infrastructure::data::SourceModelData;
 use helgoboss_learn::{
@@ -19,6 +19,7 @@ pub struct NewSourceProps {
 pub fn convert_source(
     data: SourceModelData,
     new_source_props: NewSourceProps,
+    style: ConversionStyle,
 ) -> ConversionResult<schema::Source> {
     let feedback_behavior = {
         use schema::FeedbackBehavior as T;
@@ -30,7 +31,7 @@ pub fn convert_source(
         } else {
             T::Normal
         };
-        Some(v)
+        style.required_value(v)
     };
     use SourceCategory::*;
     let source = match data.category {
@@ -43,7 +44,7 @@ pub fn convert_source(
                         feedback_behavior,
                         channel: convert_channel(data.channel),
                         controller_number: convert_controller_number(data.number),
-                        character: convert_character(data.character),
+                        character: convert_character(data.character, style),
                         fourteen_bit: data.is_14_bit,
                     };
                     schema::Source::MidiControlChangeValue(s)
@@ -91,7 +92,7 @@ pub fn convert_source(
                         number: convert_parameter_number(data.number),
                         fourteen_bit: data.is_14_bit,
                         registered: data.is_registered,
-                        character: convert_character(data.character),
+                        character: convert_character(data.character, style),
                     };
                     schema::Source::MidiParameterNumberValue(s)
                 }
@@ -116,14 +117,14 @@ pub fn convert_source(
                 Raw => {
                     let s = schema::MidiRawSource {
                         feedback_behavior,
-                        pattern: Some(data.raw_midi_pattern),
-                        character: convert_character(data.character),
+                        pattern: style.required_value(data.raw_midi_pattern),
+                        character: convert_character(data.character, style),
                     };
                     schema::Source::MidiRaw(s)
                 }
                 Script => {
                     let s = schema::MidiScriptSource {
-                        script: Some(data.midi_script),
+                        script: style.required_value(data.midi_script),
                     };
                     schema::Source::MidiScript(s)
                 }
@@ -165,9 +166,12 @@ pub fn convert_source(
         Osc => {
             let s = schema::OscSource {
                 feedback_behavior,
-                address: Some(data.osc_address_pattern),
-                argument: convert_osc_argument(data.osc_arg_index, data.osc_arg_type),
-                relative: Some(data.osc_arg_is_relative),
+                address: style.required_value(data.osc_address_pattern),
+                argument: convert_osc_argument(data.osc_arg_index, data.osc_arg_type, style),
+                relative: style.required_value_with_default(
+                    data.osc_arg_is_relative,
+                    defaults::SOURCE_OSC_IS_RELATIVE,
+                ),
             };
             schema::Source::Osc(s)
         }
@@ -185,7 +189,7 @@ pub fn convert_source(
         Virtual => {
             let s = schema::VirtualSource {
                 id: convert_control_element_id(data.control_element_index),
-                kind: convert_control_element_kind(data.control_element_type),
+                character: convert_control_element_kind(data.control_element_type, style),
             };
             schema::Source::Virtual(s)
         }
@@ -209,7 +213,10 @@ fn convert_key_number(v: Option<U14>) -> Option<u8> {
     Some(v?.get() as _)
 }
 
-fn convert_character(v: SourceCharacter) -> Option<schema::SourceCharacter> {
+fn convert_character(
+    v: SourceCharacter,
+    style: ConversionStyle,
+) -> Option<schema::SourceCharacter> {
     use schema::SourceCharacter as T;
     use SourceCharacter::*;
     let res = match v {
@@ -220,7 +227,7 @@ fn convert_character(v: SourceCharacter) -> Option<schema::SourceCharacter> {
         Encoder3 => T::Relative3,
         ToggleButton => T::StatefulButton,
     };
-    Some(res)
+    style.required_value(res)
 }
 
 fn convert_transport_msg(

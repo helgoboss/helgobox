@@ -1,6 +1,6 @@
 use crate::domain::GroupId;
 use crate::infrastructure::api::convert::to_data::{convert_activation, convert_tags};
-use crate::infrastructure::api::convert::ConversionResult;
+use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{EnabledData, GroupModelData};
 
@@ -20,8 +20,10 @@ pub fn convert_group(
         tags: convert_tags(g.tags.unwrap_or_default())?,
         enabled_data: {
             EnabledData {
-                control_is_enabled: g.control_enabled.unwrap_or(true),
-                feedback_is_enabled: g.feedback_enabled.unwrap_or(true),
+                control_is_enabled: g.control_enabled.unwrap_or(defaults::GROUP_CONTROL_ENABLED),
+                feedback_is_enabled: g
+                    .feedback_enabled
+                    .unwrap_or(defaults::GROUP_FEEDBACK_ENABLED),
             }
         },
         activation_condition_data: if let Some(cond) = g.activation_condition {

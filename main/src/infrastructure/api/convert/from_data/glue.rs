@@ -1,4 +1,5 @@
-use crate::infrastructure::api::convert::ConversionResult;
+use crate::infrastructure::api::convert::from_data::ConversionStyle;
+use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::api::schema;
 use crate::infrastructure::api::schema::PropColor;
 use crate::infrastructure::data::ModeModelData;
@@ -7,26 +8,37 @@ use helgoboss_learn::{
     OutOfRangeBehavior, TakeoverMode, UnitValue, VirtualColor,
 };
 
-pub fn convert_glue(data: ModeModelData) -> ConversionResult<schema::Glue> {
+pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionResult<schema::Glue> {
     let glue = schema::Glue {
-        absolute_mode: convert_absolute_mode(data.r#type),
-        source_interval: convert_unit_interval(data.min_source_value, data.max_source_value),
-        target_interval: convert_unit_interval(data.min_target_value, data.max_target_value),
-        reverse: Some(data.reverse_is_enabled),
-        wrap: Some(data.rotate_is_enabled),
-        jump_interval: convert_unit_interval(data.min_target_jump, data.max_target_value),
+        absolute_mode: convert_absolute_mode(data.r#type, style),
+        source_interval: style.required_value_with_default(
+            convert_unit_interval(data.min_source_value, data.max_source_value),
+            defaults::GLUE_SOURCE_INTERVAL,
+        ),
+        target_interval: style.required_value_with_default(
+            convert_unit_interval(data.min_target_value, data.max_target_value),
+            defaults::GLUE_TARGET_INTERVAL,
+        ),
+        reverse: style.required_value_with_default(data.reverse_is_enabled, defaults::GLUE_REVERSE),
+        wrap: style.required_value_with_default(data.rotate_is_enabled, defaults::GLUE_WRAP),
+        jump_interval: style.required_value_with_default(
+            convert_unit_interval(data.min_target_jump, data.max_target_value),
+            defaults::GLUE_JUMP_INTERVAL,
+        ),
         step_size_interval: {
-            let interval = schema::Interval(data.min_step_size.get(), data.max_step_size.get());
-            Some(interval)
+            style.required_value_with_default(
+                schema::Interval(data.min_step_size.get(), data.max_step_size.get()),
+                defaults::GLUE_STEP_SIZE_INTERVAL,
+            )
         },
         step_factor_interval: {
             let interval = schema::Interval(
                 (data.min_step_size.get() * 100.0) as i32,
                 (data.max_step_size.get() * 100.0) as i32,
             );
-            Some(interval)
+            style.required_value_with_default(interval, defaults::GLUE_STEP_FACTOR_INTERVAL)
         },
-        feedback_transformation: Some(data.eel_feedback_transformation),
+        feedback_transformation: style.required_value(data.eel_feedback_transformation),
         feedback_foreground_color: data.feedback_color.map(convert_virtual_color),
         feedback_background_color: data.feedback_background_color.map(convert_virtual_color),
         out_of_range_behavior: {
@@ -37,7 +49,7 @@ pub fn convert_glue(data: ModeModelData) -> ConversionResult<schema::Glue> {
                 Min => T::Min,
                 Ignore => T::Ignore,
             };
-            Some(v)
+            style.required_value(v)
         },
         takeover_mode: {
             use schema::TakeoverMode as T;
@@ -48,10 +60,13 @@ pub fn convert_glue(data: ModeModelData) -> ConversionResult<schema::Glue> {
                 Parallel => T::Parallel,
                 CatchUp => T::CatchUp,
             };
-            Some(v)
+            style.required_value(v)
         },
-        round_target_value: Some(data.round_target_value),
-        control_transformation: Some(data.eel_control_transformation),
+        round_target_value: style.required_value_with_default(
+            data.round_target_value,
+            defaults::GLUE_ROUND_TARGET_VALUE,
+        ),
+        control_transformation: style.required_value(data.eel_control_transformation),
         button_filter: {
             use schema::ButtonFilter as T;
             use ButtonUsage::*;
@@ -76,7 +91,7 @@ pub fn convert_glue(data: ModeModelData) -> ConversionResult<schema::Glue> {
             } else {
                 schema::RelativeMode::Normal
             };
-            Some(v)
+            style.required_value(v)
         },
         interaction: {
             use schema::Interaction as T;
@@ -90,7 +105,7 @@ pub fn convert_glue(data: ModeModelData) -> ConversionResult<schema::Glue> {
                 InverseTargetValueOnOnly => Some(T::InverseTargetValueOnOnly),
             }
         },
-        target_value_sequence: Some(data.target_value_sequence.to_string()),
+        target_value_sequence: style.required_value(data.target_value_sequence.to_string()),
         feedback_kind: {
             use schema::FeedbackKind as T;
             use FeedbackType::*;
@@ -98,7 +113,7 @@ pub fn convert_glue(data: ModeModelData) -> ConversionResult<schema::Glue> {
                 Numerical => T::Numeric,
                 Textual => T::Text,
             };
-            Some(v)
+            style.required_value(v)
         },
         fire_mode: {
             use schema::FireMode as T;
@@ -110,30 +125,45 @@ pub fn convert_glue(data: ModeModelData) -> ConversionResult<schema::Glue> {
                             data.min_press_millis as _,
                             data.max_press_millis as _,
                         );
-                        Some(interval)
+                        style.required_value_with_default(
+                            interval,
+                            defaults::FIRE_MODE_PRESS_DURATION_INTERVAL,
+                        )
                     },
                 }),
                 AfterTimeout => T::AfterTimeout(schema::AfterTimeoutFireMode {
-                    timeout: Some(data.min_press_millis as _),
+                    timeout: style.required_value_with_default(
+                        data.min_press_millis as _,
+                        defaults::FIRE_MODE_TIMEOUT,
+                    ),
                 }),
                 AfterTimeoutKeepFiring => {
                     T::AfterTimeoutKeepFiring(schema::AfterTimeoutKeepFiringFireMode {
-                        timeout: Some(data.min_press_millis as _),
-                        rate: Some(data.turbo_rate as _),
+                        timeout: style.required_value_with_default(
+                            data.min_press_millis as _,
+                            defaults::FIRE_MODE_TIMEOUT,
+                        ),
+                        rate: style.required_value_with_default(
+                            data.turbo_rate as _,
+                            defaults::FIRE_MODE_RATE,
+                        ),
                     })
                 }
                 OnSinglePress => T::OnSinglePress(schema::OnSinglePressFireMode {
-                    max_duration: Some(data.max_press_millis as _),
+                    max_duration: style.required_value_with_default(
+                        data.max_press_millis as _,
+                        defaults::FIRE_MODE_SINGLE_PRESS_MAX_DURATION,
+                    ),
                 }),
                 OnDoublePress => T::OnDoublePress(schema::OnDoublePressFireMode),
             };
-            Some(v)
+            style.required_value(v)
         },
     };
     Ok(glue)
 }
 
-fn convert_absolute_mode(v: AbsoluteMode) -> Option<schema::AbsoluteMode> {
+fn convert_absolute_mode(v: AbsoluteMode, style: ConversionStyle) -> Option<schema::AbsoluteMode> {
     use schema::AbsoluteMode as T;
     use AbsoluteMode::*;
     let mode = match v {
@@ -141,12 +171,11 @@ fn convert_absolute_mode(v: AbsoluteMode) -> Option<schema::AbsoluteMode> {
         IncrementalButtons => T::IncrementalButton,
         ToggleButtons => T::ToggleButton,
     };
-    Some(mode)
+    style.required_value(mode)
 }
 
-fn convert_unit_interval(min: UnitValue, max: UnitValue) -> Option<schema::Interval<f64>> {
-    let interval = schema::Interval(min.get(), max.get());
-    Some(interval)
+fn convert_unit_interval(min: UnitValue, max: UnitValue) -> schema::Interval<f64> {
+    schema::Interval(min.get(), max.get())
 }
 
 fn convert_virtual_color(v: VirtualColor) -> schema::VirtualColor {

@@ -1,3 +1,4 @@
+use crate::infrastructure::api::convert::defaults;
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::ModeModelData;
@@ -5,9 +6,12 @@ use helgoboss_learn::{SoftSymmetricUnitValue, UnitValue};
 use std::convert::TryInto;
 
 pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
-    let source_interval = convert_unit_value_interval(g.source_interval.unwrap_or(UNIT_INTERVAL))?;
-    let target_interval = convert_unit_value_interval(g.target_interval.unwrap_or(UNIT_INTERVAL))?;
-    let jump_interval = convert_unit_value_interval(g.jump_interval.unwrap_or(UNIT_INTERVAL))?;
+    let source_interval =
+        convert_unit_value_interval(g.source_interval.unwrap_or(defaults::GLUE_SOURCE_INTERVAL))?;
+    let target_interval =
+        convert_unit_value_interval(g.target_interval.unwrap_or(defaults::GLUE_TARGET_INTERVAL))?;
+    let jump_interval =
+        convert_unit_value_interval(g.jump_interval.unwrap_or(defaults::GLUE_JUMP_INTERVAL))?;
     let conv_step_size_interval = if let Some(ssi) = g.step_size_interval {
         Some(convert_step_size_interval(ssi)?)
     } else {
@@ -21,7 +25,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
     }
     let step_interval = conv_step_factor_interval
         .or(conv_step_size_interval)
-        .unwrap_or_else(|| convert_step_size_interval(DEFAULT_STEP_SIZE_INTERVAL).unwrap());
+        .unwrap_or_else(|| convert_step_size_interval(defaults::GLUE_STEP_SIZE_INTERVAL).unwrap());
     let fire_mode = g.fire_mode.unwrap_or_default();
     let data = ModeModelData {
         r#type: {
@@ -44,30 +48,43 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         min_press_millis: {
             use FireMode::*;
             match &fire_mode {
-                Normal(m) => m.press_duration_interval.unwrap_or_default().0 as u64,
-                AfterTimeout(m) => m.timeout.unwrap_or_default() as u64,
-                AfterTimeoutKeepFiring(m) => m.timeout.unwrap_or_default() as u64,
+                Normal(m) => {
+                    m.press_duration_interval
+                        .unwrap_or(defaults::FIRE_MODE_PRESS_DURATION_INTERVAL)
+                        .0 as u64
+                }
+                AfterTimeout(m) => m.timeout.unwrap_or(defaults::FIRE_MODE_TIMEOUT) as u64,
+                AfterTimeoutKeepFiring(m) => {
+                    m.timeout.unwrap_or(defaults::FIRE_MODE_TIMEOUT) as u64
+                }
                 _ => 0,
             }
         },
         max_press_millis: {
             use FireMode::*;
             match &fire_mode {
-                Normal(m) => m.press_duration_interval.unwrap_or_default().1 as u64,
-                OnSinglePress(m) => m.max_duration.unwrap_or_default() as u64,
+                Normal(m) => {
+                    m.press_duration_interval
+                        .unwrap_or(defaults::FIRE_MODE_PRESS_DURATION_INTERVAL)
+                        .1 as u64
+                }
+                OnSinglePress(m) => m
+                    .max_duration
+                    .unwrap_or(defaults::FIRE_MODE_SINGLE_PRESS_MAX_DURATION)
+                    as u64,
                 _ => 0,
             }
         },
         turbo_rate: {
             use FireMode::*;
             match &fire_mode {
-                AfterTimeoutKeepFiring(m) => m.rate.unwrap_or_default() as u64,
+                AfterTimeoutKeepFiring(m) => m.rate.unwrap_or(defaults::FIRE_MODE_RATE) as u64,
                 _ => 0,
             }
         },
         eel_control_transformation: g.control_transformation.unwrap_or_default(),
         eel_feedback_transformation: g.feedback_transformation.unwrap_or_default(),
-        reverse_is_enabled: g.reverse.unwrap_or_default(),
+        reverse_is_enabled: g.reverse.unwrap_or(defaults::GLUE_REVERSE),
         feedback_color: g.feedback_foreground_color.map(convert_virtual_color),
         feedback_background_color: g.feedback_background_color.map(convert_virtual_color),
         ignore_out_of_range_source_values_is_enabled: false,
@@ -91,7 +108,9 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
                 OnDoublePress(_) => T::OnDoublePress,
             }
         },
-        round_target_value: g.round_target_value.unwrap_or_default(),
+        round_target_value: g
+            .round_target_value
+            .unwrap_or(defaults::GLUE_ROUND_TARGET_VALUE),
         scale_mode_enabled: false,
         takeover_mode: {
             use helgoboss_learn::TakeoverMode as T;
@@ -127,7 +146,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
                 T::Both
             }
         },
-        rotate_is_enabled: g.wrap.unwrap_or_default(),
+        rotate_is_enabled: g.wrap.unwrap_or(defaults::GLUE_WRAP),
         make_absolute_enabled: g.relative_mode.unwrap_or_default() == RelativeMode::MakeAbsolute,
         group_interaction: {
             use helgoboss_learn::GroupInteraction as T;
@@ -202,6 +221,3 @@ fn convert_virtual_color(color: VirtualColor) -> helgoboss_learn::VirtualColor {
 fn convert_rgb_color(color: RgbColor) -> helgoboss_learn::RgbColor {
     helgoboss_learn::RgbColor::new(color.0, color.1, color.2)
 }
-
-const UNIT_INTERVAL: Interval<f64> = Interval(0.0, 1.0);
-const DEFAULT_STEP_SIZE_INTERVAL: Interval<f64> = Interval(0.01, 0.05);

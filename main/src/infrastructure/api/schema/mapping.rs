@@ -3,7 +3,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-#[derive(Default, Serialize, Deserialize, JsonSchema)]
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Mapping {
     /// An optional key that you can assign to this mapping in order to refer
@@ -42,13 +42,13 @@ pub struct Mapping {
     pub unprocessed: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema, TS)]
 pub struct LifecycleHook {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub send_midi_feedback: Option<Vec<SendMidiFeedbackAction>>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(tag = "kind")]
 pub enum SendMidiFeedbackAction {
     Raw { message: RawMidiMessage },
@@ -61,7 +61,7 @@ pub enum RawMidiMessage {
     ByteArray(Vec<u8>),
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(tag = "kind")]
 pub enum ActivationCondition {
     Modifier(ModifierActivationCondition),
@@ -69,27 +69,27 @@ pub enum ActivationCondition {
     Eel(EelActivationCondition),
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct ModifierActivationCondition {
-    pub modifiers: Vec<ModifierState>,
+    pub modifiers: Option<Vec<ModifierState>>,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct ModifierState {
     pub parameter: ParamRef,
     pub on: bool,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct BankActivationCondition {
     pub parameter: ParamRef,
     pub bank_index: u32,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct EelActivationCondition {
     pub condition: String,
@@ -109,19 +109,19 @@ pub enum VirtualControlElementId {
     Named(String),
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
-pub enum VirtualControlElementKind {
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+pub enum VirtualControlElementCharacter {
     Multi,
     Button,
 }
 
-impl Default for VirtualControlElementKind {
+impl Default for VirtualControlElementCharacter {
     fn default() -> Self {
         Self::Multi
     }
 }
 
-#[derive(Copy, Clone, Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct OscArgument {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -130,7 +130,7 @@ pub struct OscArgument {
     pub kind: Option<OscArgKind>,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 pub enum OscArgKind {
     Float,
     Double,

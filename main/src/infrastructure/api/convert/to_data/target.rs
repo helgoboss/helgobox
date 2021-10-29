@@ -12,7 +12,7 @@ use crate::infrastructure::api::convert::to_data::{
     convert_control_element_id, convert_control_element_type, convert_group_key,
     convert_osc_arg_type, convert_tags, ApiToDataConversionContext,
 };
-use crate::infrastructure::api::convert::ConversionResult;
+use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{
     serialize_fx, serialize_fx_parameter, serialize_track, serialize_track_route, BookmarkData,
@@ -79,7 +79,7 @@ pub fn convert_target(
                 enable_only_if_track_is_selected: track_desc
                     .as_ref()
                     .map(|d| d.track_must_be_selected)
-                    .unwrap_or_default(),
+                    .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
                 track_data: track_desc.map(|d| d.track_data).unwrap_or_default(),
                 ..init(d.commons)
             }
@@ -93,20 +93,28 @@ pub fn convert_target(
         Target::CycleThroughTracks(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::SelectedTrack,
-            scroll_arrange_view: d.scroll_arrange_view.unwrap_or_default(),
-            scroll_mixer: d.scroll_mixer.unwrap_or_default(),
+            scroll_arrange_view: d
+                .scroll_arrange_view
+                .unwrap_or(defaults::TARGET_TRACK_SELECTION_SCROLL_ARRANGE_VIEW),
+            scroll_mixer: d
+                .scroll_mixer
+                .unwrap_or(defaults::TARGET_TRACK_SELECTION_SCROLL_MIXER),
             ..init(d.commons)
         },
         Target::Seek(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::Seek,
             seek_options: SeekOptions {
-                use_time_selection: d.use_time_selection.unwrap_or(false),
-                use_loop_points: d.use_loop_points.unwrap_or(false),
-                use_regions: d.use_regions.unwrap_or(false),
-                use_project: d.use_project.unwrap_or(true),
-                move_view: d.move_view.unwrap_or(true),
-                seek_play: d.seek_play.unwrap_or(true),
+                use_time_selection: d
+                    .use_time_selection
+                    .unwrap_or(defaults::TARGET_SEEK_USE_TIME_SELECTION),
+                use_loop_points: d
+                    .use_loop_points
+                    .unwrap_or(defaults::TARGET_SEEK_USE_LOOP_POINTS),
+                use_regions: d.use_regions.unwrap_or(defaults::TARGET_SEEK_USE_REGIONS),
+                use_project: d.use_project.unwrap_or(defaults::TARGET_SEEK_USE_PROJECT),
+                move_view: d.move_view.unwrap_or(defaults::TARGET_SEEK_MOVE_VIEW),
+                seek_play: d.seek_play.unwrap_or(defaults::TARGET_SEEK_SEEK_PLAY),
                 feedback_resolution: convert_feedback_resolution(
                     d.feedback_resolution.unwrap_or_default(),
                 ),
@@ -147,8 +155,12 @@ pub fn convert_target(
                 }
             },
             seek_options: SeekOptions {
-                use_time_selection: d.set_time_selection.unwrap_or(false),
-                use_loop_points: d.set_loop_points.unwrap_or(false),
+                use_time_selection: d
+                    .set_time_selection
+                    .unwrap_or(defaults::TARGET_BOOKMARK_SET_TIME_SELECTION),
+                use_loop_points: d
+                    .set_loop_points
+                    .unwrap_or(defaults::TARGET_BOOKMARK_SET_LOOP_POINTS),
                 ..Default::default()
             },
             ..init(d.commons)
@@ -172,7 +184,9 @@ pub fn convert_target(
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
-                poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
+                poll_for_feedback: d
+                    .poll_for_feedback
+                    .unwrap_or(defaults::TARGET_POLL_FOR_FEEDBACK),
                 ..init(d.commons)
             }
         }
@@ -205,7 +219,9 @@ pub fn convert_target(
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
-                poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
+                poll_for_feedback: d
+                    .poll_for_feedback
+                    .unwrap_or(defaults::TARGET_POLL_FOR_FEEDBACK),
                 ..init(d.commons)
             }
         }
@@ -217,8 +233,12 @@ pub fn convert_target(
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
-                scroll_arrange_view: d.scroll_arrange_view.unwrap_or_default(),
-                scroll_mixer: d.scroll_mixer.unwrap_or_default(),
+                scroll_arrange_view: d
+                    .scroll_arrange_view
+                    .unwrap_or(defaults::TARGET_TRACK_SELECTION_SCROLL_ARRANGE_VIEW),
+                scroll_mixer: d
+                    .scroll_mixer
+                    .unwrap_or(defaults::TARGET_TRACK_SELECTION_SCROLL_MIXER),
                 ..init(d.commons)
             }
         }
@@ -292,7 +312,9 @@ pub fn convert_target(
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_exclusivity: convert_track_exclusivity(d.exclusivity),
-                poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
+                poll_for_feedback: d
+                    .poll_for_feedback
+                    .unwrap_or(defaults::TARGET_POLL_FOR_FEEDBACK),
                 track_area: {
                     match d.area {
                         TrackArea::Tcp => RealearnTrackArea::Tcp,
@@ -424,7 +446,9 @@ pub fn convert_target(
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
-                poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
+                poll_for_feedback: d
+                    .poll_for_feedback
+                    .unwrap_or(defaults::TARGET_POLL_FOR_FEEDBACK),
                 track_automation_mode: convert_automation_mode(d.mode),
                 ..init(d.commons)
             }
@@ -438,7 +462,9 @@ pub fn convert_target(
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
-                poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
+                poll_for_feedback: d
+                    .poll_for_feedback
+                    .unwrap_or(defaults::TARGET_POLL_FOR_FEEDBACK),
                 ..init(d.commons)
             }
         }
@@ -451,7 +477,9 @@ pub fn convert_target(
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
-                poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
+                poll_for_feedback: d
+                    .poll_for_feedback
+                    .unwrap_or(defaults::TARGET_POLL_FOR_FEEDBACK),
                 ..init(d.commons)
             }
         }
@@ -464,7 +492,9 @@ pub fn convert_target(
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 track_route_data: route_desc.track_route_data,
-                poll_for_feedback: d.poll_for_feedback.unwrap_or(true),
+                poll_for_feedback: d
+                    .poll_for_feedback
+                    .unwrap_or(defaults::TARGET_POLL_FOR_FEEDBACK),
                 ..init(d.commons)
             }
         }
@@ -504,8 +534,8 @@ pub fn convert_target(
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 slot_index: clip_desc.slot_index,
                 transport_action: convert_transport_action(d.action),
-                next_bar: d.next_bar.unwrap_or(false),
-                buffered: d.buffered.unwrap_or(false),
+                next_bar: d.next_bar.unwrap_or(defaults::TARGET_CLIP_NEXT_BAR),
+                buffered: d.buffered.unwrap_or(defaults::TARGET_CLIP_BUFFERED),
                 ..init(d.commons)
             }
         }
@@ -546,7 +576,7 @@ pub fn convert_target(
         Target::SendOsc(d) => {
             let (osc_arg_index, osc_arg_type) = if let Some(a) = d.argument {
                 (
-                    Some(a.index.unwrap_or(0)),
+                    Some(a.index.unwrap_or(defaults::OSC_ARG_INDEX)),
                     convert_osc_arg_type(a.kind.unwrap_or_default()),
                 )
             } else {
@@ -599,7 +629,9 @@ pub fn convert_target(
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::LoadMappingSnapshot,
             tags: convert_tags(d.tags.unwrap_or_default())?,
-            active_mappings_only: d.active_mappings_only.unwrap_or(false),
+            active_mappings_only: d
+                .active_mappings_only
+                .unwrap_or(defaults::TARGET_LOAD_MAPPING_SNAPSHOT_ACTIVE_MAPPINGS_ONLY),
             ..init(d.commons)
         },
         Target::CycleThroughGroupMappings(d) => TargetModelData {
@@ -618,7 +650,7 @@ pub fn convert_target(
         },
         Target::Virtual(d) => TargetModelData {
             category: TargetCategory::Virtual,
-            control_element_type: convert_control_element_type(d.kind.unwrap_or_default()),
+            control_element_type: convert_control_element_type(d.character.unwrap_or_default()),
             control_element_index: convert_control_element_id(d.id.clone()),
             ..Default::default()
         },
@@ -706,18 +738,23 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
                 r#type: VirtualTrackType::This,
                 ..Default::default()
             },
-            commons.track_must_be_selected.unwrap_or_default(),
+            commons
+                .track_must_be_selected
+                .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
         ),
         Master { commons } => (
             TrackPropValues {
                 r#type: VirtualTrackType::Master,
                 ..Default::default()
             },
-            commons.track_must_be_selected.unwrap_or_default(),
+            commons
+                .track_must_be_selected
+                .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
         ),
         Selected { allow_multiple } => (
             TrackPropValues {
-                r#type: if allow_multiple.unwrap_or_default() {
+                r#type: if allow_multiple.unwrap_or(defaults::TARGET_TRACK_SELECTED_ALLOW_MULTIPLE)
+                {
                     VirtualTrackType::AllSelected
                 } else {
                     VirtualTrackType::Selected
@@ -735,7 +772,9 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
                 expression,
                 ..Default::default()
             },
-            commons.track_must_be_selected.unwrap_or_default(),
+            commons
+                .track_must_be_selected
+                .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
         ),
         ById { commons, id } => (
             TrackPropValues {
@@ -747,7 +786,9 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
                 },
                 ..Default::default()
             },
-            commons.track_must_be_selected.unwrap_or_default(),
+            commons
+                .track_must_be_selected
+                .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
         ),
         ByIndex { commons, index } => (
             TrackPropValues {
@@ -755,7 +796,9 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
                 index,
                 ..Default::default()
             },
-            commons.track_must_be_selected.unwrap_or_default(),
+            commons
+                .track_must_be_selected
+                .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
         ),
         ByName {
             commons,
@@ -763,7 +806,7 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
             allow_multiple,
         } => (
             TrackPropValues {
-                r#type: if allow_multiple.unwrap_or_default() {
+                r#type: if allow_multiple.unwrap_or(defaults::TARGET_BY_NAME_ALLOW_MULTIPLE) {
                     VirtualTrackType::AllByName
                 } else {
                     VirtualTrackType::ByName
@@ -771,7 +814,9 @@ fn convert_track_desc(t: TrackDescriptor) -> ConversionResult<TrackDesc> {
                 name,
                 ..Default::default()
             },
-            commons.track_must_be_selected.unwrap_or_default(),
+            commons
+                .track_must_be_selected
+                .unwrap_or(defaults::TARGET_TRACK_MUST_BE_SELECTED),
         ),
     };
     let desc = TrackDesc {
@@ -873,7 +918,9 @@ fn convert_fx_desc(t: FxDescriptor) -> ConversionResult<FxDesc> {
                 r#type: VirtualFxType::This,
                 ..Default::default()
             },
-            commons.fx_must_have_focus.unwrap_or_default(),
+            commons
+                .fx_must_have_focus
+                .unwrap_or(defaults::TARGET_FX_MUST_HAVE_FOCUS),
         ),
         Dynamic {
             commons,
@@ -886,7 +933,9 @@ fn convert_fx_desc(t: FxDescriptor) -> ConversionResult<FxDesc> {
                 expression,
                 ..Default::default()
             },
-            commons.fx_must_have_focus.unwrap_or_default(),
+            commons
+                .fx_must_have_focus
+                .unwrap_or(defaults::TARGET_FX_MUST_HAVE_FOCUS),
         ),
         ById { commons, chain, id } => (
             convert_chain_desc(chain)?,
@@ -899,7 +948,9 @@ fn convert_fx_desc(t: FxDescriptor) -> ConversionResult<FxDesc> {
                 },
                 ..Default::default()
             },
-            commons.fx_must_have_focus.unwrap_or_default(),
+            commons
+                .fx_must_have_focus
+                .unwrap_or(defaults::TARGET_FX_MUST_HAVE_FOCUS),
         ),
         ByIndex {
             commons,
@@ -912,7 +963,9 @@ fn convert_fx_desc(t: FxDescriptor) -> ConversionResult<FxDesc> {
                 index,
                 ..Default::default()
             },
-            commons.fx_must_have_focus.unwrap_or_default(),
+            commons
+                .fx_must_have_focus
+                .unwrap_or(defaults::TARGET_FX_MUST_HAVE_FOCUS),
         ),
         ByName {
             commons,
@@ -922,7 +975,7 @@ fn convert_fx_desc(t: FxDescriptor) -> ConversionResult<FxDesc> {
         } => (
             convert_chain_desc(chain)?,
             FxPropValues {
-                r#type: if allow_multiple.unwrap_or_default() {
+                r#type: if allow_multiple.unwrap_or(defaults::TARGET_BY_NAME_ALLOW_MULTIPLE) {
                     VirtualFxType::AllByName
                 } else {
                     VirtualFxType::ByName
@@ -930,7 +983,9 @@ fn convert_fx_desc(t: FxDescriptor) -> ConversionResult<FxDesc> {
                 name,
                 ..Default::default()
             },
-            commons.fx_must_have_focus.unwrap_or_default(),
+            commons
+                .fx_must_have_focus
+                .unwrap_or(defaults::TARGET_FX_MUST_HAVE_FOCUS),
         ),
     };
     let desc = FxDesc {

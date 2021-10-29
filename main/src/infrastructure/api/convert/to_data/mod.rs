@@ -3,8 +3,8 @@ use crate::application::{BankConditionModel, ModifierConditionModel};
 use crate::domain::GroupId;
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::api::schema::{
-    ActivationCondition, ModifierState, OscArgKind, ParamRef, VirtualControlElementId,
-    VirtualControlElementKind,
+    ActivationCondition, ModifierState, OscArgKind, ParamRef, VirtualControlElementCharacter,
+    VirtualControlElementId,
 };
 use crate::infrastructure::data;
 use crate::infrastructure::data::ActivationConditionData;
@@ -22,10 +22,10 @@ mod source;
 mod target;
 
 fn convert_control_element_type(
-    s: VirtualControlElementKind,
+    s: VirtualControlElementCharacter,
 ) -> application::VirtualControlElementType {
     use application::VirtualControlElementType as T;
-    use VirtualControlElementKind::*;
+    use VirtualControlElementCharacter::*;
     match s {
         Multi => T::Multi,
         Button => T::Button,
@@ -107,8 +107,12 @@ fn convert_activation(
                 };
             ActivationConditionData {
                 activation_type: ActivationType::Modifiers,
-                modifier_condition_1: create_model(c.modifiers.get(0))?,
-                modifier_condition_2: create_model(c.modifiers.get(1))?,
+                modifier_condition_1: create_model(
+                    c.modifiers.as_ref().map(|m| m.get(0)).unwrap_or_default(),
+                )?,
+                modifier_condition_2: create_model(
+                    c.modifiers.as_ref().map(|m| m.get(1)).unwrap_or_default(),
+                )?,
                 ..Default::default()
             }
         }

@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct Glue {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -51,7 +51,7 @@ pub struct Glue {
     pub fire_mode: Option<FireMode>,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 pub enum AbsoluteMode {
     Normal,
     IncrementalButton,
@@ -76,7 +76,7 @@ impl Default for RelativeMode {
     }
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(tag = "kind")]
 pub enum FireMode {
     Normal(NormalFireMode),
@@ -92,21 +92,21 @@ impl Default for FireMode {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct NormalFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub press_duration_interval: Option<Interval<u32>>,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct AfterTimeoutFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout: Option<u32>,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct AfterTimeoutKeepFiringFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -114,34 +114,34 @@ pub struct AfterTimeoutKeepFiringFireMode {
     pub rate: Option<u32>,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct OnSinglePressFireMode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_duration: Option<u32>,
 }
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct OnDoublePressFireMode;
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Debug, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(untagged)]
 pub enum VirtualColor {
     Rgb(RgbColor),
     Prop(PropColor),
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 pub struct RgbColor(pub u8, pub u8, pub u8);
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct PropColor {
     pub prop: String,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 pub enum OutOfRangeBehavior {
     MinOrMax,
     Min,
@@ -154,7 +154,7 @@ impl Default for OutOfRangeBehavior {
     }
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 pub enum TakeoverMode {
     PickUp,
     LongTimeNoSee,
@@ -168,19 +168,19 @@ impl Default for TakeoverMode {
     }
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 pub enum ButtonFilter {
     PressOnly,
     ReleaseOnly,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 pub enum EncoderFilter {
     IncrementOnly,
     DecrementOnly,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 pub enum Interaction {
     SameControl,
     SameTargetValue,
@@ -189,7 +189,7 @@ pub enum Interaction {
     InverseTargetValueOnOnly,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 pub enum FeedbackKind {
     Numeric,
     Text,
@@ -201,5 +201,5 @@ impl Default for FeedbackKind {
     }
 }
 
-#[derive(Copy, Clone, Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema, TS)]
 pub struct Interval<T>(pub T, pub T);

@@ -7,7 +7,7 @@ use derive_more::Display;
 use mlua::{ChunkMode, HookTriggers};
 use serde::{Deserialize, Serialize};
 
-use crate::infrastructure::api::convert::from_data::DataToApiConversionContext;
+use crate::infrastructure::api::convert::from_data::{ConversionStyle, DataToApiConversionContext};
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
 use crate::infrastructure::api::schema;
@@ -93,16 +93,19 @@ impl ApiObject {
     pub fn try_from_data_object(
         data_object: DataObject,
         conversion_context: &impl DataToApiConversionContext,
+        conversion_style: ConversionStyle,
     ) -> Result<Self, Box<dyn Error>> {
         let api_object = match data_object {
             DataObject::MainCompartment(Envelope { value: c }) => {
-                let api_compartment = from_data::convert_compartment(*c, conversion_context)?;
+                let api_compartment =
+                    from_data::convert_compartment(*c, conversion_context, conversion_style)?;
                 ApiObject::MainCompartment(Envelope {
                     value: Box::new(api_compartment),
                 })
             }
             DataObject::ControllerCompartment(Envelope { value: c }) => {
-                let api_compartment = from_data::convert_compartment(*c, conversion_context)?;
+                let api_compartment =
+                    from_data::convert_compartment(*c, conversion_context, conversion_style)?;
                 ApiObject::ControllerCompartment(Envelope {
                     value: Box::new(api_compartment),
                 })
@@ -111,14 +114,15 @@ impl ApiObject {
             DataObject::Mappings(Envelope { value: mappings }) => {
                 let api_mappings: Result<Vec<_>, _> = mappings
                     .into_iter()
-                    .map(|m| from_data::convert_mapping(m, conversion_context))
+                    .map(|m| from_data::convert_mapping(m, conversion_context, conversion_style))
                     .collect();
                 ApiObject::Mappings(Envelope {
                     value: api_mappings?,
                 })
             }
             DataObject::Mapping(Envelope { value: m }) => {
-                let api_mapping = from_data::convert_mapping(*m, conversion_context)?;
+                let api_mapping =
+                    from_data::convert_mapping(*m, conversion_context, conversion_style)?;
                 ApiObject::Mapping(Envelope {
                     value: Box::new(api_mapping),
                 })
@@ -182,11 +186,31 @@ pub fn serialize_data_object_to_json(object: DataObject) -> Result<String, Box<d
     Ok(serde_json::to_string_pretty(&object).map_err(|_| "couldn't serialize object")?)
 }
 
+pub enum SerializationFormat {
+    JsonDataObject,
+    LuaApiObject(ConversionStyle),
+}
+
+pub fn serialize_data_object(
+    data_object: DataObject,
+    conversion_context: &impl DataToApiConversionContext,
+    format: SerializationFormat,
+) -> Result<String, Box<dyn Error>> {
+    match format {
+        SerializationFormat::JsonDataObject => serialize_data_object_to_json(data_object),
+        SerializationFormat::LuaApiObject(style) => {
+            serialize_data_object_to_lua(data_object, conversion_context, style)
+        }
+    }
+}
+
 pub fn serialize_data_object_to_lua(
     data_object: DataObject,
     conversion_context: &impl DataToApiConversionContext,
+    conversion_style: ConversionStyle,
 ) -> Result<String, Box<dyn Error>> {
-    let api_object = ApiObject::try_from_data_object(data_object, conversion_context)?;
+    let api_object =
+        ApiObject::try_from_data_object(data_object, conversion_context, conversion_style)?;
     Ok(lua_serializer::to_string(&api_object)?)
 }
 
