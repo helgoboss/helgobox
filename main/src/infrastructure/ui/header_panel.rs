@@ -28,7 +28,6 @@ use crate::domain::{
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
     CompartmentInSession, CompartmentModelData, ExtendedPresetManager, MappingModelData, OscDevice,
-    QualifiedCompartmentModelData,
 };
 use crate::infrastructure::plugin::{
     warn_about_failed_server_start, App, RealearnPluginParameters,
@@ -1746,19 +1745,11 @@ impl HeaderPanel {
                     plugin_parameters.apply_session_data(&*d);
                 }
             }
-            DataObject::Compartment(Envelope {value: c}) => {
-                if self.view.require_window().confirm(
-                    "ReaLearn",
-                    format!("Do you want to continue replacing the {} with the data in the clipboard?", c.kind),
-                ) {
-                    let session = self.session();
-                    let mut session = session.borrow_mut();
-                    // For now, let's assume that the imported data is always tailored to the running
-                    // ReaLearn version.
-                    let version = App::version();
-                    let model = c.data.to_model(Some(version), c.kind);
-                    session.replace_compartment(c.kind, Some(model), self.session.clone());
-                }
+            DataObject::MainCompartment(Envelope {value}) => {
+                self.import_compartment(MappingCompartment::MainMappings, value);
+            }
+            DataObject::ControllerCompartment(Envelope {value}) => {
+                self.import_compartment(MappingCompartment::ControllerMappings, value);
             }
             DataObject::Mappings{..} => {
                 return Err("The clipboard contains just a lose collection of mappings. Please import them using the context menus.".into())
@@ -1771,6 +1762,24 @@ impl HeaderPanel {
             }
         }
         Ok(())
+    }
+
+    fn import_compartment(&self, compartment: MappingCompartment, data: Box<CompartmentModelData>) {
+        if self.view.require_window().confirm(
+            "ReaLearn",
+            format!(
+                "Do you want to continue replacing the {} with the data in the clipboard?",
+                compartment
+            ),
+        ) {
+            let session = self.session();
+            let mut session = session.borrow_mut();
+            // For now, let's assume that the imported data is always tailored to the running
+            // ReaLearn version.
+            let version = App::version();
+            let model = data.to_model(Some(version), compartment);
+            session.replace_compartment(compartment, Some(model), self.session.clone());
+        }
     }
 
     pub fn export_to_clipboard(&self) -> Result<(), Box<dyn Error>> {
@@ -1843,13 +1852,15 @@ impl HeaderPanel {
                 let session = session.borrow();
                 let model = session.extract_compartment_model(compartment);
                 let data = CompartmentModelData::from_model(&model);
-                let qualified_data = QualifiedCompartmentModelData {
-                    kind: compartment,
-                    data,
+                let envelope = Envelope {
+                    value: Box::new(data),
                 };
-                let data_object = DataObject::Compartment(Envelope {
-                    value: Box::new(qualified_data),
-                });
+                let data_object = match compartment {
+                    MappingCompartment::ControllerMappings => {
+                        DataObject::ControllerCompartment(envelope)
+                    }
+                    MappingCompartment::MainMappings => DataObject::MainCompartment(envelope),
+                };
                 let text = match format {
                     SerializationFormat::Json => serialize_data_object_to_json(data_object)?,
                     SerializationFormat::LuaWithDefaultValues => {

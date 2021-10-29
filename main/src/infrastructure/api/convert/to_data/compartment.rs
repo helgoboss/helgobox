@@ -7,11 +7,9 @@ use crate::infrastructure::api::convert::to_data::parameter::convert_parameter;
 use crate::infrastructure::api::convert::to_data::{convert_mapping, ApiToDataConversionContext};
 use crate::infrastructure::api::convert::{convert_multiple, ConversionResult};
 use crate::infrastructure::api::schema::*;
-use crate::infrastructure::data::{
-    CompartmentModelData, GroupModelData, QualifiedCompartmentModelData,
-};
+use crate::infrastructure::data::{CompartmentModelData, GroupModelData};
 
-pub fn convert_compartment(c: Compartment) -> ConversionResult<QualifiedCompartmentModelData> {
+pub fn convert_compartment(c: Compartment) -> ConversionResult<CompartmentModelData> {
     struct ConversionContext {
         parameters: HashMap<u32, ParameterSetting>,
         groups: Vec<GroupModelData>,
@@ -47,31 +45,21 @@ pub fn convert_compartment(c: Compartment) -> ConversionResult<QualifiedCompartm
         convert_group(g, false, |key| param_index_by_key(&parameters, key))
     })?;
     let context = ConversionContext { parameters, groups };
-    let data = QualifiedCompartmentModelData {
-        kind: {
-            use crate::domain::MappingCompartment as T;
-            use CompartmentKind::*;
-            match c.kind {
-                Controller => T::ControllerMappings,
-                Main => T::MainMappings,
-            }
-        },
-        data: CompartmentModelData {
-            default_group: Some(convert_group(
-                c.default_group.unwrap_or_default(),
-                true,
-                |key| context.param_index_by_key(key),
-            )?),
-            mappings: convert_multiple(c.mappings.unwrap_or_default(), |m| {
-                convert_mapping(m, &context)
-            })?,
-            parameters: context
-                .parameters
-                .iter()
-                .map(|(key, value)| (key.to_string(), value.clone()))
-                .collect(),
-            groups: context.groups,
-        },
+    let data = CompartmentModelData {
+        default_group: Some(convert_group(
+            c.default_group.unwrap_or_default(),
+            true,
+            |key| context.param_index_by_key(key),
+        )?),
+        mappings: convert_multiple(c.mappings.unwrap_or_default(), |m| {
+            convert_mapping(m, &context)
+        })?,
+        parameters: context
+            .parameters
+            .iter()
+            .map(|(key, value)| (key.to_string(), value.clone()))
+            .collect(),
+        groups: context.groups,
     };
     Ok(data)
 }

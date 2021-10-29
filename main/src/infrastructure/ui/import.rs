@@ -12,7 +12,7 @@ use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
 use crate::infrastructure::api::schema;
 use crate::infrastructure::data::{
-    MappingModelData, ModeModelData, QualifiedCompartmentModelData, SessionData, SourceModelData,
+    CompartmentModelData, MappingModelData, ModeModelData, SessionData, SourceModelData,
     TargetModelData,
 };
 use crate::infrastructure::ui::lua_serializer;
@@ -26,7 +26,8 @@ pub struct Envelope<T> {
 #[serde(tag = "kind")]
 pub enum DataObject {
     Session(Envelope<Box<SessionData>>),
-    Compartment(Envelope<Box<QualifiedCompartmentModelData>>),
+    MainCompartment(Envelope<Box<CompartmentModelData>>),
+    ControllerCompartment(Envelope<Box<CompartmentModelData>>),
     Mappings(Envelope<Vec<MappingModelData>>),
     Mapping(Envelope<Box<MappingModelData>>),
     Source(Envelope<Box<SourceModelData>>),
@@ -37,7 +38,8 @@ pub enum DataObject {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum ApiObject {
-    Compartment(Envelope<Box<schema::Compartment>>),
+    MainCompartment(Envelope<Box<schema::Compartment>>),
+    ControllerCompartment(Envelope<Box<schema::Compartment>>),
     Mappings(Envelope<Vec<schema::Mapping>>),
     Mapping(Envelope<Box<schema::Mapping>>),
 }
@@ -48,9 +50,15 @@ impl DataObject {
         conversion_context: &impl ApiToDataConversionContext,
     ) -> Result<Self, Box<dyn Error>> {
         let data_object = match api_object {
-            ApiObject::Compartment(Envelope { value: c }) => {
+            ApiObject::MainCompartment(Envelope { value: c }) => {
                 let data_compartment = to_data::convert_compartment(*c)?;
-                DataObject::Compartment(Envelope {
+                DataObject::MainCompartment(Envelope {
+                    value: Box::new(data_compartment),
+                })
+            }
+            ApiObject::ControllerCompartment(Envelope { value: c }) => {
+                let data_compartment = to_data::convert_compartment(*c)?;
+                DataObject::ControllerCompartment(Envelope {
                     value: Box::new(data_compartment),
                 })
             }
@@ -87,9 +95,15 @@ impl ApiObject {
         conversion_context: &impl DataToApiConversionContext,
     ) -> Result<Self, Box<dyn Error>> {
         let api_object = match data_object {
-            DataObject::Compartment(Envelope { value: c }) => {
+            DataObject::MainCompartment(Envelope { value: c }) => {
                 let api_compartment = from_data::convert_compartment(*c, conversion_context)?;
-                ApiObject::Compartment(Envelope {
+                ApiObject::MainCompartment(Envelope {
+                    value: Box::new(api_compartment),
+                })
+            }
+            DataObject::ControllerCompartment(Envelope { value: c }) => {
+                let api_compartment = from_data::convert_compartment(*c, conversion_context)?;
+                ApiObject::ControllerCompartment(Envelope {
                     value: Box::new(api_compartment),
                 })
             }
