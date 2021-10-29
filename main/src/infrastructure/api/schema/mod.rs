@@ -18,46 +18,6 @@ pub use target::*;
 mod tests {
     use super::*;
 
-    // ts_rs::export! {
-    //     // Mapping
-    //     Mapping,
-    //     LifecycleHook,
-    //     FeedbackBehavior,
-    //     ActivationCondition,
-    //     // Source
-    //     Source,
-    //     // MIDI source
-    //     MidiNoteVelocitySource,
-    //     MidiNoteKeyNumberSource,
-    //     MidiPolyphonicKeyPressureAmountSource,
-    //     MidiControlChangeValueSource,
-    //     MidiProgramChangeNumberSource,
-    //     MidiChannelPressureAmountSource,
-    //     MidiPitchBendChangeValueSource,
-    //     MidiParameterNumberValueSource,
-    //     MidiClockTempoSource,
-    //     MidiClockTransportSource,
-    //     MidiRawSource,
-    //     MidiScriptSource,
-    //     SourceCharacter,
-    //     MidiClockTransportMessage,
-    //     MackieLcd,
-    //     MackieSevenSegmentDisplay,
-    //     MackieSevenSegmentDisplayScope,
-    //     SiniConE24Display,
-    //     // OSC source
-    //     OscSource,
-    //     // Virtual source
-    //     VirtualSource,
-    //     // Glue
-    //     Glue,
-    //     // Target
-    //     Target,
-    //     TargetUnit
-    //
-    //     => "src/infrastructure/api/schema/generated/realearn.ts"
-    // }
-
     #[test]
     fn export_json_schema() {
         let settings = schemars::gen::SchemaSettings::draft07().with(|s| {
@@ -65,7 +25,7 @@ mod tests {
             s.option_add_null_type = false;
         });
         let gen = settings.into_generator();
-        let schema = gen.into_root_schema_for::<Mapping>();
+        let schema = gen.into_root_schema_for::<Compartment>();
         let schema_json = serde_json::to_string_pretty(&schema).unwrap();
         std::fs::write(
             "src/infrastructure/api/schema/generated/realearn.schema.json",

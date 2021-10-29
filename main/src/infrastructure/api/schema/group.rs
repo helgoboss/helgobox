@@ -1,9 +1,8 @@
 use crate::infrastructure::api::schema::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
-#[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Group {
     /// An optional key that you can assign to this group in order to refer
