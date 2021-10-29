@@ -27,7 +27,7 @@ use crate::domain::{
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
-    ExtendedPresetManager, MappingModelData, OscDevice, SessionData,
+    CompartmentInSession, CompartmentModelData, ExtendedPresetManager, MappingModelData, OscDevice,
 };
 use crate::infrastructure::plugin::{
     warn_about_failed_server_start, App, RealearnPluginParameters,
@@ -35,17 +35,20 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 
+use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
-    add_firewall_rule, copy_object_to_clipboard, copy_text_to_clipboard, get_object_from_clipboard,
-    get_text_from_clipboard, ClipboardObject, GroupFilter, GroupPanel, IndependentPanelManager,
-    MappingRowsPanel, SearchExpression, SharedIndependentPanelManager, SharedMainState,
-    SourceFilter,
+    add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
+    deserialize_data_object, deserialize_data_object_from_json, get_text_from_clipboard,
+    serialize_data_object, serialize_data_object_to_json, serialize_data_object_to_lua, DataObject,
+    Envelope, GroupFilter, GroupPanel, IndependentPanelManager, MappingRowsPanel, SearchExpression,
+    SerializationFormat, SharedIndependentPanelManager, SharedMainState, SourceFilter,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
 use std::cell::{Cell, RefCell};
+use std::error::Error;
 use std::net::Ipv4Addr;
 
 const OSC_INDEX_OFFSET: isize = 1000;
@@ -185,10 +188,12 @@ impl HeaderPanel {
         let menu_bar = MenuBar::new_popup_menu();
         enum MenuAction {
             None,
-            CopyListedMappings,
+            CopyListedMappingsAsJson,
+            CopyListedMappingsAsLua(ConversionStyle),
             AutoNameListedMappings,
             MoveListedMappingsToGroup(Option<GroupId>),
             PasteReplaceAllInGroup(Vec<MappingModelData>),
+            PasteFromLuaReplaceAllInGroup(String),
             ToggleAutoCorrectSettings,
             ToggleInputLogging,
             ToggleOutputLogging,
@@ -231,7 +236,12 @@ impl HeaderPanel {
             let preset_link_manager = preset_link_manager.borrow();
             let main_preset_manager = App::get().main_preset_manager();
             let main_preset_manager = main_preset_manager.borrow();
-            let clipboard_object = get_object_from_clipboard();
+            let text_from_clipboard = get_text_from_clipboard();
+            let data_object_from_clipboard = text_from_clipboard
+                .as_ref()
+                .and_then(|text| deserialize_data_object_from_json(text).ok());
+            let clipboard_could_contain_lua =
+                text_from_clipboard.is_some() && data_object_from_clipboard.is_none();
             let session = self.session();
             let session = session.borrow();
             let compartment = self.active_compartment();
@@ -244,12 +254,14 @@ impl HeaderPanel {
                 }
             });
             let entries = vec![
-                item("Copy listed mappings", || MenuAction::CopyListedMappings),
+                item("Copy listed mappings", || {
+                    MenuAction::CopyListedMappingsAsJson
+                }),
                 {
-                    if let Some(ClipboardObject::Mappings(vec)) = clipboard_object {
+                    if let Some(DataObject::Mappings(env)) = data_object_from_clipboard {
                         item(
-                            format!("Paste {} mappings (replace all in group)", vec.len()),
-                            move || MenuAction::PasteReplaceAllInGroup(vec),
+                            format!("Paste {} mappings (replace all in group)", env.value.len()),
+                            move || MenuAction::PasteReplaceAllInGroup(env.value),
                         )
                     } else {
                         disabled_item("Paste mappings (replace all in group)")
@@ -337,6 +349,34 @@ impl HeaderPanel {
                             )
                         })
                         .collect(),
+                ),
+                menu(
+                    "Advanced",
+                    vec![
+                        item("Copy listed mappings as Lua", || {
+                            MenuAction::CopyListedMappingsAsLua(ConversionStyle::Minimal)
+                        }),
+                        item(
+                            "Copy listed mappings as Lua (include default values)",
+                            || {
+                                MenuAction::CopyListedMappingsAsLua(
+                                    ConversionStyle::IncludeDefaultValues,
+                                )
+                            },
+                        ),
+                        item_with_opts(
+                            "Paste from Lua (replace all in group)",
+                            ItemOpts {
+                                enabled: clipboard_could_contain_lua,
+                                checked: false,
+                            },
+                            move || {
+                                MenuAction::PasteFromLuaReplaceAllInGroup(
+                                    text_from_clipboard.unwrap(),
+                                )
+                            },
+                        ),
+                    ],
                 ),
                 separator(),
                 menu(
@@ -510,13 +550,21 @@ impl HeaderPanel {
         // Execute action
         match result {
             MenuAction::None => {}
-            MenuAction::CopyListedMappings => self.copy_listed_mappings(),
+            MenuAction::CopyListedMappingsAsJson => {
+                self.copy_listed_mappings_as_json().unwrap();
+            }
             MenuAction::AutoNameListedMappings => self.auto_name_listed_mappings(),
             MenuAction::MoveListedMappingsToGroup(group_id) => {
                 let _ = self.move_listed_mappings_to_group(group_id);
             }
             MenuAction::PasteReplaceAllInGroup(mapping_datas) => {
                 self.paste_replace_all_in_group(mapping_datas)
+            }
+            MenuAction::CopyListedMappingsAsLua(style) => {
+                self.copy_listed_mappings_as_lua(style).unwrap()
+            }
+            MenuAction::PasteFromLuaReplaceAllInGroup(text) => {
+                self.paste_from_lua_replace_all_in_group(&text);
             }
             MenuAction::EditNewOscDevice => edit_new_osc_device(),
             MenuAction::EditExistingOscDevice(dev_id) => edit_existing_osc_device(dev_id),
@@ -623,14 +671,40 @@ impl HeaderPanel {
         Ok(())
     }
 
-    fn copy_listed_mappings(&self) {
+    fn copy_listed_mappings_as_json(&self) -> Result<(), Box<dyn Error>> {
+        let data_object = self.get_listened_mappings_as_data_object();
+        let json = serialize_data_object_to_json(data_object)?;
+        copy_text_to_clipboard(json);
+        Ok(())
+    }
+
+    fn copy_listed_mappings_as_lua(
+        &self,
+        conversion_style: ConversionStyle,
+    ) -> Result<(), Box<dyn Error>> {
+        let data_object = self.get_listened_mappings_as_data_object();
+        let json = {
+            let session = self.session();
+            let session = session.borrow();
+            let compartment_in_session = CompartmentInSession {
+                session: &session,
+                compartment: self.active_compartment(),
+            };
+            serialize_data_object_to_lua(data_object, &compartment_in_session, conversion_style)?
+        };
+        copy_text_to_clipboard(json);
+        Ok(())
+    }
+
+    fn get_listened_mappings_as_data_object(&self) -> DataObject {
         let mapping_datas = self
             .get_listened_mappings()
             .iter()
             .map(|m| MappingModelData::from_model(&*m.borrow()))
             .collect();
-        let obj = ClipboardObject::Mappings(mapping_datas);
-        let _ = copy_object_to_clipboard(obj);
+        DataObject::Mappings(Envelope {
+            value: mapping_datas,
+        })
     }
 
     fn auto_name_listed_mappings(&self) {
@@ -688,6 +762,33 @@ impl HeaderPanel {
         MappingRowsPanel::filtered_mappings(&session, &main_state, compartment, false)
             .cloned()
             .collect()
+    }
+
+    fn paste_from_lua_replace_all_in_group(&self, text: &str) {
+        if let Err(e) = self.paste_from_lua_replace_all_in_group_internal(text) {
+            self.view.require_window().alert("ReaLearn", e.to_string());
+        }
+    }
+
+    fn paste_from_lua_replace_all_in_group_internal(
+        &self,
+        text: &str,
+    ) -> Result<(), Box<dyn Error>> {
+        let api_object = deserialize_api_object_from_lua(text)?;
+        let api_mappings = api_object
+            .into_mappings()
+            .ok_or("Can only paste a list of mappings into a mapping group.")?;
+        let data_mappings = {
+            let session = self.session();
+            let session = session.borrow();
+            let compartment_in_session = CompartmentInSession {
+                session: &session,
+                compartment: self.active_compartment(),
+            };
+            DataObject::try_from_api_mappings(api_mappings, &compartment_in_session)?
+        };
+        self.paste_replace_all_in_group(data_mappings);
+        Ok(())
     }
 
     // https://github.com/rust-lang/rust-clippy/issues/6066
@@ -1629,32 +1730,167 @@ impl HeaderPanel {
             .set_enabled(is_set);
     }
 
-    pub fn import_from_clipboard(&self) -> Result<(), String> {
-        let json =
+    pub fn import_from_clipboard(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let text =
             get_text_from_clipboard().ok_or_else(|| "Couldn't read from clipboard.".to_string())?;
-        let session_data: SessionData = serde_json::from_str(json.as_str()).map_err(|e| {
-            format!(
-                "Clipboard content doesn't look like a proper ReaLearn export. Details:\n\n{}",
-                e
-            )
-        })?;
         let plugin_parameters = self
             .plugin_parameters
             .upgrade()
             .expect("plugin params gone");
-        plugin_parameters.apply_session_data(&session_data);
+        let data_object = {
+            let session = self.session();
+            let session = session.borrow();
+            let compartment_in_session = CompartmentInSession {
+                session: &session,
+                compartment: self.active_compartment(),
+            };
+            deserialize_data_object(&text, &compartment_in_session)?
+        };
+        match data_object {
+            DataObject::Session(Envelope { value: d}) => {
+                if self.view.require_window().confirm(
+                    "ReaLearn",
+                    "Do you want to continue replacing the complete ReaLearn session with the data in the clipboard?",
+                ) {
+                    plugin_parameters.apply_session_data(&*d);
+                }
+            }
+            DataObject::MainCompartment(Envelope {value}) => {
+                self.import_compartment(MappingCompartment::MainMappings, value);
+            }
+            DataObject::ControllerCompartment(Envelope {value}) => {
+                self.import_compartment(MappingCompartment::ControllerMappings, value);
+            }
+            DataObject::Mappings{..} => {
+                return Err("The clipboard contains just a lose collection of mappings. Please import them using the context menus.".into())
+            }
+            DataObject::Mapping{..} => {
+                return Err("The clipboard contains just one single mapping. Please import it using the context menus.".into())
+            }
+            _ => {
+                return Err("The clipboard contains only a part of a mapping. Please import it using the context menus in the mapping area.".into())
+            }
+        }
         Ok(())
     }
 
-    pub fn export_to_clipboard(&self) {
-        let plugin_parameters = self
-            .plugin_parameters
-            .upgrade()
-            .expect("plugin params gone");
-        let session_data = plugin_parameters.create_session_data();
-        let json =
-            serde_json::to_string_pretty(&session_data).expect("couldn't serialize session data");
-        copy_text_to_clipboard(json);
+    fn import_compartment(&self, compartment: MappingCompartment, data: Box<CompartmentModelData>) {
+        if self.view.require_window().confirm(
+            "ReaLearn",
+            format!(
+                "Do you want to continue replacing the {} with the data in the clipboard?",
+                compartment
+            ),
+        ) {
+            let session = self.session();
+            let mut session = session.borrow_mut();
+            // For now, let's assume that the imported data is always tailored to the running
+            // ReaLearn version.
+            let version = App::version();
+            let model = data.to_model(Some(version), compartment);
+            session.replace_compartment(compartment, Some(model), self.session.clone());
+        }
+    }
+
+    pub fn export_to_clipboard(&self) -> Result<(), Box<dyn Error>> {
+        let menu_bar = MenuBar::new_popup_menu();
+        enum MenuAction {
+            None,
+            ExportSession(SerializationFormat),
+            ExportCompartment(SerializationFormat),
+        }
+        impl Default for MenuAction {
+            fn default() -> Self {
+                Self::None
+            }
+        }
+        let compartment = self.active_compartment();
+        let pure_menu = {
+            use swell_ui::menu_tree::*;
+            let entries = vec![
+                item("Export session as JSON", || {
+                    MenuAction::ExportSession(SerializationFormat::JsonDataObject)
+                }),
+                item(format!("Export {} as JSON", compartment), || {
+                    MenuAction::ExportCompartment(SerializationFormat::JsonDataObject)
+                }),
+                item(format!("Export {} as Lua", compartment), || {
+                    MenuAction::ExportCompartment(SerializationFormat::LuaApiObject(
+                        ConversionStyle::Minimal,
+                    ))
+                }),
+                item(
+                    format!("Export {} as Lua (include default values)", compartment),
+                    || {
+                        MenuAction::ExportCompartment(SerializationFormat::LuaApiObject(
+                            ConversionStyle::IncludeDefaultValues,
+                        ))
+                    },
+                ),
+            ];
+            let mut root_menu = root_menu(entries);
+            root_menu.index(1);
+            fill_menu(menu_bar.menu(), &root_menu);
+            root_menu
+        };
+        // Open menu
+        let location = Window::cursor_pos();
+        let result_index = match self
+            .view
+            .require_window()
+            .open_popup_menu(menu_bar.menu(), location)
+        {
+            None => return Ok(()),
+            Some(i) => i,
+        };
+        let result = pure_menu
+            .find_item_by_id(result_index)
+            .expect("selected menu item not found")
+            .invoke_handler();
+        // Execute action
+        match result {
+            MenuAction::None => {}
+            MenuAction::ExportSession(_) => {
+                let plugin_parameters = self
+                    .plugin_parameters
+                    .upgrade()
+                    .expect("plugin params gone");
+                let session_data = plugin_parameters.create_session_data();
+                let data_object = DataObject::Session(Envelope {
+                    value: Box::new(session_data),
+                });
+                let json = serialize_data_object_to_json(data_object).unwrap();
+                copy_text_to_clipboard(json);
+            }
+            MenuAction::ExportCompartment(format) => {
+                let session = self.session();
+                let session = session.borrow();
+                let model = session.extract_compartment_model(compartment);
+                let data = CompartmentModelData::from_model(&model);
+                let envelope = Envelope {
+                    value: Box::new(data),
+                };
+                let data_object = match compartment {
+                    MappingCompartment::ControllerMappings => {
+                        DataObject::ControllerCompartment(envelope)
+                    }
+                    MappingCompartment::MainMappings => DataObject::MainCompartment(envelope),
+                };
+                let compartment_in_session = CompartmentInSession {
+                    session: &session,
+                    compartment,
+                };
+                let text = serialize_data_object(data_object, &compartment_in_session, format)?;
+                copy_text_to_clipboard(text);
+            }
+        };
+        Ok(())
+    }
+
+    fn notify_user_on_error(&self, result: Result<(), Box<dyn Error>>) {
+        if let Err(e) = result {
+            self.view.require_window().alert("ReaLearn", e.to_string());
+        }
     }
 
     fn delete_active_preset(&self) -> Result<(), &'static str> {
@@ -1724,28 +1960,14 @@ impl HeaderPanel {
             MappingCompartment::MainMappings => session.active_main_preset_id(),
         }
         .ok_or("no active preset")?;
-        let mappings: Vec<_> = session
-            .mappings(compartment)
-            .map(|ptr| ptr.borrow().clone())
-            .collect();
-        let default_group = session.default_group(compartment).borrow().clone();
-        let parameter_settings = session.non_default_parameter_settings_by_compartment(compartment);
-        let groups = session
-            .groups(compartment)
-            .map(|ptr| ptr.borrow().clone())
-            .collect();
+        let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let preset_manager = App::get().controller_preset_manager();
                 let mut controller_preset = preset_manager
                     .find_by_id(preset_id)
                     .ok_or("controller preset not found")?;
-                controller_preset.update_realearn_data(
-                    default_group,
-                    groups,
-                    mappings,
-                    parameter_settings,
-                );
+                controller_preset.update_realearn_data(compartment_model);
                 preset_manager
                     .borrow_mut()
                     .update_preset(controller_preset)?;
@@ -1755,7 +1977,7 @@ impl HeaderPanel {
                 let mut main_preset = preset_manager
                     .find_by_id(preset_id)
                     .ok_or("main preset not found")?;
-                main_preset.update_data(default_group, groups, mappings, parameter_settings);
+                main_preset.update_data(compartment_model);
                 preset_manager.borrow_mut().update_preset(main_preset)?;
             }
         };
@@ -1808,17 +2030,8 @@ impl HeaderPanel {
         let session = self.session();
         let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
-        let mappings: Vec<_> = session
-            .mappings(compartment)
-            .map(|ptr| ptr.borrow().clone())
-            .collect();
-        let param_settings = session.non_default_parameter_settings_by_compartment(compartment);
         let preset_id = slug::slugify(&preset_name);
-        let default_group = session.default_group(compartment).borrow().clone();
-        let groups = session
-            .groups(compartment)
-            .map(|ptr| ptr.borrow().clone())
-            .collect();
+        let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let custom_data = session
@@ -1828,10 +2041,7 @@ impl HeaderPanel {
                 let controller = ControllerPreset::new(
                     preset_id.clone(),
                     preset_name,
-                    default_group,
-                    groups,
-                    mappings,
-                    param_settings,
+                    compartment_model,
                     custom_data,
                 );
                 App::get()
@@ -1841,14 +2051,8 @@ impl HeaderPanel {
                 session.activate_controller_preset(Some(preset_id), self.session.clone())?;
             }
             MappingCompartment::MainMappings => {
-                let main_preset = MainPreset::new(
-                    preset_id.clone(),
-                    preset_name,
-                    default_group,
-                    groups,
-                    mappings,
-                    param_settings,
-                );
+                let main_preset =
+                    MainPreset::new(preset_id.clone(), preset_name, compartment_model);
                 App::get()
                     .main_preset_manager()
                     .borrow_mut()
@@ -2097,11 +2301,15 @@ impl View for HeaderPanel {
             root::ID_CLEAR_TARGET_FILTER_BUTTON => self.clear_target_filter(),
             root::ID_CLEAR_SEARCH_BUTTON => self.clear_search_expression(),
             root::ID_IMPORT_BUTTON => {
-                if let Err(msg) = self.import_from_clipboard() {
-                    self.view.require_window().alert("ReaLearn", msg);
+                if let Err(error) = self.import_from_clipboard() {
+                    self.view
+                        .require_window()
+                        .alert("ReaLearn", error.to_string());
                 }
             }
-            root::ID_EXPORT_BUTTON => self.export_to_clipboard(),
+            root::ID_EXPORT_BUTTON => {
+                self.notify_user_on_error(self.export_to_clipboard());
+            }
             root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => {
                 self.update_let_matched_events_through()
             }
@@ -2394,7 +2602,9 @@ fn edit_compartment_parameter_internal(
     let out_settings: Vec<_> = csv
         .to_str()
         .split(';')
-        .map(|name| ParameterSetting {
+        .zip(settings)
+        .map(|(name, old_setting)| ParameterSetting {
+            key: old_setting.key.clone(),
             name: name.trim().to_owned(),
         })
         .collect();

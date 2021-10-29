@@ -1,5 +1,5 @@
 use crate::application::{
-    share_group, share_mapping, ControllerPreset, FxId, GroupModel, MainPreset,
+    share_group, share_mapping, CompartmentModel, ControllerPreset, FxId, GroupModel, MainPreset,
     MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
     SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
 };
@@ -379,11 +379,11 @@ impl Session {
     pub fn set_parameter_settings_from_non_default(
         &mut self,
         compartment: MappingCompartment,
-        parameter_settings: &HashMap<u32, ParameterSetting>,
+        parameter_settings: HashMap<u32, ParameterSetting>,
     ) {
         let mut settings = empty_parameter_settings();
         for (i, s) in parameter_settings {
-            settings[*i as usize] = s.clone();
+            settings[i as usize] = s;
         }
         self.parameter_settings[compartment] = settings;
     }
@@ -909,6 +909,28 @@ impl Session {
             .find(|g| g.borrow().id() == id)
     }
 
+    pub fn find_group_by_key(
+        &self,
+        compartment: MappingCompartment,
+        key: &str,
+    ) -> Option<&SharedGroup> {
+        self.groups[compartment]
+            .iter()
+            .find(|g| g.borrow().key().map(|k| k == key).unwrap_or(false))
+    }
+
+    pub fn find_parameter_setting_by_key(
+        &self,
+        compartment: MappingCompartment,
+        key: &str,
+    ) -> Option<(u32, &ParameterSetting)> {
+        self.parameter_settings[compartment]
+            .iter()
+            .enumerate()
+            .find(|(_, s)| s.key.as_ref().map(|k| k == key).unwrap_or(false))
+            .map(|(i, s)| (i as u32, s))
+    }
+
     pub fn find_group_by_id_including_default_group(
         &self,
         compartment: MappingCompartment,
@@ -984,7 +1006,7 @@ impl Session {
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) -> SharedMapping {
-        let mut mapping = MappingModel::new(compartment, initial_group_id);
+        let mut mapping = MappingModel::new(compartment, initial_group_id, None);
         mapping
             .name
             .set_without_notification(self.generate_name_for_new_mapping(compartment));
@@ -1595,25 +1617,19 @@ impl Session {
         id: Option<String>,
         weak_session: WeakSession,
     ) -> Result<(), &'static str> {
-        // TODO-medium The code duplication with main mappings is terrible.
         let compartment = MappingCompartment::ControllerMappings;
-        self.active_controller_preset_id = id.clone();
-        if let Some(id) = id.as_ref() {
+        let model = if let Some(id) = id.as_ref() {
             let preset = self
                 .controller_preset_manager
                 .find_by_id(id)
                 .ok_or("controller preset not found")?;
-            self.default_controller_group
-                .replace(preset.default_group().clone());
-            self.set_groups_without_notification(compartment, preset.groups().iter().cloned());
-            self.set_mappings_without_notification(compartment, preset.mappings().iter().cloned());
-            self.set_parameter_settings_from_non_default(compartment, preset.parameters());
+            Some(preset.data().clone())
         } else {
             // <None> preset
-            self.clear_compartment_data(compartment);
+            None
         };
-        self.reset_parameters(compartment);
-        self.notify_everything_has_changed(weak_session);
+        self.active_controller_preset_id = id;
+        self.replace_compartment(compartment, model, weak_session);
         Ok(())
     }
 
@@ -1623,24 +1639,56 @@ impl Session {
         weak_session: WeakSession,
     ) -> Result<(), &'static str> {
         let compartment = MappingCompartment::MainMappings;
-        self.active_main_preset_id = id.clone();
-        if let Some(id) = id.as_ref() {
+        let model = if let Some(id) = id.as_ref() {
             let preset = self
                 .main_preset_manager
                 .find_by_id(id)
                 .ok_or("main preset not found")?;
-            self.default_main_group
-                .replace(preset.default_group().clone());
-            self.set_groups_without_notification(compartment, preset.groups().iter().cloned());
-            self.set_mappings_without_notification(compartment, preset.mappings().iter().cloned());
-            self.set_parameter_settings_from_non_default(compartment, preset.parameters());
+            Some(preset.data().clone())
         } else {
             // <None> preset
+            None
+        };
+        self.active_main_preset_id = id;
+        self.replace_compartment(compartment, model, weak_session);
+        Ok(())
+    }
+
+    pub fn extract_compartment_model(&self, compartment: MappingCompartment) -> CompartmentModel {
+        CompartmentModel {
+            parameters: self.non_default_parameter_settings_by_compartment(compartment),
+            default_group: self.default_group(compartment).borrow().clone(),
+            groups: self
+                .groups(compartment)
+                .map(|ptr| ptr.borrow().clone())
+                .collect(),
+            mappings: self
+                .mappings(compartment)
+                .map(|ptr| ptr.borrow().clone())
+                .collect(),
+        }
+    }
+
+    pub fn replace_compartment(
+        &mut self,
+        compartment: MappingCompartment,
+        model: Option<CompartmentModel>,
+        weak_session: WeakSession,
+    ) {
+        if let Some(model) = model {
+            let default_group = match compartment {
+                MappingCompartment::MainMappings => &mut self.default_main_group,
+                MappingCompartment::ControllerMappings => &mut self.default_controller_group,
+            };
+            default_group.replace(model.default_group);
+            self.set_groups_without_notification(compartment, model.groups.into_iter());
+            self.set_mappings_without_notification(compartment, model.mappings);
+            self.set_parameter_settings_from_non_default(compartment, model.parameters);
+        } else {
             self.clear_compartment_data(compartment);
         }
         self.reset_parameters(compartment);
         self.notify_everything_has_changed(weak_session);
-        Ok(())
     }
 
     fn reset_parameters(&self, compartment: MappingCompartment) {
@@ -2121,6 +2169,8 @@ impl Session {
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParameterSetting {
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub key: Option<String>,
     #[serde(rename = "name", default, skip_serializing_if = "is_default")]
     pub name: String,
 }
@@ -2128,6 +2178,14 @@ pub struct ParameterSetting {
 impl ParameterSetting {
     pub fn is_default(&self) -> bool {
         self.name.is_empty()
+    }
+
+    pub fn key_matches(&self, key: &str) -> bool {
+        if let Some(k) = self.key.as_ref() {
+            k == key
+        } else {
+            false
+        }
     }
 }
 

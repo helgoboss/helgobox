@@ -13,6 +13,8 @@ use crate::infrastructure::data::{
 };
 use crate::infrastructure::plugin::App;
 
+use crate::infrastructure::api::convert::from_data::DataToApiConversionContext;
+use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -462,6 +464,7 @@ fn get_parameter_data_map(
                 return None;
             }
             let data = ParameterData {
+                key: settings.key.clone(),
                 value,
                 name: settings.name.clone(),
             };
@@ -474,8 +477,35 @@ fn get_parameter_settings(data_map: &HashMap<u32, ParameterData>) -> Vec<Paramet
     let mut settings = empty_parameter_settings();
     for (i, p) in data_map.iter() {
         settings[*i as usize] = ParameterSetting {
+            key: p.key.clone(),
             name: p.name.clone(),
         };
     }
     settings
+}
+
+pub struct CompartmentInSession<'a> {
+    pub session: &'a Session,
+    pub compartment: MappingCompartment,
+}
+
+impl<'a> DataToApiConversionContext for CompartmentInSession<'a> {
+    fn group_key_by_id(&self, group_id: GroupId) -> Option<String> {
+        let group = self.session.find_group_by_id(self.compartment, group_id)?;
+        group.borrow().key().cloned()
+    }
+}
+
+impl<'a> ApiToDataConversionContext for CompartmentInSession<'a> {
+    fn group_id_by_key(&self, key: &str) -> Option<GroupId> {
+        let group = self.session.find_group_by_key(self.compartment, key)?;
+        Some(group.borrow().id())
+    }
+
+    fn param_index_by_key(&self, key: &str) -> Option<u32> {
+        let (i, _) = self
+            .session
+            .find_parameter_setting_by_key(self.compartment, key)?;
+        Some(i)
+    }
 }

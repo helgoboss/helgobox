@@ -1,4 +1,4 @@
-use crate::application::{GroupModel, MappingModel, ParameterSetting, SharedGroup, SharedMapping};
+use crate::application::{CompartmentModel, ParameterSetting, SharedGroup, SharedMapping};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
@@ -6,10 +6,7 @@ use std::fmt::Debug;
 pub trait Preset: Clone + Debug {
     fn id(&self) -> &str;
     fn name(&self) -> &str;
-    fn default_group(&self) -> &GroupModel;
-    fn groups(&self) -> &Vec<GroupModel>;
-    fn mappings(&self) -> &Vec<MappingModel>;
-    fn parameters(&self) -> &HashMap<u32, ParameterSetting>;
+    fn data(&self) -> &CompartmentModel;
 }
 
 pub trait PresetManager: fmt::Debug {

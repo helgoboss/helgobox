@@ -17,36 +17,39 @@ use std::borrow::BorrowMut;
 pub struct MappingModelData {
     // Saved since ReaLearn 1.12.0
     #[serde(default, skip_serializing_if = "is_default")]
-    id: Option<MappingId>,
+    pub id: Option<MappingId>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub key: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub name: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub group_id: GroupId,
-    source: SourceModelData,
-    mode: ModeModelData,
-    target: TargetModelData,
+    pub source: SourceModelData,
+    pub mode: ModeModelData,
+    pub target: TargetModelData,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
-    is_enabled: bool,
+    pub is_enabled: bool,
     #[serde(flatten)]
-    enabled_data: EnabledData,
+    pub enabled_data: EnabledData,
     #[serde(flatten)]
-    activation_condition_data: ActivationConditionData,
+    pub activation_condition_data: ActivationConditionData,
     #[serde(default, skip_serializing_if = "is_default")]
-    prevent_echo_feedback: bool,
+    pub prevent_echo_feedback: bool,
     #[serde(default, skip_serializing_if = "is_default")]
-    send_feedback_after_control: bool,
+    pub send_feedback_after_control: bool,
     #[serde(default, skip_serializing_if = "is_default")]
-    advanced: Option<serde_yaml::mapping::Mapping>,
+    pub advanced: Option<serde_yaml::mapping::Mapping>,
     #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
-    visible_in_projection: bool,
+    pub visible_in_projection: bool,
 }
 
 impl MappingModelData {
     pub fn from_model(model: &MappingModel) -> MappingModelData {
         MappingModelData {
             id: Some(model.id()),
+            key: model.key().cloned(),
             name: model.name.get_ref().clone(),
             tags: model.tags.get_ref().clone(),
             group_id: model.group_id.get(),
@@ -111,7 +114,7 @@ impl MappingModelData {
         preset_version: Option<&Version>,
     ) -> MappingModel {
         // Preliminary group ID
-        let mut model = MappingModel::new(compartment, GroupId::default());
+        let mut model = MappingModel::new(compartment, GroupId::default(), self.key.clone());
         self.apply_to_model_internal(
             &mut model,
             context,

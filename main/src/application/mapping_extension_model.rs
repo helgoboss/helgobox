@@ -1,32 +1,35 @@
 use crate::domain::{LifecycleMidiData, LifecycleMidiMessage, MappingExtension};
 
 use crate::application::parse_hex_string;
+use crate::domain::ui_util::DisplayRawMidi;
 use helgoboss_learn::RawMidiEvent;
 use serde::{Deserialize, Serialize};
+use serde_with::SerializeDisplay;
 use std::convert::TryFrom;
+use std::fmt::{Display, Formatter};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct MappingExtensionModel {
-    on_activate: LifecycleModel,
-    on_deactivate: LifecycleModel,
+    pub on_activate: LifecycleModel,
+    pub on_deactivate: LifecycleModel,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(default)]
-struct LifecycleModel {
-    send_midi_feedback: Vec<LifecycleMidiMessageModel>,
+pub struct LifecycleModel {
+    pub send_midi_feedback: Vec<LifecycleMidiMessageModel>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum LifecycleMidiMessageModel {
+pub enum LifecycleMidiMessageModel {
     Raw(RawMidiMessage),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-enum RawMidiMessage {
+pub enum RawMidiMessage {
     HexString(RawHexStringMidiMessage),
     ByteArray(RawByteArrayMidiMessage),
 }
@@ -41,12 +44,18 @@ impl RawMidiMessage {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, SerializeDisplay, Deserialize)]
 #[serde(try_from = "String")]
-struct RawHexStringMidiMessage(Vec<u8>);
+pub struct RawHexStringMidiMessage(pub Vec<u8>);
+
+impl Display for RawHexStringMidiMessage {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        DisplayRawMidi(&self.0).fmt(f)
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct RawByteArrayMidiMessage(Vec<u8>);
+pub struct RawByteArrayMidiMessage(pub Vec<u8>);
 
 impl TryFrom<String> for RawHexStringMidiMessage {
     type Error = hex::FromHexError;

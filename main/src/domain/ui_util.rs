@@ -9,7 +9,7 @@ use reaper_medium::{Db, ReaperNormalizedFxParamValue, ReaperVolumeValue};
 use rosc::{OscMessage, OscPacket};
 use slog::warn;
 use std::convert::TryInto;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 pub fn format_as_percentage_without_unit(value: UnitValue) -> String {
     format_percentage_without_unit(value.get())
@@ -163,8 +163,22 @@ pub fn format_midi_source_value(value: &MidiSourceValue<RawShortMessage>) -> Str
     }
 }
 
+pub struct DisplayRawMidi<'a>(pub &'a [u8]);
+
+impl<'a> Display for DisplayRawMidi<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for (i, b) in self.0.iter().enumerate() {
+            if i > 0 {
+                f.write_str(" ")?;
+            }
+            write!(f, "{:02X?}", *b)?;
+        }
+        Ok(())
+    }
+}
+
 pub fn format_raw_midi(bytes: &[u8]) -> String {
-    format!("{:02X?}", bytes)
+    DisplayRawMidi(bytes).to_string()
 }
 
 pub fn format_osc_packet(packet: &OscPacket) -> String {

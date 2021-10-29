@@ -110,8 +110,6 @@ semver = { version = "0.9.0", features = ["serde"] }
 async-channel = "1.5.1"
 # For displaying snapshot sizes
 bytesize = "1.0.1"
-# For checking if an FX has loaded a specific chunk
-seahash = "4.1.0"
 # For OSC
 rosc = "0.5.1"
 # For letting the user edit advanced mapping settings
@@ -142,7 +140,11 @@ enum_dispatch = "0.3.6"
 indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/clion-workaround", features = ["std"] }
 # For comparing floating point numbers in tests
 approx = "0.3.2"
-# For duplicate detection of non-primitive feedback messages
+# For the API
+schemars = "0.8.6"
+# For the API
+mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize"] }
+# For checking if an FX has loaded a specific chunk and duplicate detection of non-primitive feedback messages
 twox-hash = "1.6.1"
 
 [target.'cfg(windows)'.dependencies]

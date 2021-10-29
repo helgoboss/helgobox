@@ -1,3 +1,6 @@
+mod compartment_model_data;
+pub use compartment_model_data::*;
+
 mod mapping_model_data;
 pub use mapping_model_data::*;
 

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::str::FromStr;
 use uuid::Uuid;
 
 #[derive(
@@ -25,5 +26,14 @@ impl GroupId {
 impl fmt::Display for GroupId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.uuid)
+    }
+}
+
+impl FromStr for GroupId {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let uuid = Uuid::from_str(s).map_err(|_| "group ID must be a valid UUID")?;
+        Ok(Self { uuid })
     }
 }

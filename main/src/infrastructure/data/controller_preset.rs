@@ -1,14 +1,12 @@
 use crate::application::{
-    ControllerPreset, GroupModel, ParameterSetting, Preset, PresetManager, SharedGroup,
-    SharedMapping,
+    ControllerPreset, ParameterSetting, Preset, PresetManager, SharedGroup, SharedMapping,
 };
-use crate::base::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
-    ExtendedPresetManager, FileBasedPresetManager, GroupModelData, MappingModelData,
-    MigrationDescriptor, PresetData,
+    CompartmentModelData, ExtendedPresetManager, FileBasedPresetManager, PresetData,
 };
 
+use crate::base::default_util::is_default;
 use crate::infrastructure::plugin::App;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -74,14 +72,8 @@ pub struct ControllerPresetData {
     #[serde(skip_deserializing, skip_serializing_if = "is_default")]
     id: Option<String>,
     name: String,
-    #[serde(default, skip_serializing_if = "is_default")]
-    default_group: Option<GroupModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    groups: Vec<GroupModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    mappings: Vec<MappingModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    parameters: HashMap<u32, ParameterSetting>,
+    #[serde(flatten)]
+    data: CompartmentModelData,
     #[serde(default, skip_serializing_if = "is_default")]
     custom_data: HashMap<String, serde_json::Value>,
 }
@@ -93,46 +85,20 @@ impl PresetData for ControllerPresetData {
         ControllerPresetData {
             version: Some(App::version().clone()),
             id: Some(preset.id().to_string()),
-            default_group: Some(GroupModelData::from_model(preset.default_group())),
-            groups: preset
-                .groups()
-                .iter()
-                .map(|g| GroupModelData::from_model(g))
-                .collect(),
-            mappings: preset
-                .mappings()
-                .iter()
-                .map(|m| MappingModelData::from_model(m))
-                .collect(),
-            parameters: preset.parameters().clone(),
+            data: CompartmentModelData::from_model(preset.data()),
             name: preset.name().to_string(),
             custom_data: preset.custom_data().clone(),
         }
     }
 
     fn to_model(&self, id: String) -> ControllerPreset {
-        let compartment = MappingCompartment::ControllerMappings;
-        let migration_descriptor = MigrationDescriptor::new(self.version.as_ref());
-        let final_default_group = self
-            .default_group
-            .as_ref()
-            .map(|g| g.to_model(compartment))
-            .unwrap_or_else(|| GroupModel::default_for_compartment(compartment));
         ControllerPreset::new(
             id,
             self.name.clone(),
-            final_default_group,
-            self.groups
-                .iter()
-                .map(|g| g.to_model(compartment))
-                .collect(),
-            self.mappings
-                .iter()
-                .map(|m| {
-                    m.to_model_for_preset(compartment, &migration_descriptor, self.version.as_ref())
-                })
-                .collect(),
-            self.parameters.clone(),
+            self.data.to_model(
+                self.version.as_ref(),
+                MappingCompartment::ControllerMappings,
+            ),
             self.custom_data.clone(),
         )
     }
