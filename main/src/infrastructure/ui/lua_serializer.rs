@@ -1,7 +1,6 @@
 use derive_more::Display;
 use serde::ser::Impossible;
 use serde::{ser, Serialize};
-use std;
 use std::fmt::Display;
 
 pub type Result<T> = std::result::Result<T, Error>;

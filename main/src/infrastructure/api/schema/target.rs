@@ -664,6 +664,7 @@ impl Default for FeedbackResolution {
 }
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[allow(clippy::enum_variant_names)]
 pub enum TrackExclusivity {
     WithinProject,
     WithinFolder,

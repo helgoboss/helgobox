@@ -651,7 +651,7 @@ pub fn convert_target(
         Target::Virtual(d) => TargetModelData {
             category: TargetCategory::Virtual,
             control_element_type: convert_control_element_type(d.character.unwrap_or_default()),
-            control_element_index: convert_control_element_id(d.id.clone()),
+            control_element_index: convert_control_element_id(d.id),
             ..Default::default()
         },
     };
