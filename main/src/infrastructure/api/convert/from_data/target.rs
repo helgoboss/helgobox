@@ -10,9 +10,9 @@ use crate::domain::{
 };
 use crate::infrastructure::api::convert::from_data::{
     convert_control_element_id, convert_control_element_kind, convert_group_id,
-    convert_osc_argument, convert_tags, DataToApiConversionContext,
+    convert_osc_argument, convert_tags, ConversionStyle, DataToApiConversionContext,
 };
-use crate::infrastructure::api::convert::ConversionResult;
+use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::api::schema;
 use crate::infrastructure::api::schema::{
     AllTrackFxOnOffStateTarget, AutomationModeOverrideTarget, BookmarkDescriptor, BookmarkRef,
@@ -36,30 +36,35 @@ use crate::infrastructure::data::{
 pub fn convert_target(
     data: TargetModelData,
     context: &impl DataToApiConversionContext,
+    style: ConversionStyle,
 ) -> ConversionResult<schema::Target> {
     use TargetCategory::*;
     match data.category {
-        Reaper => convert_real_target(data, context),
-        Virtual => Ok(convert_virtual_target(data)),
+        Reaper => convert_real_target(data, context, style),
+        Virtual => Ok(convert_virtual_target(data, style)),
     }
 }
 
 fn convert_real_target(
     data: TargetModelData,
     context: &impl DataToApiConversionContext,
+    style: ConversionStyle,
 ) -> ConversionResult<schema::Target> {
     use schema::Target as T;
     use ReaperTargetType::*;
-    let commons = convert_commons(data.unit)?;
+    let commons = convert_commons(data.unit, style)?;
     let target = match data.r#type {
         LastTouched => T::LastTouched(LastTouchedTarget { commons }),
-        AutomationModeOverride => T::AutomationModeOverride(AutomationModeOverrideTarget {
-            commons,
-            r#override: convert_automation_mode_override(
-                data.automation_mode_override_type,
-                data.track_automation_mode,
-            ),
-        }),
+        AutomationModeOverride => {
+            let t = AutomationModeOverrideTarget {
+                commons,
+                r#override: convert_automation_mode_override(
+                    data.automation_mode_override_type,
+                    data.track_automation_mode,
+                ),
+            };
+            T::AutomationModeOverride(t)
+        }
         Action => T::ReaperAction(ReaperActionTarget {
             commons,
             command: {
@@ -81,10 +86,14 @@ fn convert_real_target(
                     Absolute => T::Absolute,
                     Relative => T::Relative,
                 };
-                Some(v)
+                style.required_value(v)
             },
             track: if data.with_track {
-                convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected)
+                convert_track_descriptor(
+                    data.track_data,
+                    data.enable_only_if_track_is_selected,
+                    style,
+                )
             } else {
                 None
             },
@@ -110,18 +119,32 @@ fn convert_real_target(
                     BookmarkDescriptor::Marker(bookmark_ref)
                 }
             },
-            set_time_selection: Some(data.seek_options.use_time_selection),
-            set_loop_points: Some(data.seek_options.use_loop_points),
+            set_time_selection: style.required_value_with_default(
+                data.seek_options.use_time_selection,
+                defaults::TARGET_BOOKMARK_SET_TIME_SELECTION,
+            ),
+            set_loop_points: style.required_value_with_default(
+                data.seek_options.use_loop_points,
+                defaults::TARGET_BOOKMARK_SET_LOOP_POINTS,
+            ),
         }),
         TrackAutomationMode => T::TrackAutomationMode(TrackAutomationModeTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
             mode: convert_automation_mode(data.track_automation_mode),
         }),
         AutomationTouchState => T::TrackAutomationTouchState(TrackAutomationTouchStateTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
             touched_parameter: {
                 use schema::TouchedParameter as T;
@@ -135,9 +158,16 @@ fn convert_real_target(
         }),
         TrackShow => T::TrackVisibility(TrackVisibilityTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
-            poll_for_feedback: Some(data.poll_for_feedback),
+            poll_for_feedback: style.required_value_with_default(
+                data.poll_for_feedback,
+                defaults::TARGET_POLL_FOR_FEEDBACK,
+            ),
             area: {
                 match data.track_area {
                     RealearnTrackArea::Tcp => schema::TrackArea::Tcp,
@@ -147,42 +177,54 @@ fn convert_real_target(
         }),
         FxNavigate => T::CycleThroughFx(CycleThroughFxTarget {
             commons,
-            display_kind: convert_fx_display_kind(data.fx_display_type),
-            chain: convert_fx_chain_descriptor(data),
+            display_kind: convert_fx_display_kind(data.fx_display_type, style),
+            chain: convert_fx_chain_descriptor(data, style),
         }),
         FxParameter => T::FxParameterValue(FxParameterValueTarget {
             commons,
-            poll_for_feedback: Some(data.poll_for_feedback),
-            parameter: convert_fx_parameter_descriptor(data),
+            poll_for_feedback: style.required_value_with_default(
+                data.poll_for_feedback,
+                defaults::TARGET_POLL_FOR_FEEDBACK,
+            ),
+            parameter: convert_fx_parameter_descriptor(data, style),
         }),
         TrackSendAutomationMode => T::RouteAutomationMode(RouteAutomationModeTarget {
             commons,
             mode: convert_automation_mode(data.track_automation_mode),
-            poll_for_feedback: Some(data.poll_for_feedback),
-            route: convert_route_descriptor(data),
+            poll_for_feedback: style.required_value_with_default(
+                data.poll_for_feedback,
+                defaults::TARGET_POLL_FOR_FEEDBACK,
+            ),
+            route: convert_route_descriptor(data, style),
         }),
         TrackSendMono => T::RouteMonoState(RouteMonoStateTarget {
             commons,
-            poll_for_feedback: Some(data.poll_for_feedback),
-            route: convert_route_descriptor(data),
+            poll_for_feedback: style.required_value_with_default(
+                data.poll_for_feedback,
+                defaults::TARGET_POLL_FOR_FEEDBACK,
+            ),
+            route: convert_route_descriptor(data, style),
         }),
         TrackSendMute => T::RouteMuteState(RouteMuteStateTarget {
             commons,
             poll_for_feedback: Some(data.poll_for_feedback),
-            route: convert_route_descriptor(data),
+            route: convert_route_descriptor(data, style),
         }),
         TrackSendPhase => T::RoutePhase(RoutePhaseTarget {
             commons,
-            poll_for_feedback: Some(data.poll_for_feedback),
-            route: convert_route_descriptor(data),
+            poll_for_feedback: style.required_value_with_default(
+                data.poll_for_feedback,
+                defaults::TARGET_POLL_FOR_FEEDBACK,
+            ),
+            route: convert_route_descriptor(data, style),
         }),
         TrackSendPan => T::RoutePan(RoutePanTarget {
             commons,
-            route: convert_route_descriptor(data),
+            route: convert_route_descriptor(data, style),
         }),
         TrackSendVolume => T::RouteVolume(RouteVolumeTarget {
             commons,
-            route: convert_route_descriptor(data),
+            route: convert_route_descriptor(data, style),
         }),
         ClipTransport => T::ClipTransportAction(ClipTransportActionTarget {
             commons,
@@ -191,19 +233,25 @@ fn convert_real_target(
                     track: convert_track_descriptor(
                         data.track_data,
                         data.enable_only_if_track_is_selected,
+                        style,
                     ),
                 };
-                Some(output)
+                style.required_value(output)
             },
             clip: convert_clip_descriptor(data.slot_index),
             action: convert_transport_action(data.transport_action),
-            next_bar: Some(data.next_bar),
-            buffered: Some(data.buffered),
+            next_bar: style
+                .required_value_with_default(data.next_bar, defaults::TARGET_CLIP_NEXT_BAR),
+            buffered: style
+                .required_value_with_default(data.buffered, defaults::TARGET_CLIP_BUFFERED),
         }),
         ClipSeek => T::ClipSeek(ClipSeekTarget {
             commons,
             clip: convert_clip_descriptor(data.slot_index),
-            feedback_resolution: convert_feedback_resolution(data.seek_options.feedback_resolution),
+            feedback_resolution: convert_feedback_resolution(
+                data.seek_options.feedback_resolution,
+                style,
+            ),
         }),
         ClipVolume => T::ClipVolume(ClipVolumeTarget {
             commons,
@@ -211,7 +259,7 @@ fn convert_real_target(
         }),
         SendMidi => T::SendMidi(SendMidiTarget {
             commons,
-            message: Some(data.raw_midi_pattern),
+            message: style.required_value(data.raw_midi_pattern),
             destination: {
                 use schema::MidiDestination as T;
                 use SendMidiDestination::*;
@@ -219,96 +267,176 @@ fn convert_real_target(
                     FxOutput => T::FxOutput,
                     FeedbackOutput => T::FeedbackOutput,
                 };
-                Some(dest)
+                style.required_value(dest)
             },
         }),
         SelectedTrack => T::CycleThroughTracks(CycleThroughTracksTarget {
             commons,
-            scroll_arrange_view: Some(data.scroll_arrange_view),
-            scroll_mixer: Some(data.scroll_mixer),
+            scroll_arrange_view: style.required_value_with_default(
+                data.scroll_arrange_view,
+                defaults::TARGET_TRACK_SELECTION_SCROLL_ARRANGE_VIEW,
+            ),
+            scroll_mixer: style.required_value_with_default(
+                data.scroll_mixer,
+                defaults::TARGET_TRACK_SELECTION_SCROLL_MIXER,
+            ),
         }),
         Seek => T::Seek(SeekTarget {
             commons,
-            use_time_selection: Some(data.seek_options.use_time_selection),
-            use_loop_points: Some(data.seek_options.use_loop_points),
-            use_regions: Some(data.seek_options.use_regions),
-            use_project: Some(data.seek_options.use_project),
-            move_view: Some(data.seek_options.move_view),
-            seek_play: Some(data.seek_options.seek_play),
-            feedback_resolution: convert_feedback_resolution(data.seek_options.feedback_resolution),
+            use_time_selection: style.required_value_with_default(
+                data.seek_options.use_time_selection,
+                defaults::TARGET_SEEK_USE_TIME_SELECTION,
+            ),
+            use_loop_points: style.required_value_with_default(
+                data.seek_options.use_loop_points,
+                defaults::TARGET_SEEK_USE_LOOP_POINTS,
+            ),
+            use_regions: style.required_value_with_default(
+                data.seek_options.use_regions,
+                defaults::TARGET_SEEK_USE_REGIONS,
+            ),
+            use_project: style.required_value_with_default(
+                data.seek_options.use_project,
+                defaults::TARGET_SEEK_USE_PROJECT,
+            ),
+            move_view: style.required_value_with_default(
+                data.seek_options.move_view,
+                defaults::TARGET_SEEK_MOVE_VIEW,
+            ),
+            seek_play: style.required_value_with_default(
+                data.seek_options.seek_play,
+                defaults::TARGET_SEEK_SEEK_PLAY,
+            ),
+            feedback_resolution: convert_feedback_resolution(
+                data.seek_options.feedback_resolution,
+                style,
+            ),
         }),
         Playrate => T::PlayRate(PlayRateTarget { commons }),
         Tempo => T::Tempo(TempoTarget { commons }),
         TrackArm => T::TrackArmState(TrackArmStateTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
         }),
         AllTrackFxEnable => T::AllTrackFxOnOffState(AllTrackFxOnOffStateTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
-            poll_for_feedback: Some(data.poll_for_feedback),
+            poll_for_feedback: style.required_value_with_default(
+                data.poll_for_feedback,
+                defaults::TARGET_POLL_FOR_FEEDBACK,
+            ),
         }),
         TrackMute => T::TrackMuteState(TrackMuteStateTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
         }),
         TrackPeak => T::TrackPeak(TrackPeakTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
         }),
         TrackPhase => T::TrackPhase(TrackPhaseTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
-            poll_for_feedback: Some(data.poll_for_feedback),
+            poll_for_feedback: style.required_value_with_default(
+                data.poll_for_feedback,
+                defaults::TARGET_POLL_FOR_FEEDBACK,
+            ),
         }),
         TrackSelection => T::TrackSelectionState(TrackSelectionStateTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
-            scroll_arrange_view: Some(data.scroll_arrange_view),
-            scroll_mixer: Some(data.scroll_mixer),
+            scroll_arrange_view: style.required_value_with_default(
+                data.scroll_arrange_view,
+                defaults::TARGET_TRACK_SELECTION_SCROLL_ARRANGE_VIEW,
+            ),
+            scroll_mixer: style.required_value_with_default(
+                data.scroll_mixer,
+                defaults::TARGET_TRACK_SELECTION_SCROLL_MIXER,
+            ),
         }),
         TrackPan => T::TrackPan(TrackPanTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
         }),
         TrackWidth => T::TrackWidth(TrackWidthTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
         }),
         TrackVolume => T::TrackVolume(TrackVolumeTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
         }),
         TrackSolo => T::TrackSoloState(TrackSoloStateTarget {
             commons,
-            track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+            track: convert_track_descriptor(
+                data.track_data,
+                data.enable_only_if_track_is_selected,
+                style,
+            ),
             exclusivity: convert_track_exclusivity(data.track_exclusivity),
             behavior: {
                 use schema::SoloBehavior as T;
                 use SoloBehavior::*;
-                data.solo_behavior.map(|b| match b {
+                let v = data.solo_behavior.map(|b| match b {
                     InPlace => T::InPlace,
                     IgnoreRouting => T::IgnoreRouting,
                     ReaperPreference => T::ReaperPreference,
-                })
+                });
+                style.optional_value(v)
             },
         }),
         FxEnable => T::FxOnOffState(FxOnOffStateTarget {
             commons,
-            fx: convert_fx_descriptor(data),
+            fx: convert_fx_descriptor(data, style),
         }),
         LoadFxSnapshot => T::LoadFxSnapshot(LoadFxSnapshotTarget {
             commons,
             snapshot: {
                 data.fx_snapshot.as_ref().map(|s| schema::FxSnapshot {
-                    fx_kind: Some(s.fx_type.clone()),
-                    fx_name: Some(s.fx_name.clone()),
-                    preset_name: s.preset_name.clone(),
+                    fx_kind: style.required_value(s.fx_type.clone()),
+                    fx_name: style.required_value(s.fx_name.clone()),
+                    preset_name: style.optional_value(s.preset_name.clone()),
                     content: {
                         schema::FxSnapshotContent::Chunk {
                             chunk: (*s.chunk).clone(),
@@ -316,33 +444,33 @@ fn convert_real_target(
                     },
                 })
             },
-            fx: convert_fx_descriptor(data),
+            fx: convert_fx_descriptor(data, style),
         }),
         FxPreset => T::CycleThroughFxPresets(CycleThroughFxPresetsTarget {
             commons,
-            fx: convert_fx_descriptor(data),
+            fx: convert_fx_descriptor(data, style),
         }),
         FxOpen => T::FxVisibility(FxVisibilityTarget {
             commons,
-            display_kind: convert_fx_display_kind(data.fx_display_type),
-            fx: convert_fx_descriptor(data),
+            display_kind: convert_fx_display_kind(data.fx_display_type, style),
+            fx: convert_fx_descriptor(data, style),
         }),
         SendOsc => T::SendOsc(SendOscTarget {
             commons,
-            address: Some(data.osc_address_pattern),
-            argument: convert_osc_argument(data.osc_arg_index, data.osc_arg_type),
+            address: style.required_value(data.osc_address_pattern),
+            argument: convert_osc_argument(data.osc_arg_index, data.osc_arg_type, style),
             destination: {
                 use schema::OscDestination as T;
                 let v = match data.osc_dev_id {
                     None => T::FeedbackOutput,
                     Some(id) => T::Device { id: id.to_string() },
                 };
-                Some(v)
+                style.required_value(v)
             },
         }),
         EnableInstances => T::EnableInstances(EnableInstancesTarget {
             commons,
-            tags: convert_tags(&data.tags),
+            tags: convert_tags(&data.tags, style),
             exclusivity: {
                 use schema::InstanceExclusivity as T;
                 use Exclusivity::*;
@@ -355,7 +483,7 @@ fn convert_real_target(
         }),
         EnableMappings => T::EnableMappings(EnableMappingsTarget {
             commons,
-            tags: convert_tags(&data.tags),
+            tags: convert_tags(&data.tags, style),
             exclusivity: {
                 use schema::MappingExclusivity as T;
                 use Exclusivity::*;
@@ -368,7 +496,7 @@ fn convert_real_target(
         }),
         LoadMappingSnapshot => T::LoadMappingSnapshots(LoadMappingSnapshotsTarget {
             commons,
-            tags: convert_tags(&data.tags),
+            tags: convert_tags(&data.tags, style),
             active_mappings_only: Some(data.active_mappings_only),
         }),
         NavigateWithinGroup => T::CycleThroughGroupMappings(CycleThroughGroupMappingsTarget {
@@ -387,7 +515,10 @@ fn convert_real_target(
     Ok(target)
 }
 
-fn convert_commons(unit: TargetUnit) -> ConversionResult<schema::TargetCommons> {
+fn convert_commons(
+    unit: TargetUnit,
+    style: ConversionStyle,
+) -> ConversionResult<schema::TargetCommons> {
     let commons = schema::TargetCommons {
         unit: {
             use schema::TargetUnit as T;
@@ -396,7 +527,7 @@ fn convert_commons(unit: TargetUnit) -> ConversionResult<schema::TargetCommons> 
                 Native => T::Native,
                 Percent => T::Percent,
             };
-            Some(unit)
+            style.required_value(unit)
         },
     };
     Ok(commons)
@@ -454,37 +585,47 @@ fn convert_track_exclusivity(exclusivity: TrackExclusivity) -> Option<schema::Tr
     }
 }
 
-fn convert_fx_display_kind(display_type: FxDisplayType) -> Option<schema::FxDisplayKind> {
+fn convert_fx_display_kind(
+    display_type: FxDisplayType,
+    style: ConversionStyle,
+) -> Option<schema::FxDisplayKind> {
     use schema::FxDisplayKind as T;
     use FxDisplayType::*;
     let v = match display_type {
         FloatingWindow => T::FloatingWindow,
         Chain => T::Chain,
     };
-    Some(v)
+    style.required_value(v)
 }
 
-fn convert_virtual_target(data: TargetModelData) -> schema::Target {
+fn convert_virtual_target(data: TargetModelData, style: ConversionStyle) -> schema::Target {
     schema::Target::Virtual(schema::VirtualTarget {
         id: convert_control_element_id(data.control_element_index),
-        kind: convert_control_element_kind(data.control_element_type),
+        character: convert_control_element_kind(data.control_element_type, style),
     })
 }
 
 fn convert_track_descriptor(
     data: TrackData,
     only_if_track_selected: bool,
+    style: ConversionStyle,
 ) -> Option<schema::TrackDescriptor> {
     let props = deserialize_track(&data);
     use schema::TrackDescriptor as T;
     use VirtualTrackType::*;
     let commons = schema::TrackDescriptorCommons {
-        track_must_be_selected: Some(only_if_track_selected),
+        track_must_be_selected: style.required_value_with_default(
+            only_if_track_selected,
+            defaults::TARGET_TRACK_MUST_BE_SELECTED,
+        ),
     };
     let desc = match props.r#type {
         This => T::This { commons },
         Selected | AllSelected => T::Selected {
-            allow_multiple: Some(props.r#type == AllSelected),
+            allow_multiple: style.required_value_with_default(
+                props.r#type == AllSelected,
+                defaults::TARGET_TRACK_SELECTED_ALLOW_MULTIPLE,
+            ),
         },
         Dynamic => T::Dynamic {
             commons,
@@ -498,60 +639,80 @@ fn convert_track_descriptor(
         ByName | AllByName => T::ByName {
             commons,
             name: props.name,
-            allow_multiple: Some(props.r#type == AllByName),
+            allow_multiple: style.required_value_with_default(
+                props.r#type == AllByName,
+                defaults::TARGET_BY_NAME_ALLOW_MULTIPLE,
+            ),
         },
         ByIndex => T::ByIndex {
             commons,
             index: props.index,
         },
     };
-    Some(desc)
+    style.required_value(desc)
 }
 
-fn convert_fx_chain_descriptor(data: TargetModelData) -> schema::FxChainDescriptor {
+fn convert_fx_chain_descriptor(
+    data: TargetModelData,
+    style: ConversionStyle,
+) -> schema::FxChainDescriptor {
     schema::FxChainDescriptor::Track {
-        track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+        track: convert_track_descriptor(
+            data.track_data,
+            data.enable_only_if_track_is_selected,
+            style,
+        ),
         chain: {
             let chain = if data.fx_data.is_input_fx {
                 schema::TrackFxChain::Input
             } else {
                 schema::TrackFxChain::Normal
             };
-            Some(chain)
+            style.required_value(chain)
         },
     }
 }
 
-fn convert_fx_parameter_descriptor(data: TargetModelData) -> schema::FxParameterDescriptor {
+fn convert_fx_parameter_descriptor(
+    data: TargetModelData,
+    style: ConversionStyle,
+) -> schema::FxParameterDescriptor {
     let props = deserialize_fx_parameter(&data.fx_parameter_data);
     use schema::FxParameterDescriptor as T;
     use VirtualFxParameterType::*;
     match props.r#type {
         Dynamic => T::Dynamic {
             expression: props.expression,
-            fx: convert_fx_descriptor(data),
+            fx: convert_fx_descriptor(data, style),
         },
         ByName => T::ByName {
             name: props.name,
-            fx: convert_fx_descriptor(data),
+            fx: convert_fx_descriptor(data, style),
         },
         ById => T::ById {
             index: props.index,
-            fx: convert_fx_descriptor(data),
+            fx: convert_fx_descriptor(data, style),
         },
         ByIndex => T::ByIndex {
             index: props.index,
-            fx: convert_fx_descriptor(data),
+            fx: convert_fx_descriptor(data, style),
         },
     }
 }
 
-fn convert_route_descriptor(data: TargetModelData) -> schema::RouteDescriptor {
+fn convert_route_descriptor(
+    data: TargetModelData,
+    style: ConversionStyle,
+) -> schema::RouteDescriptor {
     let props = deserialize_track_route(&data.track_route_data);
     use schema::RouteDescriptor as T;
     use TrackRouteSelectorType::*;
     let commons = schema::RouteDescriptorCommons {
-        track: convert_track_descriptor(data.track_data, data.enable_only_if_track_is_selected),
+        track: convert_track_descriptor(
+            data.track_data,
+            data.enable_only_if_track_is_selected,
+            style,
+        ),
         kind: {
             use schema::TrackRouteKind as T;
             use TrackRouteType::*;
@@ -560,7 +721,7 @@ fn convert_route_descriptor(data: TargetModelData) -> schema::RouteDescriptor {
                 Receive => T::Receive,
                 HardwareOutput => T::HardwareOutput,
             };
-            Some(kind)
+            style.required_value(kind)
         },
     };
     match props.selector_type {
@@ -583,12 +744,18 @@ fn convert_route_descriptor(data: TargetModelData) -> schema::RouteDescriptor {
     }
 }
 
-fn convert_fx_descriptor(data: TargetModelData) -> Option<schema::FxDescriptor> {
+fn convert_fx_descriptor(
+    data: TargetModelData,
+    style: ConversionStyle,
+) -> Option<schema::FxDescriptor> {
     let props = deserialize_fx(&data.fx_data, None);
     use schema::FxDescriptor as T;
     use VirtualFxType::*;
     let commons = schema::FxDescriptorCommons {
-        fx_must_have_focus: Some(data.enable_only_if_fx_has_focus),
+        fx_must_have_focus: style.required_value_with_default(
+            data.enable_only_if_fx_has_focus,
+            defaults::TARGET_FX_MUST_HAVE_FOCUS,
+        ),
     };
     let v = match props.r#type {
         This => T::This { commons },
@@ -596,26 +763,29 @@ fn convert_fx_descriptor(data: TargetModelData) -> Option<schema::FxDescriptor> 
         Dynamic => T::Dynamic {
             commons,
             expression: props.expression,
-            chain: convert_fx_chain_descriptor(data),
+            chain: convert_fx_chain_descriptor(data, style),
         },
         ById | ByIdOrIndex => T::ById {
             commons,
             id: props.id.map(|guid| guid.to_string_without_braces()),
-            chain: convert_fx_chain_descriptor(data),
+            chain: convert_fx_chain_descriptor(data, style),
         },
         ByName | AllByName => T::ByName {
             commons,
             name: props.name,
-            allow_multiple: Some(props.r#type == AllByName),
-            chain: convert_fx_chain_descriptor(data),
+            allow_multiple: style.required_value_with_default(
+                props.r#type == AllByName,
+                defaults::TARGET_BY_NAME_ALLOW_MULTIPLE,
+            ),
+            chain: convert_fx_chain_descriptor(data, style),
         },
         ByIndex => T::ByIndex {
             commons,
             index: props.index,
-            chain: convert_fx_chain_descriptor(data),
+            chain: convert_fx_chain_descriptor(data, style),
         },
     };
-    Some(v)
+    style.required_value(v)
 }
 
 fn convert_clip_descriptor(slot_index: usize) -> schema::ClipDescriptor {
@@ -624,12 +794,15 @@ fn convert_clip_descriptor(slot_index: usize) -> schema::ClipDescriptor {
     }
 }
 
-fn convert_feedback_resolution(r: FeedbackResolution) -> Option<schema::FeedbackResolution> {
+fn convert_feedback_resolution(
+    r: FeedbackResolution,
+    style: ConversionStyle,
+) -> Option<schema::FeedbackResolution> {
     use schema::FeedbackResolution as T;
     use FeedbackResolution::*;
     let v = match r {
         Beat => T::Beat,
         High => T::High,
     };
-    Some(v)
+    style.required_value(v)
 }

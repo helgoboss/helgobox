@@ -2,7 +2,7 @@ use crate::application::{MidiSourceType, ReaperSourceType, SourceCategory};
 use crate::infrastructure::api::convert::to_data::{
     convert_control_element_id, convert_control_element_type, convert_osc_arg_type,
 };
-use crate::infrastructure::api::convert::ConversionResult;
+use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::SourceModelData;
 use helgoboss_learn::DisplayType;
@@ -81,11 +81,11 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             _ => Default::default(),
         },
         osc_arg_is_relative: match &s {
-            Osc(s) => s.relative.unwrap_or(false),
+            Osc(s) => s.relative.unwrap_or(defaults::SOURCE_OSC_IS_RELATIVE),
             _ => false,
         },
         control_element_type: match &s {
-            Virtual(s) => convert_control_element_type(s.kind.unwrap_or_default()),
+            Virtual(s) => convert_control_element_type(s.character.unwrap_or_default()),
             _ => Default::default(),
         },
         control_element_index: match &s {

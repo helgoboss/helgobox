@@ -3,7 +3,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-#[derive(Default, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
 #[serde(deny_unknown_fields)]
 pub struct Group {
     /// An optional key that you can assign to this group in order to refer

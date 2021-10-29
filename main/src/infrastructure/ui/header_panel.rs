@@ -35,14 +35,15 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 
+use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, get_text_from_clipboard,
-    serialize_data_object_to_json, serialize_data_object_to_lua, DataObject, Envelope, GroupFilter,
-    GroupPanel, IndependentPanelManager, MappingRowsPanel, SearchExpression,
-    SharedIndependentPanelManager, SharedMainState, SourceFilter,
+    serialize_data_object, serialize_data_object_to_json, serialize_data_object_to_lua, DataObject,
+    Envelope, GroupFilter, GroupPanel, IndependentPanelManager, MappingRowsPanel, SearchExpression,
+    SerializationFormat, SharedIndependentPanelManager, SharedMainState, SourceFilter,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
@@ -188,7 +189,7 @@ impl HeaderPanel {
         enum MenuAction {
             None,
             CopyListedMappingsAsJson,
-            CopyListedMappingsAsLua,
+            CopyListedMappingsAsLua(ConversionStyle),
             AutoNameListedMappings,
             MoveListedMappingsToGroup(Option<GroupId>),
             PasteReplaceAllInGroup(Vec<MappingModelData>),
@@ -352,9 +353,16 @@ impl HeaderPanel {
                 menu(
                     "Advanced",
                     vec![
+                        item("Copy listed mappings as Lua", || {
+                            MenuAction::CopyListedMappingsAsLua(ConversionStyle::Minimal)
+                        }),
                         item(
                             "Copy listed mappings as Lua (include default values)",
-                            || MenuAction::CopyListedMappingsAsLua,
+                            || {
+                                MenuAction::CopyListedMappingsAsLua(
+                                    ConversionStyle::IncludeDefaultValues,
+                                )
+                            },
                         ),
                         item_with_opts(
                             "Paste from Lua (replace all in group)",
@@ -552,7 +560,9 @@ impl HeaderPanel {
             MenuAction::PasteReplaceAllInGroup(mapping_datas) => {
                 self.paste_replace_all_in_group(mapping_datas)
             }
-            MenuAction::CopyListedMappingsAsLua => self.copy_listed_mappings_as_lua(true).unwrap(),
+            MenuAction::CopyListedMappingsAsLua(style) => {
+                self.copy_listed_mappings_as_lua(style).unwrap()
+            }
             MenuAction::PasteFromLuaReplaceAllInGroup(text) => {
                 self.paste_from_lua_replace_all_in_group(&text);
             }
@@ -670,7 +680,7 @@ impl HeaderPanel {
 
     fn copy_listed_mappings_as_lua(
         &self,
-        include_default_values: bool,
+        conversion_style: ConversionStyle,
     ) -> Result<(), Box<dyn Error>> {
         let data_object = self.get_listened_mappings_as_data_object();
         let json = {
@@ -680,7 +690,7 @@ impl HeaderPanel {
                 session: &session,
                 compartment: self.active_compartment(),
             };
-            serialize_data_object_to_lua(data_object, &compartment_in_session)?
+            serialize_data_object_to_lua(data_object, &compartment_in_session, conversion_style)?
         };
         copy_text_to_clipboard(json);
         Ok(())
@@ -1784,10 +1794,6 @@ impl HeaderPanel {
 
     pub fn export_to_clipboard(&self) -> Result<(), Box<dyn Error>> {
         let menu_bar = MenuBar::new_popup_menu();
-        enum SerializationFormat {
-            Json,
-            LuaWithDefaultValues,
-        }
         enum MenuAction {
             None,
             ExportSession(SerializationFormat),
@@ -1803,14 +1809,23 @@ impl HeaderPanel {
             use swell_ui::menu_tree::*;
             let entries = vec![
                 item("Export session as JSON", || {
-                    MenuAction::ExportSession(SerializationFormat::Json)
+                    MenuAction::ExportSession(SerializationFormat::JsonDataObject)
                 }),
                 item(format!("Export {} as JSON", compartment), || {
-                    MenuAction::ExportCompartment(SerializationFormat::Json)
+                    MenuAction::ExportCompartment(SerializationFormat::JsonDataObject)
+                }),
+                item(format!("Export {} as Lua", compartment), || {
+                    MenuAction::ExportCompartment(SerializationFormat::LuaApiObject(
+                        ConversionStyle::Minimal,
+                    ))
                 }),
                 item(
                     format!("Export {} as Lua (include default values)", compartment),
-                    || MenuAction::ExportCompartment(SerializationFormat::LuaWithDefaultValues),
+                    || {
+                        MenuAction::ExportCompartment(SerializationFormat::LuaApiObject(
+                            ConversionStyle::IncludeDefaultValues,
+                        ))
+                    },
                 ),
             ];
             let mut root_menu = root_menu(entries);
@@ -1861,16 +1876,11 @@ impl HeaderPanel {
                     }
                     MappingCompartment::MainMappings => DataObject::MainCompartment(envelope),
                 };
-                let text = match format {
-                    SerializationFormat::Json => serialize_data_object_to_json(data_object)?,
-                    SerializationFormat::LuaWithDefaultValues => {
-                        let compartment_in_session = CompartmentInSession {
-                            session: &session,
-                            compartment,
-                        };
-                        serialize_data_object_to_lua(data_object, &compartment_in_session)?
-                    }
+                let compartment_in_session = CompartmentInSession {
+                    session: &session,
+                    compartment,
                 };
+                let text = serialize_data_object(data_object, &compartment_in_session, format)?;
                 copy_text_to_clipboard(text);
             }
         };

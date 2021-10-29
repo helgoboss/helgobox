@@ -5,6 +5,7 @@ use crate::application::{
 use crate::base::when;
 use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget};
 
+use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::{
     CompartmentInSession, MappingModelData, ModeModelData, SourceModelData, TargetModelData,
 };
@@ -17,8 +18,8 @@ use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::{format_tags_as_csv, symbols};
 use crate::infrastructure::ui::{
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
-    get_text_from_clipboard, serialize_data_object_to_json, serialize_data_object_to_lua, util,
-    ApiObject, DataObject, Envelope, IndependentPanelManager, SharedMainState,
+    get_text_from_clipboard, serialize_data_object, util, ApiObject, DataObject, Envelope,
+    IndependentPanelManager, SerializationFormat, SharedMainState,
 };
 use core::iter;
 use reaper_high::Reaper;
@@ -578,7 +579,7 @@ impl MappingRowPanel {
             PasteMappings(Vec<MappingModelData>),
             CopyPart(ObjectType),
             MoveMappingToGroup(Option<GroupId>),
-            CopyMappingAsLua,
+            CopyMappingAsLua(ConversionStyle),
             PasteFromLuaReplace(String),
             PasteFromLuaInsertBelow(String),
             LogDebugInfo,
@@ -679,8 +680,11 @@ impl MappingRowPanel {
                 menu(
                     "Advanced",
                     vec![
+                        item("Copy as Lua", || {
+                            MenuAction::CopyMappingAsLua(ConversionStyle::Minimal)
+                        }),
                         item("Copy as Lua (include default values)", || {
-                            MenuAction::CopyMappingAsLua
+                            MenuAction::CopyMappingAsLua(ConversionStyle::IncludeDefaultValues)
                         }),
                         item_with_opts(
                             "Paste from Lua (replace)",
@@ -748,17 +752,17 @@ impl MappingRowPanel {
                     triple.compartment,
                     triple.mapping_id,
                     obj_type,
-                    false,
+                    SerializationFormat::JsonDataObject,
                 )
                 .unwrap();
             }
-            MenuAction::CopyMappingAsLua => {
+            MenuAction::CopyMappingAsLua(style) => {
                 let _ = copy_mapping_object(
                     self.session(),
                     triple.compartment,
                     triple.mapping_id,
                     ObjectType::Mapping,
-                    true,
+                    SerializationFormat::LuaApiObject(style),
                 )
                 .unwrap();
             }
@@ -878,7 +882,7 @@ fn copy_mapping_object(
     compartment: MappingCompartment,
     mapping_id: MappingId,
     object_type: ObjectType,
-    to_lua: bool,
+    format: SerializationFormat,
 ) -> Result<(), Box<dyn Error>> {
     let session = session.borrow();
     let (_, mapping) = session
@@ -900,15 +904,11 @@ fn copy_mapping_object(
             value: Box::new(TargetModelData::from_model(&mapping.target_model)),
         }),
     };
-    let text = if to_lua {
-        let compartment_in_session = CompartmentInSession {
-            session: &session,
-            compartment,
-        };
-        serialize_data_object_to_lua(data_object, &compartment_in_session)?
-    } else {
-        serialize_data_object_to_json(data_object)?
+    let compartment_in_session = CompartmentInSession {
+        session: &session,
+        compartment,
     };
+    let text = serialize_data_object(data_object, &compartment_in_session, format)?;
     copy_text_to_clipboard(text);
     Ok(())
 }
