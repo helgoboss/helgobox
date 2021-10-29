@@ -27,7 +27,8 @@ use crate::domain::{
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
-    CompartmentInSession, ExtendedPresetManager, MappingModelData, OscDevice,
+    CompartmentInSession, CompartmentModelData, ExtendedPresetManager, MappingModelData, OscDevice,
+    QualifiedCompartmentModelData,
 };
 use crate::infrastructure::plugin::{
     warn_about_failed_server_start, App, RealearnPluginParameters,
@@ -1772,17 +1773,110 @@ impl HeaderPanel {
         Ok(())
     }
 
-    pub fn export_to_clipboard(&self) {
-        let plugin_parameters = self
-            .plugin_parameters
-            .upgrade()
-            .expect("plugin params gone");
-        let session_data = plugin_parameters.create_session_data();
-        let json = serialize_data_object_to_json(DataObject::Session(Envelope {
-            value: Box::new(session_data),
-        }))
-        .unwrap();
-        copy_text_to_clipboard(json);
+    pub fn export_to_clipboard(&self) -> Result<(), Box<dyn Error>> {
+        let menu_bar = MenuBar::new_popup_menu();
+        enum SerializationFormat {
+            Json,
+            LuaWithDefaultValues,
+        }
+        enum MenuAction {
+            None,
+            ExportSession(SerializationFormat),
+            ExportCompartment(SerializationFormat),
+        }
+        impl Default for MenuAction {
+            fn default() -> Self {
+                Self::None
+            }
+        }
+        let compartment = self.active_compartment();
+        let pure_menu = {
+            use swell_ui::menu_tree::*;
+            let compartment_label = match compartment {
+                MappingCompartment::ControllerMappings => "controller compartment",
+                MappingCompartment::MainMappings => "main compartment",
+            };
+            let entries = vec![
+                item("Export session as JSON", || {
+                    MenuAction::ExportSession(SerializationFormat::Json)
+                }),
+                item(format!("Export {} as JSON", compartment_label), || {
+                    MenuAction::ExportCompartment(SerializationFormat::Json)
+                }),
+                item(
+                    format!(
+                        "Export {} as Lua (include default values)",
+                        compartment_label
+                    ),
+                    || MenuAction::ExportCompartment(SerializationFormat::LuaWithDefaultValues),
+                ),
+            ];
+            let mut root_menu = root_menu(entries);
+            root_menu.index(1);
+            fill_menu(menu_bar.menu(), &root_menu);
+            root_menu
+        };
+        // Open menu
+        let location = Window::cursor_pos();
+        let result_index = match self
+            .view
+            .require_window()
+            .open_popup_menu(menu_bar.menu(), location)
+        {
+            None => return Ok(()),
+            Some(i) => i,
+        };
+        let result = pure_menu
+            .find_item_by_id(result_index)
+            .expect("selected menu item not found")
+            .invoke_handler();
+        // Execute action
+        match result {
+            MenuAction::None => {}
+            MenuAction::ExportSession(_) => {
+                let plugin_parameters = self
+                    .plugin_parameters
+                    .upgrade()
+                    .expect("plugin params gone");
+                let session_data = plugin_parameters.create_session_data();
+                let data_object = DataObject::Session(Envelope {
+                    value: Box::new(session_data),
+                });
+                let json = serialize_data_object_to_json(data_object).unwrap();
+                copy_text_to_clipboard(json);
+            }
+            MenuAction::ExportCompartment(format) => {
+                let session = self.session();
+                let session = session.borrow();
+                let model = session.extract_compartment_model(compartment);
+                let data = CompartmentModelData::from_model(&model);
+                let qualified_data = QualifiedCompartmentModelData {
+                    kind: compartment,
+                    data,
+                };
+                let data_object = DataObject::Compartment(Envelope {
+                    value: Box::new(qualified_data),
+                });
+                let text = match format {
+                    SerializationFormat::Json => serialize_data_object_to_json(data_object)?,
+                    SerializationFormat::LuaWithDefaultValues => {
+                        let compartment_in_session = CompartmentInSession {
+                            session: &session,
+                            compartment,
+                        };
+                        serialize_data_object_to_lua(data_object, &compartment_in_session)?
+                    }
+                };
+                copy_text_to_clipboard(text);
+            }
+        };
+        Ok(())
+    }
+
+    fn notify_user_on_error(&self, result: Result<(), Box<dyn Error>>) {
+        if let Err(e) = result {
+            self.view.require_window().alert("ReaLearn", e.to_string());
+        }
     }
 
     fn delete_active_preset(&self) -> Result<(), &'static str> {
@@ -2199,7 +2293,9 @@ impl View for HeaderPanel {
                         .alert("ReaLearn", error.to_string());
                 }
             }
-            root::ID_EXPORT_BUTTON => self.export_to_clipboard(),
+            root::ID_EXPORT_BUTTON => {
+                self.notify_user_on_error(self.export_to_clipboard());
+            }
             root::ID_LET_MATCHED_EVENTS_THROUGH_CHECK_BOX => {
                 self.update_let_matched_events_through()
             }
