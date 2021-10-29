@@ -141,8 +141,6 @@ indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/cl
 # For comparing floating point numbers in tests
 approx = "0.3.2"
 # For the API
-ts-rs = { version = "4.0.0", features = ["serde-compat"] }
-# For the API
 schemars = "0.8.6"
 # For the API
 mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize"] }

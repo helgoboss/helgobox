@@ -10,12 +10,9 @@
   "enabled": true,
   "control_enabled": true,
   "feedback_enabled": true,
-  "active": "Always",
-  "feedback_behavior": "Normal",
-  "on_activate": "Normal",
-  "on_deactivate": "Normal",
   "source": {
-    "type": "MidiControlChangeValue",
+    "kind": "MidiControlChangeValue",
+    "feedback_behavior": "Normal",
     "channel": 0,
     "controller_number": 64,
     "character": "Button",
@@ -26,8 +23,5 @@
       0.3,
       0.7
     ]
-  },
-  "target": {
-    "unit": "Percent"
   }
 }

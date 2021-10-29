@@ -2,10 +2,9 @@ pub use midi::*;
 pub use osc::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 pub use virt::*;
 
-#[derive(PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum Source {
     // None
@@ -43,7 +42,7 @@ impl Default for Source {
 }
 
 // Only makes sense for sources that support both control *and* feedback.
-#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+#[derive(Copy, Clone, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum FeedbackBehavior {
     Normal,
     SendFeedbackAfterControl,
@@ -60,9 +59,8 @@ mod midi {
     use crate::infrastructure::api::schema::FeedbackBehavior;
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
-    use ts_rs::TS;
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiNoteVelocitySource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -73,7 +71,7 @@ mod midi {
         pub key_number: Option<u8>,
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiNoteKeyNumberSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -82,7 +80,7 @@ mod midi {
         pub channel: Option<u8>,
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiPolyphonicKeyPressureAmountSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -93,7 +91,7 @@ mod midi {
         pub key_number: Option<u8>,
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiControlChangeValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -108,7 +106,7 @@ mod midi {
         pub fourteen_bit: Option<bool>,
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiProgramChangeNumberSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -117,7 +115,7 @@ mod midi {
         pub channel: Option<u8>,
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiChannelPressureAmountSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -126,7 +124,7 @@ mod midi {
         pub channel: Option<u8>,
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiPitchBendChangeValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -135,7 +133,7 @@ mod midi {
         pub channel: Option<u8>,
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiParameterNumberValueSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -152,26 +150,26 @@ mod midi {
         pub character: Option<SourceCharacter>,
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiClockTempoSource;
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiDeviceChangesSource;
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct RealearnInstanceStartSource;
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiClockTransportSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub message: Option<MidiClockTransportMessage>,
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiRawSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -182,14 +180,14 @@ mod midi {
         pub character: Option<SourceCharacter>,
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MidiScriptSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub script: Option<String>,
     }
 
-    #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
     pub enum SourceCharacter {
         Range,
         Button,
@@ -205,7 +203,7 @@ mod midi {
         }
     }
 
-    #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
     pub enum MidiClockTransportMessage {
         Start,
         Continue,
@@ -218,7 +216,7 @@ mod midi {
         }
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MackieLcd {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -227,14 +225,14 @@ mod midi {
         pub line: Option<u8>,
     }
 
-    #[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct MackieSevenSegmentDisplay {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub scope: Option<MackieSevenSegmentDisplayScope>,
     }
 
-    #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
     pub enum MackieSevenSegmentDisplayScope {
         All,
         Assignment,
@@ -251,7 +249,7 @@ mod midi {
         }
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct SiniConE24Display {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -260,7 +258,7 @@ mod midi {
         pub item_index: Option<u8>,
     }
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct LaunchpadProScrollingTextDisplay;
 }
@@ -269,9 +267,8 @@ mod osc {
     use crate::infrastructure::api::schema::{FeedbackBehavior, OscArgument};
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
-    use ts_rs::TS;
 
-    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct OscSource {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -291,9 +288,8 @@ mod virt {
     };
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
-    use ts_rs::TS;
 
-    #[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema, TS)]
+    #[derive(Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
     pub struct VirtualSource {
         pub id: VirtualControlElementId,
