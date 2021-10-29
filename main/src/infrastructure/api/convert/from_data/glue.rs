@@ -168,8 +168,8 @@ fn convert_absolute_mode(v: AbsoluteMode, style: ConversionStyle) -> Option<sche
     use AbsoluteMode::*;
     let mode = match v {
         Normal => T::Normal,
-        IncrementalButtons => T::IncrementalButton,
-        ToggleButtons => T::ToggleButton,
+        IncrementalButton => T::IncrementalButton,
+        ToggleButton => T::ToggleButton,
     };
     style.required_value(mode)
 }

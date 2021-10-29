@@ -5,7 +5,7 @@
 :sectnumlevels: 2
 
 |===
-|Last update of text: |`2021-10-12 (v2.11.0-pre.4)`
+|Last update of text: |`2021-10-12 (v2.11.0-pre.10)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -743,7 +743,7 @@ Let's first look at the "slow" way to do this - adding and editing each controll
  kinds of possibilities. You could for example restrict the target range for a certain control element. Or make
  an encoder generally slower or faster. Or you could simulate a rotary encoder by making two buttons on your
  controller act as -/+ buttons emitting relative values. This is possible by mapping them to the same "Multi" in
- "Incremental buttons" mode.
+ "Incremental button" mode.
 
 Before you go ahead and do that for each control element, you might want to check out what this is good for: Navigate
 back to the _main_ compartment, learn the source of some main mapping and touch the control element that you
@@ -1005,7 +1005,7 @@ TIP: For this kind of use cases you should consider the new <<realearn-enable-di
 You can tell ReaLearn to only activate your mapping if a certain parameter has a particular value.
 The particular value is called "Bank". Why? Let's
 assume you mapped 2 buttons "Previous" and "Next" to increase/decrease the value of the parameter
-(by using "Incremental buttons" mode, you will learn how to do that further below). And you have multiple
+(by using "Incremental button" mode, you will learn how to do that further below). And you have multiple
 mappings where each one uses "When bank selected" with the same parameter but a different "Bank".
 Then the result is that you can press "Previous" and "Next" and it will switch between different
 mappings within that parameter. If you assign the same "Bank" to multiple mappings, it's like putting
@@ -1163,7 +1163,7 @@ if there's absolutely no way to configure this control element as a momentary bu
 toggle mode is inherently more powerful than your controller's built-in toggle mode!). However, the opposite is
 not true. It can't make a toggle hardware button act like a momentary button.
 ** The way this character works: ReaLearn will simply emit 100%, no matter what the hardware sends.
-** *Attention:* If you use the toggle-only source character in combination with mode "Incremental buttons", you
+** *Attention:* If you use the toggle-only source character in combination with mode "Incremental button", you
 must leave source max at the (default) theoretical maximum value for that source (e.g. 127 for MIDI CC). Even if
 your controller device only sends 0 and 1 and in all other mappings you would enter the controller's concrete
 (instead of theoretically possible) maximum value. Otherwise, for this special case, a fixed
@@ -1737,7 +1737,7 @@ of actions can roughly be divided into:
 . Actions that take care of toggling themselves _and_ report on/off state.
 ** Example: "25. Track: Toggle record arm for track 01"
 ** If you want toggle behavior, you have 2 options:
-*** a) Set Invoke to "Absolute" and Mode to "Toggle buttons" (preferred).
+*** a) Set Invoke to "Absolute" and Mode to "Toggle button" (preferred).
 *** b) Set Invoke to "Trigger" and Mode to "Normal".
 ** Feedback is completely supported.
 . Actions that take care of toggling themselves but _don't_ report on/off state.
@@ -1753,7 +1753,7 @@ of actions can roughly be divided into:
 ** Since ReaLearn 2 and REAPER 6.20, there's special support for this type of actions. Starting from the first
  time this action is triggered, ReaLearn will track its current value.
 ** That's why toggling is supported. Because ReaLearn itself takes care of toggling, you need to set _Invoke_ to
- "Absolute" and Mode to "Toggle buttons".
+ "Absolute" and Mode to "Toggle button".
 ** Feedback is also supported.
 ** Toggling/feedback for this type of actions comes with some inherent limitations that are related to the fact that
  a) REAPER itself doesn't necessarily use actions to invoke its own functions and b) MIDI CC/OSC actions don't
@@ -2370,7 +2370,7 @@ These are relevant for the control direction only:
  relative control. All values are entered comma-separated and using the unit chosen in the <<target,target section>>.
  Just click the unit button to switch between the native target unit and percentages. Examples:
 ** `-20, -14, -12, -6, -3.5, 0`: Enter this sequence for a volume target with target unit switched to dB. When you
- move your knob or rotary encoder or press a button using _Incremental buttons_ mode, ReaLearn will step through
+ move your knob or rotary encoder or press a button using _Incremental button_ mode, ReaLearn will step through
  the entered dB values for you.
 ** `10 - 30, 50 - 70 (5), 80 - 90 (2)`: Enter this sequence for a target with a continuous value range and target
  unit switched to %. It will first step in 1% steps from 10% to 30%, then in 2% steps from 50% to 70% and finally
@@ -2555,12 +2555,12 @@ They don't apply to rotary encoders for example. They don't affect _feedback_.
 * *Normal:* Takes and optionally transforms absolute source control values _the normal way_. _Normal_ means that
 the current target value is irrelevant and the target will just be set to whatever absolute control value is
 coming in (potentially transformed).
-* *Incremental buttons:* With this you can "go relative" without having encoders, provided your control elements
-are buttons. Let's assume you use the _MIDI Note velocity_ and select _Incremental buttons_ mode.
+* *Incremental button:* With this you can "go relative" without having encoders, provided your control elements
+are buttons. Let's assume you use the _MIDI Note velocity_ and select _Incremental button_ mode.
 Then it works like this: Each time you press the key, the target value will increase, according to the mode's
 settings. You can even make the amount of change velocity-sensitive! If you want the target value to decrease,
 just check the _Reverse_ checkbox.
-* *Toggle buttons:* Toggle buttons mode is used to toggle a target between on and off states. It only makes sense for momentary buttons (which fire a value > 0 on each press).
+* *Toggle button:* Toggle button mode is used to toggle a target between on and off states. It only makes sense for momentary buttons (which fire a value > 0 on each press).
 ** Here's how it works in detail:
 *** If the current target value is within the first half of the target min/max range, it's considered as _off_ and will therefore be switched _on_ (set to _target max_). If it's within the second half, it's considered as _on_ and will therefore be switched _off_ (set to _target min_).
 *** It works a bit differently if _target min_ and _target max_ have the same value (which is a common technique to set the target to a specific value on the press of a button). Instead of toggling between _target min_ and _target max_, this mode now toggles between this specific value (= _target min_ = _target max_) and 0%. This is useful whenever you have a set of buttons each of which sets the same target to a different value, and you want them to toggle between the specified value and an initial value (0%).
@@ -2636,9 +2636,9 @@ can be converted to relative values - rotary encoders and buttons. They don't af
 * _Step size Min_ specifies how much to increase/decrease the target value when an
 increment/decrement is received.
 * _Step size Max_ is used to limit the effect of acceleration (for rotary encoders
-which support acceleration and virtual control elements that are mapped as &quot;Incremental buttons" and have
+which support acceleration and virtual control elements that are mapped as &quot;Incremental button" and have
 a &quot;Speed&quot; &gt; 1x) and changes in velocity (for velocity-sensitive buttons/keys that are used
-as "Incremental buttons&quot;). If
+as "Incremental button"). If
 you set this to the same value as _Step size Min_, encoder acceleration or changes in velocity
 will have absolutely no effect on the incrementation/decrementation amount. If you set it to
 100%, the effect is maximized.
@@ -3160,8 +3160,8 @@ TIP: ReaLearn >= 2.11.0 provides an alternative and probably more straightforwar
 
 . As in tutorial 1.
 . As in tutorial 1.
-. Edit the mapping for button B2 ("Next group") and set mode to "Incremental buttons"
-. Edit the mapping for button B1 ("Previous group"), set mode to "Incremental buttons" _and_ check the "Reverse" box
+. Edit the mapping for button B2 ("Next group") and set mode to "Incremental button"
+. Edit the mapping for button B1 ("Previous group"), set mode to "Incremental button" _and_ check the "Reverse" box
  (because you want to go in the other direction).
 
 The "Previous group" mapping then looks like this:
@@ -3441,7 +3441,7 @@ All MiniLab mkII controller presets assume relative values.
 * Visual feedback for the pad LEDs works thanks to ReaLearn's <<raw-midi-source,Raw MIDI source>> which uses
 system-exclusive MIDI messages to control the LEDs.
 * LED color depends on the target value and is adjustable via "Source Min/Max".
-* This is one of the devices which needs the "Send feedback after control" workaround for the "Toggle buttons" mode,
+* This is one of the devices which needs the "Send feedback after control" workaround for the "Toggle button" mode,
 so the pad LEDs might flicker a bit when using it.
 
 === Behringer X32
@@ -3503,7 +3503,7 @@ The following controller presets assume relative values.
 ===== Hints
 
 In standard mode, this device tries to be clever with the button LED feedback but doesn't get it right. It can lead to
-wrong LED states when using "Toggle buttons" mode. This can be fixed by enabling "Send feedback after control" for the
+wrong LED states when using "Toggle button" mode. This can be fixed by enabling "Send feedback after control" for the
 corresponding mappings, which is already taken care of in the controller presets available on ReaPack.
 
 ==== MC mode

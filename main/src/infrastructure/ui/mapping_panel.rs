@@ -5642,7 +5642,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let target_category = self.mapping.target_model.category.get();
         let items = AbsoluteMode::into_enum_iter().map(|m| {
             let suffix =
-                if target_category == TargetCategory::Virtual && m == AbsoluteMode::ToggleButtons {
+                if target_category == TargetCategory::Virtual && m == AbsoluteMode::ToggleButton {
                     " (invalid because target is virtual!)"
                 } else {
                     ""

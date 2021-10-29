@@ -389,10 +389,10 @@ impl<'a> MappingModelWithContext<'a> {
             Normal(MomentaryButton) | Normal(ToggleButton) => {
                 let target = self.target_with_context().resolve_first()?;
                 match mode_type {
-                    AbsoluteMode::Normal | AbsoluteMode::ToggleButtons => !target
+                    AbsoluteMode::Normal | AbsoluteMode::ToggleButton => !target
                         .control_type(self.context.control_context())
                         .is_relative(),
-                    AbsoluteMode::IncrementalButtons => {
+                    AbsoluteMode::IncrementalButton => {
                         if target
                             .control_type(self.context.control_context())
                             .is_relative()
@@ -439,16 +439,16 @@ impl<'a> MappingModelWithContext<'a> {
                     .control_type(self.context.control_context())
                     .is_relative()
                 {
-                    AbsoluteMode::IncrementalButtons
+                    AbsoluteMode::IncrementalButton
                 } else {
                     match target.character(self.context.control_context()) {
                         TargetCharacter::Trigger
                         | TargetCharacter::Continuous
                         | TargetCharacter::VirtualMulti => AbsoluteMode::Normal,
                         TargetCharacter::Switch | TargetCharacter::VirtualButton => {
-                            AbsoluteMode::ToggleButtons
+                            AbsoluteMode::ToggleButton
                         }
-                        TargetCharacter::Discrete => AbsoluteMode::IncrementalButtons,
+                        TargetCharacter::Discrete => AbsoluteMode::IncrementalButton,
                     }
                 }
             }

@@ -694,7 +694,7 @@ impl PlayingState {
                 }
                 Some(ScheduledFor::Play) => {
                     // We haven't even started playing yet! Okay, let's backpedal.
-                    // This is currently not reachable in "Toggle buttons" mode because we consider
+                    // This is currently not reachable in "Toggle button" mode because we consider
                     // "Scheduled for play" as 25% which is from the perspective of toggle mode
                     // still "off". So it will only send an "on" signal.
                     let suspended = self.suspend(reg, false, caused_by_transport_change);

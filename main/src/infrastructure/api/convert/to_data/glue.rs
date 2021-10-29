@@ -35,8 +35,8 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
             use AbsoluteMode::*;
             match g.absolute_mode.unwrap_or_default() {
                 Normal => T::Normal,
-                IncrementalButton => T::IncrementalButtons,
-                ToggleButton => T::ToggleButtons,
+                IncrementalButton => T::IncrementalButton,
+                ToggleButton => T::ToggleButton,
             }
         },
         min_source_value: source_interval.min_val(),
