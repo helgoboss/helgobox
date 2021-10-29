@@ -20,7 +20,9 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
     let conv_step_factor_interval = g.step_factor_interval.map(convert_step_factor_interval);
     if let (Some(ssi), Some(sfi)) = (conv_step_size_interval, conv_step_factor_interval) {
         if ssi != sfi {
-            Err("Only one of `step_size_interval` and `step_factor_interval` can be set")?;
+            return Err(
+                "Only one of `step_size_interval` and `step_factor_interval` can be set".into(),
+            );
         }
     }
     let step_interval = conv_step_factor_interval

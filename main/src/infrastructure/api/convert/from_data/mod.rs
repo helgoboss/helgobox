@@ -77,7 +77,7 @@ fn convert_osc_arg_kind(v: OscTypeTag) -> schema::OscArgKind {
     }
 }
 
-fn convert_tags(tags: &Vec<Tag>, style: ConversionStyle) -> Option<Vec<String>> {
+fn convert_tags(tags: &[Tag], style: ConversionStyle) -> Option<Vec<String>> {
     let tags = tags.iter().map(|t| t.to_string()).collect();
     style.required_value(tags)
 }

@@ -521,7 +521,7 @@ impl MappingRowPanel {
     fn paste_from_lua_replace(&self, text: &str) -> Result<(), Box<dyn Error>> {
         let api_object = deserialize_api_object_from_lua(text)?;
         if !matches!(api_object, ApiObject::Mapping(Envelope { value: _ })) {
-            Err("There's more than one mapping in the clipboard.")?;
+            return Err("There's more than one mapping in the clipboard.".into());
         }
         let data_object = {
             let session = self.session();
@@ -601,7 +601,7 @@ impl MappingRowPanel {
             let text_from_clipboard = get_text_from_clipboard();
             let data_object_from_clipboard = text_from_clipboard
                 .as_ref()
-                .and_then(|text| deserialize_data_object_from_json(&text).ok());
+                .and_then(|text| deserialize_data_object_from_json(text).ok());
             let clipboard_could_contain_lua =
                 text_from_clipboard.is_some() && data_object_from_clipboard.is_none();
             let text_from_clipboard_clone = text_from_clipboard.clone();

@@ -127,7 +127,12 @@ impl ApiObject {
                     value: Box::new(api_mapping),
                 })
             }
-            _ => Err("conversion from source/mode/target data object not supported at the moment")?,
+            _ => {
+                return Err(
+                    "conversion from source/mode/target data object not supported at the moment"
+                        .into(),
+                )
+            }
         };
         Ok(api_object)
     }
@@ -170,7 +175,7 @@ pub fn deserialize_data_object(
 }
 
 pub fn deserialize_data_object_from_json(text: &str) -> Result<DataObject, Box<dyn Error>> {
-    Ok(serde_json::from_str(&text)?)
+    Ok(serde_json::from_str(text)?)
 }
 
 pub fn deserialize_data_object_from_lua(

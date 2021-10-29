@@ -140,7 +140,7 @@ fn resolve_parameter_ref(
     let res = match param_ref {
         ParamRef::Index(i) => *i,
         ParamRef::Key(key) => {
-            param_index_by_key(&key).ok_or_else(|| format!("Parameter {} not defined", key))?
+            param_index_by_key(key).ok_or_else(|| format!("Parameter {} not defined", key))?
         }
     };
     Ok(res)

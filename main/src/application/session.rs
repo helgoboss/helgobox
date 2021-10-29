@@ -1628,7 +1628,7 @@ impl Session {
             // <None> preset
             None
         };
-        self.active_controller_preset_id = id.clone();
+        self.active_controller_preset_id = id;
         self.replace_compartment(compartment, model, weak_session);
         Ok(())
     }
@@ -1649,7 +1649,7 @@ impl Session {
             // <None> preset
             None
         };
-        self.active_main_preset_id = id.clone();
+        self.active_main_preset_id = id;
         self.replace_compartment(compartment, model, weak_session);
         Ok(())
     }

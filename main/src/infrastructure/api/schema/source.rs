@@ -6,6 +6,7 @@ pub use virt::*;
 
 #[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
+#[allow(clippy::enum_variant_names)]
 pub enum Source {
     // None
     #[serde(rename = "None")]
