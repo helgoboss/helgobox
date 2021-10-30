@@ -70,7 +70,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable-${{ matrix.toolchain-suffix }}
+          toolchain: 1.55.0-${{ matrix.toolchain-suffix }}
           target: ${{ matrix.target }}
           override: true
       # Install OS dependencies (Linux only)
