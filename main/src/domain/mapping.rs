@@ -1519,14 +1519,13 @@ pub enum SourceFeedbackValue {
 }
 
 impl SourceFeedbackValue {
-    pub fn extract_address(&self) -> CompoundMappingSourceAddress {
+    pub fn extract_address(&self) -> Option<CompoundMappingSourceAddress> {
         use SourceFeedbackValue::*;
         match self {
-            Midi(v) => CompoundMappingSourceAddress::Midi(
-                v.extract_feedback_address()
-                    .expect("couldn't extract feedback address"),
-            ),
-            Osc(v) => CompoundMappingSourceAddress::Osc(v.addr.clone()),
+            Midi(v) => v
+                .extract_feedback_address()
+                .map(CompoundMappingSourceAddress::Midi),
+            Osc(v) => Some(CompoundMappingSourceAddress::Osc(v.addr.clone())),
         }
     }
 }

@@ -2697,23 +2697,24 @@ impl<EH: DomainEventHandler> Basics<EH> {
         source_feedback_value: SourceFeedbackValue,
         is_feedback_after_control: bool,
     ) {
-        // No interference with other instances.
-        // This is not super cheap for OSC and MIDI Raw because it has to clone the address string.
-        // On the other hand, address strings are not large, so what.
-        let address = source_feedback_value.extract_address();
-        let checksum = FeedbackChecksum::from_value(&source_feedback_value);
-        let previous_checksum = self
-            .last_feedback_checksum_by_address
-            .borrow_mut()
-            .insert(address, checksum);
-        if !is_feedback_after_control && Some(checksum) == previous_checksum {
-            trace!(
-                self.logger,
-                "Block feedback because duplicate (reason: {:?}): {:?}",
-                feedback_reason,
-                source_feedback_value
-            );
-            return;
+        // Block duplicates.
+        // Extracting a feedback address is not super cheap for OSC and MIDI Raw because it has to
+        // clone the address string. On the other hand, address strings are not large, so what.
+        if let Some(address) = source_feedback_value.extract_address() {
+            let checksum = FeedbackChecksum::from_value(&source_feedback_value);
+            let previous_checksum = self
+                .last_feedback_checksum_by_address
+                .borrow_mut()
+                .insert(address, checksum);
+            if !is_feedback_after_control && Some(checksum) == previous_checksum {
+                trace!(
+                    self.logger,
+                    "Block feedback because duplicate (reason: {:?}): {:?}",
+                    feedback_reason,
+                    source_feedback_value
+                );
+                return;
+            }
         }
         trace!(
             self.logger,
