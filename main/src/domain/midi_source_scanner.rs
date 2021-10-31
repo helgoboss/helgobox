@@ -103,6 +103,7 @@ impl MidiScanResult {
         let res = MidiScanResult {
             dev_id,
             value: MidiSourceValue::Raw {
+                // We don't use this as feedback value.
                 feedback_address_info: None,
                 events: vec,
             },

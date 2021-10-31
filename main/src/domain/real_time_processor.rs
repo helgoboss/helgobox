@@ -1031,6 +1031,9 @@ impl RealTimeProcessor {
                                         if self.output_logging_enabled {
                                             permit_alloc(|| {
                                                 self.log_lifecycle_output(MidiSourceValue::Raw {
+                                                    // We don't use this as feedback value,
+                                                    // at least not in the sense that it
+                                                    // participates in feedback relay.
                                                     feedback_address_info: None,
                                                     events: vec![*data.clone()],
                                                 });
@@ -1060,6 +1063,9 @@ impl RealTimeProcessor {
                     if self.output_logging_enabled {
                         permit_alloc(|| {
                             self.log_lifecycle_output(MidiSourceValue::Raw {
+                                // We don't use this as feedback value,
+                                // at least not in the sense that it
+                                // participates in feedback relay.
                                 feedback_address_info: None,
                                 events: vec![*data.clone()],
                             });
