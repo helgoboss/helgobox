@@ -234,6 +234,7 @@ impl RealearnAudioHook {
                         for (_, p) in self.real_time_processors.iter() {
                             let mut guard = p.lock_recover();
                             if guard.control_is_globally_enabled()
+                                && guard.midi_control_input() == MidiControlInput::Device(dev_id)
                                 && guard.process_incoming_midi_from_audio_hook(our_event)
                             {
                                 filter_out_event = true;
