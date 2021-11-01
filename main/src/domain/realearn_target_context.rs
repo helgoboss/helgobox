@@ -2,7 +2,7 @@ use crate::domain::{
     AdditionalFeedbackEvent, FxSnapshotLoadedEvent, ParameterAutomationTouchStateChangedEvent,
     TouchedParameterType,
 };
-use reaper_high::Fx;
+use reaper_high::{Fx, Track};
 use reaper_medium::MediaTrack;
 use std::collections::{HashMap, HashSet};
 
@@ -65,16 +65,17 @@ impl RealearnTargetContext {
 
     pub fn touch_automation_parameter(
         &mut self,
-        track: MediaTrack,
+        track: &Track,
         parameter_type: TouchedParameterType,
     ) {
         self.touched_things
-            .insert(TouchedThing::new(track, parameter_type));
+            .insert(TouchedThing::new(track.raw(), parameter_type));
+        self.post_process_touch(track, parameter_type);
         self.additional_feedback_event_sender
             .try_send(
                 AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
                     ParameterAutomationTouchStateChangedEvent {
-                        track,
+                        track: track.raw(),
                         parameter_type,
                         new_value: true,
                     },
@@ -85,22 +86,36 @@ impl RealearnTargetContext {
 
     pub fn untouch_automation_parameter(
         &mut self,
-        track: MediaTrack,
+        track: &Track,
         parameter_type: TouchedParameterType,
     ) {
         self.touched_things
-            .remove(&TouchedThing::new(track, parameter_type));
+            .remove(&TouchedThing::new(track.raw(), parameter_type));
         self.additional_feedback_event_sender
             .try_send(
                 AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(
                     ParameterAutomationTouchStateChangedEvent {
-                        track,
+                        track: track.raw(),
                         parameter_type,
                         new_value: false,
                     },
                 ),
             )
             .unwrap();
+    }
+
+    fn post_process_touch(&mut self, track: &Track, parameter_type: TouchedParameterType) {
+        match parameter_type {
+            TouchedParameterType::Volume => {
+                track.set_volume(track.volume());
+            }
+            TouchedParameterType::Pan => {
+                track.set_pan(track.pan());
+            }
+            TouchedParameterType::Width => {
+                track.set_width(track.width());
+            }
+        }
     }
 
     pub fn automation_parameter_is_touched(
