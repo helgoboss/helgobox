@@ -128,7 +128,7 @@ async fn setup() -> RealearnTestInstance {
         .add_fx_by_original_name("ReaLearn (Helgoboss)")
         .expect("couldn't find ReaLearn plug-in");
     // Then
-    assert_eq!(fx.parameter_count(), PLUGIN_PARAMETER_COUNT + 2);
+    assert!(fx.parameter_count() >= PLUGIN_PARAMETER_COUNT + 2);
     assert_eq!(fx.name().to_str(), "VSTi: ReaLearn (Helgoboss)");
     moment().await;
     let session = App::get()
