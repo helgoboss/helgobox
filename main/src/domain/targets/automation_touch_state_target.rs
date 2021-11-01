@@ -37,12 +37,12 @@ impl RealearnTarget for AutomationTouchStateTarget {
             |t| {
                 target_context
                     .borrow_mut()
-                    .touch_automation_parameter(t.raw(), self.parameter_type)
+                    .touch_automation_parameter(t, self.parameter_type)
             },
             |t| {
                 target_context
                     .borrow_mut()
-                    .untouch_automation_parameter(t.raw(), self.parameter_type)
+                    .untouch_automation_parameter(t, self.parameter_type)
             },
         );
         Ok(None)
