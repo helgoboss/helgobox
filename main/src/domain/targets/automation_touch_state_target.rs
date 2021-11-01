@@ -31,14 +31,14 @@ impl RealearnTarget for AutomationTouchStateTarget {
         let mut ctx = BackboneState::target_context().borrow_mut();
         if value.to_unit_value()?.is_zero() {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| {
-                ctx.touch_automation_parameter(t.raw(), self.parameter_type)
+                ctx.touch_automation_parameter(t, self.parameter_type)
             });
-            ctx.untouch_automation_parameter(self.track.raw(), self.parameter_type);
+            ctx.untouch_automation_parameter(&self.track, self.parameter_type);
         } else {
             handle_track_exclusivity(&self.track, self.exclusivity, |t| {
-                ctx.untouch_automation_parameter(t.raw(), self.parameter_type)
+                ctx.untouch_automation_parameter(t, self.parameter_type)
             });
-            ctx.touch_automation_parameter(self.track.raw(), self.parameter_type);
+            ctx.touch_automation_parameter(&self.track, self.parameter_type);
         }
         Ok(None)
     }
