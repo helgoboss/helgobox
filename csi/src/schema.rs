@@ -19,8 +19,7 @@ pub enum Capability {
     },
     Encoder {
         main: RawShortMessage,
-        decrements: Acceleration,
-        increments: Acceleration,
+        accelerations: Option<Accelerations>,
     },
     FbEncoder {
         max: RawShortMessage,
@@ -49,6 +48,12 @@ pub enum Capability {
         index: u32,
     },
     Unknown(String),
+}
+
+#[derive(PartialEq, Debug)]
+pub struct Accelerations {
+    pub increments: Acceleration,
+    pub decrements: Acceleration,
 }
 
 #[derive(PartialEq, Debug)]

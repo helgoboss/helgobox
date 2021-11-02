@@ -790,6 +790,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "csi"
+version = "0.1.0"
+dependencies = [
+ "helgoboss-midi",
+ "nom 7.0.0",
+]
+
+[[package]]
 name = "ctor"
 version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"

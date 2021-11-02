@@ -116,6 +116,7 @@ designed as independent library and could be used to provide similar MIDI-learn 
 | Directory entry | Content                                                                              |
 | --------------- | ------------------------------------------------------------------------------------ |
 | `/`             | Workspace root                                                                       |
+| `/csi`          | Code for interfacing with the ControlSurfaceIntegrator (CSI) project                 |
 | `/doc`          | Documentation                                                                        |
 | `/main`         | Main crate (`realearn`)                                                              |
 | `/rx-util`      | Utility crate providing primitives for reactive programming (`rx-util`)              |
