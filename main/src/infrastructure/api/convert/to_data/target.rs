@@ -13,12 +13,12 @@ use crate::infrastructure::api::convert::to_data::{
     convert_osc_arg_type, convert_tags, ApiToDataConversionContext,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{
     serialize_fx, serialize_fx_parameter, serialize_track, serialize_track_route, BookmarkData,
     FxData, FxParameterData, TargetModelData, TrackData, TrackRouteData,
 };
 use crate::{application, domain};
+use realearn_api::schema::*;
 use reaper_high::Guid;
 use std::rc::Rc;
 

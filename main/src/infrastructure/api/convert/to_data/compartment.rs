@@ -6,8 +6,8 @@ use crate::infrastructure::api::convert::to_data::group::convert_group;
 use crate::infrastructure::api::convert::to_data::parameter::convert_parameter;
 use crate::infrastructure::api::convert::to_data::{convert_mapping, ApiToDataConversionContext};
 use crate::infrastructure::api::convert::{convert_multiple, ConversionResult};
-use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{CompartmentModelData, GroupModelData};
+use realearn_api::schema::*;
 
 pub fn convert_compartment(c: Compartment) -> ConversionResult<CompartmentModelData> {
     struct ConversionContext {

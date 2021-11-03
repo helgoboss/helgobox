@@ -1,9 +1,10 @@
 [workspace]
 members = [
+    "api",
+    "csi",
     "main",
     "rx-util",
     "swell-ui",
-    "csi",
     # Will probably excluded from the workspace in future
     "main/lib/helgoboss-learn"
 ]

@@ -4,9 +4,10 @@ use std::rc::{Rc, Weak};
 use crate::base::when;
 use crate::infrastructure::ui::{
     bindings::root, deserialize_data_object_from_json, get_text_from_clipboard, paste_mappings,
-    util, DataObject, Envelope, IndependentPanelManager, MainState, MappingRowPanel,
+    util, DataObject, IndependentPanelManager, MainState, MappingRowPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
+use realearn_api::schema::Envelope;
 use reaper_high::Reaper;
 use reaper_low::raw;
 use rxrust::prelude::*;

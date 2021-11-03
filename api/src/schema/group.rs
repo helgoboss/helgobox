@@ -1,4 +1,4 @@
-use crate::infrastructure::api::schema::*;
+use crate::schema::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

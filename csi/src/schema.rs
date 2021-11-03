@@ -50,6 +50,17 @@ pub enum Capability {
     Unknown(String),
 }
 
+impl Capability {
+    pub fn is_unknown(&self) -> bool {
+        matches!(self, Self::Unknown(_))
+    }
+
+    pub fn is_virtual_button(&self) -> bool {
+        use Capability::*;
+        matches!(self, Press { .. } | Toggle { .. } | Touch { .. })
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub struct Accelerations {
     pub increments: Acceleration,

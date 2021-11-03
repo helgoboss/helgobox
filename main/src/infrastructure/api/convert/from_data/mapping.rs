@@ -6,9 +6,9 @@ use crate::infrastructure::api::convert::from_data::{
     convert_target, ConversionStyle, DataToApiConversionContext, NewSourceProps,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema;
-use crate::infrastructure::api::schema::LifecycleHook;
 use crate::infrastructure::data::MappingModelData;
+use realearn_api::schema;
+use realearn_api::schema::LifecycleHook;
 
 pub fn convert_mapping(
     data: MappingModelData,

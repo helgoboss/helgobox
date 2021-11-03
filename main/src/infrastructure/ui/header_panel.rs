@@ -35,6 +35,7 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 
+use crate::base::notification::notify_processing_result;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::open_in_browser;
@@ -42,11 +43,12 @@ use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, get_text_from_clipboard,
     serialize_data_object, serialize_data_object_to_json, serialize_data_object_to_lua, DataObject,
-    Envelope, GroupFilter, GroupPanel, IndependentPanelManager, MappingRowsPanel, SearchExpression,
+    GroupFilter, GroupPanel, IndependentPanelManager, MappingRowsPanel, SearchExpression,
     SerializationFormat, SharedIndependentPanelManager, SharedMainState, SourceFilter,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
+use realearn_api::schema::Envelope;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::net::Ipv4Addr;
@@ -1737,7 +1739,7 @@ impl HeaderPanel {
             .plugin_parameters
             .upgrade()
             .expect("plugin params gone");
-        let data_object = {
+        let res = {
             let session = self.session();
             let session = session.borrow();
             let compartment_in_session = CompartmentInSession {
@@ -1746,7 +1748,7 @@ impl HeaderPanel {
             };
             deserialize_data_object(&text, &compartment_in_session)?
         };
-        match data_object {
+        match res.value {
             DataObject::Session(Envelope { value: d}) => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
@@ -1756,10 +1758,14 @@ impl HeaderPanel {
                 }
             }
             DataObject::MainCompartment(Envelope {value}) => {
-                self.import_compartment(MappingCompartment::MainMappings, value);
+                let compartment = MappingCompartment::MainMappings;
+                self.import_compartment(compartment, value);
+                self.update_compartment(compartment);
             }
             DataObject::ControllerCompartment(Envelope {value}) => {
-                self.import_compartment(MappingCompartment::ControllerMappings, value);
+                let compartment = MappingCompartment::ControllerMappings;
+                self.import_compartment(compartment, value);
+                self.update_compartment(compartment);
             }
             DataObject::Mappings{..} => {
                 return Err("The clipboard contains just a lose collection of mappings. Please import them using the context menus.".into())
@@ -1770,6 +1776,9 @@ impl HeaderPanel {
             _ => {
                 return Err("The clipboard contains only a part of a mapping. Please import it using the context menus in the mapping area.".into())
             }
+        }
+        if !res.annotations.is_empty() {
+            notify_processing_result("Import from clipboard", res.annotations);
         }
         Ok(())
     }

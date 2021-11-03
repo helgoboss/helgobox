@@ -1,6 +1,6 @@
 use crate::application::ParameterSetting;
 use crate::infrastructure::api::convert::ConversionResult;
-use crate::infrastructure::api::schema;
+use realearn_api::schema;
 
 pub fn convert_parameter(
     index: String,

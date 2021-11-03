@@ -1,5 +1,4 @@
 mod api;
-mod csi;
 mod data;
 mod plugin;
 mod server;

@@ -2,8 +2,8 @@ use crate::infrastructure::api::convert::from_data::{
     convert_group, convert_mapping, convert_parameter, ConversionStyle, DataToApiConversionContext,
 };
 use crate::infrastructure::api::convert::{convert_multiple, ConversionResult};
-use crate::infrastructure::api::schema;
 use crate::infrastructure::data::CompartmentModelData;
+use realearn_api::schema;
 
 pub fn convert_compartment(
     data: CompartmentModelData,

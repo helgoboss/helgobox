@@ -10,8 +10,8 @@ use crate::infrastructure::api::convert::to_data::{
     convert_activation, convert_group_key, ApiToDataConversionContext,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{EnabledData, MappingModelData};
+use realearn_api::schema::*;
 use std::convert::TryInto;
 use std::str::FromStr;
 

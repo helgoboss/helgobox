@@ -3,12 +3,12 @@ use crate::infrastructure::api::convert::from_data::{
     convert_control_element_id, convert_control_element_kind, convert_osc_argument, ConversionStyle,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema;
 use crate::infrastructure::data::SourceModelData;
 use helgoboss_learn::{
     DisplayType, MackieSevenSegmentDisplayScope, MidiClockTransportMessage, SourceCharacter,
 };
 use helgoboss_midi::{Channel, U14};
+use realearn_api::schema;
 use std::convert::TryInto;
 
 pub struct NewSourceProps {
