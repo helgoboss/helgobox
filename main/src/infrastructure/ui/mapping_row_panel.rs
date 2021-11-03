@@ -18,10 +18,11 @@ use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::{format_tags_as_csv, symbols};
 use crate::infrastructure::ui::{
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
-    get_text_from_clipboard, serialize_data_object, util, ApiObject, DataObject, Envelope,
-    IndependentPanelManager, SerializationFormat, SharedMainState,
+    get_text_from_clipboard, serialize_data_object, util, DataObject, IndependentPanelManager,
+    SerializationFormat, SharedMainState,
 };
 use core::iter;
+use realearn_api::schema::{ApiObject, Envelope};
 use reaper_high::Reaper;
 use reaper_low::raw;
 use rxrust::prelude::*;

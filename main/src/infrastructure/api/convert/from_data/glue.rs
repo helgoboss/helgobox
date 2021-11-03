@@ -1,12 +1,12 @@
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema;
-use crate::infrastructure::api::schema::PropColor;
 use crate::infrastructure::data::ModeModelData;
 use helgoboss_learn::{
     AbsoluteMode, ButtonUsage, EncoderUsage, FeedbackType, FireMode, GroupInteraction,
     OutOfRangeBehavior, TakeoverMode, UnitValue, VirtualColor,
 };
+use realearn_api::schema;
+use realearn_api::schema::PropColor;
 
 pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionResult<schema::Glue> {
     let glue = schema::Glue {

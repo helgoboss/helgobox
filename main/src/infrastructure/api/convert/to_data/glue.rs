@@ -1,8 +1,8 @@
 use crate::infrastructure::api::convert::defaults;
 use crate::infrastructure::api::convert::ConversionResult;
-use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::ModeModelData;
 use helgoboss_learn::{SoftSymmetricUnitValue, UnitValue};
+use realearn_api::schema::*;
 use std::convert::TryInto;
 
 pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {

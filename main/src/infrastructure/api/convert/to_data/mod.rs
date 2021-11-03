@@ -2,14 +2,14 @@ use crate::application;
 use crate::application::{BankConditionModel, ModifierConditionModel};
 use crate::domain::GroupId;
 use crate::infrastructure::api::convert::ConversionResult;
-use crate::infrastructure::api::schema::{
-    ActivationCondition, ModifierState, OscArgKind, ParamRef, VirtualControlElementCharacter,
-    VirtualControlElementId,
-};
 use crate::infrastructure::data;
 use crate::infrastructure::data::ActivationConditionData;
 pub use compartment::*;
 pub use mapping::*;
+use realearn_api::schema::{
+    ActivationCondition, ModifierState, OscArgKind, ParamRef, VirtualControlElementCharacter,
+    VirtualControlElementId,
+};
 use source::*;
 use std::str::FromStr;
 

@@ -13,8 +13,12 @@ use crate::infrastructure::api::convert::from_data::{
     convert_osc_argument, convert_tags, ConversionStyle, DataToApiConversionContext,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema;
-use crate::infrastructure::api::schema::{
+use crate::infrastructure::data::{
+    deserialize_fx, deserialize_fx_parameter, deserialize_track, deserialize_track_route,
+    TargetModelData, TrackData,
+};
+use realearn_api::schema;
+use realearn_api::schema::{
     AllTrackFxOnOffStateTarget, AutomationModeOverrideTarget, BookmarkDescriptor, BookmarkRef,
     ClipDescriptor, ClipOutput, ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget,
     CycleThroughFxPresetsTarget, CycleThroughFxTarget, CycleThroughGroupMappingsTarget,
@@ -27,10 +31,6 @@ use crate::infrastructure::api::schema::{
     TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget, TrackPhaseTarget,
     TrackSelectionStateTarget, TrackSoloStateTarget, TrackVisibilityTarget, TrackVolumeTarget,
     TrackWidthTarget, TransportActionTarget,
-};
-use crate::infrastructure::data::{
-    deserialize_fx, deserialize_fx_parameter, deserialize_track, deserialize_track_route,
-    TargetModelData, TrackData,
 };
 
 pub fn convert_target(

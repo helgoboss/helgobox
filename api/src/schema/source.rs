@@ -57,7 +57,7 @@ impl Default for FeedbackBehavior {
 }
 
 mod midi {
-    use crate::infrastructure::api::schema::FeedbackBehavior;
+    use crate::schema::FeedbackBehavior;
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
@@ -265,7 +265,7 @@ mod midi {
 }
 
 mod osc {
-    use crate::infrastructure::api::schema::{FeedbackBehavior, OscArgument};
+    use crate::schema::{FeedbackBehavior, OscArgument};
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
@@ -284,9 +284,7 @@ mod osc {
 }
 
 mod virt {
-    use crate::infrastructure::api::schema::{
-        VirtualControlElementCharacter, VirtualControlElementId,
-    };
+    use crate::schema::{VirtualControlElementCharacter, VirtualControlElementId};
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 

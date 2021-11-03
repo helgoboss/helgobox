@@ -1,4 +1,4 @@
-use crate::infrastructure::api::schema::Interval;
+use realearn_api::schema::Interval;
 
 pub const MAPPING_CONTROL_ENABLED: bool = true;
 pub const MAPPING_FEEDBACK_ENABLED: bool = true;

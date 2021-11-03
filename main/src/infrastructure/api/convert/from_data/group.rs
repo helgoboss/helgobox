@@ -2,8 +2,8 @@ use crate::infrastructure::api::convert::from_data::{
     convert_activation_condition, convert_tags, ConversionStyle,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema;
 use crate::infrastructure::data::GroupModelData;
+use realearn_api::schema;
 
 pub fn convert_group(
     data: GroupModelData,

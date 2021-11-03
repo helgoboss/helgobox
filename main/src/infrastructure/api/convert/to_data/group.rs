@@ -1,8 +1,8 @@
 use crate::domain::GroupId;
 use crate::infrastructure::api::convert::to_data::{convert_activation, convert_tags};
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{EnabledData, GroupModelData};
+use realearn_api::schema::*;
 
 pub fn convert_group(
     g: Group,

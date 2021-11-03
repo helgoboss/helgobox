@@ -1,6 +1,4 @@
-use crate::infrastructure::api::schema::{
-    OscArgument, VirtualControlElementCharacter, VirtualControlElementId,
-};
+use crate::schema::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

@@ -14,6 +14,32 @@ pub use parameter::*;
 pub use source::*;
 pub use target::*;
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Envelope<T> {
+    pub value: T,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum ApiObject {
+    MainCompartment(Envelope<Box<Compartment>>),
+    ControllerCompartment(Envelope<Box<Compartment>>),
+    Mappings(Envelope<Vec<Mapping>>),
+    Mapping(Envelope<Box<Mapping>>),
+}
+
+impl ApiObject {
+    pub fn into_mappings(self) -> Option<Vec<Mapping>> {
+        match self {
+            ApiObject::Mappings(Envelope { value: mappings }) => Some(mappings),
+            ApiObject::Mapping(Envelope { value: m }) => Some(vec![*m]),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -27,11 +53,7 @@ mod tests {
         let gen = settings.into_generator();
         let schema = gen.into_root_schema_for::<Compartment>();
         let schema_json = serde_json::to_string_pretty(&schema).unwrap();
-        std::fs::write(
-            "src/infrastructure/api/schema/generated/realearn.schema.json",
-            schema_json,
-        )
-        .unwrap();
+        std::fs::write("src/schema/generated/realearn.schema.json", schema_json).unwrap();
     }
 
     #[test]
@@ -63,7 +85,7 @@ mod tests {
             ..Default::default()
         };
         let json = serde_json::to_string_pretty(&mapping).unwrap();
-        std::fs::write("src/infrastructure/api/schema/test/example.json", json).unwrap();
+        std::fs::write("src/schema/test/example.json", json).unwrap();
     }
 
     #[test]
@@ -73,10 +95,6 @@ mod tests {
         let value = lua.load(include_str!("test/example.lua")).eval().unwrap();
         let mapping: Mapping = lua.from_value(value).unwrap();
         let json = serde_json::to_string_pretty(&mapping).unwrap();
-        std::fs::write(
-            "src/infrastructure/api/schema/test/example_from_lua.json",
-            json,
-        )
-        .unwrap();
+        std::fs::write("src/schema/test/example_from_lua.json", json).unwrap();
     }
 }

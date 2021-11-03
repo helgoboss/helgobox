@@ -15,10 +15,10 @@ mod target;
 use crate::application::{ActivationType, VirtualControlElementType};
 use crate::domain::{GroupId, Tag};
 use crate::infrastructure::api::convert::defaults;
-use crate::infrastructure::api::schema;
-use crate::infrastructure::api::schema::ParamRef;
 use crate::infrastructure::data::{ActivationConditionData, VirtualControlElementIdData};
 use helgoboss_learn::OscTypeTag;
+use realearn_api::schema;
+use realearn_api::schema::ParamRef;
 pub use target::*;
 
 fn convert_control_element_id(v: VirtualControlElementIdData) -> schema::VirtualControlElementId {
