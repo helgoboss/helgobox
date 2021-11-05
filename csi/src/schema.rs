@@ -1,3 +1,4 @@
+use derive_more::Display;
 use helgoboss_midi::RawShortMessage;
 use std::ops::RangeInclusive;
 
@@ -7,46 +8,45 @@ pub struct Widget {
     pub capabilities: Vec<Capability>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Display)]
 pub enum Capability {
+    #[display(fmt = "Press")]
     Press {
         press: RawShortMessage,
         release: Option<RawShortMessage>,
     },
+    #[display(fmt = "FB_TwoState")]
     FbTwoState {
         on: RawShortMessage,
         off: RawShortMessage,
     },
+    #[display(fmt = "Encoder")]
     Encoder {
         main: RawShortMessage,
         accelerations: Option<Accelerations>,
     },
-    FbEncoder {
-        max: RawShortMessage,
-    },
-    Toggle {
-        on: RawShortMessage,
-    },
-    Fader14Bit {
-        max: RawShortMessage,
-    },
-    FbFader14Bit {
-        max: RawShortMessage,
-    },
+    #[display(fmt = "FB_Encoder")]
+    FbEncoder { max: RawShortMessage },
+    #[display(fmt = "Toggle")]
+    Toggle { on: RawShortMessage },
+    #[display(fmt = "Fader14Bit")]
+    Fader14Bit { max: RawShortMessage },
+    #[display(fmt = "FB_Fader14Bit")]
+    FbFader14Bit { max: RawShortMessage },
+    #[display(fmt = "Touch")]
     Touch {
-        on: RawShortMessage,
-        off: RawShortMessage,
+        touch: RawShortMessage,
+        release: RawShortMessage,
     },
-    FbMcuDisplayLower {
-        index: u32,
-    },
-    FbMcuDisplayUpper {
-        index: u32,
-    },
+    #[display(fmt = "FB_MCUDisplayLower")]
+    FbMcuDisplayLower { index: u8 },
+    #[display(fmt = "FB_MCUDisplayUpper")]
+    FbMcuDisplayUpper { index: u8 },
+    #[display(fmt = "FB_MCUTimeDisplay")]
     FbMcuTimeDisplay,
-    FbMcuVuMeter {
-        index: u32,
-    },
+    #[display(fmt = "FB_MCUVUMeter")]
+    FbMcuVuMeter { index: u8 },
+    #[display(fmt = "{}", "_0")]
     Unknown(String),
 }
 

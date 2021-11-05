@@ -8,3 +8,4 @@ edition = "2018"
 nom = "7.0.0"
 helgoboss-midi = "0.3"
 realearn-api = { path = "../api" }
+derive_more = "0.99.16"

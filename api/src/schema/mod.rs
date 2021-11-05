@@ -23,6 +23,7 @@ pub struct Envelope<T> {
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "kind")]
+#[serde(deny_unknown_fields)]
 pub enum ApiObject {
     MainCompartment(Envelope<Box<Compartment>>),
     ControllerCompartment(Envelope<Box<Compartment>>),

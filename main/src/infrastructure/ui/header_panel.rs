@@ -1778,7 +1778,10 @@ impl HeaderPanel {
             }
         }
         if !res.annotations.is_empty() {
-            notify_processing_result("Import from clipboard", res.annotations);
+            notify_processing_result(
+                "Import from clipboard",
+                res.annotations.into_iter().map(|a| a.to_string()).collect(),
+            );
         }
         Ok(())
     }

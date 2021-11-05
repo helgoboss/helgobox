@@ -571,9 +571,13 @@ impl SourceCategory {
     pub fn is_allowed_in(self, compartment: MappingCompartment) -> bool {
         use SourceCategory::*;
         match compartment {
-            MappingCompartment::ControllerMappings => {
-                matches!(self, Midi | Osc)
-            }
+            MappingCompartment::ControllerMappings => match self {
+                Never => true,
+                Midi => true,
+                Osc => true,
+                Reaper => true,
+                Virtual => false,
+            },
             MappingCompartment::MainMappings => true,
         }
     }

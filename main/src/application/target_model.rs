@@ -1806,9 +1806,10 @@ impl TargetCategory {
         use TargetCategory::*;
         match compartment {
             MappingCompartment::ControllerMappings => true,
-            MappingCompartment::MainMappings => {
-                matches!(self, Reaper)
-            }
+            MappingCompartment::MainMappings => match self {
+                Reaper => true,
+                Virtual => false,
+            },
         }
     }
 }
