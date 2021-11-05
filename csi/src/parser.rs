@@ -103,7 +103,10 @@ fn capability_fb_fader_14_bit(input: &str) -> Res<Capability> {
 
 fn capability_touch(input: &str) -> Res<Capability> {
     map(util::capability_msg_msg("Touch"), |(on, off)| {
-        Capability::Touch { on, off }
+        Capability::Touch {
+            touch: on,
+            release: off,
+        }
     })(input)
 }
 
@@ -258,9 +261,9 @@ mod util {
         )
     }
 
-    pub fn capability_index<'a>(name: &'static str) -> impl FnMut(&'a str) -> Res<u32> {
+    pub fn capability_index<'a>(name: &'static str) -> impl FnMut(&'a str) -> Res<u8> {
         map_res(preceded(tuple((tag(name), space1)), digit1), |s: &str| {
-            u32::from_str_radix(s, 10)
+            u8::from_str_radix(s, 10)
         })
     }
 

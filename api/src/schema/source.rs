@@ -27,10 +27,10 @@ pub enum Source {
     MidiClockTransport(MidiClockTransportSource),
     MidiRaw(MidiRawSource),
     MidiScript(MidiScriptSource),
-    MackieLcd(MackieLcd),
-    MackieSevenSegmentDisplay(MackieSevenSegmentDisplay),
-    SiniConE24Display(SiniConE24Display),
-    LaunchpadProScrollingTextDisplay(LaunchpadProScrollingTextDisplay),
+    MackieLcd(MackieLcdSource),
+    MackieSevenSegmentDisplay(MackieSevenSegmentDisplaySource),
+    SiniConE24Display(SiniConE24DisplaySource),
+    LaunchpadProScrollingTextDisplay(LaunchpadProScrollingTextDisplaySource),
     // OSC
     Osc(OscSource),
     Virtual(VirtualSource),
@@ -219,7 +219,7 @@ mod midi {
 
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
-    pub struct MackieLcd {
+    pub struct MackieLcdSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -228,7 +228,7 @@ mod midi {
 
     #[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
-    pub struct MackieSevenSegmentDisplay {
+    pub struct MackieSevenSegmentDisplaySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub scope: Option<MackieSevenSegmentDisplayScope>,
     }
@@ -252,7 +252,7 @@ mod midi {
 
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
-    pub struct SiniConE24Display {
+    pub struct SiniConE24DisplaySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub cell_index: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -261,7 +261,7 @@ mod midi {
 
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
-    pub struct LaunchpadProScrollingTextDisplay;
+    pub struct LaunchpadProScrollingTextDisplaySource;
 }
 
 mod osc {

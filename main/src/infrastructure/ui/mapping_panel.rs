@@ -4691,7 +4691,10 @@ impl<'a> ImmutableMappingPanel<'a> {
                 || is_relevant(ModeParameter::TextualFeedbackExpression);
             self.enable_if(
                 show_feedback_transformation,
-                &[root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL],
+                &[
+                    root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL,
+                    root::IDC_MODE_FEEDBACK_TYPE_BUTTON,
+                ],
             );
             let show_feedback_type = is_relevant(ModeParameter::FeedbackType);
             self.enable_if(

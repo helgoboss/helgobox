@@ -4,9 +4,9 @@ use reaper_medium::{MessageBoxType, ReaperStringArg};
 use std::sync::Mutex;
 
 pub fn notify_processing_result(heading: &str, msgs: Vec<String>) {
-    let joined_msg = msgs.join("\n- ");
+    let joined_msg = msgs.join("\n\n");
     let msg = format!(
-        "{}\n{}\n\n- {}",
+        "{}\n{}\n\n{}\n\n",
         heading,
         "-".repeat(heading.len()),
         joined_msg
