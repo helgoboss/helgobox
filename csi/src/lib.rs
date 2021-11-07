@@ -1,7 +1,7 @@
 use derive_more::Display;
 use helgoboss_midi::{RawShortMessage, ShortMessage, StructuredShortMessage, U14, U7};
 use realearn_api::schema::{
-    ApiObject, ButtonFilter, Compartment, Envelope, Glue, MackieLcdSource,
+    ApiObject, ButtonFilter, Compartment, Envelope, Glue, Interval, MackieLcdSource,
     MackieSevenSegmentDisplayScope, MackieSevenSegmentDisplaySource, Mapping,
     MidiChannelPressureAmountSource, MidiControlChangeValueSource, MidiNoteVelocitySource,
     MidiPitchBendChangeValueSource, MidiPolyphonicKeyPressureAmountSource,
@@ -24,7 +24,7 @@ pub enum CsiObject {
 type CsiResult<T> = Result<T, Box<dyn Error>>;
 
 pub fn deserialize_csi_object_from_csi(text: &str) -> Result<CsiObject, Box<dyn Error>> {
-    let (_, widgets) = parser::mst_file_content(text).map_err(|e| e.to_string())?;
+    let widgets = parser::mst_file_content(text).map_err(|e| e.to_string())?;
     Ok(CsiObject::Widgets(widgets))
 }
 
@@ -268,10 +268,10 @@ fn convert_capability_to_mappings(
             main,
             accelerations,
         } => {
-            let character = convert_accelerations_to_character(accelerations, annotator);
+            let acc_conv_res = convert_accelerations(accelerations, annotator)?;
             let main_res = convert_max_short_msg_to_source(MsgConvInput {
                 msg: main,
-                character,
+                character: acc_conv_res.character,
                 press_only: false,
                 fourteen_bit: false,
             })?;
@@ -279,8 +279,8 @@ fn convert_capability_to_mappings(
                 feedback_enabled: Some(false),
                 source: Some(main_res.source),
                 glue: {
-                    // TODO-high Respect number of accelerations and set speed max accordingly
                     let g = Glue {
+                        step_factor_interval: Some(acc_conv_res.step_factor_interval),
                         ..Default::default()
                     };
                     Some(g)
@@ -455,16 +455,45 @@ fn virtual_target(id: String, character: VirtualControlElementCharacter) -> Opti
     Some(Target::Virtual(t))
 }
 
-fn convert_accelerations_to_character(
+struct AccelerationConvResult {
+    character: SourceCharacter,
+    step_factor_interval: Interval<i32>,
+}
+
+fn convert_accelerations(
     accelerations: Option<Accelerations>,
     annotator: &mut Annotator,
-) -> SourceCharacter {
-    if let Some(acc) = accelerations {
-        // TODO-high
-        SourceCharacter::Relative2
+) -> CsiResult<AccelerationConvResult> {
+    let accelerations = if let Some(acc) = accelerations {
+        acc
     } else {
-        SourceCharacter::Relative1
+        let res = AccelerationConvResult {
+            // TODO-high Fix rotaries in presets ... I used Relative 1!
+            character: SourceCharacter::Relative3,
+            step_factor_interval: Interval(1, 1),
+        };
+        return Ok(res);
+    };
+    let native_decrements = NativeAcceleration::from_acceleration(accelerations.decrements)
+        .map_err(|_| "No acceleration values provided for counter-clockwise encoder movement")?;
+    let native_increments = NativeAcceleration::from_acceleration(accelerations.increments)
+        .map_err(|_| "No acceleration values provided for clockwise encoder movement")?;
+    let neutral_accelerations = neutralize_accelerations(native_decrements, native_increments)?;
+    let res = AccelerationConvResult {
+        character: neutral_accelerations.character,
+        step_factor_interval: Interval(1, neutral_accelerations.max_acceleration()),
+    };
+    let dec_diff = neutral_accelerations.decrements.diff();
+    let inc_diff = neutral_accelerations.increments.diff();
+    if dec_diff.is_non_continuous() || inc_diff.is_non_continuous() {
+        annotator.warn(
+            "Non-continuous acceleration profile detected. Encoder acceleration behavior might be slightly different in ReaLearn.",
+        );
     }
+    if dec_diff != inc_diff {
+        annotator.warn("Clockwise acceleration profile differs from counter-clockwise acceleration profile. In general supported by ReaLearn but not yet supported by the CSI-to-ReaLearn conversion. That means the acceleration behavior might be slightly different in ReaLearn.");
+    }
+    Ok(res)
 }
 
 const MAX_CONTROL_ELEMENT_ID_LENGTH: usize = 16;
@@ -673,5 +702,133 @@ fn create_mackie_lcd_mapping(
         source: Some(source),
         target: virtual_target(widget_id, VirtualControlElementCharacter::Multi),
         ..base_mapping
+    }
+}
+
+struct NeutralAccelerations {
+    character: SourceCharacter,
+    /// This should contain values > 1 where each value contains the decrement amount.
+    decrements: NeutralAcceleration,
+    /// This should contain values > 1 where each value contains the increment amount.
+    increments: NeutralAcceleration,
+}
+
+impl NeutralAccelerations {
+    pub fn max_acceleration(&self) -> i32 {
+        std::cmp::max(
+            self.decrements.0.iter().max().copied().unwrap_or(0),
+            self.increments.0.iter().max().copied().unwrap_or(0),
+        )
+    }
+}
+
+struct NativeAcceleration(Vec<u8>);
+
+impl NativeAcceleration {
+    pub fn from_acceleration(acc: Acceleration) -> Result<Self, &'static str> {
+        let vec = match acc {
+            Acceleration::Sequence(s) => s,
+            Acceleration::Range(r) => r.collect(),
+        };
+        if vec.is_empty() {
+            return Err("no acceleration values provided");
+        }
+        Ok(Self(vec))
+    }
+
+    pub fn first(&self) -> u8 {
+        *self.0.first().expect("impossible")
+    }
+
+    pub fn neutralize(self, crementor: i32) -> NeutralAcceleration {
+        let vec = self
+            .0
+            .into_iter()
+            .map(|b| (b as i32 + crementor).abs())
+            .collect();
+        NeutralAcceleration(vec)
+    }
+}
+
+struct NeutralAcceleration(Vec<i32>);
+
+impl NeutralAcceleration {
+    pub fn diff(&self) -> AccelerationDiff {
+        let vec = self
+            .0
+            .iter()
+            .copied()
+            .zip(self.0.iter().copied().skip(1))
+            .map(|(prev, next)| next - prev)
+            .collect();
+        AccelerationDiff(vec)
+    }
+}
+
+#[derive(PartialEq)]
+struct AccelerationDiff(Vec<i32>);
+
+impl AccelerationDiff {
+    pub fn is_non_continuous(&self) -> bool {
+        self.0.iter().any(|d| *d != 1)
+    }
+}
+
+fn neutralize_accelerations(
+    decrements: NativeAcceleration,
+    increments: NativeAcceleration,
+) -> CsiResult<NeutralAccelerations> {
+    let (character, decrementor, incrementor) = match (decrements.first(), increments.first()) {
+        (121..=127, 1..=7) => (SourceCharacter::Relative1, -128, 0),
+        (57..=63, 65..=71) => (SourceCharacter::Relative2, -64, -64),
+        (65..=71, 1..=7) => (SourceCharacter::Relative3, -64, 0),
+        _ => return Err("Unsupported relative encoder type".into()),
+    };
+    let neutralized_acc = NeutralAccelerations {
+        character,
+        decrements: decrements.neutralize(decrementor),
+        increments: increments.neutralize(incrementor),
+    };
+    Ok(neutralized_acc)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn neutralize_accelerations_relative_3() {
+        // Given
+        let decrements = NativeAcceleration(vec![0x41, 0x42, 0x43]);
+        let increments = NativeAcceleration(vec![0x01, 0x02, 0x03]);
+        // When
+        let neutralized = neutralize_accelerations(decrements, increments).unwrap();
+        // Then
+        assert_eq!(neutralized.character, SourceCharacter::Relative3);
+        assert_eq!(neutralized.decrements.0, vec![1, 2, 3]);
+        assert_eq!(neutralized.increments.0, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn neutralize_accelerations_relative_1() {
+        // Given
+        let decrements = NativeAcceleration(vec![0x7f, 0x7e, 0x7c, 0x7a]);
+        let increments = NativeAcceleration(vec![0x01, 0x04, 0x07]);
+        // When
+        let neutralized = neutralize_accelerations(decrements, increments).unwrap();
+        // Then
+        assert_eq!(neutralized.character, SourceCharacter::Relative1);
+        assert_eq!(neutralized.decrements.0, vec![1, 2, 4, 6]);
+        assert_eq!(neutralized.increments.0, vec![1, 4, 7]);
+    }
+
+    #[test]
+    fn neutral_diff() {
+        // Given
+        let increments = NeutralAcceleration(vec![0x01, 0x04, 0x07]);
+        // When
+        let diff = increments.diff();
+        // Then
+        assert_eq!(diff.0, vec![3, 3]);
     }
 }

@@ -188,12 +188,15 @@ mod midi {
         pub script: Option<String>,
     }
 
-    #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
     pub enum SourceCharacter {
         Range,
         Button,
+        // 127 = decrement;  0 = none;  1 = increment
         Relative1,
+        //  63 = decrement; 64 = none; 65 = increment
         Relative2,
+        //  65 = decrement;  0 = none;  1 = increment
         Relative3,
         StatefulButton,
     }
