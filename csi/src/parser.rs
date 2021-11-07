@@ -12,12 +12,23 @@ use std::convert::TryInto;
 
 type Res<'a, T> = IResult<&'a str, T>;
 
-pub fn mst_file_content(input: &str) -> Res<Vec<Widget>> {
-    all_consuming(widgets)(input)
+pub fn mst_file_content(input: &str) -> Result<Vec<Widget>, String> {
+    let non_comment_lines: Vec<_> = input
+        .lines()
+        .filter(|l| !l.trim_start().starts_with('/'))
+        .collect();
+    let input_without_comments = non_comment_lines.join("\n");
+    let (_, widgets) =
+        all_consuming(widgets)(&input_without_comments).map_err(|e| e.to_string())?;
+    Ok(widgets)
 }
 
 fn widgets(input: &str) -> Res<Vec<Widget>> {
-    separated_list0(space_with_at_least_one_line_ending, widget)(input)
+    delimited(
+        multispace0,
+        separated_list0(space_with_at_least_one_line_ending, widget),
+        multispace0,
+    )(input)
 }
 
 fn widget(input: &str) -> Res<Widget> {

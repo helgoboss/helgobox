@@ -63,8 +63,8 @@ impl Capability {
 
 #[derive(PartialEq, Debug)]
 pub struct Accelerations {
-    pub increments: Acceleration,
     pub decrements: Acceleration,
+    pub increments: Acceleration,
 }
 
 #[derive(PartialEq, Debug)]
