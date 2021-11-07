@@ -7,7 +7,7 @@ use nom::combinator::{all_consuming, map, map_res, opt, verify};
 use nom::error::ParseError;
 use nom::multi::{separated_list0, separated_list1};
 use nom::sequence::{preceded, separated_pair};
-use nom::{character::complete::char, sequence::delimited, sequence::tuple, IResult, Parser};
+use nom::{character::complete::char, sequence::delimited, sequence::tuple, Err, IResult, Parser};
 use std::convert::TryInto;
 
 type Res<'a, T> = IResult<&'a str, T>;
@@ -18,8 +18,13 @@ pub fn mst_file_content(input: &str) -> Result<Vec<Widget>, String> {
         .filter(|l| !l.trim_start().starts_with('/'))
         .collect();
     let input_without_comments = non_comment_lines.join("\n");
-    let (_, widgets) =
-        all_consuming(widgets)(&input_without_comments).map_err(|e| e.to_string())?;
+    let (_, widgets) = all_consuming(widgets)(&input_without_comments).map_err(|e| {
+        let short_err = match e {
+            Err::Error(e) => Err::Error(nom::error::Error::new(&e.input[0..30], e.code)),
+            e => e,
+        };
+        short_err.to_string()
+    })?;
     Ok(widgets)
 }
 
