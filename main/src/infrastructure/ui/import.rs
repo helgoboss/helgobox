@@ -236,12 +236,16 @@ pub fn deserialize_api_object_from_lua(text: &str) -> Result<ApiObject, Box<dyn 
     let env = {
         let new_env = lua.create_table()?;
         let original_env = lua.globals();
-        new_env.set("table", {
-            let new_table = lua.create_table()?;
-            let original_table: Table = original_env.get("table")?;
-            new_table.set::<_, Value>("insert", original_table.get("insert")?);
-            new_table
-        });
+        new_env
+            .set("table", {
+                let new_table = lua.create_table()?;
+                let original_table: Table = original_env.get("table")?;
+                new_table
+                    .set::<_, Value>("insert", original_table.get("insert")?)
+                    .unwrap();
+                new_table
+            })
+            .unwrap();
         new_env
     };
     let lua_chunk = lua
