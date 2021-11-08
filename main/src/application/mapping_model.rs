@@ -343,7 +343,7 @@ impl MappingModel {
         MainMapping::new(
             self.compartment,
             id,
-            self.key.clone(),
+            &self.key,
             self.group_id.get(),
             self.name.get_ref().clone(),
             merged_tags,
