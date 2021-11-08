@@ -17,7 +17,7 @@ pub fn convert_mapping(
 ) -> ConversionResult<schema::Mapping> {
     let advanced = convert_advanced(data.advanced, style)?;
     let mapping = schema::Mapping {
-        key: style.optional_value(data.key),
+        key: style.optional_value(data.id),
         name: style.required_value(data.name),
         tags: convert_tags(&data.tags, style),
         group: convert_group_id(data.group_id, context),

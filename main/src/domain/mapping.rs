@@ -143,6 +143,7 @@ impl MappingExtension {
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
+    key: String,
     name: Option<String>,
     tags: Vec<Tag>,
     /// Is `Some` if the user-provided target data is complete.
@@ -173,6 +174,7 @@ impl MainMapping {
     pub fn new(
         compartment: MappingCompartment,
         id: MappingId,
+        key: String,
         group_id: GroupId,
         name: String,
         tags: Vec<Tag>,
@@ -196,6 +198,7 @@ impl MainMapping {
                 options,
                 time_of_last_control: None,
             },
+            key,
             name: Some(name),
             tags,
             unresolved_target,
@@ -233,7 +236,7 @@ impl MainMapping {
     pub fn qualified_source(&self) -> QualifiedSource {
         QualifiedSource {
             compartment: self.core.compartment,
-            id: self.id(),
+            id: self.key.clone(),
             source: self.source().clone(),
         }
     }
@@ -938,7 +941,7 @@ impl MainMapping {
     ) -> Option<SpecificCompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.core.compartment,
-            self.id(),
+            Cow::Borrowed(&self.key),
             &self.core.source,
             mode_value,
             destinations,
@@ -1205,15 +1208,15 @@ pub enum CompoundMappingSourceAddress {
 #[derive(Clone, Debug)]
 pub struct QualifiedSource {
     pub compartment: MappingCompartment,
-    pub id: MappingId,
+    pub id: String,
     pub source: CompoundMappingSource,
 }
 
 impl QualifiedSource {
-    pub fn off_feedback(&self) -> Option<CompoundFeedbackValue> {
+    pub fn off_feedback(self) -> Option<CompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.compartment,
-            self.id,
+            Cow::Owned(self.id),
             &self.source,
             Cow::Owned(FeedbackValue::Off),
             FeedbackDestinations {
@@ -1431,7 +1434,7 @@ impl FeedbackDestinations {
 impl SpecificCompoundFeedbackValue {
     pub fn from_mode_value(
         compartment: MappingCompartment,
-        id: MappingId,
+        id: Cow<str>,
         source: &CompoundMappingSource,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
@@ -1451,9 +1454,13 @@ impl SpecificCompoundFeedbackValue {
                 && compartment == MappingCompartment::ControllerMappings
             {
                 // TODO-medium Support textual projection feedback
-                mode_value
-                    .to_numeric()
-                    .map(|v| ProjectionFeedbackValue::new(compartment, id, v.value.to_unit_value()))
+                mode_value.to_numeric().map(|v| {
+                    ProjectionFeedbackValue::new(
+                        compartment,
+                        id.into_owned(),
+                        v.value.to_unit_value(),
+                    )
+                })
             } else {
                 None
             };
@@ -1495,15 +1502,15 @@ impl RealFeedbackValue {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct ProjectionFeedbackValue {
     pub compartment: MappingCompartment,
-    pub mapping_id: MappingId,
+    pub mapping_id: String,
     pub value: UnitValue,
 }
 
 impl ProjectionFeedbackValue {
-    pub fn new(compartment: MappingCompartment, mapping_id: MappingId, value: UnitValue) -> Self {
+    pub fn new(compartment: MappingCompartment, mapping_id: String, value: UnitValue) -> Self {
         Self {
             compartment,
             mapping_id,
