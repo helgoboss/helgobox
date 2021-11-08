@@ -44,7 +44,7 @@ pub fn convert_mapping(
             (false, false)
         };
     let v = MappingModelData {
-        id: m.key,
+        id: m.key.map(|key| key.into()),
         key: None,
         name: m.name.unwrap_or_default(),
         tags: convert_tags(m.tags.unwrap_or_default())?,

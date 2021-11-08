@@ -1,7 +1,7 @@
 use crate::application::MappingModel;
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    ExtendedProcessorContext, FeedbackSendBehavior, GroupId, MappingCompartment, Tag,
+    ExtendedProcessorContext, FeedbackSendBehavior, GroupId, MappingCompartment, MappingKey, Tag,
 };
 use crate::infrastructure::data::{
     ActivationConditionData, EnabledData, MigrationDescriptor, ModeModelData, SourceModelData,
@@ -18,8 +18,9 @@ pub struct MappingModelData {
     // Saved since ReaLearn 1.12.0, doesn't have to be a UUID since 2.11.0-pre.13 and corresponds
     // to the model *key* instead!
     #[serde(default, skip_serializing_if = "is_default")]
-    pub id: Option<String>,
-    // Saved only in some ReaLearn 2.11.0-prereleases.
+    pub id: Option<MappingKey>,
+    /// Saved only in some ReaLearn 2.11.0-prereleases. Later we persist this in "id" field again.
+    /// So this is just for being compatible with those few prereleases!
     #[serde(default, skip_serializing)]
     pub key: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -115,13 +116,14 @@ impl MappingModelData {
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
     ) -> MappingModel {
-        let id = self
+        let key: MappingKey = self
             .key
             .clone()
-            .or_else(|| self.id.as_ref().map(|id| id.to_string()))
-            .unwrap_or_else(|| nanoid::nanoid!());
+            .map(|k| MappingKey::from(k))
+            .or_else(|| self.id.clone())
+            .unwrap_or_else(|| MappingKey::random());
         // Preliminary group ID
-        let mut model = MappingModel::new(compartment, GroupId::default(), id);
+        let mut model = MappingModel::new(compartment, GroupId::default(), key);
         self.apply_to_model_internal(
             &mut model,
             context,

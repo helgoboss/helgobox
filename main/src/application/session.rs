@@ -9,10 +9,10 @@ use crate::domain::{
     BackboneState, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
     IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId, MainMapping,
-    MappingCompartment, MappingId, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput,
-    MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId, OscFeedbackTask,
-    ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealTimeSender,
-    RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue, Tag,
+    MappingCompartment, MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent,
+    MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
+    OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
+    RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue, Tag,
     TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
     VirtualTrack, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
@@ -1006,7 +1006,7 @@ impl Session {
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) -> SharedMapping {
-        let mut mapping = MappingModel::new(compartment, initial_group_id, nanoid::nanoid!());
+        let mut mapping = MappingModel::new(compartment, initial_group_id, MappingKey::random());
         mapping
             .name
             .set_without_notification(self.generate_name_for_new_mapping(compartment));
