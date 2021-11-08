@@ -21,8 +21,10 @@ use std::rc::Rc;
 /// A model for creating mappings (a combination of source, mode and target).
 #[derive(Clone, Debug)]
 pub struct MappingModel {
+    // Just an internal technical ID, not persistent
     id: MappingId,
-    key: Option<String>,
+    // A potentially user-defined ID, persistent
+    key: String,
     compartment: MappingCompartment,
     pub name: Prop<String>,
     pub tags: Prop<Vec<Tag>>,
@@ -70,14 +72,10 @@ fn get_default_target_category_for_compartment(compartment: MappingCompartment) 
 }
 
 impl MappingModel {
-    pub fn new(
-        compartment: MappingCompartment,
-        initial_group_id: GroupId,
-        key: Option<String>,
-    ) -> Self {
+    pub fn new(compartment: MappingCompartment, initial_group_id: GroupId, id: String) -> Self {
         Self {
             id: MappingId::random(),
-            key,
+            key: id,
             compartment,
             name: Default::default(),
             tags: Default::default(),
@@ -103,8 +101,8 @@ impl MappingModel {
         self.id
     }
 
-    pub fn key(&self) -> Option<&String> {
-        self.key.as_ref()
+    pub fn key(&self) -> &String {
+        &self.key
     }
 
     pub fn qualified_id(&self) -> QualifiedMappingId {
@@ -159,12 +157,9 @@ impl MappingModel {
     pub fn duplicate(&self) -> MappingModel {
         MappingModel {
             id: MappingId::random(),
+            key: nanoid::nanoid!(),
             ..self.clone()
         }
-    }
-
-    pub fn set_id_without_notification(&mut self, id: MappingId) {
-        self.id = id;
     }
 
     pub fn compartment(&self) -> MappingCompartment {
@@ -339,6 +334,7 @@ impl MappingModel {
         MainMapping::new(
             self.compartment,
             id,
+            self.key.clone(),
             self.group_id.get(),
             self.name.get_ref().clone(),
             merged_tags,

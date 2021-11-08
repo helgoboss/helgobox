@@ -3,7 +3,7 @@ use crate::application::{
 };
 use crate::base::when;
 use crate::domain::{
-    MappingCompartment, MappingId, ProjectionFeedbackValue, RealearnControlSurfaceServerTask,
+    MappingCompartment, ProjectionFeedbackValue, RealearnControlSurfaceServerTask,
 };
 use maplit::hashmap;
 
@@ -879,7 +879,7 @@ fn get_active_controller_updated_event(
 fn get_projection_feedback_event(
     session_id: &str,
     feedback_value: ProjectionFeedbackValue,
-) -> Event<HashMap<MappingId, UnitValue>> {
+) -> Event<HashMap<String, UnitValue>> {
     Event::patch(
         format!("/realearn/session/{}/feedback", session_id),
         hashmap! {
@@ -958,7 +958,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
             } else {
                 return None;
             };
-            Some((m.id().to_string(), target_descriptor))
+            Some((m.key().clone(), target_descriptor))
         })
         .collect();
     ControllerRouting {

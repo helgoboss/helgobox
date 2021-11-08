@@ -1,7 +1,7 @@
 use crate::application::MappingModel;
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    ExtendedProcessorContext, FeedbackSendBehavior, GroupId, MappingCompartment, MappingId, Tag,
+    ExtendedProcessorContext, FeedbackSendBehavior, GroupId, MappingCompartment, Tag,
 };
 use crate::infrastructure::data::{
     ActivationConditionData, EnabledData, MigrationDescriptor, ModeModelData, SourceModelData,
@@ -15,10 +15,12 @@ use std::borrow::BorrowMut;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MappingModelData {
-    // Saved since ReaLearn 1.12.0
+    // Saved since ReaLearn 1.12.0, doesn't have to be a UUID since 2.11.0-pre.13 and corresponds
+    // to the model *key* instead!
     #[serde(default, skip_serializing_if = "is_default")]
-    pub id: Option<MappingId>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    pub id: Option<String>,
+    // Saved only in some ReaLearn 2.11.0-prereleases.
+    #[serde(default, skip_serializing)]
     pub key: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub name: String,
@@ -48,8 +50,8 @@ pub struct MappingModelData {
 impl MappingModelData {
     pub fn from_model(model: &MappingModel) -> MappingModelData {
         MappingModelData {
-            id: Some(model.id()),
-            key: model.key().cloned(),
+            id: Some(model.key().clone()),
+            key: None,
             name: model.name.get_ref().clone(),
             tags: model.tags.get_ref().clone(),
             group_id: model.group_id.get(),
@@ -113,15 +115,19 @@ impl MappingModelData {
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
     ) -> MappingModel {
+        let id = self
+            .key
+            .clone()
+            .or_else(|| self.id.as_ref().map(|id| id.to_string()))
+            .unwrap_or_else(|| nanoid::nanoid!());
         // Preliminary group ID
-        let mut model = MappingModel::new(compartment, GroupId::default(), self.key.clone());
+        let mut model = MappingModel::new(compartment, GroupId::default(), id);
         self.apply_to_model_internal(
             &mut model,
             context,
             migration_descriptor,
             preset_version,
             false,
-            true,
         );
         model
     }
@@ -135,7 +141,6 @@ impl MappingModelData {
             &MigrationDescriptor::default(),
             Some(App::version()),
             true,
-            false,
         );
     }
 
@@ -149,13 +154,7 @@ impl MappingModelData {
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
         with_notification: bool,
-        overwrite_id: bool,
     ) {
-        if overwrite_id {
-            if let Some(id) = self.id {
-                model.set_id_without_notification(id);
-            }
-        }
         model
             .name
             .set_with_optional_notification(self.name.clone(), with_notification);

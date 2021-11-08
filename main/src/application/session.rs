@@ -26,7 +26,7 @@ use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
 use slog::{debug, trace};
 use std::cell::{Ref, RefCell};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use core::iter;
@@ -1006,7 +1006,7 @@ impl Session {
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) -> SharedMapping {
-        let mut mapping = MappingModel::new(compartment, initial_group_id, None);
+        let mut mapping = MappingModel::new(compartment, initial_group_id, nanoid::nanoid!());
         mapping
             .name
             .set_without_notification(self.generate_name_for_new_mapping(compartment));
@@ -1034,8 +1034,7 @@ impl Session {
     ) {
         let mut index = index.min(self.mappings[compartment].len());
         let mut first_mapping_id = None;
-        for mut m in mappings {
-            m.set_id_without_notification(MappingId::random());
+        for m in mappings {
             if first_mapping_id.is_none() {
                 first_mapping_id = Some(m.id());
             }
@@ -1053,8 +1052,7 @@ impl Session {
         mappings: impl Iterator<Item = MappingModel>,
     ) {
         self.mappings[compartment].retain(|m| m.borrow().group_id.get() != group_id);
-        for mut m in mappings {
-            m.set_id_without_notification(MappingId::random());
+        for m in mappings {
             let shared_mapping = share_mapping(m);
             self.mappings[compartment].push(shared_mapping);
         }
@@ -1783,18 +1781,7 @@ impl Session {
         compartment: MappingCompartment,
         mappings: impl IntoIterator<Item = MappingModel>,
     ) {
-        // If we import JSON from clipboard, we might stumble upon duplicate mapping IDs. Fix those!
-        // This is a feature for power users.
-        let mut used_ids = HashSet::new();
-        let fixed_mappings = mappings.into_iter().map(|mut m| {
-            if used_ids.contains(&m.id()) {
-                m.set_id_without_notification(MappingId::random());
-            } else {
-                used_ids.insert(m.id());
-            }
-            m
-        });
-        self.mappings[compartment] = fixed_mappings.into_iter().map(share_mapping).collect();
+        self.mappings[compartment] = mappings.into_iter().map(share_mapping).collect();
     }
 
     pub fn set_groups_without_notification(

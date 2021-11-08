@@ -826,7 +826,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 compartment,
                 mapping_activation_updates,
                 target_activation_changes,
-                &unused_sources,
+                unused_sources,
                 changed_mappings.into_iter(),
             )
         }
@@ -880,7 +880,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 compartment,
                 mapping_activation_changes,
                 target_activation_changes,
-                &unused_sources,
+                unused_sources,
                 changed_mappings.into_iter(),
             );
         }
@@ -986,10 +986,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics.feedback_is_globally_enabled = is_enabled;
         if is_enabled {
             for compartment in MappingCompartment::enum_iter() {
-                self.handle_feedback_after_having_updated_all_mappings(
-                    compartment,
-                    &HashMap::new(),
-                );
+                self.handle_feedback_after_having_updated_all_mappings(compartment, HashMap::new());
             }
         } else {
             // Clear it completely. Other instances that might take over maybe don't use
@@ -1042,7 +1039,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.notify_feedback_dev_usage_might_have_changed(compartment);
             self.handle_feedback_after_having_updated_particular_mappings(
                 compartment,
-                &unused_sources,
+                unused_sources,
                 changed_mappings.into_iter(),
             );
         }
@@ -1158,7 +1155,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // clearing all mappings, other instances won't see yet that they are actually
         // allowed to take over sources! Which might delay the reactivation of
         // lower-floor instances.
-        self.handle_feedback_after_having_updated_all_mappings(compartment, &unused_sources);
+        self.handle_feedback_after_having_updated_all_mappings(compartment, unused_sources);
         self.update_on_mappings();
     }
 
@@ -1551,7 +1548,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         compartment: MappingCompartment,
         mapping_activation_updates: Vec<ActivationChange>,
         target_activation_updates: Vec<ActivationChange>,
-        unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
+        unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
         changed_mappings: impl Iterator<Item = MappingId>,
     ) {
         // Send feedback
@@ -1808,7 +1805,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn handle_feedback_after_having_updated_all_mappings(
         &mut self,
         compartment: MappingCompartment,
-        now_unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
+        now_unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
     ) {
         self.send_off_feedback_for_unused_sources(now_unused_sources);
         self.send_feedback(
@@ -1820,7 +1817,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn handle_feedback_after_having_updated_particular_mappings(
         &mut self,
         compartment: MappingCompartment,
-        now_unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
+        now_unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
         mapping_ids: impl Iterator<Item = MappingId>,
     ) {
         self.send_off_feedback_for_unused_sources(now_unused_sources);
@@ -1833,9 +1830,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// Indicate via off feedback the sources which are not in use anymore.
     fn send_off_feedback_for_unused_sources(
         &self,
-        now_unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
+        now_unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
     ) {
-        for s in now_unused_sources.values() {
+        for s in now_unused_sources.into_values() {
             self.send_feedback(FeedbackReason::ClearUnusedSource, s.off_feedback());
         }
     }

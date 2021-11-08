@@ -76,10 +76,14 @@ pub struct SessionData {
     active_main_preset_id: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
     main_preset_auto_load_mode: MainPresetAutoLoadMode,
+    // String key workaround because otherwise deserialization doesn't work with flattening,
+    // which is used in CompartmentModelData.
     #[serde(default, skip_serializing_if = "is_default")]
-    parameters: HashMap<u32, ParameterData>,
+    parameters: HashMap<String, ParameterData>,
+    // String key workaround because otherwise deserialization doesn't work with flattening,
+    // which is used in CompartmentModelData.
     #[serde(default, skip_serializing_if = "is_default")]
-    controller_parameters: HashMap<u32, ParameterData>,
+    controller_parameters: HashMap<String, ParameterData>,
     #[serde(default, skip_serializing_if = "is_default")]
     clip_slots: Vec<QualifiedSlotDescriptor>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -444,7 +448,9 @@ impl SessionData {
     pub fn parameters_as_array(&self) -> ParameterArray {
         let mut parameters = ZEROED_PLUGIN_PARAMETERS;
         for (i, p) in self.parameters.iter() {
-            parameters[*i as usize] = p.value;
+            if let Ok(i) = i.parse::<u32>() {
+                parameters[i as usize] = p.value;
+            }
         }
         parameters
     }
@@ -454,7 +460,7 @@ fn get_parameter_data_map(
     session: &Session,
     parameters: &ParameterArray,
     compartment: MappingCompartment,
-) -> HashMap<u32, ParameterData> {
+) -> HashMap<String, ParameterData> {
     (0..COMPARTMENT_PARAMETER_COUNT)
         .filter_map(|i| {
             let parameter_slice = compartment.slice_params(parameters);
@@ -468,18 +474,20 @@ fn get_parameter_data_map(
                 value,
                 name: settings.name.clone(),
             };
-            Some((i, data))
+            Some((i.to_string(), data))
         })
         .collect()
 }
 
-fn get_parameter_settings(data_map: &HashMap<u32, ParameterData>) -> Vec<ParameterSetting> {
+fn get_parameter_settings(data_map: &HashMap<String, ParameterData>) -> Vec<ParameterSetting> {
     let mut settings = empty_parameter_settings();
     for (i, p) in data_map.iter() {
-        settings[*i as usize] = ParameterSetting {
-            key: p.key.clone(),
-            name: p.name.clone(),
-        };
+        if let Ok(i) = i.parse::<u32>() {
+            settings[i as usize] = ParameterSetting {
+                key: p.key.clone(),
+                name: p.name.clone(),
+            };
+        }
     }
     settings
 }

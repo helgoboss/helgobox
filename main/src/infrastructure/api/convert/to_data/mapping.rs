@@ -3,7 +3,7 @@ use crate::application;
 use crate::application::{
     LifecycleMidiMessageModel, LifecycleModel, MappingExtensionModel, RawByteArrayMidiMessage,
 };
-use crate::domain::{MappingId, Tag};
+use crate::domain::Tag;
 use crate::infrastructure::api::convert::to_data::glue::convert_glue;
 use crate::infrastructure::api::convert::to_data::target::convert_target;
 use crate::infrastructure::api::convert::to_data::{
@@ -44,8 +44,8 @@ pub fn convert_mapping(
             (false, false)
         };
     let v = MappingModelData {
-        id: Some(MappingId::random()),
-        key: m.key,
+        id: m.key,
+        key: None,
         name: m.name.unwrap_or_default(),
         tags: convert_tags(m.tags.unwrap_or_default())?,
         group_id: convert_group_key(m.group, context)?,
