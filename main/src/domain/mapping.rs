@@ -34,6 +34,7 @@ use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
 use std::ops::Range;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -110,6 +111,12 @@ impl MappingKey {
     }
 }
 
+impl AsRef<str> for MappingKey {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
 impl From<String> for MappingKey {
     fn from(v: String) -> Self {
         Self(v)
@@ -156,7 +163,10 @@ impl MappingExtension {
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
-    key: MappingKey,
+    // We need to clone this when producing feedback, pretty often ... so wrapping it in a Rc
+    // saves us from doing too much copying and allocation that potentially slows down things
+    // (albeit only marginally).
+    key: Rc<str>,
     name: Option<String>,
     tags: Vec<Tag>,
     /// Is `Some` if the user-provided target data is complete.
@@ -187,7 +197,7 @@ impl MainMapping {
     pub fn new(
         compartment: MappingCompartment,
         id: MappingId,
-        key: MappingKey,
+        key: &MappingKey,
         group_id: GroupId,
         name: String,
         tags: Vec<Tag>,
@@ -211,7 +221,10 @@ impl MainMapping {
                 options,
                 time_of_last_control: None,
             },
-            key,
+            key: {
+                let key_str: &str = key.as_ref();
+                key_str.into()
+            },
             name: Some(name),
             tags,
             unresolved_target,
@@ -954,7 +967,7 @@ impl MainMapping {
     ) -> Option<SpecificCompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.core.compartment,
-            Cow::Borrowed(&self.key),
+            self.key.clone(),
             &self.core.source,
             mode_value,
             destinations,
@@ -1221,7 +1234,7 @@ pub enum CompoundMappingSourceAddress {
 #[derive(Clone, Debug)]
 pub struct QualifiedSource {
     pub compartment: MappingCompartment,
-    pub mapping_key: MappingKey,
+    pub mapping_key: Rc<str>,
     pub source: CompoundMappingSource,
 }
 
@@ -1229,7 +1242,7 @@ impl QualifiedSource {
     pub fn off_feedback(self) -> Option<CompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.compartment,
-            Cow::Owned(self.mapping_key),
+            self.mapping_key,
             &self.source,
             Cow::Owned(FeedbackValue::Off),
             FeedbackDestinations {
@@ -1447,7 +1460,7 @@ impl FeedbackDestinations {
 impl SpecificCompoundFeedbackValue {
     pub fn from_mode_value(
         compartment: MappingCompartment,
-        mapping_key: Cow<MappingKey>,
+        mapping_key: Rc<str>,
         source: &CompoundMappingSource,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
@@ -1468,11 +1481,7 @@ impl SpecificCompoundFeedbackValue {
             {
                 // TODO-medium Support textual projection feedback
                 mode_value.to_numeric().map(|v| {
-                    ProjectionFeedbackValue::new(
-                        compartment,
-                        mapping_key.into_owned(),
-                        v.value.to_unit_value(),
-                    )
+                    ProjectionFeedbackValue::new(compartment, mapping_key, v.value.to_unit_value())
                 })
             } else {
                 None
@@ -1518,12 +1527,12 @@ impl RealFeedbackValue {
 #[derive(Clone, PartialEq, Debug)]
 pub struct ProjectionFeedbackValue {
     pub compartment: MappingCompartment,
-    pub mapping_key: MappingKey,
+    pub mapping_key: Rc<str>,
     pub value: UnitValue,
 }
 
 impl ProjectionFeedbackValue {
-    pub fn new(compartment: MappingCompartment, mapping_key: MappingKey, value: UnitValue) -> Self {
+    pub fn new(compartment: MappingCompartment, mapping_key: Rc<str>, value: UnitValue) -> Self {
         Self {
             compartment,
             mapping_key,

@@ -879,7 +879,7 @@ fn get_active_controller_updated_event(
 fn get_projection_feedback_event(
     session_id: &str,
     feedback_value: ProjectionFeedbackValue,
-) -> Event<HashMap<MappingKey, UnitValue>> {
+) -> Event<HashMap<Rc<str>, UnitValue>> {
     Event::patch(
         format!("/realearn/session/{}/feedback", session_id),
         hashmap! {
