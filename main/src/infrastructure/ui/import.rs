@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use derive_more::Display;
-use mlua::{ChunkMode, HookTriggers};
+use mlua::{ChunkMode, HookTriggers, Table};
 use serde::{Deserialize, Serialize};
 
 use crate::infrastructure::api::convert::from_data::{ConversionStyle, DataToApiConversionContext};
@@ -218,7 +218,7 @@ pub fn serialize_data_object_to_lua(
 }
 
 pub fn deserialize_api_object_from_lua(text: &str) -> Result<ApiObject, Box<dyn Error>> {
-    use mlua::{Lua, LuaSerdeExt};
+    use mlua::{Lua, LuaSerdeExt, Value};
     let lua = Lua::new();
     let instant = Instant::now();
     lua.set_hook(
@@ -233,7 +233,17 @@ pub fn deserialize_api_object_from_lua(text: &str) -> Result<ApiObject, Box<dyn 
             }
         },
     )?;
-    let env = lua.create_table()?;
+    let env = {
+        let new_env = lua.create_table()?;
+        let original_env = lua.globals();
+        new_env.set("table", {
+            let new_table = lua.create_table()?;
+            let original_table: Table = original_env.get("table")?;
+            new_table.set::<_, Value>("insert", original_table.get("insert")?);
+            new_table
+        });
+        new_env
+    };
     let lua_chunk = lua
         .load(text)
         .set_name("Import")?

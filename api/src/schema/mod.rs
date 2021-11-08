@@ -17,13 +17,13 @@ pub use target::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Envelope<T> {
     pub value: T,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "kind")]
-#[serde(deny_unknown_fields)]
 pub enum ApiObject {
     MainCompartment(Envelope<Box<Compartment>>),
     ControllerCompartment(Envelope<Box<Compartment>>),
