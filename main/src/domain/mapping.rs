@@ -33,7 +33,6 @@ use smallvec::alloc::fmt::Formatter;
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
-use std::fmt::Display;
 use std::ops::Range;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
@@ -89,23 +88,37 @@ impl Default for FeedbackSendBehavior {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Serialize, Deserialize,
+)]
 #[serde(transparent)]
-pub struct MappingId {
-    uuid: Uuid,
-}
+pub struct MappingId(Uuid);
 
 impl MappingId {
     pub fn random() -> MappingId {
-        MappingId {
-            uuid: Uuid::new_v4(),
-        }
+        Self(Uuid::new_v4())
     }
 }
 
-impl Display for MappingId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.uuid)
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct MappingKey(String);
+
+impl MappingKey {
+    pub fn random() -> Self {
+        Self(nanoid::nanoid!())
+    }
+}
+
+impl From<String> for MappingKey {
+    fn from(v: String) -> Self {
+        Self(v)
+    }
+}
+
+impl From<MappingKey> for String {
+    fn from(v: MappingKey) -> Self {
+        v.0
     }
 }
 
@@ -143,7 +156,7 @@ impl MappingExtension {
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
-    key: String,
+    key: MappingKey,
     name: Option<String>,
     tags: Vec<Tag>,
     /// Is `Some` if the user-provided target data is complete.
@@ -174,7 +187,7 @@ impl MainMapping {
     pub fn new(
         compartment: MappingCompartment,
         id: MappingId,
-        key: String,
+        key: MappingKey,
         group_id: GroupId,
         name: String,
         tags: Vec<Tag>,
@@ -236,7 +249,7 @@ impl MainMapping {
     pub fn qualified_source(&self) -> QualifiedSource {
         QualifiedSource {
             compartment: self.core.compartment,
-            id: self.key.clone(),
+            mapping_key: self.key.clone(),
             source: self.source().clone(),
         }
     }
@@ -1208,7 +1221,7 @@ pub enum CompoundMappingSourceAddress {
 #[derive(Clone, Debug)]
 pub struct QualifiedSource {
     pub compartment: MappingCompartment,
-    pub id: String,
+    pub mapping_key: MappingKey,
     pub source: CompoundMappingSource,
 }
 
@@ -1216,7 +1229,7 @@ impl QualifiedSource {
     pub fn off_feedback(self) -> Option<CompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.compartment,
-            Cow::Owned(self.id),
+            Cow::Owned(self.mapping_key),
             &self.source,
             Cow::Owned(FeedbackValue::Off),
             FeedbackDestinations {
@@ -1434,7 +1447,7 @@ impl FeedbackDestinations {
 impl SpecificCompoundFeedbackValue {
     pub fn from_mode_value(
         compartment: MappingCompartment,
-        id: Cow<str>,
+        mapping_key: Cow<MappingKey>,
         source: &CompoundMappingSource,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
@@ -1457,7 +1470,7 @@ impl SpecificCompoundFeedbackValue {
                 mode_value.to_numeric().map(|v| {
                     ProjectionFeedbackValue::new(
                         compartment,
-                        id.into_owned(),
+                        mapping_key.into_owned(),
                         v.value.to_unit_value(),
                     )
                 })
@@ -1505,15 +1518,15 @@ impl RealFeedbackValue {
 #[derive(Clone, PartialEq, Debug)]
 pub struct ProjectionFeedbackValue {
     pub compartment: MappingCompartment,
-    pub mapping_id: String,
+    pub mapping_key: MappingKey,
     pub value: UnitValue,
 }
 
 impl ProjectionFeedbackValue {
-    pub fn new(compartment: MappingCompartment, mapping_id: String, value: UnitValue) -> Self {
+    pub fn new(compartment: MappingCompartment, mapping_key: MappingKey, value: UnitValue) -> Self {
         Self {
             compartment,
-            mapping_id,
+            mapping_key,
             value,
         }
     }

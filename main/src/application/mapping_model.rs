@@ -6,8 +6,9 @@ use crate::base::{prop, Prop};
 use crate::domain::{
     ActivationCondition, CompoundMappingSource, CompoundMappingTarget, ExtendedProcessorContext,
     ExtendedSourceCharacter, FeedbackSendBehavior, GroupId, MainMapping, MappingCompartment,
-    MappingId, Mode, PersistentMappingProcessingState, ProcessorMappingOptions, QualifiedMappingId,
-    RealearnTarget, ReaperTarget, Tag, TargetCharacter, UnresolvedCompoundMappingTarget,
+    MappingId, MappingKey, Mode, PersistentMappingProcessingState, ProcessorMappingOptions,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, Tag, TargetCharacter,
+    UnresolvedCompoundMappingTarget,
 };
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
@@ -21,10 +22,14 @@ use std::rc::Rc;
 /// A model for creating mappings (a combination of source, mode and target).
 #[derive(Clone, Debug)]
 pub struct MappingModel {
-    // Just an internal technical ID, not persistent
+    /// Just an internal technical identifier, not persistent.
+    ///
+    /// Goals: Quick lookup, guaranteed uniqueness, cheap copy
     id: MappingId,
-    // A potentially user-defined ID, persistent
-    key: String,
+    /// A potentially user-defined identifier, persistent
+    ///
+    /// Goals: For external references (e.g. from API or in projection)
+    key: MappingKey,
     compartment: MappingCompartment,
     pub name: Prop<String>,
     pub tags: Prop<Vec<Tag>>,
@@ -72,10 +77,14 @@ fn get_default_target_category_for_compartment(compartment: MappingCompartment) 
 }
 
 impl MappingModel {
-    pub fn new(compartment: MappingCompartment, initial_group_id: GroupId, id: String) -> Self {
+    pub fn new(
+        compartment: MappingCompartment,
+        initial_group_id: GroupId,
+        key: MappingKey,
+    ) -> Self {
         Self {
             id: MappingId::random(),
-            key: id,
+            key,
             compartment,
             name: Default::default(),
             tags: Default::default(),
@@ -101,7 +110,7 @@ impl MappingModel {
         self.id
     }
 
-    pub fn key(&self) -> &String {
+    pub fn key(&self) -> &MappingKey {
         &self.key
     }
 
@@ -157,7 +166,7 @@ impl MappingModel {
     pub fn duplicate(&self) -> MappingModel {
         MappingModel {
             id: MappingId::random(),
-            key: nanoid::nanoid!(),
+            key: MappingKey::random(),
             ..self.clone()
         }
     }
