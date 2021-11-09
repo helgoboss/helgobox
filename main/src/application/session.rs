@@ -27,7 +27,7 @@ use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
 use slog::{debug, trace};
 use std::cell::{Ref, RefCell};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
 use core::iter;
@@ -1029,15 +1029,20 @@ impl Session {
         self.add_mapping(compartment, mapping)
     }
 
+    /// Silently assigns random keys if given keys conflict with existing keys or are not unique.
     pub fn insert_mappings_at(
         &mut self,
         compartment: MappingCompartment,
         index: usize,
         mappings: impl Iterator<Item = MappingModel>,
     ) {
+        let mut mapping_key_set = self.mapping_key_set(compartment);
         let mut index = index.min(self.mappings[compartment].len());
         let mut first_mapping_id = None;
-        for m in mappings {
+        for mut m in mappings {
+            if !mapping_key_set.insert(m.key().clone()) {
+                m.reset_key();
+            }
             if first_mapping_id.is_none() {
                 first_mapping_id = Some(m.id());
             }
@@ -1048,18 +1053,30 @@ impl Session {
         self.notify_mapping_list_changed(compartment, first_mapping_id);
     }
 
+    /// Silently assigns random keys if given keys conflict with existing keys or are not unique.
     pub fn replace_mappings_of_group(
         &mut self,
         compartment: MappingCompartment,
         group_id: GroupId,
         mappings: impl Iterator<Item = MappingModel>,
     ) {
+        let mut mapping_key_set = self.mapping_key_set(compartment);
         self.mappings[compartment].retain(|m| m.borrow().group_id.get() != group_id);
-        for m in mappings {
+        for mut m in mappings {
+            if !mapping_key_set.insert(m.key().clone()) {
+                m.reset_key();
+            }
             let shared_mapping = share_mapping(m);
             self.mappings[compartment].push(shared_mapping);
         }
         self.notify_mapping_list_changed(compartment, None);
+    }
+
+    fn mapping_key_set(&self, compartment: MappingCompartment) -> HashSet<MappingKey> {
+        self.mappings[compartment]
+            .iter()
+            .map(|m| m.borrow().key().clone())
+            .collect()
     }
 
     fn get_next_control_element_index(&self, element_type: VirtualControlElementType) -> u32 {
@@ -1670,6 +1687,7 @@ impl Session {
         }
     }
 
+    /// Precondition: The given compartment model should be valid (e.g. no duplicate IDs)!
     pub fn replace_compartment(
         &mut self,
         compartment: MappingCompartment,
@@ -2161,7 +2179,7 @@ impl Session {
 pub struct ParameterSetting {
     #[serde(default, skip_serializing_if = "is_default")]
     pub key: Option<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "is_default")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub name: String,
 }
 

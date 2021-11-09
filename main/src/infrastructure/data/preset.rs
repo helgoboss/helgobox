@@ -165,7 +165,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 return Err(msg);
             }
         }
-        Ok(data.to_model(id))
+        data.to_model(id)
     }
 
     fn find_preset_ref_by_id(&self, id: &str) -> Option<&P> {
@@ -269,7 +269,7 @@ pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {
 
     fn from_model(preset: &Self::P) -> Self;
 
-    fn to_model(&self, id: String) -> Self::P;
+    fn to_model(&self, id: String) -> Result<Self::P, String>;
 
     fn clear_id(&mut self);
 

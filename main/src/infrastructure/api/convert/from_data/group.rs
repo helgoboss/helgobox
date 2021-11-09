@@ -11,7 +11,7 @@ pub fn convert_group(
 ) -> ConversionResult<schema::Group> {
     let group = schema::Group {
         id: {
-            if data.id.is_default() {
+            if data.id.is_empty() {
                 None
             } else {
                 Some(data.id.into())
