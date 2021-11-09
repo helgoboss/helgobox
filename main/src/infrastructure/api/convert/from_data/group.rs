@@ -10,13 +10,11 @@ pub fn convert_group(
     style: ConversionStyle,
 ) -> ConversionResult<schema::Group> {
     let group = schema::Group {
-        key: {
-            if let Some(k) = data.key {
-                Some(k)
-            } else if data.id.is_default() {
+        id: {
+            if data.id.is_default() {
                 None
             } else {
-                Some(data.id.to_string())
+                Some(data.id.into())
             }
         },
         name: style.required_value(data.name),

@@ -1,5 +1,5 @@
 use crate::infrastructure::api::convert::from_data::{
-    convert_group, convert_mapping, convert_parameter, ConversionStyle, DataToApiConversionContext,
+    convert_group, convert_mapping, convert_parameter, ConversionStyle,
 };
 use crate::infrastructure::api::convert::{convert_multiple, ConversionResult};
 use crate::infrastructure::data::CompartmentModelData;
@@ -7,7 +7,6 @@ use realearn_api::schema;
 
 pub fn convert_compartment(
     data: CompartmentModelData,
-    context: &impl DataToApiConversionContext,
     style: ConversionStyle,
 ) -> ConversionResult<schema::Compartment> {
     let compartment = schema::Compartment {
@@ -32,7 +31,7 @@ pub fn convert_compartment(
             style.required_value(v)
         },
         mappings: {
-            let v = convert_multiple(data.mappings, |m| convert_mapping(m, context, style))?;
+            let v = convert_multiple(data.mappings, |m| convert_mapping(m, style))?;
             style.required_value(v)
         },
     };

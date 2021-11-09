@@ -685,24 +685,23 @@ impl HeaderPanel {
         conversion_style: ConversionStyle,
     ) -> Result<(), Box<dyn Error>> {
         let data_object = self.get_listened_mappings_as_data_object();
-        let json = {
-            let session = self.session();
-            let session = session.borrow();
-            let compartment_in_session = CompartmentInSession {
-                session: &session,
-                compartment: self.active_compartment(),
-            };
-            serialize_data_object_to_lua(data_object, &compartment_in_session, conversion_style)?
-        };
+        let json = serialize_data_object_to_lua(data_object, conversion_style)?;
         copy_text_to_clipboard(json);
         Ok(())
     }
 
     fn get_listened_mappings_as_data_object(&self) -> DataObject {
+        let session = self.session();
+        let session = session.borrow();
+        let compartment = self.active_compartment();
+        let compartment_in_session = CompartmentInSession {
+            session: &session,
+            compartment,
+        };
         let mapping_datas = self
-            .get_listened_mappings()
+            .get_listened_mappings(compartment)
             .iter()
-            .map(|m| MappingModelData::from_model(&*m.borrow()))
+            .map(|m| MappingModelData::from_model(&*m.borrow(), &compartment_in_session))
             .collect();
         DataObject::Mappings(Envelope {
             value: mapping_datas,
@@ -710,7 +709,7 @@ impl HeaderPanel {
     }
 
     fn auto_name_listed_mappings(&self) {
-        let listed_mappings = self.get_listened_mappings();
+        let listed_mappings = self.get_listened_mappings(self.active_compartment());
         if listed_mappings.is_empty() {
             return;
         }
@@ -732,7 +731,8 @@ impl HeaderPanel {
         let group_id = group_id
             .or_else(|| self.add_group_internal().ok())
             .ok_or("no group selected")?;
-        let listed_mappings = self.get_listened_mappings();
+        let compartment = self.active_compartment();
+        let listed_mappings = self.get_listened_mappings(compartment);
         if listed_mappings.is_empty() {
             return Err("mapping list empty");
         }
@@ -745,7 +745,6 @@ impl HeaderPanel {
         ) {
             return Err("cancelled");
         }
-        let compartment = self.active_compartment();
         let session = self.session();
         let mut session = session.borrow_mut();
         let mapping_ids: Vec<_> = listed_mappings
@@ -756,9 +755,8 @@ impl HeaderPanel {
         Ok(())
     }
 
-    fn get_listened_mappings(&self) -> Vec<SharedMapping> {
+    fn get_listened_mappings(&self, compartment: MappingCompartment) -> Vec<SharedMapping> {
         let main_state = self.main_state.borrow();
-        let compartment = main_state.active_compartment.get();
         let session = self.session();
         let session = session.borrow();
         MappingRowsPanel::filtered_mappings(&session, &main_state, compartment, false)
@@ -804,14 +802,27 @@ impl HeaderPanel {
         let compartment = main_state.active_compartment.get();
         let session = self.session();
         let mut session = session.borrow_mut();
-        let new_mappings: Vec<_> = mapping_datas
+        let compartment_in_session = CompartmentInSession {
+            session: &session,
+            compartment,
+        };
+        let group_key = if let Some(group) = session.find_group_by_id(compartment, group_id) {
+            group.borrow().key().clone()
+        } else {
+            return;
+        };
+        let mapping_models: Vec<_> = mapping_datas
             .into_iter()
             .map(|mut data| {
-                data.group_id = group_id;
-                data.to_model(compartment, session.extended_context())
+                data.group_id = group_key.clone();
+                data.to_model(
+                    compartment,
+                    session.extended_context(),
+                    &compartment_in_session,
+                )
             })
             .collect();
-        session.replace_mappings_of_group(compartment, group_id, new_mappings.into_iter());
+        session.replace_mappings_of_group(compartment, group_id, mapping_models.into_iter());
     }
 
     fn toggle_learn_source_filter(&self) {
@@ -1888,11 +1899,7 @@ impl HeaderPanel {
                     }
                     MappingCompartment::MainMappings => DataObject::MainCompartment(envelope),
                 };
-                let compartment_in_session = CompartmentInSession {
-                    session: &session,
-                    compartment,
-                };
-                let text = serialize_data_object(data_object, &compartment_in_session, format)?;
+                let text = serialize_data_object(data_object, format)?;
                 copy_text_to_clipboard(text);
             }
         };

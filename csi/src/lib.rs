@@ -182,7 +182,7 @@ fn convert_capability_to_mappings(
     annotator: &mut Annotator,
 ) -> CsiResult<Vec<Mapping>> {
     let base_mapping = Mapping {
-        key: Some(format!("{}-{}", widget_id, capability)),
+        id: Some(format!("{}-{}", widget_id, capability)),
         name: Some(format!("{} - {}", widget_name, capability)),
         ..Default::default()
     };

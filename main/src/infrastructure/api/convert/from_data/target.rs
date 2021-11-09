@@ -9,8 +9,8 @@ use crate::domain::{
     TransportAction,
 };
 use crate::infrastructure::api::convert::from_data::{
-    convert_control_element_id, convert_control_element_kind, convert_group_id,
-    convert_osc_argument, convert_tags, ConversionStyle, DataToApiConversionContext,
+    convert_control_element_id, convert_control_element_kind, convert_osc_argument, convert_tags,
+    ConversionStyle,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::{
@@ -35,19 +35,17 @@ use realearn_api::schema::{
 
 pub fn convert_target(
     data: TargetModelData,
-    context: &impl DataToApiConversionContext,
     style: ConversionStyle,
 ) -> ConversionResult<schema::Target> {
     use TargetCategory::*;
     match data.category {
-        Reaper => convert_real_target(data, context, style),
+        Reaper => convert_real_target(data, style),
         Virtual => Ok(convert_virtual_target(data, style)),
     }
 }
 
 fn convert_real_target(
     data: TargetModelData,
-    context: &impl DataToApiConversionContext,
     style: ConversionStyle,
 ) -> ConversionResult<schema::Target> {
     use schema::Target as T;
@@ -509,7 +507,7 @@ fn convert_real_target(
                     Exclusive | ExclusiveOnOnly => Some(T::Exclusive),
                 }
             },
-            group: convert_group_id(data.group_id, context),
+            group: style.required_value(data.group_id.into()),
         }),
     };
     Ok(target)

@@ -8,13 +8,14 @@ use crate::base::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
     BackboneState, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
-    IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId, MainMapping,
-    MappingCompartment, MappingId, MappingKey, MappingMatchedEvent, MessageCaptureEvent,
-    MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
-    OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId,
-    RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState, SourceFeedbackValue, Tag,
-    TargetValueChangedEvent, VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue,
-    VirtualTrack, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    GroupKey, IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId,
+    MainMapping, MappingCompartment, MappingId, MappingKey, MappingMatchedEvent,
+    MessageCaptureEvent, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask,
+    OscDeviceId, OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
+    QualifiedMappingId, RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState,
+    SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualFx,
+    VirtualSource, VirtualSourceValue, VirtualTrack, COMPARTMENT_PARAMETER_COUNT,
+    ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::{enum_map, EnumMap};
@@ -883,6 +884,7 @@ impl Session {
         id
     }
 
+    /// Also finds default group.
     pub fn find_group_index_by_id_sorted(
         &self,
         compartment: MappingCompartment,
@@ -912,11 +914,11 @@ impl Session {
     pub fn find_group_by_key(
         &self,
         compartment: MappingCompartment,
-        key: &str,
+        key: &GroupKey,
     ) -> Option<&SharedGroup> {
         self.groups[compartment]
             .iter()
-            .find(|g| g.borrow().key().map(|k| k == key).unwrap_or(false))
+            .find(|g| g.borrow().key() == key)
     }
 
     pub fn find_parameter_setting_by_key(

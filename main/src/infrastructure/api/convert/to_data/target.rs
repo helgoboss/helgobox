@@ -9,8 +9,7 @@ use crate::domain::{
     SendMidiDestination, TrackRouteType,
 };
 use crate::infrastructure::api::convert::to_data::{
-    convert_control_element_id, convert_control_element_type, convert_group_key,
-    convert_osc_arg_type, convert_tags, ApiToDataConversionContext,
+    convert_control_element_id, convert_control_element_type, convert_osc_arg_type, convert_tags,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
 use crate::infrastructure::data::{
@@ -22,10 +21,7 @@ use realearn_api::schema::*;
 use reaper_high::Guid;
 use std::rc::Rc;
 
-pub fn convert_target(
-    t: Target,
-    context: &impl ApiToDataConversionContext,
-) -> ConversionResult<TargetModelData> {
+pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
     let data = match t {
         Target::LastTouched(d) => TargetModelData {
             category: TargetCategory::Reaper,
@@ -645,7 +641,7 @@ pub fn convert_target(
                     Some(Exclusive) => T::Exclusive,
                 }
             },
-            group_id: convert_group_key(d.group, context)?,
+            group_id: d.group.map(|g| g.into()).unwrap_or_default(),
             ..init(d.commons)
         },
         Target::Virtual(d) => TargetModelData {

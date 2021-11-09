@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Mapping {
-    /// An optional key that you can assign to this mapping in order to refer
+    /// An optional ID that you can assign to this mapping in order to refer
     /// to it from somewhere else.
     ///
-    /// This key should be unique within this list of mappings.
+    /// This ID should be unique within all mappings in the compartment.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub key: Option<String>,
+    pub id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

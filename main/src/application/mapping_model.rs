@@ -22,13 +22,7 @@ use std::rc::Rc;
 /// A model for creating mappings (a combination of source, mode and target).
 #[derive(Clone, Debug)]
 pub struct MappingModel {
-    /// Just an internal technical identifier, not persistent.
-    ///
-    /// Goals: Quick lookup, guaranteed uniqueness, cheap copy
     id: MappingId,
-    /// A potentially user-defined identifier, persistent
-    ///
-    /// Goals: For external references (e.g. from API or in projection)
     key: MappingKey,
     compartment: MappingCompartment,
     pub name: Prop<String>,
