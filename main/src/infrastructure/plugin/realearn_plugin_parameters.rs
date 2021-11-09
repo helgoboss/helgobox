@@ -102,7 +102,7 @@ impl RealearnPluginParameters {
         *self.parameters_mut() = parameters;
         // Notify
         session.notify_everything_has_changed(Rc::downgrade(&shared_session));
-        session.mark_project_as_dirty();
+        session.mark_dirty();
     }
 
     fn session(&self) -> Option<SharedSession> {
