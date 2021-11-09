@@ -3,7 +3,9 @@ use crate::application::{
     TargetModelFormatMultiLine, WeakSession,
 };
 use crate::base::when;
-use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget};
+use crate::domain::{
+    GroupId, GroupKey, MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget,
+};
 
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::{
@@ -943,10 +945,16 @@ fn paste_data_object_in_place(
     let mut mapping = mapping.borrow_mut();
     match data_object {
         DataObject::Mapping(Envelope { value: mut m }) => {
-            let group = session
-                .find_group_by_id(triple.compartment, triple.group_id)
-                .ok_or("couldn't find group")?;
-            m.group_id = group.borrow().key().clone();
+            m.group_id = {
+                if triple.group_id.is_default() {
+                    GroupKey::default()
+                } else {
+                    let group = session
+                        .find_group_by_id(triple.compartment, triple.group_id)
+                        .ok_or("couldn't find group")?;
+                    group.borrow().key().clone()
+                }
+            };
             m.apply_to_model(
                 &mut mapping,
                 session.extended_context(),
@@ -992,11 +1000,15 @@ pub fn paste_mappings(
         session.mapping_count(compartment)
     };
     let group_key = {
-        let group = session
-            .find_group_by_id(compartment, group_id)
-            .ok_or("couldn't find group")?;
-        let group = group.borrow();
-        group.key().clone()
+        if group_id.is_default() {
+            GroupKey::default()
+        } else {
+            let group = session
+                .find_group_by_id(compartment, group_id)
+                .ok_or("couldn't find group")?;
+            let group = group.borrow();
+            group.key().clone()
+        }
     };
     let compartment_in_session = CompartmentInSession {
         session: &session,

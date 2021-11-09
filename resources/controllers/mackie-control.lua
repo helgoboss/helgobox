@@ -2,43 +2,43 @@ local channel_count = 8;
 
 local groups = {
     {
-        key = "fader",
+        id = "fader",
         name = "Fader",
     },
     {
-        key = "v-pot",
+        id = "v-pot",
         name = "V-Pot",
     },
     {
-        key = "v-select",
+        id = "v-select",
         name = "V-Select",
     },
     {
-        key = "fader-touch",
+        id = "fader-touch",
         name = "Fader Touch",
     },
     {
-        key = "select",
+        id = "select",
         name = "Select",
     },
     {
-        key = "mute",
+        id = "mute",
         name = "Mute",
     },
     {
-        key = "solo",
+        id = "solo",
         name = "Solo",
     },
     {
-        key = "record-ready",
+        id = "record-ready",
         name = "Record-ready",
     },
     {
-        key = "v-pot-leds",
+        id = "v-pot-leds",
         name = "V-Pot LEDs",
     },
     {
-        key = "lcd",
+        id = "lcd",
         name = "LCD",
     },
 }
