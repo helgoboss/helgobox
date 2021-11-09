@@ -260,6 +260,23 @@ pub mod control_element_domains {
             "ch8/v-pot",
             "jog",
             "lcd/assignment",
+            "lcd/timecode",
+            "ch1/lcd/line1",
+            "ch1/lcd/line2",
+            "ch2/lcd/line1",
+            "ch2/lcd/line2",
+            "ch3/lcd/line1",
+            "ch3/lcd/line2",
+            "ch4/lcd/line1",
+            "ch4/lcd/line2",
+            "ch5/lcd/line1",
+            "ch5/lcd/line2",
+            "ch6/lcd/line1",
+            "ch6/lcd/line2",
+            "ch7/lcd/line1",
+            "ch7/lcd/line2",
+            "ch8/lcd/line1",
+            "ch8/lcd/line2",
         ];
 
         pub const PREDEFINED_VIRTUAL_BUTTON_NAMES: &[&str] = &[
