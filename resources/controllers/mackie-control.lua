@@ -50,10 +50,6 @@ local mappings = {
             kind = "MidiPitchBendChangeValue",
             channel = 8,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "main/fader",
@@ -68,10 +64,6 @@ local mappings = {
             character = "Relative1",
             fourteen_bit = false,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "jog",
@@ -85,10 +77,6 @@ local mappings = {
             channel = 0,
             key_number = 112,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "main/fader/touch",
@@ -100,10 +88,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 84,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -117,10 +101,6 @@ local mappings = {
             channel = 0,
             key_number = 74,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "read",
@@ -132,10 +112,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 75,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -149,10 +125,6 @@ local mappings = {
             channel = 0,
             key_number = 48,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "ch-left",
@@ -164,10 +136,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 49,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -181,10 +149,6 @@ local mappings = {
             channel = 0,
             key_number = 46,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "bank-left",
@@ -196,10 +160,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 47,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -213,10 +173,6 @@ local mappings = {
             channel = 0,
             key_number = 91,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "rewind",
@@ -228,10 +184,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 92,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -245,10 +197,6 @@ local mappings = {
             channel = 0,
             key_number = 94,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "play",
@@ -260,10 +208,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 93,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -277,10 +221,6 @@ local mappings = {
             channel = 0,
             key_number = 95,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "record",
@@ -292,10 +232,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 86,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -309,10 +245,6 @@ local mappings = {
             channel = 0,
             key_number = 100,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "zoom",
@@ -324,10 +256,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 101,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -341,10 +269,6 @@ local mappings = {
             channel = 0,
             key_number = 98,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "cursor-left",
@@ -356,10 +280,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 99,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -373,10 +293,6 @@ local mappings = {
             channel = 0,
             key_number = 96,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "cursor-up",
@@ -388,10 +304,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 97,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -409,10 +321,6 @@ local mappings = {
             channel = 0,
             key_number = 85,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "nudge",
@@ -424,10 +332,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 87,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -441,10 +345,6 @@ local mappings = {
             channel = 0,
             key_number = 88,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "replace",
@@ -456,10 +356,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 89,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -473,10 +369,6 @@ local mappings = {
             channel = 0,
             key_number = 90,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "solo",
@@ -488,10 +380,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 54,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -505,10 +393,6 @@ local mappings = {
             channel = 0,
             key_number = 55,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "f2",
@@ -520,10 +404,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 56,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -537,10 +417,6 @@ local mappings = {
             channel = 0,
             key_number = 57,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "f4",
@@ -552,10 +428,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 58,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -569,10 +441,6 @@ local mappings = {
             channel = 0,
             key_number = 59,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "f6",
@@ -584,10 +452,6 @@ local mappings = {
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 53,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -601,10 +465,6 @@ local mappings = {
         source = {
             kind = "MackieSevenSegmentDisplay",
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = "lcd/assignment",
@@ -616,10 +476,6 @@ local mappings = {
         source = {
             kind = "MackieSevenSegmentDisplay",
             scope = "Tc",
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -639,10 +495,6 @@ for ch = 0, channel_count - 1 do
             channel = 0,
             key_number = 32 + ch,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = prefix.."v-select",
@@ -657,10 +509,6 @@ for ch = 0, channel_count - 1 do
             channel = 0,
             key_number = 104 + ch,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = prefix.."fader/touch",
@@ -674,10 +522,6 @@ for ch = 0, channel_count - 1 do
             channel = 0,
             key_number = 24 + ch,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = prefix.."select",
@@ -689,10 +533,6 @@ for ch = 0, channel_count - 1 do
         source = {
             kind = "MidiPitchBendChangeValue",
             channel = ch,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -708,10 +548,6 @@ for ch = 0, channel_count - 1 do
             controller_number = 16 + ch,
             character = "Relative1",
             fourteen_bit = false,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -744,10 +580,6 @@ for ch = 0, channel_count - 1 do
             channel = 0,
             key_number = 16 + ch,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = prefix.."mute",
@@ -761,10 +593,6 @@ for ch = 0, channel_count - 1 do
             channel = 0,
             key_number = 8 + ch,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = prefix.."solo",
@@ -777,10 +605,6 @@ for ch = 0, channel_count - 1 do
             kind = "MidiNoteVelocity",
             channel = 0,
             key_number = 0 + ch,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
@@ -796,10 +620,6 @@ for ch = 0, channel_count - 1 do
             channel = ch,
             line = 0,
         },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
-        },
         target = {
             kind = "Virtual",
             id = prefix.."lcd/line1",
@@ -812,10 +632,6 @@ for ch = 0, channel_count - 1 do
             kind = "MackieLcd",
             channel = ch,
             line = 1,
-        },
-        glue = {
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
         },
         target = {
             kind = "Virtual",
