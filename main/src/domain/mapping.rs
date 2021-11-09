@@ -89,6 +89,9 @@ impl Default for FeedbackSendBehavior {
     }
 }
 
+/// Internal technical mapping identifier, not persistent.
+///
+/// Goals: Quick lookup, guaranteed uniqueness, cheap copy
 #[derive(
     Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Serialize, Deserialize,
 )]
@@ -101,6 +104,9 @@ impl MappingId {
     }
 }
 
+/// A potentially user-defined mapping identifier, persistent
+///
+/// Goals: For external references (e.g. from API or in projection)
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct MappingKey(String);

@@ -1,7 +1,7 @@
 use crate::application::{
     GroupModel, MappingModel, ParameterSetting, Preset, PresetManager, SharedGroup, SharedMapping,
 };
-use crate::infrastructure::data::{GroupModelData, MappingModelData};
+use crate::infrastructure::data::GroupModelData;
 
 use crate::base::notification;
 use crate::infrastructure::plugin::App;
@@ -257,9 +257,11 @@ fn groups_are_equal(first: &GroupModel, second: &GroupModel) -> bool {
 }
 
 fn mappings_are_equal(first: &MappingModel, second: &MappingModel) -> bool {
-    let first_data = MappingModelData::from_model(first);
-    let second_data = MappingModelData::from_model(second);
-    first_data == second_data
+    // TODO-high
+    // let first_data = MappingModelData::from_model(first, todo!());
+    // let second_data = MappingModelData::from_model(second, todo!());
+    // first_data == second_data
+    false
 }
 
 pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {

@@ -8,7 +8,7 @@ pub fn convert_parameter(
 ) -> ConversionResult<schema::Parameter> {
     let p = schema::Parameter {
         index: index.parse()?,
-        key: data.key,
+        id: data.key,
         name: Some(data.name),
     };
     Ok(p)

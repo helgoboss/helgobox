@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn example() {
         let mapping = Mapping {
-            key: Some("volume".to_string()),
+            id: Some("volume".to_string()),
             name: Some("Volume".to_string()),
             tags: Some(vec!["mix".to_string(), "master".to_string()]),
             group: Some("faders".to_string()),

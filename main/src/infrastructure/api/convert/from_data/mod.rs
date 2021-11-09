@@ -13,7 +13,7 @@ pub use compartment::*;
 mod target;
 
 use crate::application::{ActivationType, VirtualControlElementType};
-use crate::domain::{GroupId, Tag};
+use crate::domain::Tag;
 use crate::infrastructure::api::convert::defaults;
 use crate::infrastructure::data::{ActivationConditionData, VirtualControlElementIdData};
 use helgoboss_learn::OscTypeTag;
@@ -80,26 +80,6 @@ fn convert_osc_arg_kind(v: OscTypeTag) -> schema::OscArgKind {
 fn convert_tags(tags: &[Tag], style: ConversionStyle) -> Option<Vec<String>> {
     let tags = tags.iter().map(|t| t.to_string()).collect();
     style.required_value(tags)
-}
-
-fn convert_group_id(
-    group_id: GroupId,
-    context: &impl DataToApiConversionContext,
-) -> Option<String> {
-    {
-        if group_id.is_default() {
-            None
-        } else {
-            let key = context
-                .group_key_by_id(group_id)
-                .unwrap_or_else(|| group_id.to_string());
-            Some(key)
-        }
-    }
-}
-
-pub trait DataToApiConversionContext {
-    fn group_key_by_id(&self, group_id: GroupId) -> Option<String>;
 }
 
 #[derive(Copy, Clone)]

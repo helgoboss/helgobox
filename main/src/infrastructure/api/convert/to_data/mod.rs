@@ -1,6 +1,5 @@
 use crate::application;
 use crate::application::{BankConditionModel, ModifierConditionModel};
-use crate::domain::GroupId;
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::data;
 use crate::infrastructure::data::ActivationConditionData;
@@ -11,7 +10,6 @@ use realearn_api::schema::{
     VirtualControlElementId,
 };
 use source::*;
-use std::str::FromStr;
 
 mod compartment;
 mod glue;
@@ -62,23 +60,7 @@ fn convert_osc_arg_type(s: OscArgKind) -> helgoboss_learn::OscTypeTag {
     }
 }
 
-fn convert_group_key(
-    group_key: Option<String>,
-    context: &impl ApiToDataConversionContext,
-) -> ConversionResult<GroupId> {
-    let group_id = if let Some(key) = group_key {
-        context
-            .group_id_by_key(&key)
-            .or_else(|| GroupId::from_str(&key).ok())
-            .ok_or_else(|| format!("Group {} not defined", key))?
-    } else {
-        GroupId::default()
-    };
-    Ok(group_id)
-}
-
 pub trait ApiToDataConversionContext {
-    fn group_id_by_key(&self, key: &str) -> Option<GroupId>;
     fn param_index_by_key(&self, key: &str) -> Option<u32>;
 }
 

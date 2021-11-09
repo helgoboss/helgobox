@@ -1,11 +1,12 @@
 use crate::application::MappingModel;
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    ExtendedProcessorContext, FeedbackSendBehavior, GroupId, MappingCompartment, MappingKey, Tag,
+    ExtendedProcessorContext, FeedbackSendBehavior, GroupId, GroupKey, MappingCompartment,
+    MappingKey, Tag,
 };
 use crate::infrastructure::data::{
-    ActivationConditionData, EnabledData, MigrationDescriptor, ModeModelData, SourceModelData,
-    TargetModelData,
+    ActivationConditionData, DataToModelConversionContext, EnabledData, MigrationDescriptor,
+    ModeModelData, ModelToDataConversionContext, SourceModelData, TargetModelData,
 };
 use crate::infrastructure::plugin::App;
 use semver::Version;
@@ -19,16 +20,16 @@ pub struct MappingModelData {
     // to the model *key* instead!
     #[serde(default, skip_serializing_if = "is_default")]
     pub id: Option<MappingKey>,
-    /// Saved only in some ReaLearn 2.11.0-prereleases. Later we persist this in "id" field again.
-    /// So this is just for being compatible with those few prereleases!
+    /// Saved only in some ReaLearn 2.11.0-pre-releases. Later we persist this in "id" field again.
+    /// So this is just for being compatible with those few pre-releases!
     #[serde(default, skip_serializing)]
-    pub key: Option<String>,
+    pub key: Option<MappingKey>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub name: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub group_id: GroupId,
+    pub group_id: GroupKey,
     pub source: SourceModelData,
     pub mode: ModeModelData,
     pub target: TargetModelData,
@@ -49,16 +50,23 @@ pub struct MappingModelData {
 }
 
 impl MappingModelData {
-    pub fn from_model(model: &MappingModel) -> MappingModelData {
+    pub fn from_model(
+        model: &MappingModel,
+        conversion_context: &impl ModelToDataConversionContext,
+    ) -> MappingModelData {
         MappingModelData {
             id: Some(model.key().clone()),
             key: None,
             name: model.name.get_ref().clone(),
             tags: model.tags.get_ref().clone(),
-            group_id: model.group_id.get(),
+            group_id: {
+                conversion_context
+                    .group_key_by_id(model.group_id.get())
+                    .unwrap_or_default()
+            },
             source: SourceModelData::from_model(&model.source_model),
             mode: ModeModelData::from_model(&model.mode_model),
-            target: TargetModelData::from_model(&model.target_model),
+            target: TargetModelData::from_model(&model.target_model, conversion_context),
             is_enabled: model.is_enabled.get(),
             enabled_data: EnabledData {
                 control_is_enabled: model.control_is_enabled.get(),
@@ -80,12 +88,14 @@ impl MappingModelData {
         &self,
         compartment: MappingCompartment,
         context: ExtendedProcessorContext,
+        conversion_context: &impl DataToModelConversionContext,
     ) -> MappingModel {
         self.to_model_flexible(
             compartment,
             Some(context),
             &MigrationDescriptor::default(),
             Some(App::version()),
+            conversion_context,
         )
     }
 
@@ -95,6 +105,7 @@ impl MappingModelData {
         compartment: MappingCompartment,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
+        conversion_context: &impl DataToModelConversionContext,
     ) -> MappingModel {
         self.to_model_flexible(
             compartment,
@@ -103,6 +114,7 @@ impl MappingModelData {
             None,
             migration_descriptor,
             preset_version,
+            conversion_context,
         )
     }
 
@@ -115,6 +127,7 @@ impl MappingModelData {
         context: Option<ExtendedProcessorContext>,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
+        conversion_context: &impl DataToModelConversionContext,
     ) -> MappingModel {
         let key: MappingKey = self
             .key
@@ -130,32 +143,40 @@ impl MappingModelData {
             migration_descriptor,
             preset_version,
             false,
+            conversion_context,
         );
         model
     }
 
     /// This is for realtime mapping modification (with notification, no ID changes), e.g. for copy
     /// & paste within one ReaLearn version.
-    pub fn apply_to_model(&self, model: &mut MappingModel, context: ExtendedProcessorContext) {
+    pub fn apply_to_model(
+        &self,
+        model: &mut MappingModel,
+        context: ExtendedProcessorContext,
+        conversion_context: &impl DataToModelConversionContext,
+    ) {
         self.apply_to_model_internal(
             model,
             Some(context),
             &MigrationDescriptor::default(),
             Some(App::version()),
             true,
+            conversion_context,
         );
     }
 
-    /// The context - if available - will be used to resolve some track/FX properties for UI
-    /// convenience. The context is necessary if there's the possibility of loading data saved with
-    /// ReaLearn < 1.12.0.
+    /// The processor context - if available - will be used to resolve some track/FX properties for
+    /// UI convenience. The context is necessary if there's the possibility of loading data saved
+    /// with ReaLearn < 1.12.0.
     fn apply_to_model_internal(
         &self,
         model: &mut MappingModel,
-        context: Option<ExtendedProcessorContext>,
+        processor_context: Option<ExtendedProcessorContext>,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
         with_notification: bool,
+        conversion_context: &impl DataToModelConversionContext,
     ) {
         model
             .name
@@ -163,9 +184,12 @@ impl MappingModelData {
         model
             .tags
             .set_with_optional_notification(self.tags.clone(), with_notification);
+        let group_id = conversion_context
+            .group_id_by_key(&self.group_id)
+            .unwrap_or_default();
         model
             .group_id
-            .set_with_optional_notification(self.group_id, with_notification);
+            .set_with_optional_notification(group_id, with_notification);
         self.activation_condition_data.apply_to_model(
             model.activation_condition_model.borrow_mut(),
             with_notification,
@@ -185,10 +209,11 @@ impl MappingModelData {
         );
         self.target.apply_to_model_flexible(
             model.target_model.borrow_mut(),
-            context,
+            processor_context,
             preset_version,
             with_notification,
             compartment,
+            conversion_context,
         );
         model
             .is_enabled

@@ -7,7 +7,7 @@ use derive_more::Display;
 use mlua::{ChunkMode, HookTriggers, Table};
 use serde::{Deserialize, Serialize};
 
-use crate::infrastructure::api::convert::from_data::{ConversionStyle, DataToApiConversionContext};
+use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
 use crate::infrastructure::data::{
@@ -78,48 +78,43 @@ impl DataObject {
 
     pub fn try_into_api_object(
         self,
-        conversion_context: &impl DataToApiConversionContext,
         conversion_style: ConversionStyle,
     ) -> Result<ApiObject, Box<dyn Error>> {
-        let api_object = match self {
-            DataObject::MainCompartment(Envelope { value: c }) => {
-                let api_compartment =
-                    from_data::convert_compartment(*c, conversion_context, conversion_style)?;
-                ApiObject::MainCompartment(Envelope {
-                    value: Box::new(api_compartment),
-                })
-            }
-            DataObject::ControllerCompartment(Envelope { value: c }) => {
-                let api_compartment =
-                    from_data::convert_compartment(*c, conversion_context, conversion_style)?;
-                ApiObject::ControllerCompartment(Envelope {
-                    value: Box::new(api_compartment),
-                })
-            }
-            DataObject::Session(Envelope { .. }) => todo!("session API not yet implemented"),
-            DataObject::Mappings(Envelope { value: mappings }) => {
-                let api_mappings: Result<Vec<_>, _> = mappings
-                    .into_iter()
-                    .map(|m| from_data::convert_mapping(m, conversion_context, conversion_style))
-                    .collect();
-                ApiObject::Mappings(Envelope {
-                    value: api_mappings?,
-                })
-            }
-            DataObject::Mapping(Envelope { value: m }) => {
-                let api_mapping =
-                    from_data::convert_mapping(*m, conversion_context, conversion_style)?;
-                ApiObject::Mapping(Envelope {
-                    value: Box::new(api_mapping),
-                })
-            }
-            _ => {
-                return Err(
+        let api_object =
+            match self {
+                DataObject::MainCompartment(Envelope { value: c }) => {
+                    let api_compartment = from_data::convert_compartment(*c, conversion_style)?;
+                    ApiObject::MainCompartment(Envelope {
+                        value: Box::new(api_compartment),
+                    })
+                }
+                DataObject::ControllerCompartment(Envelope { value: c }) => {
+                    let api_compartment = from_data::convert_compartment(*c, conversion_style)?;
+                    ApiObject::ControllerCompartment(Envelope {
+                        value: Box::new(api_compartment),
+                    })
+                }
+                DataObject::Session(Envelope { .. }) => todo!("session API not yet implemented"),
+                DataObject::Mappings(Envelope { value: mappings }) => {
+                    let api_mappings: Result<Vec<_>, _> = mappings
+                        .into_iter()
+                        .map(|m| from_data::convert_mapping(m, conversion_style))
+                        .collect();
+                    ApiObject::Mappings(Envelope {
+                        value: api_mappings?,
+                    })
+                }
+                DataObject::Mapping(Envelope { value: m }) => {
+                    let api_mapping = from_data::convert_mapping(*m, conversion_style)?;
+                    ApiObject::Mapping(Envelope {
+                        value: Box::new(api_mapping),
+                    })
+                }
+                _ => return Err(
                     "conversion from source/mode/target data object not supported at the moment"
                         .into(),
-                )
-            }
-        };
+                ),
+            };
         Ok(api_object)
     }
 }
@@ -197,23 +192,21 @@ pub enum SerializationFormat {
 
 pub fn serialize_data_object(
     data_object: DataObject,
-    conversion_context: &impl DataToApiConversionContext,
     format: SerializationFormat,
 ) -> Result<String, Box<dyn Error>> {
     match format {
         SerializationFormat::JsonDataObject => serialize_data_object_to_json(data_object),
         SerializationFormat::LuaApiObject(style) => {
-            serialize_data_object_to_lua(data_object, conversion_context, style)
+            serialize_data_object_to_lua(data_object, style)
         }
     }
 }
 
 pub fn serialize_data_object_to_lua(
     data_object: DataObject,
-    conversion_context: &impl DataToApiConversionContext,
     conversion_style: ConversionStyle,
 ) -> Result<String, Box<dyn Error>> {
-    let api_object = data_object.try_into_api_object(conversion_context, conversion_style)?;
+    let api_object = data_object.try_into_api_object(conversion_style)?;
     Ok(lua_serializer::to_string(&api_object)?)
 }
 

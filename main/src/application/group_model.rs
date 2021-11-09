@@ -1,6 +1,6 @@
 use crate::application::{ActivationConditionModel, GroupData};
 use crate::base::{prop, Prop};
-use crate::domain::{GroupId, MappingCompartment, Tag};
+use crate::domain::{GroupId, GroupKey, MappingCompartment, Tag};
 use core::fmt;
 use rxrust::prelude::*;
 use std::cell::RefCell;
@@ -11,7 +11,7 @@ use std::rc::{Rc, Weak};
 pub struct GroupModel {
     compartment: MappingCompartment,
     id: GroupId,
-    key: Option<String>,
+    key: GroupKey,
     pub name: Prop<String>,
     pub tags: Prop<Vec<Tag>>,
     pub control_is_enabled: Prop<bool>,
@@ -51,22 +51,18 @@ pub fn share_group(group: GroupModel) -> SharedGroup {
 
 impl GroupModel {
     pub fn new_from_ui(compartment: MappingCompartment, name: String) -> Self {
-        Self::new_internal(compartment, GroupId::random(), None, name)
+        Self::new_internal(compartment, GroupId::random(), GroupKey::random(), name)
     }
 
-    pub fn new_from_data(
-        compartment: MappingCompartment,
-        id: GroupId,
-        key: Option<String>,
-    ) -> Self {
+    pub fn new_from_data(compartment: MappingCompartment, id: GroupId, key: GroupKey) -> Self {
         Self::new_internal(compartment, id, key, "".to_string())
     }
 
     pub fn default_for_compartment(compartment: MappingCompartment) -> Self {
         Self {
             compartment,
-            id: Default::default(),
-            key: None,
+            id: GroupId::default(),
+            key: GroupKey::default(),
             name: Default::default(),
             tags: Default::default(),
             control_is_enabled: prop(true),
@@ -78,7 +74,7 @@ impl GroupModel {
     fn new_internal(
         compartment: MappingCompartment,
         id: GroupId,
-        key: Option<String>,
+        key: GroupKey,
         name: String,
     ) -> Self {
         Self {
@@ -97,8 +93,8 @@ impl GroupModel {
         self.id
     }
 
-    pub fn key(&self) -> Option<&String> {
-        self.key.as_ref()
+    pub fn key(&self) -> &GroupKey {
+        &self.key
     }
 
     pub fn is_default_group(&self) -> bool {
