@@ -9,7 +9,8 @@ use crate::domain::{
     COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
-    GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
+    ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
+    ParameterData,
 };
 use crate::infrastructure::plugin::App;
 
@@ -19,6 +20,7 @@ use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
+use std::error::Error;
 use std::ops::Deref;
 
 /// This is the structure for loading and saving a ReaLearn session.
@@ -259,8 +261,13 @@ impl SessionData {
         &self,
         session: &mut Session,
         params: &ParameterArray,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), Box<dyn Error>> {
         // Validation
+        ensure_no_duplicate_compartment_data(
+            &self.mappings,
+            &self.groups,
+            self.parameters.values().map(|p| &p.settings),
+        )?;
         let (midi_control_input, osc_control_input) = match self.control_device_id.as_ref() {
             None => (MidiControlInput::FxInput, None),
             Some(dev_id) => {
@@ -478,9 +485,8 @@ fn get_parameter_data_map(
                 return None;
             }
             let data = ParameterData {
-                key: settings.key.clone(),
+                settings: settings.clone(),
                 value,
-                name: settings.name.clone(),
             };
             Some((i.to_string(), data))
         })
@@ -491,10 +497,7 @@ fn get_parameter_settings(data_map: &HashMap<String, ParameterData>) -> Vec<Para
     let mut settings = empty_parameter_settings();
     for (i, p) in data_map.iter() {
         if let Ok(i) = i.parse::<u32>() {
-            settings[i as usize] = ParameterSetting {
-                key: p.key.clone(),
-                name: p.name.clone(),
-            };
+            settings[i as usize] = p.settings.clone();
         }
     }
     settings
@@ -541,7 +544,7 @@ pub trait ModelToDataConversionContext {
 
 pub trait DataToModelConversionContext {
     fn group_id_by_key(&self, key: &GroupKey) -> Option<GroupId> {
-        if key.is_default() {
+        if key.is_empty() {
             return Some(GroupId::default());
         }
         self.non_default_group_id_by_key(key)

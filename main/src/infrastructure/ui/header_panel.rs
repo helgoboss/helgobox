@@ -1810,8 +1810,14 @@ impl HeaderPanel {
             // For now, let's assume that the imported data is always tailored to the running
             // ReaLearn version.
             let version = App::version();
-            let model = data.to_model(Some(version), compartment);
-            session.replace_compartment(compartment, Some(model), self.session.clone());
+            match data.to_model(Some(version), compartment) {
+                Ok(model) => {
+                    session.replace_compartment(compartment, Some(model), self.session.clone());
+                }
+                Err(e) => {
+                    self.view.require_window().alert("ReaLearn", e);
+                }
+            }
         }
     }
 

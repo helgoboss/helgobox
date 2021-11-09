@@ -7,7 +7,9 @@ use crate::infrastructure::data::{
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
+use std::hash::Hash;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,7 +59,12 @@ impl CompartmentModelData {
         &self,
         version: Option<&Version>,
         compartment: MappingCompartment,
-    ) -> CompartmentModel {
+    ) -> Result<CompartmentModel, String> {
+        ensure_no_duplicate_compartment_data(
+            &self.mappings,
+            &self.groups,
+            self.parameters.values(),
+        )?;
         struct ConversionContext {
             groups: Vec<GroupModel>,
         }
@@ -79,7 +86,7 @@ impl CompartmentModelData {
             .map(|g| g.to_model(compartment, false))
             .collect();
         let conversion_context = ConversionContext { groups };
-        CompartmentModel {
+        let model = CompartmentModel {
             default_group: final_default_group,
             mappings: self
                 .mappings
@@ -99,6 +106,55 @@ impl CompartmentModelData {
                 .filter_map(|(key, value)| Some((key.parse::<u32>().ok()?, value.clone())))
                 .collect(),
             groups: conversion_context.groups,
+        };
+        Ok(model)
+    }
+}
+
+pub fn ensure_no_duplicate_compartment_data<'a>(
+    mappings: &[MappingModelData],
+    groups: &[GroupModelData],
+    parameters: impl Iterator<Item = &'a ParameterSetting>,
+) -> Result<(), String> {
+    ensure_no_duplicate("mapping IDs", mappings.iter().filter_map(|m| m.id.as_ref()))?;
+    ensure_no_duplicate(
+        "group IDs",
+        groups
+            .iter()
+            .filter_map(|g| if g.id.is_empty() { None } else { Some(&g.id) }),
+    )?;
+    ensure_no_duplicate("parameter IDs", parameters.filter_map(|p| p.key.as_ref()))?;
+    Ok(())
+}
+
+pub fn ensure_no_duplicate<T>(list_label: &str, iter: T) -> Result<(), String>
+where
+    T: IntoIterator,
+    T::Item: Eq + Hash + Display,
+{
+    use std::fmt::Write;
+    let mut uniq = HashSet::new();
+    let duplicates: HashSet<_> = iter
+        .into_iter()
+        .filter_map(|d| {
+            if uniq.contains(&d) {
+                Some(d)
+            } else {
+                uniq.insert(d);
+                None
+            }
+        })
+        .collect();
+    if duplicates.is_empty() {
+        Ok(())
+    } else {
+        let mut s = format!("Found the following duplicate {}: ", list_label);
+        for (i, d) in duplicates.into_iter().enumerate() {
+            if i > 0 {
+                s.push_str(", ");
+            }
+            let _ = write!(&mut s, "{}", d);
         }
+        Err(s)
     }
 }

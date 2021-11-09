@@ -56,7 +56,7 @@ impl GroupKey {
         Self(nanoid::nanoid!())
     }
 
-    pub fn is_default(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 }

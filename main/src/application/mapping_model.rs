@@ -108,6 +108,10 @@ impl MappingModel {
         &self.key
     }
 
+    pub fn reset_key(&mut self) {
+        self.key = MappingKey::random();
+    }
+
     pub fn qualified_id(&self) -> QualifiedMappingId {
         QualifiedMappingId::new(self.compartment, self.id)
     }
