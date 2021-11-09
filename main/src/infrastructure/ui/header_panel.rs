@@ -1978,7 +1978,7 @@ impl HeaderPanel {
     fn save_active_preset(&self) -> Result<(), &'static str> {
         self.make_mappings_project_independent_if_desired();
         let session = self.session();
-        let session = session.borrow();
+        let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
         let preset_id = match compartment {
             MappingCompartment::ControllerMappings => session.active_controller_preset_id(),
@@ -2006,6 +2006,7 @@ impl HeaderPanel {
                 preset_manager.borrow_mut().update_preset(main_preset)?;
             }
         };
+        session.compartment_is_dirty[compartment].set(false);
         Ok(())
     }
 
@@ -2255,18 +2256,11 @@ impl HeaderPanel {
             view.invalidate_control_input_combo_box();
             view.invalidate_feedback_output_combo_box();
         });
-        // TODO-medium This is lots of stuff done whenever changing just something small in a
-        // mapping  or group. Maybe micro optimization, I don't know. Alternatively we could
-        // just set a  dirty flag once something changed and reset it after saving!
-        // Mainly enables/disables save button depending on dirty state.
+        // Enables/disables save button depending on dirty state.
         when(
-            session
-                .mapping_list_changed()
-                .map_to(())
-                .merge(session.mapping_changed().map_to(()))
-                .merge(session.group_list_changed().map_to(()))
-                .merge(session.group_changed().map_to(()))
-                .merge(session.parameter_settings_changed().map_to(()))
+            session.compartment_is_dirty[MappingCompartment::ControllerMappings]
+                .changed()
+                .merge(session.compartment_is_dirty[MappingCompartment::MainMappings].changed())
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))

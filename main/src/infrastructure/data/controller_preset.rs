@@ -1,6 +1,4 @@
-use crate::application::{
-    ControllerPreset, ParameterSetting, Preset, PresetManager, SharedGroup, SharedMapping,
-};
+use crate::application::{ControllerPreset, Preset, PresetManager};
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
     CompartmentModelData, ExtendedPresetManager, FileBasedPresetManager, PresetData,
@@ -24,28 +22,6 @@ impl PresetManager for SharedControllerPresetManager {
 
     fn find_by_id(&self, id: &str) -> Option<ControllerPreset> {
         self.borrow().find_by_id(id)
-    }
-
-    fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool {
-        self.borrow().mappings_are_dirty(id, mappings)
-    }
-
-    fn parameter_settings_are_dirty(
-        &self,
-        id: &str,
-        parameter_settings: &HashMap<u32, ParameterSetting>,
-    ) -> bool {
-        self.borrow()
-            .parameter_settings_are_dirty(id, parameter_settings)
-    }
-
-    fn groups_are_dirty(
-        &self,
-        id: &str,
-        default_group: &SharedGroup,
-        groups: &[SharedGroup],
-    ) -> bool {
-        self.borrow().groups_are_dirty(id, default_group, groups)
     }
 }
 
