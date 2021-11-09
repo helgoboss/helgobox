@@ -597,6 +597,7 @@ local mappings = {
     },
     {
         group = "lcd",
+        control_enabled = false,
         source = {
             kind = "MackieSevenSegmentDisplay",
         },
@@ -607,6 +608,22 @@ local mappings = {
         target = {
             kind = "Virtual",
             id = "lcd/assignment",
+        },
+    },
+    {
+        group = "lcd",
+        control_enabled = false,
+        source = {
+            kind = "MackieSevenSegmentDisplay",
+            scope = "Tc",
+        },
+        glue = {
+            step_size_interval = {0.01, 0.01},
+            step_factor_interval = {1, 1},
+        },
+        target = {
+            kind = "Virtual",
+            id = "lcd/timecode",
         },
     },
 }
@@ -771,6 +788,40 @@ for ch = 0, channel_count - 1 do
             character = "Button",
         },
     }
+    local lcd_line1 = {
+        group = "lcd",
+        control_enabled = false,
+        source = {
+            kind = "MackieLcd",
+            channel = ch,
+            line = 0,
+        },
+        glue = {
+            step_size_interval = {0.01, 0.01},
+            step_factor_interval = {1, 1},
+        },
+        target = {
+            kind = "Virtual",
+            id = prefix.."lcd/line1",
+        },
+    }
+    local lcd_line2 = {
+        group = "lcd",
+        control_enabled = false,
+        source = {
+            kind = "MackieLcd",
+            channel = ch,
+            line = 1,
+        },
+        glue = {
+            step_size_interval = {0.01, 0.01},
+            step_factor_interval = {1, 1},
+        },
+        target = {
+            kind = "Virtual",
+            id = prefix.."lcd/line2",
+        },
+    }
     table.insert(mappings, v_select)
     table.insert(mappings, fader_touch)
     table.insert(mappings, select)
@@ -780,6 +831,8 @@ for ch = 0, channel_count - 1 do
     table.insert(mappings, mute)
     table.insert(mappings, solo)
     table.insert(mappings, record_ready)
+    table.insert(mappings, lcd_line1)
+    table.insert(mappings, lcd_line2)
 end
 
 return {
