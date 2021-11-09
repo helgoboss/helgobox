@@ -901,6 +901,7 @@ impl Session {
             > 0
     }
 
+    /// Doesn't find default group.
     pub fn find_group_by_id(
         &self,
         compartment: MappingCompartment,
