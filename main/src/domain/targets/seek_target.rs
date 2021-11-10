@@ -7,8 +7,7 @@ use helgoboss_learn::{
 };
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
-    GetLoopTimeRange2Result, PositionInSeconds, SetEditCurPosOptions, TimeFormattingMode,
-    TimeFormattingModeOverride,
+    GetLoopTimeRange2Result, PositionInSeconds, SetEditCurPosOptions, TimeMode, TimeModeOverride,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -29,7 +28,7 @@ impl RealearnTarget for SeekTarget {
         _: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_unit_value()?;
-        let info = get_seek_info(self.project, self.options);
+        let info = get_seek_info(self.project, self.options, false);
         let desired_pos_within_range = value.get() * info.length();
         let desired_pos = info.start_pos.get() + desired_pos_within_range;
         self.project.set_edit_cursor_position(
@@ -64,11 +63,11 @@ impl RealearnTarget for SeekTarget {
     }
 
     fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(format!("{:.3} s", self.position_in_seconds().get()))
+        Some(format!("{:.3} s", self.corrected_display_pos().get()))
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
-        let seconds = self.position_in_seconds();
+        let seconds = self.corrected_display_pos();
         Some(NumericValue::Decimal(seconds.get()))
     }
 
@@ -81,41 +80,162 @@ impl RealearnTarget for SeekTarget {
     }
 
     fn prop_value(&self, key: &str, _: ControlContext) -> Option<PropValue> {
-        if let Some(pos_type) = key.strip_prefix("position.") {
-            use TimeFormattingMode::*;
-            use TimeFormattingModeOverride::*;
-            let mode_override = match pos_type {
-                "project_default" => ProjectDefault,
-                "time" => Mode(Time),
-                "measures_beats_time" => Mode(MeasuresBeatsTime),
-                "measures_beats" => Mode(MeasuresBeats),
-                "seconds" => Mode(Seconds),
-                "samples" => Mode(Samples),
-                "hmsf" => Mode(HoursMinutesSecondsFrames),
-                _ => return None,
-            };
-            let text = Reaper::get().medium_reaper().format_timestr_pos(
-                self.position_in_seconds(),
-                32,
-                mode_override,
-            );
-            Some(PropValue::Text(text.into_string()))
-        } else {
-            None
+        let mut iter = key.split('.');
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some("position"), Some(pos_type), suffix) => {
+                use TimeMode::*;
+                use TimeModeOverride::*;
+                let mode = match pos_type {
+                    "project_default" => match self.project.transport_time_mode() {
+                        ProjectDefault => self.project.ruler_time_mode(),
+                        Mode(m) => m,
+                    },
+                    "time" => Time,
+                    "measures_beats_time" => MeasuresBeatsTime,
+                    "measures_beats" => MeasuresBeats,
+                    "measures_beats_minimal" => MeasuresBeatsMinimal,
+                    "seconds" => Seconds,
+                    "samples" => Samples,
+                    "hmsf" => HoursMinutesSecondsFrames,
+                    "absolute_frames" => AbsoluteFrames,
+                    _ => return None,
+                };
+                let reaper = Reaper::get().medium_reaper();
+                match suffix {
+                    // Use native REAPER time string format
+                    None => {
+                        let text = reaper.format_timestr_pos(
+                            self.reversely_corrected_display_pos(),
+                            32,
+                            TimeModeOverride::Mode(mode),
+                        );
+                        Some(PropValue::Text(text.into_string()))
+                    }
+                    // Use format tailored to Mackie timecode display
+                    Some("mcu") => {
+                        let text = match mode {
+                            Samples => {
+                                let text = reaper.format_timestr_pos(
+                                    self.reversely_corrected_display_pos(),
+                                    32,
+                                    TimeModeOverride::Mode(TimeMode::Samples),
+                                );
+                                text.into_string()
+                            }
+                            Time => {
+                                let text = reaper.format_timestr_pos(
+                                    self.reversely_corrected_display_pos(),
+                                    32,
+                                    TimeModeOverride::Mode(TimeMode::Time),
+                                );
+                                // [*h:]?m:ss.fff
+                                let mut comp = text.to_str().split(&[':', '.'][..]);
+                                match (comp.next(), comp.next(), comp.next(), comp.next()) {
+                                    (Some(m), Some(ss), Some(fff), None) => {
+                                        format!("{:0>2}{:0>2}{:0>3}", m, ss, fff)
+                                    }
+                                    (Some(h), Some(m), Some(ss), Some(fff)) => {
+                                        format!("{}{:0>2}{:0>2}{:0>3}", h, m, ss, fff)
+                                    }
+                                    _ => String::new(),
+                                }
+                            }
+                            MeasuresBeatsTime | MeasuresBeats | MeasuresBeatsMinimal => {
+                                let text = reaper.format_timestr_pos(
+                                    self.reversely_corrected_display_pos(),
+                                    32,
+                                    TimeModeOverride::Mode(TimeMode::MeasuresBeatsTime),
+                                );
+                                // *m.b.ff
+                                let mut comp = text.to_str().split('.');
+                                if let (Some(m), Some(b), Some(ff)) =
+                                    (comp.next(), comp.next(), comp.next())
+                                {
+                                    format!("{}{:>2}   {:0>2}", m, b, ff)
+                                } else {
+                                    String::new()
+                                }
+                            }
+                            Seconds => {
+                                let pos = self.corrected_display_pos().get();
+                                format!(
+                                    "{}{} {:02}",
+                                    if pos.is_sign_negative() { "-" } else { "" },
+                                    pos.abs() as i32,
+                                    (pos.abs() * 100.0) as i32 % 100
+                                )
+                            }
+                            HoursMinutesSecondsFrames => {
+                                let text = reaper.format_timestr_pos(
+                                    self.reversely_corrected_display_pos(),
+                                    32,
+                                    TimeModeOverride::Mode(TimeMode::HoursMinutesSecondsFrames),
+                                );
+                                // *hh:mm:ss:ff
+                                let mut comp = text.to_str().split(':');
+                                if let (Some(hh), Some(mm), Some(ss), Some(ff)) =
+                                    (comp.next(), comp.next(), comp.next(), comp.next())
+                                {
+                                    format!("{}{:0>2}{:0>2} {:0>2}", hh, mm, ss, ff)
+                                } else {
+                                    String::new()
+                                }
+                            }
+                            AbsoluteFrames => {
+                                let text = reaper.format_timestr_pos(
+                                    self.reversely_corrected_display_pos(),
+                                    32,
+                                    TimeModeOverride::Mode(TimeMode::AbsoluteFrames),
+                                );
+                                text.into_string()
+                            }
+                            Unknown(m) => format!("{:?}", m),
+                        };
+                        Some(PropValue::Text(text))
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
         }
     }
 }
 
 impl SeekTarget {
-    fn position_in_seconds(&self) -> PositionInSeconds {
-        let pos = self.project.play_or_edit_cursor_position();
-        let info = get_seek_info(self.project, self.options);
-        if pos < info.start_pos {
-            PositionInSeconds::new(0.0)
+    /// Substracts the project time offset if the seek context is not the project.
+    pub fn reversely_corrected_display_pos(&self) -> PositionInSeconds {
+        let (pos, seek_info) = self.internal_display_info();
+        if seek_info.context == SeekContext::Project {
+            pos
         } else {
-            pos - info.start_pos
+            pos - self.project.time_offset()
         }
     }
+
+    /// Adds the project time offset if the seek context is the project.
+    pub fn corrected_display_pos(&self) -> PositionInSeconds {
+        let (pos, seek_info) = self.internal_display_info();
+        if seek_info.context == SeekContext::Project {
+            self.project.time_offset() + pos
+        } else {
+            pos
+        }
+    }
+
+    fn internal_display_info(&self) -> (PositionInSeconds, SeekInfo) {
+        let pos = self.project.play_or_edit_cursor_position();
+        let info = get_seek_info(self.project, self.options, true);
+        (pos - info.start_pos, info)
+    }
+}
+
+#[derive(Eq, PartialEq)]
+enum SeekContext {
+    TimeSelection,
+    LoopPoints,
+    Region,
+    Project,
+    Viewport,
 }
 
 impl<'a> Target<'a> for SeekTarget {
@@ -140,7 +260,7 @@ fn current_value_of_seek(
     options: SeekOptions,
     pos: PositionInSeconds,
 ) -> UnitValue {
-    let info = get_seek_info(project, options);
+    let info = get_seek_info(project, options, false);
     if pos < info.start_pos {
         UnitValue::MIN
     } else {
@@ -149,15 +269,15 @@ fn current_value_of_seek(
     }
 }
 
-fn get_seek_info(project: Project, options: SeekOptions) -> SeekInfo {
+fn get_seek_info(project: Project, options: SeekOptions, ignore_project_length: bool) -> SeekInfo {
     if options.use_time_selection {
         if let Some(r) = project.time_selection() {
-            return SeekInfo::from_time_range(r);
+            return SeekInfo::from_time_range(SeekContext::TimeSelection, r);
         }
     }
     if options.use_loop_points {
         if let Some(r) = project.loop_points() {
-            return SeekInfo::from_time_range(r);
+            return SeekInfo::from_time_range(SeekContext::LoopPoints, r);
         }
     }
     if options.use_regions {
@@ -166,39 +286,57 @@ fn get_seek_info(project: Project, options: SeekOptions) -> SeekInfo {
             if let Some(bm) = project.find_bookmark_by_index(i) {
                 let info = bm.basic_info();
                 if let Some(end_pos) = info.region_end_position {
-                    return SeekInfo::new(info.position, end_pos);
+                    return SeekInfo::new(SeekContext::Region, info.position, end_pos);
                 }
             }
         }
     }
     if options.use_project {
-        let length = project.length();
-        if length.get() > 0.0 {
+        if ignore_project_length {
             return SeekInfo::new(
+                SeekContext::Project,
                 PositionInSeconds::new(0.0),
-                PositionInSeconds::new(length.get()),
+                PositionInSeconds::new(f64::MAX),
             );
+        } else {
+            let length = project.length();
+            if length.get() > 0.0 {
+                return SeekInfo::new(
+                    SeekContext::Project,
+                    PositionInSeconds::new(0.0),
+                    PositionInSeconds::new(length.get()),
+                );
+            }
         }
     }
     // Last fallback: Viewport seeking. We always have a viewport
     let result = Reaper::get()
         .medium_reaper()
         .get_set_arrange_view_2_get(project.context(), 0, 0);
-    SeekInfo::new(result.start_time, result.end_time)
+    SeekInfo::new(SeekContext::Viewport, result.start_time, result.end_time)
 }
 
 struct SeekInfo {
+    pub context: SeekContext,
     pub start_pos: PositionInSeconds,
     pub end_pos: PositionInSeconds,
 }
 
 impl SeekInfo {
-    pub fn new(start_pos: PositionInSeconds, end_pos: PositionInSeconds) -> Self {
-        Self { start_pos, end_pos }
+    pub fn new(
+        context: SeekContext,
+        start_pos: PositionInSeconds,
+        end_pos: PositionInSeconds,
+    ) -> Self {
+        Self {
+            context,
+            start_pos,
+            end_pos,
+        }
     }
 
-    fn from_time_range(range: GetLoopTimeRange2Result) -> Self {
-        Self::new(range.start, range.end)
+    fn from_time_range(context: SeekContext, range: GetLoopTimeRange2Result) -> Self {
+        Self::new(context, range.start, range.end)
     }
 
     pub fn length(&self) -> f64 {

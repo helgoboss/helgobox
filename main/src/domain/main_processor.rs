@@ -558,33 +558,51 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             m,
                             &self.collections.mappings_with_virtual_targets,
                             &mut |t| {
-                                if let Some(value) = t.current_value(control_context) {
-                                    match previous_target_values[compartment].entry(*mapping_id) {
-                                        Entry::Occupied(mut e) => {
-                                            // We really want to resend if there's the slightest
-                                            // difference. It's okay to have direct comparison
-                                            // because we know the source of these two values is
-                                            // the same.
-                                            if e.get().to_unit_value().get()
-                                                == value.to_unit_value().get()
-                                            {
-                                                // Value hasn't changed.
-                                                (false, None)
-                                            } else {
-                                                // Value has changed.
+                                if m.mode().wants_textual_feedback() {
+                                    // Text feedback is not necessarily based on percentages.
+                                    // This means we can have the situation that in terms of
+                                    // percentages (usually relevant for control direction), the
+                                    // current value might be below 0% or above 100%, which would
+                                    // let the percentage (unit value) stay the same. But the
+                                    // text feedback might go beyond that interval, so we should
+                                    // always update it! Example: Seek target with "Use project"
+                                    // enabled.
+                                    (true, None)
+                                } else {
+                                    // Numeric feedback is always in percentages, so we can
+                                    // safely block feedback already here if we encounter
+                                    // duplicate target values. So check for duplicate feedback!
+                                    // TODO-high-discrete Maybe not true anymore with discrete
+                                    //  targets.
+                                    if let Some(value) = t.current_value(control_context) {
+                                        match previous_target_values[compartment].entry(*mapping_id)
+                                        {
+                                            Entry::Occupied(mut e) => {
+                                                // We really want to resend if there's the slightest
+                                                // difference. It's okay to have direct comparison
+                                                // because we know the source of these two values is
+                                                // the same.
+                                                if e.get().to_unit_value().get()
+                                                    == value.to_unit_value().get()
+                                                {
+                                                    // Value hasn't changed.
+                                                    (false, None)
+                                                } else {
+                                                    // Value has changed.
+                                                    e.insert(value);
+                                                    (true, Some(value))
+                                                }
+                                            }
+                                            Entry::Vacant(e) => {
+                                                // No feedback sent yet for that milli-dependent mapping.
                                                 e.insert(value);
                                                 (true, Some(value))
                                             }
                                         }
-                                        Entry::Vacant(e) => {
-                                            // No feedback sent yet for that milli-dependent mapping.
-                                            e.insert(value);
-                                            (true, Some(value))
-                                        }
+                                    } else {
+                                        // Couldn't determine feedback value.
+                                        (false, None)
                                     }
-                                } else {
-                                    // Couldn't determine feedback value.
-                                    (false, None)
                                 }
                             },
                         );
