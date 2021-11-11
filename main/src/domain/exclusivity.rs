@@ -14,10 +14,15 @@ pub trait HierarchyEntry: PartialEq {
 pub fn handle_exclusivity<E: HierarchyEntry>(
     provider: &impl HierarchyEntryProvider<Entry = E>,
     exclusivity: TrackExclusivity,
-    current_index: u32,
+    current_index: Option<u32>,
     current_entry: &E,
     mut apply: impl FnMut(u32, &E),
 ) {
+    let current_index = match current_index {
+        // We consider the master track as its own folder (same as non-exclusive).
+        None => return,
+        Some(i) => i,
+    };
     use TrackExclusivity::*;
     match exclusivity {
         NonExclusive => {}
@@ -343,7 +348,7 @@ mod tests {
         handle_exclusivity(
             provider,
             exclusivity,
-            current_index,
+            Some(current_index),
             &provider.find_entry_by_index(current_index).unwrap(),
             |i, _| {
                 affected_indexes.insert(i);
