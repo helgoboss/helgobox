@@ -501,7 +501,8 @@ local mappings = {
 
 -- For each channel
 for ch = 0, channel_count - 1 do
-    local prefix = "ch"..(ch+1).."/"
+    local human_ch = ch + 1
+    local prefix = "ch"..human_ch.."/"
     local v_select = {
         group = "v-select",
         feedback_enabled = false,
@@ -561,8 +562,11 @@ for ch = 0, channel_count - 1 do
             kind = "MidiControlChangeValue",
             channel = 0,
             controller_number = 16 + ch,
-            character = "Relative1",
+            character = "Relative3",
             fourteen_bit = false,
+        },
+        glue = {
+            step_factor_interval = {1, 100},
         },
         target = {
             kind = "Virtual",
@@ -581,7 +585,7 @@ for ch = 0, channel_count - 1 do
         },
         target = {
             kind = "Virtual",
-            id = prefix.."v-pot/wrap",
+            id = prefix.."v-pot",
         },
     }
     local v_pot_feedback_boost_cut = {
