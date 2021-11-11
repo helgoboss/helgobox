@@ -17,7 +17,11 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
     } else {
         None
     };
-    let conv_step_factor_interval = g.step_factor_interval.map(convert_step_factor_interval);
+    let conv_step_factor_interval = if let Some(sfi) = g.step_factor_interval {
+        Some(convert_step_factor_interval(sfi)?)
+    } else {
+        None
+    };
     if let (Some(ssi), Some(sfi)) = (conv_step_size_interval, conv_step_factor_interval) {
         if (ssi.min_val().get() - sfi.min_val().get()).abs() > BASE_EPSILON
             || (ssi.max_val().get() - sfi.max_val().get()).abs() > BASE_EPSILON
@@ -31,17 +35,35 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         .or(conv_step_size_interval)
         .unwrap_or_else(|| convert_step_size_interval(defaults::GLUE_STEP_SIZE_INTERVAL).unwrap());
     let fire_mode = g.fire_mode.unwrap_or_default();
-    let min_press_millis = {
+    let (min_press_millis, max_press_millis) = {
         use FireMode::*;
         match &fire_mode {
             Normal(m) => {
-                m.press_duration_interval
-                    .unwrap_or(defaults::FIRE_MODE_PRESS_DURATION_INTERVAL)
-                    .0 as u64
+                let api_interval = m
+                    .press_duration_interval
+                    .unwrap_or(defaults::FIRE_MODE_PRESS_DURATION_INTERVAL);
+                let interval = helgoboss_learn::Interval::try_new(
+                    api_interval.0 as u64,
+                    api_interval.1 as u64,
+                )?;
+                (interval.min_val(), interval.max_val())
             }
-            AfterTimeout(m) => m.timeout.unwrap_or(defaults::FIRE_MODE_TIMEOUT) as u64,
-            AfterTimeoutKeepFiring(m) => m.timeout.unwrap_or(defaults::FIRE_MODE_TIMEOUT) as u64,
-            _ => 0,
+            OnSinglePress(m) => {
+                let max = m
+                    .max_duration
+                    .unwrap_or(defaults::FIRE_MODE_SINGLE_PRESS_MAX_DURATION)
+                    as u64;
+                (0, max)
+            }
+            AfterTimeout(m) => {
+                let min = m.timeout.unwrap_or(defaults::FIRE_MODE_TIMEOUT) as u64;
+                (min, min)
+            }
+            AfterTimeoutKeepFiring(m) => {
+                let min = m.timeout.unwrap_or(defaults::FIRE_MODE_TIMEOUT) as u64;
+                (min, min)
+            }
+            OnDoublePress(_) => (0, 0),
         }
     };
     let data = ModeModelData {
@@ -63,21 +85,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         min_step_size: step_interval.min_val(),
         max_step_size: step_interval.max_val(),
         min_press_millis,
-        max_press_millis: {
-            use FireMode::*;
-            match &fire_mode {
-                Normal(m) => {
-                    m.press_duration_interval
-                        .unwrap_or(defaults::FIRE_MODE_PRESS_DURATION_INTERVAL)
-                        .1 as u64
-                }
-                OnSinglePress(m) => m
-                    .max_duration
-                    .unwrap_or(defaults::FIRE_MODE_SINGLE_PRESS_MAX_DURATION)
-                    as u64,
-                _ => min_press_millis,
-            }
-        },
+        max_press_millis,
         turbo_rate: {
             use FireMode::*;
             match &fire_mode {
@@ -185,31 +193,31 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
 
 fn convert_step_factor_interval(
     i: Interval<i32>,
-) -> helgoboss_learn::Interval<SoftSymmetricUnitValue> {
-    helgoboss_learn::Interval::new_auto(
+) -> ConversionResult<helgoboss_learn::Interval<SoftSymmetricUnitValue>> {
+    let result = helgoboss_learn::Interval::try_new(
         SoftSymmetricUnitValue::new(i.0 as f64 / 100.0),
         SoftSymmetricUnitValue::new(i.1 as f64 / 100.0),
-    )
+    )?;
+    Ok(result)
 }
 
 fn convert_step_size_interval(
     i: Interval<f64>,
 ) -> ConversionResult<helgoboss_learn::Interval<SoftSymmetricUnitValue>> {
     let uv_interval = convert_unit_value_interval(i)?;
-    let result = helgoboss_learn::Interval::new(
+    let result = helgoboss_learn::Interval::try_new(
         uv_interval.min_val().to_symmetric(),
         uv_interval.max_val().to_symmetric(),
-    );
+    )?;
     Ok(result)
 }
 
 fn convert_unit_value_interval(
     interval: Interval<f64>,
 ) -> ConversionResult<helgoboss_learn::Interval<UnitValue>> {
-    Ok(helgoboss_learn::Interval::new_auto(
-        interval.0.try_into()?,
-        interval.1.try_into()?,
-    ))
+    let result =
+        helgoboss_learn::Interval::try_new(interval.0.try_into()?, interval.1.try_into()?)?;
+    Ok(result)
 }
 
 fn convert_virtual_color(color: VirtualColor) -> helgoboss_learn::VirtualColor {
