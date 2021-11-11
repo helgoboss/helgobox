@@ -31,6 +31,19 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         .or(conv_step_size_interval)
         .unwrap_or_else(|| convert_step_size_interval(defaults::GLUE_STEP_SIZE_INTERVAL).unwrap());
     let fire_mode = g.fire_mode.unwrap_or_default();
+    let min_press_millis = {
+        use FireMode::*;
+        match &fire_mode {
+            Normal(m) => {
+                m.press_duration_interval
+                    .unwrap_or(defaults::FIRE_MODE_PRESS_DURATION_INTERVAL)
+                    .0 as u64
+            }
+            AfterTimeout(m) => m.timeout.unwrap_or(defaults::FIRE_MODE_TIMEOUT) as u64,
+            AfterTimeoutKeepFiring(m) => m.timeout.unwrap_or(defaults::FIRE_MODE_TIMEOUT) as u64,
+            _ => 0,
+        }
+    };
     let data = ModeModelData {
         r#type: {
             use helgoboss_learn::AbsoluteMode as T;
@@ -49,21 +62,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         max_target_jump: jump_interval.max_val(),
         min_step_size: step_interval.min_val(),
         max_step_size: step_interval.max_val(),
-        min_press_millis: {
-            use FireMode::*;
-            match &fire_mode {
-                Normal(m) => {
-                    m.press_duration_interval
-                        .unwrap_or(defaults::FIRE_MODE_PRESS_DURATION_INTERVAL)
-                        .0 as u64
-                }
-                AfterTimeout(m) => m.timeout.unwrap_or(defaults::FIRE_MODE_TIMEOUT) as u64,
-                AfterTimeoutKeepFiring(m) => {
-                    m.timeout.unwrap_or(defaults::FIRE_MODE_TIMEOUT) as u64
-                }
-                _ => 0,
-            }
-        },
+        min_press_millis,
         max_press_millis: {
             use FireMode::*;
             match &fire_mode {
@@ -76,7 +75,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
                     .max_duration
                     .unwrap_or(defaults::FIRE_MODE_SINGLE_PRESS_MAX_DURATION)
                     as u64,
-                _ => 0,
+                _ => min_press_millis,
             }
         },
         turbo_rate: {
