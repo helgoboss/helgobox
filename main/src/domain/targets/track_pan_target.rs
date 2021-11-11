@@ -3,7 +3,10 @@ use crate::domain::{
     HitInstructionReturnValue, MappingControlContext, PanExt, RealearnTarget, ReaperTargetType,
     TargetCharacter,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+use helgoboss_learn::{
+    AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
+    BASE_EPSILON,
+};
 use reaper_high::{AvailablePanValue, ChangeEvent, Pan, Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -95,6 +98,23 @@ impl RealearnTarget for TrackPanTarget {
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
         Some(ReaperTargetType::TrackPan)
+    }
+
+    fn prop_value(&self, key: &str, _: ControlContext) -> Option<PropValue> {
+        match key {
+            "pan.mcu" => {
+                let pan = self.pan().reaper_value().get();
+                let text = if pan.abs() < BASE_EPSILON {
+                    "  <C>  ".to_string()
+                } else if pan < 0.0 {
+                    format!("<{:>3.0}   ", pan.abs() * 100.0)
+                } else {
+                    format!("   {:<3.0}>", pan * 100.0)
+                };
+                Some(PropValue::Text(text))
+            }
+            _ => None,
+        }
     }
 }
 
