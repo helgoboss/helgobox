@@ -6,7 +6,7 @@ use core::fmt;
 /// It's useful in the audio thread because it can be cheaply copied and doesn't need allocation.
 /// If you are okay with allocation and need cheap cloning, you could just as well use an
 /// `Rc<String>`.
-pub type SmallAsciiString = LimitedAsciiString<16>;
+pub type SmallAsciiString = LimitedAsciiString<32>;
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
 pub struct LimitedAsciiString<const N: usize> {
