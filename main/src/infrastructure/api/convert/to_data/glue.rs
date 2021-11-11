@@ -1,7 +1,7 @@
 use crate::infrastructure::api::convert::defaults;
 use crate::infrastructure::api::convert::ConversionResult;
 use crate::infrastructure::data::ModeModelData;
-use helgoboss_learn::{SoftSymmetricUnitValue, UnitValue};
+use helgoboss_learn::{SoftSymmetricUnitValue, UnitValue, BASE_EPSILON};
 use realearn_api::schema::*;
 use std::convert::TryInto;
 
@@ -19,7 +19,9 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
     };
     let conv_step_factor_interval = g.step_factor_interval.map(convert_step_factor_interval);
     if let (Some(ssi), Some(sfi)) = (conv_step_size_interval, conv_step_factor_interval) {
-        if ssi != sfi {
+        if (ssi.min_val().get() - sfi.min_val().get()).abs() > BASE_EPSILON
+            || (ssi.max_val().get() - sfi.max_val().get()).abs() > BASE_EPSILON
+        {
             return Err(
                 "Only one of `step_size_interval` and `step_factor_interval` can be set".into(),
             );
