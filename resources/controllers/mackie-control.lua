@@ -1,5 +1,16 @@
 local channel_count = 8;
 
+local binary_eight = {
+    [0] = "000",
+    [1] = "001",
+    [2] = "010",
+    [3] = "011",
+    [4] = "100",
+    [5] = "101",
+    [6] = "110",
+    [7] = "111",
+}
+
 local groups = {
     {
         id = "fader",
@@ -40,6 +51,10 @@ local groups = {
     {
         id = "lcd",
         name = "LCD",
+    },
+    {
+        id = "meter",
+        name = "Meter",
     },
 }
 
@@ -554,23 +569,64 @@ for ch = 0, channel_count - 1 do
             id = prefix.."v-pot",
         },
     }
-    local v_pot_feedback = {
+    local v_pot_feedback_wrap = {
         group = "v-pot-leds",
         control_enabled = false,
         source = {
-            kind = "MidiControlChangeValue",
-            channel = 0,
-            controller_number = 48 + ch,
-            fourteen_bit = false,
+            kind = "MidiRaw",
+            pattern = "B0 3"..ch.." [0010 dcba]",
         },
         glue = {
-            source_interval = {0.25984251968503935, 0.33858267716535434},
-            step_size_interval = {0.01, 0.01},
-            step_factor_interval = {1, 1},
+            source_interval = {0, 0.75},
         },
         target = {
             kind = "Virtual",
-            id = prefix.."v-pot",
+            id = prefix.."v-pot/wrap",
+        },
+    }
+    local v_pot_feedback_boost_cut = {
+        group = "v-pot-leds",
+        control_enabled = false,
+        source = {
+            kind = "MidiRaw",
+            pattern = "B0 3"..ch.." [0001 dcba]",
+        },
+        glue = {
+            source_interval = {0.05, 0.75},
+        },
+        target = {
+            kind = "Virtual",
+            id = prefix.."v-pot/boost-cut",
+        },
+    }
+    local v_pot_feedback_single = {
+        group = "v-pot-leds",
+        control_enabled = false,
+        source = {
+            kind = "MidiRaw",
+            pattern = "B0 3"..ch.." [0000 dcba]",
+        },
+        glue = {
+            source_interval = {0, 0.75},
+        },
+        target = {
+            kind = "Virtual",
+            id = prefix.."v-pot/single",
+        },
+    }
+    local v_pot_feedback_spread = {
+        group = "v-pot-leds",
+        control_enabled = false,
+        source = {
+            kind = "MidiRaw",
+            pattern = "B0 3"..ch.." [0011 dcba]",
+        },
+        glue = {
+            source_interval = {0, 0.4},
+        },
+        target = {
+            kind = "Virtual",
+            id = prefix.."v-pot/spread",
         },
     }
     local mute = {
@@ -638,17 +694,33 @@ for ch = 0, channel_count - 1 do
             id = prefix.."lcd/line2",
         },
     }
+    local meter = {
+        group = "meter",
+        control_enabled = false,
+        source = {
+            kind = "MidiRaw",
+            pattern = "D0 [0"..binary_eight[ch].." dcba]",
+        },
+        target = {
+            kind = "Virtual",
+            id = prefix.."meter/peak",
+        },
+    }
     table.insert(mappings, v_select)
     table.insert(mappings, fader_touch)
     table.insert(mappings, select)
     table.insert(mappings, fader)
     table.insert(mappings, v_pot_control)
-    table.insert(mappings, v_pot_feedback)
+    table.insert(mappings, v_pot_feedback_wrap)
+    table.insert(mappings, v_pot_feedback_boost_cut)
+    table.insert(mappings, v_pot_feedback_single)
+    table.insert(mappings, v_pot_feedback_spread)
     table.insert(mappings, mute)
     table.insert(mappings, solo)
     table.insert(mappings, record_ready)
     table.insert(mappings, lcd_line1)
     table.insert(mappings, lcd_line2)
+    table.insert(mappings, meter)
 end
 
 return {
