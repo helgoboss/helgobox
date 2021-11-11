@@ -359,7 +359,11 @@ pub fn get_realearn_target_prop_value_with_fallback<'a>(
 
 pub fn get_track_name(t: &Track) -> String {
     if let Some(n) = t.name() {
-        n.into_string()
+        if n.to_str().is_empty() {
+            format!("Track {}", t.index().unwrap_or(0) + 1)
+        } else {
+            n.into_string()
+        }
     } else {
         "<Master>".to_string()
     }
