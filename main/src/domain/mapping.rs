@@ -423,14 +423,19 @@ impl MainMapping {
     ) -> (Vec<CompoundMappingTarget>, bool) {
         match self.unresolved_target.as_ref() {
             None => (vec![], false),
-            Some(t) => match t.resolve(context, self.core.compartment).ok() {
+            Some(ut) => match ut.resolve(context, self.core.compartment).ok() {
                 None => (vec![], false),
                 Some(resolved_targets) => {
+                    // Successfully resolved.
                     if let Some(t) = resolved_targets.first() {
+                        // We have at least one target, great!
                         self.core.mode.update_from_target(t, control_context);
+                        let met = ut.conditions_are_met(&resolved_targets);
+                        (resolved_targets, met)
+                    } else {
+                        // Resolved to zero targets. Consider as inactive.
+                        (vec![], false)
                     }
-                    let met = t.conditions_are_met(&resolved_targets);
-                    (resolved_targets, met)
                 }
             },
         }
