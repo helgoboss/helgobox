@@ -309,11 +309,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// This is a very important principle when using multiple instances. It allows feedback to
     /// not be accidentally cleared while still guaranteeing that feedback for non-used control
     /// elements are cleared eventually - independently from the order of instance processing.
-    pub fn maybe_takeover_source(&self, feedback_value: &SourceFeedbackValue) -> bool {
+    pub fn maybe_takeover_source(&self, released_event: &SourceReleasedEvent) -> bool {
+        if Some(released_event.feedback_output) != self.basics.feedback_output {
+            // Difference feedback device. No source takeover of course.
+            return false;
+        }
         if let Some(mapping_with_source) = self.all_mappings().find(|m| {
             m.feedback_is_effectively_on()
                 && m.source()
-                    .has_same_feedback_address_as_value(feedback_value)
+                    .has_same_feedback_address_as_value(&released_event.feedback_value)
         }) {
             if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
                 if self.basics.instance_feedback_is_effectively_enabled() {
