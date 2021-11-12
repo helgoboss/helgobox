@@ -485,6 +485,23 @@ local mappings = {
         },
     },
     {
+        name = "Previous LED",
+        group = "transport",
+        control_enabled = false,
+        source = {
+            kind = "Virtual",
+            id = "rewind",
+            character = "Button",
+        },
+        glue = {
+            target_interval = {0, 0.00001},
+            jump_interval = {0, 0.00001},
+        },
+        target = {
+            kind = "Seek",
+        },
+    },
+    {
         id = "7f0d2cbb-0346-4229-89dd-db58cac3a460",
         name = "Next",
         group = "transport",
@@ -498,6 +515,23 @@ local mappings = {
             kind = "ReaperAction",
             command = 40173,
             invocation = "Trigger",
+        },
+    },
+    {
+        name = "Next LED",
+        group = "transport",
+        control_enabled = false,
+        source = {
+            kind = "Virtual",
+            id = "fast-fwd",
+            character = "Button",
+        },
+        glue = {
+            target_interval = {0.99999, 1},
+            reverse = true,
+        },
+        target = {
+            kind = "Seek",
         },
     },
     {
