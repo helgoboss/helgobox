@@ -366,13 +366,13 @@ This panel has 4 sections:
  particular control element on your controller (e.g. a fader).
 * *Target:* Allows to edit the _target_ of the mapping and optionally some target-related
  activation conditions. A target essentially is the parameter in REAPER that should be controlled.
-* *Tuning:* Allows to change in detail how your source and target will be glued together. This
+* *Glue:* Allows to change in detail how your source and target will be glued together. This
  defines _how_ incoming control values from the source should be
  applied to the target (and vice versa, if feedback is used). This is where it gets interesting.
  Whereas REAPER's built-in MIDI learn provides just some basic modes like Absolute or Toggle, ReaLearn
  allows you to customize many more aspects of a mapping.
 
-By design, source, tuning and target are independent concepts in ReaLearn. They can be combined
+By design, source, glue and target are independent concepts in ReaLearn. They can be combined
 freely - although there are some combinations that don't make too much sense.
 
 Changes in the mapping panel are applied immediately. Pressing the _OK_ button just closes the
@@ -753,7 +753,7 @@ Let's first look at the "slow" way to do this - adding and editing each controll
 *** Example: It's okay and desired to have one control element mapped to "Multi 1" and one to "Button 1".
 ** Just imagine the "8 generic knobs + 8 generic buttons" layout which is typical for lots of popular controllers.
  You can easily model that by assigning 8 multis and 8 buttons.
-** Maybe you have realized that the _Tuning_ section is available for controller mappings as well! That opens up all
+** Maybe you have realized that the _Glue_ section is available for controller mappings as well! That opens up all
  kinds of possibilities. You could for example restrict the target range for a certain control element. Or make
  an encoder generally slower or faster. Or you could simulate a rotary encoder by making two buttons on your
  controller act as -/+ buttons emitting relative values. This is possible by mapping them to the same "Multi" in
@@ -836,7 +836,7 @@ _on_ only if the following is true:
 If a mapping is _off_, it doesn't have any effect.
 
 * *✓:* This checkbox at the top left of the mapping row enables or disables the mapping as a whole.
-* *●:* This indicator at the very left of the mapping row lights on incoming control messages whenever they match the mapping source. Attention: This doesn't necessarily mean that the message will reach the target (although it often does). There are certain settings in the <<tuning>> section which allow you to filter messages even they matched the source (e.g. the _Source Min/Max_).
+* *●:* This indicator at the very left of the mapping row lights on incoming control messages whenever they match the mapping source. Attention: This doesn't necessarily mean that the message will reach the target (although it often does). There are certain settings in the <<glue>> section which allow you to filter messages even they matched the source (e.g. the _Source Min/Max_).
 * *Up / Down:* Use these buttons to move this mapping up or down the list.
 * *→ / ←:* Use these checkboxes to enable/disable control and/or feedback for this mapping. Disabling both has the same effect as disabling the mapping as a whole.
 * *Edit:* Opens the mapping panel for this mapping.
@@ -883,9 +883,9 @@ A control value can be either absolute or relative, depending on the source char
  E.g. -2 means a decrement of 2.
 
 After having translated the incoming event to a control value, ReaLearn feeds it to the mapping's
-tuning section. The tuning section is responsible for transforming control values before they reach the _target_.
+glue section. The glue section is responsible for transforming control values before they reach the _target_.
 This transformation can change the type of the control value, e.g. from relative to absolute - it depends
-on the mapping's target character. The tuning section can even "eat" control values so that they don't arrive
+on the mapping's target character. The glue section can even "eat" control values so that they don't arrive
 at the target at all.
 
 Finally, ReaLearn converts the transformed control value into some target instruction (e.g. "set
@@ -1417,7 +1417,7 @@ This source is feedback-only and exists for enabling more complex feedback use c
 
 The input of the script is the current normalized feedback value. You can access it via EEL variable `y`, a floating
 point number between 0.0 and 1.0. This is essentially the current normalized target value after being processed by the
-"Tuning" section of the mapping.
+"Glue" section of the mapping.
 
 *Script output*
 
@@ -1455,7 +1455,7 @@ This is a feedback-only source used to display text on MIDI-controllable hardwar
 
 CAUTION: For controllers with multiple displays and lines, ReaLearn allows you to spread your text over all available displays and lines. This is great if you need to display a lot of text but one display doesn't provide enough space. But be aware: Replacing feedback with other feedback ("feedback relay") doesn't work so nicely anymore if you make use of this feature.
 
-If you want to know how to define which text shall be sent to the displays, please see <<textual-feedback,textual feedback>> in the *Tuning* section.
+If you want to know how to define which text shall be sent to the displays, please see <<textual-feedback,textual feedback>> in the *Glue* section.
 
 
 [#category-osc]
@@ -2214,7 +2214,7 @@ NOTE: This only works if _control input_ is set to `&lt;FX input&gt;`!
 +
 NOTE: This only works if _feedback output_ is set to a MIDI device. If _feedback output_ is set to `<FX output>`, this only works if _control input_ is set to `<FX input>`.
 * *Pattern:* Defines the MIDI message to be sent as a sequence of bytes in hexadecimal notation. It also allows you
- to encode the incoming _absolute_ control value as part of the message (after it has been processed by the tuning
+ to encode the incoming _absolute_ control value as part of the message (after it has been processed by the glue
  section). The syntax for doing this takes some getting used to but it's very flexible. It's exactly the same syntax as
  used in the <<raw-midi-source,Raw MIDI source>>.
  Please read about it there!
@@ -2242,7 +2242,7 @@ Lets you set the slot's volume.
 
 Sends OSC messages with up to one argument in response to incoming messages. This target turns ReaLearn into
 a capable and convenient MIDI → OSC and OSC → OSC converter. If an argument number is entered (e.g. `1`),
-it will encode the incoming absolute control value as that argument (after it has been processed by the tuning section).
+it will encode the incoming absolute control value as that argument (after it has been processed by the glue section).
 
 * *Output:* Where to send the OSC message.
 ** *&lt;Feedback output&gt;:* Sends the OSC message to the device which is set as _Feedback output_. Of course this only
@@ -2313,7 +2313,7 @@ Please note:
 
 This target lets you choose an arbitrary mapping group in this compartment and cycle through it with an encoder/fader/knob or incremental (previous/next) buttons.
 
-"Cycling through" means that you move from one mapping in the group to the next one by hitting the next mapping's target with the _Target Max_ value in its tuning section (by default 100%).
+"Cycling through" means that you move from one mapping in the group to the next one by hitting the next mapping's target with the _Target Max_ value in its glue section (by default 100%).
 
 * *Group:* The group that you want to cycle through.
 * *Exclusivity*
@@ -2340,10 +2340,10 @@ This is exactly the counterpart of the possible virtual sources. Choosing a virt
 placing cables between a control element and all corresponding main mappings that use this
 virtual control element as source.
 
-[#tuning]
-==== Tuning
+[#glue]
+==== Glue
 
-As mentioned before, the tuning section defines the glue between a source and a target. It's divided into
+As mentioned before, the glue section defines the glue between a source and a target. It's divided into
 several sub sections some of which make sense for all kinds of sources and others only for some.
 
 *At first something important to understand:* Since ReaLearn 2, a mapping can deal with both _absolute_
@@ -2408,11 +2408,11 @@ These are relevant for the control direction only:
 ** *None:* Switches group interaction off. This is the default. Incoming control events will just affect _this_
  mapping, not others.
 ** *Same control:* This will broadcast any incoming control value to all other mappings in the same group. The
- tuning section of this mapping will be ignored when controlling the other mappings. The tuning sections of the
+ glue section of this mapping will be ignored when controlling the other mappings. The glue sections of the
  other mappings will be respected, including the source min/max setting.
 ** *Same target value:* This will set the target value of each other mapping in the same group to the target value
  of this mapping. Nice: It will respect the target min/max setting of both this mapping and the other mappings.
- All other settings of the tuning section will not be processed. Needless to say, this kind of control is always
+ All other settings of the glue section will not be processed. Needless to say, this kind of control is always
  absolute, which means it can lead to parameter jumps. Therefore, it's most suited for on/off targets. If you don't
  like this, choose _Same control_ instead.
 ** *Inverse control:* This is like _Same control_ but broadcasts the _inverse_ of the incoming control value.
@@ -2768,8 +2768,8 @@ decide how exactly ReaLearn should cope with button presses.
 
 ==== Help
 
-This section provides context-sensitive help for the tuning section. Whenever you touch a setting in
-the tuning section, some text will appear which explains what this element does, both for the _control_ and for the
+This section provides context-sensitive help for the glue section. Whenever you touch a setting in
+the glue section, some text will appear which explains what this element does, both for the _control_ and for the
 _feedback_ direction (if applicable).
 
 * *If source is a:* It often depends on the kind of source what effect a setting has. Therefore this dropdown
@@ -3373,7 +3373,7 @@ The following basic setup hints are usually valid, no matter the specific contro
 Consider the following general usage hints:
 
 - If the device supports visual feedback and different LED colors, the LED color often depends on the target value and
- can be manually adjusted using "Source Min/Max" in the "Tuning" section of the mapping.
+ can be manually adjusted using "Source Min/Max" in the "Glue" section of the mapping.
 
 *Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack repository! Using an existing preset
 might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).*
