@@ -814,9 +814,8 @@ local mappings = {
             id = "lcd/assignment",
         },
         glue = {
-            source_interval = {0.01, 1},
-            target_interval = {0, 0.009899999999999999},
-            jump_interval = {0, 0.009899999999999999},
+            source_interval = {0, 1},
+            target_interval = {0, 0.01},
         },
         target = {
             kind = "FxParameterValue",
@@ -963,6 +962,7 @@ local mappings = {
 for ch = 0, channel_count - 1 do
     local human_ch = ch + 1
     local prefix = "ch"..human_ch.."/"
+    local track_expression = "p1 * 10000 - 1 + "..ch;
     local track_volume = {
         name = "Tr"..human_ch.." Vol",
         group = "volume",
@@ -974,7 +974,7 @@ for ch = 0, channel_count - 1 do
             kind = "TrackVolume",
             track = {
                 address = "Dynamic",
-                expression = "p1 * 10000 + "..ch,
+                expression = track_expression,
             },
         },
     }
@@ -993,7 +993,7 @@ for ch = 0, channel_count - 1 do
             kind = "TrackPan",
             track = {
                 address = "Dynamic",
-                expression = "p1 * 10000 + "..ch,
+                expression = track_expression,
             },
         },
     }
@@ -1009,7 +1009,7 @@ for ch = 0, channel_count - 1 do
             kind = "TrackPan",
             track = {
                 address = "Dynamic",
-                expression = "p1 * 10000 + "..ch,
+                expression = track_expression,
             },
         },
     }
@@ -1028,7 +1028,7 @@ for ch = 0, channel_count - 1 do
             kind = "TrackPan",
             track = {
                 address = "Dynamic",
-                expression = "p1 * 10000 + "..ch,
+                expression = track_expression,
             },
         },
     }
@@ -1047,7 +1047,7 @@ for ch = 0, channel_count - 1 do
             kind = "TrackSelectionState",
             track = {
                 address = "Dynamic",
-                expression = "p1 * 10000 + "..ch,
+                expression = track_expression,
             },
             scroll_mixer = true,
         },
@@ -1067,7 +1067,7 @@ for ch = 0, channel_count - 1 do
             kind = "TrackMuteState",
             track = {
                 address = "Dynamic",
-                expression = "p1 * 10000 + "..ch,
+                expression = track_expression,
             },
         },
     }
@@ -1086,7 +1086,7 @@ for ch = 0, channel_count - 1 do
             kind = "TrackSoloState",
             track = {
                 address = "Dynamic",
-                expression = "p1 * 10000 + "..ch,
+                expression = track_expression,
             },
         },
     }
@@ -1105,7 +1105,7 @@ for ch = 0, channel_count - 1 do
             kind = "TrackArmState",
             track = {
                 address = "Dynamic",
-                expression = "p1 * 10000 + "..ch,
+                expression = track_expression,
             },
         },
     }
@@ -1121,7 +1121,7 @@ for ch = 0, channel_count - 1 do
             kind = "TrackAutomationTouchState",
             track = {
                 address = "Dynamic",
-                expression = "p1 * 10000 + "..ch,
+                expression = track_expression,
             },
             touched_parameter = "Volume",
         },
@@ -1143,7 +1143,7 @@ for ch = 0, channel_count - 1 do
             kind = "TrackVolume",
             track = {
                 address = "Dynamic",
-                expression = "p1 * 10000 + "..ch,
+                expression = track_expression,
             },
         },
     }
@@ -1164,7 +1164,7 @@ for ch = 0, channel_count - 1 do
             kind = "TrackPan",
             track = {
                 address = "Dynamic",
-                expression = "p1 * 10000 + "..ch,
+                expression = track_expression,
             },
         },
     }
@@ -1181,7 +1181,7 @@ for ch = 0, channel_count - 1 do
             kind = "TrackPeak",
             track = {
                 address = "Dynamic",
-                expression = "p1 * 10000 + "..ch,
+                expression = track_expression,
             },
         },
     }
