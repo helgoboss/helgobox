@@ -385,7 +385,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                     let other_instance_took_over = self
                         .main_processors
                         .iter()
-                        .any(|p| p.maybe_takeover_source(&e.feedback_value));
+                        .any(|p| p.maybe_takeover_source(&e));
                     if !other_instance_took_over {
                         if let Some(p) = self
                             .main_processors
