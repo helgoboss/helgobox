@@ -461,7 +461,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "2gFE8EULN6a9O6V1r0Xsj",
+      "id": "RSTuDjLbtUWg-CgNFviHY",
       "name": "Previous LED",
       "groupId": "transport",
       "source": {
@@ -506,7 +506,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "tStn_-bXTMRKkZZZXXbVY",
+      "id": "ih-_GHwTyTHkEp01RHspY",
       "name": "Next LED",
       "groupId": "transport",
       "source": {
@@ -856,7 +856,7 @@
       }
     },
     {
-      "id": "ILmNydUTVdjU6HK_jIJz-",
+      "id": "-rDmRK7DDwR4lHVZb0hYe",
       "name": "Any solo",
       "groupId": "master",
       "source": {
@@ -917,7 +917,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "9f8BqKUEZ244E_O7BPPnw",
+      "id": "x-L7JSU7GmJfORmhsFX9S",
       "name": "Measures.Beats",
       "groupId": "time-modes",
       "source": {
@@ -939,7 +939,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "xf2NfMcDqs2j2Cvh-vq7E",
+      "id": "m3TkUL8wrxiknMhAoIkTC",
       "name": "Seconds",
       "groupId": "time-modes",
       "source": {
@@ -960,7 +960,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "TU1xpW9ELog3C6Ly9rudd",
+      "id": "MdtAylfQg8xcEfc-92hQN",
       "name": "Samples",
       "groupId": "time-modes",
       "source": {
@@ -981,7 +981,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "jnk-oS8jEMP8V1fpPxgSo",
+      "id": "w8IgVkbt6hh-yqCORrr52",
       "name": "Hours:Minutes:Seconds:Frames",
       "groupId": "time-modes",
       "source": {
@@ -1002,7 +1002,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "M34ObbPapEkdytdq3hafo",
+      "id": "k2a7h7wY1HvC4jOWO4zWE",
       "name": "Absolute Frames",
       "groupId": "time-modes",
       "source": {
@@ -1023,7 +1023,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "cQA9IRZja5tomobn_sYs2",
+      "id": "dVksXzW0n3wW6RGz5J21M",
       "name": "Minutes:Seconds",
       "groupId": "time-modes",
       "source": {
@@ -1044,7 +1044,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "n6Wb2uS6Yg8FpN9aq7jSo",
+      "id": "DDljsC8GTyjiRcdi4cSJo",
       "name": "Cycle time modes",
       "groupId": "master",
       "source": {
@@ -1066,7 +1066,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "S0Q971vFpNvxr9ZIelg8M",
+      "id": "GhXVaqC-qivNVsAfvKeR7",
       "name": "Tr1 Vol",
       "groupId": "volume",
       "source": {
@@ -1078,13 +1078,13 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 0",
+        "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "9JAXWFtJnM7yuU36Gsa7U",
+      "id": "POEdwxNjvT_1tBzT7gXNb",
       "name": "Tr1 Pan",
       "groupId": "pan",
       "source": {
@@ -1098,13 +1098,13 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 0",
+        "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "oy1ZRDqyF1Qlq-0-KUXlf",
+      "id": "2PKQ1ExgEiU4drQJhnwQe",
       "name": "Tr1 Pan FB",
       "groupId": "pan",
       "source": {
@@ -1116,14 +1116,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 0",
+        "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "isA08J6wQmQtGCXwzHx16",
+      "id": "3i-hkIzrIPFL9H_B998Sj",
       "name": "Tr1 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -1138,14 +1138,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 0",
+        "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
-      "id": "htyYLOM2qnZuJHju3gcbr",
+      "id": "7xpBfX426P1kkvuLKJ-nE",
       "name": "Tr1 Selection",
       "groupId": "selection",
       "source": {
@@ -1159,14 +1159,14 @@
       },
       "target": {
         "type": 6,
-        "trackExpression": "p1 * 10000 - 1 + 0",
+        "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "scrollMixer": true,
         "pollForFeedback": false
       }
     },
     {
-      "id": "kquvNn1lbcvBVF5nKVa8O",
+      "id": "a6aZ_oULnFkK38H6NClyz",
       "name": "Tr1 Mute",
       "groupId": "mute",
       "source": {
@@ -1180,13 +1180,13 @@
       },
       "target": {
         "type": 7,
-        "trackExpression": "p1 * 10000 - 1 + 0",
+        "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "oymtglwCTmhSZi0Z30p10",
+      "id": "I3HdqcxdRknp-EmzJOro4",
       "name": "Tr1 Solo",
       "groupId": "solo",
       "source": {
@@ -1200,13 +1200,13 @@
       },
       "target": {
         "type": 8,
-        "trackExpression": "p1 * 10000 - 1 + 0",
+        "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "x0uPb3iXLTcqcZdaMmQkx",
+      "id": "Ti3BaeuGqqXXnEUM6q_HO",
       "name": "Tr1 Arm",
       "groupId": "arm",
       "source": {
@@ -1220,13 +1220,13 @@
       },
       "target": {
         "type": 5,
-        "trackExpression": "p1 * 10000 - 1 + 0",
+        "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "jfgiQFkKz7kfLnaNZd0aC",
+      "id": "oOkEPw-PhaXd1nZtSN6_t",
       "name": "Tr1 Touch",
       "groupId": "touch",
       "source": {
@@ -1239,13 +1239,13 @@
       },
       "target": {
         "type": 21,
-        "trackExpression": "p1 * 10000 - 1 + 0",
+        "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "NmqE1VvaqiI1i37XZE6Pd",
+      "id": "fXA-hrYPcEIIj22ZFXqN6",
       "name": "Tr1 Name",
       "groupId": "lcd",
       "source": {
@@ -1259,14 +1259,14 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 0",
+        "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "hP78eEnIlSoo1Mw5mYgWc",
+      "id": "hCr_I72mvuyBWqRNRu9o2",
       "name": "Tr1 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -1280,14 +1280,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 0",
+        "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "NwutXFz1IMQG_kZFHTMah",
+      "id": "kpSRP1Ei6k3VMwsbtFEx8",
       "name": "Tr1 Peaks",
       "groupId": "meter",
       "source": {
@@ -1299,14 +1299,14 @@
       },
       "target": {
         "type": 34,
-        "trackExpression": "p1 * 10000 - 1 + 0",
+        "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "KGfMDFEuMuT6BmNDhyZSp",
+      "id": "HIQGDjtdbYV7u5Pr5w0-L",
       "name": "Tr2 Vol",
       "groupId": "volume",
       "source": {
@@ -1318,13 +1318,13 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 1",
+        "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "M27EkYfs8UQrOc1BXeAda",
+      "id": "FILDBmw5D9w-yJCo4wjvj",
       "name": "Tr2 Pan",
       "groupId": "pan",
       "source": {
@@ -1338,13 +1338,13 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 1",
+        "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "KKo2d5Kdscx_uvOCcWZPD",
+      "id": "-WZjeJIRB8LauhYa0L1jX",
       "name": "Tr2 Pan FB",
       "groupId": "pan",
       "source": {
@@ -1356,14 +1356,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 1",
+        "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "y_-pxk2PlRoqxvt6Oc7rj",
+      "id": "GqYiUPANeYHN_4aKWcGlY",
       "name": "Tr2 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -1378,14 +1378,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 1",
+        "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
-      "id": "zh7Brddwzf3piQdaIqu-L",
+      "id": "IyySS654Xbatmyu4PzbdI",
       "name": "Tr2 Selection",
       "groupId": "selection",
       "source": {
@@ -1399,14 +1399,14 @@
       },
       "target": {
         "type": 6,
-        "trackExpression": "p1 * 10000 - 1 + 1",
+        "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "scrollMixer": true,
         "pollForFeedback": false
       }
     },
     {
-      "id": "_Qg07D6zacZgVyhlWvkDN",
+      "id": "Klg15Ev927pNPVtaWxT8g",
       "name": "Tr2 Mute",
       "groupId": "mute",
       "source": {
@@ -1420,13 +1420,13 @@
       },
       "target": {
         "type": 7,
-        "trackExpression": "p1 * 10000 - 1 + 1",
+        "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "VAgppcFjruhm2iMrEq6NF",
+      "id": "C1R2bmDfbrym93ogACQrx",
       "name": "Tr2 Solo",
       "groupId": "solo",
       "source": {
@@ -1440,13 +1440,13 @@
       },
       "target": {
         "type": 8,
-        "trackExpression": "p1 * 10000 - 1 + 1",
+        "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "QrVbeyEWivqtmwEpbWalV",
+      "id": "kIFwS-00kvgbdRPYz3by4",
       "name": "Tr2 Arm",
       "groupId": "arm",
       "source": {
@@ -1460,13 +1460,13 @@
       },
       "target": {
         "type": 5,
-        "trackExpression": "p1 * 10000 - 1 + 1",
+        "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "S4GUaYOFiPedrfY4BHKYL",
+      "id": "Fjsj8hzb_3svUEXUK6AHJ",
       "name": "Tr2 Touch",
       "groupId": "touch",
       "source": {
@@ -1479,13 +1479,13 @@
       },
       "target": {
         "type": 21,
-        "trackExpression": "p1 * 10000 - 1 + 1",
+        "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "npPxCAMiDyobEF-x6KD0M",
+      "id": "9SAXUuyjQ3ushA_sHkQ0O",
       "name": "Tr2 Name",
       "groupId": "lcd",
       "source": {
@@ -1499,14 +1499,14 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 1",
+        "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "UcarpMecdhcsHphM5OkKt",
+      "id": "8_o0QNaMUR3dsyBfKdKw_",
       "name": "Tr2 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -1520,14 +1520,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 1",
+        "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "RR3kYP_fDv6od6jDEA2wr",
+      "id": "YUpEQwrqaelyq-wP8ovnI",
       "name": "Tr2 Peaks",
       "groupId": "meter",
       "source": {
@@ -1539,14 +1539,14 @@
       },
       "target": {
         "type": 34,
-        "trackExpression": "p1 * 10000 - 1 + 1",
+        "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "GT7JnQk7lP-rDpPZEOKAH",
+      "id": "ch_ytduGL_Kw6K-vcXM1M",
       "name": "Tr3 Vol",
       "groupId": "volume",
       "source": {
@@ -1558,13 +1558,13 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 2",
+        "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "rmXk6-W5sfEzOnFuawdRi",
+      "id": "uqfXSAcEvsCAKDovm4Lwb",
       "name": "Tr3 Pan",
       "groupId": "pan",
       "source": {
@@ -1578,13 +1578,13 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 2",
+        "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "r3AQr18bpp11MXf--DoDb",
+      "id": "ZiDJVjzS8GaRmHXxNhmFf",
       "name": "Tr3 Pan FB",
       "groupId": "pan",
       "source": {
@@ -1596,14 +1596,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 2",
+        "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "DQ5fArnjDXcOA2p0C1t-8",
+      "id": "pqcnyxYujWus3wsntioxI",
       "name": "Tr3 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -1618,14 +1618,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 2",
+        "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
-      "id": "sgIQmXo_7wHkcMUOfylN8",
+      "id": "J14dCRdD1lhC3wHyRYnff",
       "name": "Tr3 Selection",
       "groupId": "selection",
       "source": {
@@ -1639,14 +1639,14 @@
       },
       "target": {
         "type": 6,
-        "trackExpression": "p1 * 10000 - 1 + 2",
+        "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "scrollMixer": true,
         "pollForFeedback": false
       }
     },
     {
-      "id": "BRUSaMdYBHYmf_FZvU6hS",
+      "id": "9k790hxASkbV_KqlAJHxc",
       "name": "Tr3 Mute",
       "groupId": "mute",
       "source": {
@@ -1660,13 +1660,13 @@
       },
       "target": {
         "type": 7,
-        "trackExpression": "p1 * 10000 - 1 + 2",
+        "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "zLdFfCAnZ7MAVe7CgQLzv",
+      "id": "Kz36eKQC1TNxqEZ85R4hg",
       "name": "Tr3 Solo",
       "groupId": "solo",
       "source": {
@@ -1680,13 +1680,13 @@
       },
       "target": {
         "type": 8,
-        "trackExpression": "p1 * 10000 - 1 + 2",
+        "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "Nietow30hGTJoDdP1A8vm",
+      "id": "FaPRyUsw22iL3tPYqrbfQ",
       "name": "Tr3 Arm",
       "groupId": "arm",
       "source": {
@@ -1700,13 +1700,13 @@
       },
       "target": {
         "type": 5,
-        "trackExpression": "p1 * 10000 - 1 + 2",
+        "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "o5tbNahHkC4A--OCK6RtF",
+      "id": "P8boTVEpfIOc0MBYFLy6x",
       "name": "Tr3 Touch",
       "groupId": "touch",
       "source": {
@@ -1719,13 +1719,13 @@
       },
       "target": {
         "type": 21,
-        "trackExpression": "p1 * 10000 - 1 + 2",
+        "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "1d_ZDtKzngRa_DKRT-TR9",
+      "id": "3ohNRklxylmKxYhcIvnVQ",
       "name": "Tr3 Name",
       "groupId": "lcd",
       "source": {
@@ -1739,14 +1739,14 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 2",
+        "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "rmGkm8QXutj_ujj7kKdhn",
+      "id": "ppOnn0UbbowApevaMPRGD",
       "name": "Tr3 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -1760,14 +1760,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 2",
+        "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "CnNnM-xRG1rZ8rAabyoZr",
+      "id": "QkSHBD5sk6TdSXDzlBQKC",
       "name": "Tr3 Peaks",
       "groupId": "meter",
       "source": {
@@ -1779,14 +1779,14 @@
       },
       "target": {
         "type": 34,
-        "trackExpression": "p1 * 10000 - 1 + 2",
+        "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "26A854O2xTKeBlNTPsAtW",
+      "id": "8g45moP7HWSGoV8bsBjQm",
       "name": "Tr4 Vol",
       "groupId": "volume",
       "source": {
@@ -1798,13 +1798,13 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 3",
+        "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "2CR84Fv-4gahXD7kI1L1b",
+      "id": "e0cldUbEH0PxHeJHtBTlk",
       "name": "Tr4 Pan",
       "groupId": "pan",
       "source": {
@@ -1818,13 +1818,13 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 3",
+        "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "PQgv6Y2LBbk0nYT84tlsQ",
+      "id": "p1pJ3GPFKiP_G1C6ziSFU",
       "name": "Tr4 Pan FB",
       "groupId": "pan",
       "source": {
@@ -1836,14 +1836,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 3",
+        "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "rUqAVCVp6S-UHGpD-2cpC",
+      "id": "cus_xrVFjD6bpSYGZfQI9",
       "name": "Tr4 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -1858,14 +1858,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 3",
+        "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
-      "id": "58w5F4QRNYfiNCgQINwrr",
+      "id": "mO4UIUa5iqu8Aj0g92faN",
       "name": "Tr4 Selection",
       "groupId": "selection",
       "source": {
@@ -1879,14 +1879,14 @@
       },
       "target": {
         "type": 6,
-        "trackExpression": "p1 * 10000 - 1 + 3",
+        "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "scrollMixer": true,
         "pollForFeedback": false
       }
     },
     {
-      "id": "ZA3rhx0THVQnmvJS2-Slw",
+      "id": "6MBZKCK8K-gg4estB9bCY",
       "name": "Tr4 Mute",
       "groupId": "mute",
       "source": {
@@ -1900,13 +1900,13 @@
       },
       "target": {
         "type": 7,
-        "trackExpression": "p1 * 10000 - 1 + 3",
+        "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "YcwqbfIrqyvmmG8otbLVM",
+      "id": "x5eQBZniCzTLzuYqNtf3R",
       "name": "Tr4 Solo",
       "groupId": "solo",
       "source": {
@@ -1920,13 +1920,13 @@
       },
       "target": {
         "type": 8,
-        "trackExpression": "p1 * 10000 - 1 + 3",
+        "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "tPzlmuaGTVgrbiajyJVZH",
+      "id": "CskrEnQki77gEk0l3tCgG",
       "name": "Tr4 Arm",
       "groupId": "arm",
       "source": {
@@ -1940,13 +1940,13 @@
       },
       "target": {
         "type": 5,
-        "trackExpression": "p1 * 10000 - 1 + 3",
+        "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "oF8oEx2GkShq2U7DVzalq",
+      "id": "B2K-zsgdNUwg-OOdAk_MB",
       "name": "Tr4 Touch",
       "groupId": "touch",
       "source": {
@@ -1959,13 +1959,13 @@
       },
       "target": {
         "type": 21,
-        "trackExpression": "p1 * 10000 - 1 + 3",
+        "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "pIKZPlhX4GDhL6csBzDCR",
+      "id": "7IVP1eHqpW9vbOlnbTOjj",
       "name": "Tr4 Name",
       "groupId": "lcd",
       "source": {
@@ -1979,14 +1979,14 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 3",
+        "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "Fax8z_Al79KyP8-jDnVBh",
+      "id": "ZC4BuRmbh87EHdWlJAN1O",
       "name": "Tr4 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -2000,14 +2000,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 3",
+        "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "lcJqZ-uxdcBUhjmRwJgnx",
+      "id": "BYgQ_J8SX_F9x4KC1Nat_",
       "name": "Tr4 Peaks",
       "groupId": "meter",
       "source": {
@@ -2019,14 +2019,14 @@
       },
       "target": {
         "type": 34,
-        "trackExpression": "p1 * 10000 - 1 + 3",
+        "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "1yeL5cRkLoaoMhbm8r1Kw",
+      "id": "U0xP1mATKIQ1b2qLVgWYo",
       "name": "Tr5 Vol",
       "groupId": "volume",
       "source": {
@@ -2038,13 +2038,13 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 4",
+        "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "KVfu6dleRtZ3BPE7Bf_SQ",
+      "id": "CAlTZybv2lhaq18e141Qy",
       "name": "Tr5 Pan",
       "groupId": "pan",
       "source": {
@@ -2058,13 +2058,13 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 4",
+        "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "Jg1IhkLoSgjwoNP2z1fMI",
+      "id": "rp0-ja3RAIv9T4QcK072e",
       "name": "Tr5 Pan FB",
       "groupId": "pan",
       "source": {
@@ -2076,14 +2076,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 4",
+        "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "pK4JvMLaHg2Lot1k8eJhO",
+      "id": "PsY5sqoOU5n3kO5D82Q_Y",
       "name": "Tr5 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -2098,14 +2098,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 4",
+        "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
-      "id": "6qXIprnagFWsKBW-yKW6a",
+      "id": "i19dwwVu0fq1-C4unrVQy",
       "name": "Tr5 Selection",
       "groupId": "selection",
       "source": {
@@ -2119,14 +2119,14 @@
       },
       "target": {
         "type": 6,
-        "trackExpression": "p1 * 10000 - 1 + 4",
+        "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "scrollMixer": true,
         "pollForFeedback": false
       }
     },
     {
-      "id": "P0Gaw_zgHZOa1gaX1GwfS",
+      "id": "4zrNz1BgYB60lOVONwGiJ",
       "name": "Tr5 Mute",
       "groupId": "mute",
       "source": {
@@ -2140,13 +2140,13 @@
       },
       "target": {
         "type": 7,
-        "trackExpression": "p1 * 10000 - 1 + 4",
+        "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "fZxZ4lFFOGQ4XELlDt9_U",
+      "id": "Fswsg455LuVSLxBsAs4Pz",
       "name": "Tr5 Solo",
       "groupId": "solo",
       "source": {
@@ -2160,13 +2160,13 @@
       },
       "target": {
         "type": 8,
-        "trackExpression": "p1 * 10000 - 1 + 4",
+        "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "DyR8MggklnI2j5CZtOeS_",
+      "id": "r5JIH9MFJVC9QUkssIZD-",
       "name": "Tr5 Arm",
       "groupId": "arm",
       "source": {
@@ -2180,13 +2180,13 @@
       },
       "target": {
         "type": 5,
-        "trackExpression": "p1 * 10000 - 1 + 4",
+        "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "rfWptF9NR-v8q1W9eJ_d6",
+      "id": "k-Pfoh2YE9ab6yzpBWMEM",
       "name": "Tr5 Touch",
       "groupId": "touch",
       "source": {
@@ -2199,13 +2199,13 @@
       },
       "target": {
         "type": 21,
-        "trackExpression": "p1 * 10000 - 1 + 4",
+        "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "EuOP8iFcx4hqMhB2eRBjp",
+      "id": "8rmGzU6quugJOZGHmIcdz",
       "name": "Tr5 Name",
       "groupId": "lcd",
       "source": {
@@ -2219,14 +2219,14 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 4",
+        "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "f3K-wcKn4XWMJLZzCPbtR",
+      "id": "41ACHatJ61hhJS6uIrHCT",
       "name": "Tr5 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -2240,14 +2240,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 4",
+        "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "WxE19neTlGQ6j6cnvZdCT",
+      "id": "jqYD4MuWHPHLCYb3hyEFS",
       "name": "Tr5 Peaks",
       "groupId": "meter",
       "source": {
@@ -2259,14 +2259,14 @@
       },
       "target": {
         "type": 34,
-        "trackExpression": "p1 * 10000 - 1 + 4",
+        "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "_T4AXlM2RuyDyHAnRgsRH",
+      "id": "wCdINjdp-SO4HkyUQZghr",
       "name": "Tr6 Vol",
       "groupId": "volume",
       "source": {
@@ -2278,13 +2278,13 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 5",
+        "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "YU1I0KgnwndLe3Ma6ZVKE",
+      "id": "ysvmDxLgukBWecl9v9PyE",
       "name": "Tr6 Pan",
       "groupId": "pan",
       "source": {
@@ -2298,13 +2298,13 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 5",
+        "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "s-0mYvSajFkgZoZNiRimm",
+      "id": "NqC7bU8o8is2HYOT75x0-",
       "name": "Tr6 Pan FB",
       "groupId": "pan",
       "source": {
@@ -2316,14 +2316,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 5",
+        "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "IN_1HsuAq911dexmS--30",
+      "id": "TKz8iXgsIw3-BXmoqLd6v",
       "name": "Tr6 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -2338,14 +2338,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 5",
+        "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
-      "id": "QcYELgmJ4taOiDNi2fVCZ",
+      "id": "3VhlUDQOVG1fJlJPoJi-e",
       "name": "Tr6 Selection",
       "groupId": "selection",
       "source": {
@@ -2359,14 +2359,14 @@
       },
       "target": {
         "type": 6,
-        "trackExpression": "p1 * 10000 - 1 + 5",
+        "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "scrollMixer": true,
         "pollForFeedback": false
       }
     },
     {
-      "id": "VBfhoNW4EfVExjy552QSf",
+      "id": "MYgDxZrhPGWRlnieFy8oQ",
       "name": "Tr6 Mute",
       "groupId": "mute",
       "source": {
@@ -2380,13 +2380,13 @@
       },
       "target": {
         "type": 7,
-        "trackExpression": "p1 * 10000 - 1 + 5",
+        "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "fAiFmYqB0WQsYKLkelfk-",
+      "id": "a9VIsnLGp8PMx6KZxeLmG",
       "name": "Tr6 Solo",
       "groupId": "solo",
       "source": {
@@ -2400,13 +2400,13 @@
       },
       "target": {
         "type": 8,
-        "trackExpression": "p1 * 10000 - 1 + 5",
+        "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "uXWvG62PXPByck8dTmImW",
+      "id": "Xf3x0fHaWH_M0Yc4K7hWx",
       "name": "Tr6 Arm",
       "groupId": "arm",
       "source": {
@@ -2420,13 +2420,13 @@
       },
       "target": {
         "type": 5,
-        "trackExpression": "p1 * 10000 - 1 + 5",
+        "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "F51CgH4YyX_Tdccm7xb7R",
+      "id": "5c-K806wZTlhGzZiY5A17",
       "name": "Tr6 Touch",
       "groupId": "touch",
       "source": {
@@ -2439,13 +2439,13 @@
       },
       "target": {
         "type": 21,
-        "trackExpression": "p1 * 10000 - 1 + 5",
+        "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "pmLPPLSlkJdxPZEpen6_P",
+      "id": "TpJ2EEdfFl0RK00IUwfC9",
       "name": "Tr6 Name",
       "groupId": "lcd",
       "source": {
@@ -2459,14 +2459,14 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 5",
+        "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "GL72CqZYzgcPSIhmPtZKq",
+      "id": "bR8SvSkHD93M1WzM6nxg1",
       "name": "Tr6 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -2480,14 +2480,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 5",
+        "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "bm3yL9jodjlAMluwLrwzM",
+      "id": "Oitk5HM_U669kWTOUn1yh",
       "name": "Tr6 Peaks",
       "groupId": "meter",
       "source": {
@@ -2499,14 +2499,14 @@
       },
       "target": {
         "type": 34,
-        "trackExpression": "p1 * 10000 - 1 + 5",
+        "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "t9jhWOO0PCVdu9oxTfNgU",
+      "id": "qncNc-wJPaVRhzi3-mbnn",
       "name": "Tr7 Vol",
       "groupId": "volume",
       "source": {
@@ -2518,13 +2518,13 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 6",
+        "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "OQ54CAHNY_IyQ4crlApC4",
+      "id": "-HYmfADoJwEe6FCgw9ntQ",
       "name": "Tr7 Pan",
       "groupId": "pan",
       "source": {
@@ -2538,13 +2538,13 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 6",
+        "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "m0vHyQwCJXKGXoYTP50Ld",
+      "id": "TujJkiwimQkmYXYz98sJn",
       "name": "Tr7 Pan FB",
       "groupId": "pan",
       "source": {
@@ -2556,14 +2556,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 6",
+        "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "jTwT6NzgAXmu2_aP4RbSK",
+      "id": "5Az-IlI5nN-C-hge82bIf",
       "name": "Tr7 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -2578,14 +2578,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 6",
+        "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
-      "id": "EzaOMR7TU5i6w5gvWgZSV",
+      "id": "1BiF-tsoFJYIJ7n73mqQP",
       "name": "Tr7 Selection",
       "groupId": "selection",
       "source": {
@@ -2599,14 +2599,14 @@
       },
       "target": {
         "type": 6,
-        "trackExpression": "p1 * 10000 - 1 + 6",
+        "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "scrollMixer": true,
         "pollForFeedback": false
       }
     },
     {
-      "id": "fWJRVVeLbHqhXDNXc9f8v",
+      "id": "_PLGUDd4rz_0Qww318YIg",
       "name": "Tr7 Mute",
       "groupId": "mute",
       "source": {
@@ -2620,13 +2620,13 @@
       },
       "target": {
         "type": 7,
-        "trackExpression": "p1 * 10000 - 1 + 6",
+        "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "M7pdCmbzvz7PFUfwRnbxl",
+      "id": "wBcmuzeIy46yxZYXUjN7F",
       "name": "Tr7 Solo",
       "groupId": "solo",
       "source": {
@@ -2640,13 +2640,13 @@
       },
       "target": {
         "type": 8,
-        "trackExpression": "p1 * 10000 - 1 + 6",
+        "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "5Hp_Bxhz4MjuH8v6CAQQM",
+      "id": "_4qSAEehyAYkMfkeBJ7PA",
       "name": "Tr7 Arm",
       "groupId": "arm",
       "source": {
@@ -2660,13 +2660,13 @@
       },
       "target": {
         "type": 5,
-        "trackExpression": "p1 * 10000 - 1 + 6",
+        "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "9IOmGQnLva7xVdIoBMu_-",
+      "id": "GDcsYJr5qyKxJkY-pVnbH",
       "name": "Tr7 Touch",
       "groupId": "touch",
       "source": {
@@ -2679,13 +2679,13 @@
       },
       "target": {
         "type": 21,
-        "trackExpression": "p1 * 10000 - 1 + 6",
+        "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "fy-FGp-RlpAqnm4_hLTBH",
+      "id": "Y388MR5dd_MwA1OFBnT6x",
       "name": "Tr7 Name",
       "groupId": "lcd",
       "source": {
@@ -2699,14 +2699,14 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 6",
+        "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "IqGkvIfunk-V6n7FBi7zk",
+      "id": "bxwlx6LLV58D_duigdrB8",
       "name": "Tr7 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -2720,14 +2720,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 6",
+        "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "SgmlRbx98UeA7QgJtkloX",
+      "id": "AmOc2RKCCeSKEHC6wygTZ",
       "name": "Tr7 Peaks",
       "groupId": "meter",
       "source": {
@@ -2739,14 +2739,14 @@
       },
       "target": {
         "type": 34,
-        "trackExpression": "p1 * 10000 - 1 + 6",
+        "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "-F-sCNyZojD2L_SE3jV8N",
+      "id": "8tJ_as22WT7SRqjYQB0qf",
       "name": "Tr8 Vol",
       "groupId": "volume",
       "source": {
@@ -2758,13 +2758,13 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 7",
+        "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "7lcF8YAAesxFUAnXXMVaz",
+      "id": "LG7Nfmj5LnnbG5Fn1ECyu",
       "name": "Tr8 Pan",
       "groupId": "pan",
       "source": {
@@ -2778,13 +2778,13 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 7",
+        "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "DEH7X5GKHwq1MHrW6lfr3",
+      "id": "W2DWQPD565RI2MIo08Mlb",
       "name": "Tr8 Pan FB",
       "groupId": "pan",
       "source": {
@@ -2796,14 +2796,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 7",
+        "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "Vnjj6Oac4ZQjTkUZYP2GW",
+      "id": "UsL3bEXjyIuojOu867UA_",
       "name": "Tr8 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -2818,14 +2818,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 7",
+        "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
-      "id": "xs0C24jWAF6iCyw0W44wg",
+      "id": "tsyU8PjzfujvSyKLnMelS",
       "name": "Tr8 Selection",
       "groupId": "selection",
       "source": {
@@ -2839,14 +2839,14 @@
       },
       "target": {
         "type": 6,
-        "trackExpression": "p1 * 10000 - 1 + 7",
+        "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "scrollMixer": true,
         "pollForFeedback": false
       }
     },
     {
-      "id": "UaWwu9a8sSzPte8rAD_xz",
+      "id": "xEMmqDWulvhZcFgA7Qzhh",
       "name": "Tr8 Mute",
       "groupId": "mute",
       "source": {
@@ -2860,13 +2860,13 @@
       },
       "target": {
         "type": 7,
-        "trackExpression": "p1 * 10000 - 1 + 7",
+        "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "2PGhDN9S4Phk2Qj5hMdGI",
+      "id": "_qXch_dOZN3gM1ooKKHId",
       "name": "Tr8 Solo",
       "groupId": "solo",
       "source": {
@@ -2880,13 +2880,13 @@
       },
       "target": {
         "type": 8,
-        "trackExpression": "p1 * 10000 - 1 + 7",
+        "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "plYWEeoXLtF3TVHHZ8RPm",
+      "id": "ZraG-ZA7F9SbrkxDUhoZ8",
       "name": "Tr8 Arm",
       "groupId": "arm",
       "source": {
@@ -2900,13 +2900,13 @@
       },
       "target": {
         "type": 5,
-        "trackExpression": "p1 * 10000 - 1 + 7",
+        "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "_ZbRHwDTagxOw8hh7arKX",
+      "id": "nyeRoCAtwn6ud1QXoBa7D",
       "name": "Tr8 Touch",
       "groupId": "touch",
       "source": {
@@ -2919,13 +2919,13 @@
       },
       "target": {
         "type": 21,
-        "trackExpression": "p1 * 10000 - 1 + 7",
+        "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "pollForFeedback": false
       }
     },
     {
-      "id": "0HWWUq-wVLzr2eSKAguem",
+      "id": "2tyGz7yy6nCRaCRVHiKga",
       "name": "Tr8 Name",
       "groupId": "lcd",
       "source": {
@@ -2939,14 +2939,14 @@
       },
       "target": {
         "type": 2,
-        "trackExpression": "p1 * 10000 - 1 + 7",
+        "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "zxfppeNrCf6B9rUQaUd_6",
+      "id": "JD3n9OhDQtoeuOdf0aeca",
       "name": "Tr8 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -2960,14 +2960,14 @@
       },
       "target": {
         "type": 4,
-        "trackExpression": "p1 * 10000 - 1 + 7",
+        "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
       "controlIsEnabled": false
     },
     {
-      "id": "WuRCO0HS46U9pSPD-vk7b",
+      "id": "y4uXR_GnMIOiuM1j0MxVW",
       "name": "Tr8 Peaks",
       "groupId": "meter",
       "source": {
@@ -2979,7 +2979,7 @@
       },
       "target": {
         "type": 34,
-        "trackExpression": "p1 * 10000 - 1 + 7",
+        "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "pollForFeedback": false
       },
@@ -2987,14 +2987,14 @@
     }
   ],
   "parameters": {
-    "1": {
-      "name": "Seek coarse/fine"
-    },
     "2": {
       "name": "Zoom on/off"
     },
     "0": {
       "name": "Track"
+    },
+    "1": {
+      "name": "Seek coarse/fine"
     }
   }
 }
