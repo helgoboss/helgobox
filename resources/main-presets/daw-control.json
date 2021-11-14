@@ -1,6 +1,6 @@
 {
   "version": "2.11.0-pre.13",
-  "name": "daw-control-lua",
+  "name": "DAW control",
   "defaultGroup": {},
   "groups": [
     {
@@ -145,7 +145,8 @@
       "target": {
         "fxAnchor": "this",
         "pollForFeedback": false
-      }
+      },
+      "feedbackIsEnabled": false
     },
     {
       "id": "0a7e122c-3eda-4355-906a-a057eefa515b",
@@ -169,7 +170,8 @@
       "target": {
         "fxAnchor": "this",
         "pollForFeedback": false
-      }
+      },
+      "feedbackIsEnabled": false
     },
     {
       "id": "cf45689a-5537-465d-ad44-460dbebf4802",
@@ -237,7 +239,8 @@
       "target": {
         "fxAnchor": "this",
         "pollForFeedback": false
-      }
+      },
+      "feedbackIsEnabled": false
     },
     {
       "id": "97db991c-a15b-4c27-aeb2-04b2ae3242c2",
@@ -461,7 +464,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "RSTuDjLbtUWg-CgNFviHY",
+      "id": "previous-led",
       "name": "Previous LED",
       "groupId": "transport",
       "source": {
@@ -506,7 +509,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "ih-_GHwTyTHkEp01RHspY",
+      "id": "next-led",
       "name": "Next LED",
       "groupId": "transport",
       "source": {
@@ -856,7 +859,7 @@
       }
     },
     {
-      "id": "-rDmRK7DDwR4lHVZb0hYe",
+      "id": "any-solo",
       "name": "Any solo",
       "groupId": "master",
       "source": {
@@ -875,7 +878,7 @@
     },
     {
       "id": "7b90c136-f89c-477e-b812-525b4a7da5ed",
-      "name": "Track LCD",
+      "name": "Assignment",
       "groupId": "lcd",
       "source": {
         "category": "virtual",
@@ -883,6 +886,8 @@
       },
       "mode": {
         "maxTargetValue": 0.01,
+        "maxTargetJump": 0.01,
+        "eelFeedbackTransformation": "x = y + 0.01",
         "feedbackColor": null
       },
       "target": {
@@ -917,7 +922,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "x-L7JSU7GmJfORmhsFX9S",
+      "id": "time-mode-measures-beats",
       "name": "Measures.Beats",
       "groupId": "time-modes",
       "source": {
@@ -939,7 +944,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "m3TkUL8wrxiknMhAoIkTC",
+      "id": "time-mode-seconds",
       "name": "Seconds",
       "groupId": "time-modes",
       "source": {
@@ -960,7 +965,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "MdtAylfQg8xcEfc-92hQN",
+      "id": "time-mode-samples",
       "name": "Samples",
       "groupId": "time-modes",
       "source": {
@@ -981,7 +986,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "w8IgVkbt6hh-yqCORrr52",
+      "id": "time-mode-hmsf",
       "name": "Hours:Minutes:Seconds:Frames",
       "groupId": "time-modes",
       "source": {
@@ -1002,7 +1007,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "k2a7h7wY1HvC4jOWO4zWE",
+      "id": "time-mode-absolute-frames",
       "name": "Absolute Frames",
       "groupId": "time-modes",
       "source": {
@@ -1023,7 +1028,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "dVksXzW0n3wW6RGz5J21M",
+      "id": "time-mode-minutes-seconds",
       "name": "Minutes:Seconds",
       "groupId": "time-modes",
       "source": {
@@ -1044,7 +1049,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "DDljsC8GTyjiRcdi4cSJo",
+      "id": "cycle-time-modes",
       "name": "Cycle time modes",
       "groupId": "master",
       "source": {
@@ -1066,7 +1071,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "GhXVaqC-qivNVsAfvKeR7",
+      "id": "ch1/vol",
       "name": "Tr1 Vol",
       "groupId": "volume",
       "source": {
@@ -1084,7 +1089,7 @@
       }
     },
     {
-      "id": "POEdwxNjvT_1tBzT7gXNb",
+      "id": "ch1/pan",
       "name": "Tr1 Pan",
       "groupId": "pan",
       "source": {
@@ -1104,8 +1109,8 @@
       }
     },
     {
-      "id": "2PKQ1ExgEiU4drQJhnwQe",
-      "name": "Tr1 Pan FB",
+      "id": "ch1/pan/feedback",
+      "name": "Tr1 Pan Feedback",
       "groupId": "pan",
       "source": {
         "category": "virtual",
@@ -1123,7 +1128,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "3i-hkIzrIPFL9H_B998Sj",
+      "id": "ch1/pan/reset",
       "name": "Tr1 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -1145,7 +1150,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "7xpBfX426P1kkvuLKJ-nE",
+      "id": "ch1/selection",
       "name": "Tr1 Selection",
       "groupId": "selection",
       "source": {
@@ -1166,7 +1171,7 @@
       }
     },
     {
-      "id": "a6aZ_oULnFkK38H6NClyz",
+      "id": "ch1/mute",
       "name": "Tr1 Mute",
       "groupId": "mute",
       "source": {
@@ -1186,7 +1191,7 @@
       }
     },
     {
-      "id": "I3HdqcxdRknp-EmzJOro4",
+      "id": "ch1/solo",
       "name": "Tr1 Solo",
       "groupId": "solo",
       "source": {
@@ -1206,7 +1211,7 @@
       }
     },
     {
-      "id": "Ti3BaeuGqqXXnEUM6q_HO",
+      "id": "ch1/arm",
       "name": "Tr1 Arm",
       "groupId": "arm",
       "source": {
@@ -1226,7 +1231,7 @@
       }
     },
     {
-      "id": "oOkEPw-PhaXd1nZtSN6_t",
+      "id": "ch1/touch",
       "name": "Tr1 Touch",
       "groupId": "touch",
       "source": {
@@ -1245,7 +1250,7 @@
       }
     },
     {
-      "id": "fXA-hrYPcEIIj22ZFXqN6",
+      "id": "ch1/name",
       "name": "Tr1 Name",
       "groupId": "lcd",
       "source": {
@@ -1266,7 +1271,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "hCr_I72mvuyBWqRNRu9o2",
+      "id": "ch1/pan/lcd",
       "name": "Tr1 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -1287,7 +1292,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "kpSRP1Ei6k3VMwsbtFEx8",
+      "id": "ch1/peak",
       "name": "Tr1 Peaks",
       "groupId": "meter",
       "source": {
@@ -1306,7 +1311,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "HIQGDjtdbYV7u5Pr5w0-L",
+      "id": "ch2/vol",
       "name": "Tr2 Vol",
       "groupId": "volume",
       "source": {
@@ -1324,7 +1329,7 @@
       }
     },
     {
-      "id": "FILDBmw5D9w-yJCo4wjvj",
+      "id": "ch2/pan",
       "name": "Tr2 Pan",
       "groupId": "pan",
       "source": {
@@ -1344,8 +1349,8 @@
       }
     },
     {
-      "id": "-WZjeJIRB8LauhYa0L1jX",
-      "name": "Tr2 Pan FB",
+      "id": "ch2/pan/feedback",
+      "name": "Tr2 Pan Feedback",
       "groupId": "pan",
       "source": {
         "category": "virtual",
@@ -1363,7 +1368,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "GqYiUPANeYHN_4aKWcGlY",
+      "id": "ch2/pan/reset",
       "name": "Tr2 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -1385,7 +1390,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "IyySS654Xbatmyu4PzbdI",
+      "id": "ch2/selection",
       "name": "Tr2 Selection",
       "groupId": "selection",
       "source": {
@@ -1406,7 +1411,7 @@
       }
     },
     {
-      "id": "Klg15Ev927pNPVtaWxT8g",
+      "id": "ch2/mute",
       "name": "Tr2 Mute",
       "groupId": "mute",
       "source": {
@@ -1426,7 +1431,7 @@
       }
     },
     {
-      "id": "C1R2bmDfbrym93ogACQrx",
+      "id": "ch2/solo",
       "name": "Tr2 Solo",
       "groupId": "solo",
       "source": {
@@ -1446,7 +1451,7 @@
       }
     },
     {
-      "id": "kIFwS-00kvgbdRPYz3by4",
+      "id": "ch2/arm",
       "name": "Tr2 Arm",
       "groupId": "arm",
       "source": {
@@ -1466,7 +1471,7 @@
       }
     },
     {
-      "id": "Fjsj8hzb_3svUEXUK6AHJ",
+      "id": "ch2/touch",
       "name": "Tr2 Touch",
       "groupId": "touch",
       "source": {
@@ -1485,7 +1490,7 @@
       }
     },
     {
-      "id": "9SAXUuyjQ3ushA_sHkQ0O",
+      "id": "ch2/name",
       "name": "Tr2 Name",
       "groupId": "lcd",
       "source": {
@@ -1506,7 +1511,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "8_o0QNaMUR3dsyBfKdKw_",
+      "id": "ch2/pan/lcd",
       "name": "Tr2 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -1527,7 +1532,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "YUpEQwrqaelyq-wP8ovnI",
+      "id": "ch2/peak",
       "name": "Tr2 Peaks",
       "groupId": "meter",
       "source": {
@@ -1546,7 +1551,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "ch_ytduGL_Kw6K-vcXM1M",
+      "id": "ch3/vol",
       "name": "Tr3 Vol",
       "groupId": "volume",
       "source": {
@@ -1564,7 +1569,7 @@
       }
     },
     {
-      "id": "uqfXSAcEvsCAKDovm4Lwb",
+      "id": "ch3/pan",
       "name": "Tr3 Pan",
       "groupId": "pan",
       "source": {
@@ -1584,8 +1589,8 @@
       }
     },
     {
-      "id": "ZiDJVjzS8GaRmHXxNhmFf",
-      "name": "Tr3 Pan FB",
+      "id": "ch3/pan/feedback",
+      "name": "Tr3 Pan Feedback",
       "groupId": "pan",
       "source": {
         "category": "virtual",
@@ -1603,7 +1608,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "pqcnyxYujWus3wsntioxI",
+      "id": "ch3/pan/reset",
       "name": "Tr3 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -1625,7 +1630,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "J14dCRdD1lhC3wHyRYnff",
+      "id": "ch3/selection",
       "name": "Tr3 Selection",
       "groupId": "selection",
       "source": {
@@ -1646,7 +1651,7 @@
       }
     },
     {
-      "id": "9k790hxASkbV_KqlAJHxc",
+      "id": "ch3/mute",
       "name": "Tr3 Mute",
       "groupId": "mute",
       "source": {
@@ -1666,7 +1671,7 @@
       }
     },
     {
-      "id": "Kz36eKQC1TNxqEZ85R4hg",
+      "id": "ch3/solo",
       "name": "Tr3 Solo",
       "groupId": "solo",
       "source": {
@@ -1686,7 +1691,7 @@
       }
     },
     {
-      "id": "FaPRyUsw22iL3tPYqrbfQ",
+      "id": "ch3/arm",
       "name": "Tr3 Arm",
       "groupId": "arm",
       "source": {
@@ -1706,7 +1711,7 @@
       }
     },
     {
-      "id": "P8boTVEpfIOc0MBYFLy6x",
+      "id": "ch3/touch",
       "name": "Tr3 Touch",
       "groupId": "touch",
       "source": {
@@ -1725,7 +1730,7 @@
       }
     },
     {
-      "id": "3ohNRklxylmKxYhcIvnVQ",
+      "id": "ch3/name",
       "name": "Tr3 Name",
       "groupId": "lcd",
       "source": {
@@ -1746,7 +1751,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "ppOnn0UbbowApevaMPRGD",
+      "id": "ch3/pan/lcd",
       "name": "Tr3 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -1767,7 +1772,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "QkSHBD5sk6TdSXDzlBQKC",
+      "id": "ch3/peak",
       "name": "Tr3 Peaks",
       "groupId": "meter",
       "source": {
@@ -1786,7 +1791,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "8g45moP7HWSGoV8bsBjQm",
+      "id": "ch4/vol",
       "name": "Tr4 Vol",
       "groupId": "volume",
       "source": {
@@ -1804,7 +1809,7 @@
       }
     },
     {
-      "id": "e0cldUbEH0PxHeJHtBTlk",
+      "id": "ch4/pan",
       "name": "Tr4 Pan",
       "groupId": "pan",
       "source": {
@@ -1824,8 +1829,8 @@
       }
     },
     {
-      "id": "p1pJ3GPFKiP_G1C6ziSFU",
-      "name": "Tr4 Pan FB",
+      "id": "ch4/pan/feedback",
+      "name": "Tr4 Pan Feedback",
       "groupId": "pan",
       "source": {
         "category": "virtual",
@@ -1843,7 +1848,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "cus_xrVFjD6bpSYGZfQI9",
+      "id": "ch4/pan/reset",
       "name": "Tr4 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -1865,7 +1870,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "mO4UIUa5iqu8Aj0g92faN",
+      "id": "ch4/selection",
       "name": "Tr4 Selection",
       "groupId": "selection",
       "source": {
@@ -1886,7 +1891,7 @@
       }
     },
     {
-      "id": "6MBZKCK8K-gg4estB9bCY",
+      "id": "ch4/mute",
       "name": "Tr4 Mute",
       "groupId": "mute",
       "source": {
@@ -1906,7 +1911,7 @@
       }
     },
     {
-      "id": "x5eQBZniCzTLzuYqNtf3R",
+      "id": "ch4/solo",
       "name": "Tr4 Solo",
       "groupId": "solo",
       "source": {
@@ -1926,7 +1931,7 @@
       }
     },
     {
-      "id": "CskrEnQki77gEk0l3tCgG",
+      "id": "ch4/arm",
       "name": "Tr4 Arm",
       "groupId": "arm",
       "source": {
@@ -1946,7 +1951,7 @@
       }
     },
     {
-      "id": "B2K-zsgdNUwg-OOdAk_MB",
+      "id": "ch4/touch",
       "name": "Tr4 Touch",
       "groupId": "touch",
       "source": {
@@ -1965,7 +1970,7 @@
       }
     },
     {
-      "id": "7IVP1eHqpW9vbOlnbTOjj",
+      "id": "ch4/name",
       "name": "Tr4 Name",
       "groupId": "lcd",
       "source": {
@@ -1986,7 +1991,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "ZC4BuRmbh87EHdWlJAN1O",
+      "id": "ch4/pan/lcd",
       "name": "Tr4 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -2007,7 +2012,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "BYgQ_J8SX_F9x4KC1Nat_",
+      "id": "ch4/peak",
       "name": "Tr4 Peaks",
       "groupId": "meter",
       "source": {
@@ -2026,7 +2031,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "U0xP1mATKIQ1b2qLVgWYo",
+      "id": "ch5/vol",
       "name": "Tr5 Vol",
       "groupId": "volume",
       "source": {
@@ -2044,7 +2049,7 @@
       }
     },
     {
-      "id": "CAlTZybv2lhaq18e141Qy",
+      "id": "ch5/pan",
       "name": "Tr5 Pan",
       "groupId": "pan",
       "source": {
@@ -2064,8 +2069,8 @@
       }
     },
     {
-      "id": "rp0-ja3RAIv9T4QcK072e",
-      "name": "Tr5 Pan FB",
+      "id": "ch5/pan/feedback",
+      "name": "Tr5 Pan Feedback",
       "groupId": "pan",
       "source": {
         "category": "virtual",
@@ -2083,7 +2088,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "PsY5sqoOU5n3kO5D82Q_Y",
+      "id": "ch5/pan/reset",
       "name": "Tr5 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -2105,7 +2110,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "i19dwwVu0fq1-C4unrVQy",
+      "id": "ch5/selection",
       "name": "Tr5 Selection",
       "groupId": "selection",
       "source": {
@@ -2126,7 +2131,7 @@
       }
     },
     {
-      "id": "4zrNz1BgYB60lOVONwGiJ",
+      "id": "ch5/mute",
       "name": "Tr5 Mute",
       "groupId": "mute",
       "source": {
@@ -2146,7 +2151,7 @@
       }
     },
     {
-      "id": "Fswsg455LuVSLxBsAs4Pz",
+      "id": "ch5/solo",
       "name": "Tr5 Solo",
       "groupId": "solo",
       "source": {
@@ -2166,7 +2171,7 @@
       }
     },
     {
-      "id": "r5JIH9MFJVC9QUkssIZD-",
+      "id": "ch5/arm",
       "name": "Tr5 Arm",
       "groupId": "arm",
       "source": {
@@ -2186,7 +2191,7 @@
       }
     },
     {
-      "id": "k-Pfoh2YE9ab6yzpBWMEM",
+      "id": "ch5/touch",
       "name": "Tr5 Touch",
       "groupId": "touch",
       "source": {
@@ -2205,7 +2210,7 @@
       }
     },
     {
-      "id": "8rmGzU6quugJOZGHmIcdz",
+      "id": "ch5/name",
       "name": "Tr5 Name",
       "groupId": "lcd",
       "source": {
@@ -2226,7 +2231,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "41ACHatJ61hhJS6uIrHCT",
+      "id": "ch5/pan/lcd",
       "name": "Tr5 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -2247,7 +2252,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "jqYD4MuWHPHLCYb3hyEFS",
+      "id": "ch5/peak",
       "name": "Tr5 Peaks",
       "groupId": "meter",
       "source": {
@@ -2266,7 +2271,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "wCdINjdp-SO4HkyUQZghr",
+      "id": "ch6/vol",
       "name": "Tr6 Vol",
       "groupId": "volume",
       "source": {
@@ -2284,7 +2289,7 @@
       }
     },
     {
-      "id": "ysvmDxLgukBWecl9v9PyE",
+      "id": "ch6/pan",
       "name": "Tr6 Pan",
       "groupId": "pan",
       "source": {
@@ -2304,8 +2309,8 @@
       }
     },
     {
-      "id": "NqC7bU8o8is2HYOT75x0-",
-      "name": "Tr6 Pan FB",
+      "id": "ch6/pan/feedback",
+      "name": "Tr6 Pan Feedback",
       "groupId": "pan",
       "source": {
         "category": "virtual",
@@ -2323,7 +2328,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "TKz8iXgsIw3-BXmoqLd6v",
+      "id": "ch6/pan/reset",
       "name": "Tr6 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -2345,7 +2350,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "3VhlUDQOVG1fJlJPoJi-e",
+      "id": "ch6/selection",
       "name": "Tr6 Selection",
       "groupId": "selection",
       "source": {
@@ -2366,7 +2371,7 @@
       }
     },
     {
-      "id": "MYgDxZrhPGWRlnieFy8oQ",
+      "id": "ch6/mute",
       "name": "Tr6 Mute",
       "groupId": "mute",
       "source": {
@@ -2386,7 +2391,7 @@
       }
     },
     {
-      "id": "a9VIsnLGp8PMx6KZxeLmG",
+      "id": "ch6/solo",
       "name": "Tr6 Solo",
       "groupId": "solo",
       "source": {
@@ -2406,7 +2411,7 @@
       }
     },
     {
-      "id": "Xf3x0fHaWH_M0Yc4K7hWx",
+      "id": "ch6/arm",
       "name": "Tr6 Arm",
       "groupId": "arm",
       "source": {
@@ -2426,7 +2431,7 @@
       }
     },
     {
-      "id": "5c-K806wZTlhGzZiY5A17",
+      "id": "ch6/touch",
       "name": "Tr6 Touch",
       "groupId": "touch",
       "source": {
@@ -2445,7 +2450,7 @@
       }
     },
     {
-      "id": "TpJ2EEdfFl0RK00IUwfC9",
+      "id": "ch6/name",
       "name": "Tr6 Name",
       "groupId": "lcd",
       "source": {
@@ -2466,7 +2471,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "bR8SvSkHD93M1WzM6nxg1",
+      "id": "ch6/pan/lcd",
       "name": "Tr6 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -2487,7 +2492,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "Oitk5HM_U669kWTOUn1yh",
+      "id": "ch6/peak",
       "name": "Tr6 Peaks",
       "groupId": "meter",
       "source": {
@@ -2506,7 +2511,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "qncNc-wJPaVRhzi3-mbnn",
+      "id": "ch7/vol",
       "name": "Tr7 Vol",
       "groupId": "volume",
       "source": {
@@ -2524,7 +2529,7 @@
       }
     },
     {
-      "id": "-HYmfADoJwEe6FCgw9ntQ",
+      "id": "ch7/pan",
       "name": "Tr7 Pan",
       "groupId": "pan",
       "source": {
@@ -2544,8 +2549,8 @@
       }
     },
     {
-      "id": "TujJkiwimQkmYXYz98sJn",
-      "name": "Tr7 Pan FB",
+      "id": "ch7/pan/feedback",
+      "name": "Tr7 Pan Feedback",
       "groupId": "pan",
       "source": {
         "category": "virtual",
@@ -2563,7 +2568,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "5Az-IlI5nN-C-hge82bIf",
+      "id": "ch7/pan/reset",
       "name": "Tr7 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -2585,7 +2590,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "1BiF-tsoFJYIJ7n73mqQP",
+      "id": "ch7/selection",
       "name": "Tr7 Selection",
       "groupId": "selection",
       "source": {
@@ -2606,7 +2611,7 @@
       }
     },
     {
-      "id": "_PLGUDd4rz_0Qww318YIg",
+      "id": "ch7/mute",
       "name": "Tr7 Mute",
       "groupId": "mute",
       "source": {
@@ -2626,7 +2631,7 @@
       }
     },
     {
-      "id": "wBcmuzeIy46yxZYXUjN7F",
+      "id": "ch7/solo",
       "name": "Tr7 Solo",
       "groupId": "solo",
       "source": {
@@ -2646,7 +2651,7 @@
       }
     },
     {
-      "id": "_4qSAEehyAYkMfkeBJ7PA",
+      "id": "ch7/arm",
       "name": "Tr7 Arm",
       "groupId": "arm",
       "source": {
@@ -2666,7 +2671,7 @@
       }
     },
     {
-      "id": "GDcsYJr5qyKxJkY-pVnbH",
+      "id": "ch7/touch",
       "name": "Tr7 Touch",
       "groupId": "touch",
       "source": {
@@ -2685,7 +2690,7 @@
       }
     },
     {
-      "id": "Y388MR5dd_MwA1OFBnT6x",
+      "id": "ch7/name",
       "name": "Tr7 Name",
       "groupId": "lcd",
       "source": {
@@ -2706,7 +2711,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "bxwlx6LLV58D_duigdrB8",
+      "id": "ch7/pan/lcd",
       "name": "Tr7 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -2727,7 +2732,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "AmOc2RKCCeSKEHC6wygTZ",
+      "id": "ch7/peak",
       "name": "Tr7 Peaks",
       "groupId": "meter",
       "source": {
@@ -2746,7 +2751,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "8tJ_as22WT7SRqjYQB0qf",
+      "id": "ch8/vol",
       "name": "Tr8 Vol",
       "groupId": "volume",
       "source": {
@@ -2764,7 +2769,7 @@
       }
     },
     {
-      "id": "LG7Nfmj5LnnbG5Fn1ECyu",
+      "id": "ch8/pan",
       "name": "Tr8 Pan",
       "groupId": "pan",
       "source": {
@@ -2784,8 +2789,8 @@
       }
     },
     {
-      "id": "W2DWQPD565RI2MIo08Mlb",
-      "name": "Tr8 Pan FB",
+      "id": "ch8/pan/feedback",
+      "name": "Tr8 Pan Feedback",
       "groupId": "pan",
       "source": {
         "category": "virtual",
@@ -2803,7 +2808,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "UsL3bEXjyIuojOu867UA_",
+      "id": "ch8/pan/reset",
       "name": "Tr8 Pan Reset",
       "groupId": "pan-reset",
       "source": {
@@ -2825,7 +2830,7 @@
       "feedbackIsEnabled": false
     },
     {
-      "id": "tsyU8PjzfujvSyKLnMelS",
+      "id": "ch8/selection",
       "name": "Tr8 Selection",
       "groupId": "selection",
       "source": {
@@ -2846,7 +2851,7 @@
       }
     },
     {
-      "id": "xEMmqDWulvhZcFgA7Qzhh",
+      "id": "ch8/mute",
       "name": "Tr8 Mute",
       "groupId": "mute",
       "source": {
@@ -2866,7 +2871,7 @@
       }
     },
     {
-      "id": "_qXch_dOZN3gM1ooKKHId",
+      "id": "ch8/solo",
       "name": "Tr8 Solo",
       "groupId": "solo",
       "source": {
@@ -2886,7 +2891,7 @@
       }
     },
     {
-      "id": "ZraG-ZA7F9SbrkxDUhoZ8",
+      "id": "ch8/arm",
       "name": "Tr8 Arm",
       "groupId": "arm",
       "source": {
@@ -2906,7 +2911,7 @@
       }
     },
     {
-      "id": "nyeRoCAtwn6ud1QXoBa7D",
+      "id": "ch8/touch",
       "name": "Tr8 Touch",
       "groupId": "touch",
       "source": {
@@ -2925,7 +2930,7 @@
       }
     },
     {
-      "id": "2tyGz7yy6nCRaCRVHiKga",
+      "id": "ch8/name",
       "name": "Tr8 Name",
       "groupId": "lcd",
       "source": {
@@ -2946,7 +2951,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "JD3n9OhDQtoeuOdf0aeca",
+      "id": "ch8/pan/lcd",
       "name": "Tr8 Pan LCD",
       "groupId": "lcd",
       "source": {
@@ -2967,7 +2972,7 @@
       "controlIsEnabled": false
     },
     {
-      "id": "y4uXR_GnMIOiuM1j0MxVW",
+      "id": "ch8/peak",
       "name": "Tr8 Peaks",
       "groupId": "meter",
       "source": {
@@ -2987,11 +2992,11 @@
     }
   ],
   "parameters": {
-    "2": {
-      "name": "Zoom on/off"
-    },
     "0": {
       "name": "Track"
+    },
+    "2": {
+      "name": "Zoom on/off"
     },
     "1": {
       "name": "Seek coarse/fine"

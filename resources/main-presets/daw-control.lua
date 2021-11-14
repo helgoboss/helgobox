@@ -154,6 +154,7 @@ local mappings = {
     },
     {
         id = "0baab91f-2c4e-43ae-8cac-dca727963b46",
+        feedback_enabled = false,
         name = "Bank +",
         group = "conditional-switches",
         source = {
@@ -175,6 +176,7 @@ local mappings = {
     },
     {
         id = "0a7e122c-3eda-4355-906a-a057eefa515b",
+        feedback_enabled = false,
         name = "Bank + faster",
         group = "conditional-switches",
         source = {
@@ -252,6 +254,7 @@ local mappings = {
     },
     {
         id = "d40ffa44-a446-4499-b9d6-787c5ff8e188",
+        feedback_enabled = false,
         name = "Track +",
         group = "conditional-switches",
         source = {
@@ -485,6 +488,7 @@ local mappings = {
         },
     },
     {
+        id = "previous-led",
         name = "Previous LED",
         group = "transport",
         control_enabled = false,
@@ -518,6 +522,7 @@ local mappings = {
         },
     },
     {
+        id = "next-led",
         name = "Next LED",
         group = "transport",
         control_enabled = false,
@@ -837,6 +842,7 @@ local mappings = {
         },
     },
     {
+        id = "any-solo",
         name = "Any solo",
         group = "master",
         source = {
@@ -852,7 +858,7 @@ local mappings = {
     -- Done
     {
         id = "7b90c136-f89c-477e-b812-525b4a7da5ed",
-        name = "Track LCD",
+        name = "Assignment",
         group = "lcd",
         control_enabled = false,
         source = {
@@ -860,8 +866,9 @@ local mappings = {
             id = "lcd/assignment",
         },
         glue = {
-            source_interval = {0, 1},
             target_interval = {0, 0.01},
+            jump_interval = {0, 0.01},
+            feedback_transformation = "x = y + 0.01",
         },
         target = {
             kind = "FxParameterValue",
@@ -893,6 +900,7 @@ local mappings = {
     },
     -- Time modes
     {
+        id = "time-mode-measures-beats",
         name = "Measures.Beats",
         group = "time-modes",
         control_enabled = false,
@@ -911,6 +919,7 @@ local mappings = {
         },
     },
     {
+        id = "time-mode-seconds",
         name = "Seconds",
         group = "time-modes",
         control_enabled = false,
@@ -926,6 +935,7 @@ local mappings = {
         },
     },
     {
+        id = "time-mode-samples",
         name = "Samples",
         group = "time-modes",
         control_enabled = false,
@@ -941,6 +951,7 @@ local mappings = {
         },
     },
     {
+        id = "time-mode-hmsf",
         name = "Hours:Minutes:Seconds:Frames",
         group = "time-modes",
         control_enabled = false,
@@ -956,6 +967,7 @@ local mappings = {
         },
     },
     {
+        id = "time-mode-absolute-frames",
         name = "Absolute Frames",
         group = "time-modes",
         control_enabled = false,
@@ -971,6 +983,7 @@ local mappings = {
         },
     },
     {
+        id = "time-mode-minutes-seconds",
         name = "Minutes:Seconds",
         group = "time-modes",
         control_enabled = false,
@@ -986,6 +999,7 @@ local mappings = {
         },
     },
     {
+        id = "cycle-time-modes",
         name = "Cycle time modes",
         group = "master",
         feedback_enabled = false,
@@ -1011,6 +1025,7 @@ for ch = 0, channel_count - 1 do
     local prefix = "ch"..human_ch.."/"
     local track_expression = "p1 * 10000 + "..ch;
     local track_volume = {
+        id = prefix.."vol",
         name = "Tr"..human_ch.." Vol",
         group = "volume",
         source = {
@@ -1026,6 +1041,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local track_pan_control = {
+        id = prefix.."pan",
         name = "Tr"..human_ch.." Pan",
         group = "pan",
         source = {
@@ -1044,7 +1060,8 @@ for ch = 0, channel_count - 1 do
         },
     }
     local track_pan_feedback = {
-        name = "Tr"..human_ch.." Pan FB",
+        id = prefix.."pan/feedback",
+        name = "Tr"..human_ch.." Pan Feedback",
         control_enabled = false,
         group = "pan",
         source = {
@@ -1060,6 +1077,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local track_pan_reset = {
+        id = prefix.."pan/reset",
         name = "Tr"..human_ch.." Pan Reset",
         feedback_enabled = false,
         group = "pan-reset",
@@ -1080,6 +1098,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local track_selection = {
+        id = prefix.."selection",
         name = "Tr"..human_ch.." Selection",
         group = "selection",
         source = {
@@ -1100,6 +1119,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local track_mute = {
+        id = prefix.."mute",
         name = "Tr"..human_ch.." Mute",
         group = "mute",
         source = {
@@ -1119,6 +1139,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local track_solo = {
+        id = prefix.."solo",
         name = "Tr"..human_ch.." Solo",
         group = "solo",
         source = {
@@ -1138,6 +1159,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local track_arm = {
+        id = prefix.."arm",
         name = "Tr"..human_ch.." Arm",
         group = "arm",
         source = {
@@ -1157,6 +1179,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local track_touch = {
+        id = prefix.."touch",
         name = "Tr"..human_ch.." Touch",
         group = "touch",
         source = {
@@ -1175,6 +1198,7 @@ for ch = 0, channel_count - 1 do
     }
     -- Done
     local track_name_display = {
+        id = prefix.."name",
         name = "Tr"..human_ch.." Name",
         group = "lcd",
         control_enabled = false,
@@ -1196,6 +1220,7 @@ for ch = 0, channel_count - 1 do
     }
     -- Done
     local track_pan_display = {
+        id = prefix.."pan/lcd",
         name = "Tr"..human_ch.." Pan LCD",
         group = "lcd",
         control_enabled = false,
@@ -1217,6 +1242,7 @@ for ch = 0, channel_count - 1 do
     }
     -- Done
     local track_peak = {
+        id = prefix.."peak",
         name = "Tr"..human_ch.." Peaks",
         group = "meter",
         control_enabled = false,
