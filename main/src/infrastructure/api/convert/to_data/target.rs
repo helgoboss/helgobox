@@ -86,6 +86,12 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             transport_action: convert_transport_action(d.action),
             ..init(d.commons)
         },
+        Target::AnyOn(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::AnyOn,
+            any_on_parameter: convert_any_on_parameter(d.parameter),
+            ..init(d.commons)
+        },
         Target::CycleThroughTracks(d) => TargetModelData {
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::SelectedTrack,
@@ -1045,6 +1051,17 @@ fn convert_transport_action(transport_action: TransportAction) -> domain::Transp
         Pause => T::Pause,
         Record => T::Record,
         Repeat => T::Repeat,
+    }
+}
+
+fn convert_any_on_parameter(parameter: AnyOnParameter) -> domain::AnyOnParameter {
+    use domain::AnyOnParameter as T;
+    use AnyOnParameter::*;
+    match parameter {
+        TrackSolo => T::TrackSolo,
+        TrackMute => T::TrackMute,
+        TrackArm => T::TrackArm,
+        TrackSelection => T::TrackSelection,
     }
 }
 

@@ -16,7 +16,7 @@ use reaper_medium::{
 use rxrust::prelude::*;
 
 use crate::domain::{
-    EnableInstancesTarget, EnableMappingsTarget, HitInstructionReturnValue,
+    AnyOnTarget, EnableInstancesTarget, EnableMappingsTarget, HitInstructionReturnValue,
     LoadMappingSnapshotTarget, NavigateWithinGroupTarget, RealearnTarget, ReaperTargetType,
     RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget, TrackPhaseTarget,
 };
@@ -107,6 +107,7 @@ pub enum ReaperTarget {
     FxNavigate(FxNavigateTarget),
     AllTrackFxEnable(AllTrackFxEnableTarget),
     Transport(TransportTarget),
+    AnyOn(AnyOnTarget),
     LoadFxSnapshot(LoadFxSnapshotTarget),
     AutomationTouchState(AutomationTouchStateTarget),
     GoToBookmark(GoToBookmarkTarget),
@@ -566,6 +567,7 @@ impl<'a> Target<'a> for ReaperTarget {
             FxNavigate(t) => t.current_value(context),
             AllTrackFxEnable(t) => t.current_value(context),
             Transport(t) => t.current_value(context),
+            AnyOn(t) => t.current_value(context),
             AutomationTouchState(t) => t.current_value(context),
             GoToBookmark(t) => t.current_value(context),
             Seek(t) => t.current_value(context),

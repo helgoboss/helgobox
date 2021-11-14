@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::application::VirtualControlElementType;
 use crate::domain::{
     find_bookmark, get_fx_param, get_fxs, get_non_present_virtual_route_label,
-    get_non_present_virtual_track_label, get_track_route, ActionInvocationType,
+    get_non_present_virtual_track_label, get_track_route, ActionInvocationType, AnyOnParameter,
     CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId,
     MappingCompartment, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget,
@@ -86,6 +86,8 @@ pub struct TargetModel {
     pub track_exclusivity: Prop<TrackExclusivity>,
     // # For transport target
     pub transport_action: Prop<TransportAction>,
+    // # For any-on target
+    pub any_on_parameter: Prop<AnyOnParameter>,
     // # For "Load FX snapshot" target
     pub fx_snapshot: Prop<Option<FxSnapshot>>,
     // # For "Automation touch state" target
@@ -171,6 +173,7 @@ impl Default for TargetModel {
             solo_behavior: prop(Default::default()),
             track_exclusivity: prop(Default::default()),
             transport_action: prop(TransportAction::default()),
+            any_on_parameter: prop(AnyOnParameter::default()),
             fx_snapshot: prop(None),
             touched_parameter_type: prop(Default::default()),
             bookmark_ref: prop(0),
@@ -617,6 +620,9 @@ impl TargetModel {
             Transport(t) => {
                 self.transport_action.set(t.action);
             }
+            AnyOn(t) => {
+                self.any_on_parameter.set(t.parameter);
+            }
             AutomationTouchState(t) => {
                 self.touched_parameter_type.set(t.parameter_type);
             }
@@ -722,6 +728,7 @@ impl TargetModel {
             .merge(self.solo_behavior.changed())
             .merge(self.track_exclusivity.changed())
             .merge(self.transport_action.changed())
+            .merge(self.any_on_parameter.changed())
             .merge(self.control_element_type.changed())
             .merge(self.control_element_id.changed())
             .merge(self.fx_snapshot.changed())
@@ -1157,6 +1164,9 @@ impl TargetModel {
                         group_id: self.group_id.get(),
                         exclusivity: self.exclusivity.get().into(),
                     },
+                    AnyOn => UnresolvedReaperTarget::AnyOn {
+                        parameter: self.any_on_parameter.get(),
+                    },
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }
@@ -1355,6 +1365,9 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                     }
                     Transport => {
                         write!(f, "{}", self.0.transport_action.get())
+                    }
+                    AnyOn => {
+                        write!(f, "{}", self.0.any_on_parameter.get())
                     }
                     GoToBookmark => {
                         let type_label = match self.0.bookmark_type.get() {
@@ -1609,6 +1622,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                         self.fx_label(),
                     ),
                     Transport => write!(f, "{}\n{}", tt, self.target.transport_action.get()),
+                    AnyOn => write!(f, "{}\n{}", tt, self.target.any_on_parameter.get()),
                     AutomationModeOverride => {
                         write!(
                             f,
