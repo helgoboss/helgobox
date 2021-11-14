@@ -4,50 +4,48 @@ use crate::application::{
     VirtualTrackType,
 };
 use crate::domain::{
-    ActionInvocationType, Exclusivity, FeedbackResolution, FxDisplayType, ReaperTargetType,
-    SendMidiDestination, SoloBehavior, TouchedParameterType, TrackExclusivity, TrackRouteType,
-    TransportAction,
+    ActionInvocationType, AnyOnParameter, Exclusivity, FeedbackResolution, FxDisplayType,
+    ReaperTargetType, SendMidiDestination, SoloBehavior, TouchedParameterType, TrackExclusivity,
+    TrackRouteType, TransportAction,
 };
 use crate::infrastructure::api::convert::from_data::{
-    convert_control_element_id, convert_control_element_kind, convert_group_id,
-    convert_osc_argument, convert_tags, ConversionStyle, DataToApiConversionContext,
+    convert_control_element_id, convert_control_element_kind, convert_osc_argument, convert_tags,
+    ConversionStyle,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema;
-use crate::infrastructure::api::schema::{
-    AllTrackFxOnOffStateTarget, AutomationModeOverrideTarget, BookmarkDescriptor, BookmarkRef,
-    ClipDescriptor, ClipOutput, ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget,
-    CycleThroughFxPresetsTarget, CycleThroughFxTarget, CycleThroughGroupMappingsTarget,
-    CycleThroughTracksTarget, EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget,
-    FxParameterValueTarget, FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget,
-    LoadFxSnapshotTarget, LoadMappingSnapshotsTarget, PlayRateTarget, ReaperActionTarget,
-    RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget,
-    RoutePhaseTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget, TempoTarget,
-    TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
-    TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget, TrackPhaseTarget,
-    TrackSelectionStateTarget, TrackSoloStateTarget, TrackVisibilityTarget, TrackVolumeTarget,
-    TrackWidthTarget, TransportActionTarget,
-};
 use crate::infrastructure::data::{
     deserialize_fx, deserialize_fx_parameter, deserialize_track, deserialize_track_route,
     TargetModelData, TrackData,
 };
+use realearn_api::schema;
+use realearn_api::schema::{
+    AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget, BookmarkDescriptor,
+    BookmarkRef, ClipDescriptor, ClipOutput, ClipSeekTarget, ClipTransportActionTarget,
+    ClipVolumeTarget, CycleThroughFxPresetsTarget, CycleThroughFxTarget,
+    CycleThroughGroupMappingsTarget, CycleThroughTracksTarget, EnableInstancesTarget,
+    EnableMappingsTarget, FxOnOffStateTarget, FxParameterValueTarget, FxVisibilityTarget,
+    GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget, LoadMappingSnapshotsTarget,
+    PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget,
+    RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget, RouteVolumeTarget, SeekTarget,
+    SendMidiTarget, SendOscTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
+    TrackAutomationTouchStateTarget, TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget,
+    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackVisibilityTarget,
+    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+};
 
 pub fn convert_target(
     data: TargetModelData,
-    context: &impl DataToApiConversionContext,
     style: ConversionStyle,
 ) -> ConversionResult<schema::Target> {
     use TargetCategory::*;
     match data.category {
-        Reaper => convert_real_target(data, context, style),
+        Reaper => convert_real_target(data, style),
         Virtual => Ok(convert_virtual_target(data, style)),
     }
 }
 
 fn convert_real_target(
     data: TargetModelData,
-    context: &impl DataToApiConversionContext,
     style: ConversionStyle,
 ) -> ConversionResult<schema::Target> {
     use schema::Target as T;
@@ -101,6 +99,10 @@ fn convert_real_target(
         Transport => T::TransportAction(TransportActionTarget {
             commons,
             action: convert_transport_action(data.transport_action),
+        }),
+        AnyOn => T::AnyOn(AnyOnTarget {
+            commons,
+            parameter: convert_any_on_parameter(data.any_on_parameter),
         }),
         GoToBookmark => T::GoToBookmark(GoToBookmarkTarget {
             commons,
@@ -509,7 +511,7 @@ fn convert_real_target(
                     Exclusive | ExclusiveOnOnly => Some(T::Exclusive),
                 }
             },
-            group: convert_group_id(data.group_id, context),
+            group: style.required_value(data.group_id.into()),
         }),
     };
     Ok(target)
@@ -557,6 +559,17 @@ fn convert_transport_action(transport_action: TransportAction) -> schema::Transp
         Pause => T::Pause,
         Record => T::Record,
         Repeat => T::Repeat,
+    }
+}
+
+fn convert_any_on_parameter(parameter: AnyOnParameter) -> schema::AnyOnParameter {
+    use schema::AnyOnParameter as T;
+    use AnyOnParameter::*;
+    match parameter {
+        TrackSolo => T::TrackSolo,
+        TrackMute => T::TrackMute,
+        TrackArm => T::TrackArm,
+        TrackSelection => T::TrackSelection,
     }
 }
 

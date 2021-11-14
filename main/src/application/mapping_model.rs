@@ -6,8 +6,9 @@ use crate::base::{prop, Prop};
 use crate::domain::{
     ActivationCondition, CompoundMappingSource, CompoundMappingTarget, ExtendedProcessorContext,
     ExtendedSourceCharacter, FeedbackSendBehavior, GroupId, MainMapping, MappingCompartment,
-    MappingId, Mode, PersistentMappingProcessingState, ProcessorMappingOptions, QualifiedMappingId,
-    RealearnTarget, ReaperTarget, Tag, TargetCharacter, UnresolvedCompoundMappingTarget,
+    MappingId, MappingKey, Mode, PersistentMappingProcessingState, ProcessorMappingOptions,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, Tag, TargetCharacter,
+    UnresolvedCompoundMappingTarget,
 };
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
@@ -22,7 +23,7 @@ use std::rc::Rc;
 #[derive(Clone, Debug)]
 pub struct MappingModel {
     id: MappingId,
-    key: Option<String>,
+    key: MappingKey,
     compartment: MappingCompartment,
     pub name: Prop<String>,
     pub tags: Prop<Vec<Tag>>,
@@ -73,7 +74,7 @@ impl MappingModel {
     pub fn new(
         compartment: MappingCompartment,
         initial_group_id: GroupId,
-        key: Option<String>,
+        key: MappingKey,
     ) -> Self {
         Self {
             id: MappingId::random(),
@@ -103,8 +104,12 @@ impl MappingModel {
         self.id
     }
 
-    pub fn key(&self) -> Option<&String> {
-        self.key.as_ref()
+    pub fn key(&self) -> &MappingKey {
+        &self.key
+    }
+
+    pub fn reset_key(&mut self) {
+        self.key = MappingKey::random();
     }
 
     pub fn qualified_id(&self) -> QualifiedMappingId {
@@ -159,12 +164,9 @@ impl MappingModel {
     pub fn duplicate(&self) -> MappingModel {
         MappingModel {
             id: MappingId::random(),
+            key: MappingKey::random(),
             ..self.clone()
         }
-    }
-
-    pub fn set_id_without_notification(&mut self, id: MappingId) {
-        self.id = id;
     }
 
     pub fn compartment(&self) -> MappingCompartment {
@@ -339,6 +341,7 @@ impl MappingModel {
         MainMapping::new(
             self.compartment,
             id,
+            &self.key,
             self.group_id.get(),
             self.name.get_ref().clone(),
             merged_tags,

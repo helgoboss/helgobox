@@ -1,11 +1,11 @@
 use crate::application::BookmarkAnchorType;
 use crate::base::hash_util;
 use crate::domain::{
-    ActionInvocationType, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
-    AutomationTouchStateTarget, BackboneState, ClipSeekTarget, ClipTransportTarget,
-    ClipVolumeTarget, EnableInstancesTarget, EnableMappingsTarget, Exclusivity,
-    ExtendedProcessorContext, FeedbackResolution, FxDisplayType, FxEnableTarget, FxNavigateTarget,
-    FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, GroupId,
+    ActionInvocationType, ActionTarget, AllTrackFxEnableTarget, AnyOnParameter, AnyOnTarget,
+    AutomationModeOverrideTarget, AutomationTouchStateTarget, BackboneState, ClipSeekTarget,
+    ClipTransportTarget, ClipVolumeTarget, EnableInstancesTarget, EnableMappingsTarget,
+    Exclusivity, ExtendedProcessorContext, FeedbackResolution, FxDisplayType, FxEnableTarget,
+    FxNavigateTarget, FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, GroupId,
     LoadFxSnapshotTarget, LoadMappingSnapshotTarget, MappingCompartment, MidiSendTarget,
     NavigateWithinGroupTarget, OscDeviceId, OscSendTarget, ParameterSlice, PlayrateTarget,
     RealearnTarget, ReaperTarget, RouteAutomationModeTarget, RouteMonoTarget, RouteMuteTarget,
@@ -210,6 +210,9 @@ pub enum UnresolvedReaperTarget {
     EnableInstances {
         scope: TagScope,
         exclusivity: Exclusivity,
+    },
+    AnyOn {
+        parameter: AnyOnParameter,
     },
 }
 
@@ -493,6 +496,10 @@ impl UnresolvedReaperTarget {
                 project: context.context().project_or_current_project(),
                 action: *action,
             })],
+            AnyOn { parameter } => vec![ReaperTarget::AnyOn(AnyOnTarget {
+                project: context.context().project_or_current_project(),
+                parameter: *parameter,
+            })],
             LoadFxPreset {
                 fx_descriptor,
                 chunk,
@@ -741,6 +748,7 @@ impl UnresolvedReaperTarget {
             | Playrate
             | SelectedTrack { .. }
             | Transport { .. }
+            | AnyOn { .. }
             | LastTouched
             | Seek { .. }
             | ClipSeek { .. }
@@ -865,6 +873,7 @@ impl UnresolvedReaperTarget {
             | LoadMappingSnapshot { .. }
             | EnableMappings { .. }
             | EnableInstances { .. }
+            | AnyOn { .. }
             | NavigateWithinGroup { .. } => return None,
             AllTrackFxEnable {
                 poll_for_feedback, ..
@@ -1450,7 +1459,7 @@ impl VirtualTrack {
                 .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
                 .collect(),
             ByIndex(index) => {
-                let single = resolve_track_by_index(project, *index)?;
+                let single = resolve_track_by_index(project, *index as i32)?;
                 vec![single]
             }
         };
@@ -1461,7 +1470,7 @@ impl VirtualTrack {
         &self,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> Option<u32> {
+    ) -> Option<i32> {
         if let VirtualTrack::Dynamic(evaluator) = self {
             Some(Self::evaluate_to_track_index(
                 evaluator,
@@ -1477,7 +1486,7 @@ impl VirtualTrack {
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> u32 {
+    ) -> i32 {
         let sliced_params = compartment.slice_params(context.params());
         let result = evaluator.evaluate_with_additional_vars(sliced_params, |name| match name {
             "this_track_index" => {
@@ -1494,7 +1503,7 @@ impl VirtualTrack {
             }
             _ => None,
         });
-        result.round().max(0.0) as u32
+        result.round().max(-1.0) as i32
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -1861,14 +1870,19 @@ fn resolve_parameter_by_index(fx: &Fx, index: u32) -> Result<FxParameter, FxPara
     Ok(param)
 }
 
-fn resolve_track_by_index(project: Project, index: u32) -> Result<Track, TrackResolveError> {
-    project
-        .track_by_index(index)
-        .ok_or(TrackResolveError::TrackNotFound {
-            guid: None,
-            name: None,
-            index: Some(index),
-        })
+fn resolve_track_by_index(project: Project, index: i32) -> Result<Track, TrackResolveError> {
+    if index >= 0 {
+        let i = index as u32;
+        project
+            .track_by_index(i)
+            .ok_or(TrackResolveError::TrackNotFound {
+                guid: None,
+                name: None,
+                index: Some(i),
+            })
+    } else {
+        Ok(project.master_track())
+    }
 }
 
 pub fn resolve_track_route_by_index(

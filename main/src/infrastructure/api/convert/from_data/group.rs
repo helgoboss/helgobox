@@ -2,21 +2,19 @@ use crate::infrastructure::api::convert::from_data::{
     convert_activation_condition, convert_tags, ConversionStyle,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema;
 use crate::infrastructure::data::GroupModelData;
+use realearn_api::schema;
 
 pub fn convert_group(
     data: GroupModelData,
     style: ConversionStyle,
 ) -> ConversionResult<schema::Group> {
     let group = schema::Group {
-        key: {
-            if let Some(k) = data.key {
-                Some(k)
-            } else if data.id.is_default() {
+        id: {
+            if data.id.is_empty() {
                 None
             } else {
-                Some(data.id.to_string())
+                Some(data.id.into())
             }
         },
         name: style.required_value(data.name),

@@ -3,7 +3,9 @@ use crate::application::{
     TargetModelFormatMultiLine, WeakSession,
 };
 use crate::base::when;
-use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget};
+use crate::domain::{
+    GroupId, GroupKey, MappingCompartment, MappingId, QualifiedMappingId, ReaperTarget,
+};
 
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::{
@@ -18,10 +20,11 @@ use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::{format_tags_as_csv, symbols};
 use crate::infrastructure::ui::{
     copy_text_to_clipboard, deserialize_api_object_from_lua, deserialize_data_object_from_json,
-    get_text_from_clipboard, serialize_data_object, util, ApiObject, DataObject, Envelope,
-    IndependentPanelManager, SerializationFormat, SharedMainState,
+    get_text_from_clipboard, serialize_data_object, util, DataObject, IndependentPanelManager,
+    SerializationFormat, SharedMainState,
 };
 use core::iter;
+use realearn_api::schema::{ApiObject, Envelope};
 use reaper_high::Reaper;
 use reaper_low::raw;
 use rxrust::prelude::*;
@@ -890,9 +893,16 @@ fn copy_mapping_object(
         .ok_or("mapping not found")?;
     use ObjectType::*;
     let mapping = mapping.borrow();
+    let compartment_in_session = CompartmentInSession {
+        session: &session,
+        compartment,
+    };
     let data_object = match object_type {
         Mapping => DataObject::Mapping(Envelope {
-            value: Box::new(MappingModelData::from_model(&mapping)),
+            value: Box::new(MappingModelData::from_model(
+                &mapping,
+                &compartment_in_session,
+            )),
         }),
         Source => DataObject::Source(Envelope {
             value: Box::new(SourceModelData::from_model(&mapping.source_model)),
@@ -901,14 +911,13 @@ fn copy_mapping_object(
             value: Box::new(ModeModelData::from_model(&mapping.mode_model)),
         }),
         Target => DataObject::Target(Envelope {
-            value: Box::new(TargetModelData::from_model(&mapping.target_model)),
+            value: Box::new(TargetModelData::from_model(
+                &mapping.target_model,
+                &compartment_in_session,
+            )),
         }),
     };
-    let compartment_in_session = CompartmentInSession {
-        session: &session,
-        compartment,
-    };
-    let text = serialize_data_object(data_object, &compartment_in_session, format)?;
+    let text = serialize_data_object(data_object, format)?;
     copy_text_to_clipboard(text);
     Ok(())
 }
@@ -929,11 +938,28 @@ fn paste_data_object_in_place(
     let (_, mapping) = session
         .find_mapping_and_index_by_id(triple.compartment, triple.mapping_id)
         .ok_or("mapping not found")?;
+    let compartment_in_session = CompartmentInSession {
+        session: &session,
+        compartment: triple.compartment,
+    };
     let mut mapping = mapping.borrow_mut();
     match data_object {
         DataObject::Mapping(Envelope { value: mut m }) => {
-            m.group_id = triple.group_id;
-            m.apply_to_model(&mut mapping, session.extended_context());
+            m.group_id = {
+                if triple.group_id.is_default() {
+                    GroupKey::default()
+                } else {
+                    let group = session
+                        .find_group_by_id(triple.compartment, triple.group_id)
+                        .ok_or("couldn't find group")?;
+                    group.borrow().key().clone()
+                }
+            };
+            m.apply_to_model(
+                &mut mapping,
+                session.extended_context(),
+                &compartment_in_session,
+            );
         }
         DataObject::Source(Envelope { value: s }) => {
             s.apply_to_model(&mut mapping.source_model, triple.compartment);
@@ -946,6 +972,7 @@ fn paste_data_object_in_place(
                 &mut mapping.target_model,
                 triple.compartment,
                 session.extended_context(),
+                &compartment_in_session,
             );
         }
         _ => return Err("can only paste mapping, source, mode and target in place"),
@@ -972,11 +999,30 @@ pub fn paste_mappings(
     } else {
         session.mapping_count(compartment)
     };
+    let group_key = {
+        if group_id.is_default() {
+            GroupKey::default()
+        } else {
+            let group = session
+                .find_group_by_id(compartment, group_id)
+                .ok_or("couldn't find group")?;
+            let group = group.borrow();
+            group.key().clone()
+        }
+    };
+    let compartment_in_session = CompartmentInSession {
+        session: &session,
+        compartment,
+    };
     let new_mappings: Vec<_> = mapping_datas
         .into_iter()
         .map(|mut data| {
-            data.group_id = group_id;
-            data.to_model(compartment, session.extended_context())
+            data.group_id = group_key.clone();
+            data.to_model(
+                compartment,
+                session.extended_context(),
+                &compartment_in_session,
+            )
         })
         .collect();
     session.insert_mappings_at(compartment, index + 1, new_mappings.into_iter());

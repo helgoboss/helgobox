@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
 use crate::application::ParameterSetting;
-use crate::domain::GroupId;
 use crate::infrastructure::api::convert::to_data::group::convert_group;
 use crate::infrastructure::api::convert::to_data::parameter::convert_parameter;
 use crate::infrastructure::api::convert::to_data::{convert_mapping, ApiToDataConversionContext};
 use crate::infrastructure::api::convert::{convert_multiple, ConversionResult};
-use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{CompartmentModelData, GroupModelData};
+use realearn_api::schema::*;
 
 pub fn convert_compartment(c: Compartment) -> ConversionResult<CompartmentModelData> {
     struct ConversionContext {
@@ -21,13 +20,6 @@ pub fn convert_compartment(c: Compartment) -> ConversionResult<CompartmentModelD
             .map(|(i, _)| *i)
     }
     impl ApiToDataConversionContext for ConversionContext {
-        fn group_id_by_key(&self, key: &str) -> Option<GroupId> {
-            self.groups
-                .iter()
-                .find(|g| g.key_matches(key))
-                .map(|g| g.id)
-        }
-
         fn param_index_by_key(&self, key: &str) -> Option<u32> {
             param_index_by_key(&self.parameters, key)
         }

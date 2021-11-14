@@ -1,7 +1,4 @@
-use crate::application::{
-    GroupModel, MappingModel, ParameterSetting, Preset, PresetManager, SharedGroup, SharedMapping,
-};
-use crate::infrastructure::data::{GroupModelData, MappingModelData};
+use crate::application::{Preset, PresetManager};
 
 use crate::base::notification;
 use crate::infrastructure::plugin::App;
@@ -10,7 +7,6 @@ use rxrust::prelude::*;
 use semver::Version;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs;
 use std::marker::PhantomData;
@@ -165,11 +161,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 return Err(msg);
             }
         }
-        Ok(data.to_model(id))
-    }
-
-    fn find_preset_ref_by_id(&self, id: &str) -> Option<&P> {
-        self.presets.iter().find(|c| c.id() == id)
+        data.to_model(id)
     }
 }
 
@@ -197,69 +189,6 @@ impl<P: Preset, PD: PresetData<P = P>> PresetManager for FileBasedPresetManager<
     fn find_by_id(&self, id: &str) -> Option<P> {
         self.presets.iter().find(|c| c.id() == id).cloned()
     }
-
-    fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool {
-        let preset = match self.find_preset_ref_by_id(id) {
-            None => return false,
-            Some(c) => c,
-        };
-        if mappings.len() != preset.data().mappings.len() {
-            return true;
-        }
-        mappings.iter().zip(preset.data().mappings.iter()).any(
-            |(actual_mapping, preset_mapping)| {
-                !mappings_are_equal(&actual_mapping.borrow(), preset_mapping)
-            },
-        )
-    }
-
-    fn parameter_settings_are_dirty(
-        &self,
-        id: &str,
-        parameter_settings: &HashMap<u32, ParameterSetting>,
-    ) -> bool {
-        let preset = match self.find_preset_ref_by_id(id) {
-            None => return false,
-            Some(c) => c,
-        };
-        parameter_settings != &preset.data().parameters
-    }
-
-    fn groups_are_dirty(
-        &self,
-        id: &str,
-        default_group: &SharedGroup,
-        groups: &[SharedGroup],
-    ) -> bool {
-        let preset = match self.find_preset_ref_by_id(id) {
-            None => return false,
-            Some(c) => c,
-        };
-        if groups.len() != preset.data().groups.len() {
-            return true;
-        }
-        if !groups_are_equal(&default_group.borrow(), &preset.data().default_group) {
-            return true;
-        }
-        groups
-            .iter()
-            .zip(preset.data().groups.iter())
-            .any(|(actual_group, preset_group)| {
-                !groups_are_equal(&actual_group.borrow(), preset_group)
-            })
-    }
-}
-
-fn groups_are_equal(first: &GroupModel, second: &GroupModel) -> bool {
-    let first_data = GroupModelData::from_model(first);
-    let second_data = GroupModelData::from_model(second);
-    first_data == second_data
-}
-
-fn mappings_are_equal(first: &MappingModel, second: &MappingModel) -> bool {
-    let first_data = MappingModelData::from_model(first);
-    let second_data = MappingModelData::from_model(second);
-    first_data == second_data
 }
 
 pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {
@@ -267,7 +196,7 @@ pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {
 
     fn from_model(preset: &Self::P) -> Self;
 
-    fn to_model(&self, id: String) -> Self::P;
+    fn to_model(&self, id: String) -> Result<Self::P, String>;
 
     fn clear_id(&mut self);
 

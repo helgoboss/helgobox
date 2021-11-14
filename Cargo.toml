@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "api",
+    "csi",
     "main",
     "rx-util",
     "swell-ui",

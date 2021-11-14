@@ -11,12 +11,14 @@ use crate::application::{
 use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_some_default};
 use crate::base::notification;
 use crate::domain::{
-    get_fx_chain, ActionInvocationType, Exclusivity, ExtendedProcessorContext, FxDisplayType,
-    GroupId, MappingCompartment, OscDeviceId, ReaperTargetType, SeekOptions, SendMidiDestination,
-    SoloBehavior, Tag, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction,
-    VirtualTrack,
+    get_fx_chain, ActionInvocationType, AnyOnParameter, Exclusivity, ExtendedProcessorContext,
+    FxDisplayType, GroupKey, MappingCompartment, OscDeviceId, ReaperTargetType, SeekOptions,
+    SendMidiDestination, SoloBehavior, Tag, TouchedParameterType, TrackExclusivity, TrackRouteType,
+    TransportAction, VirtualTrack,
 };
-use crate::infrastructure::data::VirtualControlElementIdData;
+use crate::infrastructure::data::{
+    DataToModelConversionContext, ModelToDataConversionContext, VirtualControlElementIdData,
+};
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::OscTypeTag;
 use semver::Version;
@@ -71,6 +73,9 @@ pub struct TargetModelData {
     // Transport target
     #[serde(default, skip_serializing_if = "is_default")]
     pub transport_action: TransportAction,
+    // Any-on target
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub any_on_parameter: AnyOnParameter,
     #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -129,13 +134,16 @@ pub struct TargetModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub exclusivity: Exclusivity,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub group_id: GroupId,
+    pub group_id: GroupKey,
     #[serde(default, skip_serializing_if = "is_default")]
     pub active_mappings_only: bool,
 }
 
 impl TargetModelData {
-    pub fn from_model(model: &TargetModel) -> Self {
+    pub fn from_model(
+        model: &TargetModel,
+        conversion_context: &impl ModelToDataConversionContext,
+    ) -> Self {
         Self {
             category: model.category.get(),
             unit: model.unit.get(),
@@ -165,6 +173,7 @@ impl TargetModelData {
             solo_behavior: Some(model.solo_behavior.get()),
             track_exclusivity: model.track_exclusivity.get(),
             transport_action: model.transport_action.get(),
+            any_on_parameter: model.any_on_parameter.get(),
             control_element_type: model.control_element_type.get(),
             control_element_index: VirtualControlElementIdData::from_model(
                 model.control_element_id.get(),
@@ -195,7 +204,9 @@ impl TargetModelData {
             poll_for_feedback: model.poll_for_feedback.get(),
             tags: model.tags.get_ref().clone(),
             exclusivity: model.exclusivity.get(),
-            group_id: model.group_id.get(),
+            group_id: conversion_context
+                .group_key_by_id(model.group_id.get())
+                .unwrap_or_default(),
             active_mappings_only: model.active_mappings_only.get(),
         }
     }
@@ -205,6 +216,7 @@ impl TargetModelData {
         model: &mut TargetModel,
         compartment: MappingCompartment,
         context: ExtendedProcessorContext,
+        conversion_context: &impl DataToModelConversionContext,
     ) {
         self.apply_to_model_flexible(
             model,
@@ -212,6 +224,7 @@ impl TargetModelData {
             Some(App::version()),
             true,
             compartment,
+            conversion_context,
         );
     }
 
@@ -225,6 +238,7 @@ impl TargetModelData {
         preset_version: Option<&Version>,
         with_notification: bool,
         compartment: MappingCompartment,
+        conversion_context: &impl DataToModelConversionContext,
     ) {
         let final_category = if self.category.is_allowed_in(compartment) {
             self.category
@@ -330,6 +344,9 @@ impl TargetModelData {
             .transport_action
             .set_with_optional_notification(self.transport_action, with_notification);
         model
+            .any_on_parameter
+            .set_with_optional_notification(self.any_on_parameter, with_notification);
+        model
             .control_element_type
             .set_with_optional_notification(self.control_element_type, with_notification);
         model.control_element_id.set_with_optional_notification(
@@ -425,9 +442,12 @@ impl TargetModelData {
         model
             .exclusivity
             .set_with_optional_notification(self.exclusivity, with_notification);
+        let group_id = conversion_context
+            .group_id_by_key(&self.group_id)
+            .unwrap_or_default();
         model
             .group_id
-            .set_with_optional_notification(self.group_id, with_notification);
+            .set_with_optional_notification(group_id, with_notification);
         model
             .active_mappings_only
             .set_with_optional_notification(self.active_mappings_only, with_notification);

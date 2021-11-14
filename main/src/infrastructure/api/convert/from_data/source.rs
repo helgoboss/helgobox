@@ -3,12 +3,12 @@ use crate::infrastructure::api::convert::from_data::{
     convert_control_element_id, convert_control_element_kind, convert_osc_argument, ConversionStyle,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema;
 use crate::infrastructure::data::SourceModelData;
 use helgoboss_learn::{
     DisplayType, MackieSevenSegmentDisplayScope, MidiClockTransportMessage, SourceCharacter,
 };
 use helgoboss_midi::{Channel, U14};
+use realearn_api::schema;
 use std::convert::TryInto;
 
 pub struct NewSourceProps {
@@ -132,14 +132,14 @@ pub fn convert_source(
                     use DisplayType::*;
                     match data.display_type {
                         MackieLcd => {
-                            let s = schema::MackieLcd {
+                            let s = schema::MackieLcdSource {
                                 channel: data.display_id,
                                 line: data.line,
                             };
                             schema::Source::MackieLcd(s)
                         }
                         MackieSevenSegmentDisplay => {
-                            let s = schema::MackieSevenSegmentDisplay {
+                            let s = schema::MackieSevenSegmentDisplaySource {
                                 scope: data.display_id.and_then(|id| {
                                     convert_mackie_seven_segment_display_scope(
                                         (id as usize).try_into().ok()?,
@@ -149,14 +149,14 @@ pub fn convert_source(
                             schema::Source::MackieSevenSegmentDisplay(s)
                         }
                         SiniConE24 => {
-                            let s = schema::SiniConE24Display {
+                            let s = schema::SiniConE24DisplaySource {
                                 cell_index: data.display_id,
                                 item_index: data.line,
                             };
                             schema::Source::SiniConE24Display(s)
                         }
                         LaunchpadProScrollingText => {
-                            let s = schema::LaunchpadProScrollingTextDisplay;
+                            let s = schema::LaunchpadProScrollingTextDisplaySource;
                             schema::Source::LaunchpadProScrollingTextDisplay(s)
                         }
                     }

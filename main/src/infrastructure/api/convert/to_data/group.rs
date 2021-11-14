@@ -1,8 +1,8 @@
-use crate::domain::GroupId;
+use crate::domain::GroupKey;
 use crate::infrastructure::api::convert::to_data::{convert_activation, convert_tags};
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{EnabledData, GroupModelData};
+use realearn_api::schema::*;
 
 pub fn convert_group(
     g: Group,
@@ -11,11 +11,11 @@ pub fn convert_group(
 ) -> ConversionResult<GroupModelData> {
     let data = GroupModelData {
         id: if is_default_group {
-            GroupId::default()
+            GroupKey::default()
         } else {
-            GroupId::random()
+            g.id.map(|id| id.into()).unwrap_or_default()
         },
-        key: g.key,
+        key: None,
         name: g.name.unwrap_or_default(),
         tags: convert_tags(g.tags.unwrap_or_default())?,
         enabled_data: {

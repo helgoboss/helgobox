@@ -2,25 +2,24 @@ use crate::application::{
     LifecycleMidiMessageModel, LifecycleModel, MappingExtensionModel, RawMidiMessage,
 };
 use crate::infrastructure::api::convert::from_data::{
-    convert_activation_condition, convert_glue, convert_group_id, convert_source, convert_tags,
-    convert_target, ConversionStyle, DataToApiConversionContext, NewSourceProps,
+    convert_activation_condition, convert_glue, convert_source, convert_tags, convert_target,
+    ConversionStyle, NewSourceProps,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema;
-use crate::infrastructure::api::schema::LifecycleHook;
 use crate::infrastructure::data::MappingModelData;
+use realearn_api::schema;
+use realearn_api::schema::LifecycleHook;
 
 pub fn convert_mapping(
     data: MappingModelData,
-    context: &impl DataToApiConversionContext,
     style: ConversionStyle,
 ) -> ConversionResult<schema::Mapping> {
     let advanced = convert_advanced(data.advanced, style)?;
     let mapping = schema::Mapping {
-        key: style.optional_value(data.key),
+        id: style.optional_value(data.id.map(|id| id.into())),
         name: style.required_value(data.name),
         tags: convert_tags(&data.tags, style),
-        group: convert_group_id(data.group_id, context),
+        group: style.required_value(data.group_id.into()),
         visible_in_projection: style.required_value_with_default(
             data.visible_in_projection,
             defaults::MAPPING_VISIBLE_IN_PROJECTION,
@@ -45,7 +44,7 @@ pub fn convert_mapping(
             style.required_value(convert_source(data.source, new_source_props, style)?)
         },
         glue: style.required_value(convert_glue(data.mode, style)?),
-        target: style.required_value(convert_target(data.target, context, style)?),
+        target: style.required_value(convert_target(data.target, style)?),
         unprocessed: style.optional_value(advanced.unprocessed),
     };
     Ok(mapping)

@@ -1,6 +1,4 @@
-use crate::infrastructure::api::schema::{
-    OscArgument, VirtualControlElementCharacter, VirtualControlElementId,
-};
+use crate::schema::{OscArgument, VirtualControlElementCharacter, VirtualControlElementId};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -11,6 +9,7 @@ pub enum Target {
     AutomationModeOverride(AutomationModeOverrideTarget),
     ReaperAction(ReaperActionTarget),
     TransportAction(TransportActionTarget),
+    AnyOn(AnyOnTarget),
     CycleThroughTracks(CycleThroughTracksTarget),
     Seek(SeekTarget),
     PlayRate(PlayRateTarget),
@@ -113,6 +112,14 @@ pub struct TransportActionTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     pub action: TransportAction,
+}
+
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AnyOnTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    pub parameter: AnyOnParameter,
 }
 
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
@@ -574,6 +581,14 @@ pub enum TransportAction {
     Pause,
     Record,
     Repeat,
+}
+
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub enum AnyOnParameter {
+    TrackSolo,
+    TrackMute,
+    TrackArm,
+    TrackSelection,
 }
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

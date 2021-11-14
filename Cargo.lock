@@ -3021,7 +3021,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.11.0-pre.12"
+version = "2.11.0-pre.13"
 dependencies = [
  "approx",
  "arboard",
@@ -3069,6 +3069,8 @@ dependencies = [
  "percent-encoding",
  "qrcode",
  "rcgen",
+ "realearn-api",
+ "realearn-csi",
  "reaper-high",
  "reaper-low",
  "reaper-medium",
@@ -3078,7 +3080,6 @@ dependencies = [
  "runas",
  "rx-util",
  "rxrust",
- "schemars",
  "scopeguard",
  "semver 0.9.0",
  "serde",
@@ -3109,9 +3110,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "realearn-api"
+version = "0.1.0"
+dependencies = [
+ "mlua",
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "realearn-csi"
+version = "0.1.0"
+dependencies = [
+ "derive_more",
+ "helgoboss-midi",
+ "nom 7.0.0",
+ "realearn-api",
+]
+
+[[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#eb5374b540f08793d5f9dd58516daa10887c87dd"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#2365175bc6a254e2a08080171b7ea93eb8daffbd"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -3137,7 +3158,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#eb5374b540f08793d5f9dd58516daa10887c87dd"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#2365175bc6a254e2a08080171b7ea93eb8daffbd"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -3151,7 +3172,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#eb5374b540f08793d5f9dd58516daa10887c87dd"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#2365175bc6a254e2a08080171b7ea93eb8daffbd"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.9",
@@ -3161,7 +3182,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#eb5374b540f08793d5f9dd58516daa10887c87dd"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#2365175bc6a254e2a08080171b7ea93eb8daffbd"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -3180,7 +3201,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#eb5374b540f08793d5f9dd58516daa10887c87dd"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#2365175bc6a254e2a08080171b7ea93eb8daffbd"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",

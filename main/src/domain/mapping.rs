@@ -33,8 +33,8 @@ use smallvec::alloc::fmt::Formatter;
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::fmt;
-use std::fmt::Display;
 use std::ops::Range;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -89,23 +89,49 @@ impl Default for FeedbackSendBehavior {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
+/// Internal technical mapping identifier, not persistent.
+///
+/// Goals: Quick lookup, guaranteed uniqueness, cheap copy
+#[derive(
+    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Serialize, Deserialize,
+)]
 #[serde(transparent)]
-pub struct MappingId {
-    uuid: Uuid,
-}
+pub struct MappingId(Uuid);
 
 impl MappingId {
     pub fn random() -> MappingId {
-        MappingId {
-            uuid: Uuid::new_v4(),
-        }
+        Self(Uuid::new_v4())
     }
 }
 
-impl Display for MappingId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.uuid)
+/// A potentially user-defined mapping identifier, persistent
+///
+/// Goals: For external references (e.g. from API or in projection)
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct MappingKey(String);
+
+impl MappingKey {
+    pub fn random() -> Self {
+        Self(nanoid::nanoid!())
+    }
+}
+
+impl AsRef<str> for MappingKey {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<String> for MappingKey {
+    fn from(v: String) -> Self {
+        Self(v)
+    }
+}
+
+impl From<MappingKey> for String {
+    fn from(v: MappingKey) -> Self {
+        v.0
     }
 }
 
@@ -143,6 +169,10 @@ impl MappingExtension {
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
+    // We need to clone this when producing feedback, pretty often ... so wrapping it in a Rc
+    // saves us from doing too much copying and allocation that potentially slows down things
+    // (albeit only marginally).
+    key: Rc<str>,
     name: Option<String>,
     tags: Vec<Tag>,
     /// Is `Some` if the user-provided target data is complete.
@@ -173,6 +203,7 @@ impl MainMapping {
     pub fn new(
         compartment: MappingCompartment,
         id: MappingId,
+        key: &MappingKey,
         group_id: GroupId,
         name: String,
         tags: Vec<Tag>,
@@ -195,6 +226,10 @@ impl MainMapping {
                 group_interaction,
                 options,
                 time_of_last_control: None,
+            },
+            key: {
+                let key_str: &str = key.as_ref();
+                key_str.into()
             },
             name: Some(name),
             tags,
@@ -233,7 +268,7 @@ impl MainMapping {
     pub fn qualified_source(&self) -> QualifiedSource {
         QualifiedSource {
             compartment: self.core.compartment,
-            id: self.id(),
+            mapping_key: self.key.clone(),
             source: self.source().clone(),
         }
     }
@@ -388,14 +423,19 @@ impl MainMapping {
     ) -> (Vec<CompoundMappingTarget>, bool) {
         match self.unresolved_target.as_ref() {
             None => (vec![], false),
-            Some(t) => match t.resolve(context, self.core.compartment).ok() {
+            Some(ut) => match ut.resolve(context, self.core.compartment).ok() {
                 None => (vec![], false),
                 Some(resolved_targets) => {
+                    // Successfully resolved.
                     if let Some(t) = resolved_targets.first() {
+                        // We have at least one target, great!
                         self.core.mode.update_from_target(t, control_context);
+                        let met = ut.conditions_are_met(&resolved_targets);
+                        (resolved_targets, met)
+                    } else {
+                        // Resolved to zero targets. Consider as inactive.
+                        (vec![], false)
                     }
-                    let met = t.conditions_are_met(&resolved_targets);
-                    (resolved_targets, met)
                 }
             },
         }
@@ -938,7 +978,7 @@ impl MainMapping {
     ) -> Option<SpecificCompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.core.compartment,
-            self.id(),
+            self.key.clone(),
             &self.core.source,
             mode_value,
             destinations,
@@ -1205,15 +1245,15 @@ pub enum CompoundMappingSourceAddress {
 #[derive(Clone, Debug)]
 pub struct QualifiedSource {
     pub compartment: MappingCompartment,
-    pub id: MappingId,
+    pub mapping_key: Rc<str>,
     pub source: CompoundMappingSource,
 }
 
 impl QualifiedSource {
-    pub fn off_feedback(&self) -> Option<CompoundFeedbackValue> {
+    pub fn off_feedback(self) -> Option<CompoundFeedbackValue> {
         SpecificCompoundFeedbackValue::from_mode_value(
             self.compartment,
-            self.id,
+            self.mapping_key,
             &self.source,
             Cow::Owned(FeedbackValue::Off),
             FeedbackDestinations {
@@ -1431,7 +1471,7 @@ impl FeedbackDestinations {
 impl SpecificCompoundFeedbackValue {
     pub fn from_mode_value(
         compartment: MappingCompartment,
-        id: MappingId,
+        mapping_key: Rc<str>,
         source: &CompoundMappingSource,
         mode_value: Cow<FeedbackValue>,
         destinations: FeedbackDestinations,
@@ -1451,9 +1491,9 @@ impl SpecificCompoundFeedbackValue {
                 && compartment == MappingCompartment::ControllerMappings
             {
                 // TODO-medium Support textual projection feedback
-                mode_value
-                    .to_numeric()
-                    .map(|v| ProjectionFeedbackValue::new(compartment, id, v.value.to_unit_value()))
+                mode_value.to_numeric().map(|v| {
+                    ProjectionFeedbackValue::new(compartment, mapping_key, v.value.to_unit_value())
+                })
             } else {
                 None
             };
@@ -1495,18 +1535,18 @@ impl RealFeedbackValue {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct ProjectionFeedbackValue {
     pub compartment: MappingCompartment,
-    pub mapping_id: MappingId,
+    pub mapping_key: Rc<str>,
     pub value: UnitValue,
 }
 
 impl ProjectionFeedbackValue {
-    pub fn new(compartment: MappingCompartment, mapping_id: MappingId, value: UnitValue) -> Self {
+    pub fn new(compartment: MappingCompartment, mapping_key: Rc<str>, value: UnitValue) -> Self {
         Self {
             compartment,
-            mapping_id,
+            mapping_key,
             value,
         }
     }

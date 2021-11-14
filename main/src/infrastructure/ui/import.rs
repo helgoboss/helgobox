@@ -4,23 +4,20 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use derive_more::Display;
-use mlua::{ChunkMode, HookTriggers};
+use mlua::{ChunkMode, HookTriggers, Table};
 use serde::{Deserialize, Serialize};
 
-use crate::infrastructure::api::convert::from_data::{ConversionStyle, DataToApiConversionContext};
+use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use crate::infrastructure::api::convert::{from_data, to_data};
-use crate::infrastructure::api::schema;
 use crate::infrastructure::data::{
     CompartmentModelData, MappingModelData, ModeModelData, SessionData, SourceModelData,
     TargetModelData,
 };
 use crate::infrastructure::ui::lua_serializer;
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Envelope<T> {
-    pub value: T,
-}
+use realearn_api::schema;
+use realearn_api::schema::{ApiObject, Envelope};
+use realearn_csi::{deserialize_csi_object_from_csi, AnnotatedResult, CsiObject};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind")]
@@ -33,15 +30,6 @@ pub enum DataObject {
     Source(Envelope<Box<SourceModelData>>),
     Mode(Envelope<Box<ModeModelData>>),
     Target(Envelope<Box<TargetModelData>>),
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "kind")]
-pub enum ApiObject {
-    MainCompartment(Envelope<Box<schema::Compartment>>),
-    ControllerCompartment(Envelope<Box<schema::Compartment>>),
-    Mappings(Envelope<Vec<schema::Mapping>>),
-    Mapping(Envelope<Box<schema::Mapping>>),
 }
 
 impl DataObject {
@@ -87,62 +75,47 @@ impl DataObject {
             .map(|m| to_data::convert_mapping(m, conversion_context))
             .collect()
     }
-}
 
-impl ApiObject {
-    pub fn try_from_data_object(
-        data_object: DataObject,
-        conversion_context: &impl DataToApiConversionContext,
+    pub fn try_into_api_object(
+        self,
         conversion_style: ConversionStyle,
-    ) -> Result<Self, Box<dyn Error>> {
-        let api_object = match data_object {
-            DataObject::MainCompartment(Envelope { value: c }) => {
-                let api_compartment =
-                    from_data::convert_compartment(*c, conversion_context, conversion_style)?;
-                ApiObject::MainCompartment(Envelope {
-                    value: Box::new(api_compartment),
-                })
-            }
-            DataObject::ControllerCompartment(Envelope { value: c }) => {
-                let api_compartment =
-                    from_data::convert_compartment(*c, conversion_context, conversion_style)?;
-                ApiObject::ControllerCompartment(Envelope {
-                    value: Box::new(api_compartment),
-                })
-            }
-            DataObject::Session(Envelope { .. }) => todo!("session API not yet implemented"),
-            DataObject::Mappings(Envelope { value: mappings }) => {
-                let api_mappings: Result<Vec<_>, _> = mappings
-                    .into_iter()
-                    .map(|m| from_data::convert_mapping(m, conversion_context, conversion_style))
-                    .collect();
-                ApiObject::Mappings(Envelope {
-                    value: api_mappings?,
-                })
-            }
-            DataObject::Mapping(Envelope { value: m }) => {
-                let api_mapping =
-                    from_data::convert_mapping(*m, conversion_context, conversion_style)?;
-                ApiObject::Mapping(Envelope {
-                    value: Box::new(api_mapping),
-                })
-            }
-            _ => {
-                return Err(
+    ) -> Result<ApiObject, Box<dyn Error>> {
+        let api_object =
+            match self {
+                DataObject::MainCompartment(Envelope { value: c }) => {
+                    let api_compartment = from_data::convert_compartment(*c, conversion_style)?;
+                    ApiObject::MainCompartment(Envelope {
+                        value: Box::new(api_compartment),
+                    })
+                }
+                DataObject::ControllerCompartment(Envelope { value: c }) => {
+                    let api_compartment = from_data::convert_compartment(*c, conversion_style)?;
+                    ApiObject::ControllerCompartment(Envelope {
+                        value: Box::new(api_compartment),
+                    })
+                }
+                DataObject::Session(Envelope { .. }) => todo!("session API not yet implemented"),
+                DataObject::Mappings(Envelope { value: mappings }) => {
+                    let api_mappings: Result<Vec<_>, _> = mappings
+                        .into_iter()
+                        .map(|m| from_data::convert_mapping(m, conversion_style))
+                        .collect();
+                    ApiObject::Mappings(Envelope {
+                        value: api_mappings?,
+                    })
+                }
+                DataObject::Mapping(Envelope { value: m }) => {
+                    let api_mapping = from_data::convert_mapping(*m, conversion_style)?;
+                    ApiObject::Mapping(Envelope {
+                        value: Box::new(api_mapping),
+                    })
+                }
+                _ => return Err(
                     "conversion from source/mode/target data object not supported at the moment"
                         .into(),
-                )
-            }
-        };
+                ),
+            };
         Ok(api_object)
-    }
-
-    pub fn into_mappings(self) -> Option<Vec<schema::Mapping>> {
-        match self {
-            ApiObject::Mappings(Envelope { value: mappings }) => Some(mappings),
-            ApiObject::Mapping(Envelope { value: m }) => Some(vec![*m]),
-            _ => None,
-        }
     }
 }
 
@@ -150,16 +123,22 @@ impl ApiObject {
 pub fn deserialize_data_object(
     text: &str,
     conversion_context: &impl ApiToDataConversionContext,
-) -> Result<DataObject, Box<dyn Error>> {
+) -> Result<AnnotatedResult<DataObject>, Box<dyn Error>> {
     let json_err = match deserialize_data_object_from_json(text) {
         Ok(o) => {
-            return Ok(o);
+            return Ok(AnnotatedResult::without_annotations(o));
         }
         Err(e) => e,
     };
     let lua_err = match deserialize_data_object_from_lua(text, conversion_context) {
         Ok(o) => {
-            return Ok(o);
+            return Ok(AnnotatedResult::without_annotations(o));
+        }
+        Err(e) => e,
+    };
+    let csi_err = match deserialize_data_object_from_csi(text, conversion_context) {
+        Ok(r) => {
+            return Ok(r);
         }
         Err(e) => e,
     };
@@ -168,14 +147,29 @@ pub fn deserialize_data_object(
         Invalid JSON: \n\
         {}\n\n\
         Invalid Lua: \n\
+        {}\n\n\
+        Invalid CSI: \n\
         {}",
-        json_err, lua_err
+        json_err, lua_err, csi_err
     );
     Err(msg.into())
 }
 
 pub fn deserialize_data_object_from_json(text: &str) -> Result<DataObject, Box<dyn Error>> {
     Ok(serde_json::from_str(text)?)
+}
+
+pub fn deserialize_data_object_from_csi(
+    text: &str,
+    conversion_context: &impl ApiToDataConversionContext,
+) -> Result<AnnotatedResult<DataObject>, Box<dyn Error>> {
+    let csi_object = deserialize_csi_object_from_csi(text)?;
+    let api_object_res = CsiObject::try_into_api_object(csi_object)?;
+    let res = AnnotatedResult {
+        value: DataObject::try_from_api_object(api_object_res.value, conversion_context)?,
+        annotations: api_object_res.annotations,
+    };
+    Ok(res)
 }
 
 pub fn deserialize_data_object_from_lua(
@@ -198,29 +192,26 @@ pub enum SerializationFormat {
 
 pub fn serialize_data_object(
     data_object: DataObject,
-    conversion_context: &impl DataToApiConversionContext,
     format: SerializationFormat,
 ) -> Result<String, Box<dyn Error>> {
     match format {
         SerializationFormat::JsonDataObject => serialize_data_object_to_json(data_object),
         SerializationFormat::LuaApiObject(style) => {
-            serialize_data_object_to_lua(data_object, conversion_context, style)
+            serialize_data_object_to_lua(data_object, style)
         }
     }
 }
 
 pub fn serialize_data_object_to_lua(
     data_object: DataObject,
-    conversion_context: &impl DataToApiConversionContext,
     conversion_style: ConversionStyle,
 ) -> Result<String, Box<dyn Error>> {
-    let api_object =
-        ApiObject::try_from_data_object(data_object, conversion_context, conversion_style)?;
+    let api_object = data_object.try_into_api_object(conversion_style)?;
     Ok(lua_serializer::to_string(&api_object)?)
 }
 
 pub fn deserialize_api_object_from_lua(text: &str) -> Result<ApiObject, Box<dyn Error>> {
-    use mlua::{Lua, LuaSerdeExt};
+    use mlua::{Lua, LuaSerdeExt, Value};
     let lua = Lua::new();
     let instant = Instant::now();
     lua.set_hook(
@@ -235,7 +226,21 @@ pub fn deserialize_api_object_from_lua(text: &str) -> Result<ApiObject, Box<dyn 
             }
         },
     )?;
-    let env = lua.create_table()?;
+    let env = {
+        let new_env = lua.create_table()?;
+        let original_env = lua.globals();
+        new_env
+            .set("table", {
+                let new_table = lua.create_table()?;
+                let original_table: Table = original_env.get("table")?;
+                new_table
+                    .set::<_, Value>("insert", original_table.get("insert")?)
+                    .unwrap();
+                new_table
+            })
+            .unwrap();
+        new_env
+    };
     let lua_chunk = lua
         .load(text)
         .set_name("Import")?

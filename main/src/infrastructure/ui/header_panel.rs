@@ -35,6 +35,7 @@ use crate::infrastructure::plugin::{
 
 use crate::infrastructure::ui::bindings::root;
 
+use crate::base::notification::notify_processing_result;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::open_in_browser;
@@ -42,11 +43,12 @@ use crate::infrastructure::ui::{
     add_firewall_rule, copy_text_to_clipboard, deserialize_api_object_from_lua,
     deserialize_data_object, deserialize_data_object_from_json, get_text_from_clipboard,
     serialize_data_object, serialize_data_object_to_json, serialize_data_object_to_lua, DataObject,
-    Envelope, GroupFilter, GroupPanel, IndependentPanelManager, MappingRowsPanel, SearchExpression,
+    GroupFilter, GroupPanel, IndependentPanelManager, MappingRowsPanel, SearchExpression,
     SerializationFormat, SharedIndependentPanelManager, SharedMainState, SourceFilter,
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
+use realearn_api::schema::Envelope;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::net::Ipv4Addr;
@@ -683,24 +685,23 @@ impl HeaderPanel {
         conversion_style: ConversionStyle,
     ) -> Result<(), Box<dyn Error>> {
         let data_object = self.get_listened_mappings_as_data_object();
-        let json = {
-            let session = self.session();
-            let session = session.borrow();
-            let compartment_in_session = CompartmentInSession {
-                session: &session,
-                compartment: self.active_compartment(),
-            };
-            serialize_data_object_to_lua(data_object, &compartment_in_session, conversion_style)?
-        };
+        let json = serialize_data_object_to_lua(data_object, conversion_style)?;
         copy_text_to_clipboard(json);
         Ok(())
     }
 
     fn get_listened_mappings_as_data_object(&self) -> DataObject {
+        let session = self.session();
+        let session = session.borrow();
+        let compartment = self.active_compartment();
+        let compartment_in_session = CompartmentInSession {
+            session: &session,
+            compartment,
+        };
         let mapping_datas = self
-            .get_listened_mappings()
+            .get_listened_mappings(compartment)
             .iter()
-            .map(|m| MappingModelData::from_model(&*m.borrow()))
+            .map(|m| MappingModelData::from_model(&*m.borrow(), &compartment_in_session))
             .collect();
         DataObject::Mappings(Envelope {
             value: mapping_datas,
@@ -708,7 +709,7 @@ impl HeaderPanel {
     }
 
     fn auto_name_listed_mappings(&self) {
-        let listed_mappings = self.get_listened_mappings();
+        let listed_mappings = self.get_listened_mappings(self.active_compartment());
         if listed_mappings.is_empty() {
             return;
         }
@@ -730,7 +731,8 @@ impl HeaderPanel {
         let group_id = group_id
             .or_else(|| self.add_group_internal().ok())
             .ok_or("no group selected")?;
-        let listed_mappings = self.get_listened_mappings();
+        let compartment = self.active_compartment();
+        let listed_mappings = self.get_listened_mappings(compartment);
         if listed_mappings.is_empty() {
             return Err("mapping list empty");
         }
@@ -743,7 +745,6 @@ impl HeaderPanel {
         ) {
             return Err("cancelled");
         }
-        let compartment = self.active_compartment();
         let session = self.session();
         let mut session = session.borrow_mut();
         let mapping_ids: Vec<_> = listed_mappings
@@ -754,9 +755,8 @@ impl HeaderPanel {
         Ok(())
     }
 
-    fn get_listened_mappings(&self) -> Vec<SharedMapping> {
+    fn get_listened_mappings(&self, compartment: MappingCompartment) -> Vec<SharedMapping> {
         let main_state = self.main_state.borrow();
-        let compartment = main_state.active_compartment.get();
         let session = self.session();
         let session = session.borrow();
         MappingRowsPanel::filtered_mappings(&session, &main_state, compartment, false)
@@ -802,14 +802,27 @@ impl HeaderPanel {
         let compartment = main_state.active_compartment.get();
         let session = self.session();
         let mut session = session.borrow_mut();
-        let new_mappings: Vec<_> = mapping_datas
+        let compartment_in_session = CompartmentInSession {
+            session: &session,
+            compartment,
+        };
+        let group_key = if let Some(group) = session.find_group_by_id(compartment, group_id) {
+            group.borrow().key().clone()
+        } else {
+            return;
+        };
+        let mapping_models: Vec<_> = mapping_datas
             .into_iter()
             .map(|mut data| {
-                data.group_id = group_id;
-                data.to_model(compartment, session.extended_context())
+                data.group_id = group_key.clone();
+                data.to_model(
+                    compartment,
+                    session.extended_context(),
+                    &compartment_in_session,
+                )
             })
             .collect();
-        session.replace_mappings_of_group(compartment, group_id, new_mappings.into_iter());
+        session.replace_mappings_of_group(compartment, group_id, mapping_models.into_iter());
     }
 
     fn toggle_learn_source_filter(&self) {
@@ -1737,7 +1750,7 @@ impl HeaderPanel {
             .plugin_parameters
             .upgrade()
             .expect("plugin params gone");
-        let data_object = {
+        let res = {
             let session = self.session();
             let session = session.borrow();
             let compartment_in_session = CompartmentInSession {
@@ -1746,7 +1759,7 @@ impl HeaderPanel {
             };
             deserialize_data_object(&text, &compartment_in_session)?
         };
-        match data_object {
+        match res.value {
             DataObject::Session(Envelope { value: d}) => {
                 if self.view.require_window().confirm(
                     "ReaLearn",
@@ -1756,10 +1769,14 @@ impl HeaderPanel {
                 }
             }
             DataObject::MainCompartment(Envelope {value}) => {
-                self.import_compartment(MappingCompartment::MainMappings, value);
+                let compartment = MappingCompartment::MainMappings;
+                self.import_compartment(compartment, value);
+                self.update_compartment(compartment);
             }
             DataObject::ControllerCompartment(Envelope {value}) => {
-                self.import_compartment(MappingCompartment::ControllerMappings, value);
+                let compartment = MappingCompartment::ControllerMappings;
+                self.import_compartment(compartment, value);
+                self.update_compartment(compartment);
             }
             DataObject::Mappings{..} => {
                 return Err("The clipboard contains just a lose collection of mappings. Please import them using the context menus.".into())
@@ -1770,6 +1787,12 @@ impl HeaderPanel {
             _ => {
                 return Err("The clipboard contains only a part of a mapping. Please import it using the context menus in the mapping area.".into())
             }
+        }
+        if !res.annotations.is_empty() {
+            notify_processing_result(
+                "Import from clipboard",
+                res.annotations.into_iter().map(|a| a.to_string()).collect(),
+            );
         }
         Ok(())
     }
@@ -1787,8 +1810,14 @@ impl HeaderPanel {
             // For now, let's assume that the imported data is always tailored to the running
             // ReaLearn version.
             let version = App::version();
-            let model = data.to_model(Some(version), compartment);
-            session.replace_compartment(compartment, Some(model), self.session.clone());
+            match data.to_model(Some(version), compartment) {
+                Ok(model) => {
+                    session.replace_compartment(compartment, Some(model), self.session.clone());
+                }
+                Err(e) => {
+                    self.view.require_window().alert("ReaLearn", e);
+                }
+            }
         }
     }
 
@@ -1876,11 +1905,7 @@ impl HeaderPanel {
                     }
                     MappingCompartment::MainMappings => DataObject::MainCompartment(envelope),
                 };
-                let compartment_in_session = CompartmentInSession {
-                    session: &session,
-                    compartment,
-                };
-                let text = serialize_data_object(data_object, &compartment_in_session, format)?;
+                let text = serialize_data_object(data_object, format)?;
                 copy_text_to_clipboard(text);
             }
         };
@@ -1953,7 +1978,7 @@ impl HeaderPanel {
     fn save_active_preset(&self) -> Result<(), &'static str> {
         self.make_mappings_project_independent_if_desired();
         let session = self.session();
-        let session = session.borrow();
+        let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
         let preset_id = match compartment {
             MappingCompartment::ControllerMappings => session.active_controller_preset_id(),
@@ -1981,6 +2006,7 @@ impl HeaderPanel {
                 preset_manager.borrow_mut().update_preset(main_preset)?;
             }
         };
+        session.compartment_is_dirty[compartment].set(false);
         Ok(())
     }
 
@@ -2230,18 +2256,11 @@ impl HeaderPanel {
             view.invalidate_control_input_combo_box();
             view.invalidate_feedback_output_combo_box();
         });
-        // TODO-medium This is lots of stuff done whenever changing just something small in a
-        // mapping  or group. Maybe micro optimization, I don't know. Alternatively we could
-        // just set a  dirty flag once something changed and reset it after saving!
-        // Mainly enables/disables save button depending on dirty state.
+        // Enables/disables save button depending on dirty state.
         when(
-            session
-                .mapping_list_changed()
-                .map_to(())
-                .merge(session.mapping_changed().map_to(()))
-                .merge(session.group_list_changed().map_to(()))
-                .merge(session.group_changed().map_to(()))
-                .merge(session.parameter_settings_changed().map_to(()))
+            session.compartment_is_dirty[MappingCompartment::ControllerMappings]
+                .changed()
+                .merge(session.compartment_is_dirty[MappingCompartment::MainMappings].changed())
                 .take_until(self.view.closed()),
         )
         .with(Rc::downgrade(&self))

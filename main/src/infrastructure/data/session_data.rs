@@ -4,22 +4,23 @@ use crate::application::{
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    GroupId, InstanceState, MappingCompartment, MappingId, MidiControlInput, MidiDestination,
-    OscDeviceId, ParameterArray, QualifiedSlotDescriptor, Tag, COMPARTMENT_PARAMETER_COUNT,
-    ZEROED_PLUGIN_PARAMETERS,
+    GroupId, GroupKey, InstanceState, MappingCompartment, MappingId, MidiControlInput,
+    MidiDestination, OscDeviceId, ParameterArray, QualifiedSlotDescriptor, Tag,
+    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
-    GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
+    ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
+    ParameterData,
 };
 use crate::infrastructure::plugin::App;
 
-use crate::infrastructure::api::convert::from_data::DataToApiConversionContext;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
+use std::error::Error;
 use std::ops::Deref;
 
 /// This is the structure for loading and saving a ReaLearn session.
@@ -76,10 +77,14 @@ pub struct SessionData {
     active_main_preset_id: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
     main_preset_auto_load_mode: MainPresetAutoLoadMode,
+    // String key workaround because otherwise deserialization doesn't work with flattening,
+    // which is used in CompartmentModelData.
     #[serde(default, skip_serializing_if = "is_default")]
-    parameters: HashMap<u32, ParameterData>,
+    parameters: HashMap<String, ParameterData>,
+    // String key workaround because otherwise deserialization doesn't work with flattening,
+    // which is used in CompartmentModelData.
     #[serde(default, skip_serializing_if = "is_default")]
-    controller_parameters: HashMap<u32, ParameterData>,
+    controller_parameters: HashMap<String, ParameterData>,
     #[serde(default, skip_serializing_if = "is_default")]
     clip_slots: Vec<QualifiedSlotDescriptor>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -163,9 +168,13 @@ impl Default for SessionData {
 impl SessionData {
     pub fn from_model(session: &Session, parameters: &ParameterArray) -> SessionData {
         let from_mappings = |compartment| {
+            let compartment_in_session = CompartmentInSession {
+                session,
+                compartment,
+            };
             session
                 .mappings(compartment)
-                .map(|m| MappingModelData::from_model(m.borrow().deref()))
+                .map(|m| MappingModelData::from_model(m.borrow().deref(), &compartment_in_session))
                 .collect()
         };
         let from_groups = |compartment| {
@@ -252,8 +261,13 @@ impl SessionData {
         &self,
         session: &mut Session,
         params: &ParameterArray,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), Box<dyn Error>> {
         // Validation
+        ensure_no_duplicate_compartment_data(
+            &self.mappings,
+            &self.groups,
+            self.parameters.values().map(|p| &p.settings),
+        )?;
         let (midi_control_input, osc_control_input) = match self.control_device_id.as_ref() {
             None => (MidiControlInput::FxInput, None),
             Some(dev_id) => {
@@ -348,7 +362,7 @@ impl SessionData {
         let get_final_default_group =
             |def_group: Option<&GroupModelData>, compartment: MappingCompartment| {
                 def_group
-                    .map(|g| g.to_model(compartment))
+                    .map(|g| g.to_model(compartment, true))
                     .unwrap_or_else(|| GroupModel::default_for_compartment(compartment))
             };
         session
@@ -361,7 +375,7 @@ impl SessionData {
             MappingCompartment::MainMappings,
             self.groups
                 .iter()
-                .map(|g| g.to_model(MappingCompartment::MainMappings)),
+                .map(|g| g.to_model(MappingCompartment::MainMappings, false)),
         );
         session
             .default_group(MappingCompartment::ControllerMappings)
@@ -373,11 +387,15 @@ impl SessionData {
             MappingCompartment::ControllerMappings,
             self.controller_groups
                 .iter()
-                .map(|g| g.to_model(MappingCompartment::ControllerMappings)),
+                .map(|g| g.to_model(MappingCompartment::ControllerMappings, false)),
         );
         // Mappings
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
             let extended_context = session.extended_context_with_params(params);
+            let compartment_in_session = CompartmentInSession {
+                session,
+                compartment,
+            };
             let mappings: Vec<_> = mappings
                 .iter()
                 .map(|m| {
@@ -386,6 +404,7 @@ impl SessionData {
                         Some(extended_context),
                         &migration_descriptor,
                         self.version.as_ref(),
+                        &compartment_in_session,
                     )
                 })
                 .collect();
@@ -444,7 +463,9 @@ impl SessionData {
     pub fn parameters_as_array(&self) -> ParameterArray {
         let mut parameters = ZEROED_PLUGIN_PARAMETERS;
         for (i, p) in self.parameters.iter() {
-            parameters[*i as usize] = p.value;
+            if let Ok(i) = i.parse::<u32>() {
+                parameters[i as usize] = p.value;
+            }
         }
         parameters
     }
@@ -454,7 +475,7 @@ fn get_parameter_data_map(
     session: &Session,
     parameters: &ParameterArray,
     compartment: MappingCompartment,
-) -> HashMap<u32, ParameterData> {
+) -> HashMap<String, ParameterData> {
     (0..COMPARTMENT_PARAMETER_COUNT)
         .filter_map(|i| {
             let parameter_slice = compartment.slice_params(parameters);
@@ -464,22 +485,20 @@ fn get_parameter_data_map(
                 return None;
             }
             let data = ParameterData {
-                key: settings.key.clone(),
+                settings: settings.clone(),
                 value,
-                name: settings.name.clone(),
             };
-            Some((i, data))
+            Some((i.to_string(), data))
         })
         .collect()
 }
 
-fn get_parameter_settings(data_map: &HashMap<u32, ParameterData>) -> Vec<ParameterSetting> {
+fn get_parameter_settings(data_map: &HashMap<String, ParameterData>) -> Vec<ParameterSetting> {
     let mut settings = empty_parameter_settings();
     for (i, p) in data_map.iter() {
-        settings[*i as usize] = ParameterSetting {
-            key: p.key.clone(),
-            name: p.name.clone(),
-        };
+        if let Ok(i) = i.parse::<u32>() {
+            settings[i as usize] = p.settings.clone();
+        }
     }
     settings
 }
@@ -489,23 +508,47 @@ pub struct CompartmentInSession<'a> {
     pub compartment: MappingCompartment,
 }
 
-impl<'a> DataToApiConversionContext for CompartmentInSession<'a> {
-    fn group_key_by_id(&self, group_id: GroupId) -> Option<String> {
+impl<'a> ModelToDataConversionContext for CompartmentInSession<'a> {
+    fn non_default_group_key_by_id(&self, group_id: GroupId) -> Option<GroupKey> {
         let group = self.session.find_group_by_id(self.compartment, group_id)?;
-        group.borrow().key().cloned()
+        Some(group.borrow().key().clone())
+    }
+}
+
+impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
+    fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId> {
+        let group = self.session.find_group_by_key(self.compartment, key)?;
+        Some(group.borrow().id())
     }
 }
 
 impl<'a> ApiToDataConversionContext for CompartmentInSession<'a> {
-    fn group_id_by_key(&self, key: &str) -> Option<GroupId> {
-        let group = self.session.find_group_by_key(self.compartment, key)?;
-        Some(group.borrow().id())
-    }
-
     fn param_index_by_key(&self, key: &str) -> Option<u32> {
         let (i, _) = self
             .session
             .find_parameter_setting_by_key(self.compartment, key)?;
         Some(i)
     }
+}
+
+pub trait ModelToDataConversionContext {
+    fn group_key_by_id(&self, group_id: GroupId) -> Option<GroupKey> {
+        if group_id.is_default() {
+            return Some(GroupKey::default());
+        }
+        self.non_default_group_key_by_id(group_id)
+    }
+
+    fn non_default_group_key_by_id(&self, group_id: GroupId) -> Option<GroupKey>;
+}
+
+pub trait DataToModelConversionContext {
+    fn group_id_by_key(&self, key: &GroupKey) -> Option<GroupId> {
+        if key.is_empty() {
+            return Some(GroupId::default());
+        }
+        self.non_default_group_id_by_key(key)
+    }
+
+    fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId>;
 }

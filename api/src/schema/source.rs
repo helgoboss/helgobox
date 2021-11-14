@@ -27,10 +27,10 @@ pub enum Source {
     MidiClockTransport(MidiClockTransportSource),
     MidiRaw(MidiRawSource),
     MidiScript(MidiScriptSource),
-    MackieLcd(MackieLcd),
-    MackieSevenSegmentDisplay(MackieSevenSegmentDisplay),
-    SiniConE24Display(SiniConE24Display),
-    LaunchpadProScrollingTextDisplay(LaunchpadProScrollingTextDisplay),
+    MackieLcd(MackieLcdSource),
+    MackieSevenSegmentDisplay(MackieSevenSegmentDisplaySource),
+    SiniConE24Display(SiniConE24DisplaySource),
+    LaunchpadProScrollingTextDisplay(LaunchpadProScrollingTextDisplaySource),
     // OSC
     Osc(OscSource),
     Virtual(VirtualSource),
@@ -57,7 +57,7 @@ impl Default for FeedbackBehavior {
 }
 
 mod midi {
-    use crate::infrastructure::api::schema::FeedbackBehavior;
+    use crate::schema::FeedbackBehavior;
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
@@ -188,12 +188,15 @@ mod midi {
         pub script: Option<String>,
     }
 
-    #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
     pub enum SourceCharacter {
         Range,
         Button,
+        // 127 = decrement;  0 = none;  1 = increment
         Relative1,
+        //  63 = decrement; 64 = none; 65 = increment
         Relative2,
+        //  65 = decrement;  0 = none;  1 = increment
         Relative3,
         StatefulButton,
     }
@@ -219,7 +222,7 @@ mod midi {
 
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
-    pub struct MackieLcd {
+    pub struct MackieLcdSource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub channel: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -228,7 +231,7 @@ mod midi {
 
     #[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
-    pub struct MackieSevenSegmentDisplay {
+    pub struct MackieSevenSegmentDisplaySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub scope: Option<MackieSevenSegmentDisplayScope>,
     }
@@ -252,7 +255,7 @@ mod midi {
 
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
-    pub struct SiniConE24Display {
+    pub struct SiniConE24DisplaySource {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub cell_index: Option<u8>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -261,11 +264,11 @@ mod midi {
 
     #[derive(Default, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(deny_unknown_fields)]
-    pub struct LaunchpadProScrollingTextDisplay;
+    pub struct LaunchpadProScrollingTextDisplaySource;
 }
 
 mod osc {
-    use crate::infrastructure::api::schema::{FeedbackBehavior, OscArgument};
+    use crate::schema::{FeedbackBehavior, OscArgument};
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
@@ -284,9 +287,7 @@ mod osc {
 }
 
 mod virt {
-    use crate::infrastructure::api::schema::{
-        VirtualControlElementCharacter, VirtualControlElementId,
-    };
+    use crate::schema::{VirtualControlElementCharacter, VirtualControlElementId};
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 

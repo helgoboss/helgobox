@@ -309,11 +309,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// This is a very important principle when using multiple instances. It allows feedback to
     /// not be accidentally cleared while still guaranteeing that feedback for non-used control
     /// elements are cleared eventually - independently from the order of instance processing.
-    pub fn maybe_takeover_source(&self, feedback_value: &SourceFeedbackValue) -> bool {
+    pub fn maybe_takeover_source(&self, released_event: &SourceReleasedEvent) -> bool {
+        if Some(released_event.feedback_output) != self.basics.feedback_output {
+            // Difference feedback device. No source takeover of course.
+            return false;
+        }
         if let Some(mapping_with_source) = self.all_mappings().find(|m| {
             m.feedback_is_effectively_on()
                 && m.source()
-                    .has_same_feedback_address_as_value(feedback_value)
+                    .has_same_feedback_address_as_value(&released_event.feedback_value)
         }) {
             if let Some(followed_mapping) = self.follow_maybe_virtual_mapping(mapping_with_source) {
                 if self.basics.instance_feedback_is_effectively_enabled() {
@@ -558,33 +562,51 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             m,
                             &self.collections.mappings_with_virtual_targets,
                             &mut |t| {
-                                if let Some(value) = t.current_value(control_context) {
-                                    match previous_target_values[compartment].entry(*mapping_id) {
-                                        Entry::Occupied(mut e) => {
-                                            // We really want to resend if there's the slightest
-                                            // difference. It's okay to have direct comparison
-                                            // because we know the source of these two values is
-                                            // the same.
-                                            if e.get().to_unit_value().get()
-                                                == value.to_unit_value().get()
-                                            {
-                                                // Value hasn't changed.
-                                                (false, None)
-                                            } else {
-                                                // Value has changed.
+                                if m.mode().wants_textual_feedback() {
+                                    // Text feedback is not necessarily based on percentages.
+                                    // This means we can have the situation that in terms of
+                                    // percentages (usually relevant for control direction), the
+                                    // current value might be below 0% or above 100%, which would
+                                    // let the percentage (unit value) stay the same. But the
+                                    // text feedback might go beyond that interval, so we should
+                                    // always update it! Example: Seek target with "Use project"
+                                    // enabled.
+                                    (true, None)
+                                } else {
+                                    // Numeric feedback is always in percentages, so we can
+                                    // safely block feedback already here if we encounter
+                                    // duplicate target values. So check for duplicate feedback!
+                                    // TODO-high-discrete Maybe not true anymore with discrete
+                                    //  targets.
+                                    if let Some(value) = t.current_value(control_context) {
+                                        match previous_target_values[compartment].entry(*mapping_id)
+                                        {
+                                            Entry::Occupied(mut e) => {
+                                                // We really want to resend if there's the slightest
+                                                // difference. It's okay to have direct comparison
+                                                // because we know the source of these two values is
+                                                // the same.
+                                                if e.get().to_unit_value().get()
+                                                    == value.to_unit_value().get()
+                                                {
+                                                    // Value hasn't changed.
+                                                    (false, None)
+                                                } else {
+                                                    // Value has changed.
+                                                    e.insert(value);
+                                                    (true, Some(value))
+                                                }
+                                            }
+                                            Entry::Vacant(e) => {
+                                                // No feedback sent yet for that milli-dependent mapping.
                                                 e.insert(value);
                                                 (true, Some(value))
                                             }
                                         }
-                                        Entry::Vacant(e) => {
-                                            // No feedback sent yet for that milli-dependent mapping.
-                                            e.insert(value);
-                                            (true, Some(value))
-                                        }
+                                    } else {
+                                        // Couldn't determine feedback value.
+                                        (false, None)
                                     }
-                                } else {
-                                    // Couldn't determine feedback value.
-                                    (false, None)
                                 }
                             },
                         );
@@ -826,7 +848,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 compartment,
                 mapping_activation_updates,
                 target_activation_changes,
-                &unused_sources,
+                unused_sources,
                 changed_mappings.into_iter(),
             )
         }
@@ -880,7 +902,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 compartment,
                 mapping_activation_changes,
                 target_activation_changes,
-                &unused_sources,
+                unused_sources,
                 changed_mappings.into_iter(),
             );
         }
@@ -986,10 +1008,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.basics.feedback_is_globally_enabled = is_enabled;
         if is_enabled {
             for compartment in MappingCompartment::enum_iter() {
-                self.handle_feedback_after_having_updated_all_mappings(
-                    compartment,
-                    &HashMap::new(),
-                );
+                self.handle_feedback_after_having_updated_all_mappings(compartment, HashMap::new());
             }
         } else {
             // Clear it completely. Other instances that might take over maybe don't use
@@ -1042,7 +1061,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.notify_feedback_dev_usage_might_have_changed(compartment);
             self.handle_feedback_after_having_updated_particular_mappings(
                 compartment,
-                &unused_sources,
+                unused_sources,
                 changed_mappings.into_iter(),
             );
         }
@@ -1158,7 +1177,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         // clearing all mappings, other instances won't see yet that they are actually
         // allowed to take over sources! Which might delay the reactivation of
         // lower-floor instances.
-        self.handle_feedback_after_having_updated_all_mappings(compartment, &unused_sources);
+        self.handle_feedback_after_having_updated_all_mappings(compartment, unused_sources);
         self.update_on_mappings();
     }
 
@@ -1551,7 +1570,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         compartment: MappingCompartment,
         mapping_activation_updates: Vec<ActivationChange>,
         target_activation_updates: Vec<ActivationChange>,
-        unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
+        unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
         changed_mappings: impl Iterator<Item = MappingId>,
     ) {
         // Send feedback
@@ -1808,7 +1827,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn handle_feedback_after_having_updated_all_mappings(
         &mut self,
         compartment: MappingCompartment,
-        now_unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
+        now_unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
     ) {
         self.send_off_feedback_for_unused_sources(now_unused_sources);
         self.send_feedback(
@@ -1820,7 +1839,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn handle_feedback_after_having_updated_particular_mappings(
         &mut self,
         compartment: MappingCompartment,
-        now_unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
+        now_unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
         mapping_ids: impl Iterator<Item = MappingId>,
     ) {
         self.send_off_feedback_for_unused_sources(now_unused_sources);
@@ -1833,9 +1852,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// Indicate via off feedback the sources which are not in use anymore.
     fn send_off_feedback_for_unused_sources(
         &self,
-        now_unused_sources: &HashMap<CompoundMappingSourceAddress, QualifiedSource>,
+        now_unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
     ) {
-        for s in now_unused_sources.values() {
+        for s in now_unused_sources.into_values() {
             self.send_feedback(FeedbackReason::ClearUnusedSource, s.off_feedback());
         }
     }

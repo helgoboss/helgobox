@@ -9,23 +9,19 @@ use crate::domain::{
     SendMidiDestination, TrackRouteType,
 };
 use crate::infrastructure::api::convert::to_data::{
-    convert_control_element_id, convert_control_element_type, convert_group_key,
-    convert_osc_arg_type, convert_tags, ApiToDataConversionContext,
+    convert_control_element_id, convert_control_element_type, convert_osc_arg_type, convert_tags,
 };
 use crate::infrastructure::api::convert::{defaults, ConversionResult};
-use crate::infrastructure::api::schema::*;
 use crate::infrastructure::data::{
     serialize_fx, serialize_fx_parameter, serialize_track, serialize_track_route, BookmarkData,
     FxData, FxParameterData, TargetModelData, TrackData, TrackRouteData,
 };
 use crate::{application, domain};
+use realearn_api::schema::*;
 use reaper_high::Guid;
 use std::rc::Rc;
 
-pub fn convert_target(
-    t: Target,
-    context: &impl ApiToDataConversionContext,
-) -> ConversionResult<TargetModelData> {
+pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
     let data = match t {
         Target::LastTouched(d) => TargetModelData {
             category: TargetCategory::Reaper,
@@ -88,6 +84,12 @@ pub fn convert_target(
             category: TargetCategory::Reaper,
             r#type: ReaperTargetType::Transport,
             transport_action: convert_transport_action(d.action),
+            ..init(d.commons)
+        },
+        Target::AnyOn(d) => TargetModelData {
+            category: TargetCategory::Reaper,
+            r#type: ReaperTargetType::AnyOn,
+            any_on_parameter: convert_any_on_parameter(d.parameter),
             ..init(d.commons)
         },
         Target::CycleThroughTracks(d) => TargetModelData {
@@ -645,7 +647,7 @@ pub fn convert_target(
                     Some(Exclusive) => T::Exclusive,
                 }
             },
-            group_id: convert_group_key(d.group, context)?,
+            group_id: d.group.map(|g| g.into()).unwrap_or_default(),
             ..init(d.commons)
         },
         Target::Virtual(d) => TargetModelData {
@@ -1049,6 +1051,17 @@ fn convert_transport_action(transport_action: TransportAction) -> domain::Transp
         Pause => T::Pause,
         Record => T::Record,
         Repeat => T::Repeat,
+    }
+}
+
+fn convert_any_on_parameter(parameter: AnyOnParameter) -> domain::AnyOnParameter {
+    use domain::AnyOnParameter as T;
+    use AnyOnParameter::*;
+    match parameter {
+        TrackSolo => T::TrackSolo,
+        TrackMute => T::TrackMute,
+        TrackArm => T::TrackArm,
+        TrackSelection => T::TrackSelection,
     }
 }
 

@@ -359,7 +359,11 @@ pub fn get_realearn_target_prop_value_with_fallback<'a>(
 
 pub fn get_track_name(t: &Track) -> String {
     if let Some(n) = t.name() {
-        n.into_string()
+        if n.to_str().is_empty() {
+            format!("Track {}", t.index().unwrap_or(0) + 1)
+        } else {
+            n.into_string()
+        }
     } else {
         "<Master>".to_string()
     }
@@ -469,6 +473,8 @@ pub enum ReaperTargetType {
     AutomationModeOverride = 26,
 
     // Project targets
+    #[display(fmt = "Project: Any on (solo/mute/...)")]
+    AnyOn = 43,
     #[display(fmt = "Project: Invoke REAPER action")]
     Action = 0,
     #[display(fmt = "Project: Invoke transport action")]
@@ -576,6 +582,7 @@ impl Default for ReaperTargetType {
 
 impl ReaperTargetType {
     pub fn from_target(target: &ReaperTarget) -> ReaperTargetType {
+        // TODO-medium This is redundant. We provide this information already in the RealearnTarget impl.
         match target {
             ReaperTarget::Action(_) => ReaperTargetType::Action,
             ReaperTarget::FxParameter(_) => ReaperTargetType::FxParameter,
@@ -601,6 +608,7 @@ impl ReaperTargetType {
             ReaperTarget::SelectedTrack(_) => ReaperTargetType::SelectedTrack,
             ReaperTarget::AllTrackFxEnable(_) => ReaperTargetType::AllTrackFxEnable,
             ReaperTarget::Transport(_) => ReaperTargetType::Transport,
+            ReaperTarget::AnyOn(_) => ReaperTargetType::AnyOn,
             ReaperTarget::LoadFxSnapshot(_) => ReaperTargetType::LoadFxSnapshot,
             ReaperTarget::AutomationTouchState(_) => ReaperTargetType::AutomationTouchState,
             ReaperTarget::GoToBookmark(_) => ReaperTargetType::GoToBookmark,
@@ -687,7 +695,8 @@ impl ReaperTargetType {
             | LoadMappingSnapshot
             | EnableMappings
             | EnableInstances
-            | NavigateWithinGroup => false,
+            | NavigateWithinGroup
+            | AnyOn => false,
         }
     }
 
@@ -747,7 +756,8 @@ impl ReaperTargetType {
             | LoadMappingSnapshot
             | EnableMappings
             | EnableInstances
-            | NavigateWithinGroup => false,
+            | NavigateWithinGroup
+            | AnyOn => false,
         }
     }
 
@@ -793,7 +803,8 @@ impl ReaperTargetType {
             | ClipSeek
             | ClipVolume
             | FxNavigate
-            | NavigateWithinGroup => false,
+            | NavigateWithinGroup
+            | AnyOn => false,
             LoadMappingSnapshot | EnableMappings | EnableInstances => true,
         }
     }
@@ -853,7 +864,8 @@ impl ReaperTargetType {
             | LoadMappingSnapshot
             | EnableMappings
             | EnableInstances
-            | NavigateWithinGroup => false,
+            | NavigateWithinGroup
+            | AnyOn => false,
         }
     }
 
@@ -895,7 +907,8 @@ impl ReaperTargetType {
             | LoadMappingSnapshot
             | EnableMappings
             | EnableInstances
-            | NavigateWithinGroup => false,
+            | NavigateWithinGroup
+            | AnyOn => false,
         }
     }
 
@@ -942,7 +955,8 @@ impl ReaperTargetType {
             | TrackAutomationMode
             | AutomationTouchState
             | TrackShow
-            | TrackSolo => false,
+            | TrackSolo
+            | AnyOn => false,
         }
     }
 
@@ -1024,6 +1038,7 @@ impl ReaperTargetType {
             EnableMappings => "Enable/disable mappings",
             EnableInstances => "Enable/disable instances",
             NavigateWithinGroup => "Navigate within group",
+            AnyOn => "Any on",
         }
     }
 }

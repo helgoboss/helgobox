@@ -1,8 +1,8 @@
-use crate::infrastructure::api::schema::*;
+use crate::schema::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Compartment {
     #[serde(skip_serializing_if = "Option::is_none")]

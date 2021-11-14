@@ -16,7 +16,7 @@ use reaper_medium::{
 use rxrust::prelude::*;
 
 use crate::domain::{
-    EnableInstancesTarget, EnableMappingsTarget, HitInstructionReturnValue,
+    AnyOnTarget, EnableInstancesTarget, EnableMappingsTarget, HitInstructionReturnValue,
     LoadMappingSnapshotTarget, NavigateWithinGroupTarget, RealearnTarget, ReaperTargetType,
     RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget, TrackPhaseTarget,
 };
@@ -107,6 +107,7 @@ pub enum ReaperTarget {
     FxNavigate(FxNavigateTarget),
     AllTrackFxEnable(AllTrackFxEnableTarget),
     Transport(TransportTarget),
+    AnyOn(AnyOnTarget),
     LoadFxSnapshot(LoadFxSnapshotTarget),
     AutomationTouchState(AutomationTouchStateTarget),
     GoToBookmark(GoToBookmarkTarget),
@@ -566,6 +567,7 @@ impl<'a> Target<'a> for ReaperTarget {
             FxNavigate(t) => t.current_value(context),
             AllTrackFxEnable(t) => t.current_value(context),
             Transport(t) => t.current_value(context),
+            AnyOn(t) => t.current_value(context),
             AutomationTouchState(t) => t.current_value(context),
             GoToBookmark(t) => t.current_value(context),
             Seek(t) => t.current_value(context),
@@ -1274,18 +1276,14 @@ pub fn change_track_prop(
     mut enable: impl FnMut(&Track),
     mut disable: impl FnMut(&Track),
 ) {
-    let track_index = match track.index() {
-        // We consider the master track as its own folder (same as non-exclusive).
-        None => return,
-        Some(i) => i,
-    };
     if control_value.is_zero() {
+        // Case: Switch off
         if !exclusivity.is_on_only() {
             // Enable property for other tracks
             handle_exclusivity(
                 &track.project(),
                 exclusivity,
-                track_index,
+                track.index(),
                 track,
                 |_, track| enable(track),
             );
@@ -1293,11 +1291,12 @@ pub fn change_track_prop(
         // Disable property for this track
         disable(track);
     } else {
+        // Case: Switch on
         // Disable property for other tracks
         handle_exclusivity(
             &track.project(),
             exclusivity,
-            track_index,
+            track.index(),
             track,
             |_, track| disable(track),
         );
