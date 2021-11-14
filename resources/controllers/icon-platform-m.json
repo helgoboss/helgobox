@@ -1,2096 +1,3000 @@
 {
-  "version": "2.8.0-rc.2",
+  "version": "2.11.0-pre.13",
   "name": "iCON Platform M+",
   "defaultGroup": {},
   "groups": [
     {
-      "id": "7914fb49-7db1-4a46-a968-ba1eb50d4c53",
+      "id": "fader",
       "name": "Fader"
     },
     {
-      "id": "97d8dc80-0c85-45e2-9267-efec631ec6c0",
+      "id": "v-pot",
       "name": "V-Pot"
     },
     {
-      "id": "81c33a02-6ed8-4184-bacf-a7b8bbba3992",
+      "id": "v-select",
       "name": "V-Select"
     },
     {
-      "id": "c999dec2-f995-416e-902c-435e13741d43",
+      "id": "fader-touch",
       "name": "Fader Touch"
     },
     {
-      "id": "eddff3f6-731a-43a0-bbdb-465ea6cf32fb",
+      "id": "select",
       "name": "Select"
     },
     {
-      "id": "71b5cdd8-fc57-48fb-85d3-33261eab8363",
+      "id": "mute",
       "name": "Mute"
     },
     {
-      "id": "798ae332-0831-4d8e-97a6-e0d8e887dc58",
+      "id": "solo",
       "name": "Solo"
     },
     {
-      "id": "bbfdbd41-25b3-4b56-93d5-2216de7c3bad",
+      "id": "record-ready",
       "name": "Record-ready"
     },
     {
-      "id": "31bf82fd-1fca-46e8-a80a-bb6c8b891788",
+      "id": "v-pot-leds",
       "name": "V-Pot LEDs"
     },
     {
-      "id": "7b610089-6e14-412b-aa26-fceb6ac8be22",
+      "id": "lcd",
       "name": "LCD"
+    },
+    {
+      "id": "meter",
+      "name": "Meter"
     }
   ],
   "mappings": [
     {
-      "id": "e3897e49-a8f2-4c5f-ac55-a464dc0bd9a5",
-      "groupId": "81c33a02-6ed8-4184-bacf-a7b8bbba3992",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 32,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch1/v-select"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "87fc6ea2-e87d-46fe-bbfe-0edc74a2a573",
-      "groupId": "81c33a02-6ed8-4184-bacf-a7b8bbba3992",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 33,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch2/v-select"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "3d1ab3ce-140d-4ffc-aa26-1a5630d600cf",
-      "groupId": "81c33a02-6ed8-4184-bacf-a7b8bbba3992",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 34,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch3/v-select"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "7e996069-fac7-4d24-abfa-834ed7057c30",
-      "groupId": "81c33a02-6ed8-4184-bacf-a7b8bbba3992",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 35,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch4/v-select"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "a4154e91-08f3-40ab-ad7b-6b990e44d283",
-      "groupId": "81c33a02-6ed8-4184-bacf-a7b8bbba3992",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 36,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch5/v-select"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "af5a19df-f1ff-4241-abe6-1b2969f60e18",
-      "groupId": "81c33a02-6ed8-4184-bacf-a7b8bbba3992",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 37,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch6/v-select"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "b9b52328-71ed-482a-a1ba-1f9b8accab3e",
-      "groupId": "81c33a02-6ed8-4184-bacf-a7b8bbba3992",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 38,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch7/v-select"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "1af3b611-ced8-4208-909a-64b73e6a519b",
-      "groupId": "81c33a02-6ed8-4184-bacf-a7b8bbba3992",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 39,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch8/v-select"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "3017c0e4-a039-408d-9ac5-e3b4117b896d",
-      "groupId": "c999dec2-f995-416e-902c-435e13741d43",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 104,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch1/fader/touch"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "317728f5-5e44-4157-9186-50998236210d",
-      "groupId": "c999dec2-f995-416e-902c-435e13741d43",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 105,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch2/fader/touch"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "29a73d4a-90f3-42c0-b5ba-7e3390b809d3",
-      "groupId": "c999dec2-f995-416e-902c-435e13741d43",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 106,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch3/fader/touch"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "0d13f8be-9cdd-4105-9e62-4f785b395b7f",
-      "groupId": "c999dec2-f995-416e-902c-435e13741d43",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 107,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch4/fader/touch"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "18e6e5d3-5109-4a52-8f4b-b3f9454e3019",
-      "groupId": "c999dec2-f995-416e-902c-435e13741d43",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 108,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch5/fader/touch"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "d55baf7b-fdba-4c4e-bf1b-11e847462b55",
-      "groupId": "c999dec2-f995-416e-902c-435e13741d43",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 109,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch6/fader/touch"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "bd5649ac-d1f0-4ff9-a6a2-46075f65d39c",
-      "groupId": "c999dec2-f995-416e-902c-435e13741d43",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 110,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch7/fader/touch"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "02e05b02-97c1-4ef3-a5c1-6821b3a3a254",
-      "groupId": "c999dec2-f995-416e-902c-435e13741d43",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 111,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch8/fader/touch"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "c459f37a-6c8a-4483-b840-76fbab28a540",
-      "groupId": "eddff3f6-731a-43a0-bbdb-465ea6cf32fb",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 24,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch1/select"
-      }
-    },
-    {
-      "id": "aa6aa5ff-3cac-460b-8a5f-758b6b96fbf7",
-      "groupId": "eddff3f6-731a-43a0-bbdb-465ea6cf32fb",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 25,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch2/select"
-      }
-    },
-    {
-      "id": "8c32ed14-eb40-440b-a75a-3f8f204a9b92",
-      "groupId": "eddff3f6-731a-43a0-bbdb-465ea6cf32fb",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 26,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch3/select"
-      }
-    },
-    {
-      "id": "87962ec2-e6b5-4ab9-8d28-42eb5874b9c9",
-      "groupId": "eddff3f6-731a-43a0-bbdb-465ea6cf32fb",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 27,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch4/select"
-      }
-    },
-    {
-      "id": "d0a66fbb-7e9f-41b4-ada5-542cdcd2a5ce",
-      "groupId": "eddff3f6-731a-43a0-bbdb-465ea6cf32fb",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 28,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch5/select"
-      }
-    },
-    {
-      "id": "3ff4a53e-2fd9-4c45-94c9-0c7828315aa1",
-      "groupId": "eddff3f6-731a-43a0-bbdb-465ea6cf32fb",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 29,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch6/select"
-      }
-    },
-    {
-      "id": "02f324fc-c0d2-4d41-b2c4-0c0d89bb1ae9",
-      "groupId": "eddff3f6-731a-43a0-bbdb-465ea6cf32fb",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 30,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch7/select"
-      }
-    },
-    {
-      "id": "30ab5e85-8532-4367-806e-e104e355f4ea",
-      "groupId": "eddff3f6-731a-43a0-bbdb-465ea6cf32fb",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 31,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch8/select"
-      }
-    },
-    {
-      "id": "b96b11b3-4a31-48ec-8c30-faf16066bc39",
-      "groupId": "7914fb49-7db1-4a46-a968-ba1eb50d4c53",
+      "id": "main/fader",
+      "groupId": "fader",
       "source": {
         "type": 3,
-        "channel": 8,
-        "isRegistered": false,
-        "is14Bit": false
+        "channel": 8
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "main/fader"
+        "controlElementIndex": "main/fader",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "fbf84420-7d95-42cd-9d6b-7b9c6dc31362",
+      "id": "jog",
       "source": {
         "channel": 0,
         "number": 60,
         "character": 2,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "jog"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "175beaa9-8148-4eea-b181-387f0b63a193",
-      "groupId": "c999dec2-f995-416e-902c-435e13741d43",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 112,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "main/fader/touch"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "e51585de-1c33-4840-919d-bbfb65cda243",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 84,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "marker"
-      }
-    },
-    {
-      "id": "3ee408da-0f20-4980-9b53-e7e62642fd3d",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 74,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "read"
-      }
-    },
-    {
-      "id": "5454fc54-1c29-46a4-9076-820fc9c01831",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 75,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "write"
-      }
-    },
-    {
-      "id": "ae136493-d456-48d0-9005-f63a15e03dfa",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 48,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch-left"
-      }
-    },
-    {
-      "id": "33f8198c-2049-4dbc-a4f3-1192d36ec32f",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 49,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch-right"
-      }
-    },
-    {
-      "id": "7b259f76-b01e-46a4-bfab-68c536abcd50",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 46,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "bank-left"
-      }
-    },
-    {
-      "id": "e6da9c73-7fa8-450e-835f-4034435172bb",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 47,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "bank-right"
-      }
-    },
-    {
-      "id": "341780c3-5934-4a24-9f53-15d47b3c0bcf",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 91,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "rewind"
-      }
-    },
-    {
-      "id": "f6baff1a-c1ca-4079-a058-1df2c760a60d",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 92,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "fast-fwd"
-      }
-    },
-    {
-      "id": "7a3fa47d-9a5f-4b6e-b94a-e7a824524f91",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 94,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "play"
-      }
-    },
-    {
-      "id": "c6d6e47d-3658-4d66-86ec-3106f677f350",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 93,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "stop"
-      }
-    },
-    {
-      "id": "71d40701-cf09-41e5-bf5c-da34f70c66dc",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 95,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "record"
-      }
-    },
-    {
-      "id": "baba4dcf-6547-4680-bab9-3f1ce74ed1e1",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 86,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "cycle"
-      }
-    },
-    {
-      "id": "ee34c765-97b9-47c1-b0ac-896357130137",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 100,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "zoom"
-      }
-    },
-    {
-      "id": "a009a63d-ebcd-4ddc-94dc-7fbe2cb736c9",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 101,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "scrub"
-      }
-    },
-    {
-      "id": "68c924fe-ecd3-4a8c-a3b0-21f911675290",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 98,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "cursor-left"
-      }
-    },
-    {
-      "id": "4937420c-5aae-4c77-bb09-ca51865769ae",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 99,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "cursor-right"
-      }
-    },
-    {
-      "id": "6c383420-6c35-4849-8a4d-1ab5ed49a946",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 96,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "cursor-up"
-      }
-    },
-    {
-      "id": "9c981e61-f300-438c-9a2d-4b19b0f44ee9",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 97,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "cursor-down"
-      }
-    },
-    {
-      "id": "c91f7fc5-8039-491f-9d76-e43309994540",
-      "groupId": "7914fb49-7db1-4a46-a968-ba1eb50d4c53",
-      "source": {
-        "type": 3,
-        "channel": 0,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch1/fader"
-      }
-    },
-    {
-      "id": "48b3b205-f21e-40d8-9601-71e38b0a52ae",
-      "groupId": "7914fb49-7db1-4a46-a968-ba1eb50d4c53",
-      "source": {
-        "type": 3,
-        "channel": 1,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch2/fader"
-      }
-    },
-    {
-      "id": "e19cc7cc-9eba-43c6-b15c-01ddf27720b9",
-      "groupId": "7914fb49-7db1-4a46-a968-ba1eb50d4c53",
-      "source": {
-        "type": 3,
-        "channel": 2,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch3/fader"
-      }
-    },
-    {
-      "id": "9a856e20-d9be-4b33-8faf-60ebed517766",
-      "groupId": "7914fb49-7db1-4a46-a968-ba1eb50d4c53",
-      "source": {
-        "type": 3,
-        "channel": 3,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch4/fader"
-      }
-    },
-    {
-      "id": "3d34dfa2-f56d-4268-85f1-5ebd83bbf51b",
-      "groupId": "7914fb49-7db1-4a46-a968-ba1eb50d4c53",
-      "source": {
-        "type": 3,
-        "channel": 4,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch5/fader"
-      }
-    },
-    {
-      "id": "344f5801-72bb-477f-8e1d-5628aab5f4c1",
-      "groupId": "7914fb49-7db1-4a46-a968-ba1eb50d4c53",
-      "source": {
-        "type": 3,
-        "channel": 5,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch6/fader"
-      }
-    },
-    {
-      "id": "e144267e-8fd6-420b-b88f-f2934e86a2a4",
-      "groupId": "7914fb49-7db1-4a46-a968-ba1eb50d4c53",
-      "source": {
-        "type": 3,
-        "channel": 6,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch7/fader"
-      }
-    },
-    {
-      "id": "866efb60-ca4e-4f4d-9c5c-43229433b569",
-      "groupId": "7914fb49-7db1-4a46-a968-ba1eb50d4c53",
-      "source": {
-        "type": 3,
-        "channel": 7,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch8/fader"
-      }
-    },
-    {
-      "id": "0345d4d7-0592-439a-82b1-a21f1163fb0e",
-      "groupId": "97d8dc80-0c85-45e2-9267-efec631ec6c0",
-      "source": {
-        "channel": 0,
-        "number": 16,
-        "character": 2,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch1/v-pot"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "35e92ecc-0fa8-4939-bec2-ee6df4cef937",
-      "groupId": "31bf82fd-1fca-46e8-a80a-bb6c8b891788",
-      "source": {
-        "channel": 0,
-        "number": 48,
-        "isRegistered": false,
         "is14Bit": false
       },
       "mode": {
-        "minSourceValue": 0.25984251968503935,
-        "maxSourceValue": 0.33858267716535434
+        "feedbackColor": null
       },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "controlElementIndex": "ch1/v-pot"
-      },
-      "controlIsEnabled": false
-    },
-    {
-      "id": "4aac828c-edb0-4baf-9e9d-b20bbe4fee50",
-      "groupId": "97d8dc80-0c85-45e2-9267-efec631ec6c0",
-      "source": {
-        "channel": 0,
-        "number": 17,
-        "character": 2,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch2/v-pot"
+        "controlElementIndex": "jog",
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
-      "id": "080aa1fe-fbec-4bb1-b1da-2361d2806763",
-      "groupId": "31bf82fd-1fca-46e8-a80a-bb6c8b891788",
+      "id": "main/fader/touch",
+      "groupId": "fader-touch",
       "source": {
+        "type": 1,
         "channel": 0,
-        "number": 49,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 112
       },
       "mode": {
-        "minSourceValue": 0.25984251968503935,
-        "maxSourceValue": 0.33858267716535434
+        "feedbackColor": null
       },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "controlElementIndex": "ch2/v-pot"
-      },
-      "controlIsEnabled": false
-    },
-    {
-      "id": "ca1ff9dc-286c-4e28-a490-3b8a5297a377",
-      "groupId": "97d8dc80-0c85-45e2-9267-efec631ec6c0",
-      "source": {
-        "channel": 0,
-        "number": 18,
-        "character": 2,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch3/v-pot"
+        "controlElementType": "button",
+        "controlElementIndex": "main/fader/touch",
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
-      "id": "eeb98605-e0e8-4b5a-91c3-02f028f84304",
-      "groupId": "31bf82fd-1fca-46e8-a80a-bb6c8b891788",
+      "id": "marker",
       "source": {
+        "type": 1,
         "channel": 0,
-        "number": 50,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 84
       },
       "mode": {
-        "minSourceValue": 0.25984251968503935,
-        "maxSourceValue": 0.33858267716535434
+        "feedbackColor": null
       },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "controlElementIndex": "ch3/v-pot"
-      },
-      "controlIsEnabled": false
+        "controlElementType": "button",
+        "controlElementIndex": "marker",
+        "pollForFeedback": false
+      }
     },
     {
-      "id": "53c6f2b6-bd4e-4979-8909-27fed57188c2",
-      "groupId": "97d8dc80-0c85-45e2-9267-efec631ec6c0",
+      "id": "read",
       "source": {
+        "type": 1,
         "channel": 0,
-        "number": 19,
-        "character": 2,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch4/v-pot"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "87ea7c16-9100-4685-a40b-399e496b9e54",
-      "groupId": "31bf82fd-1fca-46e8-a80a-bb6c8b891788",
-      "source": {
-        "channel": 0,
-        "number": 51,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 74
       },
       "mode": {
-        "minSourceValue": 0.25984251968503935,
-        "maxSourceValue": 0.33858267716535434
+        "feedbackColor": null
       },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "controlElementIndex": "ch4/v-pot"
-      },
-      "controlIsEnabled": false
+        "controlElementType": "button",
+        "controlElementIndex": "read",
+        "pollForFeedback": false
+      }
     },
     {
-      "id": "3e6a1702-7b40-47c6-a449-d718deee5a5d",
-      "groupId": "97d8dc80-0c85-45e2-9267-efec631ec6c0",
+      "id": "write",
       "source": {
+        "type": 1,
         "channel": 0,
-        "number": 20,
-        "character": 2,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch5/v-pot"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "47b40c52-b83f-4c9c-aac9-6f3fbdd00953",
-      "groupId": "31bf82fd-1fca-46e8-a80a-bb6c8b891788",
-      "source": {
-        "channel": 0,
-        "number": 52,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 75
       },
       "mode": {
-        "minSourceValue": 0.25984251968503935,
-        "maxSourceValue": 0.33858267716535434
+        "feedbackColor": null
       },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "controlElementIndex": "ch5/v-pot"
-      },
-      "controlIsEnabled": false
+        "controlElementType": "button",
+        "controlElementIndex": "write",
+        "pollForFeedback": false
+      }
     },
     {
-      "id": "faa52b7d-5c44-4029-b25d-7ffa9ce465e0",
-      "groupId": "97d8dc80-0c85-45e2-9267-efec631ec6c0",
+      "id": "ch-left",
       "source": {
+        "type": 1,
         "channel": 0,
-        "number": 21,
-        "character": 2,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch6/v-pot"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "b3f312ca-8b46-4001-9a53-e0a670e33da9",
-      "groupId": "31bf82fd-1fca-46e8-a80a-bb6c8b891788",
-      "source": {
-        "channel": 0,
-        "number": 53,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 48
       },
       "mode": {
-        "minSourceValue": 0.25984251968503935,
-        "maxSourceValue": 0.33858267716535434
+        "feedbackColor": null
       },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "controlElementIndex": "ch6/v-pot"
-      },
-      "controlIsEnabled": false
+        "controlElementType": "button",
+        "controlElementIndex": "ch-left",
+        "pollForFeedback": false
+      }
     },
     {
-      "id": "2020c47e-5d73-4e08-812a-e73de872e07b",
-      "groupId": "97d8dc80-0c85-45e2-9267-efec631ec6c0",
+      "id": "ch-right",
       "source": {
+        "type": 1,
         "channel": 0,
-        "number": 22,
-        "character": 2,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch7/v-pot"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "903e935c-25ab-4fb0-90a9-d9e1c1e03490",
-      "groupId": "31bf82fd-1fca-46e8-a80a-bb6c8b891788",
-      "source": {
-        "channel": 0,
-        "number": 54,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 49
       },
       "mode": {
-        "minSourceValue": 0.25984251968503935,
-        "maxSourceValue": 0.33858267716535434
+        "feedbackColor": null
       },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "controlElementIndex": "ch7/v-pot"
-      },
-      "controlIsEnabled": false
+        "controlElementType": "button",
+        "controlElementIndex": "ch-right",
+        "pollForFeedback": false
+      }
     },
     {
-      "id": "ea228755-1bfc-4485-bd59-05cdd2079e28",
-      "groupId": "97d8dc80-0c85-45e2-9267-efec631ec6c0",
+      "id": "bank-left",
       "source": {
+        "type": 1,
         "channel": 0,
-        "number": 23,
-        "character": 2,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementIndex": "ch8/v-pot"
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "16f0515d-ad77-443d-97dc-6a3fc79233aa",
-      "groupId": "31bf82fd-1fca-46e8-a80a-bb6c8b891788",
-      "source": {
-        "channel": 0,
-        "number": 55,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 46
       },
       "mode": {
-        "minSourceValue": 0.25984251968503935,
-        "maxSourceValue": 0.33858267716535434
+        "feedbackColor": null
       },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "controlElementIndex": "ch8/v-pot"
-      },
-      "controlIsEnabled": false
-    },
-    {
-      "id": "8abd5535-661e-4b6a-a3be-2a232d61118f",
-      "groupId": "71b5cdd8-fc57-48fb-85d3-33261eab8363",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 16,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch1/mute"
+        "controlElementIndex": "bank-left",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "417ed07d-cb88-490c-be77-1e94d310ffb5",
-      "groupId": "71b5cdd8-fc57-48fb-85d3-33261eab8363",
+      "id": "bank-right",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 17,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 47
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch2/mute"
+        "controlElementIndex": "bank-right",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "275a2957-91e7-48e7-aaf5-3dd06fcb6802",
-      "groupId": "71b5cdd8-fc57-48fb-85d3-33261eab8363",
+      "id": "rewind",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 18,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 91
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch3/mute"
+        "controlElementIndex": "rewind",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "f5fa4dc5-eb98-4a1b-91fe-a641312faf47",
-      "groupId": "71b5cdd8-fc57-48fb-85d3-33261eab8363",
+      "id": "fast-fwd",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 19,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 92
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch4/mute"
+        "controlElementIndex": "fast-fwd",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "a1049d98-4caf-42b3-bd20-09bb4cbb114b",
-      "groupId": "71b5cdd8-fc57-48fb-85d3-33261eab8363",
+      "id": "play",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 20,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 94
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch5/mute"
+        "controlElementIndex": "play",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "86915471-a45b-4315-9301-7227de7c003d",
-      "groupId": "71b5cdd8-fc57-48fb-85d3-33261eab8363",
+      "id": "stop",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 21,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 93
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch6/mute"
+        "controlElementIndex": "stop",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "b4428a72-a5ab-4812-b3ad-5188d780b67b",
-      "groupId": "71b5cdd8-fc57-48fb-85d3-33261eab8363",
+      "id": "record",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 22,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 95
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch7/mute"
+        "controlElementIndex": "record",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "7af8c06c-8932-45c4-9d94-ea9f6a76ea36",
-      "groupId": "71b5cdd8-fc57-48fb-85d3-33261eab8363",
+      "id": "cycle",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 23,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 86
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch8/mute"
+        "controlElementIndex": "cycle",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "e50edac5-24ce-4815-ba33-75390e1a209b",
-      "groupId": "798ae332-0831-4d8e-97a6-e0d8e887dc58",
+      "id": "zoom",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 8,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 100
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch1/solo"
+        "controlElementIndex": "zoom",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "515ef3c2-166a-4e35-87f8-f985c329fec4",
-      "groupId": "798ae332-0831-4d8e-97a6-e0d8e887dc58",
+      "id": "scrub",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 9,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 101
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch2/solo"
+        "controlElementIndex": "scrub",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "8de22c2e-2500-4c82-9c7a-d29bce28c538",
-      "groupId": "798ae332-0831-4d8e-97a6-e0d8e887dc58",
+      "id": "cursor-left",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 10,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 98
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch3/solo"
+        "controlElementIndex": "cursor-left",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "e77f095b-c661-40d2-902b-9b7a0aac1134",
-      "groupId": "798ae332-0831-4d8e-97a6-e0d8e887dc58",
+      "id": "cursor-right",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 11,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 99
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch4/solo"
+        "controlElementIndex": "cursor-right",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "10fff381-a736-4240-a118-3bf5183d23b4",
-      "groupId": "798ae332-0831-4d8e-97a6-e0d8e887dc58",
+      "id": "cursor-up",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 12,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 96
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch5/solo"
+        "controlElementIndex": "cursor-up",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "cd0a4c54-f131-4f72-bc9d-b307869423b6",
-      "groupId": "798ae332-0831-4d8e-97a6-e0d8e887dc58",
+      "id": "cursor-down",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 13,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 97
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
-        "soloBehavior": 1,
         "controlElementType": "button",
-        "controlElementIndex": "ch6/solo"
+        "controlElementIndex": "cursor-down",
+        "pollForFeedback": false
       }
     },
     {
-      "id": "7de5f9e6-8578-4864-b90f-f90c6a297664",
-      "groupId": "798ae332-0831-4d8e-97a6-e0d8e887dc58",
+      "id": "nudge",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 14,
-        "isRegistered": false,
-        "is14Bit": false
+        "number": 85
       },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch7/solo"
-      }
-    },
-    {
-      "id": "82429155-68fc-448c-8344-932c854956ef",
-      "groupId": "798ae332-0831-4d8e-97a6-e0d8e887dc58",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 15,
-        "isRegistered": false,
-        "is14Bit": false
+      "mode": {
+        "feedbackColor": null
       },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch8/solo"
-      }
-    },
-    {
-      "id": "15d28241-0990-4545-8cd7-bd190ebf274f",
-      "groupId": "bbfdbd41-25b3-4b56-93d5-2216de7c3bad",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 0,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch1/record-ready"
-      }
-    },
-    {
-      "id": "777d9d6e-a184-4b58-ae08-b3b6521d2de9",
-      "groupId": "bbfdbd41-25b3-4b56-93d5-2216de7c3bad",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 1,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch2/record-ready"
-      }
-    },
-    {
-      "id": "34285c22-3491-4f50-8d6b-bac2dd284b14",
-      "groupId": "bbfdbd41-25b3-4b56-93d5-2216de7c3bad",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 2,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch3/record-ready"
-      }
-    },
-    {
-      "id": "acc1facd-3954-4f14-a774-ce450cc19b36",
-      "groupId": "bbfdbd41-25b3-4b56-93d5-2216de7c3bad",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 3,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch4/record-ready"
-      }
-    },
-    {
-      "id": "87aec9b3-e410-4d3c-975f-b52ac11f0e0c",
-      "groupId": "bbfdbd41-25b3-4b56-93d5-2216de7c3bad",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 4,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch5/record-ready"
-      }
-    },
-    {
-      "id": "cd2dfe64-33c2-4ccd-8a7d-c166b5fd46a3",
-      "groupId": "bbfdbd41-25b3-4b56-93d5-2216de7c3bad",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 5,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch6/record-ready"
-      }
-    },
-    {
-      "id": "c99151c9-ca01-4880-ad17-5a1aa668fbe3",
-      "groupId": "bbfdbd41-25b3-4b56-93d5-2216de7c3bad",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 6,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch7/record-ready"
-      }
-    },
-    {
-      "id": "244d1199-80ca-43fe-b77d-daa3ee594e8c",
-      "groupId": "bbfdbd41-25b3-4b56-93d5-2216de7c3bad",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 7,
-        "isRegistered": false,
-        "is14Bit": false
-      },
-      "mode": {},
-      "target": {
-        "category": "virtual",
-        "fxAnchor": "id",
-        "soloBehavior": 1,
-        "controlElementType": "button",
-        "controlElementIndex": "ch8/record-ready"
-      }
-    },
-    {
-      "id": "1d643663-e08f-4b36-860a-5a0d68a59fbe",
-      "source": {
-        "type": 1,
-        "channel": 0,
-        "number": 85,
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0
-      },
-      "mode": {},
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
         "controlElementType": "button",
         "controlElementIndex": "nudge",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
-      "id": "887d8316-2fca-4fa9-9aa6-b31e167d514a",
+      "id": "drop",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 87,
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0
+        "number": 87
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
         "controlElementType": "button",
         "controlElementIndex": "drop",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
-      "id": "bdf110ca-8570-4215-a5a7-488d2410374a",
+      "id": "replace",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 88,
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0
+        "number": 88
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
         "controlElementType": "button",
         "controlElementIndex": "replace",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
-      "id": "0eeab424-9043-48c8-b4f6-54efc5e88d2c",
+      "id": "click",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 89,
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0
+        "number": 89
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
         "controlElementType": "button",
         "controlElementIndex": "click",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
-      "id": "3ceba4d4-d4e5-4745-8445-8c655f40cb4e",
+      "id": "solo",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 90,
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0
+        "number": 90
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
         "controlElementType": "button",
         "controlElementIndex": "solo",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
-      "id": "ef53cf71-344b-4799-a616-5965080d3aa3",
+      "id": "f1",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 54,
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0
+        "number": 54
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
         "controlElementType": "button",
         "controlElementIndex": "f1",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
-      "id": "909a1453-d631-45b3-8867-55d65ddabe6a",
+      "id": "f2",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 55,
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0
+        "number": 55
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
         "controlElementType": "button",
         "controlElementIndex": "f2",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
-      "id": "30f139c7-a4ef-4279-b26b-3682d17776c8",
+      "id": "f3",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 56,
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0
+        "number": 56
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
         "controlElementType": "button",
         "controlElementIndex": "f3",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
-      "id": "6070173c-7bea-4300-9d3b-697362763c1c",
+      "id": "f4",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 57,
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0
+        "number": 57
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
         "controlElementType": "button",
         "controlElementIndex": "f4",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
-      "id": "bd9e3f81-4852-4544-9d8e-1b9248e6c596",
+      "id": "f5",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 58,
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0
+        "number": 58
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
         "controlElementType": "button",
         "controlElementIndex": "f5",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
-      "id": "3f8085ed-571f-4e54-a81f-07a1b1d747f4",
+      "id": "f6",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 59,
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0
+        "number": 59
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
         "controlElementType": "button",
         "controlElementIndex": "f6",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
-      "id": "36dc3ff7-abc0-456b-9c64-a8fe066a4703",
+      "id": "smpte-beats",
       "source": {
         "type": 1,
         "channel": 0,
-        "number": 53,
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0
+        "number": 53
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
         "fxAnchor": "id",
         "controlElementType": "button",
         "controlElementIndex": "smpte-beats",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
-      "id": "cde6cb41-eb6f-4c53-a8b1-15a7d4558894",
-      "groupId": "7b610089-6e14-412b-aa26-fceb6ac8be22",
+      "id": "lcd/assignment",
+      "groupId": "lcd",
       "source": {
-        "type": 11,
-        "isRegistered": false,
-        "is14Bit": false,
-        "midiScript": "num = y * 99;\nd1 = num % 10;\nd2 = (num / 10) % 10;\nmsg_size = 5;\n0[] = 0xb0; \n1[] = 0x4b; \n2[] = 0x30 + d2; \n3[] = 0x4a; \n4[] = 0x30 + d1;",
-        "oscArgIndex": 0
+        "type": 12,
+        "displayType": "mackie-seven"
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "category": "virtual",
-        "type": 2,
-        "trackGUID": "master",
         "fxAnchor": "id",
         "controlElementIndex": "lcd/assignment",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "lcd/timecode",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayType": "mackie-seven",
+        "displayId": 2
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "lcd/timecode",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch1/v-select",
+      "groupId": "v-select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 32
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch1/v-select",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch1/fader/touch",
+      "groupId": "fader-touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 104
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch1/fader/touch",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch1/select",
+      "groupId": "select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 24
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch1/select",
+        "pollForFeedback": false
       }
+    },
+    {
+      "id": "ch1/fader",
+      "groupId": "fader",
+      "source": {
+        "type": 3,
+        "channel": 0
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch1/fader",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch1/v-pot/control",
+      "groupId": "v-pot",
+      "source": {
+        "channel": 0,
+        "number": 16,
+        "character": 4,
+        "is14Bit": false
+      },
+      "mode": {
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch1/v-pot",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch1/v-pot/wrap",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 30 [0010 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch1/v-pot/wrap",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch1/v-pot/boost-cut",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 30 [0001 dcba]"
+      },
+      "mode": {
+        "minSourceValue": 0.05,
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch1/v-pot/boost-cut",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch1/v-pot/single",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 30 [0000 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch1/v-pot/single",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch1/v-pot/spread",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 30 [0011 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.4,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch1/v-pot/spread",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch1/mute",
+      "groupId": "mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 16
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch1/mute",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch1/solo",
+      "groupId": "solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 8
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch1/solo",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch1/record-ready",
+      "groupId": "record-ready",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 0
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch1/record-ready",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch1/lcd/line1",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 0,
+        "line": 0
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch1/lcd/line1",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch1/lcd/line2",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 0,
+        "line": 1
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch1/lcd/line2",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch1/meter/peak",
+      "groupId": "meter",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "D0 [0000 dcba]"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch1/meter/peak",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch2/v-select",
+      "groupId": "v-select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 33
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch2/v-select",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch2/fader/touch",
+      "groupId": "fader-touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 105
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch2/fader/touch",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch2/select",
+      "groupId": "select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 25
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch2/select",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch2/fader",
+      "groupId": "fader",
+      "source": {
+        "type": 3,
+        "channel": 1
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch2/fader",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch2/v-pot/control",
+      "groupId": "v-pot",
+      "source": {
+        "channel": 0,
+        "number": 17,
+        "character": 4,
+        "is14Bit": false
+      },
+      "mode": {
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch2/v-pot",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch2/v-pot/wrap",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 31 [0010 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch2/v-pot/wrap",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch2/v-pot/boost-cut",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 31 [0001 dcba]"
+      },
+      "mode": {
+        "minSourceValue": 0.05,
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch2/v-pot/boost-cut",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch2/v-pot/single",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 31 [0000 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch2/v-pot/single",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch2/v-pot/spread",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 31 [0011 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.4,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch2/v-pot/spread",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch2/mute",
+      "groupId": "mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 17
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch2/mute",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch2/solo",
+      "groupId": "solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 9
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch2/solo",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch2/record-ready",
+      "groupId": "record-ready",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 1
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch2/record-ready",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch2/lcd/line1",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 1,
+        "line": 0
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch2/lcd/line1",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch2/lcd/line2",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 1,
+        "line": 1
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch2/lcd/line2",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch2/meter/peak",
+      "groupId": "meter",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "D0 [0001 dcba]"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch2/meter/peak",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch3/v-select",
+      "groupId": "v-select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 34
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch3/v-select",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch3/fader/touch",
+      "groupId": "fader-touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 106
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch3/fader/touch",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch3/select",
+      "groupId": "select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 26
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch3/select",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch3/fader",
+      "groupId": "fader",
+      "source": {
+        "type": 3,
+        "channel": 2
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch3/fader",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch3/v-pot/control",
+      "groupId": "v-pot",
+      "source": {
+        "channel": 0,
+        "number": 18,
+        "character": 4,
+        "is14Bit": false
+      },
+      "mode": {
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch3/v-pot",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch3/v-pot/wrap",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 32 [0010 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch3/v-pot/wrap",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch3/v-pot/boost-cut",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 32 [0001 dcba]"
+      },
+      "mode": {
+        "minSourceValue": 0.05,
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch3/v-pot/boost-cut",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch3/v-pot/single",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 32 [0000 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch3/v-pot/single",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch3/v-pot/spread",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 32 [0011 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.4,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch3/v-pot/spread",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch3/mute",
+      "groupId": "mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 18
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch3/mute",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch3/solo",
+      "groupId": "solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 10
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch3/solo",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch3/record-ready",
+      "groupId": "record-ready",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 2
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch3/record-ready",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch3/lcd/line1",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 2,
+        "line": 0
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch3/lcd/line1",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch3/lcd/line2",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 2,
+        "line": 1
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch3/lcd/line2",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch3/meter/peak",
+      "groupId": "meter",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "D0 [0010 dcba]"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch3/meter/peak",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch4/v-select",
+      "groupId": "v-select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 35
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch4/v-select",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch4/fader/touch",
+      "groupId": "fader-touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 107
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch4/fader/touch",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch4/select",
+      "groupId": "select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 27
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch4/select",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch4/fader",
+      "groupId": "fader",
+      "source": {
+        "type": 3,
+        "channel": 3
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch4/fader",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch4/v-pot/control",
+      "groupId": "v-pot",
+      "source": {
+        "channel": 0,
+        "number": 19,
+        "character": 4,
+        "is14Bit": false
+      },
+      "mode": {
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch4/v-pot",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch4/v-pot/wrap",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 33 [0010 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch4/v-pot/wrap",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch4/v-pot/boost-cut",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 33 [0001 dcba]"
+      },
+      "mode": {
+        "minSourceValue": 0.05,
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch4/v-pot/boost-cut",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch4/v-pot/single",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 33 [0000 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch4/v-pot/single",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch4/v-pot/spread",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 33 [0011 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.4,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch4/v-pot/spread",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch4/mute",
+      "groupId": "mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 19
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch4/mute",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch4/solo",
+      "groupId": "solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 11
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch4/solo",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch4/record-ready",
+      "groupId": "record-ready",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 3
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch4/record-ready",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch4/lcd/line1",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 3,
+        "line": 0
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch4/lcd/line1",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch4/lcd/line2",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 3,
+        "line": 1
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch4/lcd/line2",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch4/meter/peak",
+      "groupId": "meter",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "D0 [0011 dcba]"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch4/meter/peak",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch5/v-select",
+      "groupId": "v-select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 36
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch5/v-select",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch5/fader/touch",
+      "groupId": "fader-touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 108
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch5/fader/touch",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch5/select",
+      "groupId": "select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 28
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch5/select",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch5/fader",
+      "groupId": "fader",
+      "source": {
+        "type": 3,
+        "channel": 4
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch5/fader",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch5/v-pot/control",
+      "groupId": "v-pot",
+      "source": {
+        "channel": 0,
+        "number": 20,
+        "character": 4,
+        "is14Bit": false
+      },
+      "mode": {
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch5/v-pot",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch5/v-pot/wrap",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 34 [0010 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch5/v-pot/wrap",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch5/v-pot/boost-cut",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 34 [0001 dcba]"
+      },
+      "mode": {
+        "minSourceValue": 0.05,
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch5/v-pot/boost-cut",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch5/v-pot/single",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 34 [0000 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch5/v-pot/single",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch5/v-pot/spread",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 34 [0011 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.4,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch5/v-pot/spread",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch5/mute",
+      "groupId": "mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 20
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch5/mute",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch5/solo",
+      "groupId": "solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 12
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch5/solo",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch5/record-ready",
+      "groupId": "record-ready",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 4
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch5/record-ready",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch5/lcd/line1",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 4,
+        "line": 0
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch5/lcd/line1",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch5/lcd/line2",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 4,
+        "line": 1
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch5/lcd/line2",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch5/meter/peak",
+      "groupId": "meter",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "D0 [0100 dcba]"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch5/meter/peak",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch6/v-select",
+      "groupId": "v-select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 37
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch6/v-select",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch6/fader/touch",
+      "groupId": "fader-touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 109
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch6/fader/touch",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch6/select",
+      "groupId": "select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 29
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch6/select",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch6/fader",
+      "groupId": "fader",
+      "source": {
+        "type": 3,
+        "channel": 5
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch6/fader",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch6/v-pot/control",
+      "groupId": "v-pot",
+      "source": {
+        "channel": 0,
+        "number": 21,
+        "character": 4,
+        "is14Bit": false
+      },
+      "mode": {
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch6/v-pot",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch6/v-pot/wrap",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 35 [0010 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch6/v-pot/wrap",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch6/v-pot/boost-cut",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 35 [0001 dcba]"
+      },
+      "mode": {
+        "minSourceValue": 0.05,
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch6/v-pot/boost-cut",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch6/v-pot/single",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 35 [0000 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch6/v-pot/single",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch6/v-pot/spread",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 35 [0011 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.4,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch6/v-pot/spread",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch6/mute",
+      "groupId": "mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 21
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch6/mute",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch6/solo",
+      "groupId": "solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 13
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch6/solo",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch6/record-ready",
+      "groupId": "record-ready",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 5
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch6/record-ready",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch6/lcd/line1",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 5,
+        "line": 0
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch6/lcd/line1",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch6/lcd/line2",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 5,
+        "line": 1
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch6/lcd/line2",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch6/meter/peak",
+      "groupId": "meter",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "D0 [0101 dcba]"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch6/meter/peak",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch7/v-select",
+      "groupId": "v-select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 38
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch7/v-select",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch7/fader/touch",
+      "groupId": "fader-touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 110
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch7/fader/touch",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch7/select",
+      "groupId": "select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 30
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch7/select",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch7/fader",
+      "groupId": "fader",
+      "source": {
+        "type": 3,
+        "channel": 6
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch7/fader",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch7/v-pot/control",
+      "groupId": "v-pot",
+      "source": {
+        "channel": 0,
+        "number": 22,
+        "character": 4,
+        "is14Bit": false
+      },
+      "mode": {
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch7/v-pot",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch7/v-pot/wrap",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 36 [0010 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch7/v-pot/wrap",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch7/v-pot/boost-cut",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 36 [0001 dcba]"
+      },
+      "mode": {
+        "minSourceValue": 0.05,
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch7/v-pot/boost-cut",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch7/v-pot/single",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 36 [0000 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch7/v-pot/single",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch7/v-pot/spread",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 36 [0011 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.4,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch7/v-pot/spread",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch7/mute",
+      "groupId": "mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 22
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch7/mute",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch7/solo",
+      "groupId": "solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 14
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch7/solo",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch7/record-ready",
+      "groupId": "record-ready",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 6
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch7/record-ready",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch7/lcd/line1",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 6,
+        "line": 0
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch7/lcd/line1",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch7/lcd/line2",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 6,
+        "line": 1
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch7/lcd/line2",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch7/meter/peak",
+      "groupId": "meter",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "D0 [0110 dcba]"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch7/meter/peak",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch8/v-select",
+      "groupId": "v-select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 39
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch8/v-select",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch8/fader/touch",
+      "groupId": "fader-touch",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 111
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch8/fader/touch",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch8/select",
+      "groupId": "select",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 31
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch8/select",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch8/fader",
+      "groupId": "fader",
+      "source": {
+        "type": 3,
+        "channel": 7
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch8/fader",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch8/v-pot/control",
+      "groupId": "v-pot",
+      "source": {
+        "channel": 0,
+        "number": 23,
+        "character": 4,
+        "is14Bit": false
+      },
+      "mode": {
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch8/v-pot",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch8/v-pot/wrap",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 37 [0010 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch8/v-pot/wrap",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch8/v-pot/boost-cut",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 37 [0001 dcba]"
+      },
+      "mode": {
+        "minSourceValue": 0.05,
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch8/v-pot/boost-cut",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch8/v-pot/single",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 37 [0000 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.75,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch8/v-pot/single",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch8/v-pot/spread",
+      "groupId": "v-pot-leds",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "B0 37 [0011 dcba]"
+      },
+      "mode": {
+        "maxSourceValue": 0.4,
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch8/v-pot/spread",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch8/mute",
+      "groupId": "mute",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 23
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch8/mute",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch8/solo",
+      "groupId": "solo",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 15
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch8/solo",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch8/record-ready",
+      "groupId": "record-ready",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 7
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementType": "button",
+        "controlElementIndex": "ch8/record-ready",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch8/lcd/line1",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 7,
+        "line": 0
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch8/lcd/line1",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch8/lcd/line2",
+      "groupId": "lcd",
+      "source": {
+        "type": 12,
+        "displayId": 7,
+        "line": 1
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch8/lcd/line2",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch8/meter/peak",
+      "groupId": "meter",
+      "source": {
+        "type": 10,
+        "rawMidiPattern": "D0 [0111 dcba]"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "category": "virtual",
+        "fxAnchor": "id",
+        "controlElementIndex": "ch8/meter/peak",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
     }
   ],
   "customData": {
@@ -2110,8 +3014,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "0345d4d7-0592-439a-82b1-a21f1163fb0e",
-            "e3897e49-a8f2-4c5f-ac55-a464dc0bd9a5"
+            "ch1/v-pot/control",
+            "ch1/v-select"
           ],
           "shape": "circle",
           "width": 32,
@@ -2132,8 +3036,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "4aac828c-edb0-4baf-9e9d-b20bbe4fee50",
-            "87fc6ea2-e87d-46fe-bbfe-0edc74a2a573"
+            "ch2/v-pot/control",
+            "ch2/v-select"
           ],
           "shape": "circle",
           "width": 32,
@@ -2154,8 +3058,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "ca1ff9dc-286c-4e28-a490-3b8a5297a377",
-            "3d1ab3ce-140d-4ffc-aa26-1a5630d600cf"
+            "ch3/v-pot/control",
+            "ch3/v-select"
           ],
           "shape": "circle",
           "width": 32,
@@ -2176,8 +3080,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "53c6f2b6-bd4e-4979-8909-27fed57188c2",
-            "7e996069-fac7-4d24-abfa-834ed7057c30"
+            "ch4/v-pot/control",
+            "ch4/v-select"
           ],
           "shape": "circle",
           "width": 32,
@@ -2198,34 +3102,12 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "3e6a1702-7b40-47c6-a449-d718deee5a5d",
-            "a4154e91-08f3-40ab-ad7b-6b990e44d283"
+            "ch5/v-pot/control",
+            "ch5/v-select"
           ],
           "shape": "circle",
           "width": 32,
           "x": 512,
-          "y": 0
-        },
-        {
-          "height": 32,
-          "id": "4b76aaff-67c7-4e2d-a536-dad3642ee61f",
-          "labelOne": {
-            "angle": 0,
-            "position": "aboveTop",
-            "sizeConstrained": true
-          },
-          "labelTwo": {
-            "angle": 0,
-            "position": "belowBottom",
-            "sizeConstrained": true
-          },
-          "mappings": [
-            "ea228755-1bfc-4485-bd59-05cdd2079e28",
-            "1af3b611-ced8-4208-909a-64b73e6a519b"
-          ],
-          "shape": "circle",
-          "width": 32,
-          "x": 896,
           "y": 0
         },
         {
@@ -2242,8 +3124,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "faa52b7d-5c44-4029-b25d-7ffa9ce465e0",
-            "af5a19df-f1ff-4241-abe6-1b2969f60e18"
+            "ch6/v-pot/control",
+            "ch6/v-select"
           ],
           "shape": "circle",
           "width": 32,
@@ -2264,12 +3146,34 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "2020c47e-5d73-4e08-812a-e73de872e07b",
-            "b9b52328-71ed-482a-a1ba-1f9b8accab3e"
+            "ch7/v-pot/control",
+            "ch7/v-select"
           ],
           "shape": "circle",
           "width": 32,
           "x": 768,
+          "y": 0
+        },
+        {
+          "height": 32,
+          "id": "4b76aaff-67c7-4e2d-a536-dad3642ee61f",
+          "labelOne": {
+            "angle": 0,
+            "position": "aboveTop",
+            "sizeConstrained": true
+          },
+          "labelTwo": {
+            "angle": 0,
+            "position": "belowBottom",
+            "sizeConstrained": true
+          },
+          "mappings": [
+            "ch8/v-pot/control",
+            "ch8/v-select"
+          ],
+          "shape": "circle",
+          "width": 32,
+          "x": 896,
           "y": 0
         },
         {
@@ -2286,8 +3190,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "c91f7fc5-8039-491f-9d76-e43309994540",
-            "3017c0e4-a039-408d-9ac5-e3b4117b896d"
+            "ch1/fader",
+            "ch1/fader/touch"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2308,8 +3212,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "48b3b205-f21e-40d8-9601-71e38b0a52ae",
-            "317728f5-5e44-4157-9186-50998236210d"
+            "ch2/fader",
+            "ch2/fader/touch"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2330,8 +3234,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "e19cc7cc-9eba-43c6-b15c-01ddf27720b9",
-            "29a73d4a-90f3-42c0-b5ba-7e3390b809d3"
+            "ch3/fader",
+            "ch3/fader/touch"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2352,8 +3256,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "9a856e20-d9be-4b33-8faf-60ebed517766",
-            "0d13f8be-9cdd-4105-9e62-4f785b395b7f"
+            "ch4/fader",
+            "ch4/fader/touch"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2374,8 +3278,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "3d34dfa2-f56d-4268-85f1-5ebd83bbf51b",
-            "18e6e5d3-5109-4a52-8f4b-b3f9454e3019"
+            "ch5/fader",
+            "ch5/fader/touch"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2396,8 +3300,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "344f5801-72bb-477f-8e1d-5628aab5f4c1",
-            "d55baf7b-fdba-4c4e-bf1b-11e847462b55"
+            "ch6/fader",
+            "ch6/fader/touch"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2418,8 +3322,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "e144267e-8fd6-420b-b88f-f2934e86a2a4",
-            "bd5649ac-d1f0-4ff9-a6a2-46075f65d39c"
+            "ch7/fader",
+            "ch7/fader/touch"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2440,8 +3344,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "866efb60-ca4e-4f4d-9c5c-43229433b569",
-            "02e05b02-97c1-4ef3-a5c1-6821b3a3a254"
+            "ch8/fader",
+            "ch8/fader/touch"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2462,7 +3366,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "c459f37a-6c8a-4483-b840-76fbab28a540"
+            "ch1/select"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2483,7 +3387,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "aa6aa5ff-3cac-460b-8a5f-758b6b96fbf7"
+            "ch2/select"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2504,7 +3408,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "8c32ed14-eb40-440b-a75a-3f8f204a9b92"
+            "ch3/select"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2525,7 +3429,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "87962ec2-e6b5-4ab9-8d28-42eb5874b9c9"
+            "ch4/select"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2546,7 +3450,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "d0a66fbb-7e9f-41b4-ada5-542cdcd2a5ce"
+            "ch5/select"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2567,7 +3471,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "3ff4a53e-2fd9-4c45-94c9-0c7828315aa1"
+            "ch6/select"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2588,7 +3492,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "02f324fc-c0d2-4d41-b2c4-0c0d89bb1ae9"
+            "ch7/select"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2609,7 +3513,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "30ab5e85-8532-4367-806e-e104e355f4ea"
+            "ch8/select"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2630,7 +3534,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "8abd5535-661e-4b6a-a3be-2a232d61118f"
+            "ch1/mute"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2651,7 +3555,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "417ed07d-cb88-490c-be77-1e94d310ffb5"
+            "ch2/mute"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2672,7 +3576,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "275a2957-91e7-48e7-aaf5-3dd06fcb6802"
+            "ch3/mute"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2693,7 +3597,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "f5fa4dc5-eb98-4a1b-91fe-a641312faf47"
+            "ch4/mute"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2714,7 +3618,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "a1049d98-4caf-42b3-bd20-09bb4cbb114b"
+            "ch5/mute"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2735,7 +3639,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "86915471-a45b-4315-9301-7227de7c003d"
+            "ch6/mute"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2756,7 +3660,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "b4428a72-a5ab-4812-b3ad-5188d780b67b"
+            "ch7/mute"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2777,7 +3681,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "7af8c06c-8932-45c4-9d94-ea9f6a76ea36"
+            "ch8/mute"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2798,7 +3702,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "e50edac5-24ce-4815-ba33-75390e1a209b"
+            "ch1/solo"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2819,7 +3723,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "515ef3c2-166a-4e35-87f8-f985c329fec4"
+            "ch2/solo"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2840,7 +3744,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "8de22c2e-2500-4c82-9c7a-d29bce28c538"
+            "ch3/solo"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2861,7 +3765,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "e77f095b-c661-40d2-902b-9b7a0aac1134"
+            "ch4/solo"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2882,7 +3786,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "10fff381-a736-4240-a118-3bf5183d23b4"
+            "ch5/solo"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2903,7 +3807,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "cd0a4c54-f131-4f72-bc9d-b307869423b6"
+            "ch6/solo"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2924,7 +3828,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "7de5f9e6-8578-4864-b90f-f90c6a297664"
+            "ch7/solo"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2945,7 +3849,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "82429155-68fc-448c-8344-932c854956ef"
+            "ch8/solo"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -2966,7 +3870,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "15d28241-0990-4545-8cd7-bd190ebf274f"
+            "ch1/record-ready"
           ],
           "shape": "circle",
           "width": 32,
@@ -2987,7 +3891,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "777d9d6e-a184-4b58-ae08-b3b6521d2de9"
+            "ch2/record-ready"
           ],
           "shape": "circle",
           "width": 32,
@@ -3008,7 +3912,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "34285c22-3491-4f50-8d6b-bac2dd284b14"
+            "ch3/record-ready"
           ],
           "shape": "circle",
           "width": 32,
@@ -3029,7 +3933,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "acc1facd-3954-4f14-a774-ce450cc19b36"
+            "ch4/record-ready"
           ],
           "shape": "circle",
           "width": 32,
@@ -3050,7 +3954,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "87aec9b3-e410-4d3c-975f-b52ac11f0e0c"
+            "ch5/record-ready"
           ],
           "shape": "circle",
           "width": 32,
@@ -3071,7 +3975,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "cd2dfe64-33c2-4ccd-8a7d-c166b5fd46a3"
+            "ch6/record-ready"
           ],
           "shape": "circle",
           "width": 32,
@@ -3092,7 +3996,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "c99151c9-ca01-4880-ad17-5a1aa668fbe3"
+            "ch7/record-ready"
           ],
           "shape": "circle",
           "width": 32,
@@ -3113,7 +4017,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "244d1199-80ca-43fe-b77d-daa3ee594e8c"
+            "ch8/record-ready"
           ],
           "shape": "circle",
           "width": 32,
@@ -3134,8 +4038,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "b96b11b3-4a31-48ec-8c30-faf16066bc39",
-            "175beaa9-8148-4eea-b181-387f0b63a193"
+            "main/fader",
+            "main/fader/touch"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3156,7 +4060,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "e51585de-1c33-4840-919d-bbfb65cda243"
+            "marker"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3177,7 +4081,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "33f8198c-2049-4dbc-a4f3-1192d36ec32f"
+            "ch-right"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3198,7 +4102,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "3ee408da-0f20-4980-9b53-e7e62642fd3d"
+            "read"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3219,7 +4123,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "5454fc54-1c29-46a4-9076-820fc9c01831"
+            "write"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3240,7 +4144,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "ae136493-d456-48d0-9005-f63a15e03dfa"
+            "ch-left"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3261,7 +4165,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "7b259f76-b01e-46a4-bfab-68c536abcd50"
+            "bank-left"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3282,7 +4186,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "e6da9c73-7fa8-450e-835f-4034435172bb"
+            "bank-right"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3303,7 +4207,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "341780c3-5934-4a24-9f53-15d47b3c0bcf"
+            "rewind"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3324,7 +4228,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "f6baff1a-c1ca-4079-a058-1df2c760a60d"
+            "fast-fwd"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3345,7 +4249,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "7a3fa47d-9a5f-4b6e-b94a-e7a824524f91"
+            "play"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3366,7 +4270,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "c6d6e47d-3658-4d66-86ec-3106f677f350"
+            "stop"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3387,7 +4291,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "71d40701-cf09-41e5-bf5c-da34f70c66dc"
+            "record"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3408,7 +4312,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "baba4dcf-6547-4680-bab9-3f1ce74ed1e1"
+            "cycle"
           ],
           "shape": "rectangle",
           "width": 32,
@@ -3429,7 +4333,7 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "ee34c765-97b9-47c1-b0ac-896357130137"
+            "zoom"
           ],
           "shape": "rectangle",
           "width": 96,
@@ -3450,8 +4354,8 @@
             "sizeConstrained": true
           },
           "mappings": [
-            "fbf84420-7d95-42cd-9d6b-7b9c6dc31362",
-            "a009a63d-ebcd-4ddc-94dc-7fbe2cb736c9"
+            "jog",
+            "scrub"
           ],
           "shape": "circle",
           "width": 96,

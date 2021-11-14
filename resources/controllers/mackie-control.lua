@@ -60,6 +60,7 @@ local groups = {
 
 local mappings = {
     {
+        id = "main/fader",
         group = "fader",
         source = {
             kind = "MidiPitchBendChangeValue",
@@ -71,6 +72,7 @@ local mappings = {
         },
     },
     {
+        id = "jog",
         feedback_enabled = false,
         source = {
             kind = "MidiControlChangeValue",
@@ -85,6 +87,7 @@ local mappings = {
         },
     },
     {
+        id = "main/fader/touch",
         group = "fader-touch",
         feedback_enabled = false,
         source = {
@@ -99,6 +102,7 @@ local mappings = {
         },
     },
     {
+        id = "marker",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -111,6 +115,7 @@ local mappings = {
         },
     },
     {
+        id = "read",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -123,6 +128,7 @@ local mappings = {
         },
     },
     {
+        id = "write",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -135,6 +141,7 @@ local mappings = {
         },
     },
     {
+        id = "ch-left",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -147,6 +154,7 @@ local mappings = {
         },
     },
     {
+        id = "ch-right",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -159,6 +167,7 @@ local mappings = {
         },
     },
     {
+        id = "bank-left",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -171,6 +180,7 @@ local mappings = {
         },
     },
     {
+        id = "bank-right",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -183,6 +193,7 @@ local mappings = {
         },
     },
     {
+        id = "rewind",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -195,6 +206,7 @@ local mappings = {
         },
     },
     {
+        id = "fast-fwd",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -207,6 +219,7 @@ local mappings = {
         },
     },
     {
+        id = "play",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -219,6 +232,7 @@ local mappings = {
         },
     },
     {
+        id = "stop",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -231,6 +245,7 @@ local mappings = {
         },
     },
     {
+        id = "record",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -243,6 +258,7 @@ local mappings = {
         },
     },
     {
+        id = "cycle",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -255,6 +271,7 @@ local mappings = {
         },
     },
     {
+        id = "zoom",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -267,6 +284,7 @@ local mappings = {
         },
     },
     {
+        id = "scrub",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -279,6 +297,7 @@ local mappings = {
         },
     },
     {
+        id = "cursor-left",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -291,6 +310,7 @@ local mappings = {
         },
     },
     {
+        id = "cursor-right",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -303,6 +323,7 @@ local mappings = {
         },
     },
     {
+        id = "cursor-up",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -315,6 +336,7 @@ local mappings = {
         },
     },
     {
+        id = "cursor-down",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -326,11 +348,8 @@ local mappings = {
             character = "Button",
         },
     },
-    
-    
-
-
     {
+        id = "nudge",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -343,6 +362,7 @@ local mappings = {
         },
     },
     {
+        id = "drop",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -355,6 +375,7 @@ local mappings = {
         },
     },
     {
+        id = "replace",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -367,6 +388,7 @@ local mappings = {
         },
     },
     {
+        id = "click",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -379,6 +401,7 @@ local mappings = {
         },
     },
     {
+        id = "solo",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -391,6 +414,7 @@ local mappings = {
         },
     },
     {
+        id = "f1",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -403,6 +427,7 @@ local mappings = {
         },
     },
     {
+        id = "f2",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -415,6 +440,7 @@ local mappings = {
         },
     },
     {
+        id = "f3",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -427,6 +453,7 @@ local mappings = {
         },
     },
     {
+        id = "f4",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -439,6 +466,7 @@ local mappings = {
         },
     },
     {
+        id = "f5",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -451,6 +479,7 @@ local mappings = {
         },
     },
     {
+        id = "f6",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -463,6 +492,7 @@ local mappings = {
         },
     },
     {
+        id = "smpte-beats",
         source = {
             kind = "MidiNoteVelocity",
             channel = 0,
@@ -475,6 +505,7 @@ local mappings = {
         },
     },
     {
+        id = "lcd/assignment",
         group = "lcd",
         control_enabled = false,
         source = {
@@ -486,6 +517,7 @@ local mappings = {
         },
     },
     {
+        id = "lcd/timecode",
         group = "lcd",
         control_enabled = false,
         source = {
@@ -504,6 +536,7 @@ for ch = 0, channel_count - 1 do
     local human_ch = ch + 1
     local prefix = "ch"..human_ch.."/"
     local v_select = {
+        id = prefix.."v-select",
         group = "v-select",
         feedback_enabled = false,
         source = {
@@ -518,6 +551,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local fader_touch = {
+        id = prefix.."fader/touch",
         group = "fader-touch",
         feedback_enabled = false,
         source = {
@@ -532,6 +566,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local select = {
+        id = prefix.."select",
         group = "select",
         source = {
             kind = "MidiNoteVelocity",
@@ -545,6 +580,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local fader = {
+        id = prefix.."fader",
         group = "fader",
         source = {
             kind = "MidiPitchBendChangeValue",
@@ -556,6 +592,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local v_pot_control = {
+        id = prefix.."v-pot/control",
         group = "v-pot",
         feedback_enabled = false,
         source = {
@@ -574,6 +611,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local v_pot_feedback_wrap = {
+        id = prefix.."v-pot/wrap",
         group = "v-pot-leds",
         control_enabled = false,
         source = {
@@ -585,10 +623,11 @@ for ch = 0, channel_count - 1 do
         },
         target = {
             kind = "Virtual",
-            id = prefix.."v-pot",
+            id = prefix.."v-pot/wrap",
         },
     }
     local v_pot_feedback_boost_cut = {
+        id = prefix.."v-pot/boost-cut",
         group = "v-pot-leds",
         control_enabled = false,
         source = {
@@ -604,6 +643,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local v_pot_feedback_single = {
+        id = prefix.."v-pot/single",
         group = "v-pot-leds",
         control_enabled = false,
         source = {
@@ -619,6 +659,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local v_pot_feedback_spread = {
+        id = prefix.."v-pot/spread",
         group = "v-pot-leds",
         control_enabled = false,
         source = {
@@ -634,6 +675,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local mute = {
+        id = prefix.."mute",
         group = "mute",
         source = {
             kind = "MidiNoteVelocity",
@@ -647,6 +689,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local solo = {
+        id = prefix.."solo",
         group = "solo",
         source = {
             kind = "MidiNoteVelocity",
@@ -660,6 +703,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local record_ready = {
+        id = prefix.."record-ready",
         group = "record-ready",
         source = {
             kind = "MidiNoteVelocity",
@@ -673,6 +717,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local lcd_line1 = {
+        id = prefix.."lcd/line1",
         group = "lcd",
         control_enabled = false,
         source = {
@@ -686,6 +731,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local lcd_line2 = {
+        id = prefix.."lcd/line2",
         group = "lcd",
         control_enabled = false,
         source = {
@@ -699,6 +745,7 @@ for ch = 0, channel_count - 1 do
         },
     }
     local meter = {
+        id = prefix.."meter/peak",
         group = "meter",
         control_enabled = false,
         source = {
