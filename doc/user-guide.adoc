@@ -2241,6 +2241,10 @@ guaranteed :) But of course it's not only about fun, it can also be very useful 
 ** *Beat:* Every beat. Only works if REAPER's main timeline is playing.
 ** *Fast:* As fast as possible.
 
+====== Clip: Volume
+
+Lets you set the slot's volume.
+
 [#midi-send-message]
 ====== MIDI: Send message
 
@@ -2274,10 +2278,6 @@ However, this also means that the following things won't work when controlling t
 ** It can't act as a follower in <<group-interaction>>, either.
 ** It can't participate in <<realearn-load-mapping-snapshot>>.
 ====
-
-====== Clip: Volume
-
-Lets you set the slot's volume.
 
 [#osc-send-message]
 ====== OSC: Send message
