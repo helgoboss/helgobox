@@ -729,7 +729,6 @@ local mappings = {
         id = "261067ef-c2f0-41de-b10f-418cc718cf1c",
         name = "Master touch",
         group = "master",
-        feedback_enabled = false,
         source = {
             kind = "Virtual",
             id = "main/fader/touch",
@@ -1028,7 +1027,6 @@ for ch = 0, channel_count - 1 do
     }
     local track_pan_control = {
         name = "Tr"..human_ch.." Pan",
-        feedback_enabled = false,
         group = "pan",
         source = {
             kind = "Virtual",
@@ -1063,6 +1061,7 @@ for ch = 0, channel_count - 1 do
     }
     local track_pan_reset = {
         name = "Tr"..human_ch.." Pan Reset",
+        feedback_enabled = false,
         group = "pan-reset",
         source = {
             kind = "Virtual",
