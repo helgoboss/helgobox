@@ -5,7 +5,7 @@
 :sectnumlevels: 2
 
 |===
-|Last update of text: |`2021-11-01 (v2.11.0-pre.12)`
+|Last update of text: |`2021-11-14 (v2.11.0-pre.13)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -16,9 +16,14 @@ Here's a step-by-step guide to help you get started with ReaLearn and a MIDI con
 . Start REAPER.
 . If you haven't already done it, https://github.com/helgoboss/realearn#installation[install ReaLearn via ReaPack].
 . Make sure your MIDI controller is enabled in Options → Preferences… → Audio → MIDI Devices
-  * For the MIDI input device (control), tick "Enable input from this device" and untick
+  * For the MIDI input device (control), tick _Enable input from this device_ and untick
  "Enable input for control messages".
-  * For the MIDI output device (feedback), tick "Enable output to this device".
+  * For the MIDI output device (feedback), tick both _Enable output to this device_ and _Do not send reset messages_.
++
+[NOTE]
+====
+The option _Do not send reset messages_ isn't available in some older REAPER versions. If you don't use any external hardware synths, you can untick the global options *Reset on: Play* and *Reset on: Stop* instead!
+====
 . Check if there's an existing controller preset for your MIDI controller (this is optional but can make things
  easier).
   * Extensions → ReaPack → Browse packages…
@@ -296,8 +301,12 @@ LEDs that indicate the current parameter value.
 
 How to set this up? Often it's just a matter of choosing the correct feedback device:
 
-. Make sure *Enable output to this device* is checked for your controller MIDI output device in
- the REAPER preferences.
+. Make sure *Enable output to this device* and *Do not send reset messages* is checked for your controller MIDI output device in the REAPER preferences.
++
+[NOTE]
+====
+The option _Do not send reset messages_ isn't available in some older REAPER versions. If you don't use any external hardware synths, you can untick the global options *Reset on: Play* and *Reset on: Stop* instead!
+====
 . In ReaLearn's header panel, select your controller as _MIDI feedback output_.
 
 That should be it!
@@ -592,8 +601,12 @@ on macOS) with the following entries:
  a ReaLearn FX, importing from clipboard - all of that will overwrite the session ID. This might change in
  future in favor of a more nuanced approach!
 * *Help:* As the name says.
-* *Reload all presets from disk:* If you made direct changes to preset files or have downloaded presets via ReaPack,
- you should press this to reflect these changes in all open ReaLearn instanes (reloads all preset files).
+* *Reload all presets from disk:* If you made direct changes to preset files or have downloaded presets via ReaPack, you should press this to reflect these changes in the preset lists of all open ReaLearn instances (reloads all preset files).
++
+[NOTE]
+====
+This *will not* yet apply an adjusted preset, it will just reload the list. If you want to apply a preset that has been changed on disk, you need to select it in the preset dropdown once again!
+====
 * *OSC devices:* Allows one to display and modify the list of (globally) configured OSC devices.
 ** *&lt;New&gt;:* Opens a window for adding a new OSC devices.
 *** *Name:* A descriptive name of the device, e.g. "TouchOSC on my Android phone".
@@ -1506,7 +1519,7 @@ Both types are explained in detail below. They support the following settings:
 ** Numbers are especially suited for the 8-knobs/8-buttons layouts. In a row of 8 knobs one would typically assign
  number 1 to the leftmost and number 8 to the rightmost one. It's your choice.
 ** For more advanced virtual control scenarios it can be useful to think in names instead of numbers. That's why
- the IDs of virtual control elements are not limited to numbers only. You can use up to 16 alphanumeric and
+ the IDs of virtual control elements are not limited to numbers only. You can use up to 32 alphanumeric and
  punctuation characters (no exotic characters, e.g. no umlauts).
 * *Pick:* Lets you conveniently pick out of predefined numbers and names. If you want your main preset to be
  compatible with as many controller presets as possible, try to use predefined names instead of inventing your own
@@ -1599,11 +1612,11 @@ object selectors. We use the example of tracks but the same applies to all other
 * *&lt;Dynamic&gt;*: This selector allows you to make the object (e.g. the track) depend on the values of ReaLearn's
 internal parameters.
 ** *Expression field:* When you choose this option, a text field will appear next to it. This lets you enter a
- mathematical expression whose result should be a _track index_ (the first track in the project has index 0).
+ mathematical expression whose result should be a _track index_ (the first track in the project has index 0, the master track -1).
  You can access the values of ReaLearn's internal parameters by using the variables `p1` to `p100`. All of them
  are normalized floating point values, that means they are decimal numbers between `0.0` and `1.0`. In dynamic
- _track_ selectors, there's also `this_track_index` (which resolves to the zero-rooted index of the track
- on which this ReaLearn instance is located) and `selected_track_index` (which resolves to the zero-rooted index
+ _track_ selectors, there's also `this_track_index` (which resolves to the zero-based index of the track
+ on which this ReaLearn instance is located) and `selected_track_index` (which resolves to the zero-based index
  of the first currently selected track within the containing project). Please note
  that the expression language is _not EEL_ - this is a notable difference to ReaLearn's control/feedback
  transformation and EEL activation condition text fields! The expression language used here just
@@ -1620,9 +1633,13 @@ internal parameters.
 *** `p1 * 3 * 100 + p2 * 99`: This will treat "Parameter 1" as a kind of bank selector that allows you
  to choose between exactly 4 banks (0, 1, 2, 3) of 100 tracks each. "Parameter 2" will select the track
  number within the bank. You see, this is very flexible.
-*** *You should not to use any other constructs than the ones in these examples!* It's not
- impossible that the expression engine gets replaced with another one in future … and I
- can't guarantee that it will support some of the more exotic features of the current expression engine.
++
+[WARNING]
+====
+*You should not use any other constructs than the ones in these examples!* It's not
+impossible that the expression engine gets replaced with another one in future … and I
+can't guarantee that it will support some of the more exotic features of the current expression engine.
+====
 ** *Result label:* For your convenience, you will find a small text label next to the expression text field that
  always shows the current result of your formula.
 
@@ -1733,6 +1750,14 @@ otherwise removes the override.
  automation mode.
 * *Mode:* Here you can pick the desired automation mode if _Behavior_ is _Override_.
 
+====== Project: Any on (solo/mute/...)
+
+This target is most useful in feedback direction. Map it to some LED on your controller and the LED will light up if at least one of the tracks in your project is e.g. mute (depending on the track parameter in question).
+
+If the control element is also a button, pressing the button will e.g. unmute all tracks in your project.
+
+* *Parameter:* The track parameter in question.
+
 [#project-invoke-reaper-action]
 ====== Project: Invoke REAPER action
 
@@ -1817,6 +1842,7 @@ Steps through tracks. To be used with endless rotary encoders or previous/next-s
 
 * *Scroll TCP* and *Scroll mixer*: See <<track-selectunselect,Track: Select/unselect>> target.
 
+[#seek-target]
 ====== Project: Seek
 
 Allows you to use faders, knobs, encoders or incremental buttons to seek within portions of your project …
@@ -1851,13 +1877,22 @@ This target supports the following additional placeholders in textual feedback e
 
 [cols="m,1"]
 |===
-|target.position.project_default | Position in the current ruler time unit
+|target.position.project_default | Position in the current transport time unit
 |target.position.time | _minute:second.milli_
 |target.position.measures_beats_time | _measure.beat.milli_
 |target.position.measures_beats | _measure.beat.milli_
 |target.position.seconds | _second.milli_
 |target.position.samples | _sample_
 |target.position.hmsf | _hour:minute:second:milli_
+|target.position.absolute_frames | _frames_
+|target.position.project_default.mcu | Like `target.position.project_default` but tailored to Mackie Control timecode displays
+|target.position.time.mcu | Like `target.position.time` but tailored to Mackie Control timecode displays
+|target.position.measures_beats_time.mcu | Like `target.position.measures_beats_time` but tailored to Mackie Control timecode displays
+|target.position.measures_beats.mcu | Like `target.position.measures_beats` but tailored to Mackie Control timecode displays
+|target.position.seconds.mcu | Like `target.position.seconds` but tailored to Mackie Control timecode displays
+|target.position.samples.mcu | Like `target.position.samples` but tailored to Mackie Control timecode displays
+|target.position.hmsf.mcu | Like `target.position.hmsf` but tailored to Mackie Control timecode displays
+|target.position.absolute_frames.mcu | Like `target.position.absolute_frames` but tailored to Mackie Control timecode displays
 |===
 
 
@@ -1984,6 +2019,13 @@ some spare button.
 ====== Track: Set pan
 
 Sets the track's pan value.
+
+This target supports the following additional placeholders in textual feedback expressions:
+
+[cols="m,1"]
+|===
+|target.pan.mcu | Pan value tailored to one line on a Mackie Control LCD
+|===
 
 ====== Track: Set stereo pan width
 
@@ -3200,10 +3242,9 @@ https://vital.audio/[Vital]. The procedure for other plug-ins is the same.
 [discrete]
 ==== Step 1: Activate the correct controller preset
 
-Before you start, I strongly recommend to download a ReaLearn controller preset for your specific controller from
-ReaPack and activate it in the _controller compartment_. You will need to right-click the header panel and choose
+Before you start, I strongly recommend downloading a ReaLearn controller preset for your specific controller from ReaPack and activate it in the _controller compartment_. You will need to right-click the header panel and choose
 _Reload all presets from disk_ to make a a newly downloaded controller preset appear in the preset list. If there's no
-suitable preset for your controller available on ReaPack, build your own.
+suitable preset for your controller available on ReaPack or in the https://github.com/helgoboss/realearn/tree/master/resources/controllers/unofficial[list of unofficial controller presets], build your own.
 
 This step is completely optional but it gives you many advantages, both in the short and long run. Please see
 section <<controller-compartment,Controller compartment>> for details.
@@ -3281,7 +3322,7 @@ ReaLearn 2.11.0 introduces an alternative to <<conditional-activation>>: The abi
 You strictly need to use conditional activation if you ...
 
 * ... want to activate/deactivate mappings using REAPER automation envelopes.
-* ... want to sync the active/inactive state of a mapping with a <<dynamic-selector,`<Dynamic>`>> expression.
+* ... want to sync the active/inactive state of a mapping with a <<dynamic-selector,dynamic track selector>> expression.
 * ... want to activate/deactivate mappings in another ReaLearn instance.
 * ... want to activate/deactivate mappings in another compartment within the same ReaLearn instance.
 +
@@ -3375,8 +3416,12 @@ Consider the following general usage hints:
 - If the device supports visual feedback and different LED colors, the LED color often depends on the target value and
  can be manually adjusted using "Source Min/Max" in the "Glue" section of the mapping.
 
-*Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack repository! Using an existing preset
-might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).*
+[IMPORTANT]
+====
+Make sure to watch out for dedicated controller presets on the Helgoboss ReaPack repository and https://github.com/helgoboss/realearn/tree/master/resources/controllers/unofficial[list of unofficial controller presets]!
+
+Using an existing preset might save you a lot of mapping work (and possibly also layout work, if you want to use the projection feature).*
+====
 
 
 === Akai "APC Key 25"
@@ -3763,42 +3808,75 @@ discuss those that don't directly model a real-world controller.
 
 *Covered domains:* DAW
 
-Although the term "Mackie Control" refers to a real controller device, it's nowadays most famous as a protocol standard
-for DAW controllers. This particular ReaLearn controller preset supports large parts of this standard. You can think
-of this standard as …
+Although the term "Mackie Control" refers to a real controller device, it's nowadays most famous as a protocol standard for DAW controllers. This particular ReaLearn controller preset supports large parts of this standard. You can think of this standard as …
 
 . an agreement which buttons/faders/encoders/LCDs/etc. a proper DAW controller should have,
 . which MIDI messages they send and receive
 . and which _effect_ the control elements should have on the DAW.
 
-It's not magic, it's mostly just an agreement on which MIDI messages to use - which is very useful because this agreement
-is what makes it possible that different DAW controllers of all kinds of manufacturers can instantly work with any DAW
-that supports the Mackie Control protocol.
+It's not magic, it's mostly just an agreement on which MIDI messages to use - which is very useful because this agreement is what makes it possible that different DAW controllers of all kinds of manufacturers can instantly work with any DAW that supports the Mackie Control protocol.
 
-If you have a (DAW) controller device which supports the _Mackie Control_ standard, you don't necessarily need to
-find a specific preset for your controller or craft your own one, you can just use the "Mackie Control" preset. 
+If you have a (DAW) controller device which supports the _Mackie Control_ standard, you don't necessarily need to find a specific preset for your controller or craft your own one, you can just use the "Mackie Control" preset.
 
-*Important:* Because this is a _controller preset_, this preset is about virtual control element naming (1) and
-mapping of MIDI messages to those virtual control elements (2) only! It's not about the effect, e.g. letting the fader
-control your track volume (3)! In order to get an effect, you need to choose a suitable main preset or build some main
-custom mappings yourself (it's very easy because that's what ReaLearn is all about!).
+[NOTE]
+====
+Because this is a _controller preset_, this preset is only about:
+
+1. Virtual control element naming and
+2. mapping of MIDI messages to those virtual control elements!
+
+It's not about the effect, e.g. letting the fader control your track volume! In order to get an effect, you need to choose a suitable main preset or build some main custom mappings yourself (it's very easy because that's what ReaLearn is all about!).
+
+There's one main preset in the Helgoboss ReaPack repository which makes extensive usage of the capabilities of the Mackie Control preset: <<daw-control-preset>>. If you need inspiration or help how to build main presets for the Mackie Control preset, have a look at it!
+====
 
 In addition to getting descriptive control element naming (e.g. `play` or `stop`), using this preset should give you instant
 compatibility with some main presets available on the Helgoboss ReaPack repository.
 
-When you create _main_ mappings using this controller preset, you can - as always - use the "Learn" function. However,
-Mackie-compatible controllers often have LCDs, which you can of course not learn because they are not control
-elements. They can only display things, so they only support the _feedback_ direction. Here's how you use them:
+When you create _main_ mappings using this controller preset, you can - as always - use the "Learn" function. However, Mackie-compatible controllers often have displays, which you can of course not learn because they are not control elements. They can only display things, so they only support the _feedback_ direction. You can make use of them by choosing the corresponding virtual source (Multi):
 
-* *Assignment 7-segment display*: At the moment, this is the only LCD supported by this controller preset.
- It allows you to display the numbers between `00` and `99`. Use a virtual source with type _Multi_ and ID
- `lcd/assignment`. Use an arbitrary feedback-enabled target to make it display the value as percentage. As with
- all kind of feedback (also motorized faders and LEDs), you can use e.g. the mapping's _Source/Target Min/Max_ settings
- to adjust the displayed value range.
+[cols="m,1,1"]
+|===
+| Virtual control element ID | Display | Description
+
+| lcd/assignment
+| 7-segment assignment display
+|
+Allows you to display a number between `00` and `99`.
+
+Use an arbitrary feedback-enabled target to make it display the value as percentage. As with all kind of numeric feedback (also motorized faders and LEDs), you can use e.g. the mapping's _Source/Target Min/Max_ settings to adjust the displayed value range.
+
+This display also supports text feedback but that's not very useful with only 2 letters.
+
+| lcd/timecode
+| 7-segment timecode display
+|
+Allows you to display digits but also rudimentary text.
+
+It's typically used to display a time, e.g. the time of the current play position. For this use case, simply combine it with the target <<seek-target>>, choose <<textual-feedback,textual feedback>> in the <<glue>> section and enter one of the `*.mcu` placeholders in the text expression field, for example `{{target.position.project_default.mcu}}`.
+
+You can project arbitrary text on this display but because it's just a 7-segment display, some letters are not very readable.
+
+| ch*/lcd/line1
+| First line of a channel display
+|
+This display supports all latin characters. You can use it with all kinds of targets with both numeric and <<textual-feedback,textual feedback>>.
+
+You need to replace the asterisk with the desired channel number (a number between 1 and 8), e.g. `ch1/lcd/line1`.
+
+| ch*/lcd/line2
+| Second line of a channel display
+|
+Same as above, just the second line.
+
+If you want to target both lines at once because your text is quite long, you can do that by using the MIDI source <<display-source>> and setting _Line_ to `<Multiline>`. But keep in mind that this will tie your main preset to Mackie Displays. The advantage of making it work with a virtual control element is that it will be compatible with non-Mackie controllers that use the same virtual control element naming.
+
+|===
+
 
 == Main presets
 
-The number of _main_ presets in this repository is relatively small because ReaLearn is all about enabling you
+The number of _main_ presets in the Helgoboss ReaPack repository and https://github.com/helgoboss/realearn/tree/master/resources/main-presets/unofficial[list of unofficial main presets] is relatively small because ReaLearn is all about enabling you
 to quickly come up with your own customized mappings. The few main presets available primarily exist to give you
 some inspiration and to provide you with a good starting point for your own presets. If you like one preset and need it
 to be stable, it's best if you make your own copy of it and use this one (because I might update it at a later point,
@@ -3830,6 +3908,7 @@ The general idea is:
  to the named multi control element `ch5/fader` ("DAW" domain) by using 2 mappings with the same target.
  Then we say this preset supports both domains.
 
+[#daw-control-preset]
 === DAW control
 
 *Supported domains:* DAW
