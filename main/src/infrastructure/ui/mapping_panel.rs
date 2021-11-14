@@ -41,9 +41,9 @@ use crate::application::{
 };
 use crate::base::Global;
 use crate::domain::{
-    control_element_domains, ClipInfo, ControlContext, Exclusivity, FeedbackSendBehavior,
-    ReaperTargetType, SendMidiDestination, SimpleExclusivity, SlotContent, WithControlContext,
-    CLIP_SLOT_COUNT,
+    control_element_domains, AnyOnParameter, ClipInfo, ControlContext, Exclusivity,
+    FeedbackSendBehavior, ReaperTargetType, SendMidiDestination, SimpleExclusivity, SlotContent,
+    WithControlContext, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -1963,6 +1963,13 @@ impl<'a> MutableMappingPanel<'a> {
                         .transport_action
                         .set(i.try_into().expect("invalid transport action"));
                 }
+                ReaperTargetType::AnyOn => {
+                    let i = combo.selected_combo_box_item_index();
+                    self.mapping
+                        .target_model
+                        .any_on_parameter
+                        .set(i.try_into().expect("invalid any-on parameter"));
+                }
                 ReaperTargetType::NavigateWithinGroup => {
                     let i = combo.selected_combo_box_item_index();
                     let group_id = self
@@ -3127,6 +3134,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::Transport => Some("Action"),
+                ReaperTargetType::AnyOn => Some("Parameter"),
                 ReaperTargetType::AutomationModeOverride => Some("Behavior"),
                 ReaperTargetType::GoToBookmark => match self.target.bookmark_type.get() {
                     BookmarkType::Marker => Some("Marker"),
@@ -3222,6 +3230,15 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo
                         .select_combo_box_item_by_index(
                             self.mapping.target_model.transport_action.get().into(),
+                        )
+                        .unwrap();
+                }
+                ReaperTargetType::AnyOn => {
+                    combo.show();
+                    combo.fill_combo_box_indexed(AnyOnParameter::into_enum_iter());
+                    combo
+                        .select_combo_box_item_by_index(
+                            self.mapping.target_model.any_on_parameter.get().into(),
                         )
                         .unwrap();
                 }
@@ -5290,6 +5307,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 .merge(target.bookmark_anchor_type.changed_with_initiator())
                 .merge(target.bookmark_ref.changed_with_initiator())
                 .merge(target.transport_action.changed_with_initiator())
+                .merge(target.any_on_parameter.changed_with_initiator())
                 .merge(target.action.changed_with_initiator()),
             |view, initiator| {
                 view.invalidate_window_title();

@@ -11,10 +11,10 @@ use crate::application::{
 use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_some_default};
 use crate::base::notification;
 use crate::domain::{
-    get_fx_chain, ActionInvocationType, Exclusivity, ExtendedProcessorContext, FxDisplayType,
-    GroupKey, MappingCompartment, OscDeviceId, ReaperTargetType, SeekOptions, SendMidiDestination,
-    SoloBehavior, Tag, TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction,
-    VirtualTrack,
+    get_fx_chain, ActionInvocationType, AnyOnParameter, Exclusivity, ExtendedProcessorContext,
+    FxDisplayType, GroupKey, MappingCompartment, OscDeviceId, ReaperTargetType, SeekOptions,
+    SendMidiDestination, SoloBehavior, Tag, TouchedParameterType, TrackExclusivity, TrackRouteType,
+    TransportAction, VirtualTrack,
 };
 use crate::infrastructure::data::{
     DataToModelConversionContext, ModelToDataConversionContext, VirtualControlElementIdData,
@@ -73,6 +73,9 @@ pub struct TargetModelData {
     // Transport target
     #[serde(default, skip_serializing_if = "is_default")]
     pub transport_action: TransportAction,
+    // Any-on target
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub any_on_parameter: AnyOnParameter,
     #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -170,6 +173,7 @@ impl TargetModelData {
             solo_behavior: Some(model.solo_behavior.get()),
             track_exclusivity: model.track_exclusivity.get(),
             transport_action: model.transport_action.get(),
+            any_on_parameter: model.any_on_parameter.get(),
             control_element_type: model.control_element_type.get(),
             control_element_index: VirtualControlElementIdData::from_model(
                 model.control_element_id.get(),
@@ -339,6 +343,9 @@ impl TargetModelData {
         model
             .transport_action
             .set_with_optional_notification(self.transport_action, with_notification);
+        model
+            .any_on_parameter
+            .set_with_optional_notification(self.any_on_parameter, with_notification);
         model
             .control_element_type
             .set_with_optional_notification(self.control_element_type, with_notification);

@@ -20,6 +20,7 @@ pub struct Glue {
     pub step_size_interval: Option<Interval<f64>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub step_factor_interval: Option<Interval<i32>>,
+    // TODO-high Should we add a separate feedback_text_expression?
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback_transformation: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

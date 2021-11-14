@@ -322,7 +322,7 @@ fn convert_capability_to_mappings(
                     };
                     Some(g)
                 },
-                // TODO-high Mmh, there's also a separate mapping for that. What's the point of
+                // TODO-medium Mmh, there's also a separate mapping for that. What's the point of
                 //  "Toggle" then? Maybe it's just a duplicate in the X-Touch mst file. Check!
                 target: virtual_target(
                     extended_control_element_id(widget_id, "push")?,
@@ -468,7 +468,6 @@ fn convert_accelerations(
         acc
     } else {
         let res = AccelerationConvResult {
-            // TODO-high Fix rotaries in presets ... I used Relative 1!
             character: SourceCharacter::Relative3,
             step_factor_interval: Interval(1, 1),
         };

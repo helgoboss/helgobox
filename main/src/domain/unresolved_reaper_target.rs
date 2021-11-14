@@ -1,11 +1,11 @@
 use crate::application::BookmarkAnchorType;
 use crate::base::hash_util;
 use crate::domain::{
-    ActionInvocationType, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
-    AutomationTouchStateTarget, BackboneState, ClipSeekTarget, ClipTransportTarget,
-    ClipVolumeTarget, EnableInstancesTarget, EnableMappingsTarget, Exclusivity,
-    ExtendedProcessorContext, FeedbackResolution, FxDisplayType, FxEnableTarget, FxNavigateTarget,
-    FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, GroupId,
+    ActionInvocationType, ActionTarget, AllTrackFxEnableTarget, AnyOnParameter, AnyOnTarget,
+    AutomationModeOverrideTarget, AutomationTouchStateTarget, BackboneState, ClipSeekTarget,
+    ClipTransportTarget, ClipVolumeTarget, EnableInstancesTarget, EnableMappingsTarget,
+    Exclusivity, ExtendedProcessorContext, FeedbackResolution, FxDisplayType, FxEnableTarget,
+    FxNavigateTarget, FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, GroupId,
     LoadFxSnapshotTarget, LoadMappingSnapshotTarget, MappingCompartment, MidiSendTarget,
     NavigateWithinGroupTarget, OscDeviceId, OscSendTarget, ParameterSlice, PlayrateTarget,
     RealearnTarget, ReaperTarget, RouteAutomationModeTarget, RouteMonoTarget, RouteMuteTarget,
@@ -210,6 +210,9 @@ pub enum UnresolvedReaperTarget {
     EnableInstances {
         scope: TagScope,
         exclusivity: Exclusivity,
+    },
+    AnyOn {
+        parameter: AnyOnParameter,
     },
 }
 
@@ -493,6 +496,10 @@ impl UnresolvedReaperTarget {
                 project: context.context().project_or_current_project(),
                 action: *action,
             })],
+            AnyOn { parameter } => vec![ReaperTarget::AnyOn(AnyOnTarget {
+                project: context.context().project_or_current_project(),
+                parameter: *parameter,
+            })],
             LoadFxPreset {
                 fx_descriptor,
                 chunk,
@@ -741,6 +748,7 @@ impl UnresolvedReaperTarget {
             | Playrate
             | SelectedTrack { .. }
             | Transport { .. }
+            | AnyOn { .. }
             | LastTouched
             | Seek { .. }
             | ClipSeek { .. }
@@ -865,6 +873,7 @@ impl UnresolvedReaperTarget {
             | LoadMappingSnapshot { .. }
             | EnableMappings { .. }
             | EnableInstances { .. }
+            | AnyOn { .. }
             | NavigateWithinGroup { .. } => return None,
             AllTrackFxEnable {
                 poll_for_feedback, ..

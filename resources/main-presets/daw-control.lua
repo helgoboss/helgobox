@@ -837,6 +837,19 @@ local mappings = {
             command = 40364,
         },
     },
+    {
+        name = "Any solo",
+        group = "master",
+        source = {
+            kind = "Virtual",
+            id = "solo",
+            character = "Button",
+        },
+        target = {
+            kind = "AnyOn",
+            parameter = "TrackSolo",
+        },
+    },
     -- Done
     {
         id = "7b90c136-f89c-477e-b812-525b4a7da5ed",
@@ -975,6 +988,7 @@ local mappings = {
     },
     {
         name = "Cycle time modes",
+        group = "master",
         feedback_enabled = false,
         source = {
             kind = "Virtual",
