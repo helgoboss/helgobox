@@ -886,7 +886,6 @@
       },
       "mode": {
         "maxTargetValue": 0.01,
-        "maxTargetJump": 0.01,
         "eelFeedbackTransformation": "x = y + 0.01",
         "feedbackColor": null
       },

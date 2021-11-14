@@ -499,7 +499,6 @@ local mappings = {
         },
         glue = {
             target_interval = {0, 0.00001},
-            jump_interval = {0, 0.00001},
         },
         target = {
             kind = "Seek",
@@ -867,7 +866,6 @@ local mappings = {
         },
         glue = {
             target_interval = {0, 0.01},
-            jump_interval = {0, 0.01},
             feedback_transformation = "x = y + 0.01",
         },
         target = {
