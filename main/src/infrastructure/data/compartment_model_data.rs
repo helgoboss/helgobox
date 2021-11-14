@@ -127,6 +127,7 @@ pub fn ensure_no_duplicate_compartment_data<'a>(
     Ok(())
 }
 
+#[allow(clippy::unnecessary_filter_map)]
 pub fn ensure_no_duplicate<T>(list_label: &str, iter: T) -> Result<(), String>
 where
     T: IntoIterator,

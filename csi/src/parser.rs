@@ -279,7 +279,7 @@ mod util {
 
     pub fn capability_index<'a>(name: &'static str) -> impl FnMut(&'a str) -> Res<u8> {
         map_res(preceded(tuple((tag(name), space1)), digit1), |s: &str| {
-            u8::from_str_radix(s, 10)
+            s.parse::<u8>()
         })
     }
 

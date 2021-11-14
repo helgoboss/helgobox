@@ -132,9 +132,8 @@ impl MappingModelData {
         let key: MappingKey = self
             .key
             .clone()
-            .map(|k| MappingKey::from(k))
             .or_else(|| self.id.clone())
-            .unwrap_or_else(|| MappingKey::random());
+            .unwrap_or_else(MappingKey::random);
         // Preliminary group ID
         let mut model = MappingModel::new(compartment, GroupId::default(), key);
         self.apply_to_model_internal(

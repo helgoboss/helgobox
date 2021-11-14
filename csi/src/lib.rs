@@ -24,7 +24,7 @@ pub enum CsiObject {
 type CsiResult<T> = Result<T, Box<dyn Error>>;
 
 pub fn deserialize_csi_object_from_csi(text: &str) -> Result<CsiObject, Box<dyn Error>> {
-    let widgets = parser::mst_file_content(text).map_err(|e| e.to_string())?;
+    let widgets = parser::mst_file_content(text)?;
     Ok(CsiObject::Widgets(widgets))
 }
 

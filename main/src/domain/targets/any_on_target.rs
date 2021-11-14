@@ -130,6 +130,7 @@ impl<'a> Target<'a> for AnyOnTarget {
     Display,
 )]
 #[repr(usize)]
+#[allow(clippy::enum_variant_names)]
 pub enum AnyOnParameter {
     #[serde(rename = "track-solo")]
     #[display(fmt = "Track solo")]
