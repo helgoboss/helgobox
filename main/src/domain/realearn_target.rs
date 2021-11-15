@@ -325,6 +325,39 @@ pub trait RealearnTarget {
     }
 }
 
+pub enum CompoundChangeEvent<'a> {
+    Reaper(&'a ChangeEvent),
+    Additional(&'a AdditionalFeedbackEvent),
+    Instance(&'a InstanceStateChanged),
+}
+
+pub fn target_prop_is_affected_by(
+    key: &str,
+    event: CompoundChangeEvent,
+    target: &ReaperTarget,
+) -> bool {
+    match key {
+        // These properties always relate to the main target value property.
+        target_prop_keys::TEXT_VALUE
+        | target_prop_keys::NUMERIC_VALUE
+        | target_prop_keys::NORMALIZED_VALUE
+        // TODO-high Query target
+        => true,
+        // These properties relate to a secondary target property.
+        // TODO-high Implement
+        "track.index" => true,
+        "track.name" => true,
+        "track.color" => true,
+        "fx.index" => true,
+        "fx.name" => true,
+        "route.index" => true,
+        "route.name" => true,
+        // These properties are static in nature (change only when target settings change).
+        target_prop_keys::NUMERIC_VALUE_UNIT | "type.name" | "type.long_name" => false,
+        _ => false,
+    }
+}
+
 /// `key` must not have the `target.` prefix anymore when calling this!
 pub fn get_realearn_target_prop_value_with_fallback<'a>(
     target: &(impl RealearnTarget + Target<'a, Context = ControlContext<'a>>),

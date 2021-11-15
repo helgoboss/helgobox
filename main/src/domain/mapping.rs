@@ -242,6 +242,41 @@ impl MainMapping {
             initial_target_value_snapshot: None,
         }
     }
+    pub fn process_change_event(
+        &self,
+        target: &ReaperTarget,
+        evt: &ChangeEvent,
+        context: ControlContext,
+    ) -> (bool, Option<AbsoluteValue>) {
+        if self.core.mode.wants_textual_feedback() {
+            // Textual feedback relates to whatever properties are mentioned in the text expression.
+            // That means we need to check for each of these mentioned properties if they might
+            // be affected by the incoming event.
+            // TODO-high Implement
+            // let is_affected = self.core.mode.textual_feedback_props().iter().any(|p| );
+            (true, None)
+        } else {
+            // Numeric feedback always relates to the main target value property, so we ask the
+            // target directly.
+            target.process_change_event(evt, context)
+        }
+    }
+
+    pub fn value_changed_from_additional_feedback_event(
+        &self,
+        target: &ReaperTarget,
+        evt: &AdditionalFeedbackEvent,
+    ) -> (bool, Option<AbsoluteValue>) {
+        target.value_changed_from_additional_feedback_event(evt)
+    }
+
+    pub fn value_changed_from_instance_feedback_event(
+        &self,
+        target: &ReaperTarget,
+        evt: &InstanceStateChanged,
+    ) -> (bool, Option<AbsoluteValue>) {
+        target.value_changed_from_instance_feedback_event(evt)
+    }
 
     pub fn take_mapping_info(&mut self) -> MappingInfo {
         MappingInfo {
@@ -1913,6 +1948,7 @@ impl RealearnTarget for CompoundMappingTarget {
         evt: &ChangeEvent,
         control_context: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
+        // TODO-medium I think this abstraction is not in use
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.process_change_event(evt, control_context),

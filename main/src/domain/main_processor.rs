@@ -561,7 +561,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         .process_feedback_related_reaper_event_for_mapping(
                             m,
                             &self.collections.mappings_with_virtual_targets,
-                            &mut |t| {
+                            &mut |m, t| {
                                 if m.mode().wants_textual_feedback() {
                                     // Text feedback is not necessarily based on percentages.
                                     // This means we can have the situation that in terms of
@@ -623,8 +623,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .try_iter()
             .take(FEEDBACK_TASK_BULK_SIZE)
         {
-            self.process_feedback_related_reaper_event(|target| {
-                target.value_changed_from_instance_feedback_event(&event)
+            self.process_feedback_related_reaper_event(|mapping, target| {
+                mapping.value_changed_from_instance_feedback_event(target, &event)
             });
         }
     }
@@ -654,8 +654,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                             {
                                 self.process_feedback_related_reaper_event_for_mapping(
                                     m,
-                                    &mut |target| {
-                                        target.value_changed_from_instance_feedback_event(
+                                    &mut |m, target| {
+                                        m.value_changed_from_instance_feedback_event(
+                                            target,
                                             &instance_event,
                                         )
                                     },
@@ -665,8 +666,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     }
                 } else {
                     // Other property of clip changed.
-                    self.process_feedback_related_reaper_event(|target| {
-                        target.value_changed_from_instance_feedback_event(&instance_event)
+                    self.process_feedback_related_reaper_event(|mapping, target| {
+                        mapping.value_changed_from_instance_feedback_event(target, &instance_event)
                     });
                 }
             }
@@ -1322,16 +1323,19 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.collections.beat_dependent_feedback_mappings[compartment].iter()
                 {
                     if let Some(m) = self.collections.mappings[compartment].get(mapping_id) {
-                        self.process_feedback_related_reaper_event_for_mapping(m, &mut |target| {
-                            target.value_changed_from_additional_feedback_event(event)
-                        });
+                        self.process_feedback_related_reaper_event_for_mapping(
+                            m,
+                            &mut |m, target| {
+                                m.value_changed_from_additional_feedback_event(target, event)
+                            },
+                        );
                     }
                 }
             }
         } else {
             // Okay, not fired that frequently, we can iterate over all mappings.
-            self.process_feedback_related_reaper_event(|target| {
-                target.value_changed_from_additional_feedback_event(event)
+            self.process_feedback_related_reaper_event(|mapping, target| {
+                mapping.value_changed_from_additional_feedback_event(target, event)
             });
         }
     }
@@ -1361,8 +1365,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .try_send(NormalMainTask::RefreshAllTargets)
                 .unwrap();
         }
-        self.process_feedback_related_reaper_event(|target| {
-            target.process_change_event(event, self.basics.control_context())
+        self.process_feedback_related_reaper_event(|mapping, target| {
+            mapping.process_change_event(target, event, self.basics.control_context())
         });
     }
 
@@ -1375,7 +1379,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// avoid a redundant query.
     fn process_feedback_related_reaper_event(
         &self,
-        mut f: impl Fn(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
+        mut f: impl Fn(&MainMapping, &ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {
         for compartment in MappingCompartment::enum_iter() {
             // Mappings with virtual targets don't need to be considered here because they don't
@@ -1389,7 +1393,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn process_feedback_related_reaper_event_for_mapping(
         &self,
         m: &MainMapping,
-        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
+        f: &mut impl FnMut(&MainMapping, &ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {
         self.basics
             .process_feedback_related_reaper_event_for_mapping(
@@ -2520,7 +2524,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         &self,
         m: &MainMapping,
         mappings_with_virtual_targets: &OrderedMappingMap<MainMapping>,
-        f: &mut impl FnMut(&ReaperTarget) -> (bool, Option<AbsoluteValue>),
+        f: &mut impl FnMut(&MainMapping, &ReaperTarget) -> (bool, Option<AbsoluteValue>),
     ) {
         // It's enough if one of the resolved targets is affected. Then we are going to need the
         // values of all of them!
@@ -2544,7 +2548,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 // changes for examples and especially in case of on/off targets this
                 // can lead to horribly wrong feedback. Previously we didn't have this
                 // issue because we always deferred to the next main loop cycle.
-                let (value_changed, new_value) = f(target);
+                let (value_changed, new_value) = f(m, target);
                 if value_changed {
                     at_least_one_target_is_affected = true;
                 }
