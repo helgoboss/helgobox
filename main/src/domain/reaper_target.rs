@@ -525,8 +525,6 @@ impl ReaperTarget {
 }
 
 impl<'a> Target<'a> for ReaperTarget {
-    // An option because we don't have the context available e.g. if some target variants are
-    // controlled from real-time processor.
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext) -> Option<AbsoluteValue> {
