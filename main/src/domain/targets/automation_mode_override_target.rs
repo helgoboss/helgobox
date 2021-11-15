@@ -1,7 +1,7 @@
 use crate::domain::{
-    format_value_as_on_off, global_automation_mode_override_unit_value, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter,
+    format_value_as_on_off, global_automation_mode_override_unit_value, CompoundChangeEvent,
+    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
+    ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Reaper};
@@ -44,11 +44,11 @@ impl RealearnTarget for AutomationModeOverrideTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::GlobalAutomationOverrideChanged(e) => (
+            CompoundChangeEvent::Reaper(ChangeEvent::GlobalAutomationOverrideChanged(e)) => (
                 true,
                 Some(AbsoluteValue::Continuous(
                     global_automation_mode_override_unit_value(self.mode_override, e.new_value),

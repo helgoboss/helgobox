@@ -3,8 +3,8 @@ use crate::domain::ui_util::{
     parse_from_double_percentage, parse_from_symmetric_percentage,
 };
 use crate::domain::{
-    width_unit_value, ControlContext, HitInstructionReturnValue, MappingControlContext, PanExt,
-    RealearnTarget, ReaperTargetType, TargetCharacter,
+    width_unit_value, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
+    MappingControlContext, PanExt, RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{AvailablePanValue, ChangeEvent, Project, Track, Width};
@@ -67,19 +67,25 @@ impl RealearnTarget for TrackWidthTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::TrackPanChanged(e) if e.track == self.track => (
-                true,
-                match e.new_value {
-                    AvailablePanValue::Complete(v) => v.width().map(|width| {
-                        AbsoluteValue::Continuous(width_unit_value(Width::from_reaper_value(width)))
-                    }),
-                    AvailablePanValue::Incomplete(_) => None,
-                },
-            ),
+            CompoundChangeEvent::Reaper(ChangeEvent::TrackPanChanged(e))
+                if e.track == self.track =>
+            {
+                (
+                    true,
+                    match e.new_value {
+                        AvailablePanValue::Complete(v) => v.width().map(|width| {
+                            AbsoluteValue::Continuous(width_unit_value(Width::from_reaper_value(
+                                width,
+                            )))
+                        }),
+                        AvailablePanValue::Incomplete(_) => None,
+                    },
+                )
+            }
             _ => (false, None),
         }
     }

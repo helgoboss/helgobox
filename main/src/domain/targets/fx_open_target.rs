@@ -1,7 +1,8 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, ControlContext, FxDisplayType, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter,
+    format_value_as_on_off, CompoundChangeEvent, ControlContext, FxDisplayType,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
+    TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
@@ -68,12 +69,13 @@ impl RealearnTarget for FxOpenTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
+        use CompoundChangeEvent::*;
         match evt {
-            ChangeEvent::FxOpened(e) if e.fx == self.fx => (true, None),
-            ChangeEvent::FxClosed(e) if e.fx == self.fx => (true, None),
+            Reaper(ChangeEvent::FxOpened(e)) if e.fx == self.fx => (true, None),
+            Reaper(ChangeEvent::FxClosed(e)) if e.fx == self.fx => (true, None),
             _ => (false, None),
         }
     }

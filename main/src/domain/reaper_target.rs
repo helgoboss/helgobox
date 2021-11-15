@@ -16,9 +16,10 @@ use reaper_medium::{
 use rxrust::prelude::*;
 
 use crate::domain::{
-    AnyOnTarget, EnableInstancesTarget, EnableMappingsTarget, HitInstructionReturnValue,
-    LoadMappingSnapshotTarget, NavigateWithinGroupTarget, RealearnTarget, ReaperTargetType,
-    RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget, TrackPhaseTarget,
+    AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget,
+    HitInstructionReturnValue, LoadMappingSnapshotTarget, NavigateWithinGroupTarget,
+    RealearnTarget, ReaperTargetType, RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget,
+    TrackPhaseTarget,
 };
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -26,16 +27,15 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use crate::base::Global;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    handle_exclusivity, ActionTarget, AdditionalFeedbackEvent, AllTrackFxEnableTarget,
-    AutomationModeOverrideTarget, AutomationTouchStateTarget, ClipPlayState, ClipSeekTarget,
-    ClipTransportTarget, ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget,
-    FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry,
-    HierarchyEntryProvider, InstanceStateChanged, LoadFxSnapshotTarget, MappingControlContext,
-    MidiSendTarget, OscSendTarget, PlayrateTarget, RouteMuteTarget, RoutePanTarget,
-    RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget, TrackArmTarget,
-    TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
-    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportTarget,
+    handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,
+    AutomationTouchStateTarget, ClipPlayState, ClipSeekTarget, ClipTransportTarget,
+    ClipVolumeTarget, ControlContext, FxEnableTarget, FxNavigateTarget, FxOpenTarget,
+    FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
+    LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget,
+    RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekTarget, SelectedTrackTarget,
+    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget,
+    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget,
+    TrackWidthTarget, TransportTarget,
 };
 use enum_dispatch::enum_dispatch;
 use std::convert::TryInto;

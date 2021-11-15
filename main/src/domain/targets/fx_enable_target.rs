@@ -1,6 +1,7 @@
 use crate::domain::{
-    format_value_as_on_off, fx_enable_unit_value, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter,
+    format_value_as_on_off, fx_enable_unit_value, CompoundChangeEvent, ControlContext,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
+    TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
@@ -50,11 +51,11 @@ impl RealearnTarget for FxEnableTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::FxEnabledChanged(e) if e.fx == self.fx => (
+            CompoundChangeEvent::Reaper(ChangeEvent::FxEnabledChanged(e)) if e.fx == self.fx => (
                 true,
                 Some(AbsoluteValue::Continuous(fx_enable_unit_value(e.new_value))),
             ),

@@ -1,8 +1,8 @@
 use crate::domain::{
     bpm_span, format_step_size_as_bpm_without_unit, format_value_as_bpm_without_unit,
-    parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter,
+    parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value, CompoundChangeEvent,
+    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
+    ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Tempo};
@@ -75,16 +75,20 @@ impl RealearnTarget for TempoTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::MasterTempoChanged(e) if e.project == self.project => (
-                true,
-                Some(AbsoluteValue::Continuous(tempo_unit_value(
-                    reaper_high::Tempo::from_bpm(e.new_value),
-                ))),
-            ),
+            CompoundChangeEvent::Reaper(ChangeEvent::MasterTempoChanged(e))
+                if e.project == self.project =>
+            {
+                (
+                    true,
+                    Some(AbsoluteValue::Continuous(tempo_unit_value(
+                        reaper_high::Tempo::from_bpm(e.new_value),
+                    ))),
+                )
+            }
             _ => (false, None),
         }
     }

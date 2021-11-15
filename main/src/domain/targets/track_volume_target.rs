@@ -2,8 +2,8 @@ use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
 use crate::domain::{
-    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter,
+    CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
+    RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, Volume};
@@ -66,16 +66,20 @@ impl RealearnTarget for TrackVolumeTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::TrackVolumeChanged(e) if e.track == self.track => (
-                true,
-                Some(AbsoluteValue::Continuous(volume_unit_value(
-                    Volume::from_reaper_value(e.new_value),
-                ))),
-            ),
+            CompoundChangeEvent::Reaper(ChangeEvent::TrackVolumeChanged(e))
+                if e.track == self.track =>
+            {
+                (
+                    true,
+                    Some(AbsoluteValue::Continuous(volume_unit_value(
+                        Volume::from_reaper_value(e.new_value),
+                    ))),
+                )
+            }
             _ => (false, None),
         }
     }

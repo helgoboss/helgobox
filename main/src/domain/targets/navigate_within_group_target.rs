@@ -1,9 +1,9 @@
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value, convert_unit_to_discrete_value,
-    ControlContext, GroupId, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
-    InstanceStateChanged, MappingCompartment, MappingControlContext, MappingControlResult,
-    MappingId, QualifiedMappingId, RealearnTarget, ReaperTargetType, SimpleExclusivity,
-    TargetCharacter,
+    CompoundChangeEvent, ControlContext, GroupId, HitInstruction, HitInstructionContext,
+    HitInstructionReturnValue, InstanceStateChanged, MappingCompartment, MappingControlContext,
+    MappingControlResult, MappingId, QualifiedMappingId, RealearnTarget, ReaperTargetType,
+    SimpleExclusivity, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -155,16 +155,17 @@ impl RealearnTarget for NavigateWithinGroupTarget {
             > 0
     }
 
-    fn value_changed_from_instance_feedback_event(
+    fn process_change_event(
         &self,
-        evt: &InstanceStateChanged,
+        evt: CompoundChangeEvent,
+        _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            InstanceStateChanged::ActiveMappingWithinGroup {
+            CompoundChangeEvent::Instance(InstanceStateChanged::ActiveMappingWithinGroup {
                 compartment,
                 group_id,
                 ..
-            } if *compartment == self.compartment && *group_id == self.group_id => (true, None),
+            }) if *compartment == self.compartment && *group_id == self.group_id => (true, None),
             _ => (false, None),
         }
     }

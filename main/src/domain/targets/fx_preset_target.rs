@@ -1,7 +1,7 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
-    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter,
+    CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
+    RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -101,11 +101,13 @@ impl RealearnTarget for FxPresetTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::FxPresetChanged(e) if e.fx == self.fx => (true, None),
+            CompoundChangeEvent::Reaper(ChangeEvent::FxPresetChanged(e)) if e.fx == self.fx => {
+                (true, None)
+            }
             _ => (false, None),
         }
     }

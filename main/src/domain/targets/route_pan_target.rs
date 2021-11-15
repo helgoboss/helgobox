@@ -1,10 +1,11 @@
 use crate::domain::{
-    format_value_as_pan, pan_unit_value, parse_value_from_pan, ControlContext,
+    format_value_as_pan, pan_unit_value, parse_value_from_pan, CompoundChangeEvent, ControlContext,
     HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
     TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Pan, Project, Track, TrackRoute};
+use reaper_medium::ReaperFunctionError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoutePanTarget {
@@ -74,26 +75,30 @@ impl RealearnTarget for RoutePanTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::TrackRoutePanChanged(e) if e.route == self.route => (
-                true,
-                Some(AbsoluteValue::Continuous(pan_unit_value(
-                    Pan::from_reaper_value(e.new_value),
-                ))),
-            ),
+            CompoundChangeEvent::Reaper(ChangeEvent::TrackRoutePanChanged(e))
+                if e.route == self.route =>
+            {
+                (
+                    true,
+                    Some(AbsoluteValue::Continuous(pan_unit_value(
+                        Pan::from_reaper_value(e.new_value),
+                    ))),
+                )
+            }
             _ => (false, None),
         }
     }
 
     fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(self.pan().to_string())
+        Some(self.pan().ok()?.to_string())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
-        Some(NumericValue::Decimal(self.pan().reaper_value().get()))
+        Some(NumericValue::Decimal(self.pan().ok()?.reaper_value().get()))
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
@@ -102,7 +107,7 @@ impl RealearnTarget for RoutePanTarget {
 }
 
 impl RoutePanTarget {
-    fn pan(&self) -> Pan {
+    fn pan(&self) -> Result<Pan, ReaperFunctionError> {
         self.route.pan()
     }
 }
@@ -111,7 +116,7 @@ impl<'a> Target<'a> for RoutePanTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let val = pan_unit_value(self.pan());
+        let val = pan_unit_value(self.pan().ok()?);
         Some(AbsoluteValue::Continuous(val))
     }
 

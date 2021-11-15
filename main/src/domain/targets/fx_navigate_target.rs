@@ -1,7 +1,7 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_fx_index, shown_fx_unit_value,
-    ControlContext, FxDisplayType, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter,
+    CompoundChangeEvent, ControlContext, FxDisplayType, HitInstructionReturnValue,
+    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -121,12 +121,13 @@ impl RealearnTarget for FxNavigateTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
+        use CompoundChangeEvent::*;
         match evt {
-            ChangeEvent::FxOpened(e) if e.fx.chain() == &self.fx_chain => (true, None),
-            ChangeEvent::FxClosed(e) if e.fx.chain() == &self.fx_chain => (true, None),
+            Reaper(ChangeEvent::FxOpened(e)) if e.fx.chain() == &self.fx_chain => (true, None),
+            Reaper(ChangeEvent::FxClosed(e)) if e.fx.chain() == &self.fx_chain => (true, None),
             _ => (false, None),
         }
     }

@@ -1,5 +1,5 @@
 use crate::domain::{
-    format_value_as_on_off, ControlContext, EnableInstancesArgs, Exclusivity,
+    format_value_as_on_off, CompoundChangeEvent, ControlContext, EnableInstancesArgs, Exclusivity,
     HitInstructionReturnValue, InstanceStateChanged, MappingControlContext, RealearnTarget,
     ReaperTargetType, TagScope, TargetCharacter,
 };
@@ -54,12 +54,13 @@ impl RealearnTarget for EnableInstancesTarget {
         true
     }
 
-    fn value_changed_from_instance_feedback_event(
+    fn process_change_event(
         &self,
-        evt: &InstanceStateChanged,
+        evt: CompoundChangeEvent,
+        _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            InstanceStateChanged::ActiveInstanceTags => (true, None),
+            CompoundChangeEvent::Instance(InstanceStateChanged::ActiveInstanceTags) => (true, None),
             _ => (false, None),
         }
     }

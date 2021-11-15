@@ -1,8 +1,9 @@
 use crate::domain::{
-    format_value_as_on_off, ControlContext, DomainEvent, Exclusivity, HitInstruction,
-    HitInstructionContext, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,
-    MappingControlContext, MappingControlResult, MappingData, MappingEnabledChangeRequestedEvent,
-    RealearnTarget, ReaperTargetType, TagScope, TargetCharacter,
+    format_value_as_on_off, CompoundChangeEvent, ControlContext, DomainEvent, Exclusivity,
+    HitInstruction, HitInstructionContext, HitInstructionReturnValue, InstanceStateChanged,
+    MappingCompartment, MappingControlContext, MappingControlResult, MappingData,
+    MappingEnabledChangeRequestedEvent, RealearnTarget, ReaperTargetType, TagScope,
+    TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::collections::HashSet;
@@ -113,16 +114,16 @@ impl RealearnTarget for EnableMappingsTarget {
         true
     }
 
-    fn value_changed_from_instance_feedback_event(
+    fn process_change_event(
         &self,
-        evt: &InstanceStateChanged,
+        evt: CompoundChangeEvent,
+        _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            InstanceStateChanged::ActiveMappingTags { compartment, .. }
-                if *compartment == self.compartment =>
-            {
-                (true, None)
-            }
+            CompoundChangeEvent::Instance(InstanceStateChanged::ActiveMappingTags {
+                compartment,
+                ..
+            }) if *compartment == self.compartment => (true, None),
             _ => (false, None),
         }
     }

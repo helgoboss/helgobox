@@ -2,11 +2,12 @@ use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
 use crate::domain::{
-    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter,
+    CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
+    RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, TrackRoute, Volume};
+use reaper_medium::ReaperFunctionError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RouteVolumeTarget {
@@ -72,26 +73,30 @@ impl RealearnTarget for RouteVolumeTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::TrackRouteVolumeChanged(e) if e.route == self.route => (
-                true,
-                Some(AbsoluteValue::Continuous(volume_unit_value(
-                    Volume::from_reaper_value(e.new_value),
-                ))),
-            ),
+            CompoundChangeEvent::Reaper(ChangeEvent::TrackRouteVolumeChanged(e))
+                if e.route == self.route =>
+            {
+                (
+                    true,
+                    Some(AbsoluteValue::Continuous(volume_unit_value(
+                        Volume::from_reaper_value(e.new_value),
+                    ))),
+                )
+            }
             _ => (false, None),
         }
     }
 
     fn text_value(&self, _: ControlContext) -> Option<String> {
-        Some(self.volume().to_string())
+        Some(self.volume().ok()?.to_string())
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
-        Some(NumericValue::Decimal(self.volume().db().get()))
+        Some(NumericValue::Decimal(self.volume().ok()?.db().get()))
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
@@ -100,7 +105,7 @@ impl RealearnTarget for RouteVolumeTarget {
 }
 
 impl RouteVolumeTarget {
-    fn volume(&self) -> Volume {
+    fn volume(&self) -> Result<Volume, ReaperFunctionError> {
         self.route.volume()
     }
 }
@@ -109,7 +114,7 @@ impl<'a> Target<'a> for RouteVolumeTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let val = volume_unit_value(self.volume());
+        let val = volume_unit_value(self.volume().ok()?);
         Some(AbsoluteValue::Continuous(val))
     }
 

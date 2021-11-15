@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, transport_is_enabled_unit_value, AdditionalFeedbackEvent,
-    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter, TransportAction,
+    CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
+    RealearnTarget, ReaperTargetType, TargetCharacter, TransportAction,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper};
@@ -91,70 +91,65 @@ impl RealearnTarget for TransportTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
-        use ChangeEvent::*;
-        use TransportAction::*;
-        match self.action {
-            PlayStop | PlayPause => match evt {
-                PlayStateChanged(e) if e.project == self.project => (
-                    true,
-                    Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
-                        e.new_value.is_playing,
-                    ))),
-                ),
-                _ => (false, None),
-            },
-            Stop => match evt {
-                PlayStateChanged(e) if e.project == self.project => (
-                    true,
-                    Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
-                        !e.new_value.is_playing && !e.new_value.is_paused,
-                    ))),
-                ),
-                _ => (false, None),
-            },
-            Pause => match evt {
-                PlayStateChanged(e) if e.project == self.project => (
-                    true,
-                    Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
-                        e.new_value.is_paused,
-                    ))),
-                ),
-                _ => (false, None),
-            },
-            Record => match evt {
-                PlayStateChanged(e) if e.project == self.project => (
-                    true,
-                    Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
-                        e.new_value.is_recording,
-                    ))),
-                ),
-                _ => (false, None),
-            },
-            Repeat => match evt {
-                RepeatStateChanged(e) if e.project == self.project => (
-                    true,
-                    Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
-                        e.new_value,
-                    ))),
-                ),
-                _ => (false, None),
-            },
-        }
-    }
-
-    fn value_changed_from_additional_feedback_event(
-        &self,
-        evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<AbsoluteValue>) {
-        if self.action == TransportAction::Repeat {
-            return (false, None);
-        }
         match evt {
-            AdditionalFeedbackEvent::BeatChanged(e)
-                if e.project == self.project && e.project != Reaper::get().current_project() =>
+            CompoundChangeEvent::Reaper(evt) => {
+                use ChangeEvent::*;
+                use TransportAction::*;
+                match self.action {
+                    PlayStop | PlayPause => match evt {
+                        PlayStateChanged(e) if e.project == self.project => (
+                            true,
+                            Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
+                                e.new_value.is_playing,
+                            ))),
+                        ),
+                        _ => (false, None),
+                    },
+                    Stop => match evt {
+                        PlayStateChanged(e) if e.project == self.project => (
+                            true,
+                            Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
+                                !e.new_value.is_playing && !e.new_value.is_paused,
+                            ))),
+                        ),
+                        _ => (false, None),
+                    },
+                    Pause => match evt {
+                        PlayStateChanged(e) if e.project == self.project => (
+                            true,
+                            Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
+                                e.new_value.is_paused,
+                            ))),
+                        ),
+                        _ => (false, None),
+                    },
+                    Record => match evt {
+                        PlayStateChanged(e) if e.project == self.project => (
+                            true,
+                            Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
+                                e.new_value.is_recording,
+                            ))),
+                        ),
+                        _ => (false, None),
+                    },
+                    Repeat => match evt {
+                        RepeatStateChanged(e) if e.project == self.project => (
+                            true,
+                            Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
+                                e.new_value,
+                            ))),
+                        ),
+                        _ => (false, None),
+                    },
+                }
+            }
+            CompoundChangeEvent::Additional(AdditionalFeedbackEvent::BeatChanged(e))
+                if self.action != TransportAction::Repeat
+                    && e.project == self.project
+                    && e.project != Reaper::get().current_project() =>
             {
                 (true, None)
             }

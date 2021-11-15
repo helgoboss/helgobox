@@ -1,8 +1,8 @@
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, transport_is_enabled_unit_value,
-    ClipChangedEvent, ControlContext, HitInstructionReturnValue, InstanceStateChanged,
-    MappingControlContext, RealearnTarget, ReaperTargetType, SlotPlayOptions, TargetCharacter,
-    TransportAction,
+    ClipChangedEvent, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
+    InstanceStateChanged, MappingControlContext, RealearnTarget, ReaperTargetType, SlotPlayOptions,
+    TargetCharacter, TransportAction,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -91,26 +91,20 @@ impl RealearnTarget for ClipTransportTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         context: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
-        // Feedback handled from instance-scoped feedback events.
-        if let ChangeEvent::PlayStateChanged(e) = evt {
-            let mut instance_state = context.instance_state.borrow_mut();
-            instance_state.process_transport_change(e.new_value);
-        };
-        (false, None)
-    }
-
-    fn value_changed_from_instance_feedback_event(
-        &self,
-        evt: &InstanceStateChanged,
-    ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            InstanceStateChanged::Clip {
+            CompoundChangeEvent::Reaper(ChangeEvent::PlayStateChanged(e)) => {
+                // Feedback handled from instance-scoped feedback events.
+                let mut instance_state = context.instance_state.borrow_mut();
+                instance_state.process_transport_change(e.new_value);
+                (false, None)
+            }
+            CompoundChangeEvent::Instance(InstanceStateChanged::Clip {
                 slot_index: si,
                 event,
-            } if *si == self.slot_index => {
+            }) if *si == self.slot_index => {
                 use TransportAction::*;
                 match self.action {
                     PlayStop | PlayPause | Stop | Pause => match event {

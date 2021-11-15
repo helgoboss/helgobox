@@ -1,7 +1,7 @@
 use crate::domain::{
-    automation_mode_unit_value, change_track_prop, format_value_as_on_off, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter, TrackExclusivity,
+    automation_mode_unit_value, change_track_prop, format_value_as_on_off, CompoundChangeEvent,
+    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
+    ReaperTargetType, TargetCharacter, TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -67,17 +67,21 @@ impl RealearnTarget for TrackAutomationModeTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::TrackAutomationModeChanged(e) if e.track == self.track => (
-                true,
-                Some(AbsoluteValue::Continuous(automation_mode_unit_value(
-                    self.mode,
-                    e.new_value,
-                ))),
-            ),
+            CompoundChangeEvent::Reaper(ChangeEvent::TrackAutomationModeChanged(e))
+                if e.track == self.track =>
+            {
+                (
+                    true,
+                    Some(AbsoluteValue::Continuous(automation_mode_unit_value(
+                        self.mode,
+                        e.new_value,
+                    ))),
+                )
+            }
             _ => (false, None),
         }
     }
