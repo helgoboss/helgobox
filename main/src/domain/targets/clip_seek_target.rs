@@ -1,7 +1,7 @@
 use crate::domain::{
-    AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, ControlContext, FeedbackResolution,
-    HitInstructionReturnValue, InstanceStateChanged, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter,
+    AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, CompoundChangeEvent, ControlContext,
+    FeedbackResolution, HitInstructionReturnValue, InstanceStateChanged, MappingControlContext,
+    RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_medium::PositionInSeconds;
@@ -33,42 +33,36 @@ impl RealearnTarget for ClipSeekTarget {
         //  slot filled.
         true
     }
-
-    fn value_changed_from_additional_feedback_event(
+    fn process_change_event(
         &self,
-        evt: &AdditionalFeedbackEvent,
+        evt: CompoundChangeEvent,
+        _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
-        // If feedback resolution is high, we use the special ClipChangedEvent to do our job
-        // (in order to not lock mutex of playing clips more than once per main loop cycle).
-        if self.feedback_resolution == FeedbackResolution::Beat
-            && matches!(evt, AdditionalFeedbackEvent::BeatChanged(_))
-        {
-            return (true, None);
-        }
-        (false, None)
-    }
-
-    fn value_changed_from_instance_feedback_event(
-        &self,
-        evt: &InstanceStateChanged,
-    ) -> (bool, Option<AbsoluteValue>) {
-        // When feedback resolution is beat, we only react to the main timeline beat changes.
-        if self.feedback_resolution != FeedbackResolution::High {
-            return (false, None);
-        }
         match evt {
-            InstanceStateChanged::Clip {
+            // When feedback resolution is beat, we only react to the main timeline beat changes.
+            CompoundChangeEvent::Additional(AdditionalFeedbackEvent::BeatChanged(_))
+                if self.feedback_resolution == FeedbackResolution::Beat =>
+            {
+                (true, None)
+            }
+            // If feedback resolution is high, we use the special ClipChangedEvent to do our job
+            // (in order to not lock mutex of playing clips more than once per main loop cycle).
+            CompoundChangeEvent::Instance(InstanceStateChanged::Clip {
                 slot_index: si,
                 event,
-            } if *si == self.slot_index => match event {
-                ClipChangedEvent::ClipPosition(new_position) => {
-                    (true, Some(AbsoluteValue::Continuous(*new_position)))
+            }) if self.feedback_resolution == FeedbackResolution::High
+                && *si == self.slot_index =>
+            {
+                match event {
+                    ClipChangedEvent::ClipPosition(new_position) => {
+                        (true, Some(AbsoluteValue::Continuous(*new_position)))
+                    }
+                    ClipChangedEvent::PlayState(ClipPlayState::Stopped) => {
+                        (true, Some(AbsoluteValue::Continuous(UnitValue::MIN)))
+                    }
+                    _ => (false, None),
                 }
-                ClipChangedEvent::PlayState(ClipPlayState::Stopped) => {
-                    (true, Some(AbsoluteValue::Continuous(UnitValue::MIN)))
-                }
-                _ => (false, None),
-            },
+            }
             _ => (false, None),
         }
     }

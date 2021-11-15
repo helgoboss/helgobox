@@ -1,7 +1,7 @@
 use crate::domain::{
-    get_realearn_target_prop_value_with_fallback, ActivationChange, ActivationCondition,
-    AdditionalFeedbackEvent, ControlContext, ControlOptions, ExtendedProcessorContext,
-    FeedbackResolution, GroupId, HitInstructionReturnValue, InstanceStateChanged,
+    get_realearn_target_prop_value_with_fallback, target_prop_is_affected_by, ActivationChange,
+    ActivationCondition, CompoundChangeEvent, ControlContext, ControlOptions,
+    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
     MappingActivationEffect, MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent,
     MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult, ParameterArray, ParameterSlice,
     PersistentMappingProcessingState, RealTimeReaperTarget, RealearnTarget, ReaperMessage,
@@ -25,7 +25,7 @@ use std::borrow::Cow;
 
 use indexmap::map::IndexMap;
 use indexmap::set::IndexSet;
-use reaper_high::{ChangeEvent, Fx, Project, Track, TrackRoute};
+use reaper_high::{Fx, Project, Track, TrackRoute};
 use reaper_medium::MidiInputDeviceId;
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
@@ -242,40 +242,29 @@ impl MainMapping {
             initial_target_value_snapshot: None,
         }
     }
+
     pub fn process_change_event(
         &self,
         target: &ReaperTarget,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         context: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         if self.core.mode.wants_textual_feedback() {
             // Textual feedback relates to whatever properties are mentioned in the text expression.
             // That means we need to check for each of these mentioned properties if they might
             // be affected by the incoming event.
-            // TODO-high Implement
-            // let is_affected = self.core.mode.textual_feedback_props().iter().any(|p| );
-            (true, None)
+            let is_affected = self
+                .core
+                .mode
+                .textual_feedback_props()
+                .iter()
+                .any(|p| prop_is_affected_by(p, evt, target, context));
+            (is_affected, None)
         } else {
             // Numeric feedback always relates to the main target value property, so we ask the
             // target directly.
             target.process_change_event(evt, context)
         }
-    }
-
-    pub fn value_changed_from_additional_feedback_event(
-        &self,
-        target: &ReaperTarget,
-        evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<AbsoluteValue>) {
-        target.value_changed_from_additional_feedback_event(evt)
-    }
-
-    pub fn value_changed_from_instance_feedback_event(
-        &self,
-        target: &ReaperTarget,
-        evt: &InstanceStateChanged,
-    ) -> (bool, Option<AbsoluteValue>) {
-        target.value_changed_from_instance_feedback_event(evt)
     }
 
     pub fn take_mapping_info(&mut self) -> MappingInfo {
@@ -1079,6 +1068,23 @@ impl MainMapping {
         match self.targets.first()? {
             CompoundMappingTarget::Virtual(t) => match_partially(&mut self.core, t, control_value),
             CompoundMappingTarget::Reaper(_) => None,
+        }
+    }
+}
+
+pub fn prop_is_affected_by(
+    key: &str,
+    event: CompoundChangeEvent,
+    target: &ReaperTarget,
+    context: ControlContext,
+) -> bool {
+    if let Some(target_key) = key.strip_prefix("target.") {
+        target_prop_is_affected_by(target_key, event, target, context)
+    } else {
+        match key {
+            // Mapping name changes will result in a full mapping resync anyway.
+            "mapping.name" => false,
+            _ => false,
         }
     }
 }
@@ -1945,35 +1951,13 @@ impl RealearnTarget for CompoundMappingTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         control_context: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         // TODO-medium I think this abstraction is not in use
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.process_change_event(evt, control_context),
-            Virtual(_) => (false, None),
-        }
-    }
-
-    fn value_changed_from_additional_feedback_event(
-        &self,
-        evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<AbsoluteValue>) {
-        use CompoundMappingTarget::*;
-        match self {
-            Reaper(t) => t.value_changed_from_additional_feedback_event(evt),
-            Virtual(_) => (false, None),
-        }
-    }
-
-    fn value_changed_from_instance_feedback_event(
-        &self,
-        evt: &InstanceStateChanged,
-    ) -> (bool, Option<AbsoluteValue>) {
-        use CompoundMappingTarget::*;
-        match self {
-            Reaper(t) => t.value_changed_from_instance_feedback_event(evt),
             Virtual(_) => (false, None),
         }
     }

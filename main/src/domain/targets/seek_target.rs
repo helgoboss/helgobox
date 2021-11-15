@@ -1,6 +1,6 @@
 use crate::domain::{
-    AdditionalFeedbackEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, SeekOptions, TargetCharacter,
+    AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
+    MappingControlContext, RealearnTarget, ReaperTargetType, SeekOptions, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
@@ -49,12 +49,15 @@ impl RealearnTarget for SeekTarget {
         Some(self.project)
     }
 
-    fn value_changed_from_additional_feedback_event(
+    fn process_change_event(
         &self,
-        evt: &AdditionalFeedbackEvent,
+        evt: CompoundChangeEvent,
+        _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            AdditionalFeedbackEvent::BeatChanged(e) if e.project == self.project => {
+            CompoundChangeEvent::Additional(AdditionalFeedbackEvent::BeatChanged(e))
+                if e.project == self.project =>
+            {
                 let v = current_value_of_seek(self.project, self.options, e.new_value);
                 (true, Some(AbsoluteValue::Continuous(v)))
             }

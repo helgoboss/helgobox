@@ -1,9 +1,9 @@
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, touched_unit_value,
-    AdditionalFeedbackEvent, BackboneState, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TouchedParameterType,
-    TrackExclusivity,
+    AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent, ControlContext,
+    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
+    TargetCharacter, TouchedParameterType, TrackExclusivity,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -64,19 +64,18 @@ impl RealearnTarget for AutomationTouchStateTarget {
         Some(self.exclusivity)
     }
 
-    fn value_changed_from_additional_feedback_event(
+    fn process_change_event(
         &self,
-        evt: &AdditionalFeedbackEvent,
+        evt: CompoundChangeEvent,
+        _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(e)
-                if e.track == self.track.raw() && e.parameter_type == self.parameter_type =>
-            {
-                (
-                    true,
-                    Some(AbsoluteValue::Continuous(touched_unit_value(e.new_value))),
-                )
-            }
+            CompoundChangeEvent::Additional(
+                AdditionalFeedbackEvent::ParameterAutomationTouchStateChanged(e),
+            ) if e.track == self.track.raw() && e.parameter_type == self.parameter_type => (
+                true,
+                Some(AbsoluteValue::Continuous(touched_unit_value(e.new_value))),
+            ),
             _ => (false, None),
         }
     }

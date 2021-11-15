@@ -1,8 +1,8 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, AdditionalFeedbackEvent, BackboneState, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter,
+    format_value_as_on_off, AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent,
+    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
+    ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, Project, Track};
@@ -56,15 +56,20 @@ impl RealearnTarget for LoadFxSnapshotTarget {
         Some(&self.fx)
     }
 
-    fn value_changed_from_additional_feedback_event(
+    fn process_change_event(
         &self,
-        evt: &AdditionalFeedbackEvent,
+        evt: CompoundChangeEvent,
+        _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             // We can't provide a value from the event itself because it's on/off depending on
             // the mappings which use the FX snapshot target with that FX and which chunk (hash)
             // their snapshot has.
-            AdditionalFeedbackEvent::FxSnapshotLoaded(e) if e.fx == self.fx => (true, None),
+            CompoundChangeEvent::Additional(AdditionalFeedbackEvent::FxSnapshotLoaded(e))
+                if e.fx == self.fx =>
+            {
+                (true, None)
+            }
             _ => (false, None),
         }
     }

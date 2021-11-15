@@ -1,5 +1,5 @@
 use crate::domain::{
-    format_value_as_pan, pan_unit_value, parse_value_from_pan, ControlContext,
+    format_value_as_pan, pan_unit_value, parse_value_from_pan, CompoundChangeEvent, ControlContext,
     HitInstructionReturnValue, MappingControlContext, PanExt, RealearnTarget, ReaperTargetType,
     TargetCharacter,
 };
@@ -71,19 +71,23 @@ impl RealearnTarget for TrackPanTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::TrackPanChanged(e) if e.track == self.track => (true, {
-                let pan = match e.new_value {
-                    AvailablePanValue::Complete(v) => v.main_pan(),
-                    AvailablePanValue::Incomplete(pan) => pan,
-                };
-                Some(AbsoluteValue::Continuous(pan_unit_value(
-                    Pan::from_reaper_value(pan),
-                )))
-            }),
+            CompoundChangeEvent::Reaper(ChangeEvent::TrackPanChanged(e))
+                if e.track == self.track =>
+            {
+                (true, {
+                    let pan = match e.new_value {
+                        AvailablePanValue::Complete(v) => v.main_pan(),
+                        AvailablePanValue::Incomplete(pan) => pan,
+                    };
+                    Some(AbsoluteValue::Continuous(pan_unit_value(
+                        Pan::from_reaper_value(pan),
+                    )))
+                })
+            }
             _ => (false, None),
         }
     }

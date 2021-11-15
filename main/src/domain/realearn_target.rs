@@ -251,26 +251,10 @@ pub trait RealearnTarget {
     /// change event reactions such as reacting to transport stop.
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         context: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         let (_, _) = (evt, context);
-        (false, None)
-    }
-
-    fn value_changed_from_additional_feedback_event(
-        &self,
-        evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<AbsoluteValue>) {
-        let _ = evt;
-        (false, None)
-    }
-
-    fn value_changed_from_instance_feedback_event(
-        &self,
-        evt: &InstanceStateChanged,
-    ) -> (bool, Option<AbsoluteValue>) {
-        let _ = evt;
         (false, None)
     }
 
@@ -325,6 +309,7 @@ pub trait RealearnTarget {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum CompoundChangeEvent<'a> {
     Reaper(&'a ChangeEvent),
     Additional(&'a AdditionalFeedbackEvent),
@@ -335,26 +320,55 @@ pub fn target_prop_is_affected_by(
     key: &str,
     event: CompoundChangeEvent,
     target: &ReaperTarget,
+    context: ControlContext,
 ) -> bool {
     match key {
         // These properties always relate to the main target value property.
         target_prop_keys::TEXT_VALUE
         | target_prop_keys::NUMERIC_VALUE
-        | target_prop_keys::NORMALIZED_VALUE
-        // TODO-high Query target
-        => true,
+        | target_prop_keys::NORMALIZED_VALUE => target.process_change_event(event, context).0,
         // These properties relate to a secondary target property.
-        // TODO-high Implement
-        "track.index" => true,
-        "track.name" => true,
-        "track.color" => true,
-        "fx.index" => true,
-        "fx.name" => true,
-        "route.index" => true,
-        "route.name" => true,
+        "track.index" => matches!(
+            event,
+            CompoundChangeEvent::Reaper(
+                ChangeEvent::TrackAdded(_)
+                    | ChangeEvent::TrackRemoved(_)
+                    | ChangeEvent::TracksReordered(_)
+            )
+        ),
+        "fx.index" => {
+            // This could be more specific (taking the track into account) but so what.
+            // This doesn't happen that frequently.
+            matches!(
+                event,
+                CompoundChangeEvent::Reaper(
+                    ChangeEvent::FxAdded(_)
+                        | ChangeEvent::FxRemoved(_)
+                        | ChangeEvent::FxReordered(_)
+                )
+            )
+        }
+        "track.name" => {
+            matches!(event, CompoundChangeEvent::Reaper(ChangeEvent::TrackNameChanged(e)) if Some(&e.track) == target.track())
+        }
+        "route.name" => {
+            // This could be more specific (taking the route partner into account) but so what.
+            // Track names are not changed that frequently.
+            matches!(
+                event,
+                CompoundChangeEvent::Reaper(ChangeEvent::TrackNameChanged(_))
+            )
+        }
+        // There are no appropriate REAPER change events for the following properties. Therefore
+        // we delegate to the target. Some targets support polling, then it should work definitely.
+        "fx.name" | "track.color" | "route.index" => target.process_change_event(event, context).0,
         // These properties are static in nature (change only when target settings change).
         target_prop_keys::NUMERIC_VALUE_UNIT | "type.name" | "type.long_name" => false,
-        _ => false,
+        // Target-specific placeholder. At the moment we should only have target-specific
+        // placeholders that are affected by changes of the main target value, so the following
+        // is good enough. If this changes in future, we should introduce a similar function
+        // in ReaLearn target (one that takes a key).
+        _ => target.process_change_event(event, context).0,
     }
 }
 

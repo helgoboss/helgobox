@@ -1,7 +1,7 @@
 use crate::domain::ui_util::{fx_parameter_unit_value, parse_unit_value_from_percentage};
 use crate::domain::{
-    AdditionalFeedbackEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter,
+    AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
+    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Track};
@@ -128,33 +128,14 @@ impl RealearnTarget for FxParameterTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         if self.poll_for_feedback {
             return (false, None);
         }
         match evt {
-            ChangeEvent::FxParameterValueChanged(e) if e.parameter == self.param => (
-                true,
-                Some(AbsoluteValue::Continuous(fx_parameter_unit_value(
-                    &e.parameter,
-                    e.new_value,
-                ))),
-            ),
-            _ => (false, None),
-        }
-    }
-
-    fn value_changed_from_additional_feedback_event(
-        &self,
-        evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<AbsoluteValue>) {
-        if self.poll_for_feedback {
-            return (false, None);
-        }
-        match evt {
-            AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(e)
+            CompoundChangeEvent::Reaper(ChangeEvent::FxParameterValueChanged(e))
                 if e.parameter == self.param =>
             {
                 (
@@ -165,6 +146,15 @@ impl RealearnTarget for FxParameterTarget {
                     ))),
                 )
             }
+            CompoundChangeEvent::Additional(
+                AdditionalFeedbackEvent::RealearnMonitoringFxParameterValueChanged(e),
+            ) if e.parameter == self.param => (
+                true,
+                Some(AbsoluteValue::Continuous(fx_parameter_unit_value(
+                    &e.parameter,
+                    e.new_value,
+                ))),
+            ),
             _ => (false, None),
         }
     }

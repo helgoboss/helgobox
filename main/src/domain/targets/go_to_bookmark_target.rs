@@ -1,7 +1,7 @@
 use crate::domain::{
-    current_value_of_bookmark, format_value_as_on_off, AdditionalFeedbackEvent, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter,
+    current_value_of_bookmark, format_value_as_on_off, AdditionalFeedbackEvent,
+    CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
+    RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, PropValue, RgbColor, Target, UnitValue,
@@ -85,22 +85,14 @@ impl RealearnTarget for GoToBookmarkTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         // Handled both from control-surface and non-control-surface callbacks.
+        use CompoundChangeEvent::*;
         match evt {
-            ChangeEvent::BookmarksChanged(e) if e.project == self.project => (true, None),
-            _ => (false, None),
-        }
-    }
-
-    fn value_changed_from_additional_feedback_event(
-        &self,
-        evt: &AdditionalFeedbackEvent,
-    ) -> (bool, Option<AbsoluteValue>) {
-        match evt {
-            AdditionalFeedbackEvent::BeatChanged(e) if e.project == self.project => {
+            Reaper(ChangeEvent::BookmarksChanged(e)) if e.project == self.project => (true, None),
+            Additional(AdditionalFeedbackEvent::BeatChanged(e)) if e.project == self.project => {
                 let v = current_value_of_bookmark(
                     self.project,
                     self.bookmark_type,

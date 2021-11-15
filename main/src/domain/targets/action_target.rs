@@ -1,8 +1,8 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_bool_as_on_off, ActionInvocationType, AdditionalFeedbackEvent, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter,
+    format_bool_as_on_off, ActionInvocationType, AdditionalFeedbackEvent, CompoundChangeEvent,
+    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
+    ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use helgoboss_midi::U14;
@@ -104,14 +104,15 @@ impl RealearnTarget for ActionTarget {
         self.action.is_available()
     }
 
-    fn value_changed_from_additional_feedback_event(
+    fn process_change_event(
         &self,
-        evt: &AdditionalFeedbackEvent,
+        evt: CompoundChangeEvent,
+        _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             // We can't provide a value from the event itself because the action hooks don't
             // pass values.
-            AdditionalFeedbackEvent::ActionInvoked(e)
+            CompoundChangeEvent::Additional(AdditionalFeedbackEvent::ActionInvoked(e))
                 if e.command_id == self.action.command_id() =>
             {
                 (true, None)

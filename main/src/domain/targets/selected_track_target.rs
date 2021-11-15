@@ -1,7 +1,7 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_track_index, get_track_name,
-    selected_track_unit_value, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter,
+    selected_track_unit_value, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
+    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -106,11 +106,13 @@ impl RealearnTarget for SelectedTrackTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::TrackSelectedChanged(e) if e.track.project() == self.project => {
+            CompoundChangeEvent::Reaper(ChangeEvent::TrackSelectedChanged(e))
+                if e.track.project() == self.project =>
+            {
                 (true, Some(self.value_for(e.track.index())))
             }
             _ => (false, None),

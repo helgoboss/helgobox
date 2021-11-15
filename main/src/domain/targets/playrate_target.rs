@@ -2,8 +2,8 @@ use crate::domain::{
     format_step_size_as_playback_speed_factor_without_unit,
     format_value_as_playback_speed_factor_without_unit, parse_step_size_from_playback_speed_factor,
     parse_value_from_playback_speed_factor, playback_speed_factor_span, playrate_unit_value,
-    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter,
+    CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
+    RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, PlayRate, Project};
@@ -77,16 +77,20 @@ impl RealearnTarget for PlayrateTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            ChangeEvent::MasterPlayrateChanged(e) if e.project == self.project => (
-                true,
-                Some(AbsoluteValue::Continuous(playrate_unit_value(
-                    PlayRate::from_playback_speed_factor(e.new_value),
-                ))),
-            ),
+            CompoundChangeEvent::Reaper(ChangeEvent::MasterPlayrateChanged(e))
+                if e.project == self.project =>
+            {
+                (
+                    true,
+                    Some(AbsoluteValue::Continuous(playrate_unit_value(
+                        PlayRate::from_playback_speed_factor(e.new_value),
+                    ))),
+                )
+            }
             _ => (false, None),
         }
     }

@@ -1,6 +1,6 @@
 use crate::domain::{
-    format_value_as_on_off, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter,
+    format_value_as_on_off, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
+    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -59,27 +59,28 @@ impl RealearnTarget for AnyOnTarget {
 
     fn process_change_event(
         &self,
-        evt: &ChangeEvent,
+        evt: CompoundChangeEvent,
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         use AnyOnParameter::*;
+        use CompoundChangeEvent::*;
         match evt {
-            ChangeEvent::TrackSoloChanged(e)
+            Reaper(ChangeEvent::TrackSoloChanged(e))
                 if self.parameter == TrackSolo && e.track.project() == self.project =>
             {
                 (true, None)
             }
-            ChangeEvent::TrackMuteChanged(e)
+            Reaper(ChangeEvent::TrackMuteChanged(e))
                 if self.parameter == TrackMute && e.track.project() == self.project =>
             {
                 (true, None)
             }
-            ChangeEvent::TrackArmChanged(e)
+            Reaper(ChangeEvent::TrackArmChanged(e))
                 if self.parameter == TrackArm && e.track.project() == self.project =>
             {
                 (true, None)
             }
-            ChangeEvent::TrackSelectedChanged(e)
+            Reaper(ChangeEvent::TrackSelectedChanged(e))
                 if self.parameter == TrackSelection && e.track.project() == self.project =>
             {
                 (true, None)

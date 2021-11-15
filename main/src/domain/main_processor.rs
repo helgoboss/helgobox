@@ -1,19 +1,19 @@
 use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
-    ClipChangedEvent, CompoundFeedbackValue, CompoundMappingSource, CompoundMappingSourceAddress,
-    CompoundMappingTarget, ControlContext, ControlInput, ControlMode, DeviceFeedbackOutput,
-    DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
-    FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
-    FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
+    ClipChangedEvent, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
+    CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlInput, ControlMode,
+    DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
+    FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
+    FeedbackResolution, FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
     InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, MainMapping,
     MainSourceMessage, MappingActivationEffect, MappingCompartment, MappingControlResult,
     MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult, MidiDestination,
     MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId,
     OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedMappingId, QualifiedSource,
     RealFeedbackValue, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
-    RealearnTarget, ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString,
-    SourceFeedbackValue, SourceReleasedEvent, SpecificCompoundFeedbackValue,
-    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
+    ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString, SourceFeedbackValue,
+    SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetValueChangedEvent,
+    UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -624,7 +624,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .take(FEEDBACK_TASK_BULK_SIZE)
         {
             self.process_feedback_related_reaper_event(|mapping, target| {
-                mapping.value_changed_from_instance_feedback_event(target, &event)
+                mapping.process_change_event(
+                    target,
+                    CompoundChangeEvent::Instance(&event),
+                    self.basics.control_context(),
+                )
             });
         }
     }
@@ -655,9 +659,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                 self.process_feedback_related_reaper_event_for_mapping(
                                     m,
                                     &mut |m, target| {
-                                        m.value_changed_from_instance_feedback_event(
+                                        m.process_change_event(
                                             target,
-                                            &instance_event,
+                                            CompoundChangeEvent::Instance(&instance_event),
+                                            self.basics.control_context(),
                                         )
                                     },
                                 );
@@ -667,7 +672,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 } else {
                     // Other property of clip changed.
                     self.process_feedback_related_reaper_event(|mapping, target| {
-                        mapping.value_changed_from_instance_feedback_event(target, &instance_event)
+                        mapping.process_change_event(
+                            target,
+                            CompoundChangeEvent::Instance(&instance_event),
+                            self.basics.control_context(),
+                        )
                     });
                 }
             }
@@ -1326,7 +1335,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         self.process_feedback_related_reaper_event_for_mapping(
                             m,
                             &mut |m, target| {
-                                m.value_changed_from_additional_feedback_event(target, event)
+                                m.process_change_event(
+                                    target,
+                                    CompoundChangeEvent::Additional(event),
+                                    self.basics.control_context(),
+                                )
                             },
                         );
                     }
@@ -1335,7 +1348,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         } else {
             // Okay, not fired that frequently, we can iterate over all mappings.
             self.process_feedback_related_reaper_event(|mapping, target| {
-                mapping.value_changed_from_additional_feedback_event(target, event)
+                mapping.process_change_event(
+                    target,
+                    CompoundChangeEvent::Additional(event),
+                    self.basics.control_context(),
+                )
             });
         }
     }
@@ -1366,7 +1383,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .unwrap();
         }
         self.process_feedback_related_reaper_event(|mapping, target| {
-            mapping.process_change_event(target, event, self.basics.control_context())
+            mapping.process_change_event(
+                target,
+                CompoundChangeEvent::Reaper(event),
+                self.basics.control_context(),
+            )
         });
     }
 
@@ -1965,15 +1986,17 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             ))
             .unwrap();
         // Update and feedback
-        let diff_feedback = self.calc_diff_feedback_complicated(
-            self.get_normal_or_virtual_target_mapping(mapping.compartment(), mapping.id()),
-            &mapping,
-        );
         let id = QualifiedMappingId::new(compartment, mapping.id());
+        // Important to do this before calculating diff feedback (because we might have
+        // a textual feedback expression that contains the mapping name property).
         self.basics
             .instance_state
             .borrow_mut()
             .update_mapping_info(id, mapping.take_mapping_info());
+        let diff_feedback = self.calc_diff_feedback_complicated(
+            self.get_normal_or_virtual_target_mapping(mapping.compartment(), mapping.id()),
+            &mapping,
+        );
         self.update_map_entries(compartment, *mapping);
         self.send_diff_feedback(diff_feedback);
         self.update_single_mapping_on_state(id);
