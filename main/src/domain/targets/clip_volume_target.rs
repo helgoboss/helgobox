@@ -5,7 +5,7 @@ use crate::domain::ui_util::{
 use crate::domain::{
     ClipChangedEvent, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
     InstanceStateChanged, MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
+    TargetTypeDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::Volume;
@@ -109,8 +109,8 @@ impl<'a> Target<'a> for ClipVolumeTarget {
     }
 }
 
-pub const CLIP_VOLUME_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const CLIP_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Clip volume",
     supports_slot: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

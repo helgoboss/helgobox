@@ -2,7 +2,7 @@ use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, transport_is_enabled_unit_value,
     ClipChangedEvent, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
     InstanceStateChanged, MappingControlContext, RealearnTarget, ReaperTargetType, SlotPlayOptions,
-    TargetCharacter, TargetTypeDef, TransportAction, DEFAULT_TARGET_TYPE_DEF,
+    TargetCharacter, TargetTypeDef, TransportAction, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -171,10 +171,10 @@ impl<'a> Target<'a> for ClipTransportTarget {
     }
 }
 
-pub const CLIP_TRANSPORT_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const CLIP_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Clip transport",
     hint: "Experimental target, record not supported",
     supports_track: true,
     supports_slot: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

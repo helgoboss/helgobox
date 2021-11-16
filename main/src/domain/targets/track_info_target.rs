@@ -1,6 +1,6 @@
 use crate::domain::{
     get_track_name, percentage_for_track_within_project, ControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target};
 use reaper_high::{Project, Track};
@@ -60,8 +60,8 @@ impl<'a> Target<'a> for TrackInfoTarget {
     }
 }
 
-pub const TRACK_INFO_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const TRACK_INFO_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Track info",
     supports_track: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

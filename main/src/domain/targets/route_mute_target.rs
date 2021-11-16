@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, mute_unit_value, ControlContext, HitInstructionReturnValue,
     MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET_TYPE_DEF,
+    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track, TrackRoute};
@@ -76,11 +76,11 @@ impl<'a> Target<'a> for RouteMuteTarget {
     }
 }
 
-pub const ROUTE_MUTE_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const ROUTE_MUTE_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "(Un)mute send",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_poll_for_feedback: true,
     supports_track: true,
     supports_send: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

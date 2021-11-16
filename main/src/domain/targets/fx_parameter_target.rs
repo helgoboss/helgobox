@@ -2,7 +2,7 @@ use crate::domain::ui_util::{fx_parameter_unit_value, parse_unit_value_from_perc
 use crate::domain::{
     AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
     MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    DEFAULT_TARGET_TYPE_DEF,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Track};
@@ -200,10 +200,10 @@ impl<'a> Target<'a> for FxParameterTarget {
     }
 }
 
-pub const FX_PARAMETER_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const FX_PARAMETER_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "FX parameter value",
     supports_poll_for_feedback: true,
     supports_track: true,
     supports_fx: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

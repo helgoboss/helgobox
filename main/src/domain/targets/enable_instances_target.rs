@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, CompoundChangeEvent, ControlContext, EnableInstancesArgs, Exclusivity,
     HitInstructionReturnValue, InstanceStateChanged, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
+    ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 
@@ -101,9 +101,9 @@ impl<'a> Target<'a> for EnableInstancesTarget {
     }
 }
 
-pub const ENABLE_INSTANCES_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const ENABLE_INSTANCES_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Enable/disable instances",
     supports_tags: true,
     supports_exclusivity: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

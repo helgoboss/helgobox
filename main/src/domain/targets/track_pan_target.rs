@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_pan, pan_unit_value, parse_value_from_pan, CompoundChangeEvent, ControlContext,
     HitInstructionReturnValue, MappingControlContext, PanExt, RealearnTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
+    TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
@@ -141,8 +141,8 @@ impl<'a> Target<'a> for TrackPanTarget {
     }
 }
 
-pub const TRACK_PAN_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const TRACK_PAN_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Track pan",
     supports_track: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

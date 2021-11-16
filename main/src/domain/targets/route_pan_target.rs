@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_pan, pan_unit_value, parse_value_from_pan, CompoundChangeEvent, ControlContext,
     HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
+    TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Pan, Project, Track, TrackRoute};
@@ -125,9 +125,9 @@ impl<'a> Target<'a> for RoutePanTarget {
     }
 }
 
-pub const ROUTE_PAN_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const ROUTE_PAN_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Send pan",
     supports_track: true,
     supports_send: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

@@ -2,7 +2,7 @@ use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_track_index, get_track_name,
     selected_track_unit_value, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
     MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    DEFAULT_TARGET_TYPE_DEF,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -181,8 +181,8 @@ pub fn percentage_for_track_within_project(
     AbsoluteValue::Discrete(Fraction::new(actual_value, max_value))
 }
 
-pub const SELECTED_TRACK_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const SELECTED_TRACK_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Navigate tracks",
     supports_track_scrolling: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

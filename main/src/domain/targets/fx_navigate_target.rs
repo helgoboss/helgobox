@@ -2,7 +2,7 @@ use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_fx_index, shown_fx_unit_value,
     CompoundChangeEvent, ControlContext, FxDisplayType, HitInstructionReturnValue,
     MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    DEFAULT_TARGET_TYPE_DEF,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -213,10 +213,10 @@ impl<'a> Target<'a> for FxNavigateTarget {
     }
 }
 
-pub const FX_NAVIGATE_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const FX_NAVIGATE_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Navigate FXs",
     supports_track: true,
     supports_fx_chain: true,
     supports_fx_display_type: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

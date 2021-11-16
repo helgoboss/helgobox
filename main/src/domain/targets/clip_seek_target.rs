@@ -1,7 +1,7 @@
 use crate::domain::{
     AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, CompoundChangeEvent, ControlContext,
     FeedbackResolution, HitInstructionReturnValue, InstanceStateChanged, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
+    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_medium::PositionInSeconds;
@@ -115,9 +115,9 @@ impl<'a> Target<'a> for ClipSeekTarget {
     }
 }
 
-pub const CLIP_SEEK_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const CLIP_SEEK_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Clip seek",
     supports_feedback_resolution: true,
     supports_slot: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

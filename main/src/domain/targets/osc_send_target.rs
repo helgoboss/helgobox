@@ -2,7 +2,7 @@ use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
     ControlContext, FeedbackOutput, HitInstructionReturnValue, MappingControlContext, OscDeviceId,
     OscFeedbackTask, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    DEFAULT_TARGET_TYPE_DEF,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, FeedbackValue, NumericFeedbackValue,
@@ -145,8 +145,8 @@ impl<'a> Target<'a> for OscSendTarget {
     }
 }
 
-pub const OSC_SEND_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const OSC_SEND_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Send OSC",
     supports_feedback: false,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

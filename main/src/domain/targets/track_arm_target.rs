@@ -3,7 +3,7 @@ use crate::domain::{
     get_control_type_and_character_for_track_exclusivity, track_arm_unit_value,
     CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
     RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackExclusivity,
-    DEFAULT_TARGET_TYPE_DEF,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -94,9 +94,9 @@ impl<'a> Target<'a> for TrackArmTarget {
     }
 }
 
-pub const TRACK_ARM_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const TRACK_ARM_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "(Dis)arm track",
     supports_track: true,
     supports_track_exclusivity: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

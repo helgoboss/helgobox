@@ -5,7 +5,7 @@ use crate::domain::ui_util::{
 use crate::domain::{
     width_unit_value, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
     MappingControlContext, PanExt, RealearnTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
+    TargetTypeDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{AvailablePanValue, ChangeEvent, Project, Track, Width};
@@ -123,8 +123,8 @@ impl<'a> Target<'a> for TrackWidthTarget {
     }
 }
 
-pub const TRACK_WIDTH_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const TRACK_WIDTH_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Track pan width",
     supports_track: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };
