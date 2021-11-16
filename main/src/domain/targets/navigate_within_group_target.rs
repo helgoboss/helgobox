@@ -3,7 +3,7 @@ use crate::domain::{
     CompoundChangeEvent, ControlContext, GroupId, HitInstruction, HitInstructionContext,
     HitInstructionReturnValue, InstanceStateChanged, MappingCompartment, MappingControlContext,
     MappingControlResult, MappingId, QualifiedMappingId, RealearnTarget, ReaperTargetType,
-    SimpleExclusivity, TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
+    SimpleExclusivity, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -227,8 +227,8 @@ impl<'a> Target<'a> for NavigateWithinGroupTarget {
     }
 }
 
-pub const NAVIGATE_WITHIN_GROUP_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const NAVIGATE_WITHIN_GROUP_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Navigate within group",
     supports_exclusivity: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

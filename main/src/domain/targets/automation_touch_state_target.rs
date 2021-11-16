@@ -3,8 +3,7 @@ use crate::domain::{
     get_control_type_and_character_for_track_exclusivity, touched_unit_value,
     AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent, ControlContext,
     HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TouchedParameterType, TrackExclusivity,
-    DEFAULT_TARGET_TYPE_DEF,
+    TargetCharacter, TargetTypeDef, TouchedParameterType, TrackExclusivity, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -105,9 +104,9 @@ impl<'a> Target<'a> for AutomationTouchStateTarget {
     }
 }
 
-pub const AUTOMATION_TOUCH_STATE_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const AUTOMATION_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Automation touch state",
     supports_track: true,
     supports_track_exclusivity: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

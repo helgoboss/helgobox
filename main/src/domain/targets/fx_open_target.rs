@@ -2,7 +2,7 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, CompoundChangeEvent, ControlContext, FxDisplayType,
     HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
+    TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
@@ -114,10 +114,10 @@ impl<'a> Target<'a> for FxOpenTarget {
     }
 }
 
-pub const FX_OPEN_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const FX_OPEN_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Open/close FX",
     supports_track: true,
     supports_fx: true,
     supports_fx_display_type: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

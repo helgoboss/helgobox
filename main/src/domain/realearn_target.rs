@@ -7,7 +7,7 @@ use crate::domain::{
     FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceId, InstanceStateChanged, MainMapping,
     MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
     RealTimeReaperTarget, RealTimeSender, ReaperTarget, SharedInstanceState, Tag, TagScope,
-    TargetCharacter, TrackExclusivity, ACTION_TARGET_TYPE_DEF,
+    TargetCharacter, TrackExclusivity,
 };
 use derive_more::Display;
 use enum_dispatch::enum_dispatch;
@@ -655,9 +655,9 @@ impl ReaperTargetType {
         )
     }
 
-    pub const fn definition(self) -> &'static TargetTypeDef {
-        &ACTION_TARGET_TYPE_DEF
-    }
+    // pub const fn definition(self) -> &'static TargetTypeDef {
+    //     &ACTION_TARGET_TYPE_DEF
+    // }
 
     pub fn supports_track(self) -> bool {
         use ReaperTargetType::*;
@@ -1133,7 +1133,7 @@ impl TargetTypeDef {
     }
 }
 
-pub const DEFAULT_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "",
     hint: "",
     supports_control: true,

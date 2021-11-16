@@ -4,7 +4,7 @@ use crate::domain::{
     get_control_type_and_character_for_track_exclusivity, ControlContext,
     HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
     TargetCharacter, TargetTypeDef, TrackExclusivity, AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
-    DEFAULT_TARGET_TYPE_DEF,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
@@ -85,11 +85,11 @@ impl<'a> Target<'a> for TrackShowTarget {
     }
 }
 
-pub const TRACK_SHOW_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const TRACK_SHOW_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Show/hide track",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_track: true,
     supports_track_exclusivity: true,
     supports_poll_for_feedback: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

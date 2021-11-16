@@ -3,7 +3,7 @@ use crate::domain::ui_util::{
 };
 use crate::domain::{
     CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
+    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, Volume};
@@ -116,8 +116,8 @@ impl<'a> Target<'a> for TrackVolumeTarget {
     }
 }
 
-pub const TRACK_VOLUME_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const TRACK_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Track volume",
     supports_track: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };

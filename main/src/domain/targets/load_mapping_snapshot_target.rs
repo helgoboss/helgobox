@@ -1,7 +1,7 @@
 use crate::domain::{
     ControlContext, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
     MappingControlContext, MappingControlResult, RealearnTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
+    TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
 
@@ -100,8 +100,8 @@ impl<'a> Target<'a> for LoadMappingSnapshotTarget {
     }
 }
 
-pub const LOAD_MAPPING_SNAPSHOT_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+pub const LOAD_MAPPING_SNAPSHOT_TARGET: TargetTypeDef = TargetTypeDef {
     short_name: "Load mapping snapshot",
     supports_tags: true,
-    ..DEFAULT_TARGET_TYPE_DEF
+    ..DEFAULT_TARGET
 };
