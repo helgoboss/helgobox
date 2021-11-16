@@ -19,7 +19,7 @@ use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget,
     HitInstructionReturnValue, LoadMappingSnapshotTarget, NavigateWithinGroupTarget,
     RealearnTarget, ReaperTargetType, RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget,
-    TrackInfoTarget, TrackPhaseTarget,
+    TrackPhaseTarget, TrackToolTarget,
 };
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -81,7 +81,7 @@ pub enum ReaperTarget {
     Action(ActionTarget),
     FxParameter(FxParameterTarget),
     TrackVolume(TrackVolumeTarget),
-    TrackInfo(TrackInfoTarget),
+    TrackTool(TrackToolTarget),
     TrackPeak(TrackPeakTarget),
     TrackRouteVolume(RouteVolumeTarget),
     TrackPan(TrackPanTarget),
@@ -537,7 +537,7 @@ impl<'a> Target<'a> for ReaperTarget {
             Action(t) => t.current_value(context),
             FxParameter(t) => t.current_value(context),
             TrackVolume(t) => t.current_value(context),
-            TrackInfo(t) => t.current_value(context),
+            TrackTool(t) => t.current_value(context),
             TrackPan(t) => t.current_value(context),
             TrackWidth(t) => t.current_value(context),
             TrackArm(t) => t.current_value(context),

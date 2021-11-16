@@ -6,11 +6,11 @@ use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target};
 use reaper_high::{Project, Track};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct TrackInfoTarget {
+pub struct TrackToolTarget {
     pub track: Track,
 }
 
-impl RealearnTarget for TrackInfoTarget {
+impl RealearnTarget for TrackToolTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         (ControlType::AbsoluteContinuous, TargetCharacter::Continuous)
     }
@@ -40,11 +40,11 @@ impl RealearnTarget for TrackInfoTarget {
     }
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
-        Some(ReaperTargetType::TrackInfo)
+        Some(ReaperTargetType::TrackTool)
     }
 }
 
-impl<'a> Target<'a> for TrackInfoTarget {
+impl<'a> Target<'a> for TrackToolTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
@@ -60,8 +60,8 @@ impl<'a> Target<'a> for TrackInfoTarget {
     }
 }
 
-pub const TRACK_INFO_TARGET: TargetTypeDef = TargetTypeDef {
-    short_name: "Track info",
+pub const TRACK_TOOL_TARGET: TargetTypeDef = TargetTypeDef {
+    short_name: "Track",
     supports_track: true,
     ..DEFAULT_TARGET
 };

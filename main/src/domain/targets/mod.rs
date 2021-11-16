@@ -67,8 +67,8 @@ pub use seek_target::*;
 mod track_volume_target;
 pub use track_volume_target::*;
 
-mod track_info_target;
-pub use track_info_target::*;
+mod track_tool_target;
+pub use track_tool_target::*;
 
 mod route_volume_target;
 pub use route_volume_target::*;

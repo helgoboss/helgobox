@@ -306,7 +306,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
                 ..init(d.commons)
             }
         }
-        Target::TrackInfo(d) => {
+        Target::TrackTool(d) => {
             let track_desc = convert_track_desc(d.track.unwrap_or_default())?;
             TargetModelData {
                 category: TargetCategory::Reaper,

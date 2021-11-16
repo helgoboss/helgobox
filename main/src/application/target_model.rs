@@ -660,7 +660,7 @@ impl TargetModel {
             SendMidi(_)
             | SendOsc(_)
             | TrackVolume(_)
-            | TrackInfo(_)
+            | TrackTool(_)
             | TrackPeak(_)
             | TrackRouteVolume(_)
             | TrackPan(_)
@@ -980,7 +980,7 @@ impl TargetModel {
                     TrackVolume => UnresolvedReaperTarget::TrackVolume {
                         track_descriptor: self.track_descriptor()?,
                     },
-                    TrackInfo => UnresolvedReaperTarget::TrackInfo {
+                    TrackTool => UnresolvedReaperTarget::TrackTool {
                         track_descriptor: self.track_descriptor()?,
                     },
                     TrackPeak => UnresolvedReaperTarget::TrackPeak {
@@ -1321,7 +1321,7 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                     | TrackPan
                     | TrackWidth
                     | TrackVolume
-                    | TrackInfo
+                    | TrackTool
                     | TrackPeak
                     | TrackShow
                     | TrackSolo
@@ -1592,7 +1592,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                         self.fx_label(),
                         self.fx_param_label()
                     ),
-                    TrackInfo | TrackVolume | TrackPeak | TrackPan | TrackWidth | TrackArm
+                    TrackTool | TrackVolume | TrackPeak | TrackPan | TrackWidth | TrackArm
                     | TrackSelection | TrackMute | TrackPhase | TrackSolo | TrackShow
                     | FxNavigate | AllTrackFxEnable => {
                         write!(f, "{}\nTrack {}", tt, self.track_label())
