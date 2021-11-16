@@ -124,6 +124,7 @@ impl<'a> Target<'a> for TrackWidthTarget {
 }
 
 pub const TRACK_WIDTH_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Set stereo pan width",
     short_name: "Track pan width",
     supports_track: true,
     ..DEFAULT_TARGET

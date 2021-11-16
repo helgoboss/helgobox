@@ -19,7 +19,6 @@ use crate::domain::{
     TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET, TRACK_SOLO_TARGET,
     TRACK_TOOL_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
 };
-use derive_more::Display;
 use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
@@ -32,7 +31,7 @@ use reaper_medium::{CommandId, MidiOutputDeviceId};
 use serde_repr::*;
 use std::collections::HashSet;
 use std::convert::TryInto;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 
 #[enum_dispatch(ReaperTarget)]
 pub trait RealearnTarget {
@@ -508,6 +507,8 @@ pub struct HitInstructionContext<'a> {
 ///
 /// Display implementation produces single-line medium-length names that are supposed to be shown
 /// e.g. in the dropdown.
+///
+/// IMPORTANT: Don't change the numbers! They are serialized.
 #[derive(
     Clone,
     Copy,
@@ -519,118 +520,78 @@ pub struct HitInstructionContext<'a> {
     IntoEnumIterator,
     TryFromPrimitive,
     IntoPrimitive,
-    Display,
 )]
 #[repr(usize)]
 pub enum ReaperTargetType {
     // Global targets
-    #[display(fmt = "Global: Last touched")]
     LastTouched = 20,
-    #[display(fmt = "Global: Set automation mode override")]
     AutomationModeOverride = 26,
 
     // Project targets
-    #[display(fmt = "Project: Any on (solo/mute/...)")]
     AnyOn = 43,
-    #[display(fmt = "Project: Invoke REAPER action")]
     Action = 0,
-    #[display(fmt = "Project: Invoke transport action")]
     Transport = 16,
-    #[display(fmt = "Project: Navigate between tracks")]
     SelectedTrack = 14,
-    #[display(fmt = "Project: Seek")]
     Seek = 23,
-    #[display(fmt = "Project: Set playrate")]
     Playrate = 11,
-    #[display(fmt = "Project: Set tempo")]
     Tempo = 10,
 
     // Marker/region targets
-    #[display(fmt = "Marker/region: Go to")]
     GoToBookmark = 22,
 
     // Track targets
-    #[display(fmt = "Track: Arm/disarm")]
     TrackArm = 5,
-    #[display(fmt = "Track: Enable/disable all FX")]
     AllTrackFxEnable = 15,
-    #[display(fmt = "Track")]
     TrackTool = 44,
-    #[display(fmt = "Track: Mute/unmute")]
     TrackMute = 7,
-    #[display(fmt = "Track: Peak")]
     TrackPeak = 34,
-    #[display(fmt = "Track: Phase invert/normal")]
     TrackPhase = 39,
-    #[display(fmt = "Track: Select/unselect")]
     TrackSelection = 6,
-    #[display(fmt = "Track: Set automation mode")]
     TrackAutomationMode = 25,
-    #[display(fmt = "Track: Set automation touch state")]
     AutomationTouchState = 21,
-    #[display(fmt = "Track: Set pan")]
     TrackPan = 4,
-    #[display(fmt = "Track: Set stereo pan width")]
     TrackWidth = 17,
-    #[display(fmt = "Track: Set volume")]
     TrackVolume = 2,
-    #[display(fmt = "Track: Show/hide")]
     TrackShow = 24,
-    #[display(fmt = "Track: Solo/unsolo")]
     TrackSolo = 8,
 
     // FX chain targets
-    #[display(fmt = "FX chain: Navigate between FXs")]
     FxNavigate = 28,
     // FX targets
-    #[display(fmt = "FX: Enable/disable")]
     FxEnable = 12,
-    #[display(fmt = "FX: Load snapshot")]
     LoadFxSnapshot = 19,
-    #[display(fmt = "FX: Navigate between presets")]
     FxPreset = 13,
-    #[display(fmt = "FX: Open/close")]
     FxOpen = 27,
-    #[display(fmt = "FX: Set parameter value")]
     FxParameter = 1,
 
     // Send targets
-    #[display(fmt = "Send: Automation mode")]
     TrackSendAutomationMode = 42,
-    #[display(fmt = "Send: Mono/stereo")]
     TrackSendMono = 41,
-    #[display(fmt = "Send: Mute/unmute")]
     TrackSendMute = 18,
-    #[display(fmt = "Send: Phase invert/normal")]
     TrackSendPhase = 40,
-    #[display(fmt = "Send: Set pan")]
     TrackSendPan = 9,
-    #[display(fmt = "Send: Set volume")]
     TrackSendVolume = 3,
 
     // Clip targets
-    #[display(fmt = "Clip: Invoke transport action")]
     ClipTransport = 31,
-    #[display(fmt = "Clip: Seek")]
     ClipSeek = 32,
-    #[display(fmt = "Clip: Volume")]
     ClipVolume = 33,
 
     // Misc
-    #[display(fmt = "MIDI: Send message")]
     SendMidi = 29,
-    #[display(fmt = "OSC: Send message")]
     SendOsc = 30,
 
     // ReaLearn targets
-    #[display(fmt = "ReaLearn: Enable/disable instances")]
     EnableInstances = 38,
-    #[display(fmt = "ReaLearn: Enable/disable mappings")]
     EnableMappings = 36,
-    #[display(fmt = "ReaLearn: Load mapping snapshot")]
     LoadMappingSnapshot = 35,
-    #[display(fmt = "ReaLearn: Navigate within group")]
     NavigateWithinGroup = 37,
+}
+
+impl Display for ReaperTargetType {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        f.write_str(self.definition().name())
+    }
 }
 
 impl Default for ReaperTargetType {
@@ -782,6 +743,7 @@ impl ReaperTargetType {
 }
 
 pub struct TargetTypeDef {
+    pub name: &'static str,
     pub short_name: &'static str,
     pub hint: &'static str,
     pub supports_track: bool,
@@ -802,6 +764,9 @@ pub struct TargetTypeDef {
 }
 
 impl TargetTypeDef {
+    pub const fn name(&self) -> &'static str {
+        self.name
+    }
     pub const fn short_name(&self) -> &'static str {
         self.short_name
     }
@@ -856,6 +821,7 @@ impl TargetTypeDef {
 }
 
 pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "",
     short_name: "",
     hint: "",
     supports_control: true,
@@ -878,6 +844,7 @@ pub const DEFAULT_TARGET: TargetTypeDef = TargetTypeDef {
 pub const AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY: &str = "Automatic feedback via polling only";
 
 pub const LAST_TOUCHED_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Global: Last touched",
     short_name: "Last touched",
     ..DEFAULT_TARGET
 };

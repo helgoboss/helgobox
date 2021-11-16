@@ -87,6 +87,7 @@ impl<'a> Target<'a> for FxEnableTarget {
 }
 
 pub const FX_ENABLE_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "FX: Enable/disable",
     short_name: "Enable/disable FX",
     hint: "No feedback from automation",
     supports_track: true,

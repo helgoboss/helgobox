@@ -124,6 +124,7 @@ impl<'a> Target<'a> for RouteVolumeTarget {
 }
 
 pub const ROUTE_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Send: Set volume",
     short_name: "Send volume",
     supports_track: true,
     supports_send: true,

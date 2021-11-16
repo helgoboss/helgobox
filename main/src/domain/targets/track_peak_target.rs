@@ -91,6 +91,7 @@ impl RealearnTarget for TrackPeakTarget {
 }
 
 pub const TRACK_PEAK_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Peak",
     short_name: "Track peak",
     hint: "Feedback only, no control",
     supports_track: true,

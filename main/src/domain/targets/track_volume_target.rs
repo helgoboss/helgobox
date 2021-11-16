@@ -117,6 +117,7 @@ impl<'a> Target<'a> for TrackVolumeTarget {
 }
 
 pub const TRACK_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Set volume",
     short_name: "Track volume",
     supports_track: true,
     ..DEFAULT_TARGET

@@ -126,6 +126,7 @@ impl<'a> Target<'a> for RoutePanTarget {
 }
 
 pub const ROUTE_PAN_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Send: Set pan",
     short_name: "Send pan",
     supports_track: true,
     supports_send: true,

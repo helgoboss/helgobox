@@ -84,6 +84,7 @@ impl<'a> Target<'a> for AutomationModeOverrideTarget {
 }
 
 pub const AUTOMATION_MODE_OVERRIDE_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Global: Set automation mode override",
     short_name: "Automation override",
     ..DEFAULT_TARGET
 };

@@ -126,6 +126,7 @@ impl<'a> Target<'a> for TempoTarget {
 }
 
 pub const TEMPO_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Project: Set tempo",
     short_name: "Tempo",
     ..DEFAULT_TARGET
 };

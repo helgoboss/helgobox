@@ -83,6 +83,7 @@ impl<'a> Target<'a> for RouteAutomationModeTarget {
 }
 
 pub const ROUTE_AUTOMATION_MODE_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Send: Automation mode",
     short_name: "Send automation mode",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_poll_for_feedback: true,

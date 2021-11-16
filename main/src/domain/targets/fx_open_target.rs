@@ -115,6 +115,7 @@ impl<'a> Target<'a> for FxOpenTarget {
 }
 
 pub const FX_OPEN_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "FX: Open/close",
     short_name: "Open/close FX",
     supports_track: true,
     supports_fx: true,

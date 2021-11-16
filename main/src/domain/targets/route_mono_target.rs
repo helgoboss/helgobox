@@ -77,6 +77,7 @@ impl<'a> Target<'a> for RouteMonoTarget {
 }
 
 pub const ROUTE_MONO_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Send: Mono/stereo",
     short_name: "Send mono/stereo",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_poll_for_feedback: true,

@@ -201,6 +201,7 @@ impl<'a> Target<'a> for FxParameterTarget {
 }
 
 pub const FX_PARAMETER_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "FX: Set parameter value",
     short_name: "FX parameter value",
     supports_poll_for_feedback: true,
     supports_track: true,

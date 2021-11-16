@@ -77,6 +77,7 @@ impl<'a> Target<'a> for RouteMuteTarget {
 }
 
 pub const ROUTE_MUTE_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Send: Mute/unmute",
     short_name: "(Un)mute send",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_poll_for_feedback: true,

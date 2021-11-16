@@ -109,6 +109,7 @@ impl<'a> Target<'a> for TrackAutomationModeTarget {
 }
 
 pub const TRACK_AUTOMATION_MODE_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Set automation mode",
     short_name: "Track automation mode",
     supports_track: true,
     supports_track_exclusivity: true,

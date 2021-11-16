@@ -110,6 +110,7 @@ impl<'a> Target<'a> for ClipVolumeTarget {
 }
 
 pub const CLIP_VOLUME_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Clip: Volume",
     short_name: "Clip volume",
     supports_slot: true,
     ..DEFAULT_TARGET

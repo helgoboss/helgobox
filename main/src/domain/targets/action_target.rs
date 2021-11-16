@@ -171,6 +171,7 @@ impl ActionTarget {
 }
 
 pub const ACTION_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Project: Invoke REAPER action",
     short_name: "Action",
     hint: "Limited feedback only",
     supports_track: true,

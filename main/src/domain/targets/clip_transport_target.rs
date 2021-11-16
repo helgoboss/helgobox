@@ -172,6 +172,7 @@ impl<'a> Target<'a> for ClipTransportTarget {
 }
 
 pub const CLIP_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Clip: Invoke transport action",
     short_name: "Clip transport",
     hint: "Experimental target, record not supported",
     supports_track: true,

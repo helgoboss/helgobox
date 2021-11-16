@@ -182,6 +182,7 @@ pub fn percentage_for_track_within_project(
 }
 
 pub const SELECTED_TRACK_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Project: Navigate between tracks",
     short_name: "Navigate tracks",
     supports_track_scrolling: true,
     ..DEFAULT_TARGET

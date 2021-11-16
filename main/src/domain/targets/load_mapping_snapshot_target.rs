@@ -101,6 +101,7 @@ impl<'a> Target<'a> for LoadMappingSnapshotTarget {
 }
 
 pub const LOAD_MAPPING_SNAPSHOT_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "ReaLearn: Load mapping snapshot",
     short_name: "Load mapping snapshot",
     supports_tags: true,
     ..DEFAULT_TARGET

@@ -228,6 +228,7 @@ impl<'a> Target<'a> for NavigateWithinGroupTarget {
 }
 
 pub const NAVIGATE_WITHIN_GROUP_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "ReaLearn: Navigate within group",
     short_name: "Navigate within group",
     supports_exclusivity: true,
     ..DEFAULT_TARGET

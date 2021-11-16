@@ -146,6 +146,7 @@ impl<'a> Target<'a> for OscSendTarget {
 }
 
 pub const OSC_SEND_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "OSC: Send message",
     short_name: "Send OSC",
     supports_feedback: false,
     ..DEFAULT_TARGET

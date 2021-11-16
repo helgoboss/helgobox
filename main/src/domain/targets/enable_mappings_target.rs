@@ -163,6 +163,7 @@ impl<'a> Target<'a> for EnableMappingsTarget {
 }
 
 pub const ENABLE_MAPPINGS_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "ReaLearn: Enable/disable mappings",
     short_name: "Enable/disable mappings",
     supports_tags: true,
     supports_exclusivity: true,

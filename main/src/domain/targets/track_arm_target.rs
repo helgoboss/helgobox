@@ -95,6 +95,7 @@ impl<'a> Target<'a> for TrackArmTarget {
 }
 
 pub const TRACK_ARM_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Arm/disarm",
     short_name: "(Dis)arm track",
     supports_track: true,
     supports_track_exclusivity: true,

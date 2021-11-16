@@ -155,6 +155,7 @@ impl Default for AnyOnParameter {
 }
 
 pub const ANY_ON_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Project: Any on (solo/mute/...)",
     short_name: "Any on",
     ..DEFAULT_TARGET
 };

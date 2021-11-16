@@ -82,6 +82,7 @@ impl<'a> Target<'a> for AllTrackFxEnableTarget {
 }
 
 pub const ALL_TRACK_FX_ENABLE_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Enable/disable all FX",
     short_name: "Enable/disable all track FX",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_poll_for_feedback: true,

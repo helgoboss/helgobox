@@ -105,6 +105,7 @@ impl<'a> Target<'a> for AutomationTouchStateTarget {
 }
 
 pub const AUTOMATION_TOUCH_STATE_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Set automation touch state",
     short_name: "Automation touch state",
     supports_track: true,
     supports_track_exclusivity: true,

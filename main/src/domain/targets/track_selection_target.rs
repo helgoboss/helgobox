@@ -121,6 +121,7 @@ impl<'a> Target<'a> for TrackSelectionTarget {
 }
 
 pub const TRACK_SELECTION_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Select/unselect",
     short_name: "(Un)select track",
     supports_track: true,
     if_so_supports_track_must_be_selected: false,
