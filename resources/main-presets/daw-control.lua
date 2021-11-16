@@ -21,8 +21,8 @@ end
 
 local groups = {
     {
-        id = "conditional-switches",
-        name = "Conditional switches",
+        id = "switching",
+        name = "Switching",
     },
     {
         id = "volume",
@@ -121,7 +121,7 @@ local mappings = {
     {
         id = "5cfd2ff0-85ce-4e70-98e8-eb53e5e94bb1",
         name = "Bank -",
-        group = "conditional-switches",
+        group = "switching",
         feedback_enabled = false,
         source = {
             kind = "Virtual",
@@ -139,7 +139,7 @@ local mappings = {
     {
         id = "07b0202f-b8b8-48e4-a530-f228450864f0",
         name = "Bank - faster",
-        group = "conditional-switches",
+        group = "switching",
         feedback_enabled = false,
         source = {
             kind = "Virtual",
@@ -163,7 +163,7 @@ local mappings = {
         id = "0baab91f-2c4e-43ae-8cac-dca727963b46",
         feedback_enabled = false,
         name = "Bank +",
-        group = "conditional-switches",
+        group = "switching",
         source = {
             kind = "Virtual",
             id = "bank-right",
@@ -180,7 +180,7 @@ local mappings = {
         id = "0a7e122c-3eda-4355-906a-a057eefa515b",
         feedback_enabled = false,
         name = "Bank + faster",
-        group = "conditional-switches",
+        group = "switching",
         source = {
             kind = "Virtual",
             id = "bank-right",
@@ -201,7 +201,7 @@ local mappings = {
     {
         id = "cf45689a-5537-465d-ad44-460dbebf4802",
         name = "Track -",
-        group = "conditional-switches",
+        group = "switching",
         feedback_enabled = false,
         source = {
             kind = "Virtual",
@@ -219,7 +219,7 @@ local mappings = {
     {
         id = "76465b5f-c9b3-4aa6-ba77-b891021cf38e",
         name = "Track - faster",
-        group = "conditional-switches",
+        group = "switching",
         feedback_enabled = false,
         source = {
             kind = "Virtual",
@@ -243,7 +243,7 @@ local mappings = {
         id = "d40ffa44-a446-4499-b9d6-787c5ff8e188",
         feedback_enabled = false,
         name = "Track +",
-        group = "conditional-switches",
+        group = "switching",
         source = {
             kind = "Virtual",
             id = "ch-right",
@@ -259,7 +259,7 @@ local mappings = {
     {
         id = "97db991c-a15b-4c27-aeb2-04b2ae3242c2",
         name = "Track + faster",
-        group = "conditional-switches",
+        group = "switching",
         feedback_enabled = false,
         source = {
             kind = "Virtual",
@@ -403,7 +403,7 @@ local mappings = {
     {
         id = "1e5c604f-9040-47c0-ab37-a05383e7be00",
         name = "Seek coarse/fine",
-        group = "conditional-switches",
+        group = "switching",
         source = {
             kind = "Virtual",
             id = "scrub",
@@ -427,7 +427,7 @@ local mappings = {
     {
         id = "ee81c405-d355-45e0-80b4-913633295193",
         name = "Zoom on/off",
-        group = "conditional-switches",
+        group = "switching",
         source = {
             kind = "Virtual",
             id = "zoom",
