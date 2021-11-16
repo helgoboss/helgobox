@@ -142,6 +142,7 @@ impl<'a> Target<'a> for TrackPanTarget {
 }
 
 pub const TRACK_PAN_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Set pan",
     short_name: "Track pan",
     supports_track: true,
     ..DEFAULT_TARGET

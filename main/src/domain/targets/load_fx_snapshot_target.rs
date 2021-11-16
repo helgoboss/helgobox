@@ -102,6 +102,7 @@ impl<'a> Target<'a> for LoadFxSnapshotTarget {
 }
 
 pub const LOAD_FX_SNAPSHOT_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "FX: Load snapshot",
     short_name: "Load FX snapshot",
     supports_track: true,
     supports_fx: true,

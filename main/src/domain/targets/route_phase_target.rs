@@ -77,6 +77,7 @@ impl<'a> Target<'a> for RoutePhaseTarget {
 }
 
 pub const ROUTE_PHASE_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Send: Phase invert/normal",
     short_name: "Send phase",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_poll_for_feedback: true,

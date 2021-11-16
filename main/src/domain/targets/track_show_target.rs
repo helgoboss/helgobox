@@ -86,6 +86,7 @@ impl<'a> Target<'a> for TrackShowTarget {
 }
 
 pub const TRACK_SHOW_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Show/hide",
     short_name: "Show/hide track",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_track: true,

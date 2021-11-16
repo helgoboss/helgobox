@@ -61,6 +61,7 @@ impl<'a> Target<'a> for TrackToolTarget {
 }
 
 pub const TRACK_TOOL_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track",
     short_name: "Track",
     supports_track: true,
     ..DEFAULT_TARGET

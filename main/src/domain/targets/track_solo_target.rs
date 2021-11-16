@@ -107,6 +107,7 @@ impl<'a> Target<'a> for TrackSoloTarget {
 }
 
 pub const TRACK_SOLO_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Solo/unsolo",
     short_name: "(Un)solo track",
     supports_track: true,
     supports_track_exclusivity: true,

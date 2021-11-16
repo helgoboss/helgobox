@@ -116,6 +116,7 @@ impl<'a> Target<'a> for ClipSeekTarget {
 }
 
 pub const CLIP_SEEK_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Clip: Seek",
     short_name: "Clip seek",
     supports_feedback_resolution: true,
     supports_slot: true,

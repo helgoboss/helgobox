@@ -94,6 +94,7 @@ impl<'a> Target<'a> for TrackMuteTarget {
 }
 
 pub const TRACK_MUTE_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Mute/unmute",
     short_name: "(Un)mute track",
     supports_track: true,
     supports_track_exclusivity: true,

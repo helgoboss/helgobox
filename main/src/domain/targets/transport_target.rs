@@ -191,6 +191,7 @@ impl<'a> Target<'a> for TransportTarget {
 }
 
 pub const TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Project: Invoke transport action",
     short_name: "Transport",
     ..DEFAULT_TARGET
 };

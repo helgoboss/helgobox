@@ -349,6 +349,7 @@ impl SeekInfo {
 }
 
 pub const SEEK_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Project: Seek",
     short_name: "Seek",
     supports_feedback_resolution: true,
     ..DEFAULT_TARGET

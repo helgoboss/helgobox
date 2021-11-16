@@ -214,6 +214,7 @@ impl<'a> Target<'a> for FxNavigateTarget {
 }
 
 pub const FX_NAVIGATE_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "FX chain: Navigate between FXs",
     short_name: "Navigate FXs",
     supports_track: true,
     supports_fx_chain: true,

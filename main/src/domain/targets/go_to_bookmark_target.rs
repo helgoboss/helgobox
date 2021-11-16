@@ -148,6 +148,7 @@ impl<'a> Target<'a> for GoToBookmarkTarget {
 }
 
 pub const GO_TO_BOOKMARK_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Marker/region: Go to",
     short_name: "Go to bookmark",
     ..DEFAULT_TARGET
 };

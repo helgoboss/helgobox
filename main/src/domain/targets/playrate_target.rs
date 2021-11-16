@@ -133,6 +133,7 @@ impl<'a> Target<'a> for PlayrateTarget {
 }
 
 pub const PLAYRATE_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Project: Set playrate",
     short_name: "Playrate",
     ..DEFAULT_TARGET
 };

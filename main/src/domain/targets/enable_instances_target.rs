@@ -102,6 +102,7 @@ impl<'a> Target<'a> for EnableInstancesTarget {
 }
 
 pub const ENABLE_INSTANCES_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "ReaLearn: Enable/disable instances",
     short_name: "Enable/disable instances",
     supports_tags: true,
     supports_exclusivity: true,

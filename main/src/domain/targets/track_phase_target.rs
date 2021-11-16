@@ -83,6 +83,7 @@ impl<'a> Target<'a> for TrackPhaseTarget {
 }
 
 pub const TRACK_PHASE_TARGET: TargetTypeDef = TargetTypeDef {
+    name: "Track: Phase invert/normal",
     short_name: "Track phase",
     hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
     supports_track: true,
