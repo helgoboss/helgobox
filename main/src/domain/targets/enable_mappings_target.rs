@@ -3,7 +3,7 @@ use crate::domain::{
     HitInstruction, HitInstructionContext, HitInstructionReturnValue, InstanceStateChanged,
     MappingCompartment, MappingControlContext, MappingControlResult, MappingData,
     MappingEnabledChangeRequestedEvent, RealearnTarget, ReaperTargetType, TagScope,
-    TargetCharacter,
+    TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use std::collections::HashSet;
@@ -161,3 +161,10 @@ impl<'a> Target<'a> for EnableMappingsTarget {
         self.control_type_and_character(context).0
     }
 }
+
+pub const ENABLE_MAPPINGS_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Enable/disable mappings",
+    supports_tags: true,
+    supports_exclusivity: true,
+    ..DEFAULT_TARGET_TYPE_DEF
+};

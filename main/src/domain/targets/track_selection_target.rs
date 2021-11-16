@@ -2,7 +2,8 @@ use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, track_selected_unit_value,
     CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter, TrackExclusivity,
+    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackExclusivity,
+    DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Reaper, Track};
@@ -118,3 +119,12 @@ impl<'a> Target<'a> for TrackSelectionTarget {
         self.control_type_and_character(context).0
     }
 }
+
+pub const TRACK_SELECTION_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "(Un)select track",
+    supports_track: true,
+    if_so_supports_track_must_be_selected: false,
+    supports_track_scrolling: true,
+    supports_track_exclusivity: true,
+    ..DEFAULT_TARGET_TYPE_DEF
+};

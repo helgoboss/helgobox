@@ -2,7 +2,7 @@ use crate::domain::ui_util::OutputReason;
 use crate::domain::{
     ControlContext, FeedbackOutput, HitInstructionReturnValue, MappingControlContext,
     MidiDestination, RealTimeReaperTarget, RealearnTarget, ReaperTargetType, SendMidiDestination,
-    TargetCharacter,
+    TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, RawMidiPattern, Target, UnitValue,
@@ -210,3 +210,11 @@ impl<'a> Target<'a> for MidiSendTarget {
         self.control_type_and_character_simple().0
     }
 }
+
+pub const MIDI_SEND_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Send MIDI",
+    hint: "Has limitations (see user guide)",
+    supports_tags: true,
+    supports_feedback: false,
+    ..DEFAULT_TARGET_TYPE_DEF
+};

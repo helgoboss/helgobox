@@ -1,7 +1,10 @@
 use crate::domain::ui_util::{
     format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
-use crate::domain::{ControlContext, RealearnTarget, ReaperTargetType, TargetCharacter};
+use crate::domain::{
+    ControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    DEFAULT_TARGET_TYPE_DEF,
+};
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target, UnitValue};
 use reaper_high::{Project, Reaper, Track, Volume};
 use reaper_medium::{ReaperVolumeValue, TrackAttributeKey};
@@ -86,3 +89,11 @@ impl RealearnTarget for TrackPeakTarget {
         Some(ReaperTargetType::TrackPeak)
     }
 }
+
+pub const TRACK_PEAK_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Track peak",
+    hint: "Feedback only, no control",
+    supports_track: true,
+    supports_control: false,
+    ..DEFAULT_TARGET_TYPE_DEF
+};

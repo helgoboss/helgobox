@@ -1,6 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter,
+    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    DEFAULT_TARGET_TYPE_DEF,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -152,3 +153,8 @@ impl Default for AnyOnParameter {
         Self::TrackSolo
     }
 }
+
+pub const ANY_ON_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Any on",
+    ..DEFAULT_TARGET_TYPE_DEF
+};

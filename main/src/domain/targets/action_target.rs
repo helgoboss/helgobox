@@ -2,7 +2,7 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_bool_as_on_off, ActionInvocationType, AdditionalFeedbackEvent, CompoundChangeEvent,
     ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use helgoboss_midi::U14;
@@ -169,3 +169,11 @@ impl ActionTarget {
         self.action.invoke(v.get(), false, Some(self.project))
     }
 }
+
+pub const ACTION_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Action",
+    hint: "Limited feedback only",
+    supports_track: true,
+    if_so_supports_track_must_be_selected: false,
+    ..DEFAULT_TARGET_TYPE_DEF
+};

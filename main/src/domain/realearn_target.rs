@@ -7,7 +7,7 @@ use crate::domain::{
     FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceId, InstanceStateChanged, MainMapping,
     MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
     RealTimeReaperTarget, RealTimeSender, ReaperTarget, SharedInstanceState, Tag, TagScope,
-    TargetCharacter, TrackExclusivity,
+    TargetCharacter, TrackExclusivity, ACTION_TARGET_TYPE_DEF,
 };
 use derive_more::Display;
 use enum_dispatch::enum_dispatch;
@@ -655,6 +655,10 @@ impl ReaperTargetType {
         )
     }
 
+    pub const fn definition(self) -> &'static TargetTypeDef {
+        &ACTION_TARGET_TYPE_DEF
+    }
+
     pub fn supports_track(self) -> bool {
         use ReaperTargetType::*;
         match self {
@@ -1054,3 +1058,99 @@ impl ReaperTargetType {
         }
     }
 }
+
+pub struct TargetTypeDef {
+    pub short_name: &'static str,
+    pub hint: &'static str,
+    pub supports_track: bool,
+    pub if_so_supports_track_must_be_selected: bool,
+    pub supports_track_scrolling: bool,
+    pub supports_slot: bool,
+    pub supports_fx: bool,
+    pub supports_fx_chain: bool,
+    pub supports_fx_display_type: bool,
+    pub supports_tags: bool,
+    pub supports_send: bool,
+    pub supports_track_exclusivity: bool,
+    pub supports_exclusivity: bool,
+    pub supports_poll_for_feedback: bool,
+    pub supports_feedback_resolution: bool,
+    pub supports_control: bool,
+    pub supports_feedback: bool,
+}
+
+impl TargetTypeDef {
+    pub const fn short_name(&self) -> &'static str {
+        self.short_name
+    }
+    pub const fn hint(&self) -> &'static str {
+        self.hint
+    }
+    pub const fn supports_track(&self) -> bool {
+        self.supports_track
+    }
+    pub const fn supports_track_must_be_selected(&self) -> bool {
+        self.supports_track && self.if_so_supports_track_must_be_selected
+    }
+    pub const fn supports_track_scrolling(&self) -> bool {
+        self.supports_track_scrolling
+    }
+    pub const fn supports_slot(&self) -> bool {
+        self.supports_slot
+    }
+    pub const fn supports_fx(&self) -> bool {
+        self.supports_fx
+    }
+    pub const fn supports_fx_chain(&self) -> bool {
+        self.supports_fx() || self.supports_fx_chain
+    }
+    pub const fn supports_fx_display_type(&self) -> bool {
+        self.supports_fx_display_type
+    }
+    pub const fn supports_tags(&self) -> bool {
+        self.supports_tags
+    }
+    pub const fn supports_send(&self) -> bool {
+        self.supports_send
+    }
+    pub const fn supports_track_exclusivity(&self) -> bool {
+        self.supports_track_exclusivity
+    }
+    pub const fn supports_exclusivity(&self) -> bool {
+        self.supports_exclusivity
+    }
+    pub const fn supports_poll_for_feedback(&self) -> bool {
+        self.supports_poll_for_feedback
+    }
+    pub const fn supports_feedback_resolution(&self) -> bool {
+        self.supports_feedback_resolution
+    }
+    pub const fn supports_control(&self) -> bool {
+        self.supports_control
+    }
+    pub const fn supports_feedback(&self) -> bool {
+        self.supports_feedback
+    }
+}
+
+pub const DEFAULT_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "",
+    hint: "",
+    supports_control: true,
+    supports_feedback: true,
+    supports_track: false,
+    if_so_supports_track_must_be_selected: true,
+    supports_track_scrolling: false,
+    supports_slot: false,
+    supports_fx: false,
+    supports_fx_chain: false,
+    supports_fx_display_type: false,
+    supports_tags: false,
+    supports_send: false,
+    supports_track_exclusivity: false,
+    supports_exclusivity: false,
+    supports_poll_for_feedback: false,
+    supports_feedback_resolution: false,
+};
+
+pub const AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY: &str = "Automatic feedback via polling only";

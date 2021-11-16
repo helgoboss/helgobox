@@ -1,7 +1,7 @@
 use crate::domain::{
     automation_mode_unit_value, change_track_prop, format_value_as_on_off, CompoundChangeEvent,
     ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter, TrackExclusivity,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackExclusivity, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -107,3 +107,10 @@ impl<'a> Target<'a> for TrackAutomationModeTarget {
         self.control_type_and_character(context).0
     }
 }
+
+pub const TRACK_AUTOMATION_MODE_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Track automation mode",
+    supports_track: true,
+    supports_track_exclusivity: true,
+    ..DEFAULT_TARGET_TYPE_DEF
+};

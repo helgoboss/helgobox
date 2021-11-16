@@ -2,7 +2,7 @@ use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     format_value_as_on_off, AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent,
     ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, Project, Track};
@@ -100,3 +100,10 @@ impl<'a> Target<'a> for LoadFxSnapshotTarget {
         self.control_type_and_character(context).0
     }
 }
+
+pub const LOAD_FX_SNAPSHOT_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Load FX snapshot",
+    supports_track: true,
+    supports_fx: true,
+    ..DEFAULT_TARGET_TYPE_DEF
+};

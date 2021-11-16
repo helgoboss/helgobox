@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, global_automation_mode_override_unit_value, CompoundChangeEvent,
     ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Reaper};
@@ -82,3 +82,8 @@ impl<'a> Target<'a> for AutomationModeOverrideTarget {
         self.control_type_and_character(context).0
     }
 }
+
+pub const AUTOMATION_MODE_OVERRIDE_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Automation override",
+    ..DEFAULT_TARGET_TYPE_DEF
+};
