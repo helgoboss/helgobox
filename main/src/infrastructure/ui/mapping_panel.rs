@@ -4590,6 +4590,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_mode_rotate_check_box();
         self.invalidate_mode_make_absolute_check_box();
         self.invalidate_mode_feedback_type_combo_box();
+        self.invalidate_mode_feedback_type_button();
         self.invalidate_mode_out_of_range_behavior_combo_box();
         self.invalidate_mode_group_interaction_combo_box();
         self.invalidate_mode_round_target_value_check_box();
@@ -5160,6 +5161,19 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_checked(self.mode.rotate.get());
     }
 
+    fn invalidate_mode_feedback_type_button(&self) {
+        let text = if self.mode.feedback_color.get_ref().is_some()
+            || self.mode.feedback_background_color.get_ref().is_some()
+        {
+            format!("...*")
+        } else {
+            "...".to_string()
+        };
+        self.view
+            .require_control(root::IDC_MODE_FEEDBACK_TYPE_BUTTON)
+            .set_text(text);
+    }
+
     fn invalidate_mode_feedback_type_combo_box(&self) {
         self.view
             .require_control(root::IDC_MODE_FEEDBACK_TYPE_COMBO_BOX)
@@ -5593,6 +5607,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             view.invalidate_mode_controls();
             view.invalidate_help();
         });
+        self.panel.when(
+            mode.feedback_color
+                .changed()
+                .merge(mode.feedback_background_color.changed()),
+            |view, _| {
+                view.invalidate_mode_feedback_type_button();
+            },
+        );
         self.panel.when(mode.make_absolute.changed(), |view, _| {
             view.invalidate_mode_controls();
             view.invalidate_help();

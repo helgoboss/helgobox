@@ -26,6 +26,7 @@ pub enum Target {
     TrackPan(TrackPanTarget),
     TrackWidth(TrackWidthTarget),
     TrackVolume(TrackVolumeTarget),
+    TrackInfo(TrackInfoTarget),
     TrackVisibility(TrackVisibilityTarget),
     TrackSoloState(TrackSoloStateTarget),
     CycleThroughFx(CycleThroughFxTarget),
@@ -297,6 +298,15 @@ pub struct TrackWidthTarget {
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackVolumeTarget {
+    #[serde(flatten)]
+    pub commons: TargetCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub track: Option<TrackDescriptor>,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TrackInfoTarget {
     #[serde(flatten)]
     pub commons: TargetCommons,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -544,6 +544,8 @@ pub enum ReaperTargetType {
     TrackArm = 5,
     #[display(fmt = "Track: Enable/disable all FX")]
     AllTrackFxEnable = 15,
+    #[display(fmt = "Track: Info")]
+    TrackInfo = 44,
     #[display(fmt = "Track: Mute/unmute")]
     TrackMute = 7,
     #[display(fmt = "Track: Peak")]
@@ -629,52 +631,8 @@ impl Default for ReaperTargetType {
 
 impl ReaperTargetType {
     pub fn from_target(target: &ReaperTarget) -> ReaperTargetType {
-        // TODO-medium This is redundant. We provide this information already in the RealearnTarget impl.
-        match target {
-            ReaperTarget::Action(_) => ReaperTargetType::Action,
-            ReaperTarget::FxParameter(_) => ReaperTargetType::FxParameter,
-            ReaperTarget::TrackVolume(_) => ReaperTargetType::TrackVolume,
-            ReaperTarget::TrackPeak(_) => ReaperTargetType::TrackPeak,
-            ReaperTarget::TrackRouteVolume(_) => ReaperTargetType::TrackSendVolume,
-            ReaperTarget::TrackPan(_) => ReaperTargetType::TrackPan,
-            ReaperTarget::TrackWidth(_) => ReaperTargetType::TrackWidth,
-            ReaperTarget::TrackArm(_) => ReaperTargetType::TrackArm,
-            ReaperTarget::TrackSelection(_) => ReaperTargetType::TrackSelection,
-            ReaperTarget::TrackMute(_) => ReaperTargetType::TrackMute,
-            ReaperTarget::TrackPhase(_) => ReaperTargetType::TrackPhase,
-            ReaperTarget::TrackSolo(_) => ReaperTargetType::TrackSolo,
-            ReaperTarget::TrackRoutePan(_) => ReaperTargetType::TrackSendPan,
-            ReaperTarget::TrackRouteMute(_) => ReaperTargetType::TrackSendMute,
-            ReaperTarget::TrackRoutePhase(_) => ReaperTargetType::TrackSendPhase,
-            ReaperTarget::TrackRouteMono(_) => ReaperTargetType::TrackSendMono,
-            ReaperTarget::TrackRouteAutomationMode(_) => ReaperTargetType::TrackSendAutomationMode,
-            ReaperTarget::Tempo(_) => ReaperTargetType::Tempo,
-            ReaperTarget::Playrate(_) => ReaperTargetType::Playrate,
-            ReaperTarget::FxEnable(_) => ReaperTargetType::FxEnable,
-            ReaperTarget::FxPreset(_) => ReaperTargetType::FxPreset,
-            ReaperTarget::SelectedTrack(_) => ReaperTargetType::SelectedTrack,
-            ReaperTarget::AllTrackFxEnable(_) => ReaperTargetType::AllTrackFxEnable,
-            ReaperTarget::Transport(_) => ReaperTargetType::Transport,
-            ReaperTarget::AnyOn(_) => ReaperTargetType::AnyOn,
-            ReaperTarget::LoadFxSnapshot(_) => ReaperTargetType::LoadFxSnapshot,
-            ReaperTarget::AutomationTouchState(_) => ReaperTargetType::AutomationTouchState,
-            ReaperTarget::GoToBookmark(_) => ReaperTargetType::GoToBookmark,
-            ReaperTarget::Seek(_) => ReaperTargetType::Seek,
-            ReaperTarget::TrackShow(_) => ReaperTargetType::TrackShow,
-            ReaperTarget::TrackAutomationMode(_) => ReaperTargetType::TrackAutomationMode,
-            ReaperTarget::AutomationModeOverride(_) => ReaperTargetType::AutomationModeOverride,
-            ReaperTarget::FxOpen(_) => ReaperTargetType::FxOpen,
-            ReaperTarget::FxNavigate(_) => ReaperTargetType::FxNavigate,
-            ReaperTarget::SendMidi(_) => ReaperTargetType::SendMidi,
-            ReaperTarget::SendOsc(_) => ReaperTargetType::SendOsc,
-            ReaperTarget::ClipTransport(_) => ReaperTargetType::ClipTransport,
-            ReaperTarget::ClipSeek(_) => ReaperTargetType::ClipSeek,
-            ReaperTarget::ClipVolume(_) => ReaperTargetType::ClipVolume,
-            ReaperTarget::LoadMappingSnapshot(_) => ReaperTargetType::LoadMappingSnapshot,
-            ReaperTarget::EnableMappings(_) => ReaperTargetType::EnableMappings,
-            ReaperTarget::EnableInstances(_) => ReaperTargetType::EnableInstances,
-            ReaperTarget::NavigateWithinGroup(_) => ReaperTargetType::NavigateWithinGroup,
-        }
+        // TODO-high Don't let this return an option!
+        target.reaper_target_type().expect("TODO-high")
     }
 
     pub fn supports_feedback_resolution(self) -> bool {
@@ -702,6 +660,7 @@ impl ReaperTargetType {
         match self {
             FxParameter
             | TrackVolume
+            | TrackInfo
             | TrackPeak
             | TrackSendVolume
             | TrackPan
@@ -773,6 +732,7 @@ impl ReaperTargetType {
             | TrackSendMono
             | TrackSendAutomationMode
             | TrackVolume
+            | TrackInfo
             | TrackPeak
             | TrackPan
             | TrackWidth
@@ -823,6 +783,7 @@ impl ReaperTargetType {
             | TrackSendMono
             | TrackSendAutomationMode
             | TrackVolume
+            | TrackInfo
             | TrackPeak
             | TrackPan
             | TrackWidth
@@ -877,6 +838,7 @@ impl ReaperTargetType {
             | TrackSendAutomationMode => true,
             FxParameter
             | TrackVolume
+            | TrackInfo
             | TrackPeak
             | TrackPan
             | TrackWidth
@@ -929,6 +891,7 @@ impl ReaperTargetType {
             | TrackSendMono
             | FxParameter
             | TrackVolume
+            | TrackInfo
             | TrackPeak
             | TrackPan
             | TrackWidth
@@ -971,6 +934,7 @@ impl ReaperTargetType {
             | TrackSendAutomationMode
             | FxParameter
             | TrackVolume
+            | TrackInfo
             | TrackPeak
             | TrackPan
             | TrackWidth
@@ -1061,6 +1025,7 @@ impl ReaperTargetType {
             TrackPan => "Track pan",
             TrackWidth => "Track pan width",
             TrackVolume => "Track volume",
+            TrackInfo => "Track info",
             TrackPeak => "Track peak",
             TrackShow => "Show/hide track",
             TrackSolo => "(Un)solo track",
