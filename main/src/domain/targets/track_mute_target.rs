@@ -2,7 +2,7 @@ use crate::domain::{
     change_track_prop, format_value_as_on_off,
     get_control_type_and_character_for_track_exclusivity, mute_unit_value, CompoundChangeEvent,
     ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter, TrackExclusivity,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackExclusivity, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
@@ -92,3 +92,10 @@ impl<'a> Target<'a> for TrackMuteTarget {
         self.control_type_and_character(context).0
     }
 }
+
+pub const TRACK_MUTE_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "(Un)mute track",
+    supports_track: true,
+    supports_track_exclusivity: true,
+    ..DEFAULT_TARGET_TYPE_DEF
+};

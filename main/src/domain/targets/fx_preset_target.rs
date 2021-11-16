@@ -1,7 +1,7 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
     CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter,
+    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
@@ -154,3 +154,11 @@ impl<'a> Target<'a> for FxPresetTarget {
         self.control_type_and_character(context).0
     }
 }
+
+pub const FX_PRESET_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Navigate FX presets",
+    hint: "Automatic feedback since REAPER v6.13",
+    supports_track: true,
+    supports_fx: true,
+    ..DEFAULT_TARGET_TYPE_DEF
+};

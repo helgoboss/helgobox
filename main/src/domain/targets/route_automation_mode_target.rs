@@ -1,6 +1,7 @@
 use crate::domain::{
     automation_mode_unit_value, format_value_as_on_off, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter,
+    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track, TrackRoute};
@@ -80,3 +81,12 @@ impl<'a> Target<'a> for RouteAutomationModeTarget {
         self.control_type_and_character(context).0
     }
 }
+
+pub const ROUTE_AUTOMATION_MODE_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Send automation mode",
+    hint: AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
+    supports_poll_for_feedback: true,
+    supports_track: true,
+    supports_send: true,
+    ..DEFAULT_TARGET_TYPE_DEF
+};

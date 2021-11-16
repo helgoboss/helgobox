@@ -2,7 +2,7 @@ use crate::domain::{
     bpm_span, format_step_size_as_bpm_without_unit, format_value_as_bpm_without_unit,
     parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value, CompoundChangeEvent,
     ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Tempo};
@@ -124,3 +124,8 @@ impl<'a> Target<'a> for TempoTarget {
         self.control_type_and_character(context).0
     }
 }
+
+pub const TEMPO_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Tempo",
+    ..DEFAULT_TARGET_TYPE_DEF
+};

@@ -1,7 +1,7 @@
 use crate::domain::{
     format_value_as_on_off, fx_enable_unit_value, CompoundChangeEvent, ControlContext,
     HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter,
+    TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
@@ -85,3 +85,11 @@ impl<'a> Target<'a> for FxEnableTarget {
         self.control_type_and_character(context).0
     }
 }
+
+pub const FX_ENABLE_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Enable/disable FX",
+    hint: "No feedback from automation",
+    supports_track: true,
+    supports_fx: true,
+    ..DEFAULT_TARGET_TYPE_DEF
+};

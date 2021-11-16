@@ -1,7 +1,7 @@
 use crate::domain::{
     current_value_of_bookmark, format_value_as_on_off, AdditionalFeedbackEvent,
     CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter,
+    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, PropValue, RgbColor, Target, UnitValue,
@@ -146,3 +146,8 @@ impl<'a> Target<'a> for GoToBookmarkTarget {
         self.control_type_and_character(context).0
     }
 }
+
+pub const GO_TO_BOOKMARK_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Go to bookmark",
+    ..DEFAULT_TARGET_TYPE_DEF
+};

@@ -3,7 +3,7 @@ use crate::domain::{
     format_value_as_playback_speed_factor_without_unit, parse_step_size_from_playback_speed_factor,
     parse_value_from_playback_speed_factor, playback_speed_factor_span, playrate_unit_value,
     CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter,
+    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET_TYPE_DEF,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, PlayRate, Project};
@@ -131,3 +131,8 @@ impl<'a> Target<'a> for PlayrateTarget {
         self.control_type_and_character(context).0
     }
 }
+
+pub const PLAYRATE_TARGET_TYPE_DEF: TargetTypeDef = TargetTypeDef {
+    short_name: "Playrate",
+    ..DEFAULT_TARGET_TYPE_DEF
+};
