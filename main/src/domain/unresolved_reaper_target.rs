@@ -12,9 +12,9 @@ use crate::domain::{
     RoutePanTarget, RoutePhaseTarget, RouteVolumeTarget, SeekOptions, SeekTarget,
     SelectedTrackTarget, SendMidiDestination, SimpleExclusivity, SlotPlayOptions, SoloBehavior,
     TagScope, TempoTarget, TouchedParameterType, TrackArmTarget, TrackAutomationModeTarget,
-    TrackExclusivity, TrackMuteTarget, TrackPanTarget, TrackPeakTarget, TrackPhaseTarget,
-    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget,
-    TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
+    TrackExclusivity, TrackInfoTarget, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
+    TrackPhaseTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget,
+    TrackWidthTarget, TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
@@ -50,6 +50,9 @@ pub enum UnresolvedReaperTarget {
         poll_for_feedback: bool,
     },
     TrackVolume {
+        track_descriptor: TrackDescriptor,
+    },
+    TrackInfo {
         track_descriptor: TrackDescriptor,
     },
     TrackPeak {
@@ -266,6 +269,12 @@ impl UnresolvedReaperTarget {
                 get_effective_tracks(context, &track_descriptor.track, compartment)?
                     .into_iter()
                     .map(|track| ReaperTarget::TrackVolume(TrackVolumeTarget { track }))
+                    .collect()
+            }
+            TrackInfo { track_descriptor } => {
+                get_effective_tracks(context, &track_descriptor.track, compartment)?
+                    .into_iter()
+                    .map(|track| ReaperTarget::TrackInfo(TrackInfoTarget { track }))
                     .collect()
             }
             TrackPeak { track_descriptor } => {
@@ -785,6 +794,7 @@ impl UnresolvedReaperTarget {
                 ..Default::default()
             },
             TrackVolume { track_descriptor }
+            | TrackInfo { track_descriptor }
             | TrackPeak { track_descriptor }
             | TrackPan { track_descriptor }
             | TrackWidth { track_descriptor }
@@ -846,6 +856,7 @@ impl UnresolvedReaperTarget {
         let res = match self {
             Action { .. }
             | TrackVolume { .. }
+            | TrackInfo { .. }
             | TrackSendVolume { .. }
             | TrackPan { .. }
             | TrackWidth { .. }

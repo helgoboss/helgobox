@@ -160,15 +160,22 @@ impl<'a> Target<'a> for SelectedTrackTarget {
 
 impl SelectedTrackTarget {
     fn value_for(&self, track_index: Option<u32>) -> AbsoluteValue {
-        let track_count = self.project.track_count();
-        // Because we count "<Master track>" as a possible value, this is equal.
-        let max_value = track_count;
-        let actual_value = track_index.map(|i| i + 1).unwrap_or(0);
-        AbsoluteValue::Discrete(Fraction::new(actual_value, max_value))
+        percentage_for_track_within_project(self.project, track_index)
     }
 
     fn selected_track(&self) -> Option<Track> {
         self.project
             .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
     }
+}
+
+pub fn percentage_for_track_within_project(
+    project: Project,
+    track_index: Option<u32>,
+) -> AbsoluteValue {
+    let track_count = project.track_count();
+    // Because we count "<Master track>" as a possible value, this is equal.
+    let max_value = track_count;
+    let actual_value = track_index.map(|i| i + 1).unwrap_or(0);
+    AbsoluteValue::Discrete(Fraction::new(actual_value, max_value))
 }
