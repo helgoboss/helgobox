@@ -28,8 +28,8 @@ use realearn_api::schema::{
     PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget,
     RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget, RouteVolumeTarget, SeekTarget,
     SendMidiTarget, SendOscTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
-    TrackAutomationTouchStateTarget, TrackInfoTarget, TrackMuteStateTarget, TrackPanTarget,
-    TrackPeakTarget, TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget,
+    TrackAutomationTouchStateTarget, TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget,
+    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget,
     TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
 };
 
@@ -409,7 +409,7 @@ fn convert_real_target(
                 style,
             ),
         }),
-        TrackInfo => T::TrackInfo(TrackInfoTarget {
+        TrackTool => T::TrackTool(TrackToolTarget {
             commons,
             track: convert_track_descriptor(
                 data.track_data,

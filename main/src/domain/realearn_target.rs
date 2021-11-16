@@ -15,9 +15,9 @@ use crate::domain::{
     NAVIGATE_WITHIN_GROUP_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET, ROUTE_AUTOMATION_MODE_TARGET,
     ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET,
     ROUTE_VOLUME_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET, TRACK_ARM_TARGET,
-    TRACK_AUTOMATION_MODE_TARGET, TRACK_INFO_TARGET, TRACK_MUTE_TARGET, TRACK_PAN_TARGET,
-    TRACK_PEAK_TARGET, TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET,
-    TRACK_SOLO_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
+    TRACK_AUTOMATION_MODE_TARGET, TRACK_MUTE_TARGET, TRACK_PAN_TARGET, TRACK_PEAK_TARGET,
+    TRACK_PHASE_TARGET, TRACK_SELECTION_TARGET, TRACK_SHOW_TARGET, TRACK_SOLO_TARGET,
+    TRACK_TOOL_TARGET, TRACK_VOLUME_TARGET, TRACK_WIDTH_TARGET, TRANSPORT_TARGET,
 };
 use derive_more::Display;
 use enum_dispatch::enum_dispatch;
@@ -554,8 +554,8 @@ pub enum ReaperTargetType {
     TrackArm = 5,
     #[display(fmt = "Track: Enable/disable all FX")]
     AllTrackFxEnable = 15,
-    #[display(fmt = "Track: Info")]
-    TrackInfo = 44,
+    #[display(fmt = "Track")]
+    TrackTool = 44,
     #[display(fmt = "Track: Mute/unmute")]
     TrackMute = 7,
     #[display(fmt = "Track: Peak")]
@@ -680,7 +680,7 @@ impl ReaperTargetType {
             GoToBookmark => &GO_TO_BOOKMARK_TARGET,
             TrackArm => &TRACK_ARM_TARGET,
             AllTrackFxEnable => &ALL_TRACK_FX_ENABLE_TARGET,
-            TrackInfo => &TRACK_INFO_TARGET,
+            TrackTool => &TRACK_TOOL_TARGET,
             TrackMute => &TRACK_MUTE_TARGET,
             TrackPeak => &TRACK_PEAK_TARGET,
             TrackPhase => &TRACK_PHASE_TARGET,
