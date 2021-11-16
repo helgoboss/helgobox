@@ -1,10 +1,7 @@
-local channel_count = 8;
+local channel_count = 8
+local follow_track_selection = true
 
 local parameters = {
-    {
-        index = 0,
-        name = "Track",
-    },
     {
         index = 1,
         name = "Seek coarse/fine",
@@ -14,6 +11,13 @@ local parameters = {
         name = "Zoom on/off",
     },
 }
+
+if not follow_track_selection then
+    table.insert(parameters, {
+        index = 0,
+        name = "Track"
+    })
+end
 
 local groups = {
     {
@@ -100,6 +104,19 @@ local groups = {
     },
 }
 
+local track_switching_target = follow_track_selection and { kind = "CycleThroughTracks" } or {
+    kind = "FxParameterValue",
+    parameter = {
+        address = "ById",
+        index = 0,
+    },
+}
+
+local track_bank_step_size_interval = not follow_track_selection and {0.0008, 0.0008} or nil
+local track_bank_step_factor_interval = follow_track_selection and {8, 8} or nil
+local track_switch_step_size_interval = not follow_track_selection and {0.0001, 0.0001} or nil
+local track_switch_step_factor_interval = follow_track_selection and {1, 1} or nil
+
 local mappings = {
     {
         id = "5cfd2ff0-85ce-4e70-98e8-eb53e5e94bb1",
@@ -114,15 +131,10 @@ local mappings = {
         glue = {
             absolute_mode = "IncrementalButton",
             reverse = true,
-            step_size_interval = {0.0008, 0.0008},
+            step_size_interval = track_bank_step_size_interval,
+            step_factor_interval = track_bank_step_factor_interval,
         },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 0,
-            },
-        },
+        target = track_switching_target
     },
     {
         id = "07b0202f-b8b8-48e4-a530-f228450864f0",
@@ -137,20 +149,15 @@ local mappings = {
         glue = {
             absolute_mode = "IncrementalButton",
             reverse = true,
-            step_size_interval = {0.0008, 0.0008},
+            step_size_interval = track_bank_step_size_interval,
+            step_factor_interval = track_bank_step_factor_interval,
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
                 timeout = 300,
                 rate = 100,
             },
         },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 0,
-            },
-        },
+        target = track_switching_target
     },
     {
         id = "0baab91f-2c4e-43ae-8cac-dca727963b46",
@@ -164,15 +171,10 @@ local mappings = {
         },
         glue = {
             absolute_mode = "IncrementalButton",
-            step_size_interval = {0.0008, 0.0008},
+            step_size_interval = track_bank_step_size_interval,
+            step_factor_interval = track_bank_step_factor_interval,
         },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 0,
-            },
-        },
+        target = track_switching_target
     },
     {
         id = "0a7e122c-3eda-4355-906a-a057eefa515b",
@@ -186,20 +188,15 @@ local mappings = {
         },
         glue = {
             absolute_mode = "IncrementalButton",
-            step_size_interval = {0.0008, 0.0008},
+            step_size_interval = track_bank_step_size_interval,
+            step_factor_interval = track_bank_step_factor_interval,
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
                 timeout = 300,
                 rate = 100,
             },
         },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 0,
-            },
-        },
+        target = track_switching_target
     },
     {
         id = "cf45689a-5537-465d-ad44-460dbebf4802",
@@ -214,15 +211,10 @@ local mappings = {
         glue = {
             absolute_mode = "IncrementalButton",
             reverse = true,
-            step_size_interval = {0.0001, 0.0001},
+            step_size_interval = track_switch_step_size_interval,
+            step_factor_interval = track_switch_step_factor_interval,
         },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 0,
-            },
-        },
+        target = track_switching_target
     },
     {
         id = "76465b5f-c9b3-4aa6-ba77-b891021cf38e",
@@ -237,20 +229,15 @@ local mappings = {
         glue = {
             absolute_mode = "IncrementalButton",
             reverse = true,
-            step_size_interval = {0.0001, 0.0001},
+            step_size_interval = track_switch_step_size_interval,
+            step_factor_interval = track_switch_step_factor_interval,
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
                 timeout = 300,
                 rate = 60,
             },
         },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 0,
-            },
-        },
+        target = track_switching_target
     },
     {
         id = "d40ffa44-a446-4499-b9d6-787c5ff8e188",
@@ -264,15 +251,10 @@ local mappings = {
         },
         glue = {
             absolute_mode = "IncrementalButton",
-            step_size_interval = {0.0001, 0.0001},
+            step_size_interval = track_switch_step_size_interval,
+            step_factor_interval = track_switch_step_factor_interval,
         },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 0,
-            },
-        },
+        target = track_switching_target
     },
     {
         id = "97db991c-a15b-4c27-aeb2-04b2ae3242c2",
@@ -286,20 +268,15 @@ local mappings = {
         },
         glue = {
             absolute_mode = "IncrementalButton",
-            step_size_interval = {0.0001, 0.0001},
+            step_size_interval = track_switch_step_size_interval,
+            step_factor_interval = track_switch_step_factor_interval,
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
                 timeout = 300,
                 rate = 60,
             },
         },
-        target = {
-            kind = "FxParameterValue",
-            parameter = {
-                address = "ById",
-                index = 0,
-            },
-        },
+        target = track_switching_target
     },
     {
         id = "afa35458-3160-4f49-bb90-279aae51779f",
@@ -865,10 +842,11 @@ local mappings = {
             id = "lcd/assignment",
         },
         glue = {
-            target_interval = {0, 0.01},
-            feedback_transformation = "x = y + 0.01",
+            target_interval = not follow_track_selection and {0, 0.01} or nil,
+            feedback_transformation = follow_track_selection and "{{ target.numeric_value }}" or "x = y + 0.01",
+            feedback_kind = follow_track_selection and "Text" or "Numeric"
         },
-        target = {
+        target = follow_track_selection and { kind = "CycleThroughTracks" } or {
             kind = "FxParameterValue",
             parameter = {
                 address = "ById",
@@ -1021,7 +999,8 @@ local mappings = {
 for ch = 0, channel_count - 1 do
     local human_ch = ch + 1
     local prefix = "ch"..human_ch.."/"
-    local track_expression = "p1 * 10000 + "..ch;
+    local track_address = follow_track_selection and "Selected" or "Dynamic";
+    local track_expression = not follow_track_selection and "p1 * 10000 + "..ch or nil;
     local track_volume = {
         id = prefix.."vol",
         name = "Tr"..human_ch.." Vol",
@@ -1033,7 +1012,7 @@ for ch = 0, channel_count - 1 do
         target = {
             kind = "TrackVolume",
             track = {
-                address = "Dynamic",
+                address = track_address,
                 expression = track_expression,
             },
         },
@@ -1052,7 +1031,7 @@ for ch = 0, channel_count - 1 do
         target = {
             kind = "TrackPan",
             track = {
-                address = "Dynamic",
+                address = track_address,
                 expression = track_expression,
             },
         },
@@ -1069,7 +1048,7 @@ for ch = 0, channel_count - 1 do
         target = {
             kind = "TrackPan",
             track = {
-                address = "Dynamic",
+                address = track_address,
                 expression = track_expression,
             },
         },
@@ -1090,7 +1069,7 @@ for ch = 0, channel_count - 1 do
         target = {
             kind = "TrackPan",
             track = {
-                address = "Dynamic",
+                address = track_address,
                 expression = track_expression,
             },
         },
@@ -1110,7 +1089,7 @@ for ch = 0, channel_count - 1 do
         target = {
             kind = "TrackSelectionState",
             track = {
-                address = "Dynamic",
+                address = track_address,
                 expression = track_expression,
             },
             scroll_mixer = true,
@@ -1131,7 +1110,7 @@ for ch = 0, channel_count - 1 do
         target = {
             kind = "TrackMuteState",
             track = {
-                address = "Dynamic",
+                address = track_address,
                 expression = track_expression,
             },
         },
@@ -1151,7 +1130,7 @@ for ch = 0, channel_count - 1 do
         target = {
             kind = "TrackSoloState",
             track = {
-                address = "Dynamic",
+                address = track_address,
                 expression = track_expression,
             },
         },
@@ -1171,7 +1150,7 @@ for ch = 0, channel_count - 1 do
         target = {
             kind = "TrackArmState",
             track = {
-                address = "Dynamic",
+                address = track_address,
                 expression = track_expression,
             },
         },
@@ -1188,7 +1167,7 @@ for ch = 0, channel_count - 1 do
         target = {
             kind = "TrackAutomationTouchState",
             track = {
-                address = "Dynamic",
+                address = track_address,
                 expression = track_expression,
             },
             touched_parameter = "Volume",
@@ -1211,7 +1190,7 @@ for ch = 0, channel_count - 1 do
         target = {
             kind = "TrackVolume",
             track = {
-                address = "Dynamic",
+                address = track_address,
                 expression = track_expression,
             },
         },
@@ -1233,7 +1212,7 @@ for ch = 0, channel_count - 1 do
         target = {
             kind = "TrackPan",
             track = {
-                address = "Dynamic",
+                address = track_address,
                 expression = track_expression,
             },
         },
@@ -1251,7 +1230,7 @@ for ch = 0, channel_count - 1 do
         target = {
             kind = "TrackPeak",
             track = {
-                address = "Dynamic",
+                address = track_address,
                 expression = track_expression,
             },
         },
