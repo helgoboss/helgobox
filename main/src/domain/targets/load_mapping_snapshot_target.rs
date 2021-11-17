@@ -1,9 +1,31 @@
 use crate::domain::{
-    ControlContext, HitInstruction, HitInstructionContext, HitInstructionReturnValue,
-    MappingControlContext, MappingControlResult, RealearnTarget, ReaperTargetType, TagScope,
-    TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    ControlContext, ExtendedProcessorContext, HitInstruction, HitInstructionContext,
+    HitInstructionReturnValue, MappingCompartment, MappingControlContext, MappingControlResult,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target};
+
+#[derive(Debug)]
+pub struct UnresolvedLoadMappingSnapshotTarget {
+    pub scope: TagScope,
+    pub active_mappings_only: bool,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedLoadMappingSnapshotTarget {
+    fn resolve(
+        &self,
+        _: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::LoadMappingSnapshot(
+            LoadMappingSnapshotTarget {
+                scope: self.scope.clone(),
+                active_mappings_only: self.active_mappings_only,
+            },
+        )])
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoadMappingSnapshotTarget {

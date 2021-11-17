@@ -1,14 +1,57 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_bool_as_on_off, ActionInvocationType, AdditionalFeedbackEvent, CompoundChangeEvent,
-    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    format_bool_as_on_off, get_effective_tracks, ActionInvocationType, AdditionalFeedbackEvent,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
+    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Fraction, Target, UnitValue};
 use helgoboss_midi::U14;
 use reaper_high::{Action, ActionCharacter, Project, Reaper, Track};
 use reaper_medium::{ActionValueChange, CommandId, MasterTrackBehavior, WindowContext};
 use std::convert::TryFrom;
+
+#[derive(Debug)]
+pub struct UnresolvedActionTarget {
+    pub action: Action,
+    pub invocation_type: ActionInvocationType,
+    pub track_descriptor: Option<TrackDescriptor>,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedActionTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        let project = context.context().project_or_current_project();
+        let resolved_targets = if let Some(td) = &self.track_descriptor {
+            get_effective_tracks(context, &td.track, compartment)?
+                .into_iter()
+                .map(|track| {
+                    ReaperTarget::Action(ActionTarget {
+                        action: self.action.clone(),
+                        invocation_type: self.invocation_type,
+                        project,
+                        track: Some(track),
+                    })
+                })
+                .collect()
+        } else {
+            vec![ReaperTarget::Action(ActionTarget {
+                action: self.action.clone(),
+                invocation_type: self.invocation_type,
+                project,
+                track: None,
+            })]
+        };
+        Ok(resolved_targets)
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        self.track_descriptor.as_ref()
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActionTarget {

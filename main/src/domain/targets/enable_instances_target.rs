@@ -1,9 +1,29 @@
 use crate::domain::{
     format_value_as_on_off, CompoundChangeEvent, ControlContext, EnableInstancesArgs, Exclusivity,
-    HitInstructionReturnValue, InstanceStateChanged, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TagScope, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    ExtendedProcessorContext, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TagScope,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+
+#[derive(Debug)]
+pub struct UnresolvedEnableInstancesTarget {
+    pub scope: TagScope,
+    pub exclusivity: Exclusivity,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedEnableInstancesTarget {
+    fn resolve(
+        &self,
+        _: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::EnableInstances(EnableInstancesTarget {
+            scope: self.scope.clone(),
+            exclusivity: self.exclusivity,
+        })])
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct EnableInstancesTarget {

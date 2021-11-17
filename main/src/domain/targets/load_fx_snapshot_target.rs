@@ -1,12 +1,43 @@
+use crate::base::hash_util;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent,
-    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    format_value_as_on_off, get_fxs, AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent,
+    ControlContext, ExtendedProcessorContext, FxDescriptor, HitInstructionReturnValue,
+    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Fx, Project, Track};
 use std::rc::Rc;
+
+#[derive(Debug)]
+pub struct UnresolvedLoadFxSnapshotTarget {
+    pub fx_descriptor: FxDescriptor,
+    pub chunk: Rc<String>,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedLoadFxSnapshotTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(get_fxs(context, &self.fx_descriptor, compartment)?
+            .into_iter()
+            .map(|fx| {
+                ReaperTarget::LoadFxSnapshot(LoadFxSnapshotTarget {
+                    fx,
+                    chunk: self.chunk.clone(),
+                    chunk_hash: hash_util::calculate_non_crypto_hash(&self.chunk),
+                })
+            })
+            .collect())
+    }
+
+    fn fx_descriptor(&self) -> Option<&FxDescriptor> {
+        Some(&self.fx_descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoadFxSnapshotTarget {

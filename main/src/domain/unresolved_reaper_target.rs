@@ -1,38 +1,36 @@
 use crate::application::BookmarkAnchorType;
-use crate::base::hash_util;
+use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    ActionInvocationType, ActionTarget, AllTrackFxEnableTarget, AnyOnParameter, AnyOnTarget,
-    AutomationModeOverrideTarget, AutomationTouchStateTarget, BackboneState, ClipSeekTarget,
-    ClipTransportTarget, ClipVolumeTarget, EnableInstancesTarget, EnableMappingsTarget,
-    Exclusivity, ExtendedProcessorContext, FeedbackResolution, FxDisplayType, FxEnableTarget,
-    FxNavigateTarget, FxOpenTarget, FxParameterTarget, FxPresetTarget, GoToBookmarkTarget, GroupId,
-    LoadFxSnapshotTarget, LoadMappingSnapshotTarget, MappingCompartment, MidiSendTarget,
-    NavigateWithinGroupTarget, OscDeviceId, OscSendTarget, ParameterSlice, PlayrateTarget,
-    RealearnTarget, ReaperTarget, RouteAutomationModeTarget, RouteMonoTarget, RouteMuteTarget,
-    RoutePanTarget, RoutePhaseTarget, RouteVolumeTarget, SeekOptions, SeekTarget,
-    SelectedTrackTarget, SendMidiDestination, SimpleExclusivity, SlotPlayOptions, SoloBehavior,
-    TagScope, TempoTarget, TouchedParameterType, TrackArmTarget, TrackAutomationModeTarget,
-    TrackExclusivity, TrackMuteTarget, TrackPanTarget, TrackPeakTarget, TrackPhaseTarget,
-    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackToolTarget, TrackVolumeTarget,
-    TrackWidthTarget, TransportAction, TransportTarget, COMPARTMENT_PARAMETER_COUNT,
+    ExtendedProcessorContext, FeedbackResolution, MappingCompartment, ParameterSlice, ReaperTarget,
+    UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
+    UnresolvedAutomationModeOverrideTarget, UnresolvedAutomationTouchStateTarget,
+    UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
+    UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget,
+    UnresolvedFxNavigateTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
+    UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget,
+    UnresolvedLoadFxSnapshotTarget, UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
+    UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
+    UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
+    UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget, UnresolvedRouteVolumeTarget,
+    UnresolvedSeekTarget, UnresolvedSelectedTrackTarget, UnresolvedTempoTarget,
+    UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget, UnresolvedTrackMuteTarget,
+    UnresolvedTrackPanTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
+    UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
+    UnresolvedTrackToolTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
+    UnresolvedTransportTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
 use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
-use helgoboss_learn::{OscArgDescriptor, RawMidiPattern};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
-    Action, BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
+    BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     SendPartnerType, Track, TrackRoute,
 };
-use reaper_medium::{
-    AutomationMode, BookmarkId, GlobalAutomationModeOverride, MasterTrackBehavior, TrackArea,
-};
+use reaper_medium::{BookmarkId, MasterTrackBehavior};
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
 use std::fmt;
-use std::num::NonZeroU32;
-use std::rc::Rc;
 use wildmatch::WildMatch;
 
 /// Maximum number of "allow multiple" resolves (e.g. affected <Selected> tracks).
@@ -40,188 +38,56 @@ const MAX_MULTIPLE: usize = 1000;
 
 #[derive(Debug)]
 pub enum UnresolvedReaperTarget {
-    Action {
-        action: Action,
-        invocation_type: ActionInvocationType,
-        track_descriptor: Option<TrackDescriptor>,
-    },
-    FxParameter {
-        fx_parameter_descriptor: FxParameterDescriptor,
-        poll_for_feedback: bool,
-    },
-    TrackVolume {
-        track_descriptor: TrackDescriptor,
-    },
-    TrackTool {
-        track_descriptor: TrackDescriptor,
-    },
-    TrackPeak {
-        track_descriptor: TrackDescriptor,
-    },
-    TrackSendVolume {
-        descriptor: TrackRouteDescriptor,
-    },
-    TrackPan {
-        track_descriptor: TrackDescriptor,
-    },
-    TrackWidth {
-        track_descriptor: TrackDescriptor,
-    },
-    TrackArm {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-    },
-    TrackSelection {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-        scroll_arrange_view: bool,
-        scroll_mixer: bool,
-    },
-    TrackMute {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-    },
-    TrackPhase {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-        poll_for_feedback: bool,
-    },
-    TrackShow {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-        area: TrackArea,
-        poll_for_feedback: bool,
-    },
-    TrackSolo {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-        behavior: SoloBehavior,
-    },
-    TrackAutomationMode {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-        mode: AutomationMode,
-    },
-    TrackSendPan {
-        descriptor: TrackRouteDescriptor,
-    },
-    TrackSendMute {
-        descriptor: TrackRouteDescriptor,
-        poll_for_feedback: bool,
-    },
-    TrackRoutePhase {
-        descriptor: TrackRouteDescriptor,
-        poll_for_feedback: bool,
-    },
-    TrackRouteMono {
-        descriptor: TrackRouteDescriptor,
-        poll_for_feedback: bool,
-    },
-    TrackRouteAutomationMode {
-        descriptor: TrackRouteDescriptor,
-        mode: AutomationMode,
-        poll_for_feedback: bool,
-    },
-    Tempo,
-    Playrate,
-    AutomationModeOverride {
-        mode_override: Option<GlobalAutomationModeOverride>,
-    },
-    FxEnable {
-        fx_descriptor: FxDescriptor,
-    },
-    FxOpen {
-        fx_descriptor: FxDescriptor,
-        display_type: FxDisplayType,
-    },
-    FxPreset {
-        fx_descriptor: FxDescriptor,
-    },
-    SelectedTrack {
-        scroll_arrange_view: bool,
-        scroll_mixer: bool,
-    },
-    FxNavigate {
-        track_descriptor: TrackDescriptor,
-        is_input_fx: bool,
-        display_type: FxDisplayType,
-    },
-    AllTrackFxEnable {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-        poll_for_feedback: bool,
-    },
-    Transport {
-        action: TransportAction,
-    },
-    LoadFxPreset {
-        fx_descriptor: FxDescriptor,
-        chunk: Rc<String>,
-    },
-    LastTouched,
-    AutomationTouchState {
-        track_descriptor: TrackDescriptor,
-        parameter_type: TouchedParameterType,
-        exclusivity: TrackExclusivity,
-    },
-    GoToBookmark {
-        bookmark_type: BookmarkType,
-        bookmark_anchor_type: BookmarkAnchorType,
-        bookmark_ref: u32,
-        set_time_selection: bool,
-        set_loop_points: bool,
-    },
-    Seek {
-        options: SeekOptions,
-    },
-    SendMidi {
-        pattern: RawMidiPattern,
-        destination: SendMidiDestination,
-    },
-    SendOsc {
-        address_pattern: String,
-        arg_descriptor: Option<OscArgDescriptor>,
-        device_id: Option<OscDeviceId>,
-    },
-    ClipTransport {
-        track_descriptor: Option<TrackDescriptor>,
-        slot_index: usize,
-        action: TransportAction,
-        play_options: SlotPlayOptions,
-    },
-    ClipSeek {
-        slot_index: usize,
-        feedback_resolution: FeedbackResolution,
-    },
-    ClipVolume {
-        slot_index: usize,
-    },
-    LoadMappingSnapshot {
-        scope: TagScope,
-        active_mappings_only: bool,
-    },
-    EnableMappings {
-        compartment: MappingCompartment,
-        scope: TagScope,
-        exclusivity: Exclusivity,
-    },
-    NavigateWithinGroup {
-        compartment: MappingCompartment,
-        group_id: GroupId,
-        exclusivity: SimpleExclusivity,
-    },
-    EnableInstances {
-        scope: TagScope,
-        exclusivity: Exclusivity,
-    },
-    AnyOn {
-        parameter: AnyOnParameter,
-    },
+    Action(UnresolvedActionTarget),
+    FxParameter(UnresolvedFxParameterTarget),
+    TrackVolume(UnresolvedTrackVolumeTarget),
+    TrackTool(UnresolvedTrackToolTarget),
+    TrackPeak(UnresolvedTrackPeakTarget),
+    TrackSendVolume(UnresolvedRouteVolumeTarget),
+    TrackPan(UnresolvedTrackPanTarget),
+    TrackWidth(UnresolvedTrackWidthTarget),
+    TrackArm(UnresolvedTrackArmTarget),
+    TrackSelection(UnresolvedTrackSelectionTarget),
+    TrackMute(UnresolvedTrackMuteTarget),
+    TrackPhase(UnresolvedTrackPhaseTarget),
+    TrackShow(UnresolvedTrackShowTarget),
+    TrackSolo(UnresolvedTrackSoloTarget),
+    TrackAutomationMode(UnresolvedTrackAutomationModeTarget),
+    TrackSendPan(UnresolvedRoutePanTarget),
+    TrackSendMute(UnresolvedRouteMuteTarget),
+    TrackRoutePhase(UnresolvedRoutePhaseTarget),
+    TrackRouteMono(UnresolvedRouteMonoTarget),
+    TrackRouteAutomationMode(UnresolvedRouteAutomationModeTarget),
+    Tempo(UnresolvedTempoTarget),
+    Playrate(UnresolvedPlayrateTarget),
+    AutomationModeOverride(UnresolvedAutomationModeOverrideTarget),
+    FxEnable(UnresolvedFxEnableTarget),
+    FxOpen(UnresolvedFxOpenTarget),
+    FxPreset(UnresolvedFxPresetTarget),
+    SelectedTrack(UnresolvedSelectedTrackTarget),
+    FxNavigate(UnresolvedFxNavigateTarget),
+    AllTrackFxEnable(UnresolvedAllTrackFxEnableTarget),
+    Transport(UnresolvedTransportTarget),
+    LoadFxPreset(UnresolvedLoadFxSnapshotTarget),
+    AutomationTouchState(UnresolvedAutomationTouchStateTarget),
+    GoToBookmark(UnresolvedGoToBookmarkTarget),
+    Seek(UnresolvedSeekTarget),
+    SendMidi(UnresolvedMidiSendTarget),
+    SendOsc(UnresolvedOscSendTarget),
+    ClipTransport(UnresolvedClipTransportTarget),
+    ClipSeek(UnresolvedClipSeekTarget),
+    ClipVolume(UnresolvedClipVolumeTarget),
+    LoadMappingSnapshot(UnresolvedLoadMappingSnapshotTarget),
+    EnableMappings(UnresolvedEnableMappingsTarget),
+    NavigateWithinGroup(UnresolvedNavigateWithinGroupTarget),
+    EnableInstances(UnresolvedEnableInstancesTarget),
+    AnyOn(UnresolvedAnyOnTarget),
+    LastTouched(UnresolvedLastTouchedTarget),
 }
 
 impl UnresolvedReaperTarget {
     pub fn is_always_active(&self) -> bool {
-        matches!(self, Self::LastTouched)
+        matches!(self, Self::LastTouched(_))
     }
 
     pub fn resolve(
@@ -229,446 +95,55 @@ impl UnresolvedReaperTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
+        // TODO-high enum-dispatch
         use UnresolvedReaperTarget::*;
-        let resolved_targets = match self {
-            Action {
-                action,
-                invocation_type,
-                track_descriptor,
-            } => {
-                let project = context.context().project_or_current_project();
-                if let Some(td) = track_descriptor {
-                    get_effective_tracks(context, &td.track, compartment)?
-                        .into_iter()
-                        .map(|track| {
-                            ReaperTarget::Action(ActionTarget {
-                                action: action.clone(),
-                                invocation_type: *invocation_type,
-                                project,
-                                track: Some(track),
-                            })
-                        })
-                        .collect()
-                } else {
-                    vec![ReaperTarget::Action(ActionTarget {
-                        action: action.clone(),
-                        invocation_type: *invocation_type,
-                        project,
-                        track: None,
-                    })]
-                }
-            }
-            FxParameter {
-                fx_parameter_descriptor,
-                poll_for_feedback,
-            } => vec![ReaperTarget::FxParameter(FxParameterTarget {
-                param: get_fx_param(context, fx_parameter_descriptor, compartment)?,
-                poll_for_feedback: *poll_for_feedback,
-            })],
-            TrackVolume { track_descriptor } => {
-                get_effective_tracks(context, &track_descriptor.track, compartment)?
-                    .into_iter()
-                    .map(|track| ReaperTarget::TrackVolume(TrackVolumeTarget { track }))
-                    .collect()
-            }
-            TrackTool { track_descriptor } => {
-                get_effective_tracks(context, &track_descriptor.track, compartment)?
-                    .into_iter()
-                    .map(|track| ReaperTarget::TrackTool(TrackToolTarget { track }))
-                    .collect()
-            }
-            TrackPeak { track_descriptor } => {
-                get_effective_tracks(context, &track_descriptor.track, compartment)?
-                    .into_iter()
-                    .map(|track| ReaperTarget::TrackPeak(TrackPeakTarget { track }))
-                    .collect()
-            }
-            TrackSendVolume { descriptor } => {
-                vec![ReaperTarget::TrackRouteVolume(RouteVolumeTarget {
-                    route: get_track_route(context, descriptor, compartment)?,
-                })]
-            }
-            TrackPan { track_descriptor } => {
-                get_effective_tracks(context, &track_descriptor.track, compartment)?
-                    .into_iter()
-                    .map(|track| ReaperTarget::TrackPan(TrackPanTarget { track }))
-                    .collect()
-            }
-            TrackWidth { track_descriptor } => {
-                get_effective_tracks(context, &track_descriptor.track, compartment)?
-                    .into_iter()
-                    .map(|track| ReaperTarget::TrackWidth(TrackWidthTarget { track }))
-                    .collect()
-            }
-            TrackArm {
-                track_descriptor,
-                exclusivity,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::TrackArm(TrackArmTarget {
-                        track,
-                        exclusivity: *exclusivity,
-                    })
-                })
-                .collect(),
-            TrackSelection {
-                track_descriptor,
-                exclusivity,
-                scroll_arrange_view,
-                scroll_mixer,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::TrackSelection(TrackSelectionTarget {
-                        track,
-                        exclusivity: *exclusivity,
-                        scroll_arrange_view: *scroll_arrange_view,
-                        scroll_mixer: *scroll_mixer,
-                    })
-                })
-                .collect(),
-            TrackMute {
-                track_descriptor,
-                exclusivity,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::TrackMute(TrackMuteTarget {
-                        track,
-                        exclusivity: *exclusivity,
-                    })
-                })
-                .collect(),
-            TrackPhase {
-                track_descriptor,
-                exclusivity,
-                poll_for_feedback,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::TrackPhase(TrackPhaseTarget {
-                        track,
-                        exclusivity: *exclusivity,
-                        poll_for_feedback: *poll_for_feedback,
-                    })
-                })
-                .collect(),
-            TrackShow {
-                track_descriptor,
-                exclusivity,
-                area,
-                poll_for_feedback,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::TrackShow(TrackShowTarget {
-                        track,
-                        exclusivity: *exclusivity,
-                        area: *area,
-                        poll_for_feedback: *poll_for_feedback,
-                    })
-                })
-                .collect(),
-            TrackSolo {
-                track_descriptor,
-                exclusivity,
-                behavior,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::TrackSolo(TrackSoloTarget {
-                        track,
-                        exclusivity: *exclusivity,
-                        behavior: *behavior,
-                    })
-                })
-                .collect(),
-            TrackAutomationMode {
-                track_descriptor,
-                exclusivity,
-                mode,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::TrackAutomationMode(TrackAutomationModeTarget {
-                        track,
-                        exclusivity: *exclusivity,
-                        mode: *mode,
-                    })
-                })
-                .collect(),
-            TrackSendPan { descriptor } => vec![ReaperTarget::TrackRoutePan(RoutePanTarget {
-                route: get_track_route(context, descriptor, compartment)?,
-            })],
-            TrackSendMute {
-                descriptor,
-                poll_for_feedback,
-            } => vec![ReaperTarget::TrackRouteMute(RouteMuteTarget {
-                route: get_track_route(context, descriptor, compartment)?,
-                poll_for_feedback: *poll_for_feedback,
-            })],
-            TrackRoutePhase {
-                descriptor,
-                poll_for_feedback,
-            } => vec![ReaperTarget::TrackRoutePhase(RoutePhaseTarget {
-                route: get_track_route(context, descriptor, compartment)?,
-                poll_for_feedback: *poll_for_feedback,
-            })],
-            TrackRouteMono {
-                descriptor,
-                poll_for_feedback,
-            } => vec![ReaperTarget::TrackRouteMono(RouteMonoTarget {
-                route: get_track_route(context, descriptor, compartment)?,
-                poll_for_feedback: *poll_for_feedback,
-            })],
-            TrackRouteAutomationMode {
-                descriptor,
-                mode,
-                poll_for_feedback,
-            } => vec![ReaperTarget::TrackRouteAutomationMode(
-                RouteAutomationModeTarget {
-                    route: get_track_route(context, descriptor, compartment)?,
-                    poll_for_feedback: *poll_for_feedback,
-                    mode: *mode,
-                },
-            )],
-            Tempo => vec![ReaperTarget::Tempo(TempoTarget {
-                project: context.context().project_or_current_project(),
-            })],
-            Playrate => vec![ReaperTarget::Playrate(PlayrateTarget {
-                project: context.context().project_or_current_project(),
-            })],
-            AutomationModeOverride { mode_override } => {
-                vec![ReaperTarget::AutomationModeOverride(
-                    AutomationModeOverrideTarget {
-                        mode_override: *mode_override,
-                    },
-                )]
-            }
-            FxEnable { fx_descriptor } => get_fxs(context, fx_descriptor, compartment)?
-                .into_iter()
-                .map(|fx| ReaperTarget::FxEnable(FxEnableTarget { fx }))
-                .collect(),
-            FxOpen {
-                fx_descriptor,
-                display_type,
-            } => get_fxs(context, fx_descriptor, compartment)?
-                .into_iter()
-                .map(|fx| {
-                    ReaperTarget::FxOpen(FxOpenTarget {
-                        fx,
-                        display_type: *display_type,
-                    })
-                })
-                .collect(),
-            FxPreset { fx_descriptor } => get_fxs(context, fx_descriptor, compartment)?
-                .into_iter()
-                .map(|fx| ReaperTarget::FxPreset(FxPresetTarget { fx }))
-                .collect(),
-            SelectedTrack {
-                scroll_arrange_view,
-                scroll_mixer,
-            } => vec![ReaperTarget::SelectedTrack(SelectedTrackTarget {
-                project: context.context().project_or_current_project(),
-                scroll_arrange_view: *scroll_arrange_view,
-                scroll_mixer: *scroll_mixer,
-            })],
-            FxNavigate {
-                track_descriptor,
-                is_input_fx,
-                display_type,
-            } => vec![ReaperTarget::FxNavigate(FxNavigateTarget {
-                fx_chain: get_fx_chain(
-                    context,
-                    &track_descriptor.track,
-                    *is_input_fx,
-                    compartment,
-                )?,
-                display_type: *display_type,
-            })],
-            AllTrackFxEnable {
-                track_descriptor,
-                exclusivity,
-                poll_for_feedback,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::AllTrackFxEnable(AllTrackFxEnableTarget {
-                        track,
-                        exclusivity: *exclusivity,
-                        poll_for_feedback: *poll_for_feedback,
-                    })
-                })
-                .collect(),
-            Transport { action } => vec![ReaperTarget::Transport(TransportTarget {
-                project: context.context().project_or_current_project(),
-                action: *action,
-            })],
-            AnyOn { parameter } => vec![ReaperTarget::AnyOn(AnyOnTarget {
-                project: context.context().project_or_current_project(),
-                parameter: *parameter,
-            })],
-            LoadFxPreset {
-                fx_descriptor,
-                chunk,
-            } => get_fxs(context, fx_descriptor, compartment)?
-                .into_iter()
-                .map(|fx| {
-                    ReaperTarget::LoadFxSnapshot(LoadFxSnapshotTarget {
-                        fx,
-                        chunk: chunk.clone(),
-                        chunk_hash: hash_util::calculate_non_crypto_hash(chunk),
-                    })
-                })
-                .collect(),
-            LastTouched => {
-                let last_touched_target = BackboneState::get()
-                    .last_touched_target()
-                    .ok_or("no last touched target")?;
-                if !last_touched_target.is_available(context.control_context()) {
-                    return Err("last touched target gone");
-                }
-                vec![last_touched_target]
-            }
-            AutomationTouchState {
-                track_descriptor,
-                parameter_type,
-                exclusivity,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::AutomationTouchState(AutomationTouchStateTarget {
-                        track,
-                        parameter_type: *parameter_type,
-                        exclusivity: *exclusivity,
-                    })
-                })
-                .collect(),
-            GoToBookmark {
-                bookmark_type,
-                bookmark_anchor_type,
-                bookmark_ref,
-                set_time_selection,
-                set_loop_points,
-            } => {
-                let project = context.context().project_or_current_project();
-                let res = find_bookmark(
-                    project,
-                    *bookmark_type,
-                    *bookmark_anchor_type,
-                    *bookmark_ref,
-                )?;
-                vec![ReaperTarget::GoToBookmark(GoToBookmarkTarget {
-                    project,
-                    bookmark_type: *bookmark_type,
-                    index: res.index,
-                    position: NonZeroU32::new(res.index_within_type + 1).unwrap(),
-                    set_time_selection: *set_time_selection,
-                    set_loop_points: *set_loop_points,
-                })]
-            }
-            Seek { options } => {
-                let project = context.context().project_or_current_project();
-                vec![ReaperTarget::Seek(SeekTarget {
-                    project,
-                    options: *options,
-                })]
-            }
-            SendMidi {
-                pattern,
-                destination,
-            } => vec![ReaperTarget::SendMidi(MidiSendTarget::new(
-                pattern.clone(),
-                *destination,
-            ))],
-            SendOsc {
-                address_pattern,
-                arg_descriptor,
-                device_id,
-            } => vec![ReaperTarget::SendOsc(OscSendTarget::new(
-                address_pattern.clone(),
-                *arg_descriptor,
-                *device_id,
-            ))],
-            ClipTransport {
-                track_descriptor,
-                slot_index,
-                action,
-                play_options,
-            } => {
-                if let Some(desc) = track_descriptor.as_ref() {
-                    get_effective_tracks(context, &desc.track, compartment)?
-                        .into_iter()
-                        .map(|track| {
-                            ReaperTarget::ClipTransport(ClipTransportTarget {
-                                track: Some(track),
-                                slot_index: *slot_index,
-                                action: *action,
-                                play_options: *play_options,
-                            })
-                        })
-                        .collect()
-                } else {
-                    vec![ReaperTarget::ClipTransport(ClipTransportTarget {
-                        track: None,
-                        slot_index: *slot_index,
-                        action: *action,
-                        play_options: *play_options,
-                    })]
-                }
-            }
-            ClipSeek {
-                slot_index,
-                feedback_resolution,
-            } => vec![ReaperTarget::ClipSeek(ClipSeekTarget {
-                slot_index: *slot_index,
-                feedback_resolution: *feedback_resolution,
-            })],
-            ClipVolume { slot_index } => vec![ReaperTarget::ClipVolume(ClipVolumeTarget {
-                slot_index: *slot_index,
-            })],
-            LoadMappingSnapshot {
-                scope,
-                active_mappings_only,
-            } => vec![ReaperTarget::LoadMappingSnapshot(
-                LoadMappingSnapshotTarget {
-                    scope: scope.clone(),
-                    active_mappings_only: *active_mappings_only,
-                },
-            )],
-            EnableMappings {
-                compartment,
-                scope,
-                exclusivity,
-            } => {
-                vec![ReaperTarget::EnableMappings(EnableMappingsTarget {
-                    compartment: *compartment,
-                    scope: scope.clone(),
-                    exclusivity: *exclusivity,
-                })]
-            }
-            EnableInstances { scope, exclusivity } => {
-                vec![ReaperTarget::EnableInstances(EnableInstancesTarget {
-                    scope: scope.clone(),
-                    exclusivity: *exclusivity,
-                })]
-            }
-            NavigateWithinGroup {
-                compartment,
-                group_id,
-                exclusivity,
-            } => {
-                vec![ReaperTarget::NavigateWithinGroup(
-                    NavigateWithinGroupTarget {
-                        compartment: *compartment,
-                        group_id: *group_id,
-                        exclusivity: *exclusivity,
-                    },
-                )]
-            }
-        };
-        Ok(resolved_targets)
+        match self {
+            Action(t) => t.resolve(context, compartment),
+            FxParameter(t) => t.resolve(context, compartment),
+            TrackVolume(t) => t.resolve(context, compartment),
+            TrackTool(t) => t.resolve(context, compartment),
+            TrackPeak(t) => t.resolve(context, compartment),
+            TrackSendVolume(t) => t.resolve(context, compartment),
+            TrackPan(t) => t.resolve(context, compartment),
+            TrackWidth(t) => t.resolve(context, compartment),
+            TrackArm(t) => t.resolve(context, compartment),
+            TrackSelection(t) => t.resolve(context, compartment),
+            TrackMute(t) => t.resolve(context, compartment),
+            TrackPhase(t) => t.resolve(context, compartment),
+            TrackShow(t) => t.resolve(context, compartment),
+            TrackSolo(t) => t.resolve(context, compartment),
+            TrackAutomationMode(t) => t.resolve(context, compartment),
+            TrackSendPan(t) => t.resolve(context, compartment),
+            TrackSendMute(t) => t.resolve(context, compartment),
+            TrackRoutePhase(t) => t.resolve(context, compartment),
+            TrackRouteMono(t) => t.resolve(context, compartment),
+            TrackRouteAutomationMode(t) => t.resolve(context, compartment),
+            Tempo(t) => t.resolve(context, compartment),
+            Playrate(t) => t.resolve(context, compartment),
+            AutomationModeOverride(t) => t.resolve(context, compartment),
+            FxEnable(t) => t.resolve(context, compartment),
+            FxOpen(t) => t.resolve(context, compartment),
+            FxPreset(t) => t.resolve(context, compartment),
+            SelectedTrack(t) => t.resolve(context, compartment),
+            FxNavigate(t) => t.resolve(context, compartment),
+            AllTrackFxEnable(t) => t.resolve(context, compartment),
+            Transport(t) => t.resolve(context, compartment),
+            LoadFxPreset(t) => t.resolve(context, compartment),
+            AutomationTouchState(t) => t.resolve(context, compartment),
+            GoToBookmark(t) => t.resolve(context, compartment),
+            Seek(t) => t.resolve(context, compartment),
+            SendMidi(t) => t.resolve(context, compartment),
+            SendOsc(t) => t.resolve(context, compartment),
+            ClipTransport(t) => t.resolve(context, compartment),
+            ClipSeek(t) => t.resolve(context, compartment),
+            ClipVolume(t) => t.resolve(context, compartment),
+            LoadMappingSnapshot(t) => t.resolve(context, compartment),
+            EnableMappings(t) => t.resolve(context, compartment),
+            NavigateWithinGroup(t) => t.resolve(context, compartment),
+            EnableInstances(t) => t.resolve(context, compartment),
+            AnyOn(t) => t.resolve(context, compartment),
+            LastTouched(t) => t.resolve(context, compartment),
+        }
     }
 
     /// Returns whether all conditions for this target to be active are met.
@@ -706,9 +181,55 @@ impl UnresolvedReaperTarget {
     /// - Removes target state: If the resolved target contains state, it's going to be disappear
     ///   when the target is resolved again. Matter for some targets (but usually not).
     pub fn can_be_affected_by_change_events(&self) -> bool {
+        // TODO-high enum-dispatch
         use UnresolvedReaperTarget::*;
-        // We don't want those to be refreshed because they maintain an artificial value.
-        !matches!(self, SendMidi { .. } | SendOsc { .. })
+        match self {
+            Action(t) => t.can_be_affected_by_change_events(),
+            FxParameter(t) => t.can_be_affected_by_change_events(),
+            TrackVolume(t) => t.can_be_affected_by_change_events(),
+            TrackTool(t) => t.can_be_affected_by_change_events(),
+            TrackPeak(t) => t.can_be_affected_by_change_events(),
+            TrackSendVolume(t) => t.can_be_affected_by_change_events(),
+            TrackPan(t) => t.can_be_affected_by_change_events(),
+            TrackWidth(t) => t.can_be_affected_by_change_events(),
+            TrackArm(t) => t.can_be_affected_by_change_events(),
+            TrackSelection(t) => t.can_be_affected_by_change_events(),
+            TrackMute(t) => t.can_be_affected_by_change_events(),
+            TrackPhase(t) => t.can_be_affected_by_change_events(),
+            TrackShow(t) => t.can_be_affected_by_change_events(),
+            TrackSolo(t) => t.can_be_affected_by_change_events(),
+            TrackAutomationMode(t) => t.can_be_affected_by_change_events(),
+            TrackSendPan(t) => t.can_be_affected_by_change_events(),
+            TrackSendMute(t) => t.can_be_affected_by_change_events(),
+            TrackRoutePhase(t) => t.can_be_affected_by_change_events(),
+            TrackRouteMono(t) => t.can_be_affected_by_change_events(),
+            TrackRouteAutomationMode(t) => t.can_be_affected_by_change_events(),
+            Tempo(t) => t.can_be_affected_by_change_events(),
+            Playrate(t) => t.can_be_affected_by_change_events(),
+            AutomationModeOverride(t) => t.can_be_affected_by_change_events(),
+            FxEnable(t) => t.can_be_affected_by_change_events(),
+            FxOpen(t) => t.can_be_affected_by_change_events(),
+            FxPreset(t) => t.can_be_affected_by_change_events(),
+            SelectedTrack(t) => t.can_be_affected_by_change_events(),
+            FxNavigate(t) => t.can_be_affected_by_change_events(),
+            AllTrackFxEnable(t) => t.can_be_affected_by_change_events(),
+            Transport(t) => t.can_be_affected_by_change_events(),
+            LoadFxPreset(t) => t.can_be_affected_by_change_events(),
+            AutomationTouchState(t) => t.can_be_affected_by_change_events(),
+            GoToBookmark(t) => t.can_be_affected_by_change_events(),
+            Seek(t) => t.can_be_affected_by_change_events(),
+            SendMidi(t) => t.can_be_affected_by_change_events(),
+            SendOsc(t) => t.can_be_affected_by_change_events(),
+            ClipTransport(t) => t.can_be_affected_by_change_events(),
+            ClipSeek(t) => t.can_be_affected_by_change_events(),
+            ClipVolume(t) => t.can_be_affected_by_change_events(),
+            LoadMappingSnapshot(t) => t.can_be_affected_by_change_events(),
+            EnableMappings(t) => t.can_be_affected_by_change_events(),
+            NavigateWithinGroup(t) => t.can_be_affected_by_change_events(),
+            EnableInstances(t) => t.can_be_affected_by_change_events(),
+            AnyOn(t) => t.can_be_affected_by_change_events(),
+            LastTouched(t) => t.can_be_affected_by_change_events(),
+        }
     }
 
     /// Should return true if the target should be refreshed (reresolved) on parameter changes.
@@ -751,176 +272,296 @@ impl UnresolvedReaperTarget {
     }
 
     fn unpack_descriptors(&self) -> Descriptors {
+        if let Some(d) = self.fx_parameter_descriptor() {
+            return Descriptors {
+                track: Some(&d.fx_descriptor.track_descriptor),
+                fx: Some(&d.fx_descriptor),
+                fx_param: Some(&d),
+                ..Default::default()
+            };
+        }
+        if let Some(d) = self.fx_descriptor() {
+            return Descriptors {
+                track: Some(&d.track_descriptor),
+                fx: Some(&d),
+                ..Default::default()
+            };
+        }
+        if let Some(d) = self.route_descriptor() {
+            return Descriptors {
+                track: Some(&d.track_descriptor),
+                route: Some(&d),
+                ..Default::default()
+            };
+        }
+        if let Some(d) = self.track_descriptor() {
+            return Descriptors {
+                track: Some(&d),
+                ..Default::default()
+            };
+        }
+        Default::default()
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        // TODO-high enum-dispatch
         use UnresolvedReaperTarget::*;
         match self {
-            Tempo
-            | Playrate
-            | SelectedTrack { .. }
-            | Transport { .. }
-            | AnyOn { .. }
-            | LastTouched
-            | Seek { .. }
-            | ClipSeek { .. }
-            | ClipVolume { .. }
-            | AutomationModeOverride { .. }
-            | SendMidi { .. }
-            | SendOsc { .. }
-            | GoToBookmark { .. }
-            | LoadMappingSnapshot { .. }
-            | EnableMappings { .. }
-            | EnableInstances { .. }
-            | NavigateWithinGroup { .. } => Default::default(),
-            Action {
-                track_descriptor, ..
-            } => Descriptors {
-                track: track_descriptor.as_ref(),
-                ..Default::default()
-            },
-            FxOpen { fx_descriptor, .. }
-            | FxEnable { fx_descriptor }
-            | FxPreset { fx_descriptor }
-            | LoadFxPreset { fx_descriptor, .. } => Descriptors {
-                track: Some(&fx_descriptor.track_descriptor),
-                fx: Some(fx_descriptor),
-                ..Default::default()
-            },
-            FxParameter {
-                fx_parameter_descriptor,
-                ..
-            } => Descriptors {
-                track: Some(&fx_parameter_descriptor.fx_descriptor.track_descriptor),
-                fx: Some(&fx_parameter_descriptor.fx_descriptor),
-                fx_param: Some(fx_parameter_descriptor),
-                ..Default::default()
-            },
-            TrackVolume { track_descriptor }
-            | TrackTool { track_descriptor }
-            | TrackPeak { track_descriptor }
-            | TrackPan { track_descriptor }
-            | TrackWidth { track_descriptor }
-            | TrackArm {
-                track_descriptor, ..
-            }
-            | TrackSelection {
-                track_descriptor, ..
-            }
-            | TrackMute {
-                track_descriptor, ..
-            }
-            | TrackPhase {
-                track_descriptor, ..
-            }
-            | TrackShow {
-                track_descriptor, ..
-            }
-            | TrackAutomationMode {
-                track_descriptor, ..
-            }
-            | TrackSolo {
-                track_descriptor, ..
-            }
-            | FxNavigate {
-                track_descriptor, ..
-            }
-            | AllTrackFxEnable {
-                track_descriptor, ..
-            }
-            | AutomationTouchState {
-                track_descriptor, ..
-            } => Descriptors {
-                track: Some(track_descriptor),
-                ..Default::default()
-            },
-            TrackSendVolume { descriptor }
-            | TrackSendPan { descriptor }
-            | TrackSendMute { descriptor, .. }
-            | TrackRoutePhase { descriptor, .. }
-            | TrackRouteAutomationMode { descriptor, .. }
-            | TrackRouteMono { descriptor, .. } => Descriptors {
-                track: Some(&descriptor.track_descriptor),
-                route: Some(descriptor),
-                ..Default::default()
-            },
-            ClipTransport {
-                track_descriptor, ..
-            } => Descriptors {
-                track: track_descriptor.as_ref(),
-                ..Default::default()
-            },
+            Action(t) => t.track_descriptor(),
+            FxParameter(t) => t.track_descriptor(),
+            TrackVolume(t) => t.track_descriptor(),
+            TrackTool(t) => t.track_descriptor(),
+            TrackPeak(t) => t.track_descriptor(),
+            TrackSendVolume(t) => t.track_descriptor(),
+            TrackPan(t) => t.track_descriptor(),
+            TrackWidth(t) => t.track_descriptor(),
+            TrackArm(t) => t.track_descriptor(),
+            TrackSelection(t) => t.track_descriptor(),
+            TrackMute(t) => t.track_descriptor(),
+            TrackPhase(t) => t.track_descriptor(),
+            TrackShow(t) => t.track_descriptor(),
+            TrackSolo(t) => t.track_descriptor(),
+            TrackAutomationMode(t) => t.track_descriptor(),
+            TrackSendPan(t) => t.track_descriptor(),
+            TrackSendMute(t) => t.track_descriptor(),
+            TrackRoutePhase(t) => t.track_descriptor(),
+            TrackRouteMono(t) => t.track_descriptor(),
+            TrackRouteAutomationMode(t) => t.track_descriptor(),
+            Tempo(t) => t.track_descriptor(),
+            Playrate(t) => t.track_descriptor(),
+            AutomationModeOverride(t) => t.track_descriptor(),
+            FxEnable(t) => t.track_descriptor(),
+            FxOpen(t) => t.track_descriptor(),
+            FxPreset(t) => t.track_descriptor(),
+            SelectedTrack(t) => t.track_descriptor(),
+            FxNavigate(t) => t.track_descriptor(),
+            AllTrackFxEnable(t) => t.track_descriptor(),
+            Transport(t) => t.track_descriptor(),
+            LoadFxPreset(t) => t.track_descriptor(),
+            AutomationTouchState(t) => t.track_descriptor(),
+            GoToBookmark(t) => t.track_descriptor(),
+            Seek(t) => t.track_descriptor(),
+            SendMidi(t) => t.track_descriptor(),
+            SendOsc(t) => t.track_descriptor(),
+            ClipTransport(t) => t.track_descriptor(),
+            ClipSeek(t) => t.track_descriptor(),
+            ClipVolume(t) => t.track_descriptor(),
+            LoadMappingSnapshot(t) => t.track_descriptor(),
+            EnableMappings(t) => t.track_descriptor(),
+            NavigateWithinGroup(t) => t.track_descriptor(),
+            EnableInstances(t) => t.track_descriptor(),
+            AnyOn(t) => t.track_descriptor(),
+            LastTouched(t) => t.track_descriptor(),
+        }
+    }
+
+    fn fx_descriptor(&self) -> Option<&FxDescriptor> {
+        // TODO-high enum-dispatch
+        use UnresolvedReaperTarget::*;
+        match self {
+            Action(t) => t.fx_descriptor(),
+            FxParameter(t) => t.fx_descriptor(),
+            TrackVolume(t) => t.fx_descriptor(),
+            TrackTool(t) => t.fx_descriptor(),
+            TrackPeak(t) => t.fx_descriptor(),
+            TrackSendVolume(t) => t.fx_descriptor(),
+            TrackPan(t) => t.fx_descriptor(),
+            TrackWidth(t) => t.fx_descriptor(),
+            TrackArm(t) => t.fx_descriptor(),
+            TrackSelection(t) => t.fx_descriptor(),
+            TrackMute(t) => t.fx_descriptor(),
+            TrackPhase(t) => t.fx_descriptor(),
+            TrackShow(t) => t.fx_descriptor(),
+            TrackSolo(t) => t.fx_descriptor(),
+            TrackAutomationMode(t) => t.fx_descriptor(),
+            TrackSendPan(t) => t.fx_descriptor(),
+            TrackSendMute(t) => t.fx_descriptor(),
+            TrackRoutePhase(t) => t.fx_descriptor(),
+            TrackRouteMono(t) => t.fx_descriptor(),
+            TrackRouteAutomationMode(t) => t.fx_descriptor(),
+            Tempo(t) => t.fx_descriptor(),
+            Playrate(t) => t.fx_descriptor(),
+            AutomationModeOverride(t) => t.fx_descriptor(),
+            FxEnable(t) => t.fx_descriptor(),
+            FxOpen(t) => t.fx_descriptor(),
+            FxPreset(t) => t.fx_descriptor(),
+            SelectedTrack(t) => t.fx_descriptor(),
+            FxNavigate(t) => t.fx_descriptor(),
+            AllTrackFxEnable(t) => t.fx_descriptor(),
+            Transport(t) => t.fx_descriptor(),
+            LoadFxPreset(t) => t.fx_descriptor(),
+            AutomationTouchState(t) => t.fx_descriptor(),
+            GoToBookmark(t) => t.fx_descriptor(),
+            Seek(t) => t.fx_descriptor(),
+            SendMidi(t) => t.fx_descriptor(),
+            SendOsc(t) => t.fx_descriptor(),
+            ClipTransport(t) => t.fx_descriptor(),
+            ClipSeek(t) => t.fx_descriptor(),
+            ClipVolume(t) => t.fx_descriptor(),
+            LoadMappingSnapshot(t) => t.fx_descriptor(),
+            EnableMappings(t) => t.fx_descriptor(),
+            NavigateWithinGroup(t) => t.fx_descriptor(),
+            EnableInstances(t) => t.fx_descriptor(),
+            AnyOn(t) => t.fx_descriptor(),
+            LastTouched(t) => t.fx_descriptor(),
+        }
+    }
+
+    fn route_descriptor(&self) -> Option<&TrackRouteDescriptor> {
+        // TODO-high enum-dispatch
+        use UnresolvedReaperTarget::*;
+        match self {
+            Action(t) => t.route_descriptor(),
+            FxParameter(t) => t.route_descriptor(),
+            TrackVolume(t) => t.route_descriptor(),
+            TrackTool(t) => t.route_descriptor(),
+            TrackPeak(t) => t.route_descriptor(),
+            TrackSendVolume(t) => t.route_descriptor(),
+            TrackPan(t) => t.route_descriptor(),
+            TrackWidth(t) => t.route_descriptor(),
+            TrackArm(t) => t.route_descriptor(),
+            TrackSelection(t) => t.route_descriptor(),
+            TrackMute(t) => t.route_descriptor(),
+            TrackPhase(t) => t.route_descriptor(),
+            TrackShow(t) => t.route_descriptor(),
+            TrackSolo(t) => t.route_descriptor(),
+            TrackAutomationMode(t) => t.route_descriptor(),
+            TrackSendPan(t) => t.route_descriptor(),
+            TrackSendMute(t) => t.route_descriptor(),
+            TrackRoutePhase(t) => t.route_descriptor(),
+            TrackRouteMono(t) => t.route_descriptor(),
+            TrackRouteAutomationMode(t) => t.route_descriptor(),
+            Tempo(t) => t.route_descriptor(),
+            Playrate(t) => t.route_descriptor(),
+            AutomationModeOverride(t) => t.route_descriptor(),
+            FxEnable(t) => t.route_descriptor(),
+            FxOpen(t) => t.route_descriptor(),
+            FxPreset(t) => t.route_descriptor(),
+            SelectedTrack(t) => t.route_descriptor(),
+            FxNavigate(t) => t.route_descriptor(),
+            AllTrackFxEnable(t) => t.route_descriptor(),
+            Transport(t) => t.route_descriptor(),
+            LoadFxPreset(t) => t.route_descriptor(),
+            AutomationTouchState(t) => t.route_descriptor(),
+            GoToBookmark(t) => t.route_descriptor(),
+            Seek(t) => t.route_descriptor(),
+            SendMidi(t) => t.route_descriptor(),
+            SendOsc(t) => t.route_descriptor(),
+            ClipTransport(t) => t.route_descriptor(),
+            ClipSeek(t) => t.route_descriptor(),
+            ClipVolume(t) => t.route_descriptor(),
+            LoadMappingSnapshot(t) => t.route_descriptor(),
+            EnableMappings(t) => t.route_descriptor(),
+            NavigateWithinGroup(t) => t.route_descriptor(),
+            EnableInstances(t) => t.route_descriptor(),
+            AnyOn(t) => t.route_descriptor(),
+            LastTouched(t) => t.route_descriptor(),
+        }
+    }
+
+    fn fx_parameter_descriptor(&self) -> Option<&FxParameterDescriptor> {
+        // TODO-high enum-dispatch
+        use UnresolvedReaperTarget::*;
+        match self {
+            Action(t) => t.fx_parameter_descriptor(),
+            FxParameter(t) => t.fx_parameter_descriptor(),
+            TrackVolume(t) => t.fx_parameter_descriptor(),
+            TrackTool(t) => t.fx_parameter_descriptor(),
+            TrackPeak(t) => t.fx_parameter_descriptor(),
+            TrackSendVolume(t) => t.fx_parameter_descriptor(),
+            TrackPan(t) => t.fx_parameter_descriptor(),
+            TrackWidth(t) => t.fx_parameter_descriptor(),
+            TrackArm(t) => t.fx_parameter_descriptor(),
+            TrackSelection(t) => t.fx_parameter_descriptor(),
+            TrackMute(t) => t.fx_parameter_descriptor(),
+            TrackPhase(t) => t.fx_parameter_descriptor(),
+            TrackShow(t) => t.fx_parameter_descriptor(),
+            TrackSolo(t) => t.fx_parameter_descriptor(),
+            TrackAutomationMode(t) => t.fx_parameter_descriptor(),
+            TrackSendPan(t) => t.fx_parameter_descriptor(),
+            TrackSendMute(t) => t.fx_parameter_descriptor(),
+            TrackRoutePhase(t) => t.fx_parameter_descriptor(),
+            TrackRouteMono(t) => t.fx_parameter_descriptor(),
+            TrackRouteAutomationMode(t) => t.fx_parameter_descriptor(),
+            Tempo(t) => t.fx_parameter_descriptor(),
+            Playrate(t) => t.fx_parameter_descriptor(),
+            AutomationModeOverride(t) => t.fx_parameter_descriptor(),
+            FxEnable(t) => t.fx_parameter_descriptor(),
+            FxOpen(t) => t.fx_parameter_descriptor(),
+            FxPreset(t) => t.fx_parameter_descriptor(),
+            SelectedTrack(t) => t.fx_parameter_descriptor(),
+            FxNavigate(t) => t.fx_parameter_descriptor(),
+            AllTrackFxEnable(t) => t.fx_parameter_descriptor(),
+            Transport(t) => t.fx_parameter_descriptor(),
+            LoadFxPreset(t) => t.fx_parameter_descriptor(),
+            AutomationTouchState(t) => t.fx_parameter_descriptor(),
+            GoToBookmark(t) => t.fx_parameter_descriptor(),
+            Seek(t) => t.fx_parameter_descriptor(),
+            SendMidi(t) => t.fx_parameter_descriptor(),
+            SendOsc(t) => t.fx_parameter_descriptor(),
+            ClipTransport(t) => t.fx_parameter_descriptor(),
+            ClipSeek(t) => t.fx_parameter_descriptor(),
+            ClipVolume(t) => t.fx_parameter_descriptor(),
+            LoadMappingSnapshot(t) => t.fx_parameter_descriptor(),
+            EnableMappings(t) => t.fx_parameter_descriptor(),
+            NavigateWithinGroup(t) => t.fx_parameter_descriptor(),
+            EnableInstances(t) => t.fx_parameter_descriptor(),
+            AnyOn(t) => t.fx_parameter_descriptor(),
+            LastTouched(t) => t.fx_parameter_descriptor(),
         }
     }
 
     /// `None` means that no polling is necessary for feedback because we are notified via events.
     pub fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        // TODO-high enum-dispatch
         use UnresolvedReaperTarget::*;
-        let res = match self {
-            Action { .. }
-            | TrackVolume { .. }
-            | TrackTool { .. }
-            | TrackSendVolume { .. }
-            | TrackPan { .. }
-            | TrackWidth { .. }
-            | TrackArm { .. }
-            | TrackSelection { .. }
-            | TrackMute { .. }
-            | TrackAutomationMode { .. }
-            | FxOpen { .. }
-            | AutomationModeOverride { .. }
-            | FxNavigate { .. }
-            | TrackSolo { .. }
-            | TrackSendPan { .. }
-            | Tempo
-            | Playrate
-            | FxEnable { .. }
-            | FxPreset { .. }
-            | SelectedTrack { .. }
-            | LoadFxPreset { .. }
-            | LastTouched
-            | SendMidi { .. }
-            | SendOsc { .. }
-            | ClipTransport { .. }
-            | ClipVolume { .. }
-            | AutomationTouchState { .. }
-            | LoadMappingSnapshot { .. }
-            | EnableMappings { .. }
-            | EnableInstances { .. }
-            | AnyOn { .. }
-            | NavigateWithinGroup { .. } => return None,
-            AllTrackFxEnable {
-                poll_for_feedback, ..
-            }
-            | TrackSendMute {
-                poll_for_feedback, ..
-            }
-            | TrackRoutePhase {
-                poll_for_feedback, ..
-            }
-            | TrackRouteMono {
-                poll_for_feedback, ..
-            }
-            | TrackRouteAutomationMode {
-                poll_for_feedback, ..
-            }
-            | TrackPhase {
-                poll_for_feedback, ..
-            }
-            | TrackShow {
-                poll_for_feedback, ..
-            }
-            | FxParameter {
-                poll_for_feedback, ..
-            } => {
-                if *poll_for_feedback {
-                    FeedbackResolution::High
-                } else {
-                    return None;
-                }
-            }
-            Transport { .. } | GoToBookmark { .. } | ClipSeek { .. } => FeedbackResolution::Beat,
-            Seek { options, .. } => options.feedback_resolution,
-            TrackPeak { .. } => FeedbackResolution::High,
-        };
-        Some(res)
+        match self {
+            Action(t) => t.feedback_resolution(),
+            FxParameter(t) => t.feedback_resolution(),
+            TrackVolume(t) => t.feedback_resolution(),
+            TrackTool(t) => t.feedback_resolution(),
+            TrackPeak(t) => t.feedback_resolution(),
+            TrackSendVolume(t) => t.feedback_resolution(),
+            TrackPan(t) => t.feedback_resolution(),
+            TrackWidth(t) => t.feedback_resolution(),
+            TrackArm(t) => t.feedback_resolution(),
+            TrackSelection(t) => t.feedback_resolution(),
+            TrackMute(t) => t.feedback_resolution(),
+            TrackPhase(t) => t.feedback_resolution(),
+            TrackShow(t) => t.feedback_resolution(),
+            TrackSolo(t) => t.feedback_resolution(),
+            TrackAutomationMode(t) => t.feedback_resolution(),
+            TrackSendPan(t) => t.feedback_resolution(),
+            TrackSendMute(t) => t.feedback_resolution(),
+            TrackRoutePhase(t) => t.feedback_resolution(),
+            TrackRouteMono(t) => t.feedback_resolution(),
+            TrackRouteAutomationMode(t) => t.feedback_resolution(),
+            Tempo(t) => t.feedback_resolution(),
+            Playrate(t) => t.feedback_resolution(),
+            AutomationModeOverride(t) => t.feedback_resolution(),
+            FxEnable(t) => t.feedback_resolution(),
+            FxOpen(t) => t.feedback_resolution(),
+            FxPreset(t) => t.feedback_resolution(),
+            SelectedTrack(t) => t.feedback_resolution(),
+            FxNavigate(t) => t.feedback_resolution(),
+            AllTrackFxEnable(t) => t.feedback_resolution(),
+            Transport(t) => t.feedback_resolution(),
+            LoadFxPreset(t) => t.feedback_resolution(),
+            AutomationTouchState(t) => t.feedback_resolution(),
+            GoToBookmark(t) => t.feedback_resolution(),
+            Seek(t) => t.feedback_resolution(),
+            SendMidi(t) => t.feedback_resolution(),
+            SendOsc(t) => t.feedback_resolution(),
+            ClipTransport(t) => t.feedback_resolution(),
+            ClipSeek(t) => t.feedback_resolution(),
+            ClipVolume(t) => t.feedback_resolution(),
+            LoadMappingSnapshot(t) => t.feedback_resolution(),
+            EnableMappings(t) => t.feedback_resolution(),
+            NavigateWithinGroup(t) => t.feedback_resolution(),
+            EnableInstances(t) => t.feedback_resolution(),
+            AnyOn(t) => t.feedback_resolution(),
+            LastTouched(t) => t.feedback_resolution(),
+        }
     }
 }
 
@@ -2022,4 +1663,49 @@ struct Descriptors<'a> {
     fx: Option<&'a FxDescriptor>,
     route: Option<&'a TrackRouteDescriptor>,
     fx_param: Option<&'a FxParameterDescriptor>,
+}
+
+pub trait UnresolvedReaperTargetDef {
+    fn is_always_active(&self) -> bool {
+        false
+    }
+
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str>;
+
+    /// `None` means that no polling is necessary for feedback because we are notified via events.
+    fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        None
+    }
+
+    /// Should return true if the target should be refreshed (reresolved) on changes such as track
+    /// selection etc. (see [`ReaperTarget::is_potential_change_event`]). If in doubt or too lazy to
+    /// make a distinction depending on the selector, better return true! This makes sure things
+    /// stay up-to-date. Doing an unnecessary refreshment can have the following effects:
+    /// - Slightly reduce performance: Not refreshing is of course cheaper (but resolving is
+    ///   generally fast so this shouldn't matter)
+    /// - Removes target state: If the resolved target contains state, it's going to be disappear
+    ///   when the target is resolved again. Matter for some targets (but usually not).
+    fn can_be_affected_by_change_events(&self) -> bool {
+        true
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        None
+    }
+
+    fn fx_descriptor(&self) -> Option<&FxDescriptor> {
+        None
+    }
+
+    fn route_descriptor(&self) -> Option<&TrackRouteDescriptor> {
+        None
+    }
+
+    fn fx_parameter_descriptor(&self) -> Option<&FxParameterDescriptor> {
+        None
+    }
 }

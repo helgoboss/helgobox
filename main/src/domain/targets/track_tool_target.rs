@@ -1,9 +1,34 @@
 use crate::domain::{
-    get_track_name, percentage_for_track_within_project, ControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    get_effective_tracks, get_track_name, percentage_for_track_within_project, ControlContext,
+    ExtendedProcessorContext, MappingCompartment, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target};
 use reaper_high::{Project, Track};
+
+#[derive(Debug)]
+pub struct UnresolvedTrackToolTarget {
+    pub track_descriptor: TrackDescriptor,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedTrackToolTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(
+            get_effective_tracks(context, &self.track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::TrackTool(TrackToolTarget { track }))
+                .collect(),
+        )
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        Some(&self.track_descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackToolTarget {

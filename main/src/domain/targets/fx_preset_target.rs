@@ -1,13 +1,37 @@
 use crate::domain::{
-    convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value,
-    CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    convert_count_to_step_size, convert_unit_value_to_preset_index, fx_preset_unit_value, get_fxs,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDescriptor,
+    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
 use reaper_high::{ChangeEvent, Fx, Project, Track};
 use reaper_medium::FxPresetRef;
+
+#[derive(Debug)]
+pub struct UnresolvedFxPresetTarget {
+    pub fx_descriptor: FxDescriptor,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedFxPresetTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(get_fxs(context, &self.fx_descriptor, compartment)?
+            .into_iter()
+            .map(|fx| ReaperTarget::FxPreset(FxPresetTarget { fx }))
+            .collect())
+    }
+
+    fn fx_descriptor(&self) -> Option<&FxDescriptor> {
+        Some(&self.fx_descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FxPresetTarget {

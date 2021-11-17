@@ -1,10 +1,33 @@
 use crate::domain::{
-    format_value_as_on_off, fx_enable_unit_value, CompoundChangeEvent, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    format_value_as_on_off, fx_enable_unit_value, get_fxs, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, FxDescriptor, HitInstructionReturnValue, MappingCompartment,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
+
+#[derive(Debug)]
+pub struct UnresolvedFxEnableTarget {
+    pub fx_descriptor: FxDescriptor,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedFxEnableTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(get_fxs(context, &self.fx_descriptor, compartment)?
+            .into_iter()
+            .map(|fx| ReaperTarget::FxEnable(FxEnableTarget { fx }))
+            .collect())
+    }
+
+    fn fx_descriptor(&self) -> Option<&FxDescriptor> {
+        Some(&self.fx_descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FxEnableTarget {

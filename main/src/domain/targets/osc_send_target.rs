@@ -1,7 +1,8 @@
 use crate::domain::ui_util::{format_osc_message, log_target_output};
 use crate::domain::{
-    ControlContext, FeedbackOutput, HitInstructionReturnValue, MappingControlContext, OscDeviceId,
-    OscFeedbackTask, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    ControlContext, ExtendedProcessorContext, FeedbackOutput, HitInstructionReturnValue,
+    MappingCompartment, MappingControlContext, OscDeviceId, OscFeedbackTask, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
     DEFAULT_TARGET,
 };
 use helgoboss_learn::{
@@ -9,6 +10,32 @@ use helgoboss_learn::{
     OscArgDescriptor, OscTypeTag, Target,
 };
 use rosc::OscMessage;
+
+#[derive(Debug)]
+pub struct UnresolvedOscSendTarget {
+    pub address_pattern: String,
+    pub arg_descriptor: Option<OscArgDescriptor>,
+    pub device_id: Option<OscDeviceId>,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedOscSendTarget {
+    fn resolve(
+        &self,
+        _: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::SendOsc(OscSendTarget::new(
+            self.address_pattern.clone(),
+            self.arg_descriptor,
+            self.device_id,
+        ))])
+    }
+
+    fn can_be_affected_by_change_events(&self) -> bool {
+        // We don't want to be refreshed because we maintain an artificial value.
+        false
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct OscSendTarget {

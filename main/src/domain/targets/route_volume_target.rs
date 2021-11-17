@@ -2,12 +2,35 @@ use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
 use crate::domain::{
-    CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    get_track_route, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackRouteDescriptor,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, TrackRoute, Volume};
 use reaper_medium::ReaperFunctionError;
+
+#[derive(Debug)]
+pub struct UnresolvedRouteVolumeTarget {
+    pub descriptor: TrackRouteDescriptor,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedRouteVolumeTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::TrackRouteVolume(RouteVolumeTarget {
+            route: get_track_route(context, &self.descriptor, compartment)?,
+        })])
+    }
+
+    fn route_descriptor(&self) -> Option<&TrackRouteDescriptor> {
+        Some(&self.descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RouteVolumeTarget {

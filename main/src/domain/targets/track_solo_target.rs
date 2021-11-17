@@ -1,13 +1,46 @@
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, track_solo_unit_value,
-    CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, SoloBehavior, TargetCharacter, TargetTypeDef,
-    TrackExclusivity, DEFAULT_TARGET,
+    get_control_type_and_character_for_track_exclusivity, get_effective_tracks,
+    track_solo_unit_value, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, SoloBehavior, TargetCharacter, TargetTypeDef, TrackDescriptor,
+    TrackExclusivity, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
 use reaper_medium::SoloMode;
+
+#[derive(Debug)]
+pub struct UnresolvedTrackSoloTarget {
+    pub track_descriptor: TrackDescriptor,
+    pub exclusivity: TrackExclusivity,
+    pub behavior: SoloBehavior,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedTrackSoloTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(
+            get_effective_tracks(context, &self.track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| {
+                    ReaperTarget::TrackSolo(TrackSoloTarget {
+                        track,
+                        exclusivity: self.exclusivity,
+                        behavior: self.behavior,
+                    })
+                })
+                .collect(),
+        )
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        Some(&self.track_descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackSoloTarget {

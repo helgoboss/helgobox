@@ -1,13 +1,54 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     change_track_prop, format_value_as_on_off,
-    get_control_type_and_character_for_track_exclusivity, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TrackExclusivity, AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY,
-    DEFAULT_TARGET,
+    get_control_type_and_character_for_track_exclusivity, get_effective_tracks, ControlContext,
+    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, MappingCompartment,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
+    AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track};
+
+#[derive(Debug)]
+pub struct UnresolvedTrackPhaseTarget {
+    pub track_descriptor: TrackDescriptor,
+    pub exclusivity: TrackExclusivity,
+    pub poll_for_feedback: bool,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedTrackPhaseTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(
+            get_effective_tracks(context, &self.track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| {
+                    ReaperTarget::TrackPhase(TrackPhaseTarget {
+                        track,
+                        exclusivity: self.exclusivity,
+                        poll_for_feedback: self.poll_for_feedback,
+                    })
+                })
+                .collect(),
+        )
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        Some(&self.track_descriptor)
+    }
+
+    fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        if self.poll_for_feedback {
+            Some(FeedbackResolution::High)
+        } else {
+            None
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackPhaseTarget {

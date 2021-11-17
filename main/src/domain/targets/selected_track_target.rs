@@ -1,7 +1,8 @@
 use crate::domain::{
     convert_count_to_step_size, convert_unit_value_to_track_index, get_track_name,
-    selected_track_unit_value, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    selected_track_unit_value, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
     DEFAULT_TARGET,
 };
 use helgoboss_learn::{
@@ -9,6 +10,26 @@ use helgoboss_learn::{
 };
 use reaper_high::{ChangeEvent, Project, Reaper, Track};
 use reaper_medium::{CommandId, MasterTrackBehavior};
+
+#[derive(Debug)]
+pub struct UnresolvedSelectedTrackTarget {
+    pub scroll_arrange_view: bool,
+    pub scroll_mixer: bool,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedSelectedTrackTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::SelectedTrack(SelectedTrackTarget {
+            project: context.context().project_or_current_project(),
+            scroll_arrange_view: self.scroll_arrange_view,
+            scroll_mixer: self.scroll_mixer,
+        })])
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SelectedTrackTarget {

@@ -1,13 +1,38 @@
 use crate::domain::ui_util::OutputReason;
 use crate::domain::{
-    ControlContext, FeedbackOutput, HitInstructionReturnValue, MappingControlContext,
-    MidiDestination, RealTimeReaperTarget, RealearnTarget, ReaperTargetType, SendMidiDestination,
-    TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    ControlContext, ExtendedProcessorContext, FeedbackOutput, HitInstructionReturnValue,
+    MappingCompartment, MappingControlContext, MidiDestination, RealTimeReaperTarget,
+    RealearnTarget, ReaperTarget, ReaperTargetType, SendMidiDestination, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, RawMidiPattern, Target, UnitValue,
 };
 use std::convert::TryInto;
+
+#[derive(Debug)]
+pub struct UnresolvedMidiSendTarget {
+    pub pattern: RawMidiPattern,
+    pub destination: SendMidiDestination,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedMidiSendTarget {
+    fn resolve(
+        &self,
+        _: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::SendMidi(MidiSendTarget::new(
+            self.pattern.clone(),
+            self.destination,
+        ))])
+    }
+
+    fn can_be_affected_by_change_events(&self) -> bool {
+        // We don't want to be refreshed because we maintain an artificial value.
+        false
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MidiSendTarget {

@@ -2,12 +2,41 @@ use crate::domain::ui_util::{
     format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
 use crate::domain::{
-    ControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    DEFAULT_TARGET,
+    get_effective_tracks, ControlContext, ExtendedProcessorContext, FeedbackResolution,
+    MappingCompartment, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, NumericValue, Target, UnitValue};
 use reaper_high::{Project, Reaper, Track, Volume};
 use reaper_medium::{ReaperVolumeValue, TrackAttributeKey};
+
+#[derive(Debug)]
+pub struct UnresolvedTrackPeakTarget {
+    pub track_descriptor: TrackDescriptor,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedTrackPeakTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(
+            get_effective_tracks(context, &self.track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::TrackPeak(TrackPeakTarget { track }))
+                .collect(),
+        )
+    }
+
+    fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        Some(FeedbackResolution::High)
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        Some(&self.track_descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackPeakTarget {

@@ -1,13 +1,45 @@
 use crate::domain::ui_util::{fx_parameter_unit_value, parse_unit_value_from_percentage};
 use crate::domain::{
-    AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    DEFAULT_TARGET,
+    get_fx_param, AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, FeedbackResolution, FxParameterDescriptor, HitInstructionReturnValue,
+    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, PropValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, FxParameter, FxParameterCharacter, Project, Track};
 use reaper_medium::{GetParameterStepSizesResult, ReaperNormalizedFxParamValue};
 use std::convert::TryInto;
+
+#[derive(Debug)]
+pub struct UnresolvedFxParameterTarget {
+    pub fx_parameter_descriptor: FxParameterDescriptor,
+    pub poll_for_feedback: bool,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedFxParameterTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::FxParameter(FxParameterTarget {
+            param: get_fx_param(context, &self.fx_parameter_descriptor, compartment)?,
+            poll_for_feedback: self.poll_for_feedback,
+        })])
+    }
+
+    fn fx_parameter_descriptor(&self) -> Option<&FxParameterDescriptor> {
+        Some(&self.fx_parameter_descriptor)
+    }
+
+    fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        if self.poll_for_feedback {
+            Some(FeedbackResolution::High)
+        } else {
+            None
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FxParameterTarget {

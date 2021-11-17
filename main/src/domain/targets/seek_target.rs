@@ -1,7 +1,8 @@
 use crate::domain::{
-    AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, ReaperTargetType, SeekOptions, TargetCharacter,
-    TargetTypeDef, DEFAULT_TARGET,
+    AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    FeedbackResolution, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, SeekOptions, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
@@ -10,6 +11,29 @@ use reaper_high::{Project, Reaper};
 use reaper_medium::{
     GetLoopTimeRange2Result, PositionInSeconds, SetEditCurPosOptions, TimeMode, TimeModeOverride,
 };
+
+#[derive(Debug)]
+pub struct UnresolvedSeekTarget {
+    pub options: SeekOptions,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedSeekTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        let project = context.context().project_or_current_project();
+        Ok(vec![ReaperTarget::Seek(SeekTarget {
+            project,
+            options: self.options,
+        })])
+    }
+
+    fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        Some(self.options.feedback_resolution)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeekTarget {

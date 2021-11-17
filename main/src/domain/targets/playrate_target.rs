@@ -2,12 +2,28 @@ use crate::domain::{
     format_step_size_as_playback_speed_factor_without_unit,
     format_value_as_playback_speed_factor_without_unit, parse_step_size_from_playback_speed_factor,
     parse_value_from_playback_speed_factor, playback_speed_factor_span, playrate_unit_value,
-    CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
+    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, PlayRate, Project};
 use reaper_medium::NormalizedPlayRate;
+
+#[derive(Debug)]
+pub struct UnresolvedPlayrateTarget;
+
+impl UnresolvedReaperTargetDef for UnresolvedPlayrateTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::Playrate(PlayrateTarget {
+            project: context.context().project_or_current_project(),
+        })])
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlayrateTarget {
