@@ -1,9 +1,9 @@
 use crate::domain::{
-    get_realearn_target_prop_value_with_fallback, target_prop_is_affected_by, ActivationChange,
-    ActivationCondition, CompoundChangeEvent, ControlContext, ControlOptions,
-    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
-    MappingActivationEffect, MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent,
-    MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult, ParameterArray, ParameterSlice,
+    get_prop_value, prop_is_affected_by, ActivationChange, ActivationCondition,
+    CompoundChangeEvent, ControlContext, ControlOptions, ExtendedProcessorContext,
+    FeedbackResolution, GroupId, HitInstructionReturnValue, MappingActivationEffect,
+    MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent, MidiScanResult,
+    MidiSource, Mode, OscDeviceId, OscScanResult, ParameterArray, ParameterSlice,
     PersistentMappingProcessingState, RealTimeReaperTarget, RealearnTarget, ReaperMessage,
     ReaperSource, ReaperTarget, ReaperTargetType, Tag, TargetCharacter, TrackExclusivity,
     UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue, VirtualSource,
@@ -928,20 +928,7 @@ impl MainMapping {
     }
 
     fn get_prop_value(&self, key: &str, control_context: ControlContext) -> Option<PropValue> {
-        if let Some(target_key) = key.strip_prefix("target.") {
-            self.targets.first().and_then(|t| {
-                get_realearn_target_prop_value_with_fallback(t, target_key, control_context)
-            })
-        } else {
-            match key {
-                "mapping.name" => {
-                    let instance_state = control_context.instance_state.borrow();
-                    let info = instance_state.get_mapping_info(self.qualified_id())?;
-                    Some(PropValue::Text(info.name.clone()))
-                }
-                _ => None,
-            }
-        }
+        get_prop_value(key, self, control_context)
     }
 
     pub fn given_or_current_value(
@@ -1069,23 +1056,6 @@ impl MainMapping {
         match self.targets.first()? {
             CompoundMappingTarget::Virtual(t) => match_partially(&mut self.core, t, control_value),
             CompoundMappingTarget::Reaper(_) => None,
-        }
-    }
-}
-
-pub fn prop_is_affected_by(
-    key: &str,
-    event: CompoundChangeEvent,
-    target: &ReaperTarget,
-    context: ControlContext,
-) -> bool {
-    if let Some(target_key) = key.strip_prefix("target.") {
-        target_prop_is_affected_by(target_key, event, target, context)
-    } else {
-        match key {
-            // Mapping name changes will result in a full mapping resync anyway.
-            "mapping.name" => false,
-            _ => false,
         }
     }
 }
