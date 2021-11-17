@@ -240,7 +240,6 @@ pub const MIDI_SEND_TARGET: TargetTypeDef = TargetTypeDef {
     name: "MIDI: Send message",
     short_name: "Send MIDI",
     hint: "Has limitations (see user guide)",
-    supports_tags: true,
     supports_feedback: false,
     ..DEFAULT_TARGET
 };

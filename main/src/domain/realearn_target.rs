@@ -602,8 +602,9 @@ impl Default for ReaperTargetType {
 
 impl ReaperTargetType {
     pub fn from_target(target: &ReaperTarget) -> ReaperTargetType {
-        // TODO-high Don't let this return an option!
-        target.reaper_target_type().expect("TODO-high")
+        target
+            .reaper_target_type()
+            .expect("a REAPER target should always return a REAPER target type")
     }
 
     pub fn supports_feedback_resolution(self) -> bool {
@@ -722,7 +723,6 @@ impl ReaperTargetType {
     }
 
     pub fn supports_control(&self) -> bool {
-        // TODO-high This was not used before (always returned true) ... changed something?
         self.definition().supports_control()
     }
 
