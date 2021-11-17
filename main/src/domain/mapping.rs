@@ -23,6 +23,7 @@ use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::borrow::Cow;
 
+use crate::domain::unresolved_reaper_target::UnresolvedReaperTargetDef;
 use indexmap::map::IndexMap;
 use indexmap::set::IndexSet;
 use reaper_high::{Fx, Project, Track, TrackRoute};
