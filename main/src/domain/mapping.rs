@@ -1,9 +1,9 @@
 use crate::domain::{
-    get_prop_value, prop_is_affected_by, ActivationChange, ActivationCondition,
-    CompoundChangeEvent, ControlContext, ControlOptions, ExtendedProcessorContext,
-    FeedbackResolution, GroupId, HitInstructionReturnValue, MappingActivationEffect,
-    MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent, MidiScanResult,
-    MidiSource, Mode, OscDeviceId, OscScanResult, ParameterArray, ParameterSlice,
+    get_prop_value, prop_feedback_resolution, prop_is_affected_by, ActivationChange,
+    ActivationCondition, CompoundChangeEvent, ControlContext, ControlOptions,
+    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
+    MappingActivationEffect, MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent,
+    MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult, ParameterArray, ParameterSlice,
     PersistentMappingProcessingState, RealTimeReaperTarget, RealearnTarget, ReaperMessage,
     ReaperSource, ReaperTarget, ReaperTargetType, Tag, TargetCharacter, TrackExclusivity,
     UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue, VirtualSource,
@@ -257,7 +257,7 @@ impl MainMapping {
             let is_affected = self
                 .core
                 .mode
-                .textual_feedback_props()
+                .feedback_props_in_use()
                 .iter()
                 .any(|p| prop_is_affected_by(p, evt, self, target, context));
             (is_affected, None)
@@ -478,7 +478,17 @@ impl MainMapping {
     /// `None` means that no polling is necessary for feedback because we are notified via events.
     pub fn feedback_resolution(&self) -> Option<FeedbackResolution> {
         let t = self.unresolved_target.as_ref()?;
-        t.feedback_resolution()
+        if self.mode().wants_textual_feedback() {
+            // We simply adjust to the property that needs the highest resolution.
+            self.core
+                .mode
+                .feedback_props_in_use()
+                .iter()
+                .filter_map(|p| prop_feedback_resolution(p, self, t))
+                .max()
+        } else {
+            t.feedback_resolution()
+        }
     }
 
     pub fn wants_to_be_polled_for_control(&self) -> bool {
