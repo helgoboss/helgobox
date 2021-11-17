@@ -26,6 +26,8 @@ reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "mas
 # reaper-low = { path = "../../reaper-rs/main/low" }
 swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
+realearn-api = { path = "../api" }
+realearn-csi = { path = "../csi" }
 helgoboss-midi = { version = "0.3", features = ["serde", "serde_repr"] }
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
 helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_repr", "serde_with", "reaper-low"] }
@@ -144,8 +146,9 @@ approx = "0.3.2"
 mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize"] }
 # For checking if an FX has loaded a specific chunk and duplicate detection of non-primitive feedback messages
 twox-hash = "1.6.1"
-realearn-api = { path = "../api" }
-realearn-csi = { path = "../csi" }
+# For convenient converting prop key to prop enum variant
+strum = "0.23"
+strum_macros = "0.23"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
