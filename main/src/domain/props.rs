@@ -1,12 +1,30 @@
 use crate::domain::{
     get_track_color, get_track_name, CompoundChangeEvent, CompoundMappingTarget, ControlContext,
-    MainMapping, RealearnTarget, ReaperTarget,
+    FeedbackResolution, MainMapping, RealearnTarget, ReaperTarget, UnresolvedCompoundMappingTarget,
 };
 use enum_dispatch::enum_dispatch;
 use helgoboss_learn::{PropValue, Target};
 use reaper_high::ChangeEvent;
 use std::str::FromStr;
 use strum_macros::EnumString;
+
+/// `None` means that no polling is necessary for feedback because we are notified via events.
+pub fn prop_feedback_resolution(
+    key: &str,
+    mapping: &MainMapping,
+    target: &UnresolvedCompoundMappingTarget,
+) -> Option<FeedbackResolution> {
+    match key.parse::<Props>().ok() {
+        Some(props) => props.feedback_resolution(mapping, target),
+        None => {
+            // Maybe target-specific placeholder. At the moment we should only have target-specific
+            // placeholders whose feedback resolution is the same resolution as the one of the
+            // main target value, so the following is good enough. If this changes in future, we
+            // should introduce a similar function in ReaLearn target (one that takes a key).
+            target.feedback_resolution()
+        }
+    }
+}
 
 pub fn prop_is_affected_by(
     key: &str,
@@ -60,6 +78,26 @@ enum Props {
 }
 
 impl Props {
+    /// `None` means that no polling is necessary for feedback because we are notified via events.
+    pub fn feedback_resolution(
+        &self,
+        mapping: &MainMapping,
+        target: &UnresolvedCompoundMappingTarget,
+    ) -> Option<FeedbackResolution> {
+        match self {
+            Props::Mapping(p) => {
+                let args = PropFeedbackResolutionArgs { object: mapping };
+                p.feedback_resolution(args)
+            }
+            Props::Target(p) => {
+                let args = PropFeedbackResolutionArgs {
+                    object: MappingAndUnresolvedTarget { mapping, target },
+                };
+                p.feedback_resolution(args)
+            }
+        }
+    }
+
     /// Returns whether the value of this property could be affected by the given change event.
     pub fn is_affected_by(
         &self,
@@ -166,6 +204,15 @@ enum TargetProps {
 
 #[enum_dispatch(MappingProps)]
 trait MappingProp {
+    /// `None` means that no polling is necessary for feedback because we are notified via events.
+    fn feedback_resolution(
+        &self,
+        args: PropFeedbackResolutionArgs<&MainMapping>,
+    ) -> Option<FeedbackResolution> {
+        let _ = args;
+        None
+    }
+
     /// Returns whether the value of this property could be affected by the given change event.
     fn is_affected_by(&self, args: PropIsAffectedByArgs<&MainMapping>) -> bool;
 
@@ -175,6 +222,15 @@ trait MappingProp {
 
 #[enum_dispatch(TargetProps)]
 trait TargetProp {
+    /// `None` means that no polling is necessary for feedback because we are notified via events.
+    fn feedback_resolution(
+        &self,
+        args: PropFeedbackResolutionArgs<MappingAndUnresolvedTarget>,
+    ) -> Option<FeedbackResolution> {
+        let _ = args;
+        None
+    }
+
     /// Returns whether the value of this property could be affected by the given change event.
     fn is_affected_by(&self, args: PropIsAffectedByArgs<MappingAndTarget>) -> bool {
         // Many target props change whenever the main target value changes. So this is the default.
@@ -191,6 +247,15 @@ trait TargetProp {
 struct MappingAndTarget<'a> {
     pub mapping: &'a MainMapping,
     pub target: &'a CompoundMappingTarget,
+}
+
+struct MappingAndUnresolvedTarget<'a> {
+    pub mapping: &'a MainMapping,
+    pub target: &'a UnresolvedCompoundMappingTarget,
+}
+
+struct PropFeedbackResolutionArgs<T> {
+    object: T,
 }
 
 struct PropIsAffectedByArgs<'a, T> {
@@ -369,8 +434,15 @@ impl TargetProp for TargetTypeLongNameProp {
 #[derive(Default)]
 struct TargetTrackColorProp;
 
-// There are no appropriate REAPER change events for this property.
 impl TargetProp for TargetTrackColorProp {
+    fn feedback_resolution(
+        &self,
+        _: PropFeedbackResolutionArgs<MappingAndUnresolvedTarget>,
+    ) -> Option<FeedbackResolution> {
+        // There are no appropriate change events for this property so we fall back to polling.
+        Some(FeedbackResolution::High)
+    }
+
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
         Some(PropValue::Color(get_track_color(
             args.object.target.track()?,

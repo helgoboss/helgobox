@@ -179,6 +179,8 @@ pub struct SeekOptions {
     Debug,
     PartialEq,
     Eq,
+    PartialOrd,
+    Ord,
     Serialize,
     Deserialize,
     IntoEnumIterator,
@@ -187,15 +189,16 @@ pub struct SeekOptions {
     Display,
 )]
 #[repr(usize)]
+// Don't change the numbers! They are important for ordering. Higher number means higher resolution.
 pub enum FeedbackResolution {
     /// Query for feedback every beat that's played on the main timeline.
     #[serde(rename = "beat")]
     #[display(fmt = "Beat")]
-    Beat,
+    Beat = 0,
     /// Query for feedback as frequently as possible (main loop).
     #[serde(rename = "high")]
     #[display(fmt = "Fast")]
-    High,
+    High = 1,
 }
 
 impl Default for FeedbackResolution {
