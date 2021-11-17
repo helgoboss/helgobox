@@ -1,18 +1,9 @@
 use crate::domain::{
-    get_track_color, get_track_name, CompoundChangeEvent, ControlContext, MainMapping,
-    RealearnTarget, ReaperTarget,
+    get_track_color, get_track_name, CompoundChangeEvent, CompoundMappingTarget, ControlContext,
+    MainMapping, RealearnTarget, ReaperTarget,
 };
 use helgoboss_learn::{target_prop_keys, PropValue, Target};
 use reaper_high::ChangeEvent;
-
-pub trait PropDef {
-    fn is_affected_by(
-        &self,
-        event: CompoundChangeEvent,
-        target: &ReaperTarget,
-        context: ControlContext,
-    ) -> bool;
-}
 
 pub fn prop_is_affected_by(
     key: &str,
@@ -24,8 +15,6 @@ pub fn prop_is_affected_by(
         target_prop_is_affected_by(target_key, event, target, context)
     } else {
         match key {
-            // Mapping name changes will result in a full mapping resync anyway.
-            "mapping.name" => false,
             _ => false,
         }
     }
@@ -138,4 +127,58 @@ pub fn get_realearn_target_prop_value_with_fallback<'a>(
         };
         Some(res)
     })
+}
+
+trait PropDef<T> {
+    fn is_affected_by(&self, input: PropIsAffectedByInput<T>) -> bool;
+    fn get_value(&self, input: PropGetValueInput<T>) -> Option<PropValue>;
+}
+
+struct PropIsAffectedByInput<'a, T> {
+    event: CompoundChangeEvent<'a>,
+    object: T,
+    control_context: ControlContext<'a>,
+}
+
+struct PropGetValueInput<'a, T> {
+    object: T,
+    control_context: ControlContext<'a>,
+}
+
+struct MappingAndTarget<'a> {
+    mapping: &'a MainMapping,
+    target: &'a CompoundMappingTarget,
+}
+
+struct MappingNameProp;
+
+impl<'a> PropDef<&'a MainMapping> for MappingNameProp {
+    fn is_affected_by(&self, _: PropIsAffectedByInput<&MainMapping>) -> bool {
+        // Mapping name changes will result in a full mapping resync anyway.
+        false
+    }
+
+    fn get_value(&self, input: PropGetValueInput<&MainMapping>) -> Option<PropValue> {
+        let instance_state = input.control_context.instance_state.borrow();
+        let info = instance_state.get_mapping_info(input.object.qualified_id())?;
+        Some(PropValue::Text(info.name.clone()))
+    }
+}
+
+struct TargetTextValueProp;
+
+impl<'a> PropDef<MappingAndTarget<'a>> for TargetTextValueProp {
+    fn is_affected_by(&self, input: PropIsAffectedByInput<MappingAndTarget>) -> bool {
+        input
+            .object
+            .target
+            .process_change_event(input.event, input.control_context)
+            .0
+    }
+
+    fn get_value(&self, input: PropGetValueInput<MappingAndTarget>) -> Option<PropValue> {
+        Some(PropValue::Text(
+            input.object.target.text_value(input.control_context)?,
+        ))
+    }
 }
