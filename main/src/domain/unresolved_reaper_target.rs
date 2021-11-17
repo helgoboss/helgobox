@@ -162,27 +162,27 @@ impl UnresolvedReaperTarget {
             return Descriptors {
                 track: Some(&d.fx_descriptor.track_descriptor),
                 fx: Some(&d.fx_descriptor),
-                fx_param: Some(&d),
+                fx_param: Some(d),
                 ..Default::default()
             };
         }
         if let Some(d) = self.fx_descriptor() {
             return Descriptors {
                 track: Some(&d.track_descriptor),
-                fx: Some(&d),
+                fx: Some(d),
                 ..Default::default()
             };
         }
         if let Some(d) = self.route_descriptor() {
             return Descriptors {
                 track: Some(&d.track_descriptor),
-                route: Some(&d),
+                route: Some(d),
                 ..Default::default()
             };
         }
         if let Some(d) = self.track_descriptor() {
             return Descriptors {
-                track: Some(&d),
+                track: Some(d),
                 ..Default::default()
             };
         }

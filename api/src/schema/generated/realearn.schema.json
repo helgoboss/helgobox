@@ -112,6 +112,15 @@
         }
       ]
     },
+    "AnyOnParameter": {
+      "type": "string",
+      "enum": [
+        "TrackSolo",
+        "TrackMute",
+        "TrackArm",
+        "TrackSelection"
+      ]
+    },
     "AutomationMode": {
       "type": "string",
       "enum": [
@@ -823,8 +832,8 @@
         "feedback_enabled": {
           "type": "boolean"
         },
-        "key": {
-          "description": "An optional key that you can assign to this group in order to refer to it from somewhere else.\n\nThis key should be unique within this list of groups.",
+        "id": {
+          "description": "An optional ID that you can assign to this group in order to refer to it from somewhere else.\n\nThis ID should be unique within all groups in the same compartment.",
           "type": "string"
         },
         "name": {
@@ -953,8 +962,8 @@
         "group": {
           "type": "string"
         },
-        "key": {
-          "description": "An optional key that you can assign to this mapping in order to refer to it from somewhere else.\n\nThis key should be unique within this list of mappings.",
+        "id": {
+          "description": "An optional ID that you can assign to this mapping in order to refer to it from somewhere else.\n\nThis ID should be unique within all mappings in the compartment.",
           "type": "string"
         },
         "name": {
@@ -1146,14 +1155,14 @@
         "index"
       ],
       "properties": {
+        "id": {
+          "description": "An optional ID that you can assign to this parameter in order to refer to it from somewhere else.\n\nThis ID should be unique within all parameters in the same compartment.",
+          "type": "string"
+        },
         "index": {
           "type": "integer",
           "format": "uint32",
           "minimum": 0.0
-        },
-        "key": {
-          "description": "An optional key that you can assign to this parameter in order to refer to it from somewhere else.\n\nThis key should be unique within this list of parameters.",
-          "type": "string"
         },
         "name": {
           "type": "string"
@@ -1947,6 +1956,28 @@
         {
           "type": "object",
           "required": [
+            "kind",
+            "parameter"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "AnyOn"
+              ]
+            },
+            "parameter": {
+              "$ref": "#/definitions/AnyOnParameter"
+            },
+            "unit": {
+              "$ref": "#/definitions/TargetUnit"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
             "kind"
           ],
           "properties": {
@@ -2332,6 +2363,27 @@
               "type": "string",
               "enum": [
                 "TrackVolume"
+              ]
+            },
+            "track": {
+              "$ref": "#/definitions/TrackDescriptor"
+            },
+            "unit": {
+              "$ref": "#/definitions/TargetUnit"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "TrackTool"
               ]
             },
             "track": {

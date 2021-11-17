@@ -5165,9 +5165,9 @@ impl<'a> ImmutableMappingPanel<'a> {
         let text = if self.mode.feedback_color.get_ref().is_some()
             || self.mode.feedback_background_color.get_ref().is_some()
         {
-            format!("...*")
+            "...*"
         } else {
-            "...".to_string()
+            "..."
         };
         self.view
             .require_control(root::IDC_MODE_FEEDBACK_TYPE_BUTTON)
