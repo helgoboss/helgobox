@@ -250,21 +250,24 @@ impl MainMapping {
         evt: CompoundChangeEvent,
         context: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
+        // Textual feedback relates to whatever properties are mentioned in the text expression.
+        // But even numeric feedback can use properties - as part of the feedback style
+        // (color etc.). That means we need to check for each of these mentioned properties if
+        // they might be affected by the incoming event.
+        let props_are_affected = self
+            .core
+            .mode
+            .feedback_props_in_use()
+            .iter()
+            .any(|p| prop_is_affected_by(p, evt, self, target, context));
         if self.core.mode.wants_textual_feedback() {
-            // Textual feedback relates to whatever properties are mentioned in the text expression.
-            // That means we need to check for each of these mentioned properties if they might
-            // be affected by the incoming event.
-            let is_affected = self
-                .core
-                .mode
-                .feedback_props_in_use()
-                .iter()
-                .any(|p| prop_is_affected_by(p, evt, self, target, context));
-            (is_affected, None)
+            // For textual feedback only those props matter.
+            (props_are_affected, None)
         } else {
-            // Numeric feedback always relates to the main target value property, so we ask the
-            // target directly.
-            target.process_change_event(evt, context)
+            // Numeric feedback implicitly always relates to the main target value, so we always
+            // ask the target directly.
+            let (main_target_value_is_affected, value) = target.process_change_event(evt, context);
+            (main_target_value_is_affected || props_are_affected, value)
         }
     }
 
@@ -478,16 +481,23 @@ impl MainMapping {
     /// `None` means that no polling is necessary for feedback because we are notified via events.
     pub fn feedback_resolution(&self) -> Option<FeedbackResolution> {
         let t = self.unresolved_target.as_ref()?;
+        let max_resolution_required_by_props = self
+            .core
+            .mode
+            .feedback_props_in_use()
+            .iter()
+            .filter_map(|p| prop_feedback_resolution(p, self, t))
+            .max();
         if self.mode().wants_textual_feedback() {
-            // We simply adjust to the property that needs the highest resolution.
-            self.core
-                .mode
-                .feedback_props_in_use()
-                .iter()
-                .filter_map(|p| prop_feedback_resolution(p, self, t))
-                .max()
+            // For textual feedback, we just need to look at the props.
+            max_resolution_required_by_props
         } else {
+            // Numeric feedback always implicitly relates to the main target value, therefore
+            // we also need to ask the target directly.
             t.feedback_resolution()
+                .into_iter()
+                .chain(max_resolution_required_by_props)
+                .max()
         }
     }
 

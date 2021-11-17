@@ -244,16 +244,19 @@ trait TargetProp {
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue>;
 }
 
+#[allow(dead_code)]
 struct MappingAndTarget<'a> {
     pub mapping: &'a MainMapping,
     pub target: &'a CompoundMappingTarget,
 }
 
+#[allow(dead_code)]
 struct MappingAndUnresolvedTarget<'a> {
     pub mapping: &'a MainMapping,
     pub target: &'a UnresolvedCompoundMappingTarget,
 }
 
+#[allow(dead_code)]
 struct PropFeedbackResolutionArgs<T> {
     object: T,
 }
