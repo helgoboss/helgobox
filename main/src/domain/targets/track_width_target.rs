@@ -3,12 +3,37 @@ use crate::domain::ui_util::{
     parse_from_double_percentage, parse_from_symmetric_percentage,
 };
 use crate::domain::{
-    width_unit_value, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, PanExt, RealearnTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, DEFAULT_TARGET,
+    get_effective_tracks, width_unit_value, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
+    PanExt, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    TrackDescriptor, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{AvailablePanValue, ChangeEvent, Project, Track, Width};
+
+#[derive(Debug)]
+pub struct UnresolvedTrackWidthTarget {
+    pub track_descriptor: TrackDescriptor,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedTrackWidthTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(
+            get_effective_tracks(context, &self.track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::TrackWidth(TrackWidthTarget { track }))
+                .collect(),
+        )
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        Some(&self.track_descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackWidthTarget {

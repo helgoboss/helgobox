@@ -20,9 +20,26 @@ use crate::domain::{
     MappingCompartment, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget,
     ReaperTargetType, SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior, Tag,
     TagScope, TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
-    TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedCompoundMappingTarget,
-    UnresolvedReaperTarget, VirtualChainFx, VirtualControlElement, VirtualControlElementId,
-    VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack, VirtualTrackRoute,
+    TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedActionTarget,
+    UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
+    UnresolvedAutomationModeOverrideTarget, UnresolvedAutomationTouchStateTarget,
+    UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
+    UnresolvedCompoundMappingTarget, UnresolvedEnableInstancesTarget,
+    UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget,
+    UnresolvedFxOpenTarget, UnresolvedFxParameterTarget, UnresolvedFxPresetTarget,
+    UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
+    UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
+    UnresolvedReaperTarget, UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget,
+    UnresolvedRouteMuteTarget, UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget,
+    UnresolvedRouteVolumeTarget, UnresolvedSeekTarget, UnresolvedSelectedTrackTarget,
+    UnresolvedTempoTarget, UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget,
+    UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackPeakTarget,
+    UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget,
+    UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget, UnresolvedTrackVolumeTarget,
+    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualControlElement,
+    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
+    VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
@@ -964,7 +981,7 @@ impl TargetModel {
             Reaper => {
                 use ReaperTargetType::*;
                 let target = match self.r#type.get() {
-                    Action => UnresolvedReaperTarget::Action {
+                    Action => UnresolvedReaperTarget::Action(UnresolvedActionTarget {
                         action: self.action()?,
                         invocation_type: self.action_invocation_type.get(),
                         track_descriptor: if self.with_track.get() {
@@ -972,49 +989,57 @@ impl TargetModel {
                         } else {
                             None
                         },
-                    },
-                    FxParameter => UnresolvedReaperTarget::FxParameter {
-                        fx_parameter_descriptor: self.fx_parameter_descriptor()?,
+                    }),
+                    FxParameter => {
+                        UnresolvedReaperTarget::FxParameter(UnresolvedFxParameterTarget {
+                            fx_parameter_descriptor: self.fx_parameter_descriptor()?,
+                            poll_for_feedback: self.poll_for_feedback.get(),
+                        })
+                    }
+                    TrackVolume => {
+                        UnresolvedReaperTarget::TrackVolume(UnresolvedTrackVolumeTarget {
+                            track_descriptor: self.track_descriptor()?,
+                        })
+                    }
+                    TrackTool => UnresolvedReaperTarget::TrackTool(UnresolvedTrackToolTarget {
+                        track_descriptor: self.track_descriptor()?,
+                    }),
+                    TrackPeak => UnresolvedReaperTarget::TrackPeak(UnresolvedTrackPeakTarget {
+                        track_descriptor: self.track_descriptor()?,
+                    }),
+                    TrackSendVolume => {
+                        UnresolvedReaperTarget::TrackSendVolume(UnresolvedRouteVolumeTarget {
+                            descriptor: self.track_route_descriptor()?,
+                        })
+                    }
+                    TrackPan => UnresolvedReaperTarget::TrackPan(UnresolvedTrackPanTarget {
+                        track_descriptor: self.track_descriptor()?,
+                    }),
+                    TrackWidth => UnresolvedReaperTarget::TrackWidth(UnresolvedTrackWidthTarget {
+                        track_descriptor: self.track_descriptor()?,
+                    }),
+                    TrackArm => UnresolvedReaperTarget::TrackArm(UnresolvedTrackArmTarget {
+                        track_descriptor: self.track_descriptor()?,
+                        exclusivity: self.track_exclusivity.get(),
+                    }),
+                    TrackSelection => {
+                        UnresolvedReaperTarget::TrackSelection(UnresolvedTrackSelectionTarget {
+                            track_descriptor: self.track_descriptor()?,
+                            exclusivity: self.track_exclusivity.get(),
+                            scroll_arrange_view: self.scroll_arrange_view.get(),
+                            scroll_mixer: self.scroll_mixer.get(),
+                        })
+                    }
+                    TrackMute => UnresolvedReaperTarget::TrackMute(UnresolvedTrackMuteTarget {
+                        track_descriptor: self.track_descriptor()?,
+                        exclusivity: self.track_exclusivity.get(),
+                    }),
+                    TrackPhase => UnresolvedReaperTarget::TrackPhase(UnresolvedTrackPhaseTarget {
+                        track_descriptor: self.track_descriptor()?,
+                        exclusivity: self.track_exclusivity.get(),
                         poll_for_feedback: self.poll_for_feedback.get(),
-                    },
-                    TrackVolume => UnresolvedReaperTarget::TrackVolume {
-                        track_descriptor: self.track_descriptor()?,
-                    },
-                    TrackTool => UnresolvedReaperTarget::TrackTool {
-                        track_descriptor: self.track_descriptor()?,
-                    },
-                    TrackPeak => UnresolvedReaperTarget::TrackPeak {
-                        track_descriptor: self.track_descriptor()?,
-                    },
-                    TrackSendVolume => UnresolvedReaperTarget::TrackSendVolume {
-                        descriptor: self.track_route_descriptor()?,
-                    },
-                    TrackPan => UnresolvedReaperTarget::TrackPan {
-                        track_descriptor: self.track_descriptor()?,
-                    },
-                    TrackWidth => UnresolvedReaperTarget::TrackWidth {
-                        track_descriptor: self.track_descriptor()?,
-                    },
-                    TrackArm => UnresolvedReaperTarget::TrackArm {
-                        track_descriptor: self.track_descriptor()?,
-                        exclusivity: self.track_exclusivity.get(),
-                    },
-                    TrackSelection => UnresolvedReaperTarget::TrackSelection {
-                        track_descriptor: self.track_descriptor()?,
-                        exclusivity: self.track_exclusivity.get(),
-                        scroll_arrange_view: self.scroll_arrange_view.get(),
-                        scroll_mixer: self.scroll_mixer.get(),
-                    },
-                    TrackMute => UnresolvedReaperTarget::TrackMute {
-                        track_descriptor: self.track_descriptor()?,
-                        exclusivity: self.track_exclusivity.get(),
-                    },
-                    TrackPhase => UnresolvedReaperTarget::TrackPhase {
-                        track_descriptor: self.track_descriptor()?,
-                        exclusivity: self.track_exclusivity.get(),
-                        poll_for_feedback: self.poll_for_feedback.get(),
-                    },
-                    TrackShow => UnresolvedReaperTarget::TrackShow {
+                    }),
+                    TrackShow => UnresolvedReaperTarget::TrackShow(UnresolvedTrackShowTarget {
                         track_descriptor: self.track_descriptor()?,
                         exclusivity: self.track_exclusivity.get(),
                         area: match self.track_area.get() {
@@ -1022,155 +1047,189 @@ impl TargetModel {
                             RealearnTrackArea::Mcp => TrackArea::Mcp,
                         },
                         poll_for_feedback: self.poll_for_feedback.get(),
-                    },
-                    TrackAutomationMode => UnresolvedReaperTarget::TrackAutomationMode {
-                        track_descriptor: self.track_descriptor()?,
-                        exclusivity: self.track_exclusivity.get(),
-                        mode: self.automation_mode.get().to_reaper(),
-                    },
-                    TrackSolo => UnresolvedReaperTarget::TrackSolo {
+                    }),
+                    TrackAutomationMode => UnresolvedReaperTarget::TrackAutomationMode(
+                        UnresolvedTrackAutomationModeTarget {
+                            track_descriptor: self.track_descriptor()?,
+                            exclusivity: self.track_exclusivity.get(),
+                            mode: self.automation_mode.get().to_reaper(),
+                        },
+                    ),
+                    TrackSolo => UnresolvedReaperTarget::TrackSolo(UnresolvedTrackSoloTarget {
                         track_descriptor: self.track_descriptor()?,
                         behavior: self.solo_behavior.get(),
                         exclusivity: self.track_exclusivity.get(),
-                    },
-                    TrackSendPan => UnresolvedReaperTarget::TrackSendPan {
-                        descriptor: self.track_route_descriptor()?,
-                    },
-                    TrackSendMute => UnresolvedReaperTarget::TrackSendMute {
-                        descriptor: self.track_route_descriptor()?,
-                        poll_for_feedback: self.poll_for_feedback.get(),
-                    },
-                    TrackSendPhase => UnresolvedReaperTarget::TrackRoutePhase {
-                        descriptor: self.track_route_descriptor()?,
-                        poll_for_feedback: self.poll_for_feedback.get(),
-                    },
-                    TrackSendMono => UnresolvedReaperTarget::TrackRouteMono {
-                        descriptor: self.track_route_descriptor()?,
-                        poll_for_feedback: self.poll_for_feedback.get(),
-                    },
-                    TrackSendAutomationMode => UnresolvedReaperTarget::TrackRouteAutomationMode {
-                        descriptor: self.track_route_descriptor()?,
-                        mode: self.automation_mode.get().to_reaper(),
-                        poll_for_feedback: self.poll_for_feedback.get(),
-                    },
-                    Tempo => UnresolvedReaperTarget::Tempo,
-                    Playrate => UnresolvedReaperTarget::Playrate,
-                    AutomationModeOverride => UnresolvedReaperTarget::AutomationModeOverride {
-                        mode_override: match self.automation_mode_override_type.get() {
-                            AutomationModeOverrideType::Bypass => {
-                                Some(GlobalAutomationModeOverride::Bypass)
-                            }
-                            AutomationModeOverrideType::Override => {
-                                Some(GlobalAutomationModeOverride::Mode(
-                                    self.automation_mode.get().to_reaper(),
-                                ))
-                            }
-                            AutomationModeOverrideType::None => None,
+                    }),
+                    TrackSendPan => {
+                        UnresolvedReaperTarget::TrackSendPan(UnresolvedRoutePanTarget {
+                            descriptor: self.track_route_descriptor()?,
+                        })
+                    }
+                    TrackSendMute => {
+                        UnresolvedReaperTarget::TrackSendMute(UnresolvedRouteMuteTarget {
+                            descriptor: self.track_route_descriptor()?,
+                            poll_for_feedback: self.poll_for_feedback.get(),
+                        })
+                    }
+                    TrackSendPhase => {
+                        UnresolvedReaperTarget::TrackRoutePhase(UnresolvedRoutePhaseTarget {
+                            descriptor: self.track_route_descriptor()?,
+                            poll_for_feedback: self.poll_for_feedback.get(),
+                        })
+                    }
+                    TrackSendMono => {
+                        UnresolvedReaperTarget::TrackRouteMono(UnresolvedRouteMonoTarget {
+                            descriptor: self.track_route_descriptor()?,
+                            poll_for_feedback: self.poll_for_feedback.get(),
+                        })
+                    }
+                    TrackSendAutomationMode => UnresolvedReaperTarget::TrackRouteAutomationMode(
+                        UnresolvedRouteAutomationModeTarget {
+                            descriptor: self.track_route_descriptor()?,
+                            mode: self.automation_mode.get().to_reaper(),
+                            poll_for_feedback: self.poll_for_feedback.get(),
                         },
-                    },
-                    FxEnable => UnresolvedReaperTarget::FxEnable {
+                    ),
+                    Tempo => UnresolvedReaperTarget::Tempo(UnresolvedTempoTarget),
+                    Playrate => UnresolvedReaperTarget::Playrate(UnresolvedPlayrateTarget),
+                    AutomationModeOverride => UnresolvedReaperTarget::AutomationModeOverride(
+                        UnresolvedAutomationModeOverrideTarget {
+                            mode_override: match self.automation_mode_override_type.get() {
+                                AutomationModeOverrideType::Bypass => {
+                                    Some(GlobalAutomationModeOverride::Bypass)
+                                }
+                                AutomationModeOverrideType::Override => {
+                                    Some(GlobalAutomationModeOverride::Mode(
+                                        self.automation_mode.get().to_reaper(),
+                                    ))
+                                }
+                                AutomationModeOverrideType::None => None,
+                            },
+                        },
+                    ),
+                    FxEnable => UnresolvedReaperTarget::FxEnable(UnresolvedFxEnableTarget {
                         fx_descriptor: self.fx_descriptor()?,
-                    },
-                    FxOpen => UnresolvedReaperTarget::FxOpen {
+                    }),
+                    FxOpen => UnresolvedReaperTarget::FxOpen(UnresolvedFxOpenTarget {
                         fx_descriptor: self.fx_descriptor()?,
                         display_type: self.fx_display_type.get(),
-                    },
-                    FxPreset => UnresolvedReaperTarget::FxPreset {
+                    }),
+                    FxPreset => UnresolvedReaperTarget::FxPreset(UnresolvedFxPresetTarget {
                         fx_descriptor: self.fx_descriptor()?,
-                    },
-                    SelectedTrack => UnresolvedReaperTarget::SelectedTrack {
-                        scroll_arrange_view: self.scroll_arrange_view.get(),
-                        scroll_mixer: self.scroll_mixer.get(),
-                    },
-                    FxNavigate => UnresolvedReaperTarget::FxNavigate {
+                    }),
+                    SelectedTrack => {
+                        UnresolvedReaperTarget::SelectedTrack(UnresolvedSelectedTrackTarget {
+                            scroll_arrange_view: self.scroll_arrange_view.get(),
+                            scroll_mixer: self.scroll_mixer.get(),
+                        })
+                    }
+                    FxNavigate => UnresolvedReaperTarget::FxNavigate(UnresolvedFxNavigateTarget {
                         track_descriptor: self.track_descriptor()?,
                         is_input_fx: self.fx_is_input_fx.get(),
                         display_type: self.fx_display_type.get(),
-                    },
-                    AllTrackFxEnable => UnresolvedReaperTarget::AllTrackFxEnable {
-                        track_descriptor: self.track_descriptor()?,
-                        exclusivity: self.track_exclusivity.get(),
-                        poll_for_feedback: self.poll_for_feedback.get(),
-                    },
-                    Transport => UnresolvedReaperTarget::Transport {
+                    }),
+                    AllTrackFxEnable => {
+                        UnresolvedReaperTarget::AllTrackFxEnable(UnresolvedAllTrackFxEnableTarget {
+                            track_descriptor: self.track_descriptor()?,
+                            exclusivity: self.track_exclusivity.get(),
+                            poll_for_feedback: self.poll_for_feedback.get(),
+                        })
+                    }
+                    Transport => UnresolvedReaperTarget::Transport(UnresolvedTransportTarget {
                         action: self.transport_action.get(),
-                    },
-                    LoadFxSnapshot => UnresolvedReaperTarget::LoadFxPreset {
-                        fx_descriptor: self.fx_descriptor()?,
-                        chunk: self
-                            .fx_snapshot
-                            .get_ref()
-                            .as_ref()
-                            .ok_or("FX chunk not set")?
-                            .chunk
-                            .clone(),
-                    },
-                    LastTouched => UnresolvedReaperTarget::LastTouched,
-                    AutomationTouchState => UnresolvedReaperTarget::AutomationTouchState {
-                        track_descriptor: self.track_descriptor()?,
-                        parameter_type: self.touched_parameter_type.get(),
-                        exclusivity: self.track_exclusivity.get(),
-                    },
-                    GoToBookmark => UnresolvedReaperTarget::GoToBookmark {
-                        bookmark_type: self.bookmark_type.get(),
-                        bookmark_anchor_type: self.bookmark_anchor_type.get(),
-                        bookmark_ref: self.bookmark_ref.get(),
-                        set_time_selection: self.use_time_selection.get(),
-                        set_loop_points: self.use_loop_points.get(),
-                    },
-                    Seek => UnresolvedReaperTarget::Seek {
+                    }),
+                    LoadFxSnapshot => {
+                        UnresolvedReaperTarget::LoadFxPreset(UnresolvedLoadFxSnapshotTarget {
+                            fx_descriptor: self.fx_descriptor()?,
+                            chunk: self
+                                .fx_snapshot
+                                .get_ref()
+                                .as_ref()
+                                .ok_or("FX chunk not set")?
+                                .chunk
+                                .clone(),
+                        })
+                    }
+                    LastTouched => UnresolvedReaperTarget::LastTouched(UnresolvedLastTouchedTarget),
+                    AutomationTouchState => UnresolvedReaperTarget::AutomationTouchState(
+                        UnresolvedAutomationTouchStateTarget {
+                            track_descriptor: self.track_descriptor()?,
+                            parameter_type: self.touched_parameter_type.get(),
+                            exclusivity: self.track_exclusivity.get(),
+                        },
+                    ),
+                    GoToBookmark => {
+                        UnresolvedReaperTarget::GoToBookmark(UnresolvedGoToBookmarkTarget {
+                            bookmark_type: self.bookmark_type.get(),
+                            bookmark_anchor_type: self.bookmark_anchor_type.get(),
+                            bookmark_ref: self.bookmark_ref.get(),
+                            set_time_selection: self.use_time_selection.get(),
+                            set_loop_points: self.use_loop_points.get(),
+                        })
+                    }
+                    Seek => UnresolvedReaperTarget::Seek(UnresolvedSeekTarget {
                         options: self.seek_options(),
-                    },
-                    SendMidi => UnresolvedReaperTarget::SendMidi {
+                    }),
+                    SendMidi => UnresolvedReaperTarget::SendMidi(UnresolvedMidiSendTarget {
                         pattern: self.raw_midi_pattern.get_ref().parse().unwrap_or_default(),
                         destination: self.send_midi_destination.get(),
-                    },
-                    SendOsc => UnresolvedReaperTarget::SendOsc {
+                    }),
+                    SendOsc => UnresolvedReaperTarget::SendOsc(UnresolvedOscSendTarget {
                         address_pattern: self.osc_address_pattern.get_ref().clone(),
                         arg_descriptor: self.osc_arg_descriptor(),
                         device_id: self.osc_dev_id.get(),
-                    },
-                    ClipTransport => UnresolvedReaperTarget::ClipTransport {
-                        // TODO-medium Make it possible to pass direct HW output channel instead
-                        track_descriptor: Some(self.track_descriptor()?),
-                        slot_index: self.slot_index.get(),
-                        action: self.transport_action.get(),
-                        play_options: self.slot_play_options(),
-                    },
-                    ClipSeek => UnresolvedReaperTarget::ClipSeek {
+                    }),
+                    ClipTransport => {
+                        UnresolvedReaperTarget::ClipTransport(UnresolvedClipTransportTarget {
+                            // TODO-medium Make it possible to pass direct HW output channel instead
+                            track_descriptor: Some(self.track_descriptor()?),
+                            slot_index: self.slot_index.get(),
+                            action: self.transport_action.get(),
+                            play_options: self.slot_play_options(),
+                        })
+                    }
+                    ClipSeek => UnresolvedReaperTarget::ClipSeek(UnresolvedClipSeekTarget {
                         slot_index: self.slot_index.get(),
                         feedback_resolution: self.feedback_resolution.get(),
-                    },
-                    ClipVolume => UnresolvedReaperTarget::ClipVolume {
+                    }),
+                    ClipVolume => UnresolvedReaperTarget::ClipVolume(UnresolvedClipVolumeTarget {
                         slot_index: self.slot_index.get(),
-                    },
-                    LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot {
-                        scope: TagScope {
-                            tags: self.tags.get_ref().iter().cloned().collect(),
+                    }),
+                    LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot(
+                        UnresolvedLoadMappingSnapshotTarget {
+                            scope: TagScope {
+                                tags: self.tags.get_ref().iter().cloned().collect(),
+                            },
+                            active_mappings_only: self.active_mappings_only.get(),
                         },
-                        active_mappings_only: self.active_mappings_only.get(),
-                    },
-                    EnableMappings => UnresolvedReaperTarget::EnableMappings {
-                        compartment,
-                        scope: TagScope {
-                            tags: self.tags.get_ref().iter().cloned().collect(),
+                    ),
+                    EnableMappings => {
+                        UnresolvedReaperTarget::EnableMappings(UnresolvedEnableMappingsTarget {
+                            compartment,
+                            scope: TagScope {
+                                tags: self.tags.get_ref().iter().cloned().collect(),
+                            },
+                            exclusivity: self.exclusivity.get(),
+                        })
+                    }
+                    EnableInstances => {
+                        UnresolvedReaperTarget::EnableInstances(UnresolvedEnableInstancesTarget {
+                            scope: TagScope {
+                                tags: self.tags.get_ref().iter().cloned().collect(),
+                            },
+                            exclusivity: self.exclusivity.get(),
+                        })
+                    }
+                    NavigateWithinGroup => UnresolvedReaperTarget::NavigateWithinGroup(
+                        UnresolvedNavigateWithinGroupTarget {
+                            compartment,
+                            group_id: self.group_id.get(),
+                            exclusivity: self.exclusivity.get().into(),
                         },
-                        exclusivity: self.exclusivity.get(),
-                    },
-                    EnableInstances => UnresolvedReaperTarget::EnableInstances {
-                        scope: TagScope {
-                            tags: self.tags.get_ref().iter().cloned().collect(),
-                        },
-                        exclusivity: self.exclusivity.get(),
-                    },
-                    NavigateWithinGroup => UnresolvedReaperTarget::NavigateWithinGroup {
-                        compartment,
-                        group_id: self.group_id.get(),
-                        exclusivity: self.exclusivity.get().into(),
-                    },
-                    AnyOn => UnresolvedReaperTarget::AnyOn {
+                    ),
+                    AnyOn => UnresolvedReaperTarget::AnyOn(UnresolvedAnyOnTarget {
                         parameter: self.any_on_parameter.get(),
-                    },
+                    }),
                 };
                 Ok(UnresolvedCompoundMappingTarget::Reaper(target))
             }

@@ -469,7 +469,7 @@ impl MainMapping {
         matches!(
             self.unresolved_target,
             Some(UnresolvedCompoundMappingTarget::Reaper(
-                UnresolvedReaperTarget::LastTouched
+                UnresolvedReaperTarget::LastTouched(_)
             ))
         )
     }

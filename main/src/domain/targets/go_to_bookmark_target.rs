@@ -1,7 +1,10 @@
+use crate::application::BookmarkAnchorType;
 use crate::domain::{
-    current_value_of_bookmark, format_value_as_on_off, AdditionalFeedbackEvent,
-    CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    current_value_of_bookmark, find_bookmark, format_value_as_on_off, AdditionalFeedbackEvent,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FeedbackResolution,
+    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, PropValue, RgbColor, Target, UnitValue,
@@ -9,6 +12,43 @@ use helgoboss_learn::{
 use reaper_high::{BookmarkType, ChangeEvent, Project, Reaper};
 use reaper_medium::{AutoSeekBehavior, BookmarkRef};
 use std::num::NonZeroU32;
+
+#[derive(Debug)]
+pub struct UnresolvedGoToBookmarkTarget {
+    pub bookmark_type: BookmarkType,
+    pub bookmark_anchor_type: BookmarkAnchorType,
+    pub bookmark_ref: u32,
+    pub set_time_selection: bool,
+    pub set_loop_points: bool,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedGoToBookmarkTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        let project = context.context().project_or_current_project();
+        let res = find_bookmark(
+            project,
+            self.bookmark_type,
+            self.bookmark_anchor_type,
+            self.bookmark_ref,
+        )?;
+        Ok(vec![ReaperTarget::GoToBookmark(GoToBookmarkTarget {
+            project,
+            bookmark_type: self.bookmark_type,
+            index: res.index,
+            position: NonZeroU32::new(res.index_within_type + 1).unwrap(),
+            set_time_selection: self.set_time_selection,
+            set_loop_points: self.set_loop_points,
+        })])
+    }
+
+    fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        Some(FeedbackResolution::Beat)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GoToBookmarkTarget {

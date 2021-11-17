@@ -1,10 +1,43 @@
 use crate::domain::{
-    format_value_as_on_off, mute_unit_value, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    format_value_as_on_off, get_track_route, mute_unit_value, ControlContext,
+    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, MappingCompartment,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
     AUTOMATIC_FEEDBACK_VIA_POLLING_ONLY, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{Project, Track, TrackRoute};
+
+#[derive(Debug)]
+pub struct UnresolvedRoutePhaseTarget {
+    pub descriptor: TrackRouteDescriptor,
+    pub poll_for_feedback: bool,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedRoutePhaseTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::TrackRoutePhase(RoutePhaseTarget {
+            route: get_track_route(context, &self.descriptor, compartment)?,
+            poll_for_feedback: self.poll_for_feedback,
+        })])
+    }
+
+    fn route_descriptor(&self) -> Option<&TrackRouteDescriptor> {
+        Some(&self.descriptor)
+    }
+
+    fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        if self.poll_for_feedback {
+            Some(FeedbackResolution::High)
+        } else {
+            None
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoutePhaseTarget {

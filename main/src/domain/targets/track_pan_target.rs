@@ -1,13 +1,39 @@
 use crate::domain::{
-    format_value_as_pan, pan_unit_value, parse_value_from_pan, CompoundChangeEvent, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, PanExt, RealearnTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    format_value_as_pan, get_effective_tracks, pan_unit_value, parse_value_from_pan,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
+    MappingCompartment, MappingControlContext, PanExt, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
     BASE_EPSILON,
 };
 use reaper_high::{AvailablePanValue, ChangeEvent, Pan, Project, Track};
+
+#[derive(Debug)]
+pub struct UnresolvedTrackPanTarget {
+    pub track_descriptor: TrackDescriptor,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedTrackPanTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(
+            get_effective_tracks(context, &self.track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::TrackPan(TrackPanTarget { track }))
+                .collect(),
+        )
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        Some(&self.track_descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackPanTarget {

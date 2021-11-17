@@ -1,14 +1,44 @@
 use crate::domain::{
-    convert_count_to_step_size, convert_unit_value_to_fx_index, shown_fx_unit_value,
-    CompoundChangeEvent, ControlContext, FxDisplayType, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    DEFAULT_TARGET,
+    convert_count_to_step_size, convert_unit_value_to_fx_index, get_fx_chain, shown_fx_unit_value,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, FxDisplayType,
+    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
 use reaper_high::{ChangeEvent, Fx, FxChain, Project, Track};
 use reaper_medium::FxChainVisibility;
+
+#[derive(Debug)]
+pub struct UnresolvedFxNavigateTarget {
+    pub track_descriptor: TrackDescriptor,
+    pub is_input_fx: bool,
+    pub display_type: FxDisplayType,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedFxNavigateTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::FxNavigate(FxNavigateTarget {
+            fx_chain: get_fx_chain(
+                context,
+                &self.track_descriptor.track,
+                self.is_input_fx,
+                compartment,
+            )?,
+            display_type: self.display_type,
+        })])
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        Some(&self.track_descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FxNavigateTarget {

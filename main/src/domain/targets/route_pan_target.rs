@@ -1,11 +1,34 @@
 use crate::domain::{
-    format_value_as_pan, pan_unit_value, parse_value_from_pan, CompoundChangeEvent, ControlContext,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    format_value_as_pan, get_track_route, pan_unit_value, parse_value_from_pan,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
+    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, TrackRouteDescriptor, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Pan, Project, Track, TrackRoute};
 use reaper_medium::ReaperFunctionError;
+
+#[derive(Debug)]
+pub struct UnresolvedRoutePanTarget {
+    pub descriptor: TrackRouteDescriptor,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedRoutePanTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::TrackRoutePan(RoutePanTarget {
+            route: get_track_route(context, &self.descriptor, compartment)?,
+        })])
+    }
+
+    fn route_descriptor(&self) -> Option<&TrackRouteDescriptor> {
+        Some(&self.descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoutePanTarget {

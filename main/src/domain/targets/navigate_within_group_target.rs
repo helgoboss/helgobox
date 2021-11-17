@@ -1,13 +1,37 @@
 use crate::domain::{
     convert_count_to_step_size, convert_discrete_to_unit_value, convert_unit_to_discrete_value,
-    CompoundChangeEvent, ControlContext, GroupId, HitInstruction, HitInstructionContext,
-    HitInstructionReturnValue, InstanceStateChanged, MappingCompartment, MappingControlContext,
-    MappingControlResult, MappingId, QualifiedMappingId, RealearnTarget, ReaperTargetType,
-    SimpleExclusivity, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, GroupId, HitInstruction,
+    HitInstructionContext, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,
+    MappingControlContext, MappingControlResult, MappingId, QualifiedMappingId, RealearnTarget,
+    ReaperTarget, ReaperTargetType, SimpleExclusivity, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, Fraction, NumericValue, Target, UnitValue,
 };
+
+#[derive(Debug)]
+pub struct UnresolvedNavigateWithinGroupTarget {
+    pub compartment: MappingCompartment,
+    pub group_id: GroupId,
+    pub exclusivity: SimpleExclusivity,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedNavigateWithinGroupTarget {
+    fn resolve(
+        &self,
+        _: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::NavigateWithinGroup(
+            NavigateWithinGroupTarget {
+                compartment: self.compartment,
+                group_id: self.group_id,
+                exclusivity: self.exclusivity,
+            },
+        )])
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NavigateWithinGroupTarget {

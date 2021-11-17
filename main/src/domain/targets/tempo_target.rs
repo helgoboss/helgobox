@@ -1,12 +1,28 @@
 use crate::domain::{
     bpm_span, format_step_size_as_bpm_without_unit, format_value_as_bpm_without_unit,
     parse_step_size_from_bpm, parse_value_from_bpm, tempo_unit_value, CompoundChangeEvent,
-    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    ControlContext, ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Tempo};
 use reaper_medium::UndoBehavior;
+
+#[derive(Debug)]
+pub struct UnresolvedTempoTarget;
+
+impl UnresolvedReaperTargetDef for UnresolvedTempoTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::Tempo(TempoTarget {
+            project: context.context().project_or_current_project(),
+        })])
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TempoTarget {

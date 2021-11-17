@@ -1,11 +1,55 @@
 use crate::domain::{
-    clip_play_state_unit_value, format_value_as_on_off, transport_is_enabled_unit_value,
-    ClipChangedEvent, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
-    InstanceStateChanged, MappingControlContext, RealearnTarget, ReaperTargetType, SlotPlayOptions,
-    TargetCharacter, TargetTypeDef, TransportAction, DEFAULT_TARGET,
+    clip_play_state_unit_value, format_value_as_on_off, get_effective_tracks,
+    transport_is_enabled_unit_value, ClipChangedEvent, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, SlotPlayOptions,
+    TargetCharacter, TargetTypeDef, TrackDescriptor, TransportAction, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
+
+#[derive(Debug)]
+pub struct UnresolvedClipTransportTarget {
+    pub track_descriptor: Option<TrackDescriptor>,
+    pub slot_index: usize,
+    pub action: TransportAction,
+    pub play_options: SlotPlayOptions,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        let targets = if let Some(desc) = self.track_descriptor.as_ref() {
+            get_effective_tracks(context, &desc.track, compartment)?
+                .into_iter()
+                .map(|track| {
+                    ReaperTarget::ClipTransport(ClipTransportTarget {
+                        track: Some(track),
+                        slot_index: self.slot_index,
+                        action: self.action,
+                        play_options: self.play_options,
+                    })
+                })
+                .collect()
+        } else {
+            vec![ReaperTarget::ClipTransport(ClipTransportTarget {
+                track: None,
+                slot_index: self.slot_index,
+                action: self.action,
+                play_options: self.play_options,
+            })]
+        };
+        Ok(targets)
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        self.track_descriptor.as_ref()
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipTransportTarget {

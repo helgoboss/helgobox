@@ -3,12 +3,30 @@ use crate::domain::ui_util::{
     reaper_volume_unit_value, volume_unit_value,
 };
 use crate::domain::{
-    ClipChangedEvent, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
-    InstanceStateChanged, MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, DEFAULT_TARGET,
+    ClipChangedEvent, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, InstanceStateChanged, MappingCompartment, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::Volume;
+
+#[derive(Debug)]
+pub struct UnresolvedClipVolumeTarget {
+    pub slot_index: usize,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedClipVolumeTarget {
+    fn resolve(
+        &self,
+        _: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::ClipVolume(ClipVolumeTarget {
+            slot_index: self.slot_index,
+        })])
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipVolumeTarget {

@@ -1,6 +1,7 @@
 use crate::domain::{
-    format_value_as_on_off, CompoundChangeEvent, ControlContext, HitInstructionReturnValue,
-    MappingControlContext, RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    format_value_as_on_off, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
     DEFAULT_TARGET,
 };
 use derive_more::Display;
@@ -9,6 +10,24 @@ use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValu
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{ChangeEvent, Project};
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug)]
+pub struct UnresolvedAnyOnTarget {
+    pub parameter: AnyOnParameter,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedAnyOnTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::AnyOn(AnyOnTarget {
+            project: context.context().project_or_current_project(),
+            parameter: self.parameter,
+        })])
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AnyOnTarget {

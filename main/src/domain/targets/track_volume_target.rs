@@ -2,11 +2,37 @@ use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db, volume_unit_value,
 };
 use crate::domain::{
-    CompoundChangeEvent, ControlContext, HitInstructionReturnValue, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    get_effective_tracks, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
+    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, TrackDescriptor,
+    UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track, Volume};
+
+#[derive(Debug)]
+pub struct UnresolvedTrackVolumeTarget {
+    pub track_descriptor: TrackDescriptor,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedTrackVolumeTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(
+            get_effective_tracks(context, &self.track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| ReaperTarget::TrackVolume(TrackVolumeTarget { track }))
+                .collect(),
+        )
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        Some(&self.track_descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackVolumeTarget {

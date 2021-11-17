@@ -1,11 +1,45 @@
 use crate::domain::{
-    automation_mode_unit_value, change_track_prop, format_value_as_on_off, CompoundChangeEvent,
-    ControlContext, HitInstructionReturnValue, MappingControlContext, RealearnTarget,
-    ReaperTargetType, TargetCharacter, TargetTypeDef, TrackExclusivity, DEFAULT_TARGET,
+    automation_mode_unit_value, change_track_prop, format_value_as_on_off, get_effective_tracks,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
+    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, TrackDescriptor, TrackExclusivity, UnresolvedReaperTargetDef,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
 use reaper_medium::AutomationMode;
+
+#[derive(Debug)]
+pub struct UnresolvedTrackAutomationModeTarget {
+    pub track_descriptor: TrackDescriptor,
+    pub exclusivity: TrackExclusivity,
+    pub mode: AutomationMode,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedTrackAutomationModeTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(
+            get_effective_tracks(context, &self.track_descriptor.track, compartment)?
+                .into_iter()
+                .map(|track| {
+                    ReaperTarget::TrackAutomationMode(TrackAutomationModeTarget {
+                        track,
+                        exclusivity: self.exclusivity,
+                        mode: self.mode,
+                    })
+                })
+                .collect(),
+        )
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        Some(&self.track_descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TrackAutomationModeTarget {

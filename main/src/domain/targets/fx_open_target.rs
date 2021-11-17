@@ -1,12 +1,41 @@
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
-    format_value_as_on_off, CompoundChangeEvent, ControlContext, FxDisplayType,
-    HitInstructionReturnValue, MappingControlContext, RealearnTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    format_value_as_on_off, get_fxs, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    FxDescriptor, FxDisplayType, HitInstructionReturnValue, MappingCompartment,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Fx, Project, Track};
 use reaper_medium::FxChainVisibility;
+
+#[derive(Debug)]
+pub struct UnresolvedFxOpenTarget {
+    pub fx_descriptor: FxDescriptor,
+    pub display_type: FxDisplayType,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedFxOpenTarget {
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(get_fxs(context, &self.fx_descriptor, compartment)?
+            .into_iter()
+            .map(|fx| {
+                ReaperTarget::FxOpen(FxOpenTarget {
+                    fx,
+                    display_type: self.display_type,
+                })
+            })
+            .collect())
+    }
+
+    fn fx_descriptor(&self) -> Option<&FxDescriptor> {
+        Some(&self.fx_descriptor)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FxOpenTarget {

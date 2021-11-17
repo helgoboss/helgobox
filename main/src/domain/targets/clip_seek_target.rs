@@ -1,10 +1,34 @@
 use crate::domain::{
     AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, CompoundChangeEvent, ControlContext,
-    FeedbackResolution, HitInstructionReturnValue, InstanceStateChanged, MappingControlContext,
-    RealearnTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, DEFAULT_TARGET,
+    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, InstanceStateChanged,
+    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_medium::PositionInSeconds;
+
+#[derive(Debug)]
+pub struct UnresolvedClipSeekTarget {
+    pub slot_index: usize,
+    pub feedback_resolution: FeedbackResolution,
+}
+
+impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
+    fn resolve(
+        &self,
+        _: ExtendedProcessorContext,
+        _: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str> {
+        Ok(vec![ReaperTarget::ClipSeek(ClipSeekTarget {
+            slot_index: self.slot_index,
+            feedback_resolution: self.feedback_resolution,
+        })])
+    }
+
+    fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        Some(FeedbackResolution::Beat)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipSeekTarget {
