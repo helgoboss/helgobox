@@ -17,7 +17,7 @@ Here's a step-by-step guide to help you get started with ReaLearn and a MIDI con
 . If you haven't already done it, https://github.com/helgoboss/realearn#installation[install ReaLearn via ReaPack].
 . Make sure your MIDI controller is enabled in Options → Preferences… → Audio → MIDI Devices
   * For the MIDI input device (control), tick _Enable input from this device_ and untick
- "Enable input for control messages".
+ _Enable input for control messages_.
   * For the MIDI output device (feedback), tick both _Enable output to this device_ and _Do not send reset messages_.
 +
 [NOTE]
@@ -38,9 +38,9 @@ The option _Do not send reset messages_ isn't available in some older REAPER ver
   * Select your controller's MIDI device as _Control input_ and _Feedback output_ (if you have a controller
  that supports MIDI feedback).
   * If you have downloaded a controller preset:
-    - Switch to "Controller compartment" and select the desired preset right next to it.
+    - Switch to _Controller compartment_ and select the desired controller preset below.
     - This should fill the list below with so-called _controller mappings_.
-    - When you are done, switch back to the "Main compartment".
+    - When you are done, switch back to the _Main compartment_.
 . Add and learn your first mapping
   * Add a first mapping by pressing the _Add one_ button.
     - A mapping appears that's still inactive (indicated by the grey text color).
@@ -79,8 +79,8 @@ https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Mackie_Control_Univers
 that are tailored to control a DAW just like a hardware mixer. And I suppose they do a pretty good
 job at that.
 
-ReaLearn's approach is quite different: It gives you total control on which control element operates which REAPER
-parameter and provides you with a _learn_ function which allows you build your own control mappings quickly
+ReaLearn's approach is quite different: It gives you total control over which control element operates which REAPER
+parameter and provides you with a _learn_ function that allows you build your own control mappings quickly
 and intuitively without writing configuration files. All of that on a _per-instance_ basis. That's right, by default, the mappings
 are saved as part of the ReaLearn instance and therefore as part of your REAPER project. No need to pollute your global
 control mappings just for the needs of one project!
@@ -103,8 +103,7 @@ The usual ReaLearn workflow for a single mapping goes like this:
 . Hit "Learn target" and touch some target parameter.
 . Done.
 
-If you want to learn multiple mappings in one go, this gets even easier via the "Learn many" button which will save you
-_a lot of_ clicks.
+If you want to learn multiple mappings in one go, this gets even easier via the "Learn many" button which can save you a lot of clicks.
 
 The result are mappings that you can customize as you desire, for example by setting a target value
 range. All of that with MIDI/OSC feedback support, which was previously only available in the less
@@ -1910,6 +1909,7 @@ Sets REAPER's master tempo.
 This target is not learnable anymore via the "Learn target" button and also not eligible for
 the <<global-last-touched,Last touched>> target because it caused too many "false positives".
 
+[#marker-region-go-to]
 ====== Marker/region: Go to
 
 Navigates to a specific marker or region. Here's the behavior in detail:
@@ -2580,7 +2580,7 @@ target.bookmark.color
 |
 Custom color of the resolved marker or region.
 
-Only works with the <<_markerregion_go_to>> target.
+Only works with the <<marker-region-go-to>> target.
 |===
 
 The following elements are relevant for all kinds of sources. For rotary encoders they are relevant only in
