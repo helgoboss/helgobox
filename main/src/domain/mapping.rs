@@ -259,7 +259,7 @@ impl MainMapping {
                 .mode
                 .textual_feedback_props()
                 .iter()
-                .any(|p| prop_is_affected_by(p, evt, target, context));
+                .any(|p| prop_is_affected_by(p, evt, self, target, context));
             (is_affected, None)
         } else {
             // Numeric feedback always relates to the main target value property, so we ask the
@@ -909,13 +909,13 @@ impl MainMapping {
             let v = self
                 .core
                 .mode
-                .query_textual_feedback(&|key| self.get_prop_value(key, control_context));
+                .query_textual_feedback(&|key| get_prop_value(key, self, control_context));
             FeedbackValue::Textual(v)
         } else {
             let style = self
                 .core
                 .mode
-                .feedback_style(&|key| self.get_prop_value(key, control_context));
+                .feedback_style(&|key| get_prop_value(key, self, control_context));
             FeedbackValue::Numeric(NumericFeedbackValue::new(style, combined_target_value))
         };
         self.feedback_given_target_value(
@@ -925,10 +925,6 @@ impl MainMapping {
                 with_source_feedback: with_source_feedback && !self.core.is_echo(),
             },
         )
-    }
-
-    fn get_prop_value(&self, key: &str, control_context: ControlContext) -> Option<PropValue> {
-        get_prop_value(key, self, control_context)
     }
 
     pub fn given_or_current_value(
