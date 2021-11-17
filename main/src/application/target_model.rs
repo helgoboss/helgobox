@@ -637,12 +637,6 @@ impl TargetModel {
             Transport(t) => {
                 self.transport_action.set(t.action);
             }
-            AnyOn(t) => {
-                self.any_on_parameter.set(t.parameter);
-            }
-            AutomationTouchState(t) => {
-                self.touched_parameter_type.set(t.parameter_type);
-            }
             TrackSolo(t) => {
                 self.solo_behavior.set(t.behavior);
             }
@@ -674,40 +668,7 @@ impl TargetModel {
                         .set(RealearnAutomationMode::from_reaper(am));
                 }
             },
-            SendMidi(_)
-            | SendOsc(_)
-            | TrackVolume(_)
-            | TrackTool(_)
-            | TrackPeak(_)
-            | TrackRouteVolume(_)
-            | TrackPan(_)
-            | TrackWidth(_)
-            | TrackArm(_)
-            | TrackSelection(_)
-            | TrackMute(_)
-            | TrackPhase(_)
-            | TrackShow(_)
-            | TrackRoutePan(_)
-            | TrackRouteMute(_)
-            | TrackRoutePhase(_)
-            | TrackRouteMono(_)
-            | Tempo(_)
-            | Playrate(_)
-            | FxEnable(_)
-            | FxOpen(_)
-            | FxNavigate(_)
-            | FxPreset(_)
-            | SelectedTrack(_)
-            | AllTrackFxEnable(_)
-            | LoadFxSnapshot(_)
-            | ClipTransport(_)
-            | ClipSeek(_)
-            | ClipVolume(_)
-            | Seek(_)
-            | LoadMappingSnapshot(_)
-            | EnableMappings(_)
-            | EnableInstances(_)
-            | NavigateWithinGroup(_) => {}
+            _ => {}
         };
     }
 
@@ -1371,41 +1332,6 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                 use ReaperTargetType::*;
                 let tt = self.0.r#type.get();
                 match tt {
-                    Tempo
-                    | Playrate
-                    | SelectedTrack
-                    | LastTouched
-                    | Seek
-                    | TrackArm
-                    | TrackPan
-                    | TrackWidth
-                    | TrackVolume
-                    | TrackTool
-                    | TrackPeak
-                    | TrackShow
-                    | TrackSolo
-                    | FxNavigate
-                    | FxEnable
-                    | TrackMute
-                    | TrackPhase
-                    | AllTrackFxEnable
-                    | TrackSelection
-                    | FxPreset
-                    | FxOpen
-                    | FxParameter
-                    | TrackSendMute
-                    | TrackSendPhase
-                    | TrackSendAutomationMode
-                    | TrackSendMono
-                    | TrackSendPan
-                    | TrackSendVolume
-                    | LoadFxSnapshot
-                    | SendMidi
-                    | SendOsc
-                    | LoadMappingSnapshot
-                    | EnableMappings
-                    | EnableInstances
-                    | NavigateWithinGroup => f.write_str(tt.short_name()),
                     ClipTransport | ClipSeek | ClipVolume => {
                         write!(
                             f,
@@ -1459,6 +1385,7 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                         tt.short_name(),
                         self.0.touched_parameter_type.get()
                     ),
+                    _ => f.write_str(tt.short_name()),
                 }
             }
             TargetCategory::Virtual => match self.0.control_element_id.get() {
@@ -1628,11 +1555,6 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                 use ReaperTargetType::*;
                 let tt = self.target.r#type.get();
                 match tt {
-                    Tempo | Playrate | SelectedTrack | LastTouched | Seek | SendMidi | SendOsc
-                    | LoadMappingSnapshot | EnableMappings | EnableInstances
-                    | NavigateWithinGroup => {
-                        write!(f, "{}", tt)
-                    }
                     ClipTransport | ClipSeek | ClipVolume => {
                         write!(f, "{}", tt)
                     }
@@ -1716,6 +1638,7 @@ impl<'a> Display for TargetModelFormatMultiLine<'a> {
                     GoToBookmark => {
                         write!(f, "{}\n{}", tt, self.bookmark_label())
                     }
+                    _ => write!(f, "{}", tt),
                 }
             }
             Virtual => write!(f, "Virtual\n{}", self.target.create_control_element()),
