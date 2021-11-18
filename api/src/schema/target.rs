@@ -26,6 +26,7 @@ pub enum Target {
     TrackPan(TrackPanTarget),
     TrackWidth(TrackWidthTarget),
     TrackVolume(TrackVolumeTarget),
+    #[serde(rename = "Track")]
     TrackTool(TrackToolTarget),
     TrackVisibility(TrackVisibilityTarget),
     TrackSoloState(TrackSoloStateTarget),

@@ -5,7 +5,7 @@
 :sectnumlevels: 2
 
 |===
-|Last update of text: |`2021-11-14 (v2.11.0-pre.13)`
+|Last update of text: |`2021-11-18 (v2.11.0-pre.14)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -1941,6 +1941,11 @@ User interface elements specific to this target:
 * *Set loop points:* For regions, this will additionally set the loop points to the region start and end position.
 * *Set time selection:* For regions, this will additionally set the time selection to the region start and end
  position.
+
+
+====== Track
+
+A target that allows you to define a track. It does nothing really useful at the moment but is suited very well as neutral target for textual feedback with an expression that contains a track property, e.g. `{{ target.track.name }}`.
 
 ====== Track: Arm/disarm
 

@@ -1,5 +1,7 @@
 local channel_count = 8
-local follow_track_selection = true
+
+-- This currently doesn't work well for control surfaces with multiple channels, see TODO further below.
+local follow_track_selection = false
 
 local parameters = {
     {
@@ -999,8 +1001,23 @@ local mappings = {
 for ch = 0, channel_count - 1 do
     local human_ch = ch + 1
     local prefix = "ch"..human_ch.."/"
+
+    -- TODO-high follow_track_selection doesn't work as one would expect for multi-channel devices because
+    --  each channel will relate to the currently selected track. The commented out section below was an attempt
+    --  to fix this but it fails if no track is selected. The dynamic expression then fails and evaluates to zero
+    --  for all channels. We should instead evaluate to a recognizable "None" value and add a function e.g. none()
+    --  that lets you compare with such a value. Then we can react accordingly in the expression by using short-circuit
+    --  logical OR.
     local track_address = follow_track_selection and "Selected" or "Dynamic";
     local track_expression = not follow_track_selection and "p1 * 10000 + "..ch or nil;
+
+    --local track_address = "Dynamic"
+    --local track_expression = follow_track_selection and (
+    --        "selected_track_index + "..ch
+    --) or (
+    --        "p1 * 10000 + "..ch
+    --)
+
     local track_volume = {
         id = prefix.."vol",
         name = "Tr"..human_ch.." Vol",
@@ -1188,7 +1205,7 @@ for ch = 0, channel_count - 1 do
             feedback_kind = "Text",
         },
         target = {
-            kind = "TrackVolume",
+            kind = "Track",
             track = {
                 address = track_address,
                 expression = track_expression,
