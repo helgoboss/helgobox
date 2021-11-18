@@ -10,7 +10,7 @@ local zoom_rate = 100
 local scroll_rate = 100
 
 -- Set `follow_track_selection` to `true` in order to switch between tracks by selecting them.
-local follow_track_selection = false
+local follow_track_selection = true
 -- Setting this to false is supposed to prevent navigation to the master track when using `follow_track_selection`
 -- but correctly doesn't work 100%.
 local support_nav_to_master_track = true
