@@ -76,7 +76,7 @@ impl RealearnTarget for LoadMappingSnapshotTarget {
                     if self.active_mappings_only && !m.is_effectively_on() {
                         continue;
                     }
-                    if let Some(inital_value) = m.initial_target_value_snapshot() {
+                    if let Some(inital_value) = m.initial_target_value() {
                         context
                             .domain_event_handler
                             .notify_mapping_matched(m.compartment(), m.id());

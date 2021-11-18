@@ -184,7 +184,8 @@ pub struct MainMapping {
     activation_condition_2: ActivationCondition,
     activation_state: ActivationState,
     extension: MappingExtension,
-    initial_target_value_snapshot: Option<AbsoluteValue>,
+    initial_target_value: Option<AbsoluteValue>,
+    last_non_performance_target_value: Option<AbsoluteValue>,
 }
 
 #[derive(Default, Debug)]
@@ -240,7 +241,8 @@ impl MainMapping {
             activation_condition_2,
             activation_state: Default::default(),
             extension,
-            initial_target_value_snapshot: None,
+            initial_target_value: None,
+            last_non_performance_target_value: None,
         }
     }
 
@@ -277,8 +279,8 @@ impl MainMapping {
         }
     }
 
-    pub fn initial_target_value_snapshot(&self) -> Option<AbsoluteValue> {
-        self.initial_target_value_snapshot
+    pub fn initial_target_value(&self) -> Option<AbsoluteValue> {
+        self.initial_target_value
     }
 
     pub fn update_persistent_processing_state(&mut self, state: PersistentMappingProcessingState) {
@@ -441,7 +443,9 @@ impl MainMapping {
         self.targets = targets;
         self.core.options.target_is_active = is_active;
         self.update_activation(context.params());
-        self.initial_target_value_snapshot = self.current_aggregated_target_value(control_context);
+        let target_value = self.current_aggregated_target_value(control_context);
+        self.initial_target_value = target_value;
+        self.last_non_performance_target_value = target_value;
     }
 
     fn resolve_target(
@@ -990,7 +994,11 @@ impl MainMapping {
                     source_is_virtual: self.core.source.is_virtual(),
                     max_discrete_source_value: self.core.source.max_discrete_value(),
                 };
-                let mode_value = self.core.mode.feedback_with_options(v.value, options)?;
+                let mode_value = self.core.mode.feedback_with_options_detail(
+                    v.value,
+                    options,
+                    Default::default(),
+                )?;
                 Cow::Owned(Numeric(NumericFeedbackValue::new(v.style, mode_value)))
             }
             // Textual feedback is not processed (created by the mode in the first place).

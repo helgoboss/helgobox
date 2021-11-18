@@ -3,15 +3,16 @@ use crate::domain::ui_util::{
     parse_unit_value_from_percentage, OutputReason,
 };
 use crate::domain::{
-    AdditionalFeedbackEvent, DomainEventHandler, Exclusivity, ExtendedProcessorContext,
-    FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceId, InstanceStateChanged, MainMapping,
-    MappingControlResult, MappingId, OrderedMappingMap, OscFeedbackTask, ProcessorContext,
-    RealTimeReaperTarget, RealTimeSender, ReaperTarget, SharedInstanceState, Tag, TagScope,
-    TargetCharacter, TrackExclusivity, ACTION_TARGET, ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET,
-    AUTOMATION_MODE_OVERRIDE_TARGET, AUTOMATION_TOUCH_STATE_TARGET, CLIP_SEEK_TARGET,
-    CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET, ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET,
-    FX_ENABLE_TARGET, FX_NAVIGATE_TARGET, FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PRESET_TARGET,
-    GO_TO_BOOKMARK_TARGET, LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, MIDI_SEND_TARGET,
+    AdditionalEelTransformationInput, AdditionalFeedbackEvent, DomainEventHandler, Exclusivity,
+    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId, InstanceId,
+    InstanceStateChanged, MainMapping, MappingControlResult, MappingId, OrderedMappingMap,
+    OscFeedbackTask, ProcessorContext, RealTimeReaperTarget, RealTimeSender, ReaperTarget,
+    SharedInstanceState, Tag, TagScope, TargetCharacter, TrackExclusivity, ACTION_TARGET,
+    ALL_TRACK_FX_ENABLE_TARGET, ANY_ON_TARGET, AUTOMATION_MODE_OVERRIDE_TARGET,
+    AUTOMATION_TOUCH_STATE_TARGET, CLIP_SEEK_TARGET, CLIP_TRANSPORT_TARGET, CLIP_VOLUME_TARGET,
+    ENABLE_INSTANCES_TARGET, ENABLE_MAPPINGS_TARGET, FX_ENABLE_TARGET, FX_NAVIGATE_TARGET,
+    FX_OPEN_TARGET, FX_PARAMETER_TARGET, FX_PRESET_TARGET, GO_TO_BOOKMARK_TARGET,
+    LOAD_FX_SNAPSHOT_TARGET, LOAD_MAPPING_SNAPSHOT_TARGET, MIDI_SEND_TARGET,
     NAVIGATE_WITHIN_GROUP_TARGET, OSC_SEND_TARGET, PLAYRATE_TARGET, ROUTE_AUTOMATION_MODE_TARGET,
     ROUTE_MONO_TARGET, ROUTE_MUTE_TARGET, ROUTE_PAN_TARGET, ROUTE_PHASE_TARGET,
     ROUTE_VOLUME_TARGET, SEEK_TARGET, SELECTED_TRACK_TARGET, TEMPO_TARGET, TRACK_ARM_TARGET,
@@ -23,7 +24,7 @@ use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, RawMidiEvent, RgbColor,
-    UnitValue,
+    TransformationInputProvider, UnitValue,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
@@ -354,6 +355,15 @@ pub struct EnableInstancesArgs<'a> {
     pub scope: &'a TagScope,
     pub is_enable: bool,
     pub exclusivity: Exclusivity,
+}
+
+impl<'a> TransformationInputProvider<AdditionalEelTransformationInput> for ControlContext<'a> {
+    fn additional_input(&self) -> AdditionalEelTransformationInput {
+        // TODO-high #457 We should offer y_last here but we can't! We need to use the
+        //  MappingControlContext as context, then we can :/ Or at least something that
+        //  contains or lets us derive y_last.
+        Default::default()
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
