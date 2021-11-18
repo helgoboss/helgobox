@@ -39,7 +39,7 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
             style.required_value_with_default(interval, defaults::GLUE_STEP_FACTOR_INTERVAL)
         },
         feedback_transformation: style.required_value(data.eel_feedback_transformation),
-        feedback_foreground_color: data.feedback_color.map(convert_virtual_color),
+        feedback_color: data.feedback_color.map(convert_virtual_color),
         feedback_background_color: data.feedback_background_color.map(convert_virtual_color),
         out_of_range_behavior: {
             use schema::OutOfRangeBehavior as T;
