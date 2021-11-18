@@ -710,6 +710,7 @@ impl MainMapping {
         MappingData {
             mapping_id: self.core.id,
             group_id: self.core.group_id,
+            last_non_performance_target_value: self.last_non_performance_target_value,
         }
     }
 
@@ -747,7 +748,7 @@ impl MainMapping {
         is_polling: bool,
         get_mode_control_result: impl Fn(
             ControlOptions,
-            ControlContext,
+            MappingControlContext,
             &mut Mode,
             &ReaperTarget,
         ) -> Option<ModeControlResult<ControlValue>>,
@@ -766,7 +767,10 @@ impl MainMapping {
         } else {
             vec![]
         };
-        let mapping_data = self.data();
+        let ctx = MappingControlContext {
+            control_context: context,
+            mapping_data: self.data(),
+        };
         let actual_targets = if options.enforce_target_refresh {
             &mut fresh_targets
         } else {
@@ -779,7 +783,7 @@ impl MainMapping {
                 continue;
             };
             at_least_one_relevant_target_exists = true;
-            match get_mode_control_result(options, context, &mut self.core.mode, target) {
+            match get_mode_control_result(options, ctx, &mut self.core.mode, target) {
                 None => {
                     // The incoming source value doesn't reach the target because the source value
                     // was filtered out. If `send_feedback_after_control` is enabled, we
@@ -796,10 +800,6 @@ impl MainMapping {
                         self.core.time_of_last_control = Some(Instant::now());
                     }
                     // Be graceful here.
-                    let ctx = MappingControlContext {
-                        control_context: context,
-                        mapping_data,
-                    };
                     match target.hit(value, ctx) {
                         // TODO-low For now, the first hit instruction wins (at the moment we don't
                         // have multi-targets in which multiple targets send hit instructions
