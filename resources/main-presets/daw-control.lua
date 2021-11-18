@@ -11,6 +11,9 @@ local scroll_rate = 100
 
 -- Set `follow_track_selection` to `true` in order to switch between tracks by selecting them.
 local follow_track_selection = true
+-- Setting this to false is supposed to prevent navigation to the master track when using `follow_track_selection`
+-- but correctly doesn't work 100%.
+local support_nav_to_master_track = true
 local scroll_arrange_view = true
 local scroll_mixer = true
 
@@ -1021,9 +1024,13 @@ for ch = 0, channel_count - 1 do
     local prefix = "ch"..human_ch.."/"
     local track_address = "Dynamic"
     local track_expression = follow_track_selection and (
-            "selected_track_index + "..ch
+            support_nav_to_master_track and (
+                    "selected_track_index + " .. ch
+            ) or (
+                    "max(selected_track_index, 0) + " .. ch
+            )
     ) or (
-            "p1 * 10000 + "..ch
+            "p1 * 10000 + " .. ch
     )
     local track_volume = {
         id = prefix.."vol",
