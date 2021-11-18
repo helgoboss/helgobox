@@ -1,11 +1,11 @@
 {
-  "version": "2.11.0-pre.13",
+  "version": "2.11.0-pre.14",
   "name": "DAW control",
   "defaultGroup": {},
   "groups": [
     {
-      "id": "conditional-switches",
-      "name": "Conditional switches"
+      "id": "switching",
+      "name": "Switching"
     },
     {
       "id": "volume",
@@ -82,7 +82,7 @@
     {
       "id": "5cfd2ff0-85ce-4e70-98e8-eb53e5e94bb1",
       "name": "Bank -",
-      "groupId": "conditional-switches",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
         "controlElementType": "button",
@@ -104,7 +104,7 @@
     {
       "id": "07b0202f-b8b8-48e4-a530-f228450864f0",
       "name": "Bank - faster",
-      "groupId": "conditional-switches",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
         "controlElementType": "button",
@@ -130,7 +130,7 @@
     {
       "id": "0baab91f-2c4e-43ae-8cac-dca727963b46",
       "name": "Bank +",
-      "groupId": "conditional-switches",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
         "controlElementType": "button",
@@ -151,7 +151,7 @@
     {
       "id": "0a7e122c-3eda-4355-906a-a057eefa515b",
       "name": "Bank + faster",
-      "groupId": "conditional-switches",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
         "controlElementType": "button",
@@ -176,7 +176,7 @@
     {
       "id": "cf45689a-5537-465d-ad44-460dbebf4802",
       "name": "Track -",
-      "groupId": "conditional-switches",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
         "controlElementType": "button",
@@ -198,7 +198,7 @@
     {
       "id": "76465b5f-c9b3-4aa6-ba77-b891021cf38e",
       "name": "Track - faster",
-      "groupId": "conditional-switches",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
         "controlElementType": "button",
@@ -224,7 +224,7 @@
     {
       "id": "d40ffa44-a446-4499-b9d6-787c5ff8e188",
       "name": "Track +",
-      "groupId": "conditional-switches",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
         "controlElementType": "button",
@@ -245,7 +245,7 @@
     {
       "id": "97db991c-a15b-4c27-aeb2-04b2ae3242c2",
       "name": "Track + faster",
-      "groupId": "conditional-switches",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
         "controlElementType": "button",
@@ -405,7 +405,7 @@
     {
       "id": "1e5c604f-9040-47c0-ab37-a05383e7be00",
       "name": "Seek coarse/fine",
-      "groupId": "conditional-switches",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
         "controlElementType": "button",
@@ -425,7 +425,7 @@
     {
       "id": "ee81c405-d355-45e0-80b4-913633295193",
       "name": "Zoom on/off",
-      "groupId": "conditional-switches",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
         "controlElementType": "button",
@@ -474,7 +474,6 @@
       },
       "mode": {
         "maxTargetValue": 0.00001,
-        "maxTargetJump": 0.00001,
         "feedbackColor": null
       },
       "target": {
@@ -1262,7 +1261,7 @@
         "feedbackType": 1
       },
       "target": {
-        "type": 2,
+        "type": 44,
         "trackExpression": "p1 * 10000 + 0",
         "fxAnchor": "id",
         "pollForFeedback": false
@@ -1502,7 +1501,7 @@
         "feedbackType": 1
       },
       "target": {
-        "type": 2,
+        "type": 44,
         "trackExpression": "p1 * 10000 + 1",
         "fxAnchor": "id",
         "pollForFeedback": false
@@ -1742,7 +1741,7 @@
         "feedbackType": 1
       },
       "target": {
-        "type": 2,
+        "type": 44,
         "trackExpression": "p1 * 10000 + 2",
         "fxAnchor": "id",
         "pollForFeedback": false
@@ -1982,7 +1981,7 @@
         "feedbackType": 1
       },
       "target": {
-        "type": 2,
+        "type": 44,
         "trackExpression": "p1 * 10000 + 3",
         "fxAnchor": "id",
         "pollForFeedback": false
@@ -2222,7 +2221,7 @@
         "feedbackType": 1
       },
       "target": {
-        "type": 2,
+        "type": 44,
         "trackExpression": "p1 * 10000 + 4",
         "fxAnchor": "id",
         "pollForFeedback": false
@@ -2462,7 +2461,7 @@
         "feedbackType": 1
       },
       "target": {
-        "type": 2,
+        "type": 44,
         "trackExpression": "p1 * 10000 + 5",
         "fxAnchor": "id",
         "pollForFeedback": false
@@ -2702,7 +2701,7 @@
         "feedbackType": 1
       },
       "target": {
-        "type": 2,
+        "type": 44,
         "trackExpression": "p1 * 10000 + 6",
         "fxAnchor": "id",
         "pollForFeedback": false
@@ -2942,7 +2941,7 @@
         "feedbackType": 1
       },
       "target": {
-        "type": 2,
+        "type": 44,
         "trackExpression": "p1 * 10000 + 7",
         "fxAnchor": "id",
         "pollForFeedback": false
@@ -2991,14 +2990,14 @@
     }
   ],
   "parameters": {
-    "0": {
-      "name": "Track"
-    },
     "2": {
       "name": "Zoom on/off"
     },
     "1": {
       "name": "Seek coarse/fine"
+    },
+    "0": {
+      "name": "Track"
     }
   }
 }

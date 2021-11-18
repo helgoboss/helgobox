@@ -310,7 +310,7 @@ pub fn convert_target(t: Target) -> ConversionResult<TargetModelData> {
             let track_desc = convert_track_desc(d.track.unwrap_or_default())?;
             TargetModelData {
                 category: TargetCategory::Reaper,
-                r#type: ReaperTargetType::TrackVolume,
+                r#type: ReaperTargetType::TrackTool,
                 track_data: track_desc.track_data,
                 enable_only_if_track_is_selected: track_desc.track_must_be_selected,
                 ..init(d.commons)
