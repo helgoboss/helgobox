@@ -1314,7 +1314,7 @@ pub trait UnresolvedReaperTargetDef {
     /// - Slightly reduce performance: Not refreshing is of course cheaper (but resolving is
     ///   generally fast so this shouldn't matter)
     /// - Removes target state: If the resolved target contains state, it's going to be disappear
-    ///   when the target is resolved again. Matter for some targets (but usually not).
+    ///   when the target is resolved again. Matters for some targets (but usually not).
     fn can_be_affected_by_change_events(&self) -> bool {
         true
     }

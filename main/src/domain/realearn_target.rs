@@ -255,7 +255,8 @@ pub trait RealearnTarget {
         true
     }
 
-    /// Might return the new value if changed.
+    /// Might return the new value if changed but is not required to! If it doesn't and the consumer
+    /// wants to know the new value, it should just query the current value of the target.
     ///
     /// Is called in any case (even if feedback not enabled). So we can use it for general-purpose
     /// change event reactions such as reacting to transport stop.
