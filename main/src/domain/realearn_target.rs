@@ -357,15 +357,6 @@ pub struct EnableInstancesArgs<'a> {
     pub exclusivity: Exclusivity,
 }
 
-impl<'a> TransformationInputProvider<AdditionalEelTransformationInput> for ControlContext<'a> {
-    fn additional_input(&self) -> AdditionalEelTransformationInput {
-        // TODO-high #457 We should offer y_last here but we can't! We need to use the
-        //  MappingControlContext as context, then we can :/ Or at least something that
-        //  contains or lets us derive y_last.
-        Default::default()
-    }
-}
-
 #[derive(Copy, Clone, Debug)]
 pub struct ControlContext<'a> {
     pub feedback_audio_hook_task_sender: &'a RealTimeSender<FeedbackAudioHookTask>,
@@ -403,10 +394,31 @@ pub struct MappingControlContext<'a> {
     pub mapping_data: MappingData,
 }
 
+impl<'a> TransformationInputProvider<AdditionalEelTransformationInput>
+    for MappingControlContext<'a>
+{
+    fn additional_input(&self) -> AdditionalEelTransformationInput {
+        AdditionalEelTransformationInput {
+            y_last: self
+                .mapping_data
+                .last_non_performance_target_value
+                .map(|v| v.to_unit_value().get())
+                .unwrap_or_default(),
+        }
+    }
+}
+
+impl<'a> From<MappingControlContext<'a>> for ControlContext<'a> {
+    fn from(v: MappingControlContext<'a>) -> Self {
+        v.control_context
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct MappingData {
     pub mapping_id: MappingId,
     pub group_id: GroupId,
+    pub last_non_performance_target_value: Option<AbsoluteValue>,
 }
 
 pub type HitInstructionReturnValue = Option<Box<dyn HitInstruction>>;
