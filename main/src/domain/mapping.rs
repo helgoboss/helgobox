@@ -271,33 +271,41 @@ impl MainMapping {
             .feedback_props_in_use()
             .iter()
             .any(|p| prop_is_affected_by(p, evt, self, target, context));
-        if self.core.mode.wants_textual_feedback() {
-            // For textual feedback only those props matter. Updating y_last is not relevant because
-            // textual feedback is feedback-only.
-            (props_are_affected, None)
-        } else {
-            // Numeric feedback implicitly always relates to the main target value, so we always
-            // ask the target directly.
-            let (main_target_value_is_affected, value) = target.process_change_event(evt, context);
-            // Handle update of last_y (performance mappings)
-            let value = if self.core.options.control_is_enabled && main_target_value_is_affected {
-                if self.core.is_echo() {
-                    value
-                } else {
-                    // We need to know the current target value here already to set y_last.
-                    // ... so we can just as well return it so the consumer doesn't have to query it.
-                    // TODO-high We could just always obtain the current target value here! No need
-                    //  to let the consumer do this!
-                    let value = self.given_or_current_value(value, target, context);
-                    if let Some(v) = value {
-                        self.last_non_performance_target_value.set(Some(v));
-                    }
-                    value
-                }
+        let (is_affected, new_value, handle_performance_mapping) =
+            if self.core.mode.wants_textual_feedback() {
+                // For textual feedback only those props matter. Updating y_last is not relevant because
+                // textual feedback is feedback-only.
+                (props_are_affected, None, false)
             } else {
-                value
+                // Numeric feedback implicitly always relates to the main target value, so we always
+                // ask the target directly.
+                let (main_target_value_is_affected, value) =
+                    target.process_change_event(evt, context);
+                (
+                    main_target_value_is_affected || props_are_affected,
+                    value,
+                    true,
+                )
             };
-            (main_target_value_is_affected || props_are_affected, value)
+        if is_affected {
+            let new_value = new_value.or_else(|| target.current_value(context));
+            if handle_performance_mapping {
+                self.update_last_non_performance_target_value_if_appropriate(new_value);
+            }
+            (true, new_value)
+        } else {
+            (false, None)
+        }
+    }
+
+    pub fn update_last_non_performance_target_value_if_appropriate(
+        &self,
+        value: Option<AbsoluteValue>,
+    ) {
+        if let Some(v) = value {
+            if self.control_is_enabled() && !self.is_echo() {
+                self.last_non_performance_target_value.set(Some(v));
+            }
         }
     }
 
@@ -989,15 +997,6 @@ impl MainMapping {
                 with_source_feedback: with_source_feedback && source_feedback_is_okay,
             },
         )
-    }
-
-    pub fn given_or_current_value(
-        &self,
-        target_value: Option<AbsoluteValue>,
-        target: &ReaperTarget,
-        context: ControlContext,
-    ) -> Option<AbsoluteValue> {
-        target_value.or_else(|| target.current_value(context))
     }
 
     pub fn current_aggregated_target_value(
