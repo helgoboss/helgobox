@@ -549,6 +549,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.poll_for_feedback()
     }
 
+    /// This goes through all mappings that returned "high" feedback resolution - which they do if
+    /// there are no appropriate change events to listen to and therefore need feedback polling.
     #[allow(clippy::float_cmp)]
     fn poll_for_feedback(&mut self) {
         for compartment in MappingCompartment::enum_iter() {
@@ -572,6 +574,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     // TODO-high-discrete Maybe not true anymore with discrete
                                     //  targets.
                                     if let Some(value) = t.current_value(control_context) {
+                                        // Handle update of last_y (performance mappings)
+                                        if m.control_is_enabled() && !m.is_echo() {
+                                            m.update_last_non_performance_target_value(value);
+                                        }
+                                        // Check if changed
                                         match previous_target_values[compartment].entry(*mapping_id)
                                         {
                                             Entry::Occupied(mut e) => {

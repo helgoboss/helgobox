@@ -22,6 +22,7 @@ use helgoboss_learn::{
 use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use std::borrow::Cow;
+use std::cell::Cell;
 
 use crate::domain::unresolved_reaper_target::UnresolvedReaperTargetDef;
 use indexmap::map::IndexMap;
@@ -185,7 +186,8 @@ pub struct MainMapping {
     activation_state: ActivationState,
     extension: MappingExtension,
     initial_target_value: Option<AbsoluteValue>,
-    last_non_performance_target_value: Option<AbsoluteValue>,
+    /// Called "y_last" in the control transformation formula.
+    last_non_performance_target_value: Cell<Option<AbsoluteValue>>,
 }
 
 #[derive(Default, Debug)]
@@ -242,10 +244,17 @@ impl MainMapping {
             activation_state: Default::default(),
             extension,
             initial_target_value: None,
-            last_non_performance_target_value: None,
+            last_non_performance_target_value: Cell::new(None),
         }
     }
 
+    /// This is for:
+    ///
+    /// 1. Determining whether to send feedback and optionally, what feedback value to send.
+    /// 2. Updating y_last (for performance mappings)
+    ///
+    /// This method is not required to already return the new target value. If not, the consumer
+    /// must query the target for the current value.
     pub fn process_change_event(
         &self,
         target: &ReaperTarget,
@@ -263,14 +272,41 @@ impl MainMapping {
             .iter()
             .any(|p| prop_is_affected_by(p, evt, self, target, context));
         if self.core.mode.wants_textual_feedback() {
-            // For textual feedback only those props matter.
+            // For textual feedback only those props matter. Updating y_last is not relevant because
+            // textual feedback is feedback-only.
             (props_are_affected, None)
         } else {
             // Numeric feedback implicitly always relates to the main target value, so we always
             // ask the target directly.
             let (main_target_value_is_affected, value) = target.process_change_event(evt, context);
+            // Handle update of last_y (performance mappings)
+            let value = if self.core.options.control_is_enabled && main_target_value_is_affected {
+                if self.core.is_echo() {
+                    value
+                } else {
+                    // We need to know the current target value here already to set y_last.
+                    // ... so we can just as well return it so the consumer doesn't have to query it.
+                    // TODO-high We could just always obtain the current target value here! No need
+                    //  to let the consumer do this!
+                    let value = self.given_or_current_value(value, target, context);
+                    if let Some(v) = value {
+                        self.last_non_performance_target_value.set(Some(v));
+                    }
+                    value
+                }
+            } else {
+                value
+            };
             (main_target_value_is_affected || props_are_affected, value)
         }
+    }
+
+    pub fn is_echo(&self) -> bool {
+        self.core.is_echo()
+    }
+
+    pub fn update_last_non_performance_target_value(&self, value: AbsoluteValue) {
+        self.last_non_performance_target_value.set(Some(value));
     }
 
     pub fn take_mapping_info(&mut self) -> MappingInfo {
@@ -445,7 +481,7 @@ impl MainMapping {
         self.update_activation(context.params());
         let target_value = self.current_aggregated_target_value(control_context);
         self.initial_target_value = target_value;
-        self.last_non_performance_target_value = target_value;
+        self.last_non_performance_target_value = Cell::new(target_value);
     }
 
     fn resolve_target(
@@ -710,7 +746,7 @@ impl MainMapping {
         MappingData {
             mapping_id: self.core.id,
             group_id: self.core.group_id,
-            last_non_performance_target_value: self.last_non_performance_target_value,
+            last_non_performance_target_value: self.last_non_performance_target_value.get(),
         }
     }
 
@@ -793,10 +829,7 @@ impl MainMapping {
                 }
                 Some(HitTarget { value }) => {
                     at_least_one_target_was_reached = true;
-                    if !is_polling
-                        && self.core.options.feedback_send_behavior
-                            == FeedbackSendBehavior::PreventEchoFeedback
-                    {
+                    if !is_polling {
                         self.core.time_of_last_control = Some(Instant::now());
                     }
                     // Be graceful here.
@@ -942,11 +975,18 @@ impl MainMapping {
                 .feedback_style(&|key| get_prop_value(key, self, control_context));
             FeedbackValue::Numeric(NumericFeedbackValue::new(style, combined_target_value))
         };
+        let source_feedback_is_okay = if self.core.options.feedback_send_behavior
+            == FeedbackSendBehavior::PreventEchoFeedback
+        {
+            !self.core.is_echo()
+        } else {
+            true
+        };
         self.feedback_given_target_value(
             Cow::Owned(feedback_value),
             FeedbackDestinations {
                 with_projection_feedback,
-                with_source_feedback: with_source_feedback && !self.core.is_echo(),
+                with_source_feedback: with_source_feedback && source_feedback_is_okay,
             },
         )
     }
@@ -2114,9 +2154,7 @@ fn match_partially(
             .control_with_options(control_value, target, (), ModeControlOptions::default())?;
     let transformed_control_value: Option<ControlValue> = res.into();
     let transformed_control_value = transformed_control_value?;
-    if core.options.feedback_send_behavior == FeedbackSendBehavior::PreventEchoFeedback {
-        core.time_of_last_control = Some(Instant::now());
-    }
+    core.time_of_last_control = Some(Instant::now());
     let res = VirtualSourceValue::new(target.control_element(), transformed_control_value);
     Some(res)
 }
