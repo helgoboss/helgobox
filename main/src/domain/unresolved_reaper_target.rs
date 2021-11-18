@@ -561,25 +561,36 @@ impl ExpressionEvaluator {
         additional_vars: impl Fn(&str) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
-        let mut cb = |name: &str, _args: Vec<f64>| -> Option<f64> {
+        let mut cb = |name: &str, args: Vec<f64>| -> Option<f64> {
             // Use-case specific variables
             if let Some(value) = additional_vars(name) {
                 return Some(value);
             }
             match name {
                 "none" => Some(EXPRESSION_NONE_VALUE),
+                // Parameter array
+                "p" => {
+                    if let [index] = args.as_slice() {
+                        if *index < 0.0 {
+                            return None;
+                        }
+                        let index = index.round() as u32;
+                        get_compartment_param_value(index, params)
+                    } else {
+                        None
+                    }
+                }
                 // Parameter variables (p1, p2, ...)
                 _ => {
                     if !name.starts_with('p') {
                         return None;
                     }
-                    let value: u32 = name[1..].parse().ok()?;
-                    if !(1..=COMPARTMENT_PARAMETER_COUNT).contains(&value) {
+                    let one_based_position: u32 = name[1..].parse().ok()?;
+                    if one_based_position == 0 {
                         return None;
                     }
-                    let index = (value - 1) as usize;
-                    let param_value = params[index];
-                    Some(param_value as f64)
+                    let index = one_based_position - 1;
+                    get_compartment_param_value(index, params)
                 }
             }
         };
@@ -1385,4 +1396,12 @@ pub trait UnresolvedReaperTargetDef {
     fn fx_parameter_descriptor(&self) -> Option<&FxParameterDescriptor> {
         None
     }
+}
+
+fn get_compartment_param_value(index: u32, params: &ParameterSlice) -> Option<f64> {
+    if !(0..COMPARTMENT_PARAMETER_COUNT).contains(&index) {
+        return None;
+    }
+    let param_value = params[index as usize];
+    Some(param_value as f64)
 }
