@@ -1,10 +1,21 @@
+-- ### Configuration ###
+
 -- Number of channels on the surface
 local channel_count = 8
+
+-- Rates when pressing button a longer time
+local bank_switch_rate = 100
+local track_switch_rate = 60
+local zoom_rate = 100
+local scroll_rate = 100
 
 -- Set `follow_track_selection` to `true` in order to switch between tracks by selecting them.
 local follow_track_selection = true
 local scroll_arrange_view = true
 local scroll_mixer = true
+
+
+-- ### Content ###
 
 local parameters = {
     {
@@ -163,7 +174,7 @@ local mappings = {
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
                 timeout = 300,
-                rate = 100,
+                rate = bank_switch_rate,
             },
         },
         target = track_switching_target
@@ -202,7 +213,7 @@ local mappings = {
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
                 timeout = 300,
-                rate = 100,
+                rate = bank_switch_rate,
             },
         },
         target = track_switching_target
@@ -243,7 +254,7 @@ local mappings = {
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
                 timeout = 300,
-                rate = 60,
+                rate = track_switch_rate,
             },
         },
         target = track_switching_target
@@ -282,7 +293,7 @@ local mappings = {
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
                 timeout = 300,
-                rate = 60,
+                rate = track_switch_rate,
             },
         },
         target = track_switching_target
@@ -539,7 +550,7 @@ local mappings = {
             reverse = true,
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
-                rate = 100,
+                rate = zoom_rate,
             },
         },
         target = {
@@ -562,7 +573,7 @@ local mappings = {
             absolute_mode = "IncrementalButton",
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
-                rate = 100,
+                rate = zoom_rate,
             },
         },
         target = {
@@ -584,7 +595,7 @@ local mappings = {
         glue = {
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
-                rate = 100,
+                rate = zoom_rate,
             },
         },
         target = {
@@ -606,7 +617,7 @@ local mappings = {
         glue = {
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
-                rate = 100,
+                rate = zoom_rate,
             },
         },
         target = {
@@ -631,7 +642,7 @@ local mappings = {
             step_factor_interval = {8, 8},
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
-                rate = 100,
+                rate = scroll_rate,
             },
         },
         target = {
@@ -656,7 +667,7 @@ local mappings = {
             step_factor_interval = {8, 8},
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
-                rate = 100,
+                rate = scroll_rate,
             },
         },
         target = {
@@ -681,7 +692,7 @@ local mappings = {
             step_factor_interval = {8, 8},
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
-                rate = 100,
+                rate = scroll_rate,
             },
         },
         target = {
@@ -706,7 +717,7 @@ local mappings = {
             step_factor_interval = {8, 8},
             fire_mode = {
                 kind = "AfterTimeoutKeepFiring",
-                rate = 100,
+                rate = scroll_rate,
             },
         },
         target = {
