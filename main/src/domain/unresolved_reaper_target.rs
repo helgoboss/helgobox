@@ -759,15 +759,24 @@ impl VirtualTrack {
         let result = evaluator
             .evaluate_with_additional_vars(sliced_params, |name| match name {
                 "this_track_index" => {
-                    let index = context.context().track()?.index()?;
+                    let index = context
+                        .context()
+                        .track()?
+                        .index()
+                        .map(|i| i as i32)
+                        // -1 means master track
+                        .unwrap_or(-1);
                     Some(index as f64)
                 }
                 "selected_track_index" => {
                     let index = context
                         .context()
                         .project_or_current_project()
-                        .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)?
-                        .index()?;
+                        .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)?
+                        .index()
+                        .map(|i| i as i32)
+                        // -1 means master track
+                        .unwrap_or(-1);
                     Some(index as f64)
                 }
                 _ => None,
