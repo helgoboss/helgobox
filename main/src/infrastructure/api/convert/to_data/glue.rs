@@ -96,7 +96,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         eel_control_transformation: g.control_transformation.unwrap_or_default(),
         eel_feedback_transformation: g.feedback_transformation.unwrap_or_default(),
         reverse_is_enabled: g.reverse.unwrap_or(defaults::GLUE_REVERSE),
-        feedback_color: g.feedback_foreground_color.map(convert_virtual_color),
+        feedback_color: g.feedback_color.map(convert_virtual_color),
         feedback_background_color: g.feedback_background_color.map(convert_virtual_color),
         ignore_out_of_range_source_values_is_enabled: false,
         out_of_range_behavior: {

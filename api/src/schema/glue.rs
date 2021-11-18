@@ -24,7 +24,7 @@ pub struct Glue {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback_transformation: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub feedback_foreground_color: Option<VirtualColor>,
+    pub feedback_color: Option<VirtualColor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback_background_color: Option<VirtualColor>,
     #[serde(skip_serializing_if = "Option::is_none")]
