@@ -544,13 +544,13 @@ impl ExpressionEvaluator {
     }
 
     pub fn evaluate(&self, params: &ParameterSlice) -> Result<f64, fasteval::Error> {
-        self.evaluate_internal(params, |_| None)
+        self.evaluate_internal(params, |_, _| None)
     }
 
     pub fn evaluate_with_additional_vars(
         &self,
         params: &ParameterSlice,
-        additional_vars: impl Fn(&str) -> Option<f64>,
+        additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
         self.evaluate_internal(params, additional_vars)
     }
@@ -558,12 +558,12 @@ impl ExpressionEvaluator {
     fn evaluate_internal(
         &self,
         params: &ParameterSlice,
-        additional_vars: impl Fn(&str) -> Option<f64>,
+        additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
         let mut cb = |name: &str, args: Vec<f64>| -> Option<f64> {
             // Use-case specific variables
-            if let Some(value) = additional_vars(name) {
+            if let Some(value) = additional_vars(name, &args) {
                 return Some(value);
             }
             match name {
@@ -789,29 +789,43 @@ impl VirtualTrack {
     ) -> Result<i32, TrackResolveError> {
         let sliced_params = compartment.slice_params(context.params());
         let result = evaluator
-            .evaluate_with_additional_vars(sliced_params, |name| match name {
+            .evaluate_with_additional_vars(sliced_params, |name, args| match name {
                 "this_track_index" => {
-                    let index = context
-                        .context()
-                        .track()?
-                        .index()
-                        .map(|i| i as i32)
-                        // -1 means master track
-                        .unwrap_or(-1);
-                    Some(index as f64)
+                    let track = context.context().track()?;
+                    Some(get_track_index_for_expression(track))
                 }
                 "selected_track_index" => {
                     let index = context
                         .context()
                         .project_or_current_project()
                         .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
-                        .map(|t| {
-                            t.index()
-                                .map(|i| i as i32)
-                                // -1 means master track
-                                .unwrap_or(-1)
-                        });
-                    Some(index.map(|i| i as f64).unwrap_or(EXPRESSION_NONE_VALUE))
+                        .as_ref()
+                        .map(get_track_index_for_expression);
+                    Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
+                }
+                "selected_track_indexes" => {
+                    if let [i] = args {
+                        if *i < 0.0 {
+                            return None;
+                        }
+                        let i = i.round() as u32;
+                        let reaper = Reaper::get().medium_reaper();
+                        let project = context.context().project_or_current_project();
+                        let raw_track = reaper.get_selected_track_2(
+                            project.context(),
+                            i,
+                            MasterTrackBehavior::IncludeMasterTrack,
+                        );
+                        match raw_track {
+                            None => Some(EXPRESSION_NONE_VALUE),
+                            Some(raw_track) => {
+                                let t = Track::new(raw_track, Some(project.raw()));
+                                Some(get_track_index_for_expression(&t))
+                            }
+                        }
+                    } else {
+                        None
+                    }
                 }
                 _ => None,
             })
@@ -1404,4 +1418,9 @@ fn get_compartment_param_value(index: u32, params: &ParameterSlice) -> Option<f6
     }
     let param_value = params[index as usize];
     Some(param_value as f64)
+}
+
+/// Special: Index -1 means master track.
+fn get_track_index_for_expression(track: &Track) -> f64 {
+    track.index().map(|i| i as f64).unwrap_or(-1.0)
 }
