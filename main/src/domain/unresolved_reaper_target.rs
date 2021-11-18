@@ -267,7 +267,7 @@ impl TrackRouteSelector {
         use TrackRouteSelector::*;
         let route = match self {
             Dynamic(evaluator) => {
-                let i = Self::evaluate_to_route_index(evaluator, context, compartment);
+                let i = Self::evaluate_to_route_index(evaluator, context, compartment)?;
                 resolve_track_route_by_index(track, route_type, i)?
             }
             ById(guid) => {
@@ -297,11 +297,7 @@ impl TrackRouteSelector {
         compartment: MappingCompartment,
     ) -> Option<u32> {
         if let TrackRouteSelector::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_route_index(
-                evaluator,
-                context,
-                compartment,
-            ))
+            Some(Self::evaluate_to_route_index(evaluator, context, compartment).ok()?)
         } else {
             None
         }
@@ -311,10 +307,12 @@ impl TrackRouteSelector {
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> u32 {
+    ) -> Result<u32, TrackRouteResolveError> {
         let sliced_params = compartment.slice_params(context.params());
-        let result = evaluator.evaluate(sliced_params);
-        result.round().max(0.0) as u32
+        let result = evaluator
+            .evaluate(sliced_params)
+            .map_err(|_| TrackRouteResolveError::ExpressionError)?;
+        Ok(result.round().max(0.0) as u32)
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -452,7 +450,7 @@ impl VirtualFxParameter {
         use VirtualFxParameter::*;
         match self {
             Dynamic(evaluator) => {
-                let i = Self::evaluate_to_fx_parameter_index(evaluator, context, compartment);
+                let i = Self::evaluate_to_fx_parameter_index(evaluator, context, compartment)?;
                 resolve_parameter_by_index(fx, i)
             }
             ByName(name) => fx
@@ -473,11 +471,7 @@ impl VirtualFxParameter {
         compartment: MappingCompartment,
     ) -> Option<u32> {
         if let VirtualFxParameter::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_fx_parameter_index(
-                evaluator,
-                context,
-                compartment,
-            ))
+            Some(Self::evaluate_to_fx_parameter_index(evaluator, context, compartment).ok()?)
         } else {
             None
         }
@@ -487,10 +481,12 @@ impl VirtualFxParameter {
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> u32 {
+    ) -> Result<u32, FxParameterResolveError> {
         let sliced_params = compartment.slice_params(context.params());
-        let result = evaluator.evaluate(sliced_params);
-        result.round().max(0.0) as u32
+        let result = evaluator
+            .evaluate(sliced_params)
+            .map_err(|_| FxParameterResolveError::ExpressionError)?;
+        Ok(result.round().max(0.0) as u32)
     }
 
     pub fn index(&self) -> Option<u32> {
@@ -539,17 +535,16 @@ impl ExpressionEvaluator {
         Ok(evaluator)
     }
 
-    pub fn evaluate(&self, params: &ParameterSlice) -> f64 {
-        self.evaluate_internal(params, |_| None).unwrap_or_default()
+    pub fn evaluate(&self, params: &ParameterSlice) -> Result<f64, fasteval::Error> {
+        self.evaluate_internal(params, |_| None)
     }
 
     pub fn evaluate_with_additional_vars(
         &self,
         params: &ParameterSlice,
         additional_vars: impl Fn(&str) -> Option<f64>,
-    ) -> f64 {
+    ) -> Result<f64, fasteval::Error> {
         self.evaluate_internal(params, additional_vars)
-            .unwrap_or_default()
     }
 
     fn evaluate_internal(
@@ -700,7 +695,7 @@ impl VirtualTrack {
                 .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
                 .collect(),
             Dynamic(evaluator) => {
-                let index = Self::evaluate_to_track_index(evaluator, context, compartment);
+                let index = Self::evaluate_to_track_index(evaluator, context, compartment)?;
                 let single = resolve_track_by_index(project, index)?;
                 vec![single]
             }
@@ -749,11 +744,7 @@ impl VirtualTrack {
         compartment: MappingCompartment,
     ) -> Option<i32> {
         if let VirtualTrack::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_track_index(
-                evaluator,
-                context,
-                compartment,
-            ))
+            Some(Self::evaluate_to_track_index(evaluator, context, compartment).ok()?)
         } else {
             None
         }
@@ -763,24 +754,26 @@ impl VirtualTrack {
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> i32 {
+    ) -> Result<i32, TrackResolveError> {
         let sliced_params = compartment.slice_params(context.params());
-        let result = evaluator.evaluate_with_additional_vars(sliced_params, |name| match name {
-            "this_track_index" => {
-                let index = context.context().track()?.index()?;
-                Some(index as f64)
-            }
-            "selected_track_index" => {
-                let index = context
-                    .context()
-                    .project_or_current_project()
-                    .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)?
-                    .index()?;
-                Some(index as f64)
-            }
-            _ => None,
-        });
-        result.round().max(-1.0) as i32
+        let result = evaluator
+            .evaluate_with_additional_vars(sliced_params, |name| match name {
+                "this_track_index" => {
+                    let index = context.context().track()?.index()?;
+                    Some(index as f64)
+                }
+                "selected_track_index" => {
+                    let index = context
+                        .context()
+                        .project_or_current_project()
+                        .first_selected_track(MasterTrackBehavior::ExcludeMasterTrack)?
+                        .index()?;
+                    Some(index as f64)
+                }
+                _ => None,
+            })
+            .map_err(|_| TrackResolveError::ExpressionError)?;
+        Ok(result.round().max(-1.0) as i32)
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -873,6 +866,8 @@ fn find_tracks_by_name(project: Project, name: &WildMatch) -> impl Iterator<Item
 
 #[derive(Clone, Debug, Display, Error)]
 pub enum TrackResolveError {
+    #[display(fmt = "ExpressionError")]
+    ExpressionError,
     #[display(fmt = "TrackNotFound")]
     TrackNotFound {
         guid: Option<Guid>,
@@ -884,6 +879,8 @@ pub enum TrackResolveError {
 
 #[derive(Clone, Debug, Display, Error)]
 pub enum FxParameterResolveError {
+    #[display(fmt = "ExpressionError")]
+    ExpressionError,
     #[display(fmt = "FxParameterNotFound")]
     FxParameterNotFound {
         name: Option<WildMatch>,
@@ -893,6 +890,8 @@ pub enum FxParameterResolveError {
 
 #[derive(Clone, Debug, Display, Error)]
 pub enum TrackRouteResolveError {
+    #[display(fmt = "ExpressionError")]
+    ExpressionError,
     #[display(fmt = "InvalidRoute")]
     InvalidRoute,
     #[display(fmt = "TrackRouteNotFound")]
@@ -913,7 +912,7 @@ impl VirtualChainFx {
         use VirtualChainFx::*;
         let fxs = match self {
             Dynamic(evaluator) => {
-                let index = Self::evaluate_to_fx_index(evaluator, context, compartment);
+                let index = Self::evaluate_to_fx_index(evaluator, context, compartment)?;
                 let single = get_index_based_fx_on_chain(fx_chain, index).map_err(|_| {
                     FxResolveError::FxNotFound {
                         guid: None,
@@ -975,7 +974,7 @@ impl VirtualChainFx {
         compartment: MappingCompartment,
     ) -> Option<u32> {
         if let VirtualChainFx::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_fx_index(evaluator, context, compartment))
+            Some(Self::evaluate_to_fx_index(evaluator, context, compartment).ok()?)
         } else {
             None
         }
@@ -985,10 +984,12 @@ impl VirtualChainFx {
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> u32 {
+    ) -> Result<u32, FxResolveError> {
         let sliced_params = compartment.slice_params(context.params());
-        let result = evaluator.evaluate(sliced_params);
-        result.round().max(0.0) as u32
+        let result = evaluator
+            .evaluate(sliced_params)
+            .map_err(|_| FxResolveError::ExpressionError)?;
+        Ok(result.round().max(0.0) as u32)
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -1026,6 +1027,8 @@ fn find_fxs_by_name<'a>(chain: &'a FxChain, name: &'a WildMatch) -> impl Iterato
 
 #[derive(Clone, Debug, Display, Error)]
 pub enum FxResolveError {
+    #[display(fmt = "ExpressionError")]
+    ExpressionError,
     #[display(fmt = "FxNotFound")]
     FxNotFound {
         guid: Option<Guid>,
