@@ -3,6 +3,11 @@ use helgoboss_learn::Transformation;
 
 use std::sync::Arc;
 
+#[derive(Default)]
+pub struct AdditionalEelTransformationInput {
+    pub y_last: f64,
+}
+
 #[derive(Debug)]
 struct EelUnit {
     // Declared above VM in order to be dropped before VM is dropped.
@@ -10,6 +15,7 @@ struct EelUnit {
     vm: eel::Vm,
     x: eel::Variable,
     y: eel::Variable,
+    y_last: eel::Variable,
 }
 
 #[derive(Clone, Debug)]
@@ -39,7 +45,14 @@ impl EelTransformation {
         let program = vm.compile(eel_script)?;
         let x = vm.register_variable("x");
         let y = vm.register_variable("y");
-        let eel_unit = EelUnit { program, vm, x, y };
+        let y_last = vm.register_variable("y_last");
+        let eel_unit = EelUnit {
+            program,
+            vm,
+            x,
+            y,
+            y_last,
+        };
         Ok(EelTransformation {
             eel_unit: Arc::new(eel_unit),
             output_var: result_var,
@@ -48,7 +61,14 @@ impl EelTransformation {
 }
 
 impl Transformation for EelTransformation {
-    fn transform(&self, input_value: f64, output_value: f64) -> Result<f64, &'static str> {
+    type AdditionalInput = AdditionalEelTransformationInput;
+
+    fn transform(
+        &self,
+        input_value: f64,
+        output_value: f64,
+        additional_input: AdditionalEelTransformationInput,
+    ) -> Result<f64, &'static str> {
         let result = unsafe {
             use OutputVariable::*;
             let (input_var, output_var) = match self.output_var {
@@ -57,6 +77,7 @@ impl Transformation for EelTransformation {
             };
             input_var.set(input_value);
             output_var.set(output_value);
+            self.eel_unit.y_last.set(additional_input.y_last);
             self.eel_unit.program.execute();
             output_var.get()
         };
