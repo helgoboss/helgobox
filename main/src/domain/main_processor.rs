@@ -573,10 +573,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     // duplicate target values. So check for duplicate feedback!
                                     // TODO-high-discrete Maybe not true anymore with discrete
                                     //  targets.
-                                    if let Some(value) = t.current_value(control_context) {
-                                        m.update_last_non_performance_target_value_if_appropriate(
-                                            Some(value),
-                                        );
+                                    let (affected, new_value) = if let Some(value) =
+                                        t.current_value(control_context)
+                                    {
                                         // Check if changed
                                         match previous_target_values[compartment].entry(*mapping_id)
                                         {
@@ -605,7 +604,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     } else {
                                         // Couldn't determine feedback value.
                                         (false, None)
+                                    };
+                                    if affected {
+                                        m.update_last_non_performance_target_value_if_appropriate(
+                                            new_value,
+                                        );
                                     }
+                                    (affected, new_value)
                                 } else {
                                     // We use feedback props. That either means we have numeric
                                     // feedback with some prop-based feedback style or we have
