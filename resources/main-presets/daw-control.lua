@@ -10,7 +10,7 @@ local zoom_rate = 100
 local scroll_rate = 100
 
 -- Set `follow_track_selection` to `true` in order to switch between tracks by selecting them.
-local follow_track_selection = true
+local follow_track_selection = false
 -- Setting this to false is supposed to prevent navigation to the master track when using `follow_track_selection`
 -- but correctly doesn't work 100%.
 local support_nav_to_master_track = true
@@ -1030,7 +1030,7 @@ for ch = 0, channel_count - 1 do
                     "max(selected_track_index, 0) + " .. ch
             )
     ) or (
-            "p1 * 10000 + " .. ch
+            "p[0] * 10000 + " .. ch
     )
     local track_volume = {
         id = prefix.."vol",
