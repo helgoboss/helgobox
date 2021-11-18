@@ -574,10 +574,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     // TODO-high-discrete Maybe not true anymore with discrete
                                     //  targets.
                                     if let Some(value) = t.current_value(control_context) {
-                                        // Handle update of last_y (performance mappings)
-                                        if m.control_is_enabled() && !m.is_echo() {
-                                            m.update_last_non_performance_target_value(value);
-                                        }
+                                        m.update_last_non_performance_target_value_if_appropriate(
+                                            Some(value),
+                                        );
                                         // Check if changed
                                         match previous_target_values[compartment].entry(*mapping_id)
                                         {
@@ -623,7 +622,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                                     // text feedback might go beyond that interval, so we should
                                     // always update it! Example: Seek target with "Use project"
                                     // enabled.
-                                    (true, None)
+
+                                    // We are now required to return the current target value.
+                                    let new_value = t.current_value(control_context);
+                                    (true, new_value)
                                 }
                             },
                         );
@@ -1409,7 +1411,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     /// The given function should return if the current target value is affected by this change
-    /// and - if possible - the new value. We do this because querying the value *immediately*
+    /// and the new value. We do this because querying the value *immediately*
     /// using the target's `current_value()` method will in some or even many (?) cases give us the
     /// old value - which can lead to confusing feedback! In the past we unknowingly worked around
     /// this by deferring the value query to the next main cycle, but now that we have the nice
@@ -1428,6 +1430,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
+    /// The given function f is NOW required to return the current target value.
     fn process_feedback_related_reaper_event_for_mapping(
         &self,
         m: &MainMapping,
@@ -2558,6 +2561,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         }
     }
 
+    /// The given function f is NOW required to return the current target value.
     // https://github.com/rust-lang/rust-clippy/issues/6066
     #[allow(clippy::needless_collect)]
     pub fn process_feedback_related_reaper_event_for_mapping(
@@ -2569,7 +2573,7 @@ impl<EH: DomainEventHandler> Basics<EH> {
         // It's enough if one of the resolved targets is affected. Then we are going to need the
         // values of all of them!
         let mut at_least_one_target_is_affected = false;
-        let new_values: Vec<(&ReaperTarget, Option<AbsoluteValue>)> = m
+        let new_values: Vec<Option<AbsoluteValue>> = m
             .targets()
             .iter()
             .filter_map(|target| {
@@ -2592,16 +2596,13 @@ impl<EH: DomainEventHandler> Basics<EH> {
                 if value_changed {
                     at_least_one_target_is_affected = true;
                 }
-                Some((target, new_value))
+                Some(new_value)
             })
             .collect();
         if !at_least_one_target_is_affected {
             return;
         }
-        let new_target_values = new_values.into_iter().map(|(target, new_value)| {
-            m.given_or_current_value(new_value, target, self.control_context())
-        });
-        let new_target_value = aggregate_target_values(new_target_values);
+        let new_target_value = aggregate_target_values(new_values.into_iter());
         if let Some(new_value) = new_target_value {
             // Feedback
             let mapping_feedback_is_effectively_on = m.feedback_is_effectively_on();
