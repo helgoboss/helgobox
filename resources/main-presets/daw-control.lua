@@ -1025,7 +1025,7 @@ for ch = 0, channel_count - 1 do
     local track_address = "Dynamic"
     local track_expression = follow_track_selection and (
             support_nav_to_master_track and (
-                    "selected_track_index + " .. ch
+                    "((selected_track_index != none) && selected_track_index || 0) + " .. ch
             ) or (
                     "max(selected_track_index, 0) + " .. ch
             )
