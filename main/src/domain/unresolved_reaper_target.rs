@@ -311,8 +311,12 @@ impl TrackRouteSelector {
         let sliced_params = compartment.slice_params(context.params());
         let result = evaluator
             .evaluate(sliced_params)
-            .map_err(|_| TrackRouteResolveError::ExpressionError)?;
-        Ok(result.round().max(0.0) as u32)
+            .map_err(|_| TrackRouteResolveError::ExpressionFailed)?
+            .round() as i32;
+        if result < 0 {
+            return Err(TrackRouteResolveError::OutOfRange);
+        }
+        Ok(result as u32)
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -485,8 +489,12 @@ impl VirtualFxParameter {
         let sliced_params = compartment.slice_params(context.params());
         let result = evaluator
             .evaluate(sliced_params)
-            .map_err(|_| FxParameterResolveError::ExpressionError)?;
-        Ok(result.round().max(0.0) as u32)
+            .map_err(|_| FxParameterResolveError::ExpressionFailed)?
+            .round() as i32;
+        if result < 0 {
+            return Err(FxParameterResolveError::OutOfRange);
+        }
+        Ok(result as u32)
     }
 
     pub fn index(&self) -> Option<u32> {
@@ -554,24 +562,37 @@ impl ExpressionEvaluator {
     ) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
         let mut cb = |name: &str, _args: Vec<f64>| -> Option<f64> {
+            // Use-case specific variables
             if let Some(value) = additional_vars(name) {
                 return Some(value);
             }
-            if !name.starts_with('p') {
-                return None;
+            match name {
+                "none" => Some(EXPRESSION_NONE_VALUE),
+                // Parameter variables (p1, p2, ...)
+                _ => {
+                    if !name.starts_with('p') {
+                        return None;
+                    }
+                    let value: u32 = name[1..].parse().ok()?;
+                    if !(1..=COMPARTMENT_PARAMETER_COUNT).contains(&value) {
+                        return None;
+                    }
+                    let index = (value - 1) as usize;
+                    let param_value = params[index];
+                    Some(param_value as f64)
+                }
             }
-            let value: u32 = name[1..].parse().ok()?;
-            if !(1..=COMPARTMENT_PARAMETER_COUNT).contains(&value) {
-                return None;
-            }
-            let index = (value - 1) as usize;
-            let param_value = params[index];
-            Some(param_value as f64)
         };
         let val = eval_compiled_ref!(&self.instruction, &self.slab, &mut cb);
         Ok(val)
     }
 }
+
+/// If fasteval encounters usage of a non-existing variable, it fails. Good. But sometimes we need
+/// to express that the variable is there but the value is just "None". fasteval doesn't have a
+/// dedicated value for that, so we just define an exotic f64 to represent it! We need one that
+/// is equal to itself, so NAN and NEG_INFINITY are no options.
+pub const EXPRESSION_NONE_VALUE: f64 = f64::MIN;
 
 impl fmt::Display for VirtualTrack {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -772,17 +793,23 @@ impl VirtualTrack {
                     let index = context
                         .context()
                         .project_or_current_project()
-                        .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)?
-                        .index()
-                        .map(|i| i as i32)
-                        // -1 means master track
-                        .unwrap_or(-1);
-                    Some(index as f64)
+                        .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
+                        .map(|t| {
+                            t.index()
+                                .map(|i| i as i32)
+                                // -1 means master track
+                                .unwrap_or(-1)
+                        });
+                    Some(index.map(|i| i as f64).unwrap_or(EXPRESSION_NONE_VALUE))
                 }
                 _ => None,
             })
-            .map_err(|_| TrackResolveError::ExpressionError)?;
-        Ok(result.round().max(-1.0) as i32)
+            .map_err(|_| TrackResolveError::ExpressionFailed)?
+            .round() as i32;
+        if result < -1 {
+            return Err(TrackResolveError::OutOfRange);
+        }
+        Ok(result as i32)
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -875,8 +902,10 @@ fn find_tracks_by_name(project: Project, name: &WildMatch) -> impl Iterator<Item
 
 #[derive(Clone, Debug, Display, Error)]
 pub enum TrackResolveError {
-    #[display(fmt = "ExpressionError")]
-    ExpressionError,
+    #[display(fmt = "ExpressionFailed")]
+    ExpressionFailed,
+    #[display(fmt = "OutOfRange")]
+    OutOfRange,
     #[display(fmt = "TrackNotFound")]
     TrackNotFound {
         guid: Option<Guid>,
@@ -888,8 +917,10 @@ pub enum TrackResolveError {
 
 #[derive(Clone, Debug, Display, Error)]
 pub enum FxParameterResolveError {
-    #[display(fmt = "ExpressionError")]
-    ExpressionError,
+    #[display(fmt = "ExpressionFailed")]
+    ExpressionFailed,
+    #[display(fmt = "OutOfRange")]
+    OutOfRange,
     #[display(fmt = "FxParameterNotFound")]
     FxParameterNotFound {
         name: Option<WildMatch>,
@@ -899,8 +930,10 @@ pub enum FxParameterResolveError {
 
 #[derive(Clone, Debug, Display, Error)]
 pub enum TrackRouteResolveError {
-    #[display(fmt = "ExpressionError")]
-    ExpressionError,
+    #[display(fmt = "ExpressionFailed")]
+    ExpressionFailed,
+    #[display(fmt = "OutOfRange")]
+    OutOfRange,
     #[display(fmt = "InvalidRoute")]
     InvalidRoute,
     #[display(fmt = "TrackRouteNotFound")]
@@ -997,8 +1030,12 @@ impl VirtualChainFx {
         let sliced_params = compartment.slice_params(context.params());
         let result = evaluator
             .evaluate(sliced_params)
-            .map_err(|_| FxResolveError::ExpressionError)?;
-        Ok(result.round().max(0.0) as u32)
+            .map_err(|_| FxResolveError::ExpressionFailed)?
+            .round() as i32;
+        if result < 0 {
+            return Err(FxResolveError::OutOfRange);
+        }
+        Ok(result as u32)
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -1036,8 +1073,10 @@ fn find_fxs_by_name<'a>(chain: &'a FxChain, name: &'a WildMatch) -> impl Iterato
 
 #[derive(Clone, Debug, Display, Error)]
 pub enum FxResolveError {
-    #[display(fmt = "ExpressionError")]
-    ExpressionError,
+    #[display(fmt = "ExpressionFailed")]
+    ExpressionFailed,
+    #[display(fmt = "OutOfRange")]
+    OutOfRange,
     #[display(fmt = "FxNotFound")]
     FxNotFound {
         guid: Option<Guid>,
