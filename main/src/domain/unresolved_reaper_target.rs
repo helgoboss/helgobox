@@ -31,6 +31,7 @@ use reaper_high::{
 use reaper_medium::{BookmarkId, MasterTrackBehavior};
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
+use std::error::Error;
 use std::fmt;
 use wildmatch::WildMatch;
 
@@ -240,6 +241,19 @@ pub struct FxParameterDescriptor {
 pub struct TrackRouteDescriptor {
     pub track_descriptor: TrackDescriptor,
     pub route: VirtualTrackRoute,
+}
+
+impl TrackRouteDescriptor {
+    pub fn resolve_first(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<TrackRoute, Box<dyn Error>> {
+        let tracks = self.track_descriptor.track.resolve(context, compartment)?;
+        let track = tracks.first().ok_or("didn't resolve to any track")?;
+        let route = self.route.resolve(track, context, compartment)?;
+        Ok(route)
+    }
 }
 
 #[derive(Debug)]

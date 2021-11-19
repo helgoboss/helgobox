@@ -8,7 +8,7 @@ use crate::domain::{
     ExtendedSourceCharacter, FeedbackSendBehavior, GroupId, MainMapping, MappingCompartment,
     MappingId, MappingKey, Mode, PersistentMappingProcessingState, ProcessorMappingOptions,
     QualifiedMappingId, RealearnTarget, ReaperTarget, Tag, TargetCharacter,
-    UnresolvedCompoundMappingTarget,
+    UnresolvedCompoundMappingTarget, VirtualFx, VirtualTrack,
 };
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
@@ -17,6 +17,7 @@ use helgoboss_learn::{
 use rxrust::prelude::*;
 
 use std::cell::RefCell;
+use std::error::Error;
 use std::rc::Rc;
 
 /// A model for creating mappings (a combination of source, mode and target).
@@ -126,6 +127,76 @@ impl MappingModel {
 
     pub fn clear_name(&mut self) {
         self.name.set(Default::default());
+    }
+
+    pub fn make_project_independent(&mut self, context: ExtendedProcessorContext) {
+        let compartment = self.compartment();
+        let target = &mut self.target_model;
+        match target.category.get() {
+            TargetCategory::Reaper => {
+                let changed_to_track_ignore_fx = if target.supports_fx() {
+                    let refers_to_project = target.fx_type.get().refers_to_project();
+                    if refers_to_project {
+                        let target_with_context = target.with_context(context, compartment);
+                        let virtual_fx = if target_with_context.first_fx().ok().as_ref()
+                            == Some(context.context().containing_fx())
+                        {
+                            // This is ourselves!
+                            VirtualFx::This
+                        } else {
+                            VirtualFx::Focused
+                        };
+                        target.set_virtual_fx(virtual_fx, context, compartment);
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                };
+                if target.r#type.get().supports_track()
+                    && target.track_type.get().refers_to_project()
+                {
+                    let new_virtual_track = if changed_to_track_ignore_fx {
+                        // Track doesn't matter at all. We change it to <This>. Looks nice.
+                        Some(VirtualTrack::This)
+                    } else if let Ok(t) = target
+                        .with_context(context, compartment)
+                        .first_effective_track()
+                    {
+                        t.index().map(VirtualTrack::ByIndex)
+                    } else {
+                        None
+                    };
+                    if let Some(t) = new_virtual_track {
+                        target.set_virtual_track(t, Some(context.context()));
+                    }
+                }
+            }
+            TargetCategory::Virtual => {}
+        }
+    }
+
+    pub fn make_target_sticky(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Result<(), Box<dyn Error>> {
+        let target = &mut self.target_model;
+        match target.category.get() {
+            TargetCategory::Reaper => {
+                if target.supports_track() {
+                    target.make_track_sticky(self.compartment, context)?;
+                }
+                if target.supports_fx() {
+                    target.make_fx_sticky(self.compartment, context)?;
+                }
+                if target.supports_route() {
+                    target.make_route_sticky(self.compartment, context)?;
+                }
+            }
+            TargetCategory::Virtual => {}
+        }
+        Ok(())
     }
 
     pub fn advanced_settings(&self) -> Option<&serde_yaml::Mapping> {

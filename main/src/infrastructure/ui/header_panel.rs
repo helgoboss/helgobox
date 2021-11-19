@@ -193,6 +193,7 @@ impl HeaderPanel {
             CopyListedMappingsAsJson,
             CopyListedMappingsAsLua(ConversionStyle),
             AutoNameListedMappings,
+            MakeTargetsOfListedMappingsSticky,
             MoveListedMappingsToGroup(Option<GroupId>),
             PasteReplaceAllInGroup(Vec<MappingModelData>),
             PasteFromLuaReplaceAllInGroup(String),
@@ -271,6 +272,9 @@ impl HeaderPanel {
                 },
                 item("Auto-name listed mappings", || {
                     MenuAction::AutoNameListedMappings
+                }),
+                item("Make targets of listed mappings sticky", || {
+                    MenuAction::MakeTargetsOfListedMappingsSticky
                 }),
                 menu(
                     "Move listed mappings to group",
@@ -556,6 +560,9 @@ impl HeaderPanel {
                 self.copy_listed_mappings_as_json().unwrap();
             }
             MenuAction::AutoNameListedMappings => self.auto_name_listed_mappings(),
+            MenuAction::MakeTargetsOfListedMappingsSticky => {
+                self.make_targets_of_listed_mappings_sticky()
+            }
             MenuAction::MoveListedMappingsToGroup(group_id) => {
                 let _ = self.move_listed_mappings_to_group(group_id);
             }
@@ -724,6 +731,44 @@ impl HeaderPanel {
         }
         for m in listed_mappings {
             m.borrow_mut().clear_name();
+        }
+    }
+
+    fn make_targets_of_listed_mappings_sticky(&self) {
+        let listed_mappings = self.get_listened_mappings(self.active_compartment());
+        if listed_mappings.is_empty() {
+            return;
+        }
+        if !self.view.require_window().confirm(
+            "ReaLearn",
+            format!(
+                "This will change the targets of {} mappings to use sticky track/FX/send selectors such as <Master>, <This> and By ID. Do you really want to continue?",
+                listed_mappings.len()
+            ),
+        ) {
+            return;
+        }
+        let session = self.session();
+        let session = session.borrow();
+        let context = session.extended_context();
+        let errors: Vec<_> = listed_mappings
+            .iter()
+            .filter_map(|m| {
+                let mut m = m.borrow_mut();
+                m.make_target_sticky(context).err().map(|e| {
+                    format!(
+                        "Couldn't make target of mapping {} sticky because {}",
+                        m.effective_name(),
+                        e
+                    )
+                })
+            })
+            .collect();
+        if !errors.is_empty() {
+            notify_processing_result(
+                "Errors occurred when changing mappings to \"By ID\"",
+                errors,
+            );
         }
     }
 

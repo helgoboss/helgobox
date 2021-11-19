@@ -43,6 +43,7 @@ use crate::domain::{
 };
 use serde_repr::*;
 use std::borrow::Cow;
+use std::error::Error;
 
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackArea, TrackLocation,
@@ -242,6 +243,51 @@ impl TargetModel {
             Reaper => self.r#type.get().supports_feedback(),
             Virtual => true,
         }
+    }
+
+    pub fn make_track_sticky(
+        &mut self,
+        compartment: MappingCompartment,
+        context: ExtendedProcessorContext,
+    ) -> Result<(), Box<dyn Error>> {
+        if self.track_type.get().is_sticky() {
+            return Ok(());
+        };
+        let track = self
+            .with_context(context, compartment)
+            .first_effective_track()?;
+        let virtual_track = virtualize_track(&track, context.context(), false);
+        self.set_virtual_track(virtual_track, Some(context.context()));
+        Ok(())
+    }
+
+    pub fn make_fx_sticky(
+        &mut self,
+        compartment: MappingCompartment,
+        context: ExtendedProcessorContext,
+    ) -> Result<(), Box<dyn Error>> {
+        if self.fx_type.get().is_sticky() {
+            return Ok(());
+        };
+        let fx = self.with_context(context, compartment).first_fx()?;
+        let virtual_fx = virtualize_fx(&fx, context.context(), false);
+        self.set_virtual_fx(virtual_fx, context, compartment);
+        Ok(())
+    }
+
+    pub fn make_route_sticky(
+        &mut self,
+        compartment: MappingCompartment,
+        context: ExtendedProcessorContext,
+    ) -> Result<(), Box<dyn Error>> {
+        if self.route_selector_type.get().is_sticky() {
+            return Ok(());
+        };
+        let desc = self.track_route_descriptor()?;
+        let route = desc.resolve_first(context, compartment)?;
+        let virtual_route = virtualize_route(&route, context.context(), false);
+        self.set_virtual_route(virtual_route);
+        Ok(())
     }
 
     pub fn take_fx_snapshot(
@@ -605,7 +651,7 @@ impl TargetModel {
         self.category.set(TargetCategory::Reaper);
         self.r#type.set(ReaperTargetType::from_target(target));
         if let Some(actual_fx) = target.fx() {
-            let virtual_fx = virtualize_fx(actual_fx, context);
+            let virtual_fx = virtualize_fx(actual_fx, context, true);
             self.set_virtual_fx(virtual_fx, extended_context, compartment);
             let track = if let Some(track) = actual_fx.track() {
                 track.clone()
@@ -614,12 +660,12 @@ impl TargetModel {
                 // convention and ours).
                 context.project_or_current_project().master_track()
             };
-            self.set_virtual_track(virtualize_track(&track, context), Some(context));
+            self.set_virtual_track(virtualize_track(&track, context, true), Some(context));
         } else if let Some(track) = target.track() {
-            self.set_virtual_track(virtualize_track(track, context), Some(context));
+            self.set_virtual_track(virtualize_track(track, context, true), Some(context));
         }
         if let Some(send) = target.route() {
-            let virtual_route = virtualize_route(send, context);
+            let virtual_route = virtualize_route(send, context, true);
             self.set_virtual_route(virtual_route);
         }
         if let Some(track_exclusivity) = target.track_exclusivity() {
@@ -877,7 +923,7 @@ impl TargetModel {
         }
     }
 
-    fn track_descriptor(&self) -> Result<TrackDescriptor, &'static str> {
+    pub fn track_descriptor(&self) -> Result<TrackDescriptor, &'static str> {
         let desc = TrackDescriptor {
             track: self.virtual_track().ok_or("virtual track not complete")?,
             enable_only_if_track_selected: self.enable_only_if_track_selected.get(),
@@ -885,7 +931,7 @@ impl TargetModel {
         Ok(desc)
     }
 
-    fn fx_descriptor(&self) -> Result<FxDescriptor, &'static str> {
+    pub fn fx_descriptor(&self) -> Result<FxDescriptor, &'static str> {
         let desc = FxDescriptor {
             track_descriptor: self.track_descriptor()?,
             enable_only_if_fx_has_focus: self.enable_only_if_fx_has_focus.get(),
@@ -894,7 +940,7 @@ impl TargetModel {
         Ok(desc)
     }
 
-    fn track_route_descriptor(&self) -> Result<TrackRouteDescriptor, &'static str> {
+    pub fn track_route_descriptor(&self) -> Result<TrackRouteDescriptor, &'static str> {
         let desc = TrackRouteDescriptor {
             track_descriptor: self.track_descriptor()?,
             route: self.virtual_track_route()?,
@@ -1261,6 +1307,13 @@ impl TargetModel {
             return false;
         }
         self.r#type.get().supports_fx()
+    }
+
+    pub fn supports_route(&self) -> bool {
+        if !self.is_reaper() {
+            return false;
+        }
+        self.r#type.get().supports_send()
     }
 
     pub fn supports_automation_mode(&self) -> bool {
@@ -1821,7 +1874,11 @@ impl Default for TargetCategory {
     }
 }
 
-fn virtualize_track(track: &Track, context: &ProcessorContext) -> VirtualTrack {
+fn virtualize_track(
+    track: &Track,
+    context: &ProcessorContext,
+    special_monitoring_fx_handling: bool,
+) -> VirtualTrack {
     let own_track = context
         .track()
         .cloned()
@@ -1830,7 +1887,7 @@ fn virtualize_track(track: &Track, context: &ProcessorContext) -> VirtualTrack {
         VirtualTrack::This
     } else if track.is_master_track() {
         VirtualTrack::Master
-    } else if context.is_on_monitoring_fx_chain() {
+    } else if special_monitoring_fx_handling && context.is_on_monitoring_fx_chain() {
         // Doesn't make sense to refer to tracks via ID if we are on monitoring FX chain.
         VirtualTrack::ByIndex(track.index().expect("impossible"))
     } else {
@@ -1838,26 +1895,40 @@ fn virtualize_track(track: &Track, context: &ProcessorContext) -> VirtualTrack {
     }
 }
 
-fn virtualize_fx(fx: &Fx, context: &ProcessorContext) -> VirtualFx {
+fn virtualize_fx(
+    fx: &Fx,
+    context: &ProcessorContext,
+    special_monitoring_fx_handling: bool,
+) -> VirtualFx {
     if context.containing_fx() == fx {
         VirtualFx::This
     } else {
         VirtualFx::ChainFx {
             is_input_fx: fx.is_input_fx(),
-            chain_fx: if context.is_on_monitoring_fx_chain() {
+            chain_fx: if special_monitoring_fx_handling && context.is_on_monitoring_fx_chain() {
                 // Doesn't make sense to refer to FX via UUID if we are on monitoring FX chain.
                 VirtualChainFx::ByIndex(fx.index())
             } else if let Some(guid) = fx.guid() {
                 VirtualChainFx::ById(guid, Some(fx.index()))
             } else {
-                // Don't know how that can happen but let's handle it gracefully.
-                VirtualChainFx::ByIdOrIndex(None, fx.index())
+                // This can happen if the incoming FX was created in an index-based way.
+                // TODO-medium We really should use separate types in reaper-high!
+                let guid = fx.chain().fx_by_index(fx.index()).and_then(|f| f.guid());
+                if let Some(guid) = guid {
+                    VirtualChainFx::ById(guid, Some(fx.index()))
+                } else {
+                    VirtualChainFx::ByIdOrIndex(None, fx.index())
+                }
             },
         }
     }
 }
 
-fn virtualize_route(route: &TrackRoute, context: &ProcessorContext) -> VirtualTrackRoute {
+fn virtualize_route(
+    route: &TrackRoute,
+    context: &ProcessorContext,
+    special_monitoring_fx_handling: bool,
+) -> VirtualTrackRoute {
     let partner = route.partner();
     VirtualTrackRoute {
         r#type: match route.direction() {
@@ -1870,7 +1941,7 @@ fn virtualize_route(route: &TrackRoute, context: &ProcessorContext) -> VirtualTr
                 }
             }
         },
-        selector: if context.is_on_monitoring_fx_chain() {
+        selector: if special_monitoring_fx_handling && context.is_on_monitoring_fx_chain() {
             // Doesn't make sense to refer to route via related-track UUID if we are on monitoring
             // FX chain.
             TrackRouteSelector::ByIndex(route.index())
@@ -2063,6 +2134,11 @@ impl VirtualFxType {
         use VirtualFxType::*;
         matches!(self, ById | ByIdOrIndex)
     }
+
+    pub fn is_sticky(&self) -> bool {
+        use VirtualFxType::*;
+        matches!(self, ById | ByIdOrIndex | This)
+    }
 }
 
 #[derive(
@@ -2110,6 +2186,11 @@ impl VirtualFxParameterType {
             ById(_) => Self::ById,
         }
     }
+
+    pub fn is_sticky(&self) -> bool {
+        use VirtualFxParameterType::*;
+        matches!(self, ById)
+    }
 }
 
 #[derive(
@@ -2156,6 +2237,16 @@ impl TrackRouteSelectorType {
             ByName(_) => Self::ByName,
             ByIndex(_) => Self::ByIndex,
         }
+    }
+
+    pub fn refers_to_project(&self) -> bool {
+        use TrackRouteSelectorType::*;
+        matches!(self, ById)
+    }
+
+    pub fn is_sticky(&self) -> bool {
+        use TrackRouteSelectorType::*;
+        matches!(self, ById)
     }
 }
 
