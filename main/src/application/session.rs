@@ -1,7 +1,7 @@
 use crate::application::{
     share_group, share_mapping, CompartmentModel, ControllerPreset, FxId, GroupModel, MainPreset,
     MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
-    SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
+    SharedMapping, SourceModel, TargetCategory, TargetModel, VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
 use crate::base::{prop, when, AsyncNotifier, Global, Prop};
@@ -9,7 +9,7 @@ use crate::domain::{
     BackboneState, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
     DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
     GroupKey, IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId,
-    MainMapping, MappingCompartment, MappingId, MappingKey, MappingMatchedEvent,
+    InstanceState, MainMapping, MappingCompartment, MappingId, MappingKey, MappingMatchedEvent,
     MessageCaptureEvent, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask,
     OscDeviceId, OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
     QualifiedMappingId, RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState,
@@ -283,7 +283,7 @@ impl Session {
         compartment: MappingCompartment,
         source_value: IncomingCompoundSourceValue,
     ) -> Option<&SharedMapping> {
-        let virtual_source_value = self.virtualize_if_possible(source_value);
+        let virtual_source_value = self.virtualize_source_value(source_value);
         let instance_state = self.instance_state.borrow();
         use CompoundMappingSource::*;
         self.mappings(compartment).find(|m| {
@@ -309,6 +309,26 @@ impl Session {
             self.mappings[compartment].iter(),
             self.extended_context(),
         );
+    }
+
+    pub fn virtualize_main_mappings(&mut self, session: WeakSession) -> Result<(), String> {
+        let count = self.mappings[MappingCompartment::MainMappings]
+            .iter()
+            .filter(|m| {
+                let mut m = m.borrow_mut();
+                if let Some(virtual_source_model) = self.virtualize_source_model(&m.source_model) {
+                    m.source_model = virtual_source_model;
+                    false
+                } else {
+                    true
+                }
+            })
+            .count();
+        self.notify_everything_has_changed(session);
+        if count > 0 {
+            return Err(format!("Couldn't virtualize {} mappings.", count));
+        }
+        Ok(())
     }
 
     pub fn get_parameter_settings(
@@ -634,7 +654,7 @@ impl Session {
     ) -> Option<CompoundMappingSource> {
         if event.allow_virtual_sources {
             if let Some(virt_source) = self
-                .virtualize_if_possible(event.result.message())
+                .virtualize_source_value(event.result.message())
                 .map(VirtualSource::from_source_value)
             {
                 return Some(CompoundMappingSource::Virtual(virt_source));
@@ -643,31 +663,65 @@ impl Session {
         CompoundMappingSource::from_message_capture_event(event)
     }
 
-    pub fn virtualize_if_possible(
+    pub fn virtualize_source_value(
         &self,
         source_value: IncomingCompoundSourceValue,
     ) -> Option<VirtualSourceValue> {
         let instance_state = self.instance_state.borrow();
-        for m in self.mappings(MappingCompartment::ControllerMappings) {
-            let m = m.borrow();
-            if !m.control_is_enabled.get() {
-                continue;
-            }
-            if m.target_model.category.get() != TargetCategory::Virtual {
-                continue;
-            }
-            if !instance_state.mapping_is_on(m.qualified_id()) {
-                // Since virtual mappings support conditional activation, too!
-                continue;
-            }
-            if let Some(cv) = m.source_model.create_source().control(source_value) {
-                return Some(VirtualSourceValue::new(
-                    m.target_model.create_control_element(),
-                    cv,
-                ));
-            }
-        }
-        None
+        let res = self
+            .active_virtual_controller_mappings(&instance_state)
+            .find_map(|m| {
+                let m = m.borrow();
+                if let Some(cv) = m.source_model.create_source().control(source_value) {
+                    let virtual_source_value =
+                        VirtualSourceValue::new(m.target_model.create_control_element(), cv);
+                    Some(virtual_source_value)
+                } else {
+                    None
+                }
+            });
+        res
+    }
+
+    pub fn virtualize_source_model(&self, source_model: &SourceModel) -> Option<SourceModel> {
+        let instance_state = self.instance_state.borrow();
+        let res = self
+            .active_virtual_controller_mappings(&instance_state)
+            .find_map(|m| {
+                let m = m.borrow();
+                if m.source_model.create_source() == source_model.create_source() {
+                    let element = m.target_model.create_control_element();
+                    let virtual_source =
+                        CompoundMappingSource::Virtual(VirtualSource::new(element));
+                    let mut virtual_model = SourceModel::default();
+                    virtual_model.apply_from_source(&virtual_source);
+                    Some(virtual_model)
+                } else {
+                    None
+                }
+            });
+        res
+    }
+
+    fn active_virtual_controller_mappings<'a>(
+        &'a self,
+        instance_state: &'a InstanceState,
+    ) -> impl Iterator<Item = &SharedMapping> {
+        self.mappings(MappingCompartment::ControllerMappings)
+            .filter(move |m| {
+                let m = m.borrow();
+                if !m.control_is_enabled.get() {
+                    return false;
+                }
+                if m.target_model.category.get() != TargetCategory::Virtual {
+                    return false;
+                }
+                if !instance_state.mapping_is_on(m.qualified_id()) {
+                    // Since virtual mappings support conditional activation, too!
+                    return false;
+                }
+                true
+            })
     }
 
     pub fn incoming_msg_captured(
