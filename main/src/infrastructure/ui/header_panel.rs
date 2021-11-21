@@ -194,6 +194,7 @@ impl HeaderPanel {
             CopyListedMappingsAsLua(ConversionStyle),
             AutoNameListedMappings,
             MakeTargetsOfListedMappingsSticky,
+            MakeSourcesOfMainMappingsVirtual,
             MoveListedMappingsToGroup(Option<GroupId>),
             PasteReplaceAllInGroup(Vec<MappingModelData>),
             PasteFromLuaReplaceAllInGroup(String),
@@ -272,6 +273,9 @@ impl HeaderPanel {
                 },
                 item("Auto-name listed mappings", || {
                     MenuAction::AutoNameListedMappings
+                }),
+                item("Make sources of all main mappings virtual", || {
+                    MenuAction::MakeSourcesOfMainMappingsVirtual
                 }),
                 item("Make targets of listed mappings sticky", || {
                     MenuAction::MakeTargetsOfListedMappingsSticky
@@ -560,6 +564,9 @@ impl HeaderPanel {
                 self.copy_listed_mappings_as_json().unwrap();
             }
             MenuAction::AutoNameListedMappings => self.auto_name_listed_mappings(),
+            MenuAction::MakeSourcesOfMainMappingsVirtual => {
+                self.make_sources_of_main_mappings_virtual()
+            }
             MenuAction::MakeTargetsOfListedMappingsSticky => {
                 self.make_targets_of_listed_mappings_sticky()
             }
@@ -734,6 +741,19 @@ impl HeaderPanel {
         }
     }
 
+    fn make_sources_of_main_mappings_virtual(&self) {
+        if !self.view.require_window().confirm(
+            "ReaLearn",
+            "This will attempt to make the sources in the main compartment virtual by matching them with the sources in the controller compartment. Do you really want to continue?",
+        ) {
+            return;
+        }
+        let shared_session = self.session();
+        let mut session = shared_session.borrow_mut();
+        let result = session.virtualize_main_mappings(Rc::downgrade(&shared_session));
+        self.notify_user_on_error(result.map_err(|e| e.into()));
+    }
+
     fn make_targets_of_listed_mappings_sticky(&self) {
         let listed_mappings = self.get_listened_mappings(self.active_compartment());
         if listed_mappings.is_empty() {
@@ -765,10 +785,7 @@ impl HeaderPanel {
             })
             .collect();
         if !errors.is_empty() {
-            notify_processing_result(
-                "Errors occurred when changing mappings to \"By ID\"",
-                errors,
-            );
+            notify_processing_result("Errors occurred when making targets sticky", errors);
         }
     }
 
@@ -904,7 +921,7 @@ impl HeaderPanel {
                 let virtual_source_value = if capture_event.allow_virtual_sources {
                     session
                         .borrow()
-                        .virtualize_if_possible(capture_event.result.message())
+                        .virtualize_source_value(capture_event.result.message())
                 } else {
                     None
                 };
