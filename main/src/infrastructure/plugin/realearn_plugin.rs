@@ -325,7 +325,7 @@ impl RealearnPlugin {
         let instance_id = self.instance_id;
         Global::task_support()
             .do_later_in_main_thread_from_main_thread_asap(move || {
-                let processor_context = match ProcessorContext::from_host(&host) {
+                let processor_context = match ProcessorContext::from_host(host) {
                     Ok(c) => c,
                     Err(msg) => {
                         notification::alert(msg);

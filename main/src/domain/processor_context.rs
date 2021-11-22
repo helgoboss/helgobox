@@ -1,7 +1,9 @@
 use crate::domain::{ControlContext, ParameterArray};
+use derivative::Derivative;
 use reaper_high::{Fx, FxChain, FxChainContext, Project, Reaper, Track};
 use reaper_medium::TypeSpecificPluginContext;
 use std::ptr::NonNull;
+use vst::host::Host;
 use vst::plugin::HostCallback;
 
 #[derive(Copy, Clone, Debug)]
@@ -37,8 +39,11 @@ impl<'a> ExtendedProcessorContext<'a> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct ProcessorContext {
+    #[derivative(Debug = "ignore")]
+    host: HostCallback,
     containing_fx: Fx,
     project: Option<Project>,
 }
@@ -46,10 +51,11 @@ pub struct ProcessorContext {
 pub const WAITING_FOR_SESSION_PARAM_NAME: &str = "realearn/waiting-for-session";
 
 impl ProcessorContext {
-    pub fn from_host(host: &HostCallback) -> Result<ProcessorContext, &'static str> {
-        let fx = get_containing_fx(host)?;
+    pub fn from_host(host: HostCallback) -> Result<ProcessorContext, &'static str> {
+        let fx = get_containing_fx(&host)?;
         let project = fx.project();
         let context = ProcessorContext {
+            host,
             containing_fx: fx,
             project,
         };
@@ -79,6 +85,10 @@ impl ProcessorContext {
             self.containing_fx.chain().context(),
             FxChainContext::Monitoring
         )
+    }
+
+    pub fn notify_dirty(&self) {
+        self.host.automate(-1, 0.0);
     }
 }
 

@@ -1734,7 +1734,18 @@ impl Session {
     }
 
     /// Precondition: The given compartment model should be valid (e.g. no duplicate IDs)!
-    pub fn replace_compartment(
+    pub fn import_compartment(
+        &mut self,
+        compartment: MappingCompartment,
+        model: Option<CompartmentModel>,
+        weak_session: WeakSession,
+    ) {
+        self.replace_compartment(compartment, model, weak_session);
+        self.mark_compartment_dirty(compartment);
+    }
+
+    /// Precondition: The given compartment model should be valid (e.g. no duplicate IDs)!
+    fn replace_compartment(
         &mut self,
         compartment: MappingCompartment,
         model: Option<CompartmentModel>,
@@ -2204,13 +2215,13 @@ impl Session {
     pub fn mark_compartment_dirty(&mut self, compartment: MappingCompartment) {
         debug!(self.logger, "Marking compartment as dirty");
         self.compartment_is_dirty[compartment].set(true);
-        self.context.project_or_current_project().mark_as_dirty();
+        self.mark_dirty();
     }
 
     /// Shouldn't be called on load (project load, undo, redo, preset change).
     pub fn mark_dirty(&self) {
         debug!(self.logger, "Marking session as dirty");
-        self.context.project_or_current_project().mark_as_dirty();
+        self.context.notify_dirty();
     }
 
     pub fn logger(&self) -> &slog::Logger {
