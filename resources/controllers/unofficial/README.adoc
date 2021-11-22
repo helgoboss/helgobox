@@ -9,6 +9,11 @@ Put them into your REAPER resource directory
 |===
 | Preset file | Controller | Contributor | Description
 
+| link:behringer-x-touch-mini.json[]
+| https://www.behringer.com/product.html?modelCode=P0B3M[Behringer X-Touch Mini]
+| Thomas
+|
+
 | link:behringer-bcf2000.json[]
 | https://www.behringer.com/product.html?modelCode=P0246[Behringer BCF2000]
 | http://github.com/tanders/[Torsten Anders]
