@@ -11,11 +11,11 @@ Put them into your REAPER resource directory
 
 | link:behringer-bcf2000.json[]
 | https://www.behringer.com/product.html?modelCode=P0246[Behringer BCF2000]
-| tanders
+| http://github.com/tanders/[Torsten Anders]
 | https://github.com/helgoboss/realearn/issues/375[#375]
 
 | link:nektar-panorama-p6.json[]
 | https://nektartech.com/panorama-p4-p6/[Nektar Panorama P6]
-| tanders
+| http://github.com/tanders/[Torsten Anders]
 | https://github.com/helgoboss/realearn/issues/374[#374]
 |===
