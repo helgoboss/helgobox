@@ -356,26 +356,6 @@ pub fn keep_informing_clients_about_session_events(shared_session: &SharedSessio
         });
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ControllerRouting {
-    main_preset: Option<LightMainPresetData>,
-    routes: HashMap<MappingKey, Vec<TargetDescriptor>>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct LightMainPresetData {
-    id: String,
-    name: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct TargetDescriptor {
-    label: String,
-}
-
 /// Inspired by local_ipaddress crate.
 pub fn get_local_ip() -> Option<std::net::IpAddr> {
     let socket = match std::net::UdpSocket::bind("0.0.0.0:0") {

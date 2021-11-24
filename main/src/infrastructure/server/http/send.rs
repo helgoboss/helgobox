@@ -2,9 +2,10 @@ use crate::application::Session;
 use crate::domain::ProjectionFeedbackValue;
 use crate::infrastructure::data::{ControllerPresetData, PresetData};
 use crate::infrastructure::plugin::App;
-use crate::infrastructure::server::http::routes::{get_controller_routing, SessionResponseData};
+use crate::infrastructure::server::http::data::{
+    get_controller_routing, ControllerRouting, SessionResponseData,
+};
 use crate::infrastructure::server::http::server::{Topic, WebSocketClient};
-use crate::infrastructure::server::ControllerRouting;
 use helgoboss_learn::UnitValue;
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};

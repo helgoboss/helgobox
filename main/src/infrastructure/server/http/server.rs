@@ -1,8 +1,9 @@
 use crate::base::Global;
 use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
+use crate::infrastructure::server::http::data::PatchRequest;
 use crate::infrastructure::server::http::routes::{
     handle_controller_route, handle_controller_routing_route, handle_metrics_route,
-    handle_patch_controller_route, handle_session_route, PatchRequest,
+    handle_patch_controller_route, handle_session_route,
 };
 use crate::infrastructure::server::http::{
     for_each_client, send_initial_events, send_initial_session, sender_dropped_response,
