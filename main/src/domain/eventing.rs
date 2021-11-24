@@ -1,6 +1,6 @@
 use crate::domain::{
-    CompoundMappingTarget, MappingCompartment, MappingId, MessageCaptureResult, ParameterArray,
-    ProjectionFeedbackValue, QualifiedMappingId,
+    ClipChangedEvent, CompoundMappingTarget, MappingCompartment, MappingId, MessageCaptureResult,
+    ParameterArray, ProjectionFeedbackValue, QualifiedMappingId,
 };
 use helgoboss_learn::AbsoluteValue;
 use std::collections::HashSet;
@@ -19,6 +19,13 @@ pub enum DomainEvent<'a> {
     MappingMatched(MappingMatchedEvent),
     FullResyncRequested,
     MappingEnabledChangeRequested(MappingEnabledChangeRequestedEvent),
+    ClipSlotsUpdated(Vec<ClipSlotUpdatedEvent>),
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct ClipSlotUpdatedEvent {
+    pub slot_index: usize,
+    pub clip_changed_event: ClipChangedEvent,
 }
 
 #[derive(Clone, Debug)]

@@ -6,15 +6,16 @@ use crate::application::{
 use crate::base::default_util::is_default;
 use crate::base::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
-    BackboneState, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
-    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
-    GroupKey, IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId,
-    InstanceState, MainMapping, MappingCompartment, MappingId, MappingKey, MappingMatchedEvent,
-    MessageCaptureEvent, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask,
-    OscDeviceId, OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
-    QualifiedMappingId, RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState,
-    SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
-    VirtualSourceValue, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    BackboneState, ClipSlotUpdatedEvent, CompoundMappingSource, ControlContext, ControlInput,
+    DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackOutput, GroupId, GroupKey, IncomingCompoundSourceValue, InputDescriptor,
+    InstanceContainer, InstanceId, InstanceState, MainMapping, MappingCompartment, MappingId,
+    MappingKey, MappingMatchedEvent, MessageCaptureEvent, MidiControlInput, MidiDestination,
+    NormalMainTask, NormalRealTimeTask, OscDeviceId, OscFeedbackTask, ParameterArray,
+    ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealTimeSender, RealearnTarget,
+    ReaperTarget, SharedInstanceState, SourceFeedbackValue, Tag, TargetValueChangedEvent,
+    VirtualControlElementId, VirtualFx, VirtualSource, VirtualSourceValue, VirtualTrack,
+    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
 use enum_map::{enum_map, EnumMap};
@@ -40,6 +41,7 @@ pub trait SessionUi {
     fn target_value_changed(&self, event: TargetValueChangedEvent);
     fn parameters_changed(&self, session: &Session);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
+    fn clip_slots_updated(&self, session: &Session, events: Vec<ClipSlotUpdatedEvent>);
     fn mapping_matched(&self, event: MappingMatchedEvent);
 }
 
@@ -2330,6 +2332,11 @@ impl DomainEventHandler for WeakSession {
                     {
                         m.borrow_mut().is_enabled.set(event.is_enabled);
                     }
+                }
+            }
+            ClipSlotsUpdated(events) => {
+                if let Ok(s) = session.try_borrow() {
+                    s.ui.clip_slots_updated(&s, events);
                 }
             }
         }

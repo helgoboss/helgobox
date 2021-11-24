@@ -1,0 +1,73 @@
+struct TileData := {
+    filled: bool,
+    progress: float,
+}
+
+MemoryTile := Rectangle {
+    border-radius: 8px;
+    callback clicked;
+    property <bool> filled;
+    property <float> progress;
+
+    background: filled ? #34CE57 : #3960D5;
+
+    // Left curtain
+    Rectangle {
+        background: #193076;
+        border-radius: 4px;
+        width: parent.width * progress;
+        height: parent.height;
+        animate width { duration: 250ms; easing: ease-in; }
+        clip: true;
+    }
+
+    TouchArea {
+        width: 100%;
+        height: 100%;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export MainWindow := Window {
+    title: "Memory Game - SixtyFPS Demo";
+
+    callback check-if-pair-solved();
+    property <bool> disable-tiles;
+
+    property<length> tile-size: 80px;
+    property<length> tile-spacing: 10px;
+
+    property <int> row-count: 4;
+    property <int> column-count: 4;
+
+    // "column_count + 1" and "row_count + 1" are the number of gaps between the tiles.
+    width: (column-count * tile-size) + ((column-count + 1) * tile-spacing);
+    height: (row-count * tile-size) + ((row-count + 1) * tile-spacing);
+
+    property<[TileData]> memory-tiles : [
+        { filled: true, progress: 0.5 },
+        { filled: true, progress: 0.25 },
+        { },
+        { },
+        { },
+        { },
+        { },
+        { },
+    ];
+
+    for tile[i] in memory-tiles: MemoryTile {
+        x: tile-spacing + mod(i, column-count) * (tile-size + tile-spacing);
+        y: tile-spacing + floor(i / row-count) * (tile-size + tile-spacing);
+        width: tile-size;
+        height: tile-size / 2;
+
+        filled: tile.filled;
+        progress: tile.progress;
+
+        clicked => {
+            root.check-if-pair-solved();
+        }
+    }
+}

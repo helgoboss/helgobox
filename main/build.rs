@@ -1,3 +1,6 @@
+use std::env;
+use std::path::Path;
+
 fn main() {
     // Generate "built" file (containing build-time information)
     built::write_built_file().expect("Failed to acquire build-time information");
@@ -16,6 +19,13 @@ fn main() {
 
     // Compile WDL EEL
     compile_eel();
+
+    // Compile sixtyfps views
+    compile_sixtyfps_views();
+}
+
+fn compile_sixtyfps_views() {
+    sixtyfps_build::compile("src/infrastructure/ui/clip/clip_view.60").unwrap();
 }
 
 fn compile_eel() {

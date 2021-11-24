@@ -439,6 +439,7 @@ pub struct QualifiedSlotDescriptor {
 
 #[derive(Debug)]
 pub enum InstanceStateChanged {
+    // TODO-high Use ClipSlotUpdatedEvent
     Clip {
         slot_index: usize,
         event: ClipChangedEvent,
@@ -454,7 +455,7 @@ pub enum InstanceStateChanged {
     ActiveInstanceTags,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum ClipChangedEvent {
     PlayState(ClipPlayState),
     ClipVolume(ReaperVolumeValue),

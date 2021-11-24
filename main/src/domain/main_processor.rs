@@ -1,19 +1,20 @@
 use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
-    ClipChangedEvent, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
-    CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlInput, ControlMode,
-    DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
-    FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
-    FeedbackResolution, FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
-    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, MainMapping,
-    MainSourceMessage, MappingActivationEffect, MappingCompartment, MappingControlResult,
-    MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult, MidiDestination,
-    MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId,
-    OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedMappingId, QualifiedSource,
-    RealFeedbackValue, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
-    ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString, SourceFeedbackValue,
-    SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetValueChangedEvent,
-    UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
+    ClipChangedEvent, ClipSlotUpdatedEvent, CompoundChangeEvent, CompoundFeedbackValue,
+    CompoundMappingSource, CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext,
+    ControlInput, ControlMode, DeviceFeedbackOutput, DomainEvent, DomainEventHandler,
+    ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput,
+    FeedbackRealTimeTask, FeedbackResolution, FeedbackSendBehavior, GroupId, HitInstructionContext,
+    InstanceContainer, InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent,
+    MainMapping, MainSourceMessage, MappingActivationEffect, MappingCompartment,
+    MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult,
+    MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap,
+    OscDeviceId, OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedMappingId,
+    QualifiedSource, RealFeedbackValue, RealTimeSender,
+    RealearnMonitoringFxParameterValueChangedEvent, ReaperMessage, ReaperTarget,
+    SharedInstanceState, SmallAsciiString, SourceFeedbackValue, SourceReleasedEvent,
+    SpecificCompoundFeedbackValue, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent,
+    VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -662,8 +663,16 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         //  We should introduce a set that contains the currently filled or playing slot numbers
         //  iterate over them only instead of all slots.
         let mut instance_state = self.basics.instance_state.borrow_mut();
+        let mut events = Vec::with_capacity(CLIP_SLOT_COUNT);
         for i in 0..CLIP_SLOT_COUNT {
             for event in instance_state.poll_slot(i).into_iter() {
+                // Collect for UI
+                let clip_slot_updated_event = ClipSlotUpdatedEvent {
+                    slot_index: i,
+                    clip_changed_event: event,
+                };
+                events.push(clip_slot_updated_event);
+                // Process mappings
                 let is_position_change = matches!(&event, ClipChangedEvent::ClipPosition(_));
                 let instance_event = InstanceStateChanged::Clip {
                     slot_index: i,
@@ -705,6 +714,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
         }
+        self.basics
+            .event_handler
+            .handle_event(DomainEvent::ClipSlotsUpdated(events));
     }
 
     fn process_feedback_tasks(&mut self) {

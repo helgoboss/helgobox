@@ -37,6 +37,7 @@ use crate::infrastructure::ui::bindings::root;
 
 use crate::base::notification::notify_processing_result;
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
+use crate::infrastructure::ui::clip::ClipView;
 use crate::infrastructure::ui::dialog_util::add_group_via_dialog;
 use crate::infrastructure::ui::util::open_in_browser;
 use crate::infrastructure::ui::{
@@ -65,6 +66,7 @@ pub struct HeaderPanel {
     companion_app_presenter: Rc<CompanionAppPresenter>,
     plugin_parameters: sync::Weak<RealearnPluginParameters>,
     panel_manager: Weak<RefCell<IndependentPanelManager>>,
+    clip_view: Weak<ClipView>,
     group_panel: RefCell<Option<SharedView<GroupPanel>>>,
     is_invoked_programmatically: Cell<bool>,
 }
@@ -75,6 +77,7 @@ impl HeaderPanel {
         main_state: SharedMainState,
         plugin_parameters: sync::Weak<RealearnPluginParameters>,
         panel_manager: Weak<RefCell<IndependentPanelManager>>,
+        clip_view: Weak<ClipView>,
     ) -> HeaderPanel {
         HeaderPanel {
             view: Default::default(),
@@ -85,6 +88,7 @@ impl HeaderPanel {
             panel_manager,
             group_panel: Default::default(),
             is_invoked_programmatically: false.into(),
+            clip_view,
         }
     }
 
@@ -225,6 +229,7 @@ impl HeaderPanel {
             EditCompartmentParameter(MappingCompartment, u32),
             SendFeedbackNow,
             LogDebugInfo,
+            OpenClipView,
         }
         impl Default for MenuAction {
             fn default() -> Self {
@@ -386,6 +391,7 @@ impl HeaderPanel {
                                 )
                             },
                         ),
+                        item("Open clip view", move || MenuAction::OpenClipView),
                     ],
                 ),
                 separator(),
@@ -683,6 +689,10 @@ impl HeaderPanel {
             MenuAction::EditPresetLinkFxId(fx_id) => edit_preset_link_fx_id(fx_id),
             MenuAction::RemovePresetLink(fx_id) => remove_preset_link(fx_id),
             MenuAction::LinkToPreset(fx_id, preset_id) => link_to_preset(fx_id, preset_id),
+            MenuAction::OpenClipView => {
+                let clip_view = self.clip_view.upgrade().expect("clip view gone");
+                clip_view.show();
+            }
         };
         Ok(())
     }

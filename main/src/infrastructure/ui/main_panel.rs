@@ -12,11 +12,12 @@ use std::cell::{Cell, RefCell};
 use crate::application::{Session, SessionUi, WeakSession};
 use crate::base::when;
 use crate::domain::{
-    MappingCompartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
-    TargetValueChangedEvent,
+    ClipSlotUpdatedEvent, MappingCompartment, MappingId, MappingMatchedEvent,
+    ProjectionFeedbackValue, TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
 use crate::infrastructure::server::send_projection_feedback_to_subscribed_clients;
+use crate::infrastructure::ui::clip::ClipView;
 use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv};
 use rxrust::prelude::*;
 use std::borrow::Cow;
@@ -41,6 +42,9 @@ struct ActiveData {
     header_panel: SharedView<HeaderPanel>,
     mapping_rows_panel: SharedView<MappingRowsPanel>,
     panel_manager: SharedIndependentPanelManager,
+    // TODO-high I think soon we don't need the session to create the clip view. This is good
+    //  because then we don't need to wrap it in ActiveData and unwrap it everytime.
+    clip_view: Rc<ClipView>,
 }
 
 impl MainPanel {
@@ -58,6 +62,7 @@ impl MainPanel {
         // Finally, the session is available. First, save its reference and create sub panels.
         let panel_manager = IndependentPanelManager::new(session.clone(), Rc::downgrade(&self));
         let panel_manager = Rc::new(RefCell::new(panel_manager));
+        let clip_view = Rc::new(ClipView::new(session.clone()));
         let active_data = ActiveData {
             session: session.clone(),
             header_panel: HeaderPanel::new(
@@ -65,16 +70,18 @@ impl MainPanel {
                 self.state.clone(),
                 self.plugin_parameters.clone(),
                 Rc::downgrade(&panel_manager),
+                Rc::downgrade(&clip_view),
             )
             .into(),
             mapping_rows_panel: MappingRowsPanel::new(
-                session,
+                session.clone(),
                 Rc::downgrade(&panel_manager),
                 self.state.clone(),
                 Point::new(DialogUnits(0), DialogUnits(124)),
             )
             .into(),
             panel_manager,
+            clip_view,
         };
         self.active_data.fill(active_data).unwrap();
         // If the plug-in window is currently open, open the sub panels as well. Now we are talking!
@@ -217,6 +224,12 @@ impl MainPanel {
         }
     }
 
+    fn handle_updated_clip_slots(&self, session: &Session, events: Vec<ClipSlotUpdatedEvent>) {
+        if let Some(data) = self.active_data.borrow() {
+            data.clip_view.clip_slots_updated(session, events);
+        }
+    }
+
     fn edit_tags(&self) {
         let initial_csv = self
             .do_with_session(|session| format_tags_as_csv(session.tags.get_ref()))
@@ -296,6 +309,10 @@ impl SessionUi for Weak<MainPanel> {
 
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue) {
         let _ = send_projection_feedback_to_subscribed_clients(session.id(), value);
+    }
+
+    fn clip_slots_updated(&self, session: &Session, events: Vec<ClipSlotUpdatedEvent>) {
+        upgrade_panel(self).handle_updated_clip_slots(session, events);
     }
 
     fn mapping_matched(&self, event: MappingMatchedEvent) {

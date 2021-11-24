@@ -4,6 +4,7 @@ use slog::debug;
 
 use crate::application::{Session, SharedMapping, WeakSession};
 use crate::domain::{MappingCompartment, MappingId, MappingMatchedEvent, TargetValueChangedEvent};
+use crate::infrastructure::ui::clip::ClipView;
 use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;
