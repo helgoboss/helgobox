@@ -1,25 +1,23 @@
+//! Contains the mainly technical HTTP/WebSocket server code.
+
 use crate::base::Global;
 use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
-use crate::infrastructure::server::http::data::PatchRequest;
+use crate::infrastructure::server::http::data::{PatchRequest, Topic, Topics, WebSocketRequest};
 use crate::infrastructure::server::http::routes::{
     handle_controller_route, handle_controller_routing_route, handle_metrics_route,
     handle_patch_controller_route, handle_session_route,
 };
-use crate::infrastructure::server::http::{
-    for_each_client, send_initial_events, send_initial_session, sender_dropped_response,
-};
+use crate::infrastructure::server::http::{send_initial_events, sender_dropped_response};
 use futures::StreamExt;
-use rxrust::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc};
-use warp::http::{Method, Response, StatusCode};
-use warp::reply::Json;
+use warp::http::{Method, Response};
 use warp::ws::{Message, WebSocket};
-use warp::{reply, Rejection, Reply};
+use warp::{Rejection, Reply};
 
 // We don't take the async RwLock by Tokio because we need to access this in sync code, too!
 pub type ServerClients = Arc<std::sync::RwLock<HashMap<usize, WebSocketClient>>>;
@@ -29,40 +27,6 @@ pub struct WebSocketClient {
     id: usize,
     pub topics: Topics,
     sender: mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>,
-}
-
-type Topics = HashSet<Topic>;
-
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub enum Topic {
-    Session { session_id: String },
-    ActiveController { session_id: String },
-    ControllerRouting { session_id: String },
-    Feedback { session_id: String },
-}
-
-impl TryFrom<&str> for Topic {
-    type Error = &'static str;
-
-    fn try_from(topic_expression: &str) -> Result<Self, Self::Error> {
-        let topic_segments: Vec<_> = topic_expression.split('/').skip(1).collect();
-        let topic = match topic_segments.as_slice() {
-            ["realearn", "session", id, "controller-routing"] => Topic::ControllerRouting {
-                session_id: id.to_string(),
-            },
-            ["realearn", "session", id, "controller"] => Topic::ActiveController {
-                session_id: id.to_string(),
-            },
-            ["realearn", "session", id, "feedback"] => Topic::Feedback {
-                session_id: id.to_string(),
-            },
-            ["realearn", "session", id] => Topic::Session {
-                session_id: id.to_string(),
-            },
-            _ => return Err("invalid topic expression"),
-        };
-        Ok(topic)
-    }
 }
 
 impl WebSocketClient {
@@ -222,11 +186,6 @@ fn percent_decode(input: String) -> String {
         .into_owned()
 }
 
-#[derive(Deserialize)]
-struct WebSocketRequest {
-    topics: String,
-}
-
 async fn client_connected(ws: WebSocket, topics: Topics, clients: ServerClients) {
     use futures::FutureExt;
     let (ws_sender_sink, mut ws_receiver_stream) = ws.split();
@@ -265,27 +224,3 @@ async fn client_connected(ws: WebSocket, topics: Topics, clients: ServerClients)
 }
 
 static NEXT_CLIENT_ID: AtomicUsize = AtomicUsize::new(1);
-
-pub fn keep_informing_clients_about_sessions() {
-    App::get().sessions_changed().subscribe(|_| {
-        Global::task_support()
-            .do_later_in_main_thread_asap(|| {
-                send_sessions_to_subscribed_clients();
-            })
-            .unwrap();
-    });
-}
-
-pub fn send_sessions_to_subscribed_clients() {
-    for_each_client(
-        |client, _| {
-            for t in client.topics.iter() {
-                if let Topic::Session { session_id } = t {
-                    let _ = send_initial_session(client, session_id);
-                }
-            }
-        },
-        || (),
-    )
-    .unwrap();
-}

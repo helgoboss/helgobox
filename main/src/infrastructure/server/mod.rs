@@ -1,47 +1,24 @@
-use crate::application::{
-    Preset, PresetManager, Session, SharedSession, SourceCategory, TargetCategory,
-};
-use crate::base::when;
-use crate::domain::{
-    MappingCompartment, MappingKey, ProjectionFeedbackValue, RealearnControlSurfaceServerTask,
-};
-use maplit::hashmap;
+//! Contains the ReaLearn server interface and runtime.
 
-use crate::base::Global;
-use crate::infrastructure::data::{ControllerPresetData, PresetData};
 use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
 
-use futures::StreamExt;
 use rcgen::{BasicConstraints, CertificateParams, DistinguishedName, DnType, IsCa, SanType};
 use reaper_high::Reaper;
 use rxrust::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::fs;
 
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::broadcast;
 use url::Url;
-use warp::http::{Method, Response, StatusCode};
 
-use crate::infrastructure::server::http::{
-    send_sessions_to_subscribed_clients, send_updated_active_controller,
-    send_updated_controller_routing, start_http_server, ServerClients,
-};
-use helgoboss_learn::UnitValue;
+use crate::infrastructure::server::http::{start_http_server, ServerClients};
 use std::thread::JoinHandle;
 use std::time::Duration;
-use warp::reply::Json;
-use warp::ws::{Message, WebSocket};
-use warp::{reply, Rejection, Reply};
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
@@ -326,34 +303,6 @@ fn get_key_and_cert_paths(ip: IpAddr, cert_dir_path: &Path) -> (PathBuf, PathBuf
     let key_file_path = cert_dir_path.join(format!("{}.key", ip_string));
     let cert_file_path = cert_dir_path.join(format!("{}.cer", ip_string));
     (key_file_path, cert_file_path)
-}
-
-pub fn keep_informing_clients_about_session_events(shared_session: &SharedSession) {
-    let session = shared_session.borrow();
-    let instance_state = session.instance_state().borrow();
-    when(
-        instance_state
-            .on_mappings_changed()
-            .merge(session.mapping_list_changed().map_to(()))
-            .merge(session.mapping_changed().map_to(())),
-    )
-    .with(Rc::downgrade(shared_session))
-    .do_async(|session, _| {
-        let _ = send_updated_controller_routing(&session.borrow());
-    });
-    when(App::get().controller_preset_manager().borrow().changed())
-        .with(Rc::downgrade(shared_session))
-        .do_async(|session, _| {
-            let _ = send_updated_active_controller(&session.borrow());
-        });
-    when(session.everything_changed().merge(session.id.changed()))
-        .with(Rc::downgrade(shared_session))
-        .do_async(|session, _| {
-            send_sessions_to_subscribed_clients();
-            let session = session.borrow();
-            let _ = send_updated_active_controller(&session);
-            let _ = send_updated_controller_routing(&session);
-        });
 }
 
 /// Inspired by local_ipaddress crate.

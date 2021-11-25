@@ -1,15 +1,16 @@
-use crate::application::Session;
+//! Contains functions for sending data to WebSocket clients.
+use crate::application::{Session, SharedSession};
+use crate::base::{when, Global};
 use crate::domain::ProjectionFeedbackValue;
-use crate::infrastructure::data::{ControllerPresetData, PresetData};
 use crate::infrastructure::plugin::App;
 use crate::infrastructure::server::http::data::{
-    get_controller_routing, ControllerRouting, SessionResponseData,
+    get_active_controller_updated_event, get_controller_routing_updated_event,
+    get_projection_feedback_event, get_session_updated_event, send_initial_feedback,
+    SessionResponseData, Topic,
 };
-use crate::infrastructure::server::http::server::{Topic, WebSocketClient};
-use helgoboss_learn::UnitValue;
-use maplit::hashmap;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use crate::infrastructure::server::http::server::WebSocketClient;
+use rxrust::prelude::*;
+use serde::Serialize;
 use std::rc::Rc;
 
 pub fn send_initial_events(client: &WebSocketClient) {
@@ -64,12 +65,6 @@ fn send_initial_controller(client: &WebSocketClient, session_id: &str) -> Result
         get_active_controller_updated_event(session_id, None)
     };
     client.send(&event)
-}
-
-fn send_initial_feedback(session_id: &str) {
-    if let Some(session) = App::get().find_session_by_id(session_id) {
-        session.borrow_mut().send_all_feedback();
-    }
 }
 
 pub fn send_updated_active_controller(session: &Session) -> Result<(), &'static str> {
@@ -138,85 +133,54 @@ pub fn for_each_client<T: Serialize>(
     Ok(())
 }
 
-fn get_active_controller_updated_event(
-    session_id: &str,
-    session: Option<&Session>,
-) -> Event<Option<ControllerPresetData>> {
-    Event::put(
-        format!("/realearn/session/{}/controller", session_id),
-        session.and_then(get_controller),
-    )
+pub fn keep_informing_clients_about_sessions() {
+    App::get().sessions_changed().subscribe(|_| {
+        Global::task_support()
+            .do_later_in_main_thread_asap(|| {
+                send_sessions_to_subscribed_clients();
+            })
+            .unwrap();
+    });
 }
 
-fn get_projection_feedback_event(
-    session_id: &str,
-    feedback_value: ProjectionFeedbackValue,
-) -> Event<HashMap<Rc<str>, UnitValue>> {
-    Event::patch(
-        format!("/realearn/session/{}/feedback", session_id),
-        hashmap! {
-            feedback_value.mapping_key => feedback_value.value
+pub fn send_sessions_to_subscribed_clients() {
+    for_each_client(
+        |client, _| {
+            for t in client.topics.iter() {
+                if let Topic::Session { session_id } = t {
+                    let _ = send_initial_session(client, session_id);
+                }
+            }
         },
+        || (),
     )
+    .unwrap();
 }
 
-fn get_session_updated_event(
-    session_id: &str,
-    session_data: Option<SessionResponseData>,
-) -> Event<Option<SessionResponseData>> {
-    Event::put(format!("/realearn/session/{}", session_id), session_data)
-}
-
-pub fn get_controller_routing_updated_event(
-    session_id: &str,
-    session: Option<&Session>,
-) -> Event<Option<ControllerRouting>> {
-    Event::put(
-        format!("/realearn/session/{}/controller-routing", session_id),
-        session.map(get_controller_routing),
+pub fn keep_informing_clients_about_session_events(shared_session: &SharedSession) {
+    let session = shared_session.borrow();
+    let instance_state = session.instance_state().borrow();
+    when(
+        instance_state
+            .on_mappings_changed()
+            .merge(session.mapping_list_changed().map_to(()))
+            .merge(session.mapping_changed().map_to(())),
     )
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Event<T> {
-    /// Roughly corresponds to the HTTP method of the resource.
-    r#type: EventType,
-    /// Corresponds to the HTTP path of the resource.
-    path: String,
-    /// Corresponds to the HTTP body.
-    ///
-    /// HTTP 404 corresponds to this value being `null` or undefined in JSON. If this is not enough
-    /// in future use cases, we can still add another field that resembles the HTTP status.
-    body: T,
-}
-
-impl<T> Event<T> {
-    pub fn put(path: String, body: T) -> Event<T> {
-        Event {
-            r#type: EventType::Put,
-            path,
-            body,
-        }
-    }
-
-    pub fn patch(path: String, body: T) -> Event<T> {
-        Event {
-            r#type: EventType::Patch,
-            path,
-            body,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Serialize)]
-#[serde(rename_all = "lowercase")]
-enum EventType {
-    Put,
-    Patch,
-}
-
-fn get_controller(session: &Session) -> Option<ControllerPresetData> {
-    let controller = session.active_controller()?;
-    Some(ControllerPresetData::from_model(&controller))
+    .with(Rc::downgrade(shared_session))
+    .do_async(|session, _| {
+        let _ = send_updated_controller_routing(&session.borrow());
+    });
+    when(App::get().controller_preset_manager().borrow().changed())
+        .with(Rc::downgrade(shared_session))
+        .do_async(|session, _| {
+            let _ = send_updated_active_controller(&session.borrow());
+        });
+    when(session.everything_changed().merge(session.id.changed()))
+        .with(Rc::downgrade(shared_session))
+        .do_async(|session, _| {
+            send_sessions_to_subscribed_clients();
+            let session = session.borrow();
+            let _ = send_updated_active_controller(&session);
+            let _ = send_updated_controller_routing(&session);
+        });
 }

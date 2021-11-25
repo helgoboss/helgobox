@@ -1,6 +1,4 @@
-use crate::application::{Preset, PresetManager, Session, SourceCategory, TargetCategory};
-use crate::domain::{MappingCompartment, RealearnControlSurfaceServerTask};
-use crate::infrastructure::data::{ControllerPresetData, PresetData};
+//! Contains handlers for the HTTP routes.
 use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
 use crate::infrastructure::server::http::data;
 use crate::infrastructure::server::http::data::{
@@ -8,8 +6,7 @@ use crate::infrastructure::server::http::data::{
     SessionResponseData,
 };
 use crate::infrastructure::server::http::server::process_send_result;
-use serde::{Deserialize, Serialize};
-use warp::http::{Method, Response, StatusCode};
+use warp::http::{Response, StatusCode};
 use warp::reply::Json;
 use warp::{reply, Rejection, Reply};
 
