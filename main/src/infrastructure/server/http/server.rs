@@ -132,10 +132,12 @@ pub async fn start_http_server(
         .or(controller_route)
         .or(controller_routing_route)
         .or(patch_controller_route)
+        // TODO
         .or(ws_route);
     #[cfg(feature = "realearn-meter")]
     let routes = routes.or(metrics_route);
     let routes = routes.with(cors);
+    // TODO
     let (_, http_future) = warp::serve(routes.clone())
         .bind_with_graceful_shutdown(([0, 0, 0, 0], http_port), async move {
             http_shutdown_receiver.recv().await.unwrap()
@@ -147,11 +149,13 @@ pub async fn start_http_server(
         .bind_with_graceful_shutdown(([0, 0, 0, 0], https_port), async move {
             https_shutdown_receiver.recv().await.unwrap()
         });
+    // TODO
     Global::task_support()
         .do_later_in_main_thread_asap(|| {
             App::get().server().borrow_mut().notify_started();
         })
         .unwrap();
+    // TODO
     futures::future::join(http_future, https_future).await;
 }
 

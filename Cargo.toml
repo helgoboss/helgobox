@@ -22,9 +22,9 @@ debug = 2
 webpki = { git = "https://github.com/helgoboss/webpki.git", branch = "workaround/54-alert-decode-error" }
 
 # Yes! Thanks to the use of axum-server we don't need this Hyper patch anymore! axum-server seems to use lower-level
-# Hyper features and implements a proper graceful shutdown feature on it that allows one to specifiy a timeout. If
+# Hyper features and implements a proper graceful shutdown feature on it that allows one to specify a timeout. If
 # not all connections are closed until that timeout, it just shuts down forcibly. That's important and exactly what we
-# need because we need the server shutdown immediately before ReaLearn is unloaded without having to force the user
+# need. We need the server shutdown happen immediately before ReaLearn is unloaded without having to force the user
 # to wait for open connections to finish. The following was a temporary hack to make this possible.
 # See https://github.com/hyperium/hyper/issues/1885 and https://github.com/helgoboss/realearn/issues.
 # TODO-high Close Hyper/warp issue.

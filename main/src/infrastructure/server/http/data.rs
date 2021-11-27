@@ -60,6 +60,23 @@ struct TargetDescriptor {
     label: String,
 }
 
+pub fn get_session_data(session_id: String) -> Result<SessionResponseData, DataError> {
+    let _ = App::get()
+        .find_session_by_id(&session_id)
+        .ok_or(DataError::SessionNotFound)?;
+    Ok(SessionResponseData {})
+}
+
+pub fn get_controller_routing_by_session_id(
+    session_id: String,
+) -> Result<ControllerRouting, DataError> {
+    let session = App::get()
+        .find_session_by_id(&session_id)
+        .ok_or(DataError::SessionNotFound)?;
+    let routing = get_controller_routing(&session.borrow());
+    Ok(routing)
+}
+
 pub fn get_controller_preset_data(session_id: String) -> Result<ControllerPresetData, DataError> {
     let session = App::get()
         .find_session_by_id(&session_id)
