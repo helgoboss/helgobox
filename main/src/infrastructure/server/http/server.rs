@@ -15,6 +15,7 @@ use std::convert::TryFrom;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc};
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::http::{Method, Response};
 use warp::ws::{Message, WebSocket};
 use warp::{Rejection, Reply};
@@ -190,12 +191,18 @@ async fn client_connected(ws: WebSocket, topics: Topics, clients: ServerClients)
     use futures::FutureExt;
     let (ws_sender_sink, mut ws_receiver_stream) = ws.split();
     let (client_sender, client_receiver) = mpsc::unbounded_channel();
+    let client_receiver_stream = UnboundedReceiverStream::new(client_receiver);
     // Keep forwarding received messages in client channel to websocket sender sink
-    tokio::task::spawn(client_receiver.forward(ws_sender_sink).map(|result| {
-        if let Err(e) = result {
-            eprintln!("error sending websocket msg: {}", e);
-        }
-    }));
+
+    tokio::task::spawn(
+        client_receiver_stream
+            .forward(ws_sender_sink)
+            .map(|result| {
+                if let Err(e) = result {
+                    eprintln!("error sending websocket msg: {}", e);
+                }
+            }),
+    );
     let client_id = NEXT_CLIENT_ID.fetch_add(1, Ordering::Relaxed);
     let client = WebSocketClient {
         id: client_id,

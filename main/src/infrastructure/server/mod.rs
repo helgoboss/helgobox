@@ -17,12 +17,14 @@ use tokio::sync::broadcast;
 use url::Url;
 
 use crate::infrastructure::server::http::{start_http_server, ServerClients};
+use crate::infrastructure::server::http_new::start_new_http_server;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
 pub mod http;
+pub mod http_new;
 
 #[derive(Debug)]
 pub struct RealearnServer {
@@ -97,17 +99,16 @@ impl RealearnServer {
         let server_thread_join_handle = std::thread::Builder::new()
             .name("ReaLearn server".to_string())
             .spawn(move || {
-                let mut runtime = tokio::runtime::Builder::new()
-                    // Using basic_scheduler() (current thread scheduler) makes our ports stay
-                    // occupied after graceful shutdown.
-                    // TODO-low Check if this problem occurs in latest tokio, too!
-                    .threaded_scheduler()
-                    .core_threads(1)
+                // Using basic_scheduler() (current thread scheduler) makes our ports stay
+                // occupied after graceful shutdown.
+                // TODO-high Check if this problem occurs in latest tokio, too!
+                let mut runtime = tokio::runtime::Builder::new_multi_thread()
+                    .worker_threads(1)
                     .thread_name("ReaLearn server worker")
                     .enable_all()
                     .build()
                     .unwrap();
-                runtime.block_on(start_http_server(
+                runtime.block_on(start_servers(
                     http_port,
                     https_port,
                     clients_clone,
@@ -250,6 +251,27 @@ impl RealearnServer {
     pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.changed_subject.clone()
     }
+}
+
+async fn start_servers(
+    http_port: u16,
+    https_port: u16,
+    clients: ServerClients,
+    (key, cert): (String, String),
+    control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
+    mut http_shutdown_receiver: broadcast::Receiver<()>,
+    mut https_shutdown_receiver: broadcast::Receiver<()>,
+) {
+    start_new_http_server(
+        http_port,
+        https_port,
+        clients,
+        (key, cert),
+        control_surface_task_sender,
+        http_shutdown_receiver,
+        https_shutdown_receiver,
+    )
+    .await;
 }
 
 fn get_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> (String, String) {

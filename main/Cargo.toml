@@ -69,8 +69,11 @@ futures = { version = "0.3", default-features = false }
 # of last ReaLearn instance and immediate adding of a new one) made the server complain about occupied ports. I think
 # this only happened when "Allow complete unload of VST plug-ins" was NOT ticket in the REAPER preferences.
 # So maybe this can be fixed at our side by forcing a server stop even when just going to sleep (no unload).
-tokio = { version = "= 0.2.22", features = ["rt-core", "rt-threaded", "sync", "macros"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "macros"] }
 warp = { version = "0.2", features = ["tls"] }
+tokio-stream = "0.1.8"
+axum = "0.3"
+axum-server = { version = "0.3", features = ["tls-rustls"] }
 # For generating projection QR code
 qrcode = { version = "0.11" }
 # For rendering projection QR code to PNG
