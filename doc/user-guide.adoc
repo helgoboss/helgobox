@@ -3972,10 +3972,10 @@ IMPORTANT: In general, you need to set it up using OSC, *not* the TouchOSC MIDI 
 
 ReaLearn:
 
-* See <<osc-devices>>.
 * *Local port:* This needs to be the same as configured for "Port (outgoing)" in TouchOSC.
 * *Device host:* This needs to be the same as displayed next to "Local IP Address" in TouchOSC.
 * *Device port:* This needs to be the same as configured for "Port (incoming)" in TouchOSC.
+* See <<osc-devices>> if you are unsure where to enter this data.
 
 [discrete]
 ==== Presets
@@ -4005,10 +4005,10 @@ IMPORTANT: In general, you need to set it up using OSC, *not* the TouchOSC MIDI 
 
 ReaLearn:
 
-* See <<osc-devices>>.
 * *Local port:* This needs to be the same as configured for "Send port" in TouchOSC.
 * *Device host:* This needs to be the same as displayed in TouchOSC when you click the ⓘ icon next to "Receive port". It should be starting with `192.168.`
 * *Device port:* This needs to be the same as configured for "Receive port" in TouchOSC.
+* See <<osc-devices>> if you are unsure where to enter this data.
 
 [discrete]
 ==== Presets
