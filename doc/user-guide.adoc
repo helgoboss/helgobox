@@ -4,6 +4,11 @@
 :sectnums:
 :sectnumlevels: 2
 
+// Reusable text snippets
+:osc_host_instruction: Enter the IP address of the computer running ReaLearn. You can easily find it by pressing the "Projection" button in ReaLearn and scrolling down a bit. It's the value next to "Host" and should start with "192.168.".
+:osc_port_instruction: Choose a random port number greater than 1024, preferably 7879. This number must not be in use yet by other OSC applications, not even by REAPER's native OSC!
+:osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
+
 |===
 |Last update of text: |`2021-11-22 (v2.11.0-pre.15)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
@@ -610,16 +615,23 @@ on macOS) with the following entries:
 ====
 This *will not* yet apply an adjusted preset, it will just reload the list. If you want to apply a preset that has been changed on disk, you need to select it in the preset dropdown once again!
 ====
-* *OSC devices:* Allows one to display and modify the list of (globally) configured OSC devices.
-** *&lt;New&gt;:* Opens a window for adding a new OSC devices.
+* [[osc-devices,OSC devices]] *OSC devices:* Allows one to display and modify the list of (globally) configured OSC devices.
+** *<New>:* Opens a window for adding a new OSC devices.
 *** *Name:* A descriptive name of the device, e.g. "TouchOSC on my Android phone".
 *** *Local port:* Required for control. The UDP port on which ReaLearn should listen for OSC control messages.
 **** *Important:* This port must be reserved exclusively for ReaLearn. If you already use this port
  in another application (e.g. in REAPER's own OSC control surface) it won't work and ReaLearn will bless
  you with an "unable to connect" message in the "Control input" dropdown.
-*** *Device host:* Required for feedback only. The IP address of the OSC device to which ReaLearn
- should send feedback messages. When targeting an OSC software that runs on the same computer as REAPER and
+*** *Device host:* Required for feedback only. It's the IP address of the OSC device to which ReaLearn
+ should send feedback messages. This address is usually displayed on your OSC device (e.g. as "Local IP address"). When targeting an OSC software that runs on the same computer as REAPER and
  ReaLearn, enter the special IP address `127.0.0.1` ("localhost").
++
+[TIP]
+====
+When you configure your OSC device, you must provide a _host_ as well. There you should enter the IP address of the computer which runs REAPER and ReaLearn.
+
+You can easily find it by pressing the _Projection_ button in ReaLearn and scrolling down a bit. It's the value next to *Host* and should start with `192.168.`.
+====
 *** *Device port:* Required for feedback only. The UDP port on which the OSC device listens for OSC feedback
  messages.
 *** All OSC device configurations will be saved in the REAPER resource directory
@@ -3937,9 +3949,9 @@ All Midi Fighter Twister controller presets available on the Helgoboss ReaPack r
 ** Made for device preset 1 and channel 16.
 
 
-=== Hexler TouchOSC
+=== Hexler TouchOSC Mk1 (the older version)
 
-This is the main OSC app which I use to test ReaLearn's OSC capabilities. It works both for control and feedback.
+This is the main OSC app which I use to test ReaLearn's OSC capabilities. It works for both control and feedback.
 
 Feedback for control elements that transmit messages with multiple arguments might not work as desired at the moment.
 E.g. TouchOSC expects values for both axes in case of X/Y controls instead of being satisfied with just one value
@@ -3949,16 +3961,59 @@ and sets the other unchanged values to `Nil`.
 [discrete]
 ==== Setup
 
-* *Local port:* This needs to be the same as configured for "Port (outgoing)" on the device.
-* *Device host:* This needs to be the same as configured for "Local IP Address" on the device.
-* *Device port:* This needs to be the same as configured for "Port (incoming)" on the device.
+TouchOSC:
+
+* Settings → OSC
+** *Host:* {osc_host_instruction}
+** *Port (outgoing):* {osc_port_instruction}
+** *Port (incoming):* {osc_port_instruction} Preferably the same number as _Port (outgoing)_.
+
+IMPORTANT: In general, you need to set it up using OSC, *not* the TouchOSC MIDI Bridge.
+
+ReaLearn:
+
+* See <<osc-devices>>.
+* *Local port:* This needs to be the same as configured for "Port (outgoing)" in TouchOSC.
+* *Device host:* This needs to be the same as displayed next to "Local IP Address" in TouchOSC.
+* *Device port:* This needs to be the same as configured for "Port (incoming)" in TouchOSC.
 
 [discrete]
 ==== Presets
 
-There are no ReaLearn controller presets for TouchOSC layouts yet. Although technically possible in exactly the same way
-as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to
-create presets. Time will show.
+{osc_preset_content}
+
+
+=== Hexler TouchOSC (the recent version)
+
+Works for both control and feedback.
+
+This recent version of TouchOSC fixes the issue with X/Y controls. It's able to receive the feedback values for X and Y on different OSC addresses, which is perfect for the way ReaLearn works (one mapping per axis).
+
+[discrete]
+==== Setup
+
+TouchOSC:
+
+. Press the button with the chain link icon on the editor toolbar → OSC
+** *Connection 1:* `UDP`
+** *Host:* {osc_host_instruction}
+** *Send port:* {osc_port_instruction}
+** *Receive port:* {osc_port_instruction} Preferably the same number as _Send port_.
+** *Zeroconf:* Disabled
+
+IMPORTANT: In general, you need to set it up using OSC, *not* the TouchOSC MIDI Bridge.
+
+ReaLearn:
+
+* See <<osc-devices>>.
+* *Local port:* This needs to be the same as configured for "Send port" in TouchOSC.
+* *Device host:* This needs to be the same as displayed in TouchOSC when you click the ⓘ icon next to "Receive port". It should be starting with `192.168.`
+* *Device port:* This needs to be the same as configured for "Receive port" in TouchOSC.
+
+[discrete]
+==== Presets
+
+{osc_preset_content}
 
 === iCON Platform M+
 
