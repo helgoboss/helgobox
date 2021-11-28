@@ -15,7 +15,7 @@ use tower_http::cors::{any, CorsLayer};
 
 use crate::base::Global;
 pub use crate::infrastructure::server::http::handlers::*;
-use crate::infrastructure::server::http::layers::MainThreadLayer;
+use crate::infrastructure::server::layers::MainThreadLayer;
 
 pub async fn start_http_server(
     http_port: u16,

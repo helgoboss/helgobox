@@ -27,6 +27,7 @@ pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
 pub mod grpc;
 pub mod http;
+mod layers;
 
 #[derive(Debug)]
 pub struct RealearnServer {
