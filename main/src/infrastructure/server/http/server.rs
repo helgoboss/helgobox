@@ -7,6 +7,7 @@ use axum::http::Method;
 use axum::routing::{get, patch};
 use axum::Router;
 use axum_server::Handle;
+use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::sync::broadcast;
@@ -16,7 +17,7 @@ use crate::base::Global;
 pub use crate::infrastructure::server::http::handlers::*;
 use crate::infrastructure::server::http::layers::MainThreadLayer;
 
-pub async fn start_new_http_server(
+pub async fn start_http_server(
     http_port: u16,
     https_port: u16,
     clients: ServerClients,
@@ -24,7 +25,7 @@ pub async fn start_new_http_server(
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
     mut http_shutdown_receiver: broadcast::Receiver<()>,
     mut https_shutdown_receiver: broadcast::Receiver<()>,
-) {
+) -> Result<(), io::Error> {
     let router = create_router(cert.clone(), control_surface_task_sender, clients);
     let http_future = {
         let addr = SocketAddr::from(([0, 0, 0, 0], http_port));
@@ -59,7 +60,10 @@ pub async fn start_new_http_server(
             App::get().server().borrow_mut().notify_started();
         })
         .unwrap();
-    let (_, _) = futures::future::join(http_future, https_future).await;
+    let (http_result, https_result) = futures::future::join(http_future, https_future).await;
+    http_result?;
+    https_result?;
+    Ok(())
 }
 
 fn create_router(

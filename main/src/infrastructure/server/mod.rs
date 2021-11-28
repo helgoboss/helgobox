@@ -8,6 +8,7 @@ use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::fs;
+use std::net::SocketAddr;
 
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::{Path, PathBuf};
@@ -16,13 +17,15 @@ use std::rc::Rc;
 use tokio::sync::broadcast;
 use url::Url;
 
-use crate::infrastructure::server::http::start_new_http_server;
+use crate::infrastructure::server::grpc::start_grpc_server;
+use crate::infrastructure::server::http::start_http_server;
 use crate::infrastructure::server::http::ServerClients;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
+pub mod grpc;
 pub mod http;
 
 #[derive(Debug)]
@@ -87,6 +90,7 @@ impl RealearnServer {
         }
         check_port(false, self.http_port)?;
         check_port(true, self.https_port)?;
+        // TODO-high Notify user if gRPC port is in use, too. Also make it configurable.
         let clients: ServerClients = Default::default();
         let clients_clone = clients.clone();
         let http_port = self.http_port;
@@ -95,6 +99,7 @@ impl RealearnServer {
         let control_surface_task_sender = self.control_surface_task_sender.clone();
         let (shutdown_sender, http_shutdown_receiver) = broadcast::channel(5);
         let https_shutdown_receiver = shutdown_sender.subscribe();
+        let grpc_shutdown_receiver = shutdown_sender.subscribe();
         let server_thread_join_handle = std::thread::Builder::new()
             .name("ReaLearn server".to_string())
             .spawn(move || {
@@ -110,6 +115,7 @@ impl RealearnServer {
                     control_surface_task_sender,
                     http_shutdown_receiver,
                     https_shutdown_receiver,
+                    grpc_shutdown_receiver,
                 ));
                 runtime.shutdown_timeout(Duration::from_secs(1));
             })
@@ -255,8 +261,9 @@ async fn start_servers(
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
     http_shutdown_receiver: broadcast::Receiver<()>,
     https_shutdown_receiver: broadcast::Receiver<()>,
+    grpc_shutdown_receiver: broadcast::Receiver<()>,
 ) {
-    start_new_http_server(
+    let http_server_future = start_http_server(
         http_port,
         https_port,
         clients,
@@ -264,8 +271,15 @@ async fn start_servers(
         control_surface_task_sender,
         http_shutdown_receiver,
         https_shutdown_receiver,
-    )
-    .await;
+    );
+    let grpc_server_future = start_grpc_server(
+        SocketAddr::from(([127, 0, 0, 1], 50051)),
+        grpc_shutdown_receiver,
+    );
+    let (http_result, grpc_result) =
+        futures::future::join(http_server_future, grpc_server_future).await;
+    http_result.expect("HTTP server error");
+    grpc_result.expect("gRPC server error");
 }
 
 fn get_key_and_cert(ip: IpAddr, cert_dir_path: &Path) -> (String, String) {

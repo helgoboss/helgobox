@@ -1,4 +1,11 @@
-fn main() {
+use std::error::Error;
+
+fn main() -> Result<(), Box<dyn Error>> {
+    // Generate Rust code from gRPC / Protocol Buffers schema
+    tonic_build::configure()
+        .build_client(false)
+        .compile(&["../proto/realearn.proto"], &["../proto"])?;
+
     // Generate "built" file (containing build-time information)
     built::write_built_file().expect("Failed to acquire build-time information");
 
@@ -16,6 +23,8 @@ fn main() {
 
     // Compile WDL EEL
     compile_eel();
+
+    Ok(())
 }
 
 fn compile_eel() {

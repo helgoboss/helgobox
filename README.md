@@ -116,10 +116,11 @@ designed as independent library and could be used to provide similar MIDI-learn 
 | Directory entry | Content                                                                                            |
 | --------------- | ------------------------------------------------------------------------------------               |
 | `/`             | Workspace root                                                                                     |
-| `/api`          | Data structures of ReaLearn's API (which is e.g. used in the Lua-based ReaLearn Script)            |
+| `/api`          | Data structures of ReaLearn's preset API (which is e.g. used in the Lua-based ReaLearn Script)     |
 | `/csi`          | Code for interfacing with the ControlSurfaceIntegrator (CSI) project                               |
 | `/doc`          | Documentation                                                                                      |
 | `/main`         | Main crate (`realearn`)                                                                            |
+| `/proto`        | gRPC / Protocol Buffers schema for communicating with ReaLearn at runtime                          |
 | `/rx-util`      | Utility crate providing primitives for reactive programming (`rx-util`)                            |
 | `/swell-ui`     | Minimalistic UI framework based on [SWELL](https://www.cockos.com/wdl/) (`swell-ui`)               |
 | `/resources`    | REAPER projects for manual testing, controller preset files                                        |
