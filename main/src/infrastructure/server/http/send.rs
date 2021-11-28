@@ -3,12 +3,12 @@ use crate::application::{Session, SharedSession};
 use crate::base::{when, Global};
 use crate::domain::ProjectionFeedbackValue;
 use crate::infrastructure::plugin::App;
+use crate::infrastructure::server::http::client::WebSocketClient;
 use crate::infrastructure::server::http::data::{
     get_active_controller_updated_event, get_controller_routing_updated_event,
     get_projection_feedback_event, get_session_updated_event, send_initial_feedback,
     SessionResponseData, Topic,
 };
-use crate::infrastructure::server::http::server::WebSocketClient;
 use rxrust::prelude::*;
 use serde::Serialize;
 use std::rc::Rc;

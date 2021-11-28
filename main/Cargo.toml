@@ -70,7 +70,6 @@ futures = { version = "0.3", default-features = false }
 # this only happened when "Allow complete unload of VST plug-ins" was NOT ticket in the REAPER preferences.
 # So maybe this can be fixed at our side by forcing a server stop even when just going to sleep (no unload).
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "macros"] }
-warp = { version = "0.2", features = ["tls"] }
 tokio-stream = "0.1.8"
 axum = { version = "0.3", features = ["ws", "headers"] }
 tower = "0.4"

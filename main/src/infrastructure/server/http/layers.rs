@@ -5,7 +5,6 @@ use futures::channel::oneshot;
 use futures::future::BoxFuture;
 use hyper::StatusCode;
 use std::convert::Infallible;
-use std::fmt::Debug;
 use std::task::{Context, Poll};
 use tower::{Layer, Service};
 
@@ -58,7 +57,7 @@ where
             // Process request and create response in main thread
             let response = inner_response_future.await;
             // Push result via channel to Tokio runtime thread
-            tx.send(response).ok().expect("couldn't send");
+            tx.send(response).expect("couldn't send");
         });
         let response_future = async {
             rx.await.unwrap_or_else(|_| {

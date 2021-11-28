@@ -1,21 +1,17 @@
 use crate::base::Global;
 use crate::infrastructure::data::ControllerPresetData;
-use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
+use crate::infrastructure::plugin::RealearnControlSurfaceServerTaskSender;
 use crate::infrastructure::server::http::{
     get_controller_preset_data, get_controller_routing_by_session_id, get_session_data,
     obtain_metrics_snapshot, patch_controller, send_initial_events, ControllerRouting, DataError,
-    PatchRequest, ServerClients, SessionResponseData, Topic, Topics, WebSocketClient,
-    WebSocketRequest,
+    PatchRequest, ServerClients, SessionResponseData, Topics, WebSocketClient,
 };
 use axum::body::{boxed, Body, BoxBody};
 use axum::extract::ws::{Message, WebSocket};
-use axum::extract::{Path, Query, WebSocketUpgrade};
+use axum::extract::Path;
 use axum::http::{Response, StatusCode};
-use axum::response::{Html, IntoResponse};
+use axum::response::Html;
 use axum::Json;
-use std::collections::HashSet;
-use std::convert::TryFrom;
-use std::future::Future;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -96,11 +92,7 @@ pub async fn create_metrics_response(
         })
 }
 
-pub async fn handle_websocket_upgrade(
-    mut socket: WebSocket,
-    topics: Topics,
-    clients: ServerClients,
-) {
+pub async fn handle_websocket_upgrade(socket: WebSocket, topics: Topics, clients: ServerClients) {
     use futures::{FutureExt, StreamExt};
     let (ws_sender_sink, mut ws_receiver_stream) = socket.split();
     let (client_sender, client_receiver) = mpsc::unbounded_channel();

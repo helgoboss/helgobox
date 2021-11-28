@@ -16,15 +16,14 @@ use std::rc::Rc;
 use tokio::sync::broadcast;
 use url::Url;
 
-use crate::infrastructure::server::http::{start_http_server, ServerClients};
-use crate::infrastructure::server::http_new::start_new_http_server;
+use crate::infrastructure::server::http::start_new_http_server;
+use crate::infrastructure::server::http::ServerClients;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 pub type SharedRealearnServer = Rc<RefCell<RealearnServer>>;
 
 pub mod http;
-pub mod http_new;
 
 #[derive(Debug)]
 pub struct RealearnServer {
@@ -102,7 +101,7 @@ impl RealearnServer {
                 // Using basic_scheduler() (current thread scheduler) makes our ports stay
                 // occupied after graceful shutdown.
                 // TODO-high Check if this problem occurs in latest tokio, too!
-                let mut runtime = tokio::runtime::Builder::new_multi_thread()
+                let runtime = tokio::runtime::Builder::new_multi_thread()
                     .worker_threads(1)
                     .thread_name("ReaLearn server worker")
                     .enable_all()
@@ -259,8 +258,8 @@ async fn start_servers(
     clients: ServerClients,
     (key, cert): (String, String),
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
-    mut http_shutdown_receiver: broadcast::Receiver<()>,
-    mut https_shutdown_receiver: broadcast::Receiver<()>,
+    http_shutdown_receiver: broadcast::Receiver<()>,
+    https_shutdown_receiver: broadcast::Receiver<()>,
 ) {
     start_new_http_server(
         http_port,
