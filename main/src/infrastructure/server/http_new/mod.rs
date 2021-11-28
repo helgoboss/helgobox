@@ -1,4 +1,4 @@
-use crate::infrastructure::plugin::RealearnControlSurfaceServerTaskSender;
+use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
 use crate::infrastructure::server::http::ServerClients;
 use axum::error_handling::{HandleErrorExt, HandleErrorLayer};
 use axum::handler::Handler;
@@ -30,21 +30,40 @@ pub async fn start_new_http_server(
     mut https_shutdown_receiver: broadcast::Receiver<()>,
 ) {
     let app = create_router(cert.clone(), control_surface_task_sender);
-    let addr = SocketAddr::from(([0, 0, 0, 0], https_port));
-    let rustls_config = axum_server::tls_rustls::RustlsConfig::from_pem(cert.into(), key.into())
-        .await
+    let http_future = {
+        let addr = SocketAddr::from(([0, 0, 0, 0], http_port));
+        let handle = Handle::new();
+        let cloned_handle = handle.clone();
+        tokio::spawn(async move {
+            http_shutdown_receiver.recv().await.unwrap();
+            cloned_handle.graceful_shutdown(Some(Duration::ZERO));
+        });
+        axum_server::bind(addr)
+            .handle(handle)
+            .serve(app.clone().into_make_service())
+    };
+    let https_future = {
+        let addr = SocketAddr::from(([0, 0, 0, 0], https_port));
+        let rustls_config =
+            axum_server::tls_rustls::RustlsConfig::from_pem(cert.into(), key.into())
+                .await
+                .unwrap();
+        let handle = Handle::new();
+        let cloned_handle = handle.clone();
+        tokio::spawn(async move {
+            https_shutdown_receiver.recv().await.unwrap();
+            cloned_handle.graceful_shutdown(Some(Duration::ZERO));
+        });
+        axum_server::bind_rustls(addr, rustls_config)
+            .handle(handle)
+            .serve(app.into_make_service())
+    };
+    Global::task_support()
+        .do_later_in_main_thread_asap(|| {
+            App::get().server().borrow_mut().notify_started();
+        })
         .unwrap();
-    let handle = Handle::new();
-    let cloned_handle = handle.clone();
-    tokio::spawn(async move {
-        http_shutdown_receiver.recv().await.unwrap();
-        cloned_handle.graceful_shutdown(Some(Duration::ZERO));
-    });
-    axum_server::bind_rustls(addr, rustls_config)
-        .handle(handle)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    let (_, _) = futures::future::join(http_future, https_future).await;
 }
 
 fn create_router(
