@@ -1,6 +1,7 @@
 use crate::infrastructure::plugin::{App, RealearnControlSurfaceServerTaskSender};
-use crate::infrastructure::server::http::ServerClients;
+use crate::infrastructure::server::http::{ServerClients, Topic, WebSocketRequest};
 use axum::error_handling::{HandleErrorExt, HandleErrorLayer};
+use axum::extract::{Query, WebSocketUpgrade};
 use axum::handler::Handler;
 use axum::http::header::CONTENT_TYPE;
 use axum::http::{Method, StatusCode};
@@ -8,6 +9,8 @@ use axum::response::Html;
 use axum::routing::{get, patch, post};
 use axum::Router;
 use axum_server::Handle;
+use std::collections::HashSet;
+use std::convert::TryFrom;
 use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::sync::broadcast;
@@ -29,7 +32,7 @@ pub async fn start_new_http_server(
     mut http_shutdown_receiver: broadcast::Receiver<()>,
     mut https_shutdown_receiver: broadcast::Receiver<()>,
 ) {
-    let app = create_router(cert.clone(), control_surface_task_sender);
+    let router = create_router(cert.clone(), control_surface_task_sender, clients);
     let http_future = {
         let addr = SocketAddr::from(([0, 0, 0, 0], http_port));
         let handle = Handle::new();
@@ -40,7 +43,7 @@ pub async fn start_new_http_server(
         });
         axum_server::bind(addr)
             .handle(handle)
-            .serve(app.clone().into_make_service())
+            .serve(router.clone().into_make_service())
     };
     let https_future = {
         let addr = SocketAddr::from(([0, 0, 0, 0], https_port));
@@ -56,7 +59,7 @@ pub async fn start_new_http_server(
         });
         axum_server::bind_rustls(addr, rustls_config)
             .handle(handle)
-            .serve(app.into_make_service())
+            .serve(router.into_make_service())
     };
     Global::task_support()
         .do_later_in_main_thread_asap(|| {
@@ -69,6 +72,7 @@ pub async fn start_new_http_server(
 fn create_router(
     cert: String,
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
+    clients: ServerClients,
 ) -> Router {
     let router = Router::new()
         .route("/", get(welcome_handler))
@@ -97,16 +101,26 @@ fn create_router(
         "/realearn/metrics",
         get(|| async move { create_metrics_response(control_surface_task_sender.clone()).await }),
     );
-    router.layer(
-        CorsLayer::new()
-            .allow_origin(any())
-            .allow_methods(vec![
-                Method::GET,
-                Method::POST,
-                Method::PUT,
-                Method::DELETE,
-                Method::PATCH,
-            ])
-            .allow_headers(vec![CONTENT_TYPE]),
-    )
+    router
+        .layer(
+            CorsLayer::new()
+                .allow_origin(any())
+                .allow_methods(vec![
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::DELETE,
+                    Method::PATCH,
+                ])
+                .allow_headers(vec![CONTENT_TYPE]),
+        )
+        .route(
+            "/ws",
+            get(
+                |ws: WebSocketUpgrade, Query(req): Query<WebSocketRequest>| async move {
+                    let topics = req.parse_topics();
+                    ws.on_upgrade(|socket| handle_websocket_upgrade(socket, topics, clients))
+                },
+            ),
+        )
 }

@@ -72,7 +72,7 @@ futures = { version = "0.3", default-features = false }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "macros"] }
 warp = { version = "0.2", features = ["tls"] }
 tokio-stream = "0.1.8"
-axum = "0.3"
+axum = { version = "0.3", features = ["ws", "headers"] }
 tower = "0.4"
 axum-server = { version = "0.3", features = ["tls-rustls"] }
 tower-http = { version = "0.1", features = ["cors"] }

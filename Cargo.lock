@@ -385,9 +385,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b4e96976b2022b23b2199168ff9b281e9ddc1aa795607d5cb7146868ca5c101"
 dependencies = [
  "async-trait",
+ "base64 0.13.0",
  "bitflags",
  "bytes 1.1.0",
  "futures-util",
+ "headers",
  "http",
  "http-body 0.4.4",
  "hyper 0.14.15",
@@ -398,8 +400,10 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded 0.7.0",
+ "sha-1",
  "sync_wrapper",
  "tokio 1.14.0",
+ "tokio-tungstenite 0.15.0",
  "tokio-util 0.6.9",
  "tower",
  "tower-http",
@@ -4294,7 +4298,20 @@ dependencies = [
  "log",
  "pin-project 0.4.28",
  "tokio 0.2.22",
- "tungstenite",
+ "tungstenite 0.11.1",
+]
+
+[[package]]
+name = "tokio-tungstenite"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "511de3f85caf1c98983545490c3d09685fa8eb634e57eec22bb4db271f46cbd8"
+dependencies = [
+ "futures-util",
+ "log",
+ "pin-project 1.0.8",
+ "tokio 1.14.0",
+ "tungstenite 0.14.0",
 ]
 
 [[package]]
@@ -4452,6 +4469,25 @@ dependencies = [
  "log",
  "rand 0.7.3",
  "sha-1",
+ "url",
+ "utf-8",
+]
+
+[[package]]
+name = "tungstenite"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0b2d8558abd2e276b0a8df5c05a2ec762609344191e5fd23e292c910e9165b5"
+dependencies = [
+ "base64 0.13.0",
+ "byteorder",
+ "bytes 1.1.0",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.8.4",
+ "sha-1",
+ "thiserror",
  "url",
  "utf-8",
 ]
@@ -4723,7 +4759,7 @@ dependencies = [
  "serde_urlencoded 0.6.1",
  "tokio 0.2.22",
  "tokio-rustls 0.14.1",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.11.0",
  "tower-service",
  "tracing",
  "tracing-futures",
@@ -4832,7 +4868,8 @@ dependencies = [
 [[package]]
 name = "webpki"
 version = "0.21.3"
-source = "git+https://github.com/helgoboss/webpki.git?branch=workaround/54-alert-decode-error#59e4d82f9b5baae9f3fdde8025311517b5d96fd2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab146130f5f790d45f82aeeb09e55a256573373ec64409fc19a6fb82fb1032ae"
 dependencies = [
  "ring",
  "untrusted",
@@ -4841,8 +4878,7 @@ dependencies = [
 [[package]]
 name = "webpki"
 version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f095d78192e208183081cc07bc5515ef55216397af48b873e5edcd72637fa1bd"
+source = "git+https://github.com/helgoboss/webpki.git?branch=workaround/54-alert-decode-error-0.22.0#1909653652edc8bea9c8439f6768db25a9972f60"
 dependencies = [
  "ring",
  "untrusted",

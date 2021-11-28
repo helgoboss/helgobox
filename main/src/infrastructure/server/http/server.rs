@@ -25,9 +25,9 @@ pub type ServerClients = Arc<std::sync::RwLock<HashMap<usize, WebSocketClient>>>
 
 #[derive(Debug, Clone)]
 pub struct WebSocketClient {
-    id: usize,
+    pub id: usize,
     pub topics: Topics,
-    sender: mpsc::UnboundedSender<String>,
+    pub sender: mpsc::UnboundedSender<String>,
 }
 
 impl WebSocketClient {
@@ -130,7 +130,6 @@ pub async fn start_http_server(
         .or(controller_route)
         .or(controller_routing_route)
         .or(patch_controller_route)
-        // TODO
         .or(ws_route);
     #[cfg(feature = "realearn-meter")]
     let routes = routes.or(metrics_route);

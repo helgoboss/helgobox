@@ -190,6 +190,16 @@ pub struct WebSocketRequest {
     pub topics: String,
 }
 
+impl WebSocketRequest {
+    pub fn parse_topics(&self) -> Topics {
+        self.topics
+            .split(',')
+            .map(Topic::try_from)
+            .flatten()
+            .collect()
+    }
+}
+
 pub type Topics = HashSet<Topic>;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
