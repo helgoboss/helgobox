@@ -27,15 +27,13 @@ pub type ServerClients = Arc<std::sync::RwLock<HashMap<usize, WebSocketClient>>>
 pub struct WebSocketClient {
     id: usize,
     pub topics: Topics,
-    sender: mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>,
+    sender: mpsc::UnboundedSender<String>,
 }
 
 impl WebSocketClient {
     pub fn send(&self, msg: impl Serialize) -> Result<(), &'static str> {
         let json = serde_json::to_string(&msg).map_err(|_| "couldn't serialize")?;
-        self.sender
-            .send(Ok(Message::text(json)))
-            .map_err(|_| "couldn't send")
+        self.sender.send(json).map_err(|_| "couldn't send")
     }
 
     pub fn is_subscribed_to(&self, topic: &Topic) -> bool {
@@ -194,9 +192,9 @@ async fn client_connected(ws: WebSocket, topics: Topics, clients: ServerClients)
     let (client_sender, client_receiver) = mpsc::unbounded_channel();
     let client_receiver_stream = UnboundedReceiverStream::new(client_receiver);
     // Keep forwarding received messages in client channel to websocket sender sink
-
     tokio::task::spawn(
         client_receiver_stream
+            .map(|json| Ok(Message::text(json)))
             .forward(ws_sender_sink)
             .map(|result| {
                 if let Err(e) = result {
