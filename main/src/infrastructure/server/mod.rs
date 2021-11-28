@@ -98,12 +98,7 @@ impl RealearnServer {
         let server_thread_join_handle = std::thread::Builder::new()
             .name("ReaLearn server".to_string())
             .spawn(move || {
-                // Using basic_scheduler() (current thread scheduler) makes our ports stay
-                // occupied after graceful shutdown.
-                // TODO-high Check if this problem occurs in latest tokio, too!
-                let runtime = tokio::runtime::Builder::new_multi_thread()
-                    .worker_threads(1)
-                    .thread_name("ReaLearn server worker")
+                let runtime = tokio::runtime::Builder::new_current_thread()
                     .enable_all()
                     .build()
                     .unwrap();

@@ -4116,7 +4116,6 @@ dependencies = [
  "libc",
  "memchr",
  "mio 0.7.14",
- "num_cpus",
  "pin-project-lite 0.2.7",
  "tokio-macros",
  "winapi 0.3.9",

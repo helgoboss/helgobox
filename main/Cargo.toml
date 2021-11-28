@@ -65,11 +65,7 @@ slug = "0.1.4"
 nanoid = "0.3.0"
 # For web server (e.g. for projection)
 futures = { version = "0.3", default-features = false }
-# Locked to 0.2.22. Did "cargo update" once and a minor update caused server issues. Switching projects (causing removal
-# of last ReaLearn instance and immediate adding of a new one) made the server complain about occupied ports. I think
-# this only happened when "Allow complete unload of VST plug-ins" was NOT ticket in the REAPER preferences.
-# So maybe this can be fixed at our side by forcing a server stop even when just going to sleep (no unload).
-tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "macros"] }
+tokio = { version = "1", features = ["rt", "sync", "macros"] }
 tokio-stream = "0.1.8"
 axum = { version = "0.3", features = ["ws", "headers"] }
 tower = "0.4"
