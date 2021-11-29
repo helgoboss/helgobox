@@ -4277,6 +4277,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite 0.2.7",
  "tokio 1.14.0",
+ "tokio-util 0.6.9",
 ]
 
 [[package]]

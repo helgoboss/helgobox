@@ -1,10 +1,15 @@
 use std::error::Error;
+use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Generate Rust code from gRPC / Protocol Buffers schema
-    tonic_build::configure()
-        .build_client(false)
-        .compile(&["../proto/realearn.proto"], &["../proto"])?;
+    {
+        let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+        let _ = std::fs::remove_file(out_dir.join("realearn.rs"));
+        tonic_build::configure()
+            .build_client(false)
+            .compile(&["../proto/realearn.proto"], &["../proto"])?;
+    }
 
     // Generate "built" file (containing build-time information)
     built::write_built_file().expect("Failed to acquire build-time information");
