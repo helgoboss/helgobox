@@ -1899,7 +1899,20 @@ impl Session {
             .unwrap();
     }
 
-    pub fn log_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+    pub fn log_mapping(
+        &self,
+        compartment: MappingCompartment,
+        mapping_id: MappingId,
+    ) -> Result<(), &'static str> {
+        let (_, mapping) = self
+            .find_mapping_and_index_by_id(compartment, mapping_id)
+            .ok_or("mapping not found")?;
+        debug!(
+            self.logger,
+            "MappingModel struct size: {}",
+            std::mem::size_of::<MappingModel>()
+        );
+        debug!(self.logger, "{:?}", mapping);
         self.normal_main_task_sender
             .try_send(NormalMainTask::LogMapping(compartment, mapping_id))
             .unwrap();

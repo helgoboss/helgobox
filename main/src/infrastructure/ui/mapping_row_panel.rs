@@ -777,10 +777,12 @@ impl MappingRowPanel {
                     group_id,
                 );
             }
-            MenuAction::LogDebugInfo => self
-                .session()
-                .borrow()
-                .log_mapping(triple.compartment, triple.mapping_id),
+            MenuAction::LogDebugInfo => {
+                let _ = self
+                    .session()
+                    .borrow()
+                    .log_mapping(triple.compartment, triple.mapping_id);
+            }
         }
         Ok(())
     }
