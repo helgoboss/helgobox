@@ -1906,6 +1906,7 @@ impl Session {
         self.normal_real_time_task_sender
             .send(NormalRealTimeTask::LogMapping(compartment, mapping_id))
             .unwrap();
+        Ok(())
     }
 
     pub fn mapping_is_on(&self, id: QualifiedMappingId) -> bool {
