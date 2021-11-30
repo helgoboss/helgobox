@@ -1,4 +1,4 @@
-use crate::application::{CompartmentModel, GroupModel, ParameterSetting};
+use crate::application::{CompartmentModel, GroupModel, ParameterSetting, Session};
 use crate::base::default_util::is_default;
 use crate::domain::{GroupId, GroupKey, MappingCompartment};
 use crate::infrastructure::data::{
@@ -59,16 +59,18 @@ impl CompartmentModelData {
         &self,
         version: Option<&Version>,
         compartment: MappingCompartment,
+        session: &mut Session,
     ) -> Result<CompartmentModel, String> {
         ensure_no_duplicate_compartment_data(
             &self.mappings,
             &self.groups,
             self.parameters.values(),
         )?;
-        struct ConversionContext {
-            groups: Vec<GroupModel>,
+        #[derive(Clone, Copy)]
+        struct ConversionContext<'a> {
+            groups: &'a Vec<GroupModel>,
         }
-        impl DataToModelConversionContext for ConversionContext {
+        impl<'a> DataToModelConversionContext for ConversionContext<'a> {
             fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId> {
                 let group = self.groups.iter().find(|g| g.key() == key)?;
                 Some(group.id())
@@ -85,7 +87,7 @@ impl CompartmentModelData {
             .iter()
             .map(|g| g.to_model(compartment, false))
             .collect();
-        let conversion_context = ConversionContext { groups };
+        let conversion_context = ConversionContext { groups: &groups };
         let model = CompartmentModel {
             default_group: final_default_group,
             mappings: self
@@ -96,7 +98,8 @@ impl CompartmentModelData {
                         compartment,
                         &migration_descriptor,
                         version,
-                        &conversion_context,
+                        conversion_context,
+                        session,
                     )
                 })
                 .collect(),
@@ -105,7 +108,7 @@ impl CompartmentModelData {
                 .iter()
                 .filter_map(|(key, value)| Some((key.parse::<u32>().ok()?, value.clone())))
                 .collect(),
-            groups: conversion_context.groups,
+            groups,
         };
         Ok(model)
     }

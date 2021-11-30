@@ -68,16 +68,17 @@ impl PresetData for ControllerPresetData {
     }
 
     fn to_model(&self, id: String) -> Result<ControllerPreset, String> {
-        let preset = ControllerPreset::new(
-            id,
-            self.name.clone(),
-            self.data.to_model(
-                self.version.as_ref(),
-                MappingCompartment::ControllerMappings,
-            )?,
-            self.custom_data.clone(),
-        );
-        Ok(preset)
+        todo!()
+        // let preset = ControllerPreset::new(
+        //     id,
+        //     self.name.clone(),
+        //     self.data.to_model(
+        //         self.version.as_ref(),
+        //         MappingCompartment::ControllerMappings,
+        //     )?,
+        //     self.custom_data.clone(),
+        // );
+        // Ok(preset)
     }
 
     fn clear_id(&mut self) {

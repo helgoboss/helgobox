@@ -42,3 +42,6 @@ pub use midi_util::*;
 
 mod compartment_model;
 pub use compartment_model::*;
+
+mod props;
+pub use props::*;

@@ -2089,6 +2089,7 @@ impl QualifiedMappingId {
     Deserialize,
 )]
 #[repr(usize)]
+// TODO-high Rename to just Compartment
 pub enum MappingCompartment {
     // It's important for `RealTimeProcessor` logic that this is the first element! We use array
     // destructuring.

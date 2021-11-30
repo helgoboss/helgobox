@@ -32,12 +32,12 @@ use std::rc::Rc;
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
     get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
-    AutomationModeOverrideType, BookmarkAnchorType, ConcreteFxInstruction,
-    ConcreteTrackInstruction, MappingModel, MidiSourceType, ModeModel, RealearnAutomationMode,
-    RealearnTrackArea, ReaperSourceType, Session, SharedMapping, SharedSession, SourceCategory,
-    SourceModel, TargetCategory, TargetModel, TargetModelWithContext, TargetUnit,
-    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
-    VirtualTrackType, WeakSession,
+    AutomationModeOverrideType, BookmarkAnchorType, CompartmentProp, ConcreteFxInstruction,
+    ConcreteTrackInstruction, MappingModel, MappingProp, MidiSourceType, ModeModel,
+    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionProp,
+    SharedMapping, SharedSession, SourceCategory, SourceModel, TargetCategory, TargetModel,
+    TargetModelWithContext, TargetUnit, TrackRouteSelectorType, VirtualControlElementType,
+    VirtualFxParameterType, VirtualFxType, VirtualTrackType, WeakSession,
 };
 use crate::base::Global;
 use crate::domain::{
@@ -135,6 +135,38 @@ impl MappingPanel {
             last_touched_source_character: Default::default(),
             party_is_over_subject: Default::default(),
         }
+    }
+
+    pub fn handle_session_prop_change(
+        self: SharedView<Self>,
+        prop: SessionProp,
+        initiator: Option<u32>,
+    ) {
+        let view_mirror = self.clone();
+        view_mirror.is_invoked_programmatically.set(true);
+        scopeguard::defer! { view_mirror.is_invoked_programmatically.set(false); }
+        // If the reaction can't be displayed anymore because the mapping is not filled anymore,
+        // so what.
+        let _ = self.read(|view| match prop {
+            SessionProp::CompartmentProp(_, prop) => match prop {
+                CompartmentProp::MappingProp(_, prop) => {
+                    use MappingProp as P;
+                    match prop {
+                        P::Name => {
+                            view.invalidate_window_title();
+                            view.panel
+                                .mapping_header_panel
+                                .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
+                        }
+                        P::Tags => {
+                            view.panel
+                                .mapping_header_panel
+                                .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
+                        }
+                    }
+                }
+            },
+        });
     }
 
     fn source_match_indicator_control(&self) -> Window {
@@ -4393,23 +4425,6 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn register_mapping_listeners(&self) {
-        self.panel.when(
-            self.mapping.name.changed_with_initiator(),
-            |view, initiator| {
-                view.invalidate_window_title();
-                view.panel
-                    .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
-            },
-        );
-        self.panel.when(
-            self.mapping.tags.changed_with_initiator(),
-            |view, initiator| {
-                view.panel
-                    .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
-            },
-        );
         self.panel
             .when(self.mapping.control_is_enabled.changed(), |view, _| {
                 view.panel

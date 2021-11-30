@@ -20,14 +20,36 @@ use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
 
+pub enum MappingPropVal {
+    Name(String),
+    Tags(Vec<Tag>),
+}
+
+impl MappingPropVal {
+    pub fn prop(&self) -> MappingProp {
+        use MappingProp as P;
+        use MappingPropVal as V;
+        match self {
+            V::Name(_) => P::Name,
+            V::Tags(_) => P::Tags,
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum MappingProp {
+    Name,
+    Tags,
+}
+
 /// A model for creating mappings (a combination of source, mode and target).
 #[derive(Clone, Debug)]
 pub struct MappingModel {
     id: MappingId,
     key: MappingKey,
     compartment: MappingCompartment,
-    pub name: Prop<String>,
-    pub tags: Prop<Vec<Tag>>,
+    name: String,
+    tags: Vec<Tag>,
     pub group_id: Prop<GroupId>,
     pub is_enabled: Prop<bool>,
     pub control_is_enabled: Prop<bool>,
@@ -101,6 +123,14 @@ impl MappingModel {
         }
     }
 
+    pub fn set(&mut self, val: MappingPropVal) {
+        use MappingPropVal as T;
+        match val {
+            T::Name(name) => self.name = name,
+            T::Tags(tags) => self.tags = tags,
+        }
+    }
+
     pub fn id(&self) -> MappingId {
         self.id
     }
@@ -117,16 +147,24 @@ impl MappingModel {
         QualifiedMappingId::new(self.compartment, self.id)
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn tags(&self) -> &[Tag] {
+        &self.tags
+    }
+
     pub fn effective_name(&self) -> String {
-        if self.name.get_ref().is_empty() {
+        if self.name.is_empty() {
             TargetModelFormatVeryShort(&self.target_model).to_string()
         } else {
-            self.name.get_ref().clone()
+            self.name.clone()
         }
     }
 
     pub fn clear_name(&mut self) {
-        self.name.set(Default::default());
+        self.name == String::new();
     }
 
     pub fn make_project_independent(&mut self, context: ExtendedProcessorContext) {
@@ -284,6 +322,18 @@ impl MappingModel {
         observable::never()
     }
 
+    /// Returns true if this is a property that has an effect on control/feedback processing.
+    ///
+    /// However, we don't include properties here which are changed by the processing layer
+    /// (such as `is_enabled`) because that would mean the complete mapping will be synced as a
+    /// result, whereas we want to sync processing stuff faster!  
+    pub fn is_processing_relevant_prop(&self, prop: MappingProp) -> bool {
+        use MappingProp as P;
+        match prop {
+            P::Name | P::Tags => true,
+        }
+    }
+
     /// Fires whenever a property has changed that has an effect on control/feedback processing.
     ///
     /// However, we don't include properties here which are changed by the processing layer
@@ -305,8 +355,6 @@ impl MappingModel {
                     .changed_processing_relevant(),
             )
             .merge(self.advanced_settings.changed())
-            .merge(self.tags.changed())
-            .merge(self.name.changed())
     }
 
     /// Fires whenever a property has changed that has an effect on control/feedback processing
@@ -408,13 +456,13 @@ impl MappingModel {
             feedback_send_behavior: self.feedback_send_behavior.get(),
         };
         let mut merged_tags = group_data.tags;
-        merged_tags.extend_from_slice(self.tags.get_ref());
+        merged_tags.extend_from_slice(&self.tags);
         MainMapping::new(
             self.compartment,
             id,
             &self.key,
             self.group_id.get(),
-            self.name.get_ref().clone(),
+            self.name.clone(),
             merged_tags,
             source,
             mode,

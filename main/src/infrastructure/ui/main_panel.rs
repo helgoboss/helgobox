@@ -9,7 +9,7 @@ use reaper_high::Reaper;
 use slog::debug;
 use std::cell::{Cell, RefCell};
 
-use crate::application::{Session, SessionUi, WeakSession};
+use crate::application::{Session, SessionProp, SessionUi, WeakSession};
 use crate::base::when;
 use crate::domain::{
     MappingCompartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
@@ -209,6 +209,14 @@ impl MainPanel {
         }
     }
 
+    fn handle_session_prop_change(&self, prop: SessionProp, initiator: Option<u32>) {
+        if let Some(data) = self.active_data.borrow() {
+            data.panel_manager
+                .borrow()
+                .handle_session_prop_change(prop, initiator);
+        }
+    }
+
     fn handle_changed_parameters(&self, session: &Session) {
         if let Some(data) = self.active_data.borrow() {
             data.panel_manager
@@ -300,6 +308,10 @@ impl SessionUi for Weak<MainPanel> {
 
     fn mapping_matched(&self, event: MappingMatchedEvent) {
         upgrade_panel(self).handle_matched_mapping(event);
+    }
+
+    fn handle_prop_change(&self, prop: SessionProp, initiator: Option<u32>) {
+        upgrade_panel(self).handle_session_prop_change(prop, initiator);
     }
 }
 

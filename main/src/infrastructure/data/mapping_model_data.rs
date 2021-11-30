@@ -1,4 +1,6 @@
-use crate::application::MappingModel;
+use crate::application::{
+    CompartmentPropVal, MappingModel, MappingPropVal, Session, SessionPropVal,
+};
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     ExtendedProcessorContext, FeedbackSendBehavior, GroupId, GroupKey, MappingCompartment,
@@ -11,7 +13,6 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::App;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::borrow::BorrowMut;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,8 +58,8 @@ impl MappingModelData {
         MappingModelData {
             id: Some(model.key().clone()),
             key: None,
-            name: model.name.get_ref().clone(),
-            tags: model.tags.get_ref().clone(),
+            name: model.name().to_owned(),
+            tags: model.tags().to_owned(),
             group_id: {
                 conversion_context
                     .group_key_by_id(model.group_id.get())
@@ -84,18 +85,13 @@ impl MappingModelData {
         }
     }
 
-    pub fn to_model(
-        &self,
-        compartment: MappingCompartment,
-        context: ExtendedProcessorContext,
-        conversion_context: &impl DataToModelConversionContext,
-    ) -> MappingModel {
+    pub fn to_model(&self, compartment: MappingCompartment, session: &mut Session) -> MappingModel {
         self.to_model_flexible(
             compartment,
-            Some(context),
             &MigrationDescriptor::default(),
             Some(App::version()),
-            conversion_context,
+            |session| session.compartment_in_session(compartment),
+            session,
         )
     }
 
@@ -105,29 +101,28 @@ impl MappingModelData {
         compartment: MappingCompartment,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
-        conversion_context: &impl DataToModelConversionContext,
+        conversion_context: impl DataToModelConversionContext + Copy,
+        session: &mut Session,
     ) -> MappingModel {
         self.to_model_flexible(
             compartment,
-            // We don't need the context because additional track/FX properties don't
-            // need to be resolved when just creating a preset.
-            None,
             migration_descriptor,
             preset_version,
-            conversion_context,
+            move |_| conversion_context,
+            session,
         )
     }
 
     /// The context - if available - will be used to resolve some track/FX properties for UI
     /// convenience. The context is necessary if there's the possibility of loading data saved with
     /// ReaLearn < 1.12.0.
-    pub fn to_model_flexible(
+    pub fn to_model_flexible<'a, C: DataToModelConversionContext>(
         &self,
         compartment: MappingCompartment,
-        context: Option<ExtendedProcessorContext>,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
-        conversion_context: &impl DataToModelConversionContext,
+        get_conversion_context: impl Fn(&'a Session) -> C + 'a,
+        session: &'a mut Session,
     ) -> MappingModel {
         let key: MappingKey = self
             .key
@@ -137,108 +132,109 @@ impl MappingModelData {
         // Preliminary group ID
         let mut model = MappingModel::new(compartment, GroupId::default(), key);
         self.apply_to_model_internal(
-            &mut model,
-            context,
+            session,
             migration_descriptor,
             preset_version,
             false,
-            conversion_context,
+            get_conversion_context,
+            |_, val| model.set(val),
         );
         model
     }
 
     /// This is for realtime mapping modification (with notification, no ID changes), e.g. for copy
     /// & paste within one ReaLearn version.
-    pub fn apply_to_model(
-        &self,
-        model: &mut MappingModel,
-        context: ExtendedProcessorContext,
-        conversion_context: &impl DataToModelConversionContext,
-    ) {
+    pub fn apply_to_model(&self, model: &mut MappingModel, session: &mut Session) {
+        let compartment = model.compartment();
         self.apply_to_model_internal(
-            model,
-            Some(context),
+            session,
             &MigrationDescriptor::default(),
             Some(App::version()),
             true,
-            conversion_context,
+            |session| session.compartment_in_session(compartment),
+            |session, val| {
+                session
+                    .set(SessionPropVal::CompartmentProp(
+                        model.compartment(),
+                        CompartmentPropVal::MappingProp(model.id(), val),
+                    ))
+                    .unwrap();
+            },
         );
     }
 
     /// The processor context - if available - will be used to resolve some track/FX properties for
     /// UI convenience. The context is necessary if there's the possibility of loading data saved
     /// with ReaLearn < 1.12.0.
-    fn apply_to_model_internal(
+    fn apply_to_model_internal<'a, C: DataToModelConversionContext>(
         &self,
-        model: &mut MappingModel,
-        processor_context: Option<ExtendedProcessorContext>,
+        session: &'a mut Session,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
         with_notification: bool,
-        conversion_context: &impl DataToModelConversionContext,
+        get_conversion_context: impl Fn(&'a Session) -> C + 'a,
+        mut set: impl FnMut(&mut Session, MappingPropVal),
     ) {
-        model
-            .name
-            .set_with_optional_notification(self.name.clone(), with_notification);
-        model
-            .tags
-            .set_with_optional_notification(self.tags.clone(), with_notification);
-        let group_id = conversion_context
-            .group_id_by_key(&self.group_id)
-            .unwrap_or_default();
-        model
-            .group_id
-            .set_with_optional_notification(group_id, with_notification);
-        self.activation_condition_data.apply_to_model(
-            model.activation_condition_model.borrow_mut(),
-            with_notification,
-        );
-        let compartment = model.compartment();
-        self.source.apply_to_model_flexible(
-            model.source_model.borrow_mut(),
-            with_notification,
-            compartment,
-            preset_version,
-        );
-        self.mode.apply_to_model_flexible(
-            model.mode_model.borrow_mut(),
-            migration_descriptor,
-            &self.name,
-            with_notification,
-        );
-        self.target.apply_to_model_flexible(
-            model.target_model.borrow_mut(),
-            processor_context,
-            preset_version,
-            with_notification,
-            compartment,
-            conversion_context,
-        );
-        model
-            .is_enabled
-            .set_with_optional_notification(self.is_enabled, with_notification);
-        model.control_is_enabled.set_with_optional_notification(
-            self.enabled_data.control_is_enabled,
-            with_notification,
-        );
-        model.feedback_is_enabled.set_with_optional_notification(
-            self.enabled_data.feedback_is_enabled,
-            with_notification,
-        );
-        let feedback_send_behavior = if self.prevent_echo_feedback {
-            // Took precedence if both checkboxes were ticked (was possible in ReaLearn < 2.10.0).
-            FeedbackSendBehavior::PreventEchoFeedback
-        } else if self.send_feedback_after_control {
-            FeedbackSendBehavior::SendFeedbackAfterControl
-        } else {
-            FeedbackSendBehavior::Normal
-        };
-        model
-            .feedback_send_behavior
-            .set_with_optional_notification(feedback_send_behavior, with_notification);
-        let _ = model.set_advanced_settings(self.advanced.clone(), with_notification);
-        model
-            .visible_in_projection
-            .set_with_optional_notification(self.visible_in_projection, with_notification);
+        use MappingPropVal as P;
+        set(session, P::Name(self.name.clone()));
+        set(session, P::Tags(self.tags.clone()));
+        // TODO-high
+        // let group_id = conversion_context
+        //     .group_id_by_key(&self.group_id)
+        //     .unwrap_or_default();
+        // model
+        //     .group_id
+        //     .set_with_optional_notification(group_id, with_notification);
+        // self.activation_condition_data.apply_to_model(
+        //     model.activation_condition_model.borrow_mut(),
+        //     with_notification,
+        // );
+        // let compartment = model.compartment();
+        // self.source.apply_to_model_flexible(
+        //     model.source_model.borrow_mut(),
+        //     with_notification,
+        //     compartment,
+        //     preset_version,
+        // );
+        // self.mode.apply_to_model_flexible(
+        //     model.mode_model.borrow_mut(),
+        //     migration_descriptor,
+        //     &self.name,
+        //     with_notification,
+        // );
+        // self.target.apply_to_model_flexible(
+        //     model.target_model.borrow_mut(),
+        //     processor_context,
+        //     preset_version,
+        //     with_notification,
+        //     compartment,
+        //     conversion_context,
+        // );
+        // model
+        //     .is_enabled
+        //     .set_with_optional_notification(self.is_enabled, with_notification);
+        // model.control_is_enabled.set_with_optional_notification(
+        //     self.enabled_data.control_is_enabled,
+        //     with_notification,
+        // );
+        // model.feedback_is_enabled.set_with_optional_notification(
+        //     self.enabled_data.feedback_is_enabled,
+        //     with_notification,
+        // );
+        // let feedback_send_behavior = if self.prevent_echo_feedback {
+        //     // Took precedence if both checkboxes were ticked (was possible in ReaLearn < 2.10.0).
+        //     FeedbackSendBehavior::PreventEchoFeedback
+        // } else if self.send_feedback_after_control {
+        //     FeedbackSendBehavior::SendFeedbackAfterControl
+        // } else {
+        //     FeedbackSendBehavior::Normal
+        // };
+        // model
+        //     .feedback_send_behavior
+        //     .set_with_optional_notification(feedback_send_behavior, with_notification);
+        // let _ = model.set_advanced_settings(self.advanced.clone(), with_notification);
+        // model
+        //     .visible_in_projection
+        //     .set_with_optional_notification(self.visible_in_projection, with_notification);
     }
 }

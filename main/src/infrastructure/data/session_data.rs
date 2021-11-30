@@ -1,5 +1,5 @@
 use crate::application::{
-    empty_parameter_settings, reaper_supports_global_midi_filter, GroupModel,
+    empty_parameter_settings, reaper_supports_global_midi_filter, CompartmentInSession, GroupModel,
     MainPresetAutoLoadMode, ParameterSetting, Session,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
@@ -391,20 +391,15 @@ impl SessionData {
         );
         // Mappings
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
-            let extended_context = session.extended_context_with_params(params);
-            let compartment_in_session = CompartmentInSession {
-                session,
-                compartment,
-            };
             let mappings: Vec<_> = mappings
                 .iter()
                 .map(|m| {
                     m.to_model_flexible(
                         compartment,
-                        Some(extended_context),
                         &migration_descriptor,
                         self.version.as_ref(),
-                        &compartment_in_session,
+                        |session| session.compartment_in_session(compartment),
+                        session,
                     )
                 })
                 .collect();
@@ -501,11 +496,6 @@ fn get_parameter_settings(data_map: &HashMap<String, ParameterData>) -> Vec<Para
         }
     }
     settings
-}
-
-pub struct CompartmentInSession<'a> {
-    pub session: &'a Session,
-    pub compartment: MappingCompartment,
 }
 
 impl<'a> ModelToDataConversionContext for CompartmentInSession<'a> {

@@ -1,6 +1,6 @@
 use crate::application::{
-    MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory,
-    TargetModelFormatMultiLine, WeakSession,
+    CompartmentProp, MappingModel, MappingProp, SessionProp, SharedMapping, SharedSession,
+    SourceCategory, TargetCategory, TargetModelFormatMultiLine, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
@@ -9,7 +9,7 @@ use crate::domain::{
 
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::{
-    CompartmentInSession, MappingModelData, ModeModelData, SourceModelData, TargetModelData,
+    MappingModelData, ModeModelData, SourceModelData, TargetModelData,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
@@ -75,6 +75,27 @@ impl MappingRowPanel {
             panel_manager,
             is_last_row,
         }
+    }
+
+    pub fn handle_session_prop_change(
+        self: SharedView<Self>,
+        prop: SessionProp,
+        initiator: Option<u32>,
+    ) {
+        // If the reaction can't be displayed anymore because the mapping is not filled anymore,
+        // so what.
+        let _ = self.with_mapping(|view, m| match prop {
+            SessionProp::CompartmentProp(_, prop) => match prop {
+                CompartmentProp::MappingProp(_, prop) => {
+                    use MappingProp as P;
+                    match prop {
+                        P::Name | P::Tags => {
+                            view.invalidate_name_labels(m);
+                        }
+                    }
+                }
+            },
+        });
     }
 
     pub fn handle_matched_mapping(&self) {
@@ -144,10 +165,10 @@ impl MappingRowPanel {
         let mut right_label = if let Some(g) = group {
             // Group present. Merge group tags with mapping tags.
             let g = g.borrow();
-            format_tags_as_csv(g.tags.get_ref().iter().chain(mapping.tags.get_ref()))
+            format_tags_as_csv(g.tags.get_ref().iter().chain(mapping.tags()))
         } else {
             // Group not present. Use mapping tags only.
-            format_tags_as_csv(mapping.tags.get_ref())
+            format_tags_as_csv(mapping.tags())
         };
         // Add group name to right label if all groups are shown.
         if main_state
@@ -343,12 +364,6 @@ impl MappingRowPanel {
         let session = self.session();
         let session = session.borrow();
         let instance_state = session.instance_state().borrow();
-        self.when(
-            mapping.name.changed().merge(mapping.tags.changed()),
-            |view| {
-                view.with_mapping(Self::invalidate_name_labels);
-            },
-        );
         self.when(mapping.source_model.changed(), |view| {
             view.with_mapping(Self::invalidate_source_label);
         });
@@ -529,10 +544,7 @@ impl MappingRowPanel {
         let data_object = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = CompartmentInSession {
-                session: &session,
-                compartment: self.active_compartment(),
-            };
+            let compartment_in_session = session.compartment_in_session(self.active_compartment());
             DataObject::try_from_api_object(api_object, &compartment_in_session)?
         };
         paste_data_object_in_place(data_object, self.session(), self.mapping_triple()?)?;
@@ -547,10 +559,7 @@ impl MappingRowPanel {
         let data_mappings = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = CompartmentInSession {
-                session: &session,
-                compartment: self.active_compartment(),
-            };
+            let compartment_in_session = session.compartment_in_session(self.active_compartment());
             DataObject::try_from_api_mappings(api_mappings, &compartment_in_session)?
         };
         let triple = self.mapping_triple()?;
@@ -895,10 +904,7 @@ fn copy_mapping_object(
         .ok_or("mapping not found")?;
     use ObjectType::*;
     let mapping = mapping.borrow();
-    let compartment_in_session = CompartmentInSession {
-        session: &session,
-        compartment,
-    };
+    let compartment_in_session = session.compartment_in_session(compartment);
     let data_object = match object_type {
         Mapping => DataObject::Mapping(Envelope {
             value: Box::new(MappingModelData::from_model(
@@ -936,14 +942,12 @@ fn paste_data_object_in_place(
     session: SharedSession,
     triple: MappingTriple,
 ) -> Result<(), &'static str> {
-    let session = session.borrow();
-    let (_, mapping) = session
+    let mut session = session.borrow_mut();
+    let mapping = session
         .find_mapping_and_index_by_id(triple.compartment, triple.mapping_id)
-        .ok_or("mapping not found")?;
-    let compartment_in_session = CompartmentInSession {
-        session: &session,
-        compartment: triple.compartment,
-    };
+        .ok_or("mapping not found")?
+        .1
+        .clone();
     let mut mapping = mapping.borrow_mut();
     match data_object {
         DataObject::Mapping(Envelope { value: mut m }) => {
@@ -957,11 +961,7 @@ fn paste_data_object_in_place(
                     group.borrow().key().clone()
                 }
             };
-            m.apply_to_model(
-                &mut mapping,
-                session.extended_context(),
-                &compartment_in_session,
-            );
+            m.apply_to_model(&mut mapping, &mut session);
         }
         DataObject::Source(Envelope { value: s }) => {
             s.apply_to_model(&mut mapping.source_model, triple.compartment);
@@ -970,6 +970,7 @@ fn paste_data_object_in_place(
             m.apply_to_model(&mut mapping.mode_model);
         }
         DataObject::Target(Envelope { value: t }) => {
+            let compartment_in_session = session.compartment_in_session(triple.compartment);
             t.apply_to_model(
                 &mut mapping.target_model,
                 triple.compartment,
@@ -1012,19 +1013,11 @@ pub fn paste_mappings(
             group.key().clone()
         }
     };
-    let compartment_in_session = CompartmentInSession {
-        session: &session,
-        compartment,
-    };
     let new_mappings: Vec<_> = mapping_datas
         .into_iter()
         .map(|mut data| {
             data.group_id = group_key.clone();
-            data.to_model(
-                compartment,
-                session.extended_context(),
-                &compartment_in_session,
-            )
+            data.to_model(compartment, &mut session)
         })
         .collect();
     session.insert_mappings_at(compartment, index + 1, new_mappings.into_iter());

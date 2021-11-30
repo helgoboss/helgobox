@@ -27,7 +27,7 @@ use crate::domain::{
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
-    CompartmentInSession, CompartmentModelData, ExtendedPresetManager, MappingModelData, OscDevice,
+    CompartmentModelData, ExtendedPresetManager, MappingModelData, OscDevice,
 };
 use crate::infrastructure::plugin::{
     warn_about_failed_server_start, App, RealearnPluginParameters,
@@ -708,10 +708,7 @@ impl HeaderPanel {
         let session = self.session();
         let session = session.borrow();
         let compartment = self.active_compartment();
-        let compartment_in_session = CompartmentInSession {
-            session: &session,
-            compartment,
-        };
+        let compartment_in_session = session.compartment_in_session(compartment);
         let mapping_datas = self
             .get_listened_mappings(compartment)
             .iter()
@@ -843,10 +840,7 @@ impl HeaderPanel {
         let data_mappings = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = CompartmentInSession {
-                session: &session,
-                compartment: self.active_compartment(),
-            };
+            let compartment_in_session = session.compartment_in_session(self.active_compartment());
             DataObject::try_from_api_mappings(api_mappings, &compartment_in_session)?
         };
         self.paste_replace_all_in_group(data_mappings);
@@ -864,10 +858,6 @@ impl HeaderPanel {
         let compartment = main_state.active_compartment.get();
         let session = self.session();
         let mut session = session.borrow_mut();
-        let compartment_in_session = CompartmentInSession {
-            session: &session,
-            compartment,
-        };
         let group_key = if let Some(group) = session.find_group_by_id(compartment, group_id) {
             group.borrow().key().clone()
         } else {
@@ -877,11 +867,7 @@ impl HeaderPanel {
             .into_iter()
             .map(|mut data| {
                 data.group_id = group_key.clone();
-                data.to_model(
-                    compartment,
-                    session.extended_context(),
-                    &compartment_in_session,
-                )
+                data.to_model(compartment, &mut session)
             })
             .collect();
         session.replace_mappings_of_group(compartment, group_id, mapping_models.into_iter());
@@ -1815,10 +1801,7 @@ impl HeaderPanel {
         let res = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = CompartmentInSession {
-                session: &session,
-                compartment: self.active_compartment(),
-            };
+            let compartment_in_session = session.compartment_in_session(self.active_compartment());
             deserialize_data_object(&text, &compartment_in_session)?
         };
         match res.value {
@@ -1872,7 +1855,7 @@ impl HeaderPanel {
             // For now, let's assume that the imported data is always tailored to the running
             // ReaLearn version.
             let version = App::version();
-            match data.to_model(Some(version), compartment) {
+            match data.to_model(Some(version), compartment, &mut session) {
                 Ok(model) => {
                     session.import_compartment(compartment, Some(model), self.session.clone());
                 }

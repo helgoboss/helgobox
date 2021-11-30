@@ -1,7 +1,8 @@
 use crate::application::{
-    share_group, share_mapping, CompartmentModel, ControllerPreset, FxId, GroupModel, MainPreset,
-    MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
-    SharedMapping, SourceModel, TargetCategory, TargetModel, VirtualControlElementType,
+    share_group, share_mapping, CompartmentModel, CompartmentProp, CompartmentPropVal,
+    ControllerPreset, FxId, GroupModel, MainPreset, MainPresetAutoLoadMode, MappingModel,
+    MappingPropVal, Preset, PresetLinkManager, PresetManager, SharedGroup, SharedMapping,
+    SourceModel, TargetCategory, TargetModel, VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
 use crate::base::{prop, when, AsyncNotifier, Global, Prop};
@@ -41,6 +42,7 @@ pub trait SessionUi {
     fn parameters_changed(&self, session: &Session);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
     fn mapping_matched(&self, event: MappingMatchedEvent);
+    fn handle_prop_change(&self, prop: SessionProp, initiator: Option<u32>);
 }
 
 /// This represents the user session with one ReaLearn instance.
@@ -1070,6 +1072,67 @@ impl Session {
         self.notify_group_list_changed(compartment);
     }
 
+    pub fn set(&mut self, val: SessionPropVal) -> Result<(), &'static str> {
+        self.set_with_initiator(val, None)
+    }
+
+    // Convenience function to set mapping prop from data layer.
+    pub fn mapping_set(&mut self, id: QualifiedMappingId, val: MappingPropVal) {
+        self.set(SessionPropVal::CompartmentProp(
+            id.compartment,
+            CompartmentPropVal::MappingProp(id.id, val),
+        ))
+        .unwrap();
+    }
+
+    pub fn compartment_in_session(&self, compartment: MappingCompartment) -> CompartmentInSession {
+        CompartmentInSession {
+            session: self,
+            compartment,
+        }
+    }
+
+    pub fn set_with_initiator(
+        &mut self,
+        val: SessionPropVal,
+        initiator: Option<u32>,
+    ) -> Result<(), &'static str> {
+        let prop = val.prop();
+        use SessionPropVal as P;
+        match val {
+            P::CompartmentProp(compartment, val) => self.compartment_set(compartment, val)?,
+        }
+        self.ui.handle_prop_change(prop, initiator);
+        Ok(())
+    }
+
+    // TODO-high Add type def for Result<(), &'static str>.
+    fn compartment_set(
+        &mut self,
+        compartment: MappingCompartment,
+        val: CompartmentPropVal,
+    ) -> Result<(), &'static str> {
+        use CompartmentPropVal as P;
+        match val {
+            P::MappingProp(id, val) => {
+                let mapping = self
+                    .find_mapping_and_index_by_id(compartment, id)
+                    .ok_or("mapping not found")?
+                    .1
+                    .clone();
+                let mut mapping = mapping.borrow_mut();
+                let prop = val.prop();
+                mapping.set(val);
+                if mapping.is_processing_relevant_prop(prop) {
+                    self.sync_single_mapping_to_processors(compartment, &mapping);
+                    self.mark_compartment_dirty(compartment);
+                    self.notify_mapping_changed(compartment);
+                }
+                Ok(())
+            }
+        }
+    }
+
     pub fn add_default_mapping(
         &mut self,
         compartment: MappingCompartment,
@@ -1079,9 +1142,8 @@ impl Session {
         control_element_type: VirtualControlElementType,
     ) -> SharedMapping {
         let mut mapping = MappingModel::new(compartment, initial_group_id, MappingKey::random());
-        mapping
-            .name
-            .set_without_notification(self.generate_name_for_new_mapping(compartment));
+        let new_name = self.generate_name_for_new_mapping(compartment);
+        mapping.set(MappingPropVal::Name(new_name));
         if compartment == MappingCompartment::ControllerMappings {
             let next_control_element_index =
                 self.get_next_control_element_index(control_element_type);
@@ -2435,4 +2497,28 @@ pub fn reaper_supports_global_midi_filter() -> bool {
     let v = Reaper::get().version().to_string();
     let v_without_arch = v.split('/').next().unwrap();
     v_without_arch >= "6.35+dev0831"
+}
+
+pub enum SessionPropVal {
+    CompartmentProp(MappingCompartment, CompartmentPropVal),
+}
+
+impl SessionPropVal {
+    pub fn prop(&self) -> SessionProp {
+        use SessionProp as P;
+        use SessionPropVal as V;
+        match self {
+            V::CompartmentProp(compartment, val) => P::CompartmentProp(*compartment, val.prop()),
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum SessionProp {
+    CompartmentProp(MappingCompartment, CompartmentProp),
+}
+
+pub struct CompartmentInSession<'a> {
+    pub session: &'a Session,
+    pub compartment: MappingCompartment,
 }

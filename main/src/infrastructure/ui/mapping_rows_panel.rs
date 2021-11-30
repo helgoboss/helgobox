@@ -377,7 +377,7 @@ impl MappingRowsPanel {
         let search_expression = main_state.search_expression.get_ref();
         if !search_expression.is_empty()
             && !search_expression.matches(&mapping.effective_name())
-            && !search_expression.matches_any_tag(mapping.tags.get_ref())
+            && !search_expression.matches_any_tag(mapping.tags())
             && !search_expression.matches_any_tag_in_group(&mapping, session)
         {
             return false;

@@ -8,8 +8,8 @@ use std::convert::TryInto;
 use std::rc::{Rc, Weak};
 
 use crate::application::{
-    ActivationType, BankConditionModel, GroupModel, MappingModel, ModifierConditionModel,
-    SharedSession, WeakSession,
+    ActivationType, BankConditionModel, CompartmentPropVal, GroupModel, MappingModel,
+    MappingPropVal, ModifierConditionModel, Session, SessionPropVal, SharedSession, WeakSession,
 };
 use crate::domain::{MappingCompartment, Tag, COMPARTMENT_PARAMETER_COUNT};
 use std::fmt::Debug;
@@ -32,9 +32,9 @@ pub trait Item: Debug {
     fn supports_name_change(&self) -> bool;
     fn supports_activation(&self) -> bool;
     fn name(&self) -> &str;
-    fn set_name(&mut self, name: String, initiator: u32);
+    fn set_name(&self, session: &mut Session, name: String, initiator: u32);
     fn tags(&self) -> &[Tag];
-    fn set_tags(&mut self, tags: Vec<Tag>, initiator: u32);
+    fn set_tags(&self, session: &mut Session, tags: Vec<Tag>, initiator: u32);
     fn control_is_enabled(&self) -> bool;
     fn set_control_is_enabled(&mut self, value: bool);
     fn feedback_is_enabled(&self) -> bool;
@@ -367,22 +367,23 @@ impl MappingHeaderPanel {
         item.set_modifier_condition_2(item.modifier_condition_2().with_is_on(checked));
     }
 
-    fn update_name(&self, item: &mut dyn Item) {
+    fn update_name(&self, session: &mut Session, item: &dyn Item) {
         let value = self
             .view
             .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL)
             .text()
             .unwrap_or_else(|_| "".to_string());
-        item.set_name(value, root::ID_MAPPING_NAME_EDIT_CONTROL);
+        item.set_name(session, value, root::ID_MAPPING_NAME_EDIT_CONTROL);
     }
 
-    fn update_tags(&self, item: &mut dyn Item) {
+    fn update_tags(&self, session: &mut Session, item: &dyn Item) {
         let value = self
             .view
             .require_control(root::ID_MAPPING_TAGS_EDIT_CONTROL)
             .text()
             .unwrap_or_else(|_| "".to_string());
         item.set_tags(
+            session,
             parse_tags_from_csv(&value),
             root::ID_MAPPING_TAGS_EDIT_CONTROL,
         );
@@ -500,6 +501,15 @@ impl MappingHeaderPanel {
         let weak_item = opt_item.as_ref().expect("item not set");
         let item = weak_item.upgrade().expect("item gone");
         f(self, &mut *item.borrow_mut());
+    }
+
+    fn with_session_and_item(&self, f: impl FnOnce(&Self, &mut Session, &dyn Item)) {
+        let opt_item = self.item.borrow();
+        let weak_item = opt_item.as_ref().expect("item not set");
+        let item = weak_item.upgrade().expect("item gone");
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        f(self, &mut session, &*item.borrow());
     }
 
     pub fn invalidate_due_to_changed_prop(&self, prop: ItemProp, initiator: Option<u32>) {
@@ -623,10 +633,10 @@ impl View for MappingHeaderPanel {
         use root::*;
         match resource_id {
             ID_MAPPING_NAME_EDIT_CONTROL => {
-                self.with_mutable_item(Self::update_name);
+                self.with_session_and_item(Self::update_name);
             }
             ID_MAPPING_TAGS_EDIT_CONTROL => {
-                self.with_mutable_item(Self::update_tags);
+                self.with_session_and_item(Self::update_tags);
             }
             ID_MAPPING_ACTIVATION_EDIT_CONTROL => {
                 self.with_mutable_item(Self::update_activation_eel_condition);
@@ -667,19 +677,31 @@ impl Item for MappingModel {
     }
 
     fn name(&self) -> &str {
-        self.name.get_ref()
+        self.name()
     }
 
-    fn set_name(&mut self, name: String, initiator: u32) {
-        self.name.set_with_initiator(name, Some(initiator));
+    fn set_name(&self, session: &mut Session, name: String, initiator: u32) {
+        session.set_with_initiator(
+            SessionPropVal::CompartmentProp(
+                self.compartment(),
+                CompartmentPropVal::MappingProp(self.id(), MappingPropVal::Name(name)),
+            ),
+            Some(initiator),
+        );
     }
 
     fn tags(&self) -> &[Tag] {
-        self.tags.get_ref()
+        self.tags()
     }
 
-    fn set_tags(&mut self, tags: Vec<Tag>, initiator: u32) {
-        self.tags.set_with_initiator(tags, Some(initiator));
+    fn set_tags(&self, session: &mut Session, tags: Vec<Tag>, initiator: u32) {
+        session.set_with_initiator(
+            SessionPropVal::CompartmentProp(
+                self.compartment(),
+                CompartmentPropVal::MappingProp(self.id(), MappingPropVal::Tags(tags)),
+            ),
+            Some(initiator),
+        );
     }
 
     fn control_is_enabled(&self) -> bool {
@@ -762,16 +784,17 @@ impl Item for GroupModel {
         self.name()
     }
 
-    fn set_name(&mut self, name: String, initiator: u32) {
-        self.name.set_with_initiator(name, Some(initiator));
+    fn set_name(&self, session: &mut Session, name: String, initiator: u32) {
+        // session.set(SessionPropVal::CompartmentProp(self.compartment(), CompPr))
+        todo!();
     }
 
     fn tags(&self) -> &[Tag] {
         self.tags.get_ref()
     }
 
-    fn set_tags(&mut self, tags: Vec<Tag>, initiator: u32) {
-        self.tags.set_with_initiator(tags, Some(initiator));
+    fn set_tags(&self, session: &mut Session, tags: Vec<Tag>, initiator: u32) {
+        todo!();
     }
 
     fn control_is_enabled(&self) -> bool {
