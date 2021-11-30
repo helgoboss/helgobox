@@ -920,7 +920,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
         .mappings(MappingCompartment::ControllerMappings)
         .filter_map(|m| {
             let m = m.borrow();
-            if !m.visible_in_projection.get() {
+            if !m.visible_in_projection() {
                 return None;
             }
             let target_descriptor = if instance_state.mapping_is_on(m.qualified_id()) {
@@ -931,7 +931,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
                         .mappings(MappingCompartment::MainMappings)
                         .filter(|mp| {
                             let mp = mp.borrow();
-                            mp.visible_in_projection.get()
+                            mp.visible_in_projection()
                                 && mp.source_model.category.get() == SourceCategory::Virtual
                                 && mp.source_model.create_control_element() == control_element
                                 && instance_state.mapping_is_on(mp.qualified_id())

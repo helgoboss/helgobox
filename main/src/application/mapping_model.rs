@@ -23,6 +23,13 @@ use std::rc::Rc;
 pub enum MappingPropVal {
     Name(String),
     Tags(Vec<Tag>),
+    GroupId(GroupId),
+    IsEnabled(bool),
+    ControlIsEnabled(bool),
+    FeedbackIsEnabled(bool),
+    FeedbackSendBehavior(FeedbackSendBehavior),
+    VisibleInProjection(bool),
+    AdvancedSettings(Option<serde_yaml::mapping::Mapping>),
 }
 
 impl MappingPropVal {
@@ -32,6 +39,13 @@ impl MappingPropVal {
         match self {
             V::Name(_) => P::Name,
             V::Tags(_) => P::Tags,
+            V::GroupId(_) => P::GroupId,
+            V::IsEnabled(_) => P::IsEnabled,
+            V::ControlIsEnabled(_) => P::ControlIsEnabled,
+            V::FeedbackIsEnabled(_) => P::FeedbackIsEnabled,
+            V::FeedbackSendBehavior(_) => P::FeedbackSendBehavior,
+            V::VisibleInProjection(_) => P::VisibleInProjection,
+            V::AdvancedSettings(_) => P::AdvancedSettings,
         }
     }
 }
@@ -40,6 +54,13 @@ impl MappingPropVal {
 pub enum MappingProp {
     Name,
     Tags,
+    GroupId,
+    IsEnabled,
+    ControlIsEnabled,
+    FeedbackIsEnabled,
+    FeedbackSendBehavior,
+    VisibleInProjection,
+    AdvancedSettings,
 }
 
 /// A model for creating mappings (a combination of source, mode and target).
@@ -50,17 +71,17 @@ pub struct MappingModel {
     compartment: MappingCompartment,
     name: String,
     tags: Vec<Tag>,
-    pub group_id: Prop<GroupId>,
-    pub is_enabled: Prop<bool>,
-    pub control_is_enabled: Prop<bool>,
-    pub feedback_is_enabled: Prop<bool>,
-    pub feedback_send_behavior: Prop<FeedbackSendBehavior>,
+    group_id: GroupId,
+    is_enabled: bool,
+    control_is_enabled: bool,
+    feedback_is_enabled: bool,
+    feedback_send_behavior: FeedbackSendBehavior,
     pub activation_condition_model: ActivationConditionModel,
-    pub visible_in_projection: Prop<bool>,
+    visible_in_projection: bool,
     pub source_model: SourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
-    advanced_settings: Prop<Option<serde_yaml::mapping::Mapping>>,
+    advanced_settings: Option<serde_yaml::mapping::Mapping>,
     extension_model: MappingExtensionModel,
 }
 
@@ -105,30 +126,41 @@ impl MappingModel {
             compartment,
             name: Default::default(),
             tags: Default::default(),
-            group_id: prop(initial_group_id),
-            is_enabled: prop(true),
-            control_is_enabled: prop(true),
-            feedback_is_enabled: prop(true),
-            feedback_send_behavior: prop(Default::default()),
+            group_id: initial_group_id,
+            is_enabled: true,
+            control_is_enabled: true,
+            feedback_is_enabled: true,
+            feedback_send_behavior: Default::default(),
             activation_condition_model: Default::default(),
-            visible_in_projection: prop(true),
+            visible_in_projection: true,
             source_model: Default::default(),
             mode_model: Default::default(),
             target_model: TargetModel {
                 category: prop(get_default_target_category_for_compartment(compartment)),
                 ..Default::default()
             },
-            advanced_settings: prop(None),
+            advanced_settings: None,
             extension_model: Default::default(),
         }
     }
 
-    pub fn set(&mut self, val: MappingPropVal) {
-        use MappingPropVal as T;
+    pub fn set(&mut self, val: MappingPropVal) -> Result<(), String> {
+        use MappingPropVal as V;
         match val {
-            T::Name(name) => self.name = name,
-            T::Tags(tags) => self.tags = tags,
-        }
+            V::Name(v) => self.name = v,
+            V::Tags(v) => self.tags = v,
+            V::AdvancedSettings(yaml) => {
+                self.advanced_settings = yaml;
+                self.update_extension_model_from_advanced_settings()?;
+            }
+            V::GroupId(v) => self.group_id = v,
+            V::IsEnabled(v) => self.is_enabled = v,
+            V::ControlIsEnabled(v) => self.control_is_enabled = v,
+            V::FeedbackIsEnabled(v) => self.feedback_is_enabled = v,
+            V::FeedbackSendBehavior(v) => self.feedback_send_behavior = v,
+            V::VisibleInProjection(v) => self.visible_in_projection = v,
+        };
+        Ok(())
     }
 
     pub fn id(&self) -> MappingId {
@@ -137,6 +169,30 @@ impl MappingModel {
 
     pub fn key(&self) -> &MappingKey {
         &self.key
+    }
+
+    pub fn group_id(&self) -> GroupId {
+        self.group_id
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.is_enabled
+    }
+
+    pub fn control_is_enabled(&self) -> bool {
+        self.control_is_enabled
+    }
+
+    pub fn feedback_is_enabled(&self) -> bool {
+        self.feedback_is_enabled
+    }
+
+    pub fn feedback_send_behavior(&self) -> FeedbackSendBehavior {
+        self.feedback_send_behavior
+    }
+
+    pub fn visible_in_projection(&self) -> bool {
+        self.visible_in_projection
     }
 
     pub fn reset_key(&mut self) {
@@ -238,23 +294,12 @@ impl MappingModel {
     }
 
     pub fn advanced_settings(&self) -> Option<&serde_yaml::Mapping> {
-        self.advanced_settings.get_ref().as_ref()
-    }
-
-    pub fn set_advanced_settings(
-        &mut self,
-        value: Option<serde_yaml::Mapping>,
-        with_notification: bool,
-    ) -> Result<(), String> {
-        self.advanced_settings
-            .set_with_optional_notification(value, with_notification);
-        self.update_extension_model_from_advanced_settings()?;
-        Ok(())
+        self.advanced_settings.as_ref()
     }
 
     fn update_extension_model_from_advanced_settings(&mut self) -> Result<(), String> {
         // Immediately update extension model
-        let extension_model = if let Some(yaml_mapping) = self.advanced_settings.get_ref() {
+        let extension_model = if let Some(yaml_mapping) = self.advanced_settings() {
             serde_yaml::from_value(serde_yaml::Value::Mapping(yaml_mapping.clone()))
                 .map_err(|e| e.to_string())?
         } else {
@@ -262,12 +307,6 @@ impl MappingModel {
         };
         self.extension_model = extension_model;
         Ok(())
-    }
-
-    pub fn advanced_settings_changed(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.advanced_settings.changed()
     }
 
     pub fn duplicate(&self) -> MappingModel {
@@ -314,14 +353,6 @@ impl MappingModel {
             .set(self.with_context(context).preferred_step_interval())
     }
 
-    /// Fires whenever a property has changed that doesn't have an effect on control/feedback
-    /// processing.
-    pub fn changed_non_processing_relevant(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        observable::never()
-    }
-
     /// Returns true if this is a property that has an effect on control/feedback processing.
     ///
     /// However, we don't include properties here which are changed by the processing layer
@@ -329,9 +360,16 @@ impl MappingModel {
     /// result, whereas we want to sync processing stuff faster!  
     pub fn is_processing_relevant_prop(&self, prop: MappingProp) -> bool {
         use MappingProp as P;
-        match prop {
-            P::Name | P::Tags => true,
-        }
+        matches!(
+            prop,
+            P::Name
+                | P::Tags
+                | P::ControlIsEnabled
+                | P::FeedbackIsEnabled
+                | P::FeedbackSendBehavior
+                | P::VisibleInProjection
+                | P::AdvancedSettings
+        )
     }
 
     /// Fires whenever a property has changed that has an effect on control/feedback processing.
@@ -346,25 +384,19 @@ impl MappingModel {
             .changed()
             .merge(self.mode_model.changed())
             .merge(self.target_model.changed())
-            .merge(self.control_is_enabled.changed())
-            .merge(self.feedback_is_enabled.changed())
-            .merge(self.feedback_send_behavior.changed())
-            .merge(self.visible_in_projection.changed())
             .merge(
                 self.activation_condition_model
                     .changed_processing_relevant(),
             )
-            .merge(self.advanced_settings.changed())
     }
 
-    /// Fires whenever a property has changed that has an effect on control/feedback processing
-    /// and is also changed by the processing layer itself, so it shouldn't contain much! The
-    /// session takes care to not sync the complete mapping properties but only the ones mentioned
-    /// here.
-    pub fn changed_persistent_mapping_processing_state(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.is_enabled.changed()
+    /// Returns true if a change of the given prop would have an effect on control/feedback
+    /// processing and is also changed by the processing layer itself, so it shouldn't contain much!
+    /// The session takes care to not sync the complete mapping properties but only the ones
+    /// mentioned here.
+    pub fn is_persistent_mapping_processing_prop(&self, prop: MappingProp) -> bool {
+        use MappingProp as P;
+        matches!(prop, P::IsEnabled)
     }
 
     pub fn base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {
@@ -389,13 +421,13 @@ impl MappingModel {
     }
 
     pub fn control_is_enabled_and_supported(&self) -> bool {
-        self.control_is_enabled.get()
+        self.control_is_enabled()
             && self.source_model.supports_control()
             && self.target_model.supports_control()
     }
 
     pub fn feedback_is_enabled_and_supported(&self) -> bool {
-        self.feedback_is_enabled.get()
+        self.feedback_is_enabled()
             && self.source_model.supports_feedback()
             && self.target_model.supports_feedback()
     }
@@ -433,7 +465,7 @@ impl MappingModel {
 
     pub fn create_persistent_mapping_processing_state(&self) -> PersistentMappingProcessingState {
         PersistentMappingProcessingState {
-            is_enabled: self.is_enabled.get(),
+            is_enabled: self.is_enabled(),
         }
     }
 
@@ -451,9 +483,9 @@ impl MappingModel {
             // TODO-medium Encapsulate, don't set here
             target_is_active: false,
             persistent_processing_state: self.create_persistent_mapping_processing_state(),
-            control_is_enabled: group_data.control_is_enabled && self.control_is_enabled.get(),
-            feedback_is_enabled: group_data.feedback_is_enabled && self.feedback_is_enabled.get(),
-            feedback_send_behavior: self.feedback_send_behavior.get(),
+            control_is_enabled: group_data.control_is_enabled && self.control_is_enabled(),
+            feedback_is_enabled: group_data.feedback_is_enabled && self.feedback_is_enabled(),
+            feedback_send_behavior: self.feedback_send_behavior(),
         };
         let mut merged_tags = group_data.tags;
         merged_tags.extend_from_slice(&self.tags);
@@ -461,7 +493,7 @@ impl MappingModel {
             self.compartment,
             id,
             &self.key,
-            self.group_id.get(),
+            self.group_id(),
             self.name.clone(),
             merged_tags,
             source,

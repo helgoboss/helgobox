@@ -36,9 +36,9 @@ pub trait Item: Debug {
     fn tags(&self) -> &[Tag];
     fn set_tags(&self, session: &mut Session, tags: Vec<Tag>, initiator: u32);
     fn control_is_enabled(&self) -> bool;
-    fn set_control_is_enabled(&mut self, value: bool);
+    fn set_control_is_enabled(&self, session: &mut Session, value: bool);
     fn feedback_is_enabled(&self) -> bool;
-    fn set_feedback_is_enabled(&mut self, value: bool);
+    fn set_feedback_is_enabled(&self, session: &mut Session, value: bool);
     fn activation_type(&self) -> ActivationType;
     fn set_activation_type(&mut self, value: ActivationType);
     fn modifier_condition_1(&self) -> ModifierConditionModel;
@@ -335,16 +335,18 @@ impl MappingHeaderPanel {
         self.is_invoked_programmatically.get()
     }
 
-    fn update_control_enabled(&self, item: &mut dyn Item) {
+    fn update_control_enabled(&self, session: &mut Session, item: &dyn Item) {
         item.set_control_is_enabled(
+            session,
             self.view
                 .require_control(root::ID_MAPPING_CONTROL_ENABLED_CHECK_BOX)
                 .is_checked(),
         );
     }
 
-    fn update_feedback_enabled(&self, item: &mut dyn Item) {
+    fn update_feedback_enabled(&self, session: &mut Session, item: &dyn Item) {
         item.set_feedback_is_enabled(
+            session,
             self.view
                 .require_control(root::ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX)
                 .is_checked(),
@@ -590,10 +592,10 @@ impl View for MappingHeaderPanel {
         use root::*;
         match resource_id {
             ID_MAPPING_CONTROL_ENABLED_CHECK_BOX => {
-                self.with_mutable_item(Self::update_control_enabled);
+                self.with_session_and_item(Self::update_control_enabled);
             }
             ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX => {
-                self.with_mutable_item(Self::update_feedback_enabled);
+                self.with_session_and_item(Self::update_feedback_enabled);
             }
             ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX => {
                 self.with_mutable_item(Self::update_activation_setting_1_on);
@@ -681,11 +683,9 @@ impl Item for MappingModel {
     }
 
     fn set_name(&self, session: &mut Session, name: String, initiator: u32) {
-        session.set_with_initiator(
-            SessionPropVal::CompartmentProp(
-                self.compartment(),
-                CompartmentPropVal::MappingProp(self.id(), MappingPropVal::Name(name)),
-            ),
+        session.mapping_set_from_ui(
+            self.qualified_id(),
+            MappingPropVal::Name(name),
             Some(initiator),
         );
     }
@@ -695,29 +695,35 @@ impl Item for MappingModel {
     }
 
     fn set_tags(&self, session: &mut Session, tags: Vec<Tag>, initiator: u32) {
-        session.set_with_initiator(
-            SessionPropVal::CompartmentProp(
-                self.compartment(),
-                CompartmentPropVal::MappingProp(self.id(), MappingPropVal::Tags(tags)),
-            ),
+        session.mapping_set_from_ui(
+            self.qualified_id(),
+            MappingPropVal::Tags(tags),
             Some(initiator),
         );
     }
 
     fn control_is_enabled(&self) -> bool {
-        self.control_is_enabled.get()
+        self.control_is_enabled()
     }
 
-    fn set_control_is_enabled(&mut self, value: bool) {
-        self.control_is_enabled.set(value);
+    fn set_control_is_enabled(&self, session: &mut Session, value: bool) {
+        session.mapping_set_from_ui(
+            self.qualified_id(),
+            MappingPropVal::ControlIsEnabled(value),
+            None,
+        );
     }
 
     fn feedback_is_enabled(&self) -> bool {
-        self.feedback_is_enabled.get()
+        self.feedback_is_enabled()
     }
 
-    fn set_feedback_is_enabled(&mut self, value: bool) {
-        self.feedback_is_enabled.set(value);
+    fn set_feedback_is_enabled(&self, session: &mut Session, value: bool) {
+        session.mapping_set_from_ui(
+            self.qualified_id(),
+            MappingPropVal::FeedbackIsEnabled(value),
+            None,
+        );
     }
 
     fn activation_type(&self) -> ActivationType {
@@ -785,7 +791,6 @@ impl Item for GroupModel {
     }
 
     fn set_name(&self, session: &mut Session, name: String, initiator: u32) {
-        // session.set(SessionPropVal::CompartmentProp(self.compartment(), CompPr))
         todo!();
     }
 
@@ -801,16 +806,16 @@ impl Item for GroupModel {
         self.control_is_enabled.get()
     }
 
-    fn set_control_is_enabled(&mut self, value: bool) {
-        self.control_is_enabled.set(value);
+    fn set_control_is_enabled(&self, session: &mut Session, value: bool) {
+        todo!()
     }
 
     fn feedback_is_enabled(&self) -> bool {
         self.feedback_is_enabled.get()
     }
 
-    fn set_feedback_is_enabled(&mut self, value: bool) {
-        self.feedback_is_enabled.set(value);
+    fn set_feedback_is_enabled(&self, session: &mut Session, value: bool) {
+        todo!()
     }
 
     fn activation_type(&self) -> ActivationType {

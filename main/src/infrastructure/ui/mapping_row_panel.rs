@@ -1,6 +1,6 @@
 use crate::application::{
-    CompartmentProp, MappingModel, MappingProp, SessionProp, SharedMapping, SharedSession,
-    SourceCategory, TargetCategory, TargetModelFormatMultiLine, WeakSession,
+    CompartmentProp, MappingModel, MappingProp, MappingPropVal, SessionProp, SharedMapping,
+    SharedSession, SourceCategory, TargetCategory, TargetModelFormatMultiLine, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
@@ -92,6 +92,19 @@ impl MappingRowPanel {
                         P::Name | P::Tags => {
                             view.invalidate_name_labels(m);
                         }
+                        P::IsEnabled => {
+                            view.invalidate_enabled_check_box(m);
+                        }
+                        P::ControlIsEnabled => {
+                            view.invalidate_control_check_box(m);
+                        }
+                        P::FeedbackIsEnabled => {
+                            view.invalidate_feedback_check_box(m);
+                        }
+                        MappingProp::GroupId
+                        | MappingProp::FeedbackSendBehavior
+                        | MappingProp::VisibleInProjection
+                        | MappingProp::AdvancedSettings => {}
                     }
                 }
             },
@@ -159,7 +172,7 @@ impl MappingRowPanel {
         // Initialize right label with tags
         let session = self.session();
         let session = session.borrow();
-        let group_id = mapping.group_id.get();
+        let group_id = mapping.group_id();
         let compartment = main_state.active_compartment.get();
         let group = session.find_group_by_id_including_default_group(compartment, group_id);
         let mut right_label = if let Some(g) = group {
@@ -308,19 +321,19 @@ impl MappingRowPanel {
     fn invalidate_enabled_check_box(&self, mapping: &MappingModel) {
         self.view
             .require_control(root::IDC_MAPPING_ROW_ENABLED_CHECK_BOX)
-            .set_checked(mapping.is_enabled.get());
+            .set_checked(mapping.is_enabled());
     }
 
     fn invalidate_control_check_box(&self, mapping: &MappingModel) {
         self.view
             .require_control(root::ID_MAPPING_ROW_CONTROL_CHECK_BOX)
-            .set_checked(mapping.control_is_enabled.get());
+            .set_checked(mapping.control_is_enabled());
     }
 
     fn invalidate_feedback_check_box(&self, mapping: &MappingModel) {
         self.view
             .require_control(root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
-            .set_checked(mapping.feedback_is_enabled.get());
+            .set_checked(mapping.feedback_is_enabled());
     }
 
     fn invalidate_on_indicator(&self, mapping: &MappingModel) {
@@ -379,15 +392,6 @@ impl MappingRowPanel {
                 });
             },
         );
-        self.when(mapping.is_enabled.changed(), |view| {
-            view.with_mapping(Self::invalidate_enabled_check_box);
-        });
-        self.when(mapping.control_is_enabled.changed(), |view| {
-            view.with_mapping(Self::invalidate_control_check_box);
-        });
-        self.when(mapping.feedback_is_enabled.changed(), |view| {
-            view.with_mapping(Self::invalidate_feedback_check_box);
-        });
         self.when(session.mapping_which_learns_source_changed(), |view| {
             view.with_mapping(Self::invalidate_learn_source_button);
         });
@@ -507,27 +511,34 @@ impl MappingRowPanel {
     }
 
     fn update_is_enabled(&self) {
-        self.require_mapping().borrow_mut().is_enabled.set(
-            self.view
-                .require_control(IDC_MAPPING_ROW_ENABLED_CHECK_BOX)
-                .is_checked(),
-        );
+        let checked = self
+            .view
+            .require_control(IDC_MAPPING_ROW_ENABLED_CHECK_BOX)
+            .is_checked();
+        self.mapping_set(MappingPropVal::IsEnabled(checked));
+    }
+
+    fn mapping_set(&self, val: MappingPropVal) {
+        let id = self.require_qualified_mapping_id();
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        session.mapping_set_from_ui(id, val, None).unwrap();
     }
 
     fn update_control_is_enabled(&self) {
-        self.require_mapping().borrow_mut().control_is_enabled.set(
-            self.view
-                .require_control(ID_MAPPING_ROW_CONTROL_CHECK_BOX)
-                .is_checked(),
-        );
+        let checked = self
+            .view
+            .require_control(ID_MAPPING_ROW_CONTROL_CHECK_BOX)
+            .is_checked();
+        self.mapping_set(MappingPropVal::ControlIsEnabled(checked));
     }
 
     fn update_feedback_is_enabled(&self) {
-        self.require_mapping().borrow_mut().feedback_is_enabled.set(
-            self.view
-                .require_control(ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
-                .is_checked(),
-        );
+        let checked = self
+            .view
+            .require_control(ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
+            .is_checked();
+        self.mapping_set(MappingPropVal::FeedbackIsEnabled(checked));
     }
 
     fn notify_user_on_error(&self, result: Result<(), Box<dyn Error>>) {
@@ -579,7 +590,7 @@ impl MappingRowPanel {
         let triple = MappingTriple {
             compartment: mapping.compartment(),
             mapping_id: mapping.id(),
-            group_id: mapping.group_id.get(),
+            group_id: mapping.group_id(),
         };
         Ok(triple)
     }
@@ -618,7 +629,7 @@ impl MappingRowPanel {
                 text_from_clipboard.is_some() && data_object_from_clipboard.is_none();
             let text_from_clipboard_clone = text_from_clipboard.clone();
             let data_object_from_clipboard_clone = data_object_from_clipboard.clone();
-            let group_id = mapping.group_id.get();
+            let group_id = mapping.group_id();
             let entries = vec![
                 item("Copy", || MenuAction::CopyPart(ObjectType::Mapping)),
                 {

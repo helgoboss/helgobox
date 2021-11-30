@@ -63,7 +63,7 @@ pub struct GroupFilter(pub GroupId);
 
 impl GroupFilter {
     pub fn matches(&self, mapping: &MappingModel) -> bool {
-        mapping.group_id.get() == self.0
+        mapping.group_id() == self.0
     }
 
     pub fn group_id(&self) -> GroupId {
@@ -192,7 +192,7 @@ impl SearchExpression {
             return false;
         }
         if let Some(group) = session
-            .find_group_by_id_including_default_group(mapping.compartment(), mapping.group_id.get())
+            .find_group_by_id_including_default_group(mapping.compartment(), mapping.group_id())
         {
             self.matches_any_tag(group.borrow().tags())
         } else {

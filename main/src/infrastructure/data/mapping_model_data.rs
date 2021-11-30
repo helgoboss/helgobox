@@ -62,26 +62,26 @@ impl MappingModelData {
             tags: model.tags().to_owned(),
             group_id: {
                 conversion_context
-                    .group_key_by_id(model.group_id.get())
+                    .group_key_by_id(model.group_id())
                     .unwrap_or_default()
             },
             source: SourceModelData::from_model(&model.source_model),
             mode: ModeModelData::from_model(&model.mode_model),
             target: TargetModelData::from_model(&model.target_model, conversion_context),
-            is_enabled: model.is_enabled.get(),
+            is_enabled: model.is_enabled(),
             enabled_data: EnabledData {
-                control_is_enabled: model.control_is_enabled.get(),
-                feedback_is_enabled: model.feedback_is_enabled.get(),
+                control_is_enabled: model.control_is_enabled(),
+                feedback_is_enabled: model.feedback_is_enabled(),
             },
-            prevent_echo_feedback: model.feedback_send_behavior.get()
+            prevent_echo_feedback: model.feedback_send_behavior()
                 == FeedbackSendBehavior::PreventEchoFeedback,
-            send_feedback_after_control: model.feedback_send_behavior.get()
+            send_feedback_after_control: model.feedback_send_behavior()
                 == FeedbackSendBehavior::SendFeedbackAfterControl,
             activation_condition_data: ActivationConditionData::from_model(
                 &model.activation_condition_model,
             ),
             advanced: model.advanced_settings().cloned(),
-            visible_in_projection: model.visible_in_projection.get(),
+            visible_in_projection: model.visible_in_projection(),
         }
     }
 
@@ -137,7 +137,9 @@ impl MappingModelData {
             preset_version,
             false,
             get_conversion_context,
-            |_, val| model.set(val),
+            |_, val| {
+                model.set(val).unwrap();
+            },
         );
         model
     }
