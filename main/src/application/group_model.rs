@@ -1,4 +1,6 @@
-use crate::application::{ActivationConditionModel, GroupData};
+use crate::application::{
+    ActivationConditionModel, ActivationConditionProp, ActivationConditionPropVal, GroupData,
+};
 use crate::base::{prop, Prop};
 use crate::domain::{GroupId, GroupKey, MappingCompartment, Tag};
 use core::fmt;
@@ -6,32 +8,119 @@ use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
+pub enum GroupPropVal {
+    Name(String),
+    Tags(Vec<Tag>),
+    ControlIsEnabled(bool),
+    FeedbackIsEnabled(bool),
+    ActivationConditionProp(ActivationConditionPropVal),
+}
+
+impl GroupPropVal {
+    pub fn prop(&self) -> GroupProp {
+        use GroupProp as P;
+        use GroupPropVal as V;
+        match self {
+            V::Name(_) => P::Name,
+            V::Tags(_) => P::Tags,
+            V::ControlIsEnabled(_) => P::ControlIsEnabled,
+            V::FeedbackIsEnabled(_) => P::FeedbackIsEnabled,
+            V::ActivationConditionProp(v) => P::ActivationConditionProp(v.prop()),
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum GroupProp {
+    Name,
+    Tags,
+    ControlIsEnabled,
+    FeedbackIsEnabled,
+    ActivationConditionProp(ActivationConditionProp),
+}
+
+impl GroupProp {
+    /// Returns true if this is a property that has an effect on control/feedback processing.
+    pub fn is_processing_relevant(self) -> bool {
+        use GroupProp as P;
+        match self {
+            P::Tags | P::ControlIsEnabled | P::FeedbackIsEnabled => true,
+            P::ActivationConditionProp(p) => p.is_processing_relevant(),
+            P::Name => false,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct QualifiedGroupId {
+    pub compartment: MappingCompartment,
+    pub id: GroupId,
+}
+
+impl QualifiedGroupId {
+    pub fn new(compartment: MappingCompartment, id: GroupId) -> Self {
+        Self { compartment, id }
+    }
+}
+
 /// A mapping group.
 #[derive(Clone, Debug)]
 pub struct GroupModel {
     compartment: MappingCompartment,
     id: GroupId,
     key: GroupKey,
-    pub name: Prop<String>,
-    pub tags: Prop<Vec<Tag>>,
-    pub control_is_enabled: Prop<bool>,
-    pub feedback_is_enabled: Prop<bool>,
-    pub activation_condition_model: ActivationConditionModel,
+    name: String,
+    tags: Vec<Tag>,
+    control_is_enabled: bool,
+    feedback_is_enabled: bool,
+    activation_condition_model: ActivationConditionModel,
 }
 
 impl GroupModel {
-    pub fn name(&self) -> &str {
+    pub fn set(&mut self, val: GroupPropVal) -> Result<(), String> {
+        use GroupPropVal as V;
+        match val {
+            V::Name(v) => self.name = v,
+            V::Tags(v) => self.tags = v,
+            V::ControlIsEnabled(v) => self.control_is_enabled = v,
+            V::FeedbackIsEnabled(v) => self.feedback_is_enabled = v,
+            V::ActivationConditionProp(v) => return self.activation_condition_model.set(v),
+        };
+        Ok(())
+    }
+
+    pub fn effective_name(&self) -> &str {
         if self.is_default_group() {
             "<Default>"
         } else {
-            self.name.get_ref()
+            self.name()
         }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn tags(&self) -> &[Tag] {
+        &self.tags
+    }
+
+    pub fn control_is_enabled(&self) -> bool {
+        self.control_is_enabled
+    }
+
+    pub fn feedback_is_enabled(&self) -> bool {
+        self.feedback_is_enabled
+    }
+
+    pub fn activation_condition_model(&self) -> &ActivationConditionModel {
+        &self.activation_condition_model
     }
 }
 
 impl fmt::Display for GroupModel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.name())
+        write!(f, "{}", self.effective_name())
     }
 }
 
@@ -65,8 +154,8 @@ impl GroupModel {
             key: GroupKey::default(),
             name: Default::default(),
             tags: Default::default(),
-            control_is_enabled: prop(true),
-            feedback_is_enabled: prop(true),
+            control_is_enabled: true,
+            feedback_is_enabled: true,
             activation_condition_model: ActivationConditionModel::default(),
         }
     }
@@ -80,7 +169,7 @@ impl GroupModel {
         Self {
             id,
             key,
-            name: prop(name),
+            name,
             ..Self::default_for_compartment(compartment)
         }
     }
@@ -93,6 +182,10 @@ impl GroupModel {
         self.id
     }
 
+    pub fn qualified_id(&self) -> QualifiedGroupId {
+        QualifiedGroupId::new(self.compartment, self.id)
+    }
+
     pub fn key(&self) -> &GroupKey {
         &self.key
     }
@@ -103,34 +196,12 @@ impl GroupModel {
 
     pub fn create_data(&self) -> GroupData {
         GroupData {
-            control_is_enabled: self.control_is_enabled.get(),
-            feedback_is_enabled: self.feedback_is_enabled.get(),
+            control_is_enabled: self.control_is_enabled(),
+            feedback_is_enabled: self.feedback_is_enabled(),
             activation_condition: self
                 .activation_condition_model
                 .create_activation_condition(),
-            tags: self.tags.get_ref().clone(),
+            tags: self.tags.clone(),
         }
-    }
-
-    /// Fires whenever a property has changed that doesn't have an effect on control/feedback
-    /// processing.
-    pub fn changed_non_processing_relevant(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.name.changed()
-    }
-
-    /// Fires whenever a property has changed that has an effect on control/feedback processing.
-    pub fn changed_processing_relevant(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.control_is_enabled
-            .changed()
-            .merge(self.feedback_is_enabled.changed())
-            .merge(self.tags.changed())
-            .merge(
-                self.activation_condition_model
-                    .changed_processing_relevant(),
-            )
     }
 }

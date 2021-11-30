@@ -1,4 +1,4 @@
-use crate::application::GroupModel;
+use crate::application::{GroupModel, GroupPropVal, Session};
 use crate::base::default_util::is_default;
 use crate::domain::{GroupId, GroupKey, MappingCompartment, Tag};
 use crate::infrastructure::data::{ActivationConditionData, EnabledData};
@@ -32,19 +32,27 @@ impl GroupModelData {
         GroupModelData {
             id: model.key().clone(),
             key: None,
-            name: model.name.get_ref().clone(),
-            tags: model.tags.get_ref().clone(),
+            name: model.name().to_owned(),
+            tags: model.tags().to_owned(),
             enabled_data: EnabledData {
-                control_is_enabled: model.control_is_enabled.get(),
-                feedback_is_enabled: model.feedback_is_enabled.get(),
+                control_is_enabled: model.control_is_enabled(),
+                feedback_is_enabled: model.feedback_is_enabled(),
             },
             activation_condition_data: ActivationConditionData::from_model(
-                &model.activation_condition_model,
+                &model.activation_condition_model(),
             ),
         }
     }
 
-    pub fn to_model(&self, compartment: MappingCompartment, is_default_group: bool) -> GroupModel {
+    // TODO-medium At the moment, it doesn't make sense to take the session here because
+    //  we never set this data directly in the session! However, the interface of the
+    //  contained ActivationModelData needs the session.
+    pub fn to_model(
+        &self,
+        session: &mut Session,
+        compartment: MappingCompartment,
+        is_default_group: bool,
+    ) -> GroupModel {
         let mut model = GroupModel::new_from_data(
             compartment,
             if is_default_group {
@@ -58,20 +66,32 @@ impl GroupModelData {
                 self.key.clone().unwrap_or_else(|| self.id.clone())
             },
         );
-        self.apply_to_model(&mut model);
+        self.apply_to_model(session, |_, val| {
+            // We never need to set with notification for groups. They don't have a reactive UI yet
+            // and also can't be real-time-pasted.
+            model.set(val);
+        });
         model
     }
 
-    fn apply_to_model(&self, model: &mut GroupModel) {
-        model.name.set_without_notification(self.name.clone());
-        model.tags.set_without_notification(self.tags.clone());
-        model
-            .control_is_enabled
-            .set_without_notification(self.enabled_data.control_is_enabled);
-        model
-            .feedback_is_enabled
-            .set_without_notification(self.enabled_data.feedback_is_enabled);
+    fn apply_to_model(
+        &self,
+        session: &mut Session,
+        mut set: impl FnMut(&mut Session, GroupPropVal),
+    ) {
+        set(session, GroupPropVal::Name(self.name.clone()));
+        set(session, GroupPropVal::Tags(self.tags.clone()));
+        set(
+            session,
+            GroupPropVal::ControlIsEnabled(self.enabled_data.control_is_enabled),
+        );
+        set(
+            session,
+            GroupPropVal::FeedbackIsEnabled(self.enabled_data.feedback_is_enabled),
+        );
         self.activation_condition_data
-            .apply_to_model(model.activation_condition_model.borrow_mut(), false);
+            .apply_to_model(session, |session, val| {
+                set(session, GroupPropVal::ActivationConditionProp(val))
+            });
     }
 }

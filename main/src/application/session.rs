@@ -1,8 +1,9 @@
 use crate::application::{
     share_group, share_mapping, CompartmentModel, CompartmentProp, CompartmentPropVal,
-    ControllerPreset, FxId, GroupModel, MainPreset, MainPresetAutoLoadMode, MappingModel,
-    MappingPropVal, Preset, PresetLinkManager, PresetManager, SharedGroup, SharedMapping,
-    SourceModel, TargetCategory, TargetModel, VirtualControlElementType,
+    ControllerPreset, FxId, GroupModel, GroupPropVal, MainPreset, MainPresetAutoLoadMode,
+    MappingModel, MappingPropVal, Preset, PresetLinkManager, PresetManager, ProcessingRelevance,
+    QualifiedGroupId, SharedGroup, SharedMapping, SourceModel, TargetCategory, TargetModel,
+    VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
 use crate::base::{prop, when, AsyncNotifier, Global, Prop};
@@ -413,9 +414,6 @@ impl Session {
     }
 
     fn full_sync(&mut self, weak_session: WeakSession) {
-        for compartment in MappingCompartment::enum_iter() {
-            self.resubscribe_to_groups(weak_session.clone(), compartment);
-        }
         // It's important to sync feedback device first, otherwise the initial feedback messages
         // won't arrive!
         self.sync_settings();
@@ -475,7 +473,6 @@ impl Session {
             .with(weak_session.clone())
             .do_async(|shared_session, compartment| {
                 let mut session = shared_session.borrow_mut();
-                session.resubscribe_to_groups(Rc::downgrade(&shared_session), compartment);
                 session.sync_all_mappings_full(compartment);
                 session.mark_compartment_dirty(compartment);
             });
@@ -819,47 +816,6 @@ impl Session {
             .collect();
     }
 
-    fn resubscribe_to_groups(
-        &mut self,
-        weak_session: WeakSession,
-        compartment: MappingCompartment,
-    ) {
-        self.group_subscriptions[compartment] = self
-            .groups_including_default_group(compartment)
-            .map(|shared_group| {
-                // We don't need to take until "party is over" because if the session disappears,
-                // we know the groups disappear as well.
-                let group = shared_group.borrow();
-                let all_subscriptions = LocalSubscription::default();
-                // Keep syncing to processors
-                {
-                    let subscription = when(group.changed_processing_relevant())
-                        .with(weak_session.clone())
-                        .do_sync(move |session, _| {
-                            let mut session = session.borrow_mut();
-                            // Change of a single group can affect many mappings
-                            session.sync_all_mappings_full(compartment);
-                            session.mark_compartment_dirty(compartment);
-                            session.notify_group_changed(compartment);
-                        });
-                    all_subscriptions.add(subscription);
-                }
-                // Keep marking project as dirty
-                {
-                    let subscription = when(group.changed_non_processing_relevant())
-                        .with(weak_session.clone())
-                        .do_sync(move |session, _| {
-                            let mut session = session.borrow_mut();
-                            session.mark_compartment_dirty(compartment);
-                            session.notify_group_changed(compartment);
-                        });
-                    all_subscriptions.add(subscription);
-                }
-                SubscriptionGuard::new(all_subscriptions)
-            })
-            .collect();
-    }
-
     fn learn_target(&mut self, target: &ReaperTarget) {
         // Prevent learning targets from in other project tabs (leads to weird effects, just think
         // about it)
@@ -1003,7 +959,7 @@ impl Session {
         iter::once(self.default_group(compartment)).chain(
             self.groups[compartment]
                 .iter()
-                .sorted_by_key(|g| g.borrow().name.get_ref().clone()),
+                .sorted_by_key(|g| g.borrow().name().to_owned()),
         )
     }
 
@@ -1087,6 +1043,22 @@ impl Session {
         )
     }
 
+    /// Convenience function to set group prop with notification and optional initiator.
+    pub fn group_set_from_ui(
+        &mut self,
+        id: QualifiedGroupId,
+        val: GroupPropVal,
+        initiator: Option<u32>,
+    ) -> Result<(), String> {
+        self.set_with_initiator(
+            SessionPropVal::CompartmentProp(
+                id.compartment,
+                CompartmentPropVal::GroupProp(id.id, val),
+            ),
+            initiator,
+        )
+    }
+
     pub fn compartment_in_session(&self, compartment: MappingCompartment) -> CompartmentInSession {
         CompartmentInSession {
             session: self,
@@ -1108,7 +1080,6 @@ impl Session {
         Ok(())
     }
 
-    // TODO-high Add type def for Result<(), &'static str>.
     fn compartment_set(
         &mut self,
         compartment: MappingCompartment,
@@ -1116,6 +1087,21 @@ impl Session {
     ) -> Result<(), String> {
         use CompartmentPropVal as P;
         match val {
+            P::GroupProp(id, val) => {
+                let group = self
+                    .find_group_by_id_including_default_group(compartment, id)
+                    .ok_or(String::from("group not found"))?
+                    .clone();
+                let mut group = group.borrow_mut();
+                let prop = val.prop();
+                group.set(val);
+                if prop.is_processing_relevant() {
+                    // Change of a single group can affect many mappings
+                    self.sync_all_mappings_full(compartment);
+                }
+                self.mark_compartment_dirty(compartment);
+                self.notify_group_changed(compartment);
+            }
             P::MappingProp(id, val) => {
                 let mapping = self
                     .find_mapping_and_index_by_id(compartment, id)
@@ -1125,23 +1111,24 @@ impl Session {
                 let mut mapping = mapping.borrow_mut();
                 let prop = val.prop();
                 mapping.set(val);
-                // TODO-high Following two exclude each other, so an enum would be better.
-                if mapping.is_persistent_mapping_processing_prop(prop) {
-                    // Keep syncing persistent mapping processing state (shouldn't do too much because
-                    // can be triggered by processing).
-                    self.sync_persistent_mapping_processing_state(&mapping);
-                    self.mark_compartment_dirty(compartment);
-                    self.notify_mapping_changed(compartment);
+                use ProcessingRelevance::*;
+                match prop.processing_relevance() {
+                    NotRelevant => {}
+                    ProcessingRelevant => {
+                        // Keep syncing complete mappings to processors.
+                        self.sync_single_mapping_to_processors(compartment, &mapping);
+                    }
+                    PersistentProcessingRelevant => {
+                        // Keep syncing persistent mapping processing state (shouldn't do too much because
+                        // can be triggered by processing).
+                        self.sync_persistent_mapping_processing_state(&mapping);
+                    }
                 }
-                if mapping.is_processing_relevant_prop(prop) {
-                    // Keep syncing complete mappings to processors.
-                    self.sync_single_mapping_to_processors(compartment, &mapping);
-                    self.mark_compartment_dirty(compartment);
-                    self.notify_mapping_changed(compartment);
-                }
-                Ok(())
+                self.mark_compartment_dirty(compartment);
+                self.notify_mapping_changed(compartment);
             }
         }
+        Ok(())
     }
 
     pub fn add_default_mapping(
@@ -1939,7 +1926,7 @@ impl Session {
     pub fn set_groups_without_notification(
         &mut self,
         compartment: MappingCompartment,
-        groups: impl Iterator<Item = GroupModel>,
+        groups: impl IntoIterator<Item = GroupModel>,
     ) {
         self.groups[compartment] = groups.into_iter().map(share_group).collect();
     }

@@ -78,7 +78,7 @@ impl MappingModelData {
             send_feedback_after_control: model.feedback_send_behavior()
                 == FeedbackSendBehavior::SendFeedbackAfterControl,
             activation_condition_data: ActivationConditionData::from_model(
-                &model.activation_condition_model,
+                model.activation_condition_model(),
             ),
             advanced: model.advanced_settings().cloned(),
             visible_in_projection: model.visible_in_projection(),
@@ -180,7 +180,7 @@ impl MappingModelData {
         use MappingPropVal as P;
         set(session, P::Name(self.name.clone()));
         set(session, P::Tags(self.tags.clone()));
-        // TODO-high
+        // TODO-high Implement!
         // let group_id = conversion_context
         //     .group_id_by_key(&self.group_id)
         //     .unwrap_or_default();

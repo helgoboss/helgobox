@@ -80,12 +80,12 @@ impl CompartmentModelData {
         let final_default_group = self
             .default_group
             .as_ref()
-            .map(|g| g.to_model(compartment, true))
+            .map(|g| g.to_model(session, compartment, true))
             .unwrap_or_else(|| GroupModel::default_for_compartment(compartment));
         let groups = self
             .groups
             .iter()
-            .map(|g| g.to_model(compartment, false))
+            .map(|g| g.to_model(session, compartment, false))
             .collect();
         let conversion_context = ConversionContext { groups: &groups };
         let model = CompartmentModel {

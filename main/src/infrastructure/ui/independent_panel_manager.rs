@@ -47,6 +47,9 @@ impl IndependentPanelManager {
                         p.handle_session_prop_change(session_prop, initiator);
                     });
                 }
+                CompartmentProp::GroupProp(_, _) => {
+                    // At the moment, group panels are non-reactive.
+                }
             },
         }
     }

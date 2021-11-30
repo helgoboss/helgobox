@@ -104,9 +104,11 @@ impl MappingRowPanel {
                         MappingProp::GroupId
                         | MappingProp::FeedbackSendBehavior
                         | MappingProp::VisibleInProjection
-                        | MappingProp::AdvancedSettings => {}
+                        | MappingProp::AdvancedSettings
+                        | MappingProp::ActivationConditionProp(_) => {}
                     }
                 }
+                CompartmentProp::GroupProp(_, _) => {}
             },
         });
     }
@@ -178,7 +180,7 @@ impl MappingRowPanel {
         let mut right_label = if let Some(g) = group {
             // Group present. Merge group tags with mapping tags.
             let g = g.borrow();
-            format_tags_as_csv(g.tags.get_ref().iter().chain(mapping.tags()))
+            format_tags_as_csv(g.tags().iter().chain(mapping.tags()))
         } else {
             // Group not present. Use mapping tags only.
             format_tags_as_csv(mapping.tags())
@@ -189,7 +191,7 @@ impl MappingRowPanel {
             .is_none()
         {
             let group_label = if let Some(g) = group {
-                g.borrow().name().to_owned()
+                g.borrow().effective_name().to_owned()
             } else {
                 "<group not present>".to_owned()
             };

@@ -1,5 +1,8 @@
-use crate::application::{GroupModel, MappingModel, MappingProp, MappingPropVal, ParameterSetting};
-use crate::domain::MappingId;
+use crate::application::{
+    GroupModel, GroupProp, GroupPropVal, MappingModel, MappingProp, MappingPropVal,
+    ParameterSetting,
+};
+use crate::domain::{GroupId, MappingId};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
@@ -11,6 +14,7 @@ pub struct CompartmentModel {
 }
 
 pub enum CompartmentPropVal {
+    GroupProp(GroupId, GroupPropVal),
     MappingProp(MappingId, MappingPropVal),
 }
 
@@ -19,6 +23,7 @@ impl CompartmentPropVal {
         use CompartmentProp as P;
         use CompartmentPropVal as V;
         match self {
+            V::GroupProp(id, val) => P::GroupProp(*id, val.prop()),
             V::MappingProp(id, val) => P::MappingProp(*id, val.prop()),
         }
     }
@@ -26,5 +31,6 @@ impl CompartmentPropVal {
 
 #[derive(Copy, Clone)]
 pub enum CompartmentProp {
+    GroupProp(GroupId, GroupProp),
     MappingProp(MappingId, MappingProp),
 }

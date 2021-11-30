@@ -359,35 +359,40 @@ impl SessionData {
                 .set_without_notification(unmatched);
         }
         // Groups
-        let get_final_default_group =
+        let mut get_final_default_group =
             |def_group: Option<&GroupModelData>, compartment: MappingCompartment| {
                 def_group
-                    .map(|g| g.to_model(compartment, true))
+                    .map(|g| g.to_model(session, compartment, true))
                     .unwrap_or_else(|| GroupModel::default_for_compartment(compartment))
             };
-        session
-            .default_group(MappingCompartment::MainMappings)
-            .replace(get_final_default_group(
-                self.default_group.as_ref(),
-                MappingCompartment::MainMappings,
-            ));
-        session.set_groups_without_notification(
+        let main_default_group = get_final_default_group(
+            self.default_group.as_ref(),
             MappingCompartment::MainMappings,
-            self.groups
-                .iter()
-                .map(|g| g.to_model(MappingCompartment::MainMappings, false)),
+        );
+        let controller_default_group = get_final_default_group(
+            self.default_controller_group.as_ref(),
+            MappingCompartment::ControllerMappings,
         );
         session
+            .default_group(MappingCompartment::MainMappings)
+            .replace(main_default_group);
+        let main_groups: Vec<_> = self
+            .groups
+            .iter()
+            .map(|g| g.to_model(session, MappingCompartment::MainMappings, false))
+            .collect();
+        let controller_groups: Vec<_> = self
+            .controller_groups
+            .iter()
+            .map(|g| g.to_model(session, MappingCompartment::ControllerMappings, false))
+            .collect();
+        session.set_groups_without_notification(MappingCompartment::MainMappings, main_groups);
+        session
             .default_group(MappingCompartment::ControllerMappings)
-            .replace(get_final_default_group(
-                self.default_controller_group.as_ref(),
-                MappingCompartment::ControllerMappings,
-            ));
+            .replace(controller_default_group);
         session.set_groups_without_notification(
             MappingCompartment::ControllerMappings,
-            self.controller_groups
-                .iter()
-                .map(|g| g.to_model(MappingCompartment::ControllerMappings, false)),
+            controller_groups,
         );
         // Mappings
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {

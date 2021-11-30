@@ -8,8 +8,9 @@ use std::convert::TryInto;
 use std::rc::{Rc, Weak};
 
 use crate::application::{
-    ActivationType, BankConditionModel, CompartmentPropVal, GroupModel, MappingModel,
-    MappingPropVal, ModifierConditionModel, Session, SessionPropVal, SharedSession, WeakSession,
+    ActivationConditionProp, ActivationConditionPropVal, ActivationType, BankConditionModel,
+    CompartmentPropVal, GroupModel, GroupPropVal, MappingModel, MappingPropVal,
+    ModifierConditionModel, Session, SessionPropVal, SharedSession, WeakSession,
 };
 use crate::domain::{MappingCompartment, Tag, COMPARTMENT_PARAMETER_COUNT};
 use std::fmt::Debug;
@@ -40,15 +41,15 @@ pub trait Item: Debug {
     fn feedback_is_enabled(&self) -> bool;
     fn set_feedback_is_enabled(&self, session: &mut Session, value: bool);
     fn activation_type(&self) -> ActivationType;
-    fn set_activation_type(&mut self, value: ActivationType);
+    fn set_activation_type(&self, session: &mut Session, value: ActivationType);
     fn modifier_condition_1(&self) -> ModifierConditionModel;
-    fn set_modifier_condition_1(&mut self, value: ModifierConditionModel);
+    fn set_modifier_condition_1(&self, session: &mut Session, value: ModifierConditionModel);
     fn modifier_condition_2(&self) -> ModifierConditionModel;
-    fn set_modifier_condition_2(&mut self, value: ModifierConditionModel);
+    fn set_modifier_condition_2(&self, session: &mut Session, value: ModifierConditionModel);
     fn bank_condition(&self) -> BankConditionModel;
-    fn set_bank_condition(&mut self, value: BankConditionModel);
+    fn set_bank_condition(&self, session: &mut Session, value: BankConditionModel);
     fn eel_condition(&self) -> &str;
-    fn set_eel_condition(&mut self, value: String, initiator: u32);
+    fn set_eel_condition(&self, session: &mut Session, value: String, initiator: u32);
 }
 
 pub enum ItemProp {
@@ -61,6 +62,19 @@ pub enum ItemProp {
     ModifierCondition2,
     BankCondition,
     EelCondition,
+}
+
+impl ItemProp {
+    pub fn from_activation_condition_prop(prop: ActivationConditionProp) -> Self {
+        use ActivationConditionProp as S;
+        match prop {
+            S::ActivationType => Self::ActivationType,
+            S::ModifierCondition1 => Self::ModifierCondition1,
+            S::ModifierCondition2 => Self::ModifierCondition2,
+            S::BankCondition => Self::BankCondition,
+            S::EelCondition => Self::EelCondition,
+        }
+    }
 }
 
 impl MappingHeaderPanel {
@@ -353,20 +367,20 @@ impl MappingHeaderPanel {
         );
     }
 
-    fn update_activation_setting_1_on(&self, item: &mut dyn Item) {
+    fn update_activation_setting_1_on(&self, session: &mut Session, item: &dyn Item) {
         let checked = self
             .view
             .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX)
             .is_checked();
-        item.set_modifier_condition_1(item.modifier_condition_1().with_is_on(checked));
+        item.set_modifier_condition_1(session, item.modifier_condition_1().with_is_on(checked));
     }
 
-    fn update_activation_setting_2_on(&self, item: &mut dyn Item) {
+    fn update_activation_setting_2_on(&self, session: &mut Session, item: &dyn Item) {
         let checked = self
             .view
             .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX)
             .is_checked();
-        item.set_modifier_condition_2(item.modifier_condition_2().with_is_on(checked));
+        item.set_modifier_condition_2(session, item.modifier_condition_2().with_is_on(checked));
     }
 
     fn update_name(&self, session: &mut Session, item: &dyn Item) {
@@ -391,35 +405,37 @@ impl MappingHeaderPanel {
         );
     }
 
-    fn update_activation_eel_condition(&self, item: &mut dyn Item) {
+    fn update_activation_eel_condition(&self, session: &mut Session, item: &dyn Item) {
         let value = self
             .view
             .require_control(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL)
             .text()
             .unwrap_or_else(|_| "".to_string());
-        item.set_eel_condition(value, root::ID_MAPPING_ACTIVATION_EDIT_CONTROL);
+        item.set_eel_condition(session, value, root::ID_MAPPING_ACTIVATION_EDIT_CONTROL);
     }
 
-    fn update_activation_type(&self, item: &mut dyn Item) {
+    fn update_activation_type(&self, session: &mut Session, item: &dyn Item) {
         let b = self
             .view
             .require_control(root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX);
         item.set_activation_type(
+            session,
             b.selected_combo_box_item_index()
                 .try_into()
                 .expect("invalid activation type"),
         );
     }
 
-    fn update_activation_setting_1_option(&self, item: &mut dyn Item) {
+    fn update_activation_setting_1_option(&self, session: &mut Session, item: &dyn Item) {
         use ActivationType::*;
         match item.activation_type() {
             Modifiers => {
                 self.update_activation_setting_option(
                     root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX,
+                    session,
                     item,
                     |it| it.modifier_condition_1(),
-                    |it, c| it.set_modifier_condition_1(c),
+                    |s, it, c| it.set_modifier_condition_1(s, c),
                 );
             }
             Bank => {
@@ -427,21 +443,22 @@ impl MappingHeaderPanel {
                     .view
                     .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX);
                 let value = b.selected_combo_box_item_index() as u32;
-                item.set_bank_condition(item.bank_condition().with_param_index(value));
+                item.set_bank_condition(session, item.bank_condition().with_param_index(value));
             }
             _ => {}
         };
     }
 
-    fn update_activation_setting_2_option(&self, item: &mut dyn Item) {
+    fn update_activation_setting_2_option(&self, session: &mut Session, item: &dyn Item) {
         use ActivationType::*;
         match item.activation_type() {
             Modifiers => {
                 self.update_activation_setting_option(
                     root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX,
+                    session,
                     item,
                     |it| it.modifier_condition_2(),
-                    |it, c| it.set_modifier_condition_2(c),
+                    |s, it, c| it.set_modifier_condition_2(s, c),
                 );
             }
             Bank => {
@@ -449,7 +466,7 @@ impl MappingHeaderPanel {
                     .view
                     .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX);
                 let value = b.selected_combo_box_item_index() as u32;
-                item.set_bank_condition(item.bank_condition().with_bank_index(value));
+                item.set_bank_condition(session, item.bank_condition().with_bank_index(value));
             }
             _ => {}
         };
@@ -458,9 +475,10 @@ impl MappingHeaderPanel {
     fn update_activation_setting_option(
         &self,
         combo_box_id: u32,
-        item: &mut dyn Item,
+        session: &mut Session,
+        item: &dyn Item,
         get: impl FnOnce(&dyn Item) -> ModifierConditionModel,
-        set: impl FnOnce(&mut dyn Item, ModifierConditionModel),
+        set: impl FnOnce(&mut Session, &dyn Item, ModifierConditionModel),
     ) {
         let b = self.view.require_control(combo_box_id);
         let value = match b.selected_combo_box_item_data() {
@@ -468,7 +486,7 @@ impl MappingHeaderPanel {
             id => Some(id as u32),
         };
         let current = get(item);
-        set(item, current.with_param_index(value));
+        set(session, item, current.with_param_index(value));
     }
 
     fn invalidate_activation_eel_condition_edit_control(
@@ -598,10 +616,10 @@ impl View for MappingHeaderPanel {
                 self.with_session_and_item(Self::update_feedback_enabled);
             }
             ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX => {
-                self.with_mutable_item(Self::update_activation_setting_1_on);
+                self.with_session_and_item(Self::update_activation_setting_1_on);
             }
             ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX => {
-                self.with_mutable_item(Self::update_activation_setting_2_on);
+                self.with_session_and_item(Self::update_activation_setting_2_on);
             }
             _ => unreachable!(),
         }
@@ -611,13 +629,13 @@ impl View for MappingHeaderPanel {
         use root::*;
         match resource_id {
             ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX => {
-                self.with_mutable_item(Self::update_activation_type);
+                self.with_session_and_item(Self::update_activation_type);
             }
             ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX => {
-                self.with_mutable_item(Self::update_activation_setting_1_option);
+                self.with_session_and_item(Self::update_activation_setting_1_option);
             }
             ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX => {
-                self.with_mutable_item(Self::update_activation_setting_2_option);
+                self.with_session_and_item(Self::update_activation_setting_2_option);
             }
             _ => unreachable!(),
         }
@@ -641,7 +659,7 @@ impl View for MappingHeaderPanel {
                 self.with_session_and_item(Self::update_tags);
             }
             ID_MAPPING_ACTIVATION_EDIT_CONTROL => {
-                self.with_mutable_item(Self::update_activation_eel_condition);
+                self.with_session_and_item(Self::update_activation_eel_condition);
             }
             _ => return false,
         };
@@ -727,49 +745,73 @@ impl Item for MappingModel {
     }
 
     fn activation_type(&self) -> ActivationType {
-        self.activation_condition_model.activation_type.get()
+        self.activation_condition_model().activation_type()
     }
 
-    fn set_activation_type(&mut self, value: ActivationType) {
-        self.activation_condition_model.activation_type.set(value);
+    fn set_activation_type(&self, session: &mut Session, value: ActivationType) {
+        session.mapping_set_from_ui(
+            self.qualified_id(),
+            MappingPropVal::ActivationConditionProp(ActivationConditionPropVal::ActivationType(
+                value,
+            )),
+            None,
+        );
     }
 
     fn modifier_condition_1(&self) -> ModifierConditionModel {
-        self.activation_condition_model.modifier_condition_1.get()
+        self.activation_condition_model().modifier_condition_1()
     }
 
-    fn set_modifier_condition_1(&mut self, value: ModifierConditionModel) {
-        self.activation_condition_model
-            .modifier_condition_1
-            .set(value);
+    fn set_modifier_condition_1(&self, session: &mut Session, value: ModifierConditionModel) {
+        session.mapping_set_from_ui(
+            self.qualified_id(),
+            MappingPropVal::ActivationConditionProp(
+                ActivationConditionPropVal::ModifierCondition1(value),
+            ),
+            None,
+        );
     }
 
     fn modifier_condition_2(&self) -> ModifierConditionModel {
-        self.activation_condition_model.modifier_condition_2.get()
+        self.activation_condition_model().modifier_condition_2()
     }
 
-    fn set_modifier_condition_2(&mut self, value: ModifierConditionModel) {
-        self.activation_condition_model
-            .modifier_condition_2
-            .set(value);
+    fn set_modifier_condition_2(&self, session: &mut Session, value: ModifierConditionModel) {
+        session.mapping_set_from_ui(
+            self.qualified_id(),
+            MappingPropVal::ActivationConditionProp(
+                ActivationConditionPropVal::ModifierCondition2(value),
+            ),
+            None,
+        );
     }
 
     fn bank_condition(&self) -> BankConditionModel {
-        self.activation_condition_model.bank_condition.get()
+        self.activation_condition_model().bank_condition()
     }
 
-    fn set_bank_condition(&mut self, value: BankConditionModel) {
-        self.activation_condition_model.bank_condition.set(value);
+    fn set_bank_condition(&self, session: &mut Session, value: BankConditionModel) {
+        session.mapping_set_from_ui(
+            self.qualified_id(),
+            MappingPropVal::ActivationConditionProp(ActivationConditionPropVal::BankCondition(
+                value,
+            )),
+            None,
+        );
     }
 
     fn eel_condition(&self) -> &str {
-        self.activation_condition_model.eel_condition.get_ref()
+        self.activation_condition_model().eel_condition()
     }
 
-    fn set_eel_condition(&mut self, value: String, initiator: u32) {
-        self.activation_condition_model
-            .eel_condition
-            .set_with_initiator(value, Some(initiator));
+    fn set_eel_condition(&self, session: &mut Session, value: String, initiator: u32) {
+        session.mapping_set_from_ui(
+            self.qualified_id(),
+            MappingPropVal::ActivationConditionProp(ActivationConditionPropVal::EelCondition(
+                value,
+            )),
+            Some(initiator),
+        );
     }
 }
 
@@ -787,80 +829,116 @@ impl Item for GroupModel {
     }
 
     fn name(&self) -> &str {
-        self.name()
+        self.effective_name()
     }
 
     fn set_name(&self, session: &mut Session, name: String, initiator: u32) {
-        todo!();
+        session.group_set_from_ui(
+            self.qualified_id(),
+            GroupPropVal::Name(name),
+            Some(initiator),
+        );
     }
 
     fn tags(&self) -> &[Tag] {
-        self.tags.get_ref()
+        self.tags()
     }
 
     fn set_tags(&self, session: &mut Session, tags: Vec<Tag>, initiator: u32) {
-        todo!();
+        session.group_set_from_ui(
+            self.qualified_id(),
+            GroupPropVal::Tags(tags),
+            Some(initiator),
+        );
     }
 
     fn control_is_enabled(&self) -> bool {
-        self.control_is_enabled.get()
+        self.control_is_enabled()
     }
 
     fn set_control_is_enabled(&self, session: &mut Session, value: bool) {
-        todo!()
+        session.group_set_from_ui(
+            self.qualified_id(),
+            GroupPropVal::ControlIsEnabled(value),
+            None,
+        );
     }
 
     fn feedback_is_enabled(&self) -> bool {
-        self.feedback_is_enabled.get()
+        self.feedback_is_enabled()
     }
 
     fn set_feedback_is_enabled(&self, session: &mut Session, value: bool) {
-        todo!()
+        session.group_set_from_ui(
+            self.qualified_id(),
+            GroupPropVal::FeedbackIsEnabled(value),
+            None,
+        );
     }
 
     fn activation_type(&self) -> ActivationType {
-        self.activation_condition_model.activation_type.get()
+        self.activation_condition_model().activation_type()
     }
 
-    fn set_activation_type(&mut self, value: ActivationType) {
-        self.activation_condition_model.activation_type.set(value);
+    fn set_activation_type(&self, session: &mut Session, value: ActivationType) {
+        session.group_set_from_ui(
+            self.qualified_id(),
+            GroupPropVal::ActivationConditionProp(ActivationConditionPropVal::ActivationType(
+                value,
+            )),
+            None,
+        );
     }
 
     fn modifier_condition_1(&self) -> ModifierConditionModel {
-        self.activation_condition_model.modifier_condition_1.get()
+        self.activation_condition_model().modifier_condition_1()
     }
 
-    fn set_modifier_condition_1(&mut self, value: ModifierConditionModel) {
-        self.activation_condition_model
-            .modifier_condition_1
-            .set(value);
+    fn set_modifier_condition_1(&self, session: &mut Session, value: ModifierConditionModel) {
+        session.group_set_from_ui(
+            self.qualified_id(),
+            GroupPropVal::ActivationConditionProp(ActivationConditionPropVal::ModifierCondition1(
+                value,
+            )),
+            None,
+        );
     }
 
     fn modifier_condition_2(&self) -> ModifierConditionModel {
-        self.activation_condition_model.modifier_condition_2.get()
+        self.activation_condition_model().modifier_condition_2()
     }
 
-    fn set_modifier_condition_2(&mut self, value: ModifierConditionModel) {
-        self.activation_condition_model
-            .modifier_condition_2
-            .set(value);
+    fn set_modifier_condition_2(&self, session: &mut Session, value: ModifierConditionModel) {
+        session.group_set_from_ui(
+            self.qualified_id(),
+            GroupPropVal::ActivationConditionProp(ActivationConditionPropVal::ModifierCondition2(
+                value,
+            )),
+            None,
+        );
     }
 
     fn bank_condition(&self) -> BankConditionModel {
-        self.activation_condition_model.bank_condition.get()
+        self.activation_condition_model().bank_condition()
     }
 
-    fn set_bank_condition(&mut self, value: BankConditionModel) {
-        self.activation_condition_model.bank_condition.set(value);
+    fn set_bank_condition(&self, session: &mut Session, value: BankConditionModel) {
+        session.group_set_from_ui(
+            self.qualified_id(),
+            GroupPropVal::ActivationConditionProp(ActivationConditionPropVal::BankCondition(value)),
+            None,
+        );
     }
 
     fn eel_condition(&self) -> &str {
-        self.activation_condition_model.eel_condition.get_ref()
+        self.activation_condition_model().eel_condition()
     }
 
-    fn set_eel_condition(&mut self, value: String, initiator: u32) {
-        self.activation_condition_model
-            .eel_condition
-            .set_with_initiator(value, Some(initiator));
+    fn set_eel_condition(&self, session: &mut Session, value: String, initiator: u32) {
+        session.group_set_from_ui(
+            self.qualified_id(),
+            GroupPropVal::ActivationConditionProp(ActivationConditionPropVal::EelCondition(value)),
+            Some(initiator),
+        );
     }
 }

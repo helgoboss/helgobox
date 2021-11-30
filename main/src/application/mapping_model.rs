@@ -1,6 +1,7 @@
 use crate::application::{
-    convert_factor_to_unit_value, ActivationConditionModel, MappingExtensionModel, ModeModel,
-    SourceModel, TargetCategory, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
+    convert_factor_to_unit_value, ActivationConditionModel, ActivationConditionProp,
+    ActivationConditionPropVal, MappingExtensionModel, ModeModel, SourceModel, TargetCategory,
+    TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
 };
 use crate::base::{prop, Prop};
 use crate::domain::{
@@ -30,6 +31,7 @@ pub enum MappingPropVal {
     FeedbackSendBehavior(FeedbackSendBehavior),
     VisibleInProjection(bool),
     AdvancedSettings(Option<serde_yaml::mapping::Mapping>),
+    ActivationConditionProp(ActivationConditionPropVal),
 }
 
 impl MappingPropVal {
@@ -46,6 +48,7 @@ impl MappingPropVal {
             V::FeedbackSendBehavior(_) => P::FeedbackSendBehavior,
             V::VisibleInProjection(_) => P::VisibleInProjection,
             V::AdvancedSettings(_) => P::AdvancedSettings,
+            V::ActivationConditionProp(v) => P::ActivationConditionProp(v.prop()),
         }
     }
 }
@@ -61,6 +64,49 @@ pub enum MappingProp {
     FeedbackSendBehavior,
     VisibleInProjection,
     AdvancedSettings,
+    ActivationConditionProp(ActivationConditionProp),
+}
+
+impl MappingProp {
+    pub fn processing_relevance(self) -> ProcessingRelevance {
+        use MappingProp as P;
+        match self {
+            P::Name
+            | P::Tags
+            | P::ControlIsEnabled
+            | P::FeedbackIsEnabled
+            | P::FeedbackSendBehavior
+            | P::VisibleInProjection
+            | P::AdvancedSettings => ProcessingRelevance::ProcessingRelevant,
+            P::ActivationConditionProp(p) => {
+                if p.is_processing_relevant() {
+                    ProcessingRelevance::ProcessingRelevant
+                } else {
+                    ProcessingRelevance::NotRelevant
+                }
+            }
+            P::IsEnabled => ProcessingRelevance::PersistentProcessingRelevant,
+            MappingProp::GroupId => {
+                // This is handled in different ways.
+                ProcessingRelevance::NotRelevant
+            }
+        }
+    }
+}
+
+pub enum ProcessingRelevance {
+    NotRelevant,
+    /// Returned if this is a property that has an effect on control/feedback processing.
+    ///
+    /// However, we don't include properties here which are changed by the processing layer
+    /// (such as `is_enabled`) because that would mean the complete mapping will be synced as a
+    /// result, whereas we want to sync processing stuff faster!  
+    ProcessingRelevant,
+    /// Returned if a change of the given prop would have an effect on control/feedback
+    /// processing and is also changed by the processing layer itself, so it shouldn't contain much!
+    /// The session takes care to not sync the complete mapping properties but only the ones
+    /// mentioned here.
+    PersistentProcessingRelevant,
 }
 
 /// A model for creating mappings (a combination of source, mode and target).
@@ -76,7 +122,7 @@ pub struct MappingModel {
     control_is_enabled: bool,
     feedback_is_enabled: bool,
     feedback_send_behavior: FeedbackSendBehavior,
-    pub activation_condition_model: ActivationConditionModel,
+    activation_condition_model: ActivationConditionModel,
     visible_in_projection: bool,
     pub source_model: SourceModel,
     pub mode_model: ModeModel,
@@ -159,6 +205,7 @@ impl MappingModel {
             V::FeedbackIsEnabled(v) => self.feedback_is_enabled = v,
             V::FeedbackSendBehavior(v) => self.feedback_send_behavior = v,
             V::VisibleInProjection(v) => self.visible_in_projection = v,
+            V::ActivationConditionProp(v) => return self.activation_condition_model.set(v),
         };
         Ok(())
     }
@@ -193,6 +240,10 @@ impl MappingModel {
 
     pub fn visible_in_projection(&self) -> bool {
         self.visible_in_projection
+    }
+
+    pub fn activation_condition_model(&self) -> &ActivationConditionModel {
+        &self.activation_condition_model
     }
 
     pub fn reset_key(&mut self) {
@@ -353,25 +404,6 @@ impl MappingModel {
             .set(self.with_context(context).preferred_step_interval())
     }
 
-    /// Returns true if this is a property that has an effect on control/feedback processing.
-    ///
-    /// However, we don't include properties here which are changed by the processing layer
-    /// (such as `is_enabled`) because that would mean the complete mapping will be synced as a
-    /// result, whereas we want to sync processing stuff faster!  
-    pub fn is_processing_relevant_prop(&self, prop: MappingProp) -> bool {
-        use MappingProp as P;
-        matches!(
-            prop,
-            P::Name
-                | P::Tags
-                | P::ControlIsEnabled
-                | P::FeedbackIsEnabled
-                | P::FeedbackSendBehavior
-                | P::VisibleInProjection
-                | P::AdvancedSettings
-        )
-    }
-
     /// Fires whenever a property has changed that has an effect on control/feedback processing.
     ///
     /// However, we don't include properties here which are changed by the processing layer
@@ -384,19 +416,6 @@ impl MappingModel {
             .changed()
             .merge(self.mode_model.changed())
             .merge(self.target_model.changed())
-            .merge(
-                self.activation_condition_model
-                    .changed_processing_relevant(),
-            )
-    }
-
-    /// Returns true if a change of the given prop would have an effect on control/feedback
-    /// processing and is also changed by the processing layer itself, so it shouldn't contain much!
-    /// The session takes care to not sync the complete mapping properties but only the ones
-    /// mentioned here.
-    pub fn is_persistent_mapping_processing_prop(&self, prop: MappingProp) -> bool {
-        use MappingProp as P;
-        matches!(prop, P::IsEnabled)
     }
 
     pub fn base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {

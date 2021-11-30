@@ -1,4 +1,4 @@
-use crate::application::{WeakGroup, WeakSession};
+use crate::application::{CompartmentProp, GroupProp, SessionProp, WeakGroup, WeakSession};
 use crate::base::when;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{ItemProp, MappingHeaderPanel};
@@ -29,69 +29,48 @@ impl GroupPanel {
         }
     }
 
-    fn register_listeners(self: Rc<Self>) {
-        let group = self.group.upgrade().expect("group gone");
-        let group = group.borrow();
-        self.when(group.name.changed_with_initiator(), |view, initiator| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
-        });
-        self.when(group.tags.changed_with_initiator(), |view, initiator| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
-        });
-        self.when(group.control_is_enabled.changed(), |view, _| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::ControlEnabled, None);
-        });
-        self.when(group.feedback_is_enabled.changed(), |view, _| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::FeedbackEnabled, None);
-        });
-        self.when(
-            group.activation_condition_model.activation_type.changed(),
-            |view, _| {
-                view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ActivationType, None);
+    pub fn handle_session_prop_change(
+        self: SharedView<Self>,
+        prop: SessionProp,
+        initiator: Option<u32>,
+    ) {
+        // If the reaction can't be displayed anymore because the mapping is not filled anymore,
+        // so what.
+        match prop {
+            SessionProp::CompartmentProp(_, prop) => match prop {
+                CompartmentProp::GroupProp(_, prop) => {
+                    use GroupProp as P;
+                    match prop {
+                        P::Name => {
+                            self.mapping_header_panel
+                                .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
+                        }
+                        P::Tags => {
+                            self.mapping_header_panel
+                                .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
+                        }
+                        P::ControlIsEnabled => {
+                            self.mapping_header_panel.invalidate_due_to_changed_prop(
+                                ItemProp::ControlEnabled,
+                                initiator,
+                            );
+                        }
+                        P::FeedbackIsEnabled => {
+                            self.mapping_header_panel.invalidate_due_to_changed_prop(
+                                ItemProp::FeedbackEnabled,
+                                initiator,
+                            );
+                        }
+                        P::ActivationConditionProp(p) => {
+                            let item_prop = ItemProp::from_activation_condition_prop(p);
+                            self.mapping_header_panel
+                                .invalidate_due_to_changed_prop(item_prop, initiator);
+                        }
+                    }
+                }
+                CompartmentProp::MappingProp(_, _) => {}
             },
-        );
-        self.when(
-            group
-                .activation_condition_model
-                .modifier_condition_1
-                .changed(),
-            |view, _| {
-                view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition1, None);
-            },
-        );
-        self.when(
-            group
-                .activation_condition_model
-                .modifier_condition_2
-                .changed(),
-            |view, _| {
-                view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition2, None);
-            },
-        );
-        self.when(
-            group.activation_condition_model.bank_condition.changed(),
-            |view, _| {
-                view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::BankCondition, None);
-            },
-        );
-        self.when(
-            group
-                .activation_condition_model
-                .eel_condition
-                .changed_with_initiator(),
-            |view, initiator| {
-                view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::EelCondition, initiator);
-            },
-        );
+        }
     }
 
     fn when<I: Send + Sync + Clone + 'static>(
@@ -116,7 +95,6 @@ impl View for GroupPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.mapping_header_panel.clone().open(window);
-        self.register_listeners();
         true
     }
 

@@ -32,11 +32,11 @@ use std::rc::Rc;
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
     get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
-    AutomationModeOverrideType, BookmarkAnchorType, CompartmentProp, CompartmentPropVal,
-    ConcreteFxInstruction, ConcreteTrackInstruction, MappingModel, MappingProp, MappingPropVal,
-    MidiSourceType, ModeModel, RealearnAutomationMode, RealearnTrackArea, ReaperSourceType,
-    Session, SessionProp, SessionPropVal, SharedMapping, SharedSession, SourceCategory,
-    SourceModel, TargetCategory, TargetModel, TargetModelWithContext, TargetUnit,
+    ActivationConditionProp, AutomationModeOverrideType, BookmarkAnchorType, CompartmentProp,
+    CompartmentPropVal, ConcreteFxInstruction, ConcreteTrackInstruction, MappingModel, MappingProp,
+    MappingPropVal, MidiSourceType, ModeModel, RealearnAutomationMode, RealearnTrackArea,
+    ReaperSourceType, Session, SessionProp, SessionPropVal, SharedMapping, SharedSession,
+    SourceCategory, SourceModel, TargetCategory, TargetModel, TargetModelWithContext, TargetUnit,
     TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
     VirtualTrackType, WeakSession,
 };
@@ -170,13 +170,19 @@ impl MappingPanel {
                         P::ControlIsEnabled => {
                             view.panel
                                 .mapping_header_panel
-                                .invalidate_due_to_changed_prop(ItemProp::ControlEnabled, None);
+                                .invalidate_due_to_changed_prop(
+                                    ItemProp::ControlEnabled,
+                                    initiator,
+                                );
                             view.invalidate_mode_controls();
                         }
                         P::FeedbackIsEnabled => {
                             view.panel
                                 .mapping_header_panel
-                                .invalidate_due_to_changed_prop(ItemProp::FeedbackEnabled, None);
+                                .invalidate_due_to_changed_prop(
+                                    ItemProp::FeedbackEnabled,
+                                    initiator,
+                                );
                             view.invalidate_mode_controls();
                         }
                         P::IsEnabled => {
@@ -189,8 +195,15 @@ impl MappingPanel {
                             view.invalidate_mapping_feedback_send_behavior_combo_box();
                         }
                         P::GroupId => {}
+                        P::ActivationConditionProp(p) => {
+                            let item_prop = ItemProp::from_activation_condition_prop(p);
+                            view.panel
+                                .mapping_header_panel
+                                .invalidate_due_to_changed_prop(item_prop, initiator);
+                        }
                     }
                 }
+                CompartmentProp::GroupProp(_, _) => {}
             },
         });
     }
@@ -4406,7 +4419,6 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_listeners(&self) {
         self.register_session_listeners();
-        self.register_mapping_listeners();
         self.register_source_listeners();
         self.register_target_listeners();
         self.register_mode_listeners();
@@ -4463,64 +4475,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 view.invalidate_target_controls(None);
                 view.invalidate_mode_controls();
-            },
-        );
-    }
-
-    fn register_mapping_listeners(&self) {
-        self.panel.when(
-            self.mapping
-                .activation_condition_model
-                .activation_type
-                .changed(),
-            |view, _| {
-                view.panel
-                    .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ActivationType, None);
-            },
-        );
-        self.panel.when(
-            self.mapping
-                .activation_condition_model
-                .modifier_condition_1
-                .changed(),
-            |view, _| {
-                view.panel
-                    .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition1, None);
-            },
-        );
-        self.panel.when(
-            self.mapping
-                .activation_condition_model
-                .modifier_condition_2
-                .changed(),
-            |view, _| {
-                view.panel
-                    .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition2, None);
-            },
-        );
-        self.panel.when(
-            self.mapping
-                .activation_condition_model
-                .bank_condition
-                .changed(),
-            |view, _| {
-                view.panel
-                    .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::BankCondition, None);
-            },
-        );
-        self.panel.when(
-            self.mapping
-                .activation_condition_model
-                .eel_condition
-                .changed_with_initiator(),
-            |view, initiator| {
-                view.panel
-                    .mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::EelCondition, initiator);
             },
         );
     }
