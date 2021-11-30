@@ -168,29 +168,29 @@ impl MappingModelData {
     /// The processor context - if available - will be used to resolve some track/FX properties for
     /// UI convenience. The context is necessary if there's the possibility of loading data saved
     /// with ReaLearn < 1.12.0.
-    fn apply_to_model_internal<'a, C: DataToModelConversionContext>(
+    fn apply_to_model_internal<'long: 'short, 'short, C: DataToModelConversionContext>(
         &self,
-        session: &'a mut Session,
+        session: &'long mut Session,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
         with_notification: bool,
-        get_conversion_context: impl Fn(&'a Session) -> C + 'a,
+        get_conversion_context: impl Fn(&'short Session) -> C + 'short,
         mut set: impl FnMut(&mut Session, MappingPropVal),
     ) {
         use MappingPropVal as P;
         set(session, P::Name(self.name.clone()));
         set(session, P::Tags(self.tags.clone()));
-        // TODO-high Implement!
-        // let group_id = conversion_context
-        //     .group_id_by_key(&self.group_id)
-        //     .unwrap_or_default();
-        // model
-        //     .group_id
-        //     .set_with_optional_notification(group_id, with_notification);
-        // self.activation_condition_data.apply_to_model(
-        //     model.activation_condition_model.borrow_mut(),
-        //     with_notification,
-        // );
+        // TODO-high Implement remaining assignments!
+        let group_id = {
+            get_conversion_context(session)
+                .group_id_by_key(&self.group_id)
+                .unwrap_or_default()
+        };
+        set(session, P::GroupId(group_id));
+        self.activation_condition_data
+            .apply_to_model(session, |session, val| {
+                set(session, P::ActivationConditionProp(val))
+            });
         // let compartment = model.compartment();
         // self.source.apply_to_model_flexible(
         //     model.source_model.borrow_mut(),
@@ -212,31 +212,25 @@ impl MappingModelData {
         //     compartment,
         //     conversion_context,
         // );
-        // model
-        //     .is_enabled
-        //     .set_with_optional_notification(self.is_enabled, with_notification);
-        // model.control_is_enabled.set_with_optional_notification(
-        //     self.enabled_data.control_is_enabled,
-        //     with_notification,
-        // );
-        // model.feedback_is_enabled.set_with_optional_notification(
-        //     self.enabled_data.feedback_is_enabled,
-        //     with_notification,
-        // );
-        // let feedback_send_behavior = if self.prevent_echo_feedback {
-        //     // Took precedence if both checkboxes were ticked (was possible in ReaLearn < 2.10.0).
-        //     FeedbackSendBehavior::PreventEchoFeedback
-        // } else if self.send_feedback_after_control {
-        //     FeedbackSendBehavior::SendFeedbackAfterControl
-        // } else {
-        //     FeedbackSendBehavior::Normal
-        // };
-        // model
-        //     .feedback_send_behavior
-        //     .set_with_optional_notification(feedback_send_behavior, with_notification);
-        // let _ = model.set_advanced_settings(self.advanced.clone(), with_notification);
-        // model
-        //     .visible_in_projection
-        //     .set_with_optional_notification(self.visible_in_projection, with_notification);
+        set(session, P::IsEnabled(self.is_enabled));
+        set(
+            session,
+            P::ControlIsEnabled(self.enabled_data.control_is_enabled),
+        );
+        set(
+            session,
+            P::FeedbackIsEnabled(self.enabled_data.feedback_is_enabled),
+        );
+        let feedback_send_behavior = if self.prevent_echo_feedback {
+            // Took precedence if both checkboxes were ticked (was possible in ReaLearn < 2.10.0).
+            FeedbackSendBehavior::PreventEchoFeedback
+        } else if self.send_feedback_after_control {
+            FeedbackSendBehavior::SendFeedbackAfterControl
+        } else {
+            FeedbackSendBehavior::Normal
+        };
+        set(session, P::FeedbackSendBehavior(feedback_send_behavior));
+        set(session, P::AdvancedSettings(self.advanced.clone()));
+        set(session, P::VisibleInProjection(self.visible_in_projection));
     }
 }
