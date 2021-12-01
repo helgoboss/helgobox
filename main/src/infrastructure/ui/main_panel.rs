@@ -209,10 +209,18 @@ impl MainPanel {
         }
     }
 
-    fn handle_session_prop_change(&self, prop: SessionProp, initiator: Option<u32>) {
+    fn handle_session_prop_change(
+        self: SharedView<Self>,
+        prop: SessionProp,
+        initiator: Option<u32>,
+    ) {
         if let Some(data) = self.active_data.borrow() {
             data.panel_manager
                 .borrow()
+                .handle_session_prop_change(prop, initiator);
+            data.mapping_rows_panel
+                .handle_session_prop_change(prop, initiator);
+            data.header_panel
                 .handle_session_prop_change(prop, initiator);
         }
     }
@@ -311,7 +319,16 @@ impl SessionUi for Weak<MainPanel> {
     }
 
     fn handle_prop_change(&self, prop: SessionProp, initiator: Option<u32>) {
-        upgrade_panel(self).handle_session_prop_change(prop, initiator);
+        // We notify in the next main loop cycle. First, because otherwise we can easily run into
+        // BorrowMut errors (because the handler might borrow the session but we still have it
+        // borrowed at this point because this handler is called by the session). Second, because
+        // deferring the reaction seems to result in a smoother user experience.
+        let weak_main_panel = self.clone();
+        crate::base::Global::task_support()
+            .do_later_in_main_thread_from_main_thread_asap(move || {
+                upgrade_panel(&weak_main_panel).handle_session_prop_change(prop, initiator);
+            })
+            .unwrap();
     }
 }
 

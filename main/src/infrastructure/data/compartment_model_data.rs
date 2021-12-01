@@ -1,6 +1,6 @@
 use crate::application::{CompartmentModel, GroupModel, ParameterSetting, Session};
 use crate::base::default_util::is_default;
-use crate::domain::{GroupId, GroupKey, MappingCompartment};
+use crate::domain::{ExtendedProcessorContext, GroupId, GroupKey, MappingCompartment};
 use crate::infrastructure::data::{
     DataToModelConversionContext, GroupModelData, MappingModelData, MigrationDescriptor,
     ModelToDataConversionContext,
@@ -59,7 +59,6 @@ impl CompartmentModelData {
         &self,
         version: Option<&Version>,
         compartment: MappingCompartment,
-        session: &mut Session,
     ) -> Result<CompartmentModel, String> {
         ensure_no_duplicate_compartment_data(
             &self.mappings,
@@ -80,12 +79,12 @@ impl CompartmentModelData {
         let final_default_group = self
             .default_group
             .as_ref()
-            .map(|g| g.to_model(session, compartment, true))
+            .map(|g| g.to_model(compartment, true))
             .unwrap_or_else(|| GroupModel::default_for_compartment(compartment));
         let groups = self
             .groups
             .iter()
-            .map(|g| g.to_model(session, compartment, false))
+            .map(|g| g.to_model(compartment, false))
             .collect();
         let conversion_context = ConversionContext { groups: &groups };
         let model = CompartmentModel {
@@ -99,7 +98,6 @@ impl CompartmentModelData {
                         &migration_descriptor,
                         version,
                         conversion_context,
-                        session,
                     )
                 })
                 .collect(),

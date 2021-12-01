@@ -216,7 +216,7 @@ impl TargetModelData {
         model: &mut TargetModel,
         compartment: MappingCompartment,
         context: ExtendedProcessorContext,
-        conversion_context: &impl DataToModelConversionContext,
+        conversion_context: impl DataToModelConversionContext,
     ) {
         self.apply_to_model_flexible(
             model,
@@ -238,7 +238,7 @@ impl TargetModelData {
         preset_version: Option<&Version>,
         with_notification: bool,
         compartment: MappingCompartment,
-        conversion_context: &impl DataToModelConversionContext,
+        conversion_context: impl DataToModelConversionContext,
     ) {
         let final_category = if self.category.is_allowed_in(compartment) {
             self.category

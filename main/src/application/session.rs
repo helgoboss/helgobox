@@ -90,7 +90,6 @@ pub struct Session {
     group_list_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     parameter_settings_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     mapping_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
-    group_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     incoming_msg_captured_subject: LocalSubject<'static, MessageCaptureEvent, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     group_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
@@ -220,7 +219,6 @@ impl Session {
             group_list_changed_subject: Default::default(),
             parameter_settings_changed_subject: Default::default(),
             mapping_changed_subject: Default::default(),
-            group_changed_subject: Default::default(),
             incoming_msg_captured_subject: Default::default(),
             mapping_subscriptions: Default::default(),
             group_subscriptions: Default::default(),
@@ -1030,33 +1028,38 @@ impl Session {
     /// Convenience function to set mapping prop with notification and optional initiator.
     pub fn mapping_set_from_ui(
         &mut self,
-        id: QualifiedMappingId,
+        mapping: &mut MappingModel,
         val: MappingPropVal,
         initiator: Option<u32>,
     ) -> Result<(), String> {
-        self.set_with_initiator(
-            SessionPropVal::CompartmentProp(
-                id.compartment,
-                CompartmentPropVal::MappingProp(id.id, val),
+        let prop = val.prop();
+        self.set_mapping_prop(val, mapping)?;
+        self.ui.handle_prop_change(
+            SessionProp::CompartmentProp(
+                mapping.compartment(),
+                CompartmentProp::MappingProp(mapping.id(), prop),
             ),
             initiator,
-        )
+        );
+        Ok(())
     }
 
-    /// Convenience function to set group prop with notification and optional initiator.
     pub fn group_set_from_ui(
         &mut self,
-        id: QualifiedGroupId,
+        group: &mut GroupModel,
         val: GroupPropVal,
         initiator: Option<u32>,
     ) -> Result<(), String> {
-        self.set_with_initiator(
-            SessionPropVal::CompartmentProp(
-                id.compartment,
-                CompartmentPropVal::GroupProp(id.id, val),
+        let prop = val.prop();
+        self.set_group_prop(val, group)?;
+        self.ui.handle_prop_change(
+            SessionProp::CompartmentProp(
+                group.compartment(),
+                CompartmentProp::GroupProp(group.id(), prop),
             ),
             initiator,
-        )
+        );
+        Ok(())
     }
 
     pub fn compartment_in_session(&self, compartment: MappingCompartment) -> CompartmentInSession {
@@ -1093,14 +1096,7 @@ impl Session {
                     .ok_or(String::from("group not found"))?
                     .clone();
                 let mut group = group.borrow_mut();
-                let prop = val.prop();
-                group.set(val);
-                if prop.is_processing_relevant() {
-                    // Change of a single group can affect many mappings
-                    self.sync_all_mappings_full(compartment);
-                }
-                self.mark_compartment_dirty(compartment);
-                self.notify_group_changed(compartment);
+                self.set_group_prop(val, &mut group)?;
             }
             P::MappingProp(id, val) => {
                 let mapping = self
@@ -1109,25 +1105,47 @@ impl Session {
                     .1
                     .clone();
                 let mut mapping = mapping.borrow_mut();
-                let prop = val.prop();
-                mapping.set(val);
-                use ProcessingRelevance::*;
-                match prop.processing_relevance() {
-                    NotRelevant => {}
-                    ProcessingRelevant => {
-                        // Keep syncing complete mappings to processors.
-                        self.sync_single_mapping_to_processors(compartment, &mapping);
-                    }
-                    PersistentProcessingRelevant => {
-                        // Keep syncing persistent mapping processing state (shouldn't do too much because
-                        // can be triggered by processing).
-                        self.sync_persistent_mapping_processing_state(&mapping);
-                    }
-                }
-                self.mark_compartment_dirty(compartment);
-                self.notify_mapping_changed(compartment);
+                self.set_mapping_prop(val, &mut mapping)?;
             }
         }
+        Ok(())
+    }
+
+    fn set_group_prop(&mut self, val: GroupPropVal, group: &mut GroupModel) -> Result<(), String> {
+        let prop = val.prop();
+        let compartment = group.compartment();
+        group.set(val)?;
+        if prop.is_processing_relevant() {
+            // Change of a single group can affect many mappings
+            self.sync_all_mappings_full(compartment);
+        }
+        self.mark_compartment_dirty(compartment);
+        Ok(())
+    }
+
+    fn set_mapping_prop(
+        &mut self,
+        val: MappingPropVal,
+        mapping: &mut MappingModel,
+    ) -> Result<(), String> {
+        let prop = val.prop();
+        let compartment = mapping.compartment();
+        mapping.set(val)?;
+        use ProcessingRelevance::*;
+        match prop.processing_relevance() {
+            NotRelevant => {}
+            ProcessingRelevant => {
+                // Keep syncing complete mappings to processors.
+                self.sync_single_mapping_to_processors(compartment, mapping);
+            }
+            PersistentProcessingRelevant => {
+                // Keep syncing persistent mapping processing state (shouldn't do too much because
+                // can be triggered by processing).
+                self.sync_persistent_mapping_processing_state(mapping);
+            }
+        }
+        self.mark_compartment_dirty(compartment);
+        self.notify_mapping_changed(compartment);
         Ok(())
     }
 
@@ -1894,13 +1912,6 @@ impl Session {
         self.group_list_changed_subject.clone()
     }
 
-    /// Fires if a group itself has been changed.
-    pub fn group_changed(
-        &self,
-    ) -> impl LocalObservable<'static, Item = MappingCompartment, Err = ()> + 'static {
-        self.group_changed_subject.clone()
-    }
-
     /// Fires if a mapping itself has been changed.
     pub fn mapping_changed(
         &self,
@@ -2101,11 +2112,6 @@ impl Session {
 
     fn notify_parameter_settings_changed(&mut self, compartment: MappingCompartment) {
         AsyncNotifier::notify(&mut self.parameter_settings_changed_subject, &compartment);
-    }
-
-    /// Notifies listeners async a group in the group list has changed.
-    fn notify_group_changed(&mut self, compartment: MappingCompartment) {
-        AsyncNotifier::notify(&mut self.group_changed_subject, &compartment);
     }
 
     /// Notifies listeners async a mapping in a mapping list has changed.

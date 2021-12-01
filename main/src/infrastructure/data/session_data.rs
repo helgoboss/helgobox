@@ -362,7 +362,7 @@ impl SessionData {
         let mut get_final_default_group =
             |def_group: Option<&GroupModelData>, compartment: MappingCompartment| {
                 def_group
-                    .map(|g| g.to_model(session, compartment, true))
+                    .map(|g| g.to_model(compartment, true))
                     .unwrap_or_else(|| GroupModel::default_for_compartment(compartment))
             };
         let main_default_group = get_final_default_group(
@@ -379,12 +379,12 @@ impl SessionData {
         let main_groups: Vec<_> = self
             .groups
             .iter()
-            .map(|g| g.to_model(session, MappingCompartment::MainMappings, false))
+            .map(|g| g.to_model(MappingCompartment::MainMappings, false))
             .collect();
         let controller_groups: Vec<_> = self
             .controller_groups
             .iter()
-            .map(|g| g.to_model(session, MappingCompartment::ControllerMappings, false))
+            .map(|g| g.to_model(MappingCompartment::ControllerMappings, false))
             .collect();
         session.set_groups_without_notification(MappingCompartment::MainMappings, main_groups);
         session
@@ -403,8 +403,8 @@ impl SessionData {
                         compartment,
                         &migration_descriptor,
                         self.version.as_ref(),
-                        |session| session.compartment_in_session(compartment),
-                        session,
+                        session.compartment_in_session(compartment),
+                        Some(session.extended_context()),
                     )
                 })
                 .collect();

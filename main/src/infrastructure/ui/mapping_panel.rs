@@ -954,8 +954,9 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn mapping_set_with_notifier(&mut self, val: MappingPropVal, notifier: Option<u32>) {
-        let id = self.mapping.qualified_id();
-        self.session.mapping_set_from_ui(id, val, notifier).unwrap();
+        self.session
+            .mapping_set_from_ui(self.mapping, val, notifier)
+            .unwrap();
     }
 
     fn update_mapping_is_enabled(&mut self) {

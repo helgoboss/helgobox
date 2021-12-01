@@ -31,16 +31,12 @@ impl ActivationConditionData {
         }
     }
 
-    pub fn apply_to_model(
-        &self,
-        session: &mut Session,
-        mut set: impl FnMut(&mut Session, ActivationConditionPropVal),
-    ) {
+    pub fn apply_to_model(&self, model: &mut ActivationConditionModel) {
         use ActivationConditionPropVal as V;
-        set(session, V::ActivationType(self.activation_type));
-        set(session, V::ModifierCondition1(self.modifier_condition_1));
-        set(session, V::ModifierCondition2(self.modifier_condition_2));
-        set(session, V::BankCondition(self.program_condition));
-        set(session, V::EelCondition(self.eel_condition.clone()));
+        model.set(V::ActivationType(self.activation_type));
+        model.set(V::ModifierCondition1(self.modifier_condition_1));
+        model.set(V::ModifierCondition2(self.modifier_condition_2));
+        model.set(V::BankCondition(self.program_condition));
+        model.set(V::EelCondition(self.eel_condition.clone()));
     }
 }

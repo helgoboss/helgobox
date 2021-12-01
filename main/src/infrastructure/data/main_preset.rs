@@ -63,14 +63,13 @@ impl PresetData for MainPresetData {
     }
 
     fn to_model(&self, id: String) -> Result<MainPreset, String> {
-        todo!()
-        // let preset = MainPreset::new(
-        //     id,
-        //     self.name.clone(),
-        //     self.data
-        //         .to_model(self.version.as_ref(), MappingCompartment::MainMappings)?,
-        // );
-        // Ok(preset)
+        let preset = MainPreset::new(
+            id,
+            self.name.clone(),
+            self.data
+                .to_model(self.version.as_ref(), MappingCompartment::MainMappings)?,
+        );
+        Ok(preset)
     }
 
     fn clear_id(&mut self) {

@@ -16,9 +16,9 @@ use slog::debug;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
-    reaper_supports_global_midi_filter, ControllerPreset, FxId, MainPreset, MainPresetAutoLoadMode,
-    ParameterSetting, Preset, PresetManager, SharedMapping, SharedSession,
-    VirtualControlElementType, WeakSession,
+    reaper_supports_global_midi_filter, CompartmentProp, ControllerPreset, FxId, MainPreset,
+    MainPresetAutoLoadMode, ParameterSetting, Preset, PresetManager, SessionProp, SharedMapping,
+    SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
@@ -85,6 +85,22 @@ impl HeaderPanel {
             panel_manager,
             group_panel: Default::default(),
             is_invoked_programmatically: false.into(),
+        }
+    }
+
+    pub fn handle_session_prop_change(&self, session_prop: SessionProp, initiator: Option<u32>) {
+        match session_prop {
+            SessionProp::CompartmentProp(compartment, compartment_prop)
+                if compartment == self.active_compartment() =>
+            {
+                match compartment_prop {
+                    CompartmentProp::MappingProp(mapping_id, _) => {}
+                    CompartmentProp::GroupProp(group_id, _) => {
+                        self.invalidate_group_controls();
+                    }
+                }
+            }
+            _ => {}
         }
     }
 
@@ -867,7 +883,11 @@ impl HeaderPanel {
             .into_iter()
             .map(|mut data| {
                 data.group_id = group_key.clone();
-                data.to_model(compartment, &mut session)
+                data.to_model(
+                    compartment,
+                    session.compartment_in_session(compartment),
+                    Some(session.extended_context()),
+                )
             })
             .collect();
         session.replace_mappings_of_group(compartment, group_id, mapping_models.into_iter());
@@ -1855,7 +1875,7 @@ impl HeaderPanel {
             // For now, let's assume that the imported data is always tailored to the running
             // ReaLearn version.
             let version = App::version();
-            match data.to_model(Some(version), compartment, &mut session) {
+            match data.to_model(Some(version), compartment) {
                 Ok(model) => {
                     session.import_compartment(compartment, Some(model), self.session.clone());
                 }
@@ -2232,9 +2252,6 @@ impl HeaderPanel {
                 .merge(session.osc_output_device_id.changed()),
             |view, _| view.invalidate_feedback_output_combo_box(),
         );
-        self.when(session.group_changed(), |view, _| {
-            view.invalidate_group_controls();
-        });
         let main_state = self.main_state.borrow();
         self.when(
             main_state.displayed_group_for_any_compartment_changed(),

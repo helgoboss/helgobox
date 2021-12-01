@@ -38,8 +38,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         //  It's because first, a MappingModel needs more RAM than expected and second,
         //  we have presets installed with around 2000 mappings, they are all loaded into
         //  memory on start - not optimal.
-        // TODO-high Implement by loading only data and converting to model on demand.
-        // let _ = manager.load_presets_internal();
+        let _ = manager.load_presets_internal();
         manager
     }
 

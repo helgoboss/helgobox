@@ -77,11 +77,7 @@ impl MappingRowPanel {
         }
     }
 
-    pub fn handle_session_prop_change(
-        self: SharedView<Self>,
-        prop: SessionProp,
-        initiator: Option<u32>,
-    ) {
+    pub fn handle_session_prop_change(&self, prop: SessionProp, initiator: Option<u32>) {
         // If the reaction can't be displayed anymore because the mapping is not filled anymore,
         // so what.
         let _ = self.with_mapping(|view, m| match prop {
@@ -108,7 +104,10 @@ impl MappingRowPanel {
                         | MappingProp::ActivationConditionProp(_) => {}
                     }
                 }
-                CompartmentProp::GroupProp(_, _) => {}
+                CompartmentProp::GroupProp(_, _) => {
+                    // Refresh to display potentially new inherited tags.
+                    view.invalidate_name_labels(m);
+                }
             },
         });
     }
@@ -129,6 +128,12 @@ impl MappingRowPanel {
         let mapping = self.optional_mapping()?;
         let mapping = mapping.borrow();
         Some(mapping.id())
+    }
+
+    pub fn group_id(&self) -> Option<GroupId> {
+        let mapping = self.optional_mapping()?;
+        let mapping = mapping.borrow();
+        Some(mapping.group_id())
     }
 
     pub fn set_mapping(self: &SharedView<Self>, mapping: Option<SharedMapping>) {
@@ -400,10 +405,6 @@ impl MappingRowPanel {
         self.when(session.mapping_which_learns_target_changed(), |view| {
             view.with_mapping(Self::invalidate_learn_target_button);
         });
-        self.when(session.group_changed().map_to(()), move |view| {
-            // Refresh to display potentially new inherited tags.
-            view.with_mapping(Self::invalidate_name_labels);
-        });
         self.when(instance_state.on_mappings_changed(), |view| {
             view.with_mapping(Self::invalidate_on_indicator);
         });
@@ -521,10 +522,13 @@ impl MappingRowPanel {
     }
 
     fn mapping_set(&self, val: MappingPropVal) {
-        let id = self.require_qualified_mapping_id();
         let session = self.session();
         let mut session = session.borrow_mut();
-        session.mapping_set_from_ui(id, val, None).unwrap();
+        let mapping = self.require_mapping();
+        let mut mapping = mapping.borrow_mut();
+        session
+            .mapping_set_from_ui(&mut mapping, val, None)
+            .unwrap();
     }
 
     fn update_control_is_enabled(&self) {
@@ -974,7 +978,13 @@ fn paste_data_object_in_place(
                     group.borrow().key().clone()
                 }
             };
-            m.apply_to_model(&mut mapping, &mut session);
+            let conversion_context = session.compartment_in_session(mapping.compartment());
+            m.apply_to_model(
+                &mut mapping,
+                conversion_context,
+                Some(session.extended_context()),
+            );
+            // TODO-high Let notify session that mapping changed (or everything).
         }
         DataObject::Source(Envelope { value: s }) => {
             s.apply_to_model(&mut mapping.source_model, triple.compartment);
@@ -988,7 +998,7 @@ fn paste_data_object_in_place(
                 &mut mapping.target_model,
                 triple.compartment,
                 session.extended_context(),
-                &compartment_in_session,
+                compartment_in_session,
             );
         }
         _ => return Err("can only paste mapping, source, mode and target in place"),
@@ -1030,7 +1040,11 @@ pub fn paste_mappings(
         .into_iter()
         .map(|mut data| {
             data.group_id = group_key.clone();
-            data.to_model(compartment, &mut session)
+            data.to_model(
+                compartment,
+                session.compartment_in_session(compartment),
+                Some(session.extended_context()),
+            )
         })
         .collect();
     session.insert_mappings_at(compartment, index + 1, new_mappings.into_iter());

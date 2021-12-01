@@ -116,6 +116,10 @@ impl GroupModel {
     pub fn activation_condition_model(&self) -> &ActivationConditionModel {
         &self.activation_condition_model
     }
+
+    pub fn activation_condition_model_mut(&mut self) -> &mut ActivationConditionModel {
+        &mut self.activation_condition_model
+    }
 }
 
 impl fmt::Display for GroupModel {
