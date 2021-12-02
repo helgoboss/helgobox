@@ -1,6 +1,6 @@
 use crate::application::{
-    ActivationConditionModel, ActivationConditionPropVal, ActivationType, BankConditionModel,
-    ModifierConditionModel, Session,
+    ActivationConditionCommand, ActivationConditionModel, ActivationType, BankConditionModel,
+    Change, ModifierConditionModel, Session,
 };
 use crate::base::default_util::is_default;
 use serde::{Deserialize, Serialize};
@@ -32,11 +32,11 @@ impl ActivationConditionData {
     }
 
     pub fn apply_to_model(&self, model: &mut ActivationConditionModel) {
-        use ActivationConditionPropVal as V;
-        model.set(V::ActivationType(self.activation_type));
-        model.set(V::ModifierCondition1(self.modifier_condition_1));
-        model.set(V::ModifierCondition2(self.modifier_condition_2));
-        model.set(V::BankCondition(self.program_condition));
-        model.set(V::EelCondition(self.eel_condition.clone()));
+        use ActivationConditionCommand as V;
+        model.change(V::SetActivationType(self.activation_type));
+        model.change(V::SetModifierCondition1(self.modifier_condition_1));
+        model.change(V::SetModifierCondition2(self.modifier_condition_2));
+        model.change(V::SetBankCondition(self.program_condition));
+        model.change(V::SetEelCondition(self.eel_condition.clone()));
     }
 }

@@ -1,28 +1,17 @@
-use crate::application::{ActivationType, BankConditionModel, ModifierConditionModel};
+use crate::application::{
+    ActivationType, Affected, BankConditionModel, Change, GetProcessingRelevance,
+    ModifierConditionModel, ProcessingRelevance,
+};
 use crate::base::Prop;
 use crate::domain::{ActivationCondition, EelCondition};
 use rxrust::prelude::*;
 
-pub enum ActivationConditionPropVal {
-    ActivationType(ActivationType),
-    ModifierCondition1(ModifierConditionModel),
-    ModifierCondition2(ModifierConditionModel),
-    BankCondition(BankConditionModel),
-    EelCondition(String),
-}
-
-impl ActivationConditionPropVal {
-    pub fn prop(&self) -> ActivationConditionProp {
-        use ActivationConditionProp as P;
-        use ActivationConditionPropVal as V;
-        match self {
-            V::ActivationType(_) => P::ActivationType,
-            V::ModifierCondition1(_) => P::ModifierCondition1,
-            V::ModifierCondition2(_) => P::ModifierCondition2,
-            V::BankCondition(_) => P::BankCondition,
-            V::EelCondition(_) => P::EelCondition,
-        }
-    }
+pub enum ActivationConditionCommand {
+    SetActivationType(ActivationType),
+    SetModifierCondition1(ModifierConditionModel),
+    SetModifierCondition2(ModifierConditionModel),
+    SetBankCondition(BankConditionModel),
+    SetEelCondition(String),
 }
 
 #[derive(Copy, Clone)]
@@ -34,18 +23,9 @@ pub enum ActivationConditionProp {
     EelCondition,
 }
 
-impl ActivationConditionProp {
-    /// Returns true if this is a property that has an effect on control/feedback processing.
-    pub fn is_processing_relevant(self) -> bool {
-        use ActivationConditionProp as P;
-        matches!(
-            self,
-            P::ActivationType
-                | P::ModifierCondition1
-                | P::ModifierCondition2
-                | P::EelCondition
-                | P::BankCondition
-        )
+impl GetProcessingRelevance for ActivationConditionProp {
+    fn processing_relevance(&self) -> Option<ProcessingRelevance> {
+        Some(ProcessingRelevance::ProcessingRelevant)
     }
 }
 
@@ -58,19 +38,44 @@ pub struct ActivationConditionModel {
     eel_condition: String,
 }
 
-impl ActivationConditionModel {
-    pub fn set(&mut self, val: ActivationConditionPropVal) -> Result<(), String> {
-        use ActivationConditionPropVal as V;
-        match val {
-            V::ActivationType(v) => self.activation_type = v,
-            V::ModifierCondition1(v) => self.modifier_condition_1 = v,
-            V::ModifierCondition2(v) => self.modifier_condition_2 = v,
-            V::BankCondition(v) => self.bank_condition = v,
-            V::EelCondition(v) => self.eel_condition = v,
-        };
-        Ok(())
-    }
+impl Change for ActivationConditionModel {
+    type Command = ActivationConditionCommand;
+    type Prop = ActivationConditionProp;
 
+    fn change(
+        &mut self,
+        cmd: ActivationConditionCommand,
+    ) -> Result<Affected<ActivationConditionProp>, String> {
+        use ActivationConditionCommand as C;
+        use ActivationConditionProp as P;
+        use Affected::*;
+        let affected = match cmd {
+            C::SetActivationType(v) => {
+                self.activation_type = v;
+                One(P::ActivationType)
+            }
+            C::SetModifierCondition1(v) => {
+                self.modifier_condition_1 = v;
+                One(P::ModifierCondition1)
+            }
+            C::SetModifierCondition2(v) => {
+                self.modifier_condition_2 = v;
+                One(P::ModifierCondition2)
+            }
+            C::SetBankCondition(v) => {
+                self.bank_condition = v;
+                One(P::BankCondition)
+            }
+            C::SetEelCondition(v) => {
+                self.eel_condition = v;
+                One(P::EelCondition)
+            }
+        };
+        Ok(affected)
+    }
+}
+
+impl ActivationConditionModel {
     pub fn activation_type(&self) -> ActivationType {
         self.activation_type
     }

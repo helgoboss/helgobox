@@ -1,5 +1,5 @@
 use crate::application::{
-    CompartmentPropVal, MappingModel, MappingPropVal, Session, SessionPropVal,
+    Change, CompartmentCommand, MappingCommand, MappingModel, Session, SessionCommand,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
@@ -179,13 +179,13 @@ impl MappingModelData {
         processor_context: Option<ExtendedProcessorContext>,
         model: &mut MappingModel,
     ) {
-        use MappingPropVal as P;
-        model.set(P::Name(self.name.clone()));
-        model.set(P::Tags(self.tags.clone()));
+        use MappingCommand as P;
+        model.change(P::SetName(self.name.clone()));
+        model.change(P::SetTags(self.tags.clone()));
         let group_id = conversion_context
             .group_id_by_key(&self.group_id)
             .unwrap_or_default();
-        model.set(P::GroupId(group_id));
+        model.change(P::SetGroupId(group_id));
         self.activation_condition_data
             .apply_to_model(model.activation_condition_model_mut());
         let compartment = model.compartment();
@@ -209,9 +209,11 @@ impl MappingModelData {
             compartment,
             conversion_context,
         );
-        model.set(P::IsEnabled(self.is_enabled));
-        model.set(P::ControlIsEnabled(self.enabled_data.control_is_enabled));
-        model.set(P::FeedbackIsEnabled(self.enabled_data.feedback_is_enabled));
+        model.change(P::SetIsEnabled(self.is_enabled));
+        model.change(P::SetControlIsEnabled(self.enabled_data.control_is_enabled));
+        model.change(P::SetFeedbackIsEnabled(
+            self.enabled_data.feedback_is_enabled,
+        ));
         let feedback_send_behavior = if self.prevent_echo_feedback {
             // Took precedence if both checkboxes were ticked (was possible in ReaLearn < 2.10.0).
             FeedbackSendBehavior::PreventEchoFeedback
@@ -220,8 +222,8 @@ impl MappingModelData {
         } else {
             FeedbackSendBehavior::Normal
         };
-        model.set(P::FeedbackSendBehavior(feedback_send_behavior));
-        model.set(P::AdvancedSettings(self.advanced.clone()));
-        model.set(P::VisibleInProjection(self.visible_in_projection));
+        model.change(P::SetFeedbackSendBehavior(feedback_send_behavior));
+        model.change(P::SetAdvancedSettings(self.advanced.clone()));
+        model.change(P::SetVisibleInProjection(self.visible_in_projection));
     }
 }

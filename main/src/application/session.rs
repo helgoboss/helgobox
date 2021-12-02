@@ -1,9 +1,9 @@
 use crate::application::{
-    share_group, share_mapping, CompartmentModel, CompartmentProp, CompartmentPropVal,
-    ControllerPreset, FxId, GroupModel, GroupPropVal, MainPreset, MainPresetAutoLoadMode,
-    MappingModel, MappingPropVal, Preset, PresetLinkManager, PresetManager, ProcessingRelevance,
-    QualifiedGroupId, SharedGroup, SharedMapping, SourceModel, TargetCategory, TargetModel,
-    VirtualControlElementType,
+    share_group, share_mapping, Affected, Change, CompartmentCommand, CompartmentModel,
+    CompartmentProp, ControllerPreset, FxId, GroupCommand, GroupModel, GroupProp, MainPreset,
+    MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp, Preset, PresetLinkManager,
+    PresetManager, ProcessingRelevance, QualifiedGroupId, SharedGroup, SharedMapping, SourceModel,
+    TargetCategory, TargetModel, VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
 use crate::base::{prop, when, AsyncNotifier, Global, Prop};
@@ -43,7 +43,7 @@ pub trait SessionUi {
     fn parameters_changed(&self, session: &Session);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
     fn mapping_matched(&self, event: MappingMatchedEvent);
-    fn handle_prop_change(&self, prop: SessionProp, initiator: Option<u32>);
+    fn handle_affected(&self, affected: Affected<SessionProp>, initiator: Option<u32>);
 }
 
 /// This represents the user session with one ReaLearn instance.
@@ -780,7 +780,6 @@ impl Session {
                         .do_sync(move |session, _| {
                             let mut session = session.borrow_mut();
                             session.sync_single_mapping_to_processors(
-                                compartment,
                                 &shared_mapping_clone_2.borrow(),
                             );
                             session.mark_compartment_dirty(compartment);
@@ -969,7 +968,7 @@ impl Session {
     ) -> Result<(), &'static str> {
         for mapping_id in mapping_ids.iter() {
             let id = QualifiedMappingId::new(compartment, *mapping_id);
-            self.mapping_set(id, MappingPropVal::GroupId(group_id));
+            self.change_mapping_from_session(id, MappingCommand::SetGroupId(group_id));
         }
         self.notify_group_list_changed(compartment);
         Ok(())
@@ -988,78 +987,154 @@ impl Session {
             for m in self.mappings(compartment) {
                 let mut m = m.borrow_mut();
                 if m.group_id() == id {
-                    m.set(MappingPropVal::GroupId(GroupId::default()));
+                    let _ = m.change(MappingCommand::SetGroupId(GroupId::default()));
                 }
             }
         }
         self.notify_group_list_changed(compartment);
     }
 
-    pub fn set(&mut self, val: SessionPropVal) -> Result<(), String> {
-        self.set_with_initiator(val, None)
-    }
-
-    /// Convenience function to set mapping prop with notification and without initiator.
+    /// Changes a mapping with notification and without initiator, expecting the mutable mapping
+    /// itself to be passed as parameter.
     ///
     /// # Panics
     ///
     /// Panics if mapping not found.
-    pub fn mapping_set_from_data(&mut self, id: QualifiedMappingId, val: MappingPropVal) {
-        self.set(SessionPropVal::CompartmentProp(
-            id.compartment,
-            CompartmentPropVal::MappingProp(id.id, val),
-        ))
-        .unwrap();
-    }
-
-    /// Convenience function to set mapping prop with notification and without initiator.
-    ///
-    /// # Panics
-    ///
-    /// Panics if mapping not found.
-    fn mapping_set(&mut self, id: QualifiedMappingId, val: MappingPropVal) {
-        self.set(SessionPropVal::CompartmentProp(
-            id.compartment,
-            CompartmentPropVal::MappingProp(id.id, val),
-        ))
-        .unwrap();
-    }
-
-    /// Convenience function to set mapping prop with notification and optional initiator.
-    pub fn mapping_set_from_ui(
+    pub fn change_mapping_from_ui(
         &mut self,
         mapping: &mut MappingModel,
-        val: MappingPropVal,
+        cmd: MappingCommand,
         initiator: Option<u32>,
     ) -> Result<(), String> {
-        let prop = val.prop();
-        self.set_mapping_prop(val, mapping)?;
-        self.ui.handle_prop_change(
+        let affected = self.change_mapping_internal(cmd, mapping)?.map(|p| {
             SessionProp::CompartmentProp(
                 mapping.compartment(),
-                CompartmentProp::MappingProp(mapping.id(), prop),
-            ),
-            initiator,
-        );
+                Some(CompartmentProp::MappingProp(mapping.id(), p)),
+            )
+        });
+        self.ui.handle_affected(affected, initiator);
         Ok(())
     }
 
-    pub fn group_set_from_ui(
+    pub fn change_group_from_ui(
         &mut self,
         group: &mut GroupModel,
-        val: GroupPropVal,
+        cmd: GroupCommand,
         initiator: Option<u32>,
     ) -> Result<(), String> {
-        let prop = val.prop();
-        self.set_group_prop(val, group)?;
-        self.ui.handle_prop_change(
+        let affected = self.change_group_internal(cmd, group)?.map(|p| {
             SessionProp::CompartmentProp(
                 group.compartment(),
-                CompartmentProp::GroupProp(group.id(), prop),
-            ),
-            initiator,
-        );
+                Some(CompartmentProp::GroupProp(group.id(), p)),
+            )
+        });
+        self.ui.handle_affected(affected, initiator);
         Ok(())
+    }
+
+    /// Changes a mapping with notification and without initiator.
+    ///
+    /// # Panics
+    ///
+    /// Panics if mapping not found.
+    fn change_mapping_from_session(&mut self, id: QualifiedMappingId, val: MappingCommand) {
+        self.change(
+            SessionCommand::ChangeCompartment(
+                id.compartment,
+                CompartmentCommand::ChangeMapping(id.id, val),
+            ),
+            None,
+        )
+        .unwrap();
+    }
+
+    /// The gateway point to change something in the session just using IDs, also deeply nested
+    /// things such as target properties.
+    ///
+    /// Reasoning: With this single point of entry for changing something in the session, we can
+    /// easily intercept certain changes, notify the UI and so on. Without magic and without rxRust!
+    fn change(&mut self, cmd: SessionCommand, initiator: Option<u32>) -> Result<(), String> {
+        use SessionCommand as C;
+        use SessionProp as P;
+        let affected = match cmd {
+            C::ChangeCompartment(compartment, cmd) => {
+                let affected = self.change_compartment_internal(compartment, cmd)?;
+                affected.map(|p| P::CompartmentProp(compartment, p))
+            }
+        };
+        self.ui.handle_affected(affected, initiator);
+        Ok(())
+    }
+
+    fn change_compartment_internal(
+        &mut self,
+        compartment: MappingCompartment,
+        cmd: CompartmentCommand,
+    ) -> Result<Affected<CompartmentProp>, String> {
+        use CompartmentCommand as C;
+        use CompartmentProp as P;
+        let affected = match cmd {
+            C::ChangeGroup(group_id, cmd) => {
+                let group = self
+                    .find_group_by_id_including_default_group(compartment, group_id)
+                    .ok_or(String::from("group not found"))?
+                    .clone();
+                let mut group = group.borrow_mut();
+                let affected = self.change_group_internal(cmd, &mut group)?;
+                affected.map(|p| CompartmentProp::GroupProp(group_id, p))
+            }
+            C::ChangeMapping(mapping_id, cmd) => {
+                let mapping = self
+                    .find_mapping_and_index_by_id(compartment, mapping_id)
+                    .ok_or(String::from("mapping not found"))?
+                    .1
+                    .clone();
+                let mut mapping = mapping.borrow_mut();
+                let affected = self.change_mapping_internal(cmd, &mut mapping)?;
+                affected.map(|p| CompartmentProp::MappingProp(mapping_id, p))
+            }
+        };
+        Ok(affected)
+    }
+
+    fn change_group_internal(
+        &mut self,
+        cmd: GroupCommand,
+        group: &mut GroupModel,
+    ) -> Result<Affected<GroupProp>, String> {
+        let affected = group.change(cmd)?;
+        if affected.processing_relevance().is_some() {
+            // Change of a single group can affect many mappings
+            self.sync_all_mappings_full(group.compartment());
+        }
+        self.mark_compartment_dirty(group.compartment());
+        Ok(affected)
+    }
+
+    fn change_mapping_internal(
+        &mut self,
+        cmd: MappingCommand,
+        mapping: &mut MappingModel,
+    ) -> Result<Affected<MappingProp>, String> {
+        let affected = mapping.change(cmd)?;
+        // Sync mapping to processors if necessary.
+        if let Some(relevance) = affected.processing_relevance() {
+            use ProcessingRelevance::*;
+            match relevance {
+                PersistentProcessingRelevant => {
+                    // Keep syncing persistent mapping processing state only (shouldn't do too much
+                    // because can be triggered by processing).
+                    self.sync_persistent_mapping_processing_state(mapping);
+                }
+                ProcessingRelevant => {
+                    // Keep syncing complete mappings to processors.
+                    self.sync_single_mapping_to_processors(mapping);
+                }
+            }
+        }
+        self.mark_compartment_dirty(mapping.compartment());
+        self.notify_mapping_changed(mapping.compartment());
+        Ok(affected)
     }
 
     pub fn compartment_in_session(&self, compartment: MappingCompartment) -> CompartmentInSession {
@@ -1067,86 +1142,6 @@ impl Session {
             session: self,
             compartment,
         }
-    }
-
-    pub fn set_with_initiator(
-        &mut self,
-        val: SessionPropVal,
-        initiator: Option<u32>,
-    ) -> Result<(), String> {
-        let prop = val.prop();
-        use SessionPropVal as P;
-        match val {
-            P::CompartmentProp(compartment, val) => self.compartment_set(compartment, val)?,
-        }
-        self.ui.handle_prop_change(prop, initiator);
-        Ok(())
-    }
-
-    fn compartment_set(
-        &mut self,
-        compartment: MappingCompartment,
-        val: CompartmentPropVal,
-    ) -> Result<(), String> {
-        use CompartmentPropVal as P;
-        match val {
-            P::GroupProp(id, val) => {
-                let group = self
-                    .find_group_by_id_including_default_group(compartment, id)
-                    .ok_or(String::from("group not found"))?
-                    .clone();
-                let mut group = group.borrow_mut();
-                self.set_group_prop(val, &mut group)?;
-            }
-            P::MappingProp(id, val) => {
-                let mapping = self
-                    .find_mapping_and_index_by_id(compartment, id)
-                    .ok_or(String::from("mapping not found"))?
-                    .1
-                    .clone();
-                let mut mapping = mapping.borrow_mut();
-                self.set_mapping_prop(val, &mut mapping)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn set_group_prop(&mut self, val: GroupPropVal, group: &mut GroupModel) -> Result<(), String> {
-        let prop = val.prop();
-        let compartment = group.compartment();
-        group.set(val)?;
-        if prop.is_processing_relevant() {
-            // Change of a single group can affect many mappings
-            self.sync_all_mappings_full(compartment);
-        }
-        self.mark_compartment_dirty(compartment);
-        Ok(())
-    }
-
-    fn set_mapping_prop(
-        &mut self,
-        val: MappingPropVal,
-        mapping: &mut MappingModel,
-    ) -> Result<(), String> {
-        let prop = val.prop();
-        let compartment = mapping.compartment();
-        mapping.set(val)?;
-        use ProcessingRelevance::*;
-        match prop.processing_relevance() {
-            NotRelevant => {}
-            ProcessingRelevant => {
-                // Keep syncing complete mappings to processors.
-                self.sync_single_mapping_to_processors(compartment, mapping);
-            }
-            PersistentProcessingRelevant => {
-                // Keep syncing persistent mapping processing state (shouldn't do too much because
-                // can be triggered by processing).
-                self.sync_persistent_mapping_processing_state(mapping);
-            }
-        }
-        self.mark_compartment_dirty(compartment);
-        self.notify_mapping_changed(compartment);
-        Ok(())
     }
 
     pub fn add_default_mapping(
@@ -1159,7 +1154,7 @@ impl Session {
     ) -> SharedMapping {
         let mut mapping = MappingModel::new(compartment, initial_group_id, MappingKey::random());
         let new_name = self.generate_name_for_new_mapping(compartment);
-        mapping.set(MappingPropVal::Name(new_name));
+        let _ = mapping.change(MappingCommand::SetName(new_name));
         if compartment == MappingCompartment::ControllerMappings {
             let next_control_element_index =
                 self.get_next_control_element_index(control_element_type);
@@ -2176,17 +2171,14 @@ impl Session {
             .unwrap();
     }
 
-    fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
+    fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
         let group_data = self
             .find_group_of_mapping(m)
             .map(|g| g.borrow().create_data())
             .unwrap_or_default();
         let main_mapping = m.create_main_mapping(group_data);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::UpdateSingleMapping(
-                compartment,
-                Box::new(main_mapping),
-            ))
+            .try_send(NormalMainTask::UpdateSingleMapping(Box::new(main_mapping)))
             .unwrap();
     }
 
@@ -2406,7 +2398,10 @@ impl DomainEventHandler for WeakSession {
             MappingEnabledChangeRequested(event) => {
                 if let Ok(mut s) = session.try_borrow_mut() {
                     let id = QualifiedMappingId::new(event.compartment, event.mapping_id);
-                    s.mapping_set(id, MappingPropVal::IsEnabled(event.is_enabled));
+                    s.change_mapping_from_session(
+                        id,
+                        MappingCommand::SetIsEnabled(event.is_enabled),
+                    );
                 }
             }
         }
@@ -2500,23 +2495,14 @@ pub fn reaper_supports_global_midi_filter() -> bool {
     v_without_arch >= "6.35+dev0831"
 }
 
-pub enum SessionPropVal {
-    CompartmentProp(MappingCompartment, CompartmentPropVal),
-}
-
-impl SessionPropVal {
-    pub fn prop(&self) -> SessionProp {
-        use SessionProp as P;
-        use SessionPropVal as V;
-        match self {
-            V::CompartmentProp(compartment, val) => P::CompartmentProp(*compartment, val.prop()),
-        }
-    }
+pub enum SessionCommand {
+    ChangeCompartment(MappingCompartment, CompartmentCommand),
 }
 
 #[derive(Copy, Clone)]
 pub enum SessionProp {
-    CompartmentProp(MappingCompartment, CompartmentProp),
+    /// `None` means that the complete compartment is affected.
+    CompartmentProp(MappingCompartment, Option<CompartmentProp>),
 }
 
 pub struct CompartmentInSession<'a> {

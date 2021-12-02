@@ -16,9 +16,9 @@ use slog::debug;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
-    reaper_supports_global_midi_filter, CompartmentProp, ControllerPreset, FxId, MainPreset,
-    MainPresetAutoLoadMode, ParameterSetting, Preset, PresetManager, SessionProp, SharedMapping,
-    SharedSession, VirtualControlElementType, WeakSession,
+    reaper_supports_global_midi_filter, Affected, CompartmentProp, ControllerPreset, FxId,
+    MainPreset, MainPresetAutoLoadMode, ParameterSetting, Preset, PresetManager, SessionProp,
+    SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
@@ -88,9 +88,21 @@ impl HeaderPanel {
         }
     }
 
-    pub fn handle_session_prop_change(&self, session_prop: SessionProp, initiator: Option<u32>) {
-        match session_prop {
-            SessionProp::CompartmentProp(compartment, compartment_prop)
+    pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
+        if !self.is_open() {
+            return;
+        }
+        if let Some(iter) = affected.opt_iter() {
+            for prop in iter {
+                self.handle_session_prop_change(prop, initiator);
+            }
+        }
+        // TODO-medium Handle complete session change
+    }
+
+    fn handle_session_prop_change(&self, prop: SessionProp, initiator: Option<u32>) {
+        match prop {
+            SessionProp::CompartmentProp(compartment, Some(compartment_prop))
                 if compartment == self.active_compartment() =>
             {
                 match compartment_prop {

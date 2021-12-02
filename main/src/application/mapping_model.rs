@@ -1,7 +1,8 @@
 use crate::application::{
-    convert_factor_to_unit_value, ActivationConditionModel, ActivationConditionProp,
-    ActivationConditionPropVal, MappingExtensionModel, ModeModel, SourceModel, TargetCategory,
-    TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
+    convert_factor_to_unit_value, ActivationConditionCommand, ActivationConditionModel,
+    ActivationConditionProp, Affected, Change, GetProcessingRelevance, MappingExtensionModel,
+    ModeModel, ProcessingRelevance, SourceModel, TargetCategory, TargetModel,
+    TargetModelFormatVeryShort, TargetModelWithContext,
 };
 use crate::base::{prop, Prop};
 use crate::domain::{
@@ -21,36 +22,17 @@ use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
 
-pub enum MappingPropVal {
-    Name(String),
-    Tags(Vec<Tag>),
-    GroupId(GroupId),
-    IsEnabled(bool),
-    ControlIsEnabled(bool),
-    FeedbackIsEnabled(bool),
-    FeedbackSendBehavior(FeedbackSendBehavior),
-    VisibleInProjection(bool),
-    AdvancedSettings(Option<serde_yaml::mapping::Mapping>),
-    ActivationConditionProp(ActivationConditionPropVal),
-}
-
-impl MappingPropVal {
-    pub fn prop(&self) -> MappingProp {
-        use MappingProp as P;
-        use MappingPropVal as V;
-        match self {
-            V::Name(_) => P::Name,
-            V::Tags(_) => P::Tags,
-            V::GroupId(_) => P::GroupId,
-            V::IsEnabled(_) => P::IsEnabled,
-            V::ControlIsEnabled(_) => P::ControlIsEnabled,
-            V::FeedbackIsEnabled(_) => P::FeedbackIsEnabled,
-            V::FeedbackSendBehavior(_) => P::FeedbackSendBehavior,
-            V::VisibleInProjection(_) => P::VisibleInProjection,
-            V::AdvancedSettings(_) => P::AdvancedSettings,
-            V::ActivationConditionProp(v) => P::ActivationConditionProp(v.prop()),
-        }
-    }
+pub enum MappingCommand {
+    SetName(String),
+    SetTags(Vec<Tag>),
+    SetGroupId(GroupId),
+    SetIsEnabled(bool),
+    SetControlIsEnabled(bool),
+    SetFeedbackIsEnabled(bool),
+    SetFeedbackSendBehavior(FeedbackSendBehavior),
+    SetVisibleInProjection(bool),
+    SetAdvancedSettings(Option<serde_yaml::mapping::Mapping>),
+    ChangeActivationCondition(ActivationConditionCommand),
 }
 
 #[derive(Copy, Clone)]
@@ -64,11 +46,12 @@ pub enum MappingProp {
     FeedbackSendBehavior,
     VisibleInProjection,
     AdvancedSettings,
-    ActivationConditionProp(ActivationConditionProp),
+    /// `None` means that the complete activation condition is affected.
+    ActivationConditionProp(Option<ActivationConditionProp>),
 }
 
-impl MappingProp {
-    pub fn processing_relevance(self) -> ProcessingRelevance {
+impl GetProcessingRelevance for MappingProp {
+    fn processing_relevance(&self) -> Option<ProcessingRelevance> {
         use MappingProp as P;
         match self {
             P::Name
@@ -77,36 +60,17 @@ impl MappingProp {
             | P::FeedbackIsEnabled
             | P::FeedbackSendBehavior
             | P::VisibleInProjection
-            | P::AdvancedSettings => ProcessingRelevance::ProcessingRelevant,
-            P::ActivationConditionProp(p) => {
-                if p.is_processing_relevant() {
-                    ProcessingRelevance::ProcessingRelevant
-                } else {
-                    ProcessingRelevance::NotRelevant
-                }
-            }
-            P::IsEnabled => ProcessingRelevance::PersistentProcessingRelevant,
+            | P::AdvancedSettings => Some(ProcessingRelevance::ProcessingRelevant),
+            P::ActivationConditionProp(p) => p
+                .map(|p| p.processing_relevance())
+                .unwrap_or(Some(ProcessingRelevance::ProcessingRelevant)),
+            P::IsEnabled => Some(ProcessingRelevance::PersistentProcessingRelevant),
             MappingProp::GroupId => {
                 // This is handled in different ways.
-                ProcessingRelevance::NotRelevant
+                None
             }
         }
     }
-}
-
-pub enum ProcessingRelevance {
-    NotRelevant,
-    /// Returned if this is a property that has an effect on control/feedback processing.
-    ///
-    /// However, we don't include properties here which are changed by the processing layer
-    /// (such as `is_enabled`) because that would mean the complete mapping will be synced as a
-    /// result, whereas we want to sync processing stuff faster!  
-    ProcessingRelevant,
-    /// Returned if a change of the given prop would have an effect on control/feedback
-    /// processing and is also changed by the processing layer itself, so it shouldn't contain much!
-    /// The session takes care to not sync the complete mapping properties but only the ones
-    /// mentioned here.
-    PersistentProcessingRelevant,
 }
 
 /// A model for creating mappings (a combination of source, mode and target).
@@ -160,6 +124,61 @@ fn get_default_target_category_for_compartment(compartment: MappingCompartment) 
     }
 }
 
+impl Change for MappingModel {
+    type Command = MappingCommand;
+    type Prop = MappingProp;
+
+    fn change(&mut self, cmd: MappingCommand) -> Result<Affected<MappingProp>, String> {
+        use Affected::*;
+        use MappingCommand as C;
+        use MappingProp as P;
+        let affected = match cmd {
+            C::SetName(v) => {
+                self.name = v;
+                One(P::Name)
+            }
+            C::SetTags(v) => {
+                self.tags = v;
+                One(P::Tags)
+            }
+            C::SetAdvancedSettings(yaml) => {
+                self.advanced_settings = yaml;
+                self.update_extension_model_from_advanced_settings()?;
+                One(P::AdvancedSettings)
+            }
+            C::SetGroupId(v) => {
+                self.group_id = v;
+                One(P::GroupId)
+            }
+            C::SetIsEnabled(v) => {
+                self.is_enabled = v;
+                One(P::IsEnabled)
+            }
+            C::SetControlIsEnabled(v) => {
+                self.control_is_enabled = v;
+                One(P::ControlIsEnabled)
+            }
+            C::SetFeedbackIsEnabled(v) => {
+                self.feedback_is_enabled = v;
+                One(P::FeedbackIsEnabled)
+            }
+            C::SetFeedbackSendBehavior(v) => {
+                self.feedback_send_behavior = v;
+                One(P::FeedbackSendBehavior)
+            }
+            C::SetVisibleInProjection(v) => {
+                self.visible_in_projection = v;
+                One(P::VisibleInProjection)
+            }
+            C::ChangeActivationCondition(cmd) => {
+                let affected = self.activation_condition_model.change(cmd)?;
+                affected.map(P::ActivationConditionProp)
+            }
+        };
+        Ok(affected)
+    }
+}
+
 impl MappingModel {
     pub fn new(
         compartment: MappingCompartment,
@@ -188,26 +207,6 @@ impl MappingModel {
             advanced_settings: None,
             extension_model: Default::default(),
         }
-    }
-
-    pub fn set(&mut self, val: MappingPropVal) -> Result<(), String> {
-        use MappingPropVal as V;
-        match val {
-            V::Name(v) => self.name = v,
-            V::Tags(v) => self.tags = v,
-            V::AdvancedSettings(yaml) => {
-                self.advanced_settings = yaml;
-                self.update_extension_model_from_advanced_settings()?;
-            }
-            V::GroupId(v) => self.group_id = v,
-            V::IsEnabled(v) => self.is_enabled = v,
-            V::ControlIsEnabled(v) => self.control_is_enabled = v,
-            V::FeedbackIsEnabled(v) => self.feedback_is_enabled = v,
-            V::FeedbackSendBehavior(v) => self.feedback_send_behavior = v,
-            V::VisibleInProjection(v) => self.visible_in_projection = v,
-            V::ActivationConditionProp(v) => return self.activation_condition_model.set(v),
-        };
-        Ok(())
     }
 
     pub fn id(&self) -> MappingId {
@@ -246,6 +245,7 @@ impl MappingModel {
         &self.activation_condition_model
     }
 
+    // TODO-high Replace because it leaks internals and might make one forget about notification.
     pub fn activation_condition_model_mut(&mut self) -> &mut ActivationConditionModel {
         &mut self.activation_condition_model
     }
@@ -275,6 +275,7 @@ impl MappingModel {
     }
 
     pub fn clear_name(&mut self) {
+        // TODO-high Notify!
         self.name == String::new();
     }
 
@@ -360,6 +361,7 @@ impl MappingModel {
         } else {
             Default::default()
         };
+        // TODO-high Notify!
         self.extension_model = extension_model;
         Ok(())
     }

@@ -1,5 +1,6 @@
 use crate::application::{
-    ActivationConditionModel, ActivationConditionProp, ActivationConditionPropVal, GroupData,
+    ActivationConditionCommand, ActivationConditionModel, ActivationConditionProp, Affected,
+    Change, GetProcessingRelevance, GroupData, ProcessingRelevance,
 };
 use crate::base::{prop, Prop};
 use crate::domain::{GroupId, GroupKey, MappingCompartment, Tag};
@@ -8,26 +9,12 @@ use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
-pub enum GroupPropVal {
-    Name(String),
-    Tags(Vec<Tag>),
-    ControlIsEnabled(bool),
-    FeedbackIsEnabled(bool),
-    ActivationConditionProp(ActivationConditionPropVal),
-}
-
-impl GroupPropVal {
-    pub fn prop(&self) -> GroupProp {
-        use GroupProp as P;
-        use GroupPropVal as V;
-        match self {
-            V::Name(_) => P::Name,
-            V::Tags(_) => P::Tags,
-            V::ControlIsEnabled(_) => P::ControlIsEnabled,
-            V::FeedbackIsEnabled(_) => P::FeedbackIsEnabled,
-            V::ActivationConditionProp(v) => P::ActivationConditionProp(v.prop()),
-        }
-    }
+pub enum GroupCommand {
+    SetName(String),
+    SetTags(Vec<Tag>),
+    SetControlIsEnabled(bool),
+    SetFeedbackIsEnabled(bool),
+    ChangeActivationCondition(ActivationConditionCommand),
 }
 
 #[derive(Copy, Clone)]
@@ -36,17 +23,21 @@ pub enum GroupProp {
     Tags,
     ControlIsEnabled,
     FeedbackIsEnabled,
-    ActivationConditionProp(ActivationConditionProp),
+    /// `None` means that the complete activation condition is affected.
+    ActivationConditionProp(Option<ActivationConditionProp>),
 }
 
-impl GroupProp {
-    /// Returns true if this is a property that has an effect on control/feedback processing.
-    pub fn is_processing_relevant(self) -> bool {
+impl GetProcessingRelevance for GroupProp {
+    fn processing_relevance(&self) -> Option<ProcessingRelevance> {
         use GroupProp as P;
         match self {
-            P::Tags | P::ControlIsEnabled | P::FeedbackIsEnabled => true,
-            P::ActivationConditionProp(p) => p.is_processing_relevant(),
-            P::Name => false,
+            P::Tags | P::ControlIsEnabled | P::FeedbackIsEnabled => {
+                Some(ProcessingRelevance::ProcessingRelevant)
+            }
+            P::ActivationConditionProp(p) => p
+                .map(|p| p.processing_relevance())
+                .unwrap_or(Some(ProcessingRelevance::ProcessingRelevant)),
+            P::Name => None,
         }
     }
 }
@@ -76,19 +67,41 @@ pub struct GroupModel {
     activation_condition_model: ActivationConditionModel,
 }
 
-impl GroupModel {
-    pub fn set(&mut self, val: GroupPropVal) -> Result<(), String> {
-        use GroupPropVal as V;
-        match val {
-            V::Name(v) => self.name = v,
-            V::Tags(v) => self.tags = v,
-            V::ControlIsEnabled(v) => self.control_is_enabled = v,
-            V::FeedbackIsEnabled(v) => self.feedback_is_enabled = v,
-            V::ActivationConditionProp(v) => return self.activation_condition_model.set(v),
-        };
-        Ok(())
-    }
+impl Change for GroupModel {
+    type Command = GroupCommand;
+    type Prop = GroupProp;
 
+    fn change(&mut self, cmd: GroupCommand) -> Result<Affected<GroupProp>, String> {
+        use Affected::*;
+        use GroupCommand as C;
+        use GroupProp as P;
+        let affected = match cmd {
+            C::SetName(v) => {
+                self.name = v;
+                One(P::Name)
+            }
+            C::SetTags(v) => {
+                self.tags = v;
+                One(P::Tags)
+            }
+            C::SetControlIsEnabled(v) => {
+                self.control_is_enabled = v;
+                One(P::ControlIsEnabled)
+            }
+            C::SetFeedbackIsEnabled(v) => {
+                self.feedback_is_enabled = v;
+                One(P::FeedbackIsEnabled)
+            }
+            C::ChangeActivationCondition(cmd) => {
+                let affected = self.activation_condition_model.change(cmd)?;
+                affected.map(P::ActivationConditionProp)
+            }
+        };
+        Ok(affected)
+    }
+}
+
+impl GroupModel {
     pub fn effective_name(&self) -> &str {
         if self.is_default_group() {
             "<Default>"
@@ -117,6 +130,7 @@ impl GroupModel {
         &self.activation_condition_model
     }
 
+    // TODO-high Replace because it leaks internals and might make one forget about notification.
     pub fn activation_condition_model_mut(&mut self) -> &mut ActivationConditionModel {
         &mut self.activation_condition_model
     }

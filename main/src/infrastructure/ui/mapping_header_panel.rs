@@ -8,9 +8,9 @@ use std::convert::TryInto;
 use std::rc::{Rc, Weak};
 
 use crate::application::{
-    ActivationConditionProp, ActivationConditionPropVal, ActivationType, BankConditionModel,
-    CompartmentPropVal, GroupModel, GroupPropVal, MappingModel, MappingPropVal,
-    ModifierConditionModel, Session, SessionPropVal, SharedSession, WeakSession,
+    ActivationConditionCommand, ActivationConditionProp, ActivationType, BankConditionModel,
+    CompartmentCommand, GroupCommand, GroupModel, MappingCommand, MappingModel,
+    ModifierConditionModel, Session, SessionCommand, SharedSession, WeakSession,
 };
 use crate::domain::{MappingCompartment, Tag, COMPARTMENT_PARAMETER_COUNT};
 use std::fmt::Debug;
@@ -701,7 +701,7 @@ impl Item for MappingModel {
     }
 
     fn set_name(&mut self, session: &mut Session, name: String, initiator: u32) {
-        session.mapping_set_from_ui(self, MappingPropVal::Name(name), Some(initiator));
+        session.change_mapping_from_ui(self, MappingCommand::SetName(name), Some(initiator));
     }
 
     fn tags(&self) -> &[Tag] {
@@ -709,7 +709,7 @@ impl Item for MappingModel {
     }
 
     fn set_tags(&mut self, session: &mut Session, tags: Vec<Tag>, initiator: u32) {
-        session.mapping_set_from_ui(self, MappingPropVal::Tags(tags), Some(initiator));
+        session.change_mapping_from_ui(self, MappingCommand::SetTags(tags), Some(initiator));
     }
 
     fn control_is_enabled(&self) -> bool {
@@ -717,7 +717,7 @@ impl Item for MappingModel {
     }
 
     fn set_control_is_enabled(&mut self, session: &mut Session, value: bool) {
-        session.mapping_set_from_ui(self, MappingPropVal::ControlIsEnabled(value), None);
+        session.change_mapping_from_ui(self, MappingCommand::SetControlIsEnabled(value), None);
     }
 
     fn feedback_is_enabled(&self) -> bool {
@@ -725,7 +725,7 @@ impl Item for MappingModel {
     }
 
     fn set_feedback_is_enabled(&mut self, session: &mut Session, value: bool) {
-        session.mapping_set_from_ui(self, MappingPropVal::FeedbackIsEnabled(value), None);
+        session.change_mapping_from_ui(self, MappingCommand::SetFeedbackIsEnabled(value), None);
     }
 
     fn activation_type(&self) -> ActivationType {
@@ -733,11 +733,11 @@ impl Item for MappingModel {
     }
 
     fn set_activation_type(&mut self, session: &mut Session, value: ActivationType) {
-        session.mapping_set_from_ui(
+        session.change_mapping_from_ui(
             self,
-            MappingPropVal::ActivationConditionProp(ActivationConditionPropVal::ActivationType(
-                value,
-            )),
+            MappingCommand::ChangeActivationCondition(
+                ActivationConditionCommand::SetActivationType(value),
+            ),
             None,
         );
     }
@@ -747,10 +747,10 @@ impl Item for MappingModel {
     }
 
     fn set_modifier_condition_1(&mut self, session: &mut Session, value: ModifierConditionModel) {
-        session.mapping_set_from_ui(
+        session.change_mapping_from_ui(
             self,
-            MappingPropVal::ActivationConditionProp(
-                ActivationConditionPropVal::ModifierCondition1(value),
+            MappingCommand::ChangeActivationCondition(
+                ActivationConditionCommand::SetModifierCondition1(value),
             ),
             None,
         );
@@ -761,10 +761,10 @@ impl Item for MappingModel {
     }
 
     fn set_modifier_condition_2(&mut self, session: &mut Session, value: ModifierConditionModel) {
-        session.mapping_set_from_ui(
+        session.change_mapping_from_ui(
             self,
-            MappingPropVal::ActivationConditionProp(
-                ActivationConditionPropVal::ModifierCondition2(value),
+            MappingCommand::ChangeActivationCondition(
+                ActivationConditionCommand::SetModifierCondition2(value),
             ),
             None,
         );
@@ -775,11 +775,11 @@ impl Item for MappingModel {
     }
 
     fn set_bank_condition(&mut self, session: &mut Session, value: BankConditionModel) {
-        session.mapping_set_from_ui(
+        session.change_mapping_from_ui(
             self,
-            MappingPropVal::ActivationConditionProp(ActivationConditionPropVal::BankCondition(
-                value,
-            )),
+            MappingCommand::ChangeActivationCondition(
+                ActivationConditionCommand::SetBankCondition(value),
+            ),
             None,
         );
     }
@@ -789,9 +789,9 @@ impl Item for MappingModel {
     }
 
     fn set_eel_condition(&mut self, session: &mut Session, value: String, initiator: u32) {
-        session.mapping_set_from_ui(
+        session.change_mapping_from_ui(
             self,
-            MappingPropVal::ActivationConditionProp(ActivationConditionPropVal::EelCondition(
+            MappingCommand::ChangeActivationCondition(ActivationConditionCommand::SetEelCondition(
                 value,
             )),
             Some(initiator),
@@ -817,7 +817,7 @@ impl Item for GroupModel {
     }
 
     fn set_name(&mut self, session: &mut Session, name: String, initiator: u32) {
-        session.group_set_from_ui(self, GroupPropVal::Name(name), Some(initiator));
+        session.change_group_from_ui(self, GroupCommand::SetName(name), Some(initiator));
     }
 
     fn tags(&self) -> &[Tag] {
@@ -825,7 +825,7 @@ impl Item for GroupModel {
     }
 
     fn set_tags(&mut self, session: &mut Session, tags: Vec<Tag>, initiator: u32) {
-        session.group_set_from_ui(self, GroupPropVal::Tags(tags), Some(initiator));
+        session.change_group_from_ui(self, GroupCommand::SetTags(tags), Some(initiator));
     }
 
     fn control_is_enabled(&self) -> bool {
@@ -833,7 +833,7 @@ impl Item for GroupModel {
     }
 
     fn set_control_is_enabled(&mut self, session: &mut Session, value: bool) {
-        session.group_set_from_ui(self, GroupPropVal::ControlIsEnabled(value), None);
+        session.change_group_from_ui(self, GroupCommand::SetControlIsEnabled(value), None);
     }
 
     fn feedback_is_enabled(&self) -> bool {
@@ -841,7 +841,7 @@ impl Item for GroupModel {
     }
 
     fn set_feedback_is_enabled(&mut self, session: &mut Session, value: bool) {
-        session.group_set_from_ui(self, GroupPropVal::FeedbackIsEnabled(value), None);
+        session.change_group_from_ui(self, GroupCommand::SetFeedbackIsEnabled(value), None);
     }
 
     fn activation_type(&self) -> ActivationType {
@@ -849,9 +849,9 @@ impl Item for GroupModel {
     }
 
     fn set_activation_type(&mut self, session: &mut Session, value: ActivationType) {
-        session.group_set_from_ui(
+        session.change_group_from_ui(
             self,
-            GroupPropVal::ActivationConditionProp(ActivationConditionPropVal::ActivationType(
+            GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetActivationType(
                 value,
             )),
             None,
@@ -863,11 +863,11 @@ impl Item for GroupModel {
     }
 
     fn set_modifier_condition_1(&mut self, session: &mut Session, value: ModifierConditionModel) {
-        session.group_set_from_ui(
+        session.change_group_from_ui(
             self,
-            GroupPropVal::ActivationConditionProp(ActivationConditionPropVal::ModifierCondition1(
-                value,
-            )),
+            GroupCommand::ChangeActivationCondition(
+                ActivationConditionCommand::SetModifierCondition1(value),
+            ),
             None,
         );
     }
@@ -877,11 +877,11 @@ impl Item for GroupModel {
     }
 
     fn set_modifier_condition_2(&mut self, session: &mut Session, value: ModifierConditionModel) {
-        session.group_set_from_ui(
+        session.change_group_from_ui(
             self,
-            GroupPropVal::ActivationConditionProp(ActivationConditionPropVal::ModifierCondition2(
-                value,
-            )),
+            GroupCommand::ChangeActivationCondition(
+                ActivationConditionCommand::SetModifierCondition2(value),
+            ),
             None,
         );
     }
@@ -891,9 +891,11 @@ impl Item for GroupModel {
     }
 
     fn set_bank_condition(&mut self, session: &mut Session, value: BankConditionModel) {
-        session.group_set_from_ui(
+        session.change_group_from_ui(
             self,
-            GroupPropVal::ActivationConditionProp(ActivationConditionPropVal::BankCondition(value)),
+            GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetBankCondition(
+                value,
+            )),
             None,
         );
     }
@@ -903,9 +905,11 @@ impl Item for GroupModel {
     }
 
     fn set_eel_condition(&mut self, session: &mut Session, value: String, initiator: u32) {
-        session.group_set_from_ui(
+        session.change_group_from_ui(
             self,
-            GroupPropVal::ActivationConditionProp(ActivationConditionPropVal::EelCondition(value)),
+            GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetEelCondition(
+                value,
+            )),
             Some(initiator),
         );
     }

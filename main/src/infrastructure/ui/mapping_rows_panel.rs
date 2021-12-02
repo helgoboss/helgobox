@@ -15,7 +15,7 @@ use slog::debug;
 use std::cmp;
 
 use crate::application::{
-    CompartmentProp, Session, SessionProp, SharedMapping, SharedSession, WeakSession,
+    Affected, CompartmentProp, Session, SessionProp, SharedMapping, SharedSession, WeakSession,
 };
 use crate::domain::{MappingCompartment, MappingId, MappingMatchedEvent};
 use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
@@ -76,29 +76,12 @@ impl MappingRowsPanel {
         }
     }
 
-    pub fn handle_session_prop_change(&self, session_prop: SessionProp, initiator: Option<u32>) {
-        match session_prop {
-            SessionProp::CompartmentProp(compartment, compartment_prop)
-                if compartment == self.active_compartment() =>
-            {
-                match compartment_prop {
-                    CompartmentProp::MappingProp(mapping_id, _) => {
-                        for row in &self.rows {
-                            if row.mapping_id() == Some(mapping_id) {
-                                row.handle_session_prop_change(session_prop, initiator);
-                            }
-                        }
-                    }
-                    CompartmentProp::GroupProp(group_id, _) => {
-                        for row in &self.rows {
-                            if row.group_id() == Some(group_id) {
-                                row.handle_session_prop_change(session_prop, initiator);
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {}
+    pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
+        if !self.is_open() {
+            return;
+        }
+        for row in &self.rows {
+            row.handle_affected(affected, initiator);
         }
     }
 

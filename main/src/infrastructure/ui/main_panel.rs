@@ -9,7 +9,7 @@ use reaper_high::Reaper;
 use slog::debug;
 use std::cell::{Cell, RefCell};
 
-use crate::application::{Session, SessionProp, SessionUi, WeakSession};
+use crate::application::{Affected, Session, SessionProp, SessionUi, WeakSession};
 use crate::base::when;
 use crate::domain::{
     MappingCompartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
@@ -209,19 +209,18 @@ impl MainPanel {
         }
     }
 
-    fn handle_session_prop_change(
+    fn handle_affected(
         self: SharedView<Self>,
-        prop: SessionProp,
+        affected: Affected<SessionProp>,
         initiator: Option<u32>,
     ) {
         if let Some(data) = self.active_data.borrow() {
             data.panel_manager
                 .borrow()
-                .handle_session_prop_change(prop, initiator);
+                .handle_affected(&affected, initiator);
             data.mapping_rows_panel
-                .handle_session_prop_change(prop, initiator);
-            data.header_panel
-                .handle_session_prop_change(prop, initiator);
+                .handle_affected(&affected, initiator);
+            data.header_panel.handle_affected(&affected, initiator);
         }
     }
 
@@ -318,15 +317,18 @@ impl SessionUi for Weak<MainPanel> {
         upgrade_panel(self).handle_matched_mapping(event);
     }
 
-    fn handle_prop_change(&self, prop: SessionProp, initiator: Option<u32>) {
+    fn handle_affected(&self, affected: Affected<SessionProp>, initiator: Option<u32>) {
         // We notify in the next main loop cycle. First, because otherwise we can easily run into
         // BorrowMut errors (because the handler might borrow the session but we still have it
         // borrowed at this point because this handler is called by the session). Second, because
         // deferring the reaction seems to result in a smoother user experience.
+        //
+        // Sending all affected properties to the next main loop cycle as one batch can improve
+        // could make flickering less likely, so do it.
         let weak_main_panel = self.clone();
         crate::base::Global::task_support()
             .do_later_in_main_thread_from_main_thread_asap(move || {
-                upgrade_panel(&weak_main_panel).handle_session_prop_change(prop, initiator);
+                upgrade_panel(&weak_main_panel).handle_affected(affected, initiator);
             })
             .unwrap();
     }

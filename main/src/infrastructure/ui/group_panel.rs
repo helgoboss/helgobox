@@ -37,39 +37,48 @@ impl GroupPanel {
         // If the reaction can't be displayed anymore because the mapping is not filled anymore,
         // so what.
         match prop {
-            SessionProp::CompartmentProp(_, prop) => match prop {
+            SessionProp::CompartmentProp(_, Some(prop)) => match prop {
                 CompartmentProp::GroupProp(_, prop) => {
-                    use GroupProp as P;
-                    match prop {
-                        P::Name => {
-                            self.mapping_header_panel
-                                .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
+                    if let Some(prop) = prop {
+                        use GroupProp as P;
+                        match prop {
+                            P::Name => {
+                                self.mapping_header_panel
+                                    .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
+                            }
+                            P::Tags => {
+                                self.mapping_header_panel
+                                    .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
+                            }
+                            P::ControlIsEnabled => {
+                                self.mapping_header_panel.invalidate_due_to_changed_prop(
+                                    ItemProp::ControlEnabled,
+                                    initiator,
+                                );
+                            }
+                            P::FeedbackIsEnabled => {
+                                self.mapping_header_panel.invalidate_due_to_changed_prop(
+                                    ItemProp::FeedbackEnabled,
+                                    initiator,
+                                );
+                            }
+                            P::ActivationConditionProp(p) => {
+                                if let Some(p) = p {
+                                    let item_prop = ItemProp::from_activation_condition_prop(p);
+                                    self.mapping_header_panel
+                                        .invalidate_due_to_changed_prop(item_prop, initiator);
+                                } else {
+                                    self.mapping_header_panel.invalidate_controls();
+                                }
+                            }
                         }
-                        P::Tags => {
-                            self.mapping_header_panel
-                                .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
-                        }
-                        P::ControlIsEnabled => {
-                            self.mapping_header_panel.invalidate_due_to_changed_prop(
-                                ItemProp::ControlEnabled,
-                                initiator,
-                            );
-                        }
-                        P::FeedbackIsEnabled => {
-                            self.mapping_header_panel.invalidate_due_to_changed_prop(
-                                ItemProp::FeedbackEnabled,
-                                initiator,
-                            );
-                        }
-                        P::ActivationConditionProp(p) => {
-                            let item_prop = ItemProp::from_activation_condition_prop(p);
-                            self.mapping_header_panel
-                                .invalidate_due_to_changed_prop(item_prop, initiator);
-                        }
+                    } else {
+                        self.mapping_header_panel.invalidate_controls();
                     }
                 }
-                CompartmentProp::MappingProp(_, _) => {}
+                _ => {}
             },
+            _ => {}
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::application::{GroupModel, GroupPropVal, Session};
+use crate::application::{Change, GroupCommand, GroupModel, Session};
 use crate::base::default_util::is_default;
 use crate::domain::{GroupId, GroupKey, MappingCompartment, Tag};
 use crate::infrastructure::data::{ActivationConditionData, EnabledData};
@@ -63,12 +63,12 @@ impl GroupModelData {
     }
 
     fn apply_to_model(&self, model: &mut GroupModel) {
-        model.set(GroupPropVal::Name(self.name.clone()));
-        model.set(GroupPropVal::Tags(self.tags.clone()));
-        model.set(GroupPropVal::ControlIsEnabled(
+        model.change(GroupCommand::SetName(self.name.clone()));
+        model.change(GroupCommand::SetTags(self.tags.clone()));
+        model.change(GroupCommand::SetControlIsEnabled(
             self.enabled_data.control_is_enabled,
         ));
-        model.set(GroupPropVal::FeedbackIsEnabled(
+        model.change(GroupCommand::SetFeedbackIsEnabled(
             self.enabled_data.feedback_is_enabled,
         ));
         self.activation_condition_data
