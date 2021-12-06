@@ -46,11 +46,13 @@ pub enum ProcessingRelevance {
     ProcessingRelevant,
 }
 
+pub type ChangeResult<T> = Result<Affected<T>, String>;
+
 pub trait Change<'a> {
     type Command;
     type Prop;
 
-    fn change(&mut self, val: Self::Command) -> Result<Affected<Self::Prop>, String>;
+    fn change(&mut self, val: Self::Command) -> ChangeResult<Self::Prop>;
 }
 
 pub trait GetProcessingRelevance {

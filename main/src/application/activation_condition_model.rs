@@ -1,5 +1,5 @@
 use crate::application::{
-    ActivationType, Affected, BankConditionModel, Change, GetProcessingRelevance,
+    ActivationType, Affected, BankConditionModel, Change, ChangeResult, GetProcessingRelevance,
     ModifierConditionModel, ProcessingRelevance,
 };
 use crate::base::Prop;
@@ -41,10 +41,7 @@ impl<'a> Change<'a> for ActivationConditionModel {
     type Command = ActivationConditionCommand;
     type Prop = ActivationConditionProp;
 
-    fn change(
-        &mut self,
-        cmd: ActivationConditionCommand,
-    ) -> Result<Affected<ActivationConditionProp>, String> {
+    fn change(&mut self, cmd: ActivationConditionCommand) -> ChangeResult<ActivationConditionProp> {
         use ActivationConditionCommand as C;
         use ActivationConditionProp as P;
         use Affected::*;

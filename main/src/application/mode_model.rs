@@ -11,7 +11,9 @@ use helgoboss_learn::{
 
 use rxrust::prelude::*;
 
-use crate::application::{Affected, Change, GetProcessingRelevance, ProcessingRelevance};
+use crate::application::{
+    Affected, Change, ChangeResult, GetProcessingRelevance, ProcessingRelevance,
+};
 use std::time::Duration;
 
 pub enum ModeCommand {
@@ -171,7 +173,7 @@ impl<'a> Change<'a> for ModeModel {
     type Command = ModeCommand;
     type Prop = ModeProp;
 
-    fn change(&mut self, cmd: ModeCommand) -> Result<Affected<ModeProp>, String> {
+    fn change(&mut self, cmd: ModeCommand) -> ChangeResult<ModeProp> {
         use Affected::*;
         use ModeCommand as C;
         use ModeProp as P;

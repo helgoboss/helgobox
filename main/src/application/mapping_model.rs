@@ -1,8 +1,8 @@
 use crate::application::{
     convert_factor_to_unit_value, ActivationConditionCommand, ActivationConditionModel,
-    ActivationConditionProp, Affected, Change, GetProcessingRelevance, MappingExtensionModel,
-    ModeCommand, ModeModel, ModeProp, ProcessingRelevance, SourceModel, TargetCategory,
-    TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
+    ActivationConditionProp, Affected, Change, ChangeResult, GetProcessingRelevance,
+    MappingExtensionModel, ModeCommand, ModeModel, ModeProp, ProcessingRelevance, SourceModel,
+    TargetCategory, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
 };
 use crate::base::{prop, Prop};
 use crate::domain::{
@@ -128,7 +128,7 @@ impl<'a> Change<'a> for MappingModel {
     type Command = MappingCommand;
     type Prop = MappingProp;
 
-    fn change(&mut self, cmd: MappingCommand) -> Result<Affected<MappingProp>, String> {
+    fn change(&mut self, cmd: MappingCommand) -> ChangeResult<MappingProp> {
         use Affected::*;
         use MappingCommand as C;
         use MappingProp as P;
@@ -401,10 +401,7 @@ impl MappingModel {
         }
     }
 
-    pub fn reset_mode(
-        &mut self,
-        context: ExtendedProcessorContext,
-    ) -> Result<Affected<MappingProp>, String> {
+    pub fn reset_mode(&mut self, context: ExtendedProcessorContext) -> ChangeResult<MappingProp> {
         self.mode_model.change(ModeCommand::ResetWithinType)?;
         self.set_preferred_mode_values(context)
     }
@@ -413,7 +410,7 @@ impl MappingModel {
     pub fn set_preferred_mode_values(
         &mut self,
         context: ExtendedProcessorContext,
-    ) -> Result<Affected<MappingProp>, String> {
+    ) -> ChangeResult<MappingProp> {
         let affected = self.mode_model.change(ModeCommand::SetStepInterval(
             self.with_context(context).preferred_step_interval(),
         ))?;

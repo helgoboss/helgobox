@@ -1,9 +1,9 @@
 use crate::application::{
-    share_group, share_mapping, Affected, Change, CompartmentCommand, CompartmentModel,
-    CompartmentProp, ControllerPreset, FxId, GroupCommand, GroupModel, GroupProp, MainPreset,
-    MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp, Preset, PresetLinkManager,
-    PresetManager, ProcessingRelevance, QualifiedGroupId, SharedGroup, SharedMapping, SourceModel,
-    TargetCategory, TargetModel, VirtualControlElementType,
+    share_group, share_mapping, Affected, Change, ChangeResult, CompartmentCommand,
+    CompartmentModel, CompartmentProp, ControllerPreset, FxId, GroupCommand, GroupModel, GroupProp,
+    MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp, Preset,
+    PresetLinkManager, PresetManager, ProcessingRelevance, QualifiedGroupId, SharedGroup,
+    SharedMapping, SourceModel, TargetCategory, TargetModel, VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
 use crate::base::{prop, when, AsyncNotifier, Global, Prop};
@@ -1205,7 +1205,7 @@ impl Session {
         &mut self,
         compartment: MappingCompartment,
         cmd: CompartmentCommand,
-    ) -> Result<Affected<CompartmentProp>, String> {
+    ) -> ChangeResult<CompartmentProp> {
         use Affected::*;
         use CompartmentCommand as C;
         use CompartmentProp as P;
@@ -1230,8 +1230,8 @@ impl Session {
     fn changing_mapping(
         &mut self,
         id: QualifiedMappingId,
-        f: impl FnOnce(MappingChangeContext) -> Result<Affected<MappingProp>, String>,
-    ) -> Result<Affected<CompartmentProp>, String> {
+        f: impl FnOnce(MappingChangeContext) -> ChangeResult<MappingProp>,
+    ) -> ChangeResult<CompartmentProp> {
         use Affected::*;
         let mapping = self
             .find_mapping_and_index_by_id(id.compartment, id.id)

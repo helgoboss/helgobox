@@ -1,6 +1,6 @@
 use crate::application::{
     ActivationConditionCommand, ActivationConditionModel, ActivationConditionProp, Affected,
-    Change, GetProcessingRelevance, GroupData, ProcessingRelevance,
+    Change, ChangeResult, GetProcessingRelevance, GroupData, ProcessingRelevance,
 };
 use crate::base::{prop, Prop};
 use crate::domain::{GroupId, GroupKey, MappingCompartment, Tag};
@@ -67,7 +67,7 @@ impl<'a> Change<'a> for GroupModel {
     type Command = GroupCommand;
     type Prop = GroupProp;
 
-    fn change(&mut self, cmd: GroupCommand) -> Result<Affected<GroupProp>, String> {
+    fn change(&mut self, cmd: GroupCommand) -> ChangeResult<GroupProp> {
         use Affected::*;
         use GroupCommand as C;
         use GroupProp as P;
