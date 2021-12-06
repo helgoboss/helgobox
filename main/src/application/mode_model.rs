@@ -186,22 +186,30 @@ impl<'a> Change<'a> for ModeModel {
                 self.target_value_interval = v;
                 One(P::TargetValueInterval)
             }
-            C::SetMinTargetValue(v) => self.change(C::SetTargetValueInterval(
-                self.target_value_interval.with_min(v),
-            ))?,
-            C::SetMaxTargetValue(v) => self.change(C::SetTargetValueInterval(
-                self.target_value_interval.with_max(v),
-            ))?,
+            C::SetMinTargetValue(v) => {
+                return self.change(C::SetTargetValueInterval(
+                    self.target_value_interval.with_min(v),
+                ))
+            }
+            C::SetMaxTargetValue(v) => {
+                return self.change(C::SetTargetValueInterval(
+                    self.target_value_interval.with_max(v),
+                ))
+            }
             C::SetSourceValueInterval(v) => {
                 self.source_value_interval = v;
                 One(P::SourceValueInterval)
             }
-            C::SetMinSourceValue(v) => self.change(C::SetSourceValueInterval(
-                self.source_value_interval.with_min(v),
-            ))?,
-            C::SetMaxSourceValue(v) => self.change(C::SetSourceValueInterval(
-                self.source_value_interval.with_max(v),
-            ))?,
+            C::SetMinSourceValue(v) => {
+                return self.change(C::SetSourceValueInterval(
+                    self.source_value_interval.with_min(v),
+                ))
+            }
+            C::SetMaxSourceValue(v) => {
+                return self.change(C::SetSourceValueInterval(
+                    self.source_value_interval.with_max(v),
+                ))
+            }
             C::SetReverse(v) => {
                 self.reverse = v;
                 One(P::Reverse)
@@ -210,12 +218,16 @@ impl<'a> Change<'a> for ModeModel {
                 self.press_duration_interval = v;
                 One(P::PressDurationInterval)
             }
-            C::SetMinPressDuration(v) => self.change(C::SetPressDurationInterval(
-                self.press_duration_interval.with_min(v),
-            ))?,
-            C::SetMaxPressDuration(v) => self.change(C::SetPressDurationInterval(
-                self.press_duration_interval.with_max(v),
-            ))?,
+            C::SetMinPressDuration(v) => {
+                return self.change(C::SetPressDurationInterval(
+                    self.press_duration_interval.with_min(v),
+                ))
+            }
+            C::SetMaxPressDuration(v) => {
+                return self.change(C::SetPressDurationInterval(
+                    self.press_duration_interval.with_max(v),
+                ))
+            }
             C::SetTurboRate(v) => {
                 self.turbo_rate = v;
                 One(P::TurboRate)
@@ -224,8 +236,12 @@ impl<'a> Change<'a> for ModeModel {
                 self.jump_interval = v;
                 One(P::JumpInterval)
             }
-            C::SetMinJump(v) => self.change(C::SetJumpInterval(self.jump_interval.with_min(v)))?,
-            C::SetMaxJump(v) => self.change(C::SetJumpInterval(self.jump_interval.with_max(v)))?,
+            C::SetMinJump(v) => {
+                return self.change(C::SetJumpInterval(self.jump_interval.with_min(v)))
+            }
+            C::SetMaxJump(v) => {
+                return self.change(C::SetJumpInterval(self.jump_interval.with_max(v)))
+            }
             C::SetOutOfRangeBehavior(v) => {
                 self.out_of_range_behavior = v;
                 One(P::OutOfRangeBehavior)
@@ -262,8 +278,12 @@ impl<'a> Change<'a> for ModeModel {
                 self.step_interval = v;
                 One(P::StepInterval)
             }
-            C::SetMinStep(v) => self.change(C::SetStepInterval(self.step_interval.with_min(v)))?,
-            C::SetMaxStep(v) => self.change(C::SetStepInterval(self.step_interval.with_max(v)))?,
+            C::SetMinStep(v) => {
+                return self.change(C::SetStepInterval(self.step_interval.with_min(v)))
+            }
+            C::SetMaxStep(v) => {
+                return self.change(C::SetStepInterval(self.step_interval.with_max(v)))
+            }
             C::SetRotate(v) => {
                 self.rotate = v;
                 One(P::Rotate)
@@ -301,7 +321,7 @@ impl<'a> Change<'a> for ModeModel {
                 Multiple
             }
         };
-        Ok(affected)
+        Ok(Some(affected))
     }
 }
 

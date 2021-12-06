@@ -1464,6 +1464,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn reset_mode(&mut self) {
+        // TODO-high Fix Borrow error
         self.session.change(
             SessionCommand::ResetMappingMode(self.mapping.qualified_id()),
             None,
@@ -1482,6 +1483,10 @@ impl<'a> MutableMappingPanel<'a> {
         self.change_mapping(MappingCommand::ChangeMode(ModeCommand::SetAbsoluteMode(
             mode,
         )));
+        // TODO-high Fix Borrow error. Go on with source and target conversion first and
+        //  see if we run into this problem a lot, too. If yes, it might be less effort to
+        //  add a changing_mapping() method that allows one to call arbitrary methods
+        //  on the passed-in mapping - then we don't have to borrow the mapping again!
         self.session.change(
             SessionCommand::SetPreferredMappingModeValues(self.mapping.qualified_id()),
             None,

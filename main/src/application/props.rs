@@ -46,7 +46,7 @@ pub enum ProcessingRelevance {
     ProcessingRelevant,
 }
 
-pub type ChangeResult<T> = Result<Affected<T>, String>;
+pub type ChangeResult<T> = Result<Option<Affected<T>>, String>;
 
 pub trait Change<'a> {
     type Command;

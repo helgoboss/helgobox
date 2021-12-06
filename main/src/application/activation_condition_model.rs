@@ -67,7 +67,7 @@ impl<'a> Change<'a> for ActivationConditionModel {
                 One(P::EelCondition)
             }
         };
-        Ok(affected)
+        Ok(Some(affected))
     }
 }
 

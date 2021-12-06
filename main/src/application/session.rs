@@ -1023,15 +1023,14 @@ impl Session {
         initiator: Option<u32>,
         weak_session: WeakSession,
     ) -> Result<(), String> {
-        use Affected::*;
-        let affected = One(SessionProp::InCompartment(
-            mapping.compartment(),
-            One(CompartmentProp::InMapping(
-                mapping.id(),
-                mapping.change(cmd)?,
-            )),
-        ));
-        self.handle_affected(affected, initiator, weak_session);
+        if let Some(affected) = mapping.change(cmd)? {
+            use Affected::*;
+            let affected = One(SessionProp::InCompartment(
+                mapping.compartment(),
+                One(CompartmentProp::InMapping(mapping.id(), affected)),
+            ));
+            self.handle_affected(affected, initiator, weak_session);
+        }
         Ok(())
     }
 
@@ -1053,12 +1052,14 @@ impl Session {
         initiator: Option<u32>,
         weak_session: WeakSession,
     ) -> Result<(), String> {
-        use Affected::*;
-        let affected = One(SessionProp::InCompartment(
-            group.compartment(),
-            One(CompartmentProp::InGroup(group.id(), group.change(cmd)?)),
-        ));
-        self.handle_affected(affected, initiator, weak_session);
+        if let Some(affected) = group.change(cmd)? {
+            use Affected::*;
+            let affected = One(SessionProp::InCompartment(
+                group.compartment(),
+                One(CompartmentProp::InGroup(group.id(), affected)),
+            ));
+            self.handle_affected(affected, initiator, weak_session);
+        }
         Ok(())
     }
 
@@ -1098,35 +1099,27 @@ impl Session {
         use Affected::*;
         use SessionCommand as C;
         use SessionProp as P;
-        let affected = match cmd {
-            C::ChangeCompartment(compartment, cmd) => {
-                let affected = self.change_compartment_internal(compartment, cmd)?;
-                One(P::InCompartment(compartment, affected))
-            }
-            C::AdjustMappingModeIfNecessary(id) => {
-                let affected = self.changing_mapping(id, |ctx| {
-                    // TODO-high We should change the result into Result<Option<Affected>, String>
-                    //  everywhere and handle changes ONLY if affected is Some.
-                    Ok(ctx
-                        .mapping
-                        .adjust_mode_if_necessary(ctx.extended_context)?
-                        .unwrap())
-                })?;
-                One(P::InCompartment(id.compartment, affected))
-            }
-            C::ResetMappingMode(id) => {
-                let affected =
-                    self.changing_mapping(id, |ctx| ctx.mapping.reset_mode(ctx.extended_context))?;
-                One(P::InCompartment(id.compartment, affected))
-            }
-            C::SetPreferredMappingModeValues(id) => {
-                let affected = self.changing_mapping(id, |ctx| {
+        let opt_affected = match cmd {
+            C::ChangeCompartment(compartment, cmd) => self
+                .change_compartment_internal(compartment, cmd)?
+                .map(|affected| One(P::InCompartment(compartment, affected))),
+            C::AdjustMappingModeIfNecessary(id) => self
+                .changing_mapping(id, |ctx| {
+                    ctx.mapping.adjust_mode_if_necessary(ctx.extended_context)
+                })?
+                .map(|affected| One(P::InCompartment(id.compartment, affected))),
+            C::ResetMappingMode(id) => self
+                .changing_mapping(id, |ctx| ctx.mapping.reset_mode(ctx.extended_context))?
+                .map(|affected| One(P::InCompartment(id.compartment, affected))),
+            C::SetPreferredMappingModeValues(id) => self
+                .changing_mapping(id, |ctx| {
                     ctx.mapping.set_preferred_mode_values(ctx.extended_context)
-                })?;
-                One(P::InCompartment(id.compartment, affected))
-            }
+                })?
+                .map(|affected| One(P::InCompartment(id.compartment, affected))),
         };
-        self.handle_affected(affected, initiator, weak_session);
+        if let Some(affected) = opt_affected {
+            self.handle_affected(affected, initiator, weak_session);
+        }
         Ok(())
     }
 
@@ -1216,8 +1209,9 @@ impl Session {
                     .ok_or(String::from("group not found"))?
                     .clone();
                 let mut group = group.borrow_mut();
-                let affected = group.change(cmd)?;
-                One(CompartmentProp::InGroup(group_id, affected))
+                group
+                    .change(cmd)?
+                    .map(|affected| One(CompartmentProp::InGroup(group_id, affected)))
             }
             C::ChangeMapping(mapping_id, cmd) => self.changing_mapping(
                 QualifiedMappingId::new(compartment, mapping_id),
@@ -1243,7 +1237,7 @@ impl Session {
             mapping: &mut mapping,
             extended_context: self.extended_context(),
         };
-        Ok(One(CompartmentProp::InMapping(id.id, f(change_context)?)))
+        Ok(f(change_context)?.map(|affected| One(CompartmentProp::InMapping(id.id, affected))))
     }
 
     pub fn compartment_in_session(&self, compartment: MappingCompartment) -> CompartmentInSession {

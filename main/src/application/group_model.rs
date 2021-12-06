@@ -88,11 +88,15 @@ impl<'a> Change<'a> for GroupModel {
                 self.feedback_is_enabled = v;
                 One(P::FeedbackIsEnabled)
             }
-            C::ChangeActivationCondition(cmd) => One(P::InActivationCondition(
-                self.activation_condition_model.change(cmd)?,
-            )),
+            C::ChangeActivationCondition(cmd) => {
+                let affected = self
+                    .activation_condition_model
+                    .change(cmd)?
+                    .map(|affected| One(P::InActivationCondition(affected)));
+                return Ok(affected);
+            }
         };
-        Ok(affected)
+        Ok(Some(affected))
     }
 }
 

@@ -170,13 +170,23 @@ impl<'a> Change<'a> for MappingModel {
                 self.visible_in_projection = v;
                 One(P::VisibleInProjection)
             }
-            C::ChangeActivationCondition(cmd) => One(P::InActivationCondition(
-                self.activation_condition_model.change(cmd)?,
-            )),
-            C::ChangeMode(cmd) => One(P::InMode(self.mode_model.change(cmd)?)),
-            C::ClearName => self.change(MappingCommand::SetName(String::new()))?,
+            C::ChangeActivationCondition(cmd) => {
+                let affected = self
+                    .activation_condition_model
+                    .change(cmd)?
+                    .map(|affected| One(P::InActivationCondition(affected)));
+                return Ok(affected);
+            }
+            C::ChangeMode(cmd) => {
+                let affected = self
+                    .mode_model
+                    .change(cmd)?
+                    .map(|affected| One(P::InMode(affected)));
+                return Ok(affected);
+            }
+            C::ClearName => return self.change(MappingCommand::SetName(String::new())),
         };
-        Ok(affected)
+        Ok(Some(affected))
     }
 }
 
@@ -386,13 +396,13 @@ impl MappingModel {
     pub fn adjust_mode_if_necessary(
         &mut self,
         context: ExtendedProcessorContext,
-    ) -> Result<Option<Affected<MappingProp>>, String> {
+    ) -> ChangeResult<MappingProp> {
         let with_context = self.with_context(context);
         if with_context.mode_makes_sense() == Ok(false) {
             if let Ok(preferred_mode_type) = with_context.preferred_mode_type() {
                 self.mode_model
                     .change(ModeCommand::SetAbsoluteMode(preferred_mode_type));
-                Ok(Some(self.set_preferred_mode_values(context)?))
+                self.set_preferred_mode_values(context)
             } else {
                 Ok(None)
             }
@@ -411,10 +421,13 @@ impl MappingModel {
         &mut self,
         context: ExtendedProcessorContext,
     ) -> ChangeResult<MappingProp> {
-        let affected = self.mode_model.change(ModeCommand::SetStepInterval(
-            self.with_context(context).preferred_step_interval(),
-        ))?;
-        Ok(Affected::One(MappingProp::InMode(affected)))
+        let affected = self
+            .mode_model
+            .change(ModeCommand::SetStepInterval(
+                self.with_context(context).preferred_step_interval(),
+            ))?
+            .map(|affected| Affected::One(MappingProp::InMode(affected)));
+        Ok(affected)
     }
 
     /// Fires whenever a property has changed that has an effect on control/feedback processing.
