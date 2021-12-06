@@ -1,8 +1,8 @@
 use crate::application::{
     convert_factor_to_unit_value, ActivationConditionCommand, ActivationConditionModel,
     ActivationConditionProp, Affected, Change, GetProcessingRelevance, MappingExtensionModel,
-    ModeModel, ProcessingRelevance, SourceModel, TargetCategory, TargetModel,
-    TargetModelFormatVeryShort, TargetModelWithContext,
+    ModeCommand, ModeModel, ModeProp, ProcessingRelevance, SourceModel, TargetCategory,
+    TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
 };
 use crate::base::{prop, Prop};
 use crate::domain::{
@@ -33,6 +33,7 @@ pub enum MappingCommand {
     SetVisibleInProjection(bool),
     SetAdvancedSettings(Option<serde_yaml::mapping::Mapping>),
     ChangeActivationCondition(ActivationConditionCommand),
+    ChangeMode(ModeCommand),
     ClearName,
 }
 
@@ -47,6 +48,7 @@ pub enum MappingProp {
     VisibleInProjection,
     AdvancedSettings,
     InActivationCondition(Affected<ActivationConditionProp>),
+    InMode(Affected<ModeProp>),
 }
 
 impl GetProcessingRelevance for MappingProp {
@@ -61,6 +63,7 @@ impl GetProcessingRelevance for MappingProp {
             | P::VisibleInProjection
             | P::AdvancedSettings => Some(ProcessingRelevance::ProcessingRelevant),
             P::InActivationCondition(p) => p.processing_relevance(),
+            P::InMode(p) => p.processing_relevance(),
             P::IsEnabled => Some(ProcessingRelevance::PersistentProcessingRelevant),
             MappingProp::GroupId => {
                 // This is handled in different ways.
@@ -121,7 +124,7 @@ fn get_default_target_category_for_compartment(compartment: MappingCompartment) 
     }
 }
 
-impl Change for MappingModel {
+impl<'a> Change<'a> for MappingModel {
     type Command = MappingCommand;
     type Prop = MappingProp;
 
@@ -170,6 +173,7 @@ impl Change for MappingModel {
             C::ChangeActivationCondition(cmd) => One(P::InActivationCondition(
                 self.activation_condition_model.change(cmd)?,
             )),
+            C::ChangeMode(cmd) => One(P::InMode(self.mode_model.change(cmd)?)),
             C::ClearName => self.change(MappingCommand::SetName(String::new()))?,
         };
         Ok(affected)
@@ -379,26 +383,41 @@ impl MappingModel {
         }
     }
 
-    pub fn adjust_mode_if_necessary(&mut self, context: ExtendedProcessorContext) {
+    pub fn adjust_mode_if_necessary(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Result<Option<Affected<MappingProp>>, String> {
         let with_context = self.with_context(context);
         if with_context.mode_makes_sense() == Ok(false) {
             if let Ok(preferred_mode_type) = with_context.preferred_mode_type() {
-                self.mode_model.r#type.set(preferred_mode_type);
-                self.set_preferred_mode_values(context);
+                self.mode_model
+                    .change(ModeCommand::SetAbsoluteMode(preferred_mode_type));
+                Ok(Some(self.set_preferred_mode_values(context)?))
+            } else {
+                Ok(None)
             }
+        } else {
+            Ok(None)
         }
     }
 
-    pub fn reset_mode(&mut self, context: ExtendedProcessorContext) {
-        self.mode_model.reset_within_type();
-        self.set_preferred_mode_values(context);
+    pub fn reset_mode(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Result<Affected<MappingProp>, String> {
+        self.mode_model.change(ModeCommand::ResetWithinType)?;
+        self.set_preferred_mode_values(context)
     }
 
     // Changes mode settings if there are some preferred ones for a certain source or target.
-    pub fn set_preferred_mode_values(&mut self, context: ExtendedProcessorContext) {
-        self.mode_model
-            .step_interval
-            .set(self.with_context(context).preferred_step_interval())
+    pub fn set_preferred_mode_values(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Result<Affected<MappingProp>, String> {
+        let affected = self.mode_model.change(ModeCommand::SetStepInterval(
+            self.with_context(context).preferred_step_interval(),
+        ))?;
+        Ok(Affected::One(MappingProp::InMode(affected)))
     }
 
     /// Fires whenever a property has changed that has an effect on control/feedback processing.
@@ -411,7 +430,6 @@ impl MappingModel {
     ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.source_model
             .changed()
-            .merge(self.mode_model.changed())
             .merge(self.target_model.changed())
     }
 
@@ -421,18 +439,14 @@ impl MappingModel {
             // TODO-high-discrete Enable (also taking source into consideration!)
             target_supports_discrete_values: false,
             is_feedback: false,
-            make_absolute: self.mode_model.make_absolute.get(),
-            use_textual_feedback: self.mode_model.feedback_type.get().is_textual(),
+            make_absolute: self.mode_model.make_absolute(),
+            use_textual_feedback: self.mode_model.feedback_type().is_textual(),
             // Any is okay, will be overwritten.
             source_character: DetailedSourceCharacter::RangeControl,
-            absolute_mode: self.mode_model.r#type.get(),
+            absolute_mode: self.mode_model.absolute_mode(),
             // Any is okay, will be overwritten.
             mode_parameter: ModeParameter::TargetMinMax,
-            target_value_sequence_is_set: !self
-                .mode_model
-                .target_value_sequence
-                .get_ref()
-                .is_empty(),
+            target_value_sequence_is_set: !self.mode_model.target_value_sequence().is_empty(),
         }
     }
 
@@ -514,7 +528,7 @@ impl MappingModel {
             merged_tags,
             source,
             mode,
-            self.mode_model.group_interaction.get(),
+            self.mode_model.group_interaction(),
             unresolved_target,
             group_data.activation_condition,
             activation_condition,
@@ -553,7 +567,7 @@ impl<'a> MappingModelWithContext<'a> {
     pub fn mode_makes_sense(&self) -> Result<bool, &'static str> {
         use ExtendedSourceCharacter::*;
         use SourceCharacter::*;
-        let mode_type = self.mapping.mode_model.r#type.get();
+        let mode_type = self.mapping.mode_model.absolute_mode();
         let result = match self.mapping.source_model.character() {
             Normal(RangeElement) => mode_type == AbsoluteMode::Normal,
             Normal(MomentaryButton) | Normal(ToggleButton) => {

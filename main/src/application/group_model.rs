@@ -63,7 +63,7 @@ pub struct GroupModel {
     activation_condition_model: ActivationConditionModel,
 }
 
-impl Change for GroupModel {
+impl<'a> Change<'a> for GroupModel {
     type Command = GroupCommand;
     type Prop = GroupProp;
 

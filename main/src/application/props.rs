@@ -46,7 +46,7 @@ pub enum ProcessingRelevance {
     ProcessingRelevant,
 }
 
-pub trait Change {
+pub trait Change<'a> {
     type Command;
     type Prop;
 

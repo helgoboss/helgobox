@@ -114,11 +114,7 @@ impl MappingRowPanel {
                                 P::FeedbackIsEnabled => {
                                     self.invalidate_feedback_check_box(m);
                                 }
-                                MappingProp::GroupId
-                                | MappingProp::FeedbackSendBehavior
-                                | MappingProp::VisibleInProjection
-                                | MappingProp::AdvancedSettings
-                                | MappingProp::InActivationCondition(_) => {}
+                                _ => {}
                             }
                         }
                     }
@@ -1007,6 +1003,7 @@ fn paste_data_object_in_place(
         }
         DataObject::Mode(Envelope { value: m }) => {
             m.apply_to_model(&mut mapping.mode_model);
+            // TODO-high Let notify session that mapping changed (or everything).
         }
         DataObject::Target(Envelope { value: t }) => {
             let compartment_in_session = session.compartment_in_session(triple.compartment);

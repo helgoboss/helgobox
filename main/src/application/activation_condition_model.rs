@@ -37,7 +37,7 @@ pub struct ActivationConditionModel {
     eel_condition: String,
 }
 
-impl Change for ActivationConditionModel {
+impl<'a> Change<'a> for ActivationConditionModel {
     type Command = ActivationConditionCommand;
     type Prop = ActivationConditionProp;
 

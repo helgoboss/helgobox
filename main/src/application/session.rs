@@ -771,7 +771,7 @@ impl Session {
                 let mapping = shared_mapping.borrow();
                 let shared_mapping_clone_1 = shared_mapping.clone();
                 let shared_mapping_clone_2 = shared_mapping.clone();
-                let shared_mapping_clone_3 = shared_mapping.clone();
+                let qualified_mapping_id = mapping.qualified_id();
                 let all_subscriptions = LocalSubscription::default();
                 // Keep syncing complete mappings to processors
                 {
@@ -800,11 +800,11 @@ impl Session {
                         // Parameter values are not important for mode auto correction because
                         // dynamic targets don't really profit from it anyway. Therefore just
                         // use zero parameters.
-                        let session = session.borrow();
-                        let extended_context = session.extended_context();
-                        shared_mapping_clone_3
-                            .borrow_mut()
-                            .adjust_mode_if_necessary(extended_context);
+                        session.borrow_mut().change(
+                            SessionCommand::AdjustMappingModeIfNecessary(qualified_mapping_id),
+                            None,
+                            Rc::downgrade(&session),
+                        );
                     });
                     all_subscriptions.add(subscription);
                 }
@@ -1089,7 +1089,7 @@ impl Session {
     ///
     /// Reasoning: With this single point of entry for changing something in the session, we can
     /// easily intercept certain changes, notify the UI and so on. Without magic and without rxRust!
-    fn change(
+    pub fn change(
         &mut self,
         cmd: SessionCommand,
         initiator: Option<u32>,
@@ -1102,6 +1102,28 @@ impl Session {
             C::ChangeCompartment(compartment, cmd) => {
                 let affected = self.change_compartment_internal(compartment, cmd)?;
                 One(P::InCompartment(compartment, affected))
+            }
+            C::AdjustMappingModeIfNecessary(id) => {
+                let affected = self.changing_mapping(id, |ctx| {
+                    // TODO-high We should change the result into Result<Option<Affected>, String>
+                    //  everywhere and handle changes ONLY if affected is Some.
+                    Ok(ctx
+                        .mapping
+                        .adjust_mode_if_necessary(ctx.extended_context)?
+                        .unwrap())
+                })?;
+                One(P::InCompartment(id.compartment, affected))
+            }
+            C::ResetMappingMode(id) => {
+                let affected =
+                    self.changing_mapping(id, |ctx| ctx.mapping.reset_mode(ctx.extended_context))?;
+                One(P::InCompartment(id.compartment, affected))
+            }
+            C::SetPreferredMappingModeValues(id) => {
+                let affected = self.changing_mapping(id, |ctx| {
+                    ctx.mapping.set_preferred_mode_values(ctx.extended_context)
+                })?;
+                One(P::InCompartment(id.compartment, affected))
             }
         };
         self.handle_affected(affected, initiator, weak_session);
@@ -1197,18 +1219,31 @@ impl Session {
                 let affected = group.change(cmd)?;
                 One(CompartmentProp::InGroup(group_id, affected))
             }
-            C::ChangeMapping(mapping_id, cmd) => {
-                let mapping = self
-                    .find_mapping_and_index_by_id(compartment, mapping_id)
-                    .ok_or(String::from("mapping not found"))?
-                    .1
-                    .clone();
-                let mut mapping = mapping.borrow_mut();
-                let affected = mapping.change(cmd)?;
-                One(CompartmentProp::InMapping(mapping_id, affected))
-            }
+            C::ChangeMapping(mapping_id, cmd) => self.changing_mapping(
+                QualifiedMappingId::new(compartment, mapping_id),
+                move |ctx| ctx.mapping.change(cmd),
+            )?,
         };
         Ok(affected)
+    }
+
+    fn changing_mapping(
+        &mut self,
+        id: QualifiedMappingId,
+        f: impl FnOnce(MappingChangeContext) -> Result<Affected<MappingProp>, String>,
+    ) -> Result<Affected<CompartmentProp>, String> {
+        use Affected::*;
+        let mapping = self
+            .find_mapping_and_index_by_id(id.compartment, id.id)
+            .ok_or(String::from("mapping not found"))?
+            .1
+            .clone();
+        let mut mapping = mapping.borrow_mut();
+        let change_context = MappingChangeContext {
+            mapping: &mut mapping,
+            extended_context: self.extended_context(),
+        };
+        Ok(One(CompartmentProp::InMapping(id.id, f(change_context)?)))
     }
 
     pub fn compartment_in_session(&self, compartment: MappingCompartment) -> CompartmentInSession {
@@ -2572,6 +2607,9 @@ pub fn reaper_supports_global_midi_filter() -> bool {
 
 pub enum SessionCommand {
     ChangeCompartment(MappingCompartment, CompartmentCommand),
+    AdjustMappingModeIfNecessary(QualifiedMappingId),
+    ResetMappingMode(QualifiedMappingId),
+    SetPreferredMappingModeValues(QualifiedMappingId),
 }
 
 pub enum SessionProp {
@@ -2581,4 +2619,9 @@ pub enum SessionProp {
 pub struct CompartmentInSession<'a> {
     pub session: &'a Session,
     pub compartment: MappingCompartment,
+}
+
+struct MappingChangeContext<'a> {
+    mapping: &'a mut MappingModel,
+    extended_context: ExtendedProcessorContext<'a>,
 }
