@@ -1,44 +1,14 @@
 use enum_iterator::IntoEnumIterator;
 
 /// A type which can express what properties are potentially be affected by a change operation.
-pub enum Affected<T: Copy> {
+pub enum Affected<T> {
     /// Just the given property might be affected.
     One(T),
-    /// All the given properties might be affected.
-    Multiple(Vec<T>),
-    /// Many properties might be affected but I'm too lazy at the moment to enumerate them.
-    ///
-    /// This behaves just like [Self::All] but acts as a marker for possible later UI performance
-    /// improvements.
-    Whatever,
-    /// All properties might be affected (for real ... I'm not just lazy!).
-    All,
+    /// Multiple properties might be affected.
+    Multiple,
 }
 
-impl<T: Copy> Affected<T> {
-    /// Returns an iterator over the affected properties or `None` if potentially all
-    /// properties are affected (which one might react to with a complete refresh on the UI side).
-    pub fn opt_iter(&self) -> Option<impl Iterator<Item = T>> {
-        use Affected::*;
-        match self {
-            One(p) => Some(vec![*p].into_iter()),
-            // TODO-high Cloning the vec is not particularly efficient. Better write an own
-            //  iterator that considers One or Multiple without using boxing.
-            Multiple(v) => Some(v.clone().into_iter()),
-            Whatever | All => None,
-        }
-    }
-
-    /// For wrapping one or multiple affected props with a surrounding prop.
-    pub fn map<R: Copy>(self, f: impl Fn(Option<T>) -> R) -> Affected<R> {
-        use Affected::*;
-        match self {
-            One(p) => One(f(Some(p))),
-            Multiple(v) => Multiple(v.into_iter().map(|p| f(Some(p))).collect()),
-            Whatever | All => One(f(None)),
-        }
-    }
-
+impl<T> Affected<T> {
     pub fn processing_relevance(&self) -> Option<ProcessingRelevance>
     where
         T: GetProcessingRelevance,
@@ -46,8 +16,7 @@ impl<T: Copy> Affected<T> {
         use Affected::*;
         match self {
             One(p) => p.processing_relevance(),
-            Multiple(v) => v.iter().flat_map(|p| p.processing_relevance()).max(),
-            Whatever | All => Some(ProcessingRelevance::ProcessingRelevant),
+            Multiple => Some(ProcessingRelevance::ProcessingRelevant),
         }
     }
 }
@@ -79,7 +48,7 @@ pub enum ProcessingRelevance {
 
 pub trait Change {
     type Command;
-    type Prop: Copy;
+    type Prop;
 
     fn change(&mut self, val: Self::Command) -> Result<Affected<Self::Prop>, String>;
 }

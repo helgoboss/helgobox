@@ -17,14 +17,12 @@ pub enum GroupCommand {
     ChangeActivationCondition(ActivationConditionCommand),
 }
 
-#[derive(Copy, Clone)]
 pub enum GroupProp {
     Name,
     Tags,
     ControlIsEnabled,
     FeedbackIsEnabled,
-    /// `None` means that the complete activation condition is affected.
-    ActivationConditionProp(Option<ActivationConditionProp>),
+    InActivationCondition(Affected<ActivationConditionProp>),
 }
 
 impl GetProcessingRelevance for GroupProp {
@@ -34,9 +32,7 @@ impl GetProcessingRelevance for GroupProp {
             P::Tags | P::ControlIsEnabled | P::FeedbackIsEnabled => {
                 Some(ProcessingRelevance::ProcessingRelevant)
             }
-            P::ActivationConditionProp(p) => p
-                .map(|p| p.processing_relevance())
-                .unwrap_or(Some(ProcessingRelevance::ProcessingRelevant)),
+            P::InActivationCondition(p) => p.processing_relevance(),
             P::Name => None,
         }
     }
@@ -92,10 +88,9 @@ impl Change for GroupModel {
                 self.feedback_is_enabled = v;
                 One(P::FeedbackIsEnabled)
             }
-            C::ChangeActivationCondition(cmd) => {
-                let affected = self.activation_condition_model.change(cmd)?;
-                affected.map(P::ActivationConditionProp)
-            }
+            C::ChangeActivationCondition(cmd) => One(P::InActivationCondition(
+                self.activation_condition_model.change(cmd)?,
+            )),
         };
         Ok(affected)
     }

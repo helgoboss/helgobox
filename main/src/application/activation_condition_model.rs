@@ -14,7 +14,6 @@ pub enum ActivationConditionCommand {
     SetEelCondition(String),
 }
 
-#[derive(Copy, Clone)]
 pub enum ActivationConditionProp {
     ActivationType,
     ModifierCondition1,

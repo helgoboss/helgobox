@@ -33,23 +33,23 @@ pub trait Item: Debug {
     fn supports_name_change(&self) -> bool;
     fn supports_activation(&self) -> bool;
     fn name(&self) -> &str;
-    fn set_name(&mut self, session: &mut Session, name: String, initiator: u32);
+    fn set_name(&mut self, session: WeakSession, name: String, initiator: u32);
     fn tags(&self) -> &[Tag];
-    fn set_tags(&mut self, session: &mut Session, tags: Vec<Tag>, initiator: u32);
+    fn set_tags(&mut self, session: WeakSession, tags: Vec<Tag>, initiator: u32);
     fn control_is_enabled(&self) -> bool;
-    fn set_control_is_enabled(&mut self, session: &mut Session, value: bool);
+    fn set_control_is_enabled(&mut self, session: WeakSession, value: bool);
     fn feedback_is_enabled(&self) -> bool;
-    fn set_feedback_is_enabled(&mut self, session: &mut Session, value: bool);
+    fn set_feedback_is_enabled(&mut self, session: WeakSession, value: bool);
     fn activation_type(&self) -> ActivationType;
-    fn set_activation_type(&mut self, session: &mut Session, value: ActivationType);
+    fn set_activation_type(&mut self, session: WeakSession, value: ActivationType);
     fn modifier_condition_1(&self) -> ModifierConditionModel;
-    fn set_modifier_condition_1(&mut self, session: &mut Session, value: ModifierConditionModel);
+    fn set_modifier_condition_1(&mut self, session: WeakSession, value: ModifierConditionModel);
     fn modifier_condition_2(&self) -> ModifierConditionModel;
-    fn set_modifier_condition_2(&mut self, session: &mut Session, value: ModifierConditionModel);
+    fn set_modifier_condition_2(&mut self, session: WeakSession, value: ModifierConditionModel);
     fn bank_condition(&self) -> BankConditionModel;
-    fn set_bank_condition(&mut self, session: &mut Session, value: BankConditionModel);
+    fn set_bank_condition(&mut self, session: WeakSession, value: BankConditionModel);
     fn eel_condition(&self) -> &str;
-    fn set_eel_condition(&mut self, session: &mut Session, value: String, initiator: u32);
+    fn set_eel_condition(&mut self, session: WeakSession, value: String, initiator: u32);
 }
 
 pub enum ItemProp {
@@ -65,7 +65,7 @@ pub enum ItemProp {
 }
 
 impl ItemProp {
-    pub fn from_activation_condition_prop(prop: ActivationConditionProp) -> Self {
+    pub fn from_activation_condition_prop(prop: &ActivationConditionProp) -> Self {
         use ActivationConditionProp as S;
         match prop {
             S::ActivationType => Self::ActivationType,
@@ -349,7 +349,7 @@ impl MappingHeaderPanel {
         self.is_invoked_programmatically.get()
     }
 
-    fn update_control_enabled(&self, session: &mut Session, item: &mut dyn Item) {
+    fn update_control_enabled(&self, session: WeakSession, item: &mut dyn Item) {
         item.set_control_is_enabled(
             session,
             self.view
@@ -358,7 +358,7 @@ impl MappingHeaderPanel {
         );
     }
 
-    fn update_feedback_enabled(&self, session: &mut Session, item: &mut dyn Item) {
+    fn update_feedback_enabled(&self, session: WeakSession, item: &mut dyn Item) {
         item.set_feedback_is_enabled(
             session,
             self.view
@@ -367,7 +367,7 @@ impl MappingHeaderPanel {
         );
     }
 
-    fn update_activation_setting_1_on(&self, session: &mut Session, item: &mut dyn Item) {
+    fn update_activation_setting_1_on(&self, session: WeakSession, item: &mut dyn Item) {
         let checked = self
             .view
             .require_control(root::ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX)
@@ -375,7 +375,7 @@ impl MappingHeaderPanel {
         item.set_modifier_condition_1(session, item.modifier_condition_1().with_is_on(checked));
     }
 
-    fn update_activation_setting_2_on(&self, session: &mut Session, item: &mut dyn Item) {
+    fn update_activation_setting_2_on(&self, session: WeakSession, item: &mut dyn Item) {
         let checked = self
             .view
             .require_control(root::ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX)
@@ -383,7 +383,7 @@ impl MappingHeaderPanel {
         item.set_modifier_condition_2(session, item.modifier_condition_2().with_is_on(checked));
     }
 
-    fn update_name(&self, session: &mut Session, item: &mut dyn Item) {
+    fn update_name(&self, session: WeakSession, item: &mut dyn Item) {
         let value = self
             .view
             .require_control(root::ID_MAPPING_NAME_EDIT_CONTROL)
@@ -392,7 +392,7 @@ impl MappingHeaderPanel {
         item.set_name(session, value, root::ID_MAPPING_NAME_EDIT_CONTROL);
     }
 
-    fn update_tags(&self, session: &mut Session, item: &mut dyn Item) {
+    fn update_tags(&self, session: WeakSession, item: &mut dyn Item) {
         let value = self
             .view
             .require_control(root::ID_MAPPING_TAGS_EDIT_CONTROL)
@@ -405,7 +405,7 @@ impl MappingHeaderPanel {
         );
     }
 
-    fn update_activation_eel_condition(&self, session: &mut Session, item: &mut dyn Item) {
+    fn update_activation_eel_condition(&self, session: WeakSession, item: &mut dyn Item) {
         let value = self
             .view
             .require_control(root::ID_MAPPING_ACTIVATION_EDIT_CONTROL)
@@ -414,7 +414,7 @@ impl MappingHeaderPanel {
         item.set_eel_condition(session, value, root::ID_MAPPING_ACTIVATION_EDIT_CONTROL);
     }
 
-    fn update_activation_type(&self, session: &mut Session, item: &mut dyn Item) {
+    fn update_activation_type(&self, session: WeakSession, item: &mut dyn Item) {
         let b = self
             .view
             .require_control(root::ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX);
@@ -426,7 +426,7 @@ impl MappingHeaderPanel {
         );
     }
 
-    fn update_activation_setting_1_option(&self, session: &mut Session, item: &mut dyn Item) {
+    fn update_activation_setting_1_option(&self, session: WeakSession, item: &mut dyn Item) {
         use ActivationType::*;
         match item.activation_type() {
             Modifiers => {
@@ -449,7 +449,7 @@ impl MappingHeaderPanel {
         };
     }
 
-    fn update_activation_setting_2_option(&self, session: &mut Session, item: &mut dyn Item) {
+    fn update_activation_setting_2_option(&self, session: WeakSession, item: &mut dyn Item) {
         use ActivationType::*;
         match item.activation_type() {
             Modifiers => {
@@ -475,10 +475,10 @@ impl MappingHeaderPanel {
     fn update_activation_setting_option(
         &self,
         combo_box_id: u32,
-        session: &mut Session,
+        session: WeakSession,
         item: &mut dyn Item,
         get: impl FnOnce(&dyn Item) -> ModifierConditionModel,
-        set: impl FnOnce(&mut Session, &mut dyn Item, ModifierConditionModel),
+        set: impl FnOnce(WeakSession, &mut dyn Item, ModifierConditionModel),
     ) {
         let b = self.view.require_control(combo_box_id);
         let value = match b.selected_combo_box_item_data() {
@@ -516,20 +516,11 @@ impl MappingHeaderPanel {
         }
     }
 
-    fn with_mutable_item(&self, f: impl FnOnce(&Self, &mut dyn Item)) {
+    fn with_session_and_item(&self, f: impl FnOnce(&Self, WeakSession, &mut dyn Item)) {
         let opt_item = self.item.borrow();
         let weak_item = opt_item.as_ref().expect("item not set");
         let item = weak_item.upgrade().expect("item gone");
-        f(self, &mut *item.borrow_mut());
-    }
-
-    fn with_mutable_session_and_item(&self, f: impl FnOnce(&Self, &mut Session, &mut dyn Item)) {
-        let opt_item = self.item.borrow();
-        let weak_item = opt_item.as_ref().expect("item not set");
-        let item = weak_item.upgrade().expect("item gone");
-        let session = self.session();
-        let mut session = session.borrow_mut();
-        f(self, &mut session, &mut *item.borrow_mut());
+        f(self, self.session.clone(), &mut *item.borrow_mut());
     }
 
     pub fn invalidate_due_to_changed_prop(&self, prop: ItemProp, initiator: Option<u32>) {
@@ -610,16 +601,16 @@ impl View for MappingHeaderPanel {
         use root::*;
         match resource_id {
             ID_MAPPING_CONTROL_ENABLED_CHECK_BOX => {
-                self.with_mutable_session_and_item(Self::update_control_enabled);
+                self.with_session_and_item(Self::update_control_enabled);
             }
             ID_MAPPING_FEEDBACK_ENABLED_CHECK_BOX => {
-                self.with_mutable_session_and_item(Self::update_feedback_enabled);
+                self.with_session_and_item(Self::update_feedback_enabled);
             }
             ID_MAPPING_ACTIVATION_SETTING_1_CHECK_BOX => {
-                self.with_mutable_session_and_item(Self::update_activation_setting_1_on);
+                self.with_session_and_item(Self::update_activation_setting_1_on);
             }
             ID_MAPPING_ACTIVATION_SETTING_2_CHECK_BOX => {
-                self.with_mutable_session_and_item(Self::update_activation_setting_2_on);
+                self.with_session_and_item(Self::update_activation_setting_2_on);
             }
             _ => unreachable!(),
         }
@@ -629,13 +620,13 @@ impl View for MappingHeaderPanel {
         use root::*;
         match resource_id {
             ID_MAPPING_ACTIVATION_TYPE_COMBO_BOX => {
-                self.with_mutable_session_and_item(Self::update_activation_type);
+                self.with_session_and_item(Self::update_activation_type);
             }
             ID_MAPPING_ACTIVATION_SETTING_1_COMBO_BOX => {
-                self.with_mutable_session_and_item(Self::update_activation_setting_1_option);
+                self.with_session_and_item(Self::update_activation_setting_1_option);
             }
             ID_MAPPING_ACTIVATION_SETTING_2_COMBO_BOX => {
-                self.with_mutable_session_and_item(Self::update_activation_setting_2_option);
+                self.with_session_and_item(Self::update_activation_setting_2_option);
             }
             _ => unreachable!(),
         }
@@ -653,13 +644,13 @@ impl View for MappingHeaderPanel {
         use root::*;
         match resource_id {
             ID_MAPPING_NAME_EDIT_CONTROL => {
-                self.with_mutable_session_and_item(Self::update_name);
+                self.with_session_and_item(Self::update_name);
             }
             ID_MAPPING_TAGS_EDIT_CONTROL => {
-                self.with_mutable_session_and_item(Self::update_tags);
+                self.with_session_and_item(Self::update_tags);
             }
             ID_MAPPING_ACTIVATION_EDIT_CONTROL => {
-                self.with_mutable_session_and_item(Self::update_activation_eel_condition);
+                self.with_session_and_item(Self::update_activation_eel_condition);
             }
             _ => return false,
         };
@@ -700,40 +691,61 @@ impl Item for MappingModel {
         self.name()
     }
 
-    fn set_name(&mut self, session: &mut Session, name: String, initiator: u32) {
-        session.change_mapping_from_ui(self, MappingCommand::SetName(name), Some(initiator));
+    fn set_name(&mut self, session: WeakSession, name: String, initiator: u32) {
+        Session::change_mapping_from_ui_simple(
+            session,
+            self,
+            MappingCommand::SetName(name),
+            Some(initiator),
+        );
     }
 
     fn tags(&self) -> &[Tag] {
         self.tags()
     }
 
-    fn set_tags(&mut self, session: &mut Session, tags: Vec<Tag>, initiator: u32) {
-        session.change_mapping_from_ui(self, MappingCommand::SetTags(tags), Some(initiator));
+    fn set_tags(&mut self, session: WeakSession, tags: Vec<Tag>, initiator: u32) {
+        Session::change_mapping_from_ui_simple(
+            session,
+            self,
+            MappingCommand::SetTags(tags),
+            Some(initiator),
+        );
     }
 
     fn control_is_enabled(&self) -> bool {
         self.control_is_enabled()
     }
 
-    fn set_control_is_enabled(&mut self, session: &mut Session, value: bool) {
-        session.change_mapping_from_ui(self, MappingCommand::SetControlIsEnabled(value), None);
+    fn set_control_is_enabled(&mut self, session: WeakSession, value: bool) {
+        Session::change_mapping_from_ui_simple(
+            session,
+            self,
+            MappingCommand::SetControlIsEnabled(value),
+            None,
+        );
     }
 
     fn feedback_is_enabled(&self) -> bool {
         self.feedback_is_enabled()
     }
 
-    fn set_feedback_is_enabled(&mut self, session: &mut Session, value: bool) {
-        session.change_mapping_from_ui(self, MappingCommand::SetFeedbackIsEnabled(value), None);
+    fn set_feedback_is_enabled(&mut self, session: WeakSession, value: bool) {
+        Session::change_mapping_from_ui_simple(
+            session,
+            self,
+            MappingCommand::SetFeedbackIsEnabled(value),
+            None,
+        );
     }
 
     fn activation_type(&self) -> ActivationType {
         self.activation_condition_model().activation_type()
     }
 
-    fn set_activation_type(&mut self, session: &mut Session, value: ActivationType) {
-        session.change_mapping_from_ui(
+    fn set_activation_type(&mut self, session: WeakSession, value: ActivationType) {
+        Session::change_mapping_from_ui_simple(
+            session,
             self,
             MappingCommand::ChangeActivationCondition(
                 ActivationConditionCommand::SetActivationType(value),
@@ -746,8 +758,9 @@ impl Item for MappingModel {
         self.activation_condition_model().modifier_condition_1()
     }
 
-    fn set_modifier_condition_1(&mut self, session: &mut Session, value: ModifierConditionModel) {
-        session.change_mapping_from_ui(
+    fn set_modifier_condition_1(&mut self, session: WeakSession, value: ModifierConditionModel) {
+        Session::change_mapping_from_ui_simple(
+            session,
             self,
             MappingCommand::ChangeActivationCondition(
                 ActivationConditionCommand::SetModifierCondition1(value),
@@ -760,8 +773,9 @@ impl Item for MappingModel {
         self.activation_condition_model().modifier_condition_2()
     }
 
-    fn set_modifier_condition_2(&mut self, session: &mut Session, value: ModifierConditionModel) {
-        session.change_mapping_from_ui(
+    fn set_modifier_condition_2(&mut self, session: WeakSession, value: ModifierConditionModel) {
+        Session::change_mapping_from_ui_simple(
+            session,
             self,
             MappingCommand::ChangeActivationCondition(
                 ActivationConditionCommand::SetModifierCondition2(value),
@@ -774,8 +788,9 @@ impl Item for MappingModel {
         self.activation_condition_model().bank_condition()
     }
 
-    fn set_bank_condition(&mut self, session: &mut Session, value: BankConditionModel) {
-        session.change_mapping_from_ui(
+    fn set_bank_condition(&mut self, session: WeakSession, value: BankConditionModel) {
+        Session::change_mapping_from_ui_simple(
+            session,
             self,
             MappingCommand::ChangeActivationCondition(
                 ActivationConditionCommand::SetBankCondition(value),
@@ -788,8 +803,9 @@ impl Item for MappingModel {
         self.activation_condition_model().eel_condition()
     }
 
-    fn set_eel_condition(&mut self, session: &mut Session, value: String, initiator: u32) {
-        session.change_mapping_from_ui(
+    fn set_eel_condition(&mut self, session: WeakSession, value: String, initiator: u32) {
+        Session::change_mapping_from_ui_simple(
+            session,
             self,
             MappingCommand::ChangeActivationCondition(ActivationConditionCommand::SetEelCondition(
                 value,
@@ -816,40 +832,61 @@ impl Item for GroupModel {
         self.effective_name()
     }
 
-    fn set_name(&mut self, session: &mut Session, name: String, initiator: u32) {
-        session.change_group_from_ui(self, GroupCommand::SetName(name), Some(initiator));
+    fn set_name(&mut self, session: WeakSession, name: String, initiator: u32) {
+        Session::change_group_from_ui_simple(
+            session,
+            self,
+            GroupCommand::SetName(name),
+            Some(initiator),
+        );
     }
 
     fn tags(&self) -> &[Tag] {
         self.tags()
     }
 
-    fn set_tags(&mut self, session: &mut Session, tags: Vec<Tag>, initiator: u32) {
-        session.change_group_from_ui(self, GroupCommand::SetTags(tags), Some(initiator));
+    fn set_tags(&mut self, session: WeakSession, tags: Vec<Tag>, initiator: u32) {
+        Session::change_group_from_ui_simple(
+            session,
+            self,
+            GroupCommand::SetTags(tags),
+            Some(initiator),
+        );
     }
 
     fn control_is_enabled(&self) -> bool {
         self.control_is_enabled()
     }
 
-    fn set_control_is_enabled(&mut self, session: &mut Session, value: bool) {
-        session.change_group_from_ui(self, GroupCommand::SetControlIsEnabled(value), None);
+    fn set_control_is_enabled(&mut self, session: WeakSession, value: bool) {
+        Session::change_group_from_ui_simple(
+            session,
+            self,
+            GroupCommand::SetControlIsEnabled(value),
+            None,
+        );
     }
 
     fn feedback_is_enabled(&self) -> bool {
         self.feedback_is_enabled()
     }
 
-    fn set_feedback_is_enabled(&mut self, session: &mut Session, value: bool) {
-        session.change_group_from_ui(self, GroupCommand::SetFeedbackIsEnabled(value), None);
+    fn set_feedback_is_enabled(&mut self, session: WeakSession, value: bool) {
+        Session::change_group_from_ui_simple(
+            session,
+            self,
+            GroupCommand::SetFeedbackIsEnabled(value),
+            None,
+        );
     }
 
     fn activation_type(&self) -> ActivationType {
         self.activation_condition_model().activation_type()
     }
 
-    fn set_activation_type(&mut self, session: &mut Session, value: ActivationType) {
-        session.change_group_from_ui(
+    fn set_activation_type(&mut self, session: WeakSession, value: ActivationType) {
+        Session::change_group_from_ui_simple(
+            session,
             self,
             GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetActivationType(
                 value,
@@ -862,8 +899,9 @@ impl Item for GroupModel {
         self.activation_condition_model().modifier_condition_1()
     }
 
-    fn set_modifier_condition_1(&mut self, session: &mut Session, value: ModifierConditionModel) {
-        session.change_group_from_ui(
+    fn set_modifier_condition_1(&mut self, session: WeakSession, value: ModifierConditionModel) {
+        Session::change_group_from_ui_simple(
+            session,
             self,
             GroupCommand::ChangeActivationCondition(
                 ActivationConditionCommand::SetModifierCondition1(value),
@@ -876,8 +914,9 @@ impl Item for GroupModel {
         self.activation_condition_model().modifier_condition_2()
     }
 
-    fn set_modifier_condition_2(&mut self, session: &mut Session, value: ModifierConditionModel) {
-        session.change_group_from_ui(
+    fn set_modifier_condition_2(&mut self, session: WeakSession, value: ModifierConditionModel) {
+        Session::change_group_from_ui_simple(
+            session,
             self,
             GroupCommand::ChangeActivationCondition(
                 ActivationConditionCommand::SetModifierCondition2(value),
@@ -890,8 +929,9 @@ impl Item for GroupModel {
         self.activation_condition_model().bank_condition()
     }
 
-    fn set_bank_condition(&mut self, session: &mut Session, value: BankConditionModel) {
-        session.change_group_from_ui(
+    fn set_bank_condition(&mut self, session: WeakSession, value: BankConditionModel) {
+        Session::change_group_from_ui_simple(
+            session,
             self,
             GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetBankCondition(
                 value,
@@ -904,8 +944,9 @@ impl Item for GroupModel {
         self.activation_condition_model().eel_condition()
     }
 
-    fn set_eel_condition(&mut self, session: &mut Session, value: String, initiator: u32) {
-        session.change_group_from_ui(
+    fn set_eel_condition(&mut self, session: WeakSession, value: String, initiator: u32) {
+        Session::change_group_from_ui_simple(
+            session,
             self,
             GroupCommand::ChangeActivationCondition(ActivationConditionCommand::SetEelCondition(
                 value,

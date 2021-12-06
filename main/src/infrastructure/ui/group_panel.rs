@@ -1,4 +1,6 @@
-use crate::application::{CompartmentProp, GroupProp, SessionProp, WeakGroup, WeakSession};
+use crate::application::{
+    Affected, CompartmentProp, GroupProp, SessionProp, WeakGroup, WeakSession,
+};
 use crate::base::when;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{ItemProp, MappingHeaderPanel};
@@ -29,67 +31,57 @@ impl GroupPanel {
         }
     }
 
-    pub fn handle_session_prop_change(
-        self: SharedView<Self>,
-        prop: SessionProp,
+    pub fn handle_affected(
+        self: &SharedView<Self>,
+        affected: &Affected<SessionProp>,
         initiator: Option<u32>,
     ) {
-        // If the reaction can't be displayed anymore because the mapping is not filled anymore,
-        // so what.
-        match prop {
-            SessionProp::CompartmentProp(_, Some(prop)) => match prop {
-                CompartmentProp::GroupProp(_, prop) => {
-                    if let Some(prop) = prop {
-                        use GroupProp as P;
-                        match prop {
-                            P::Name => {
-                                self.mapping_header_panel
-                                    .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
-                            }
-                            P::Tags => {
-                                self.mapping_header_panel
-                                    .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
-                            }
-                            P::ControlIsEnabled => {
-                                self.mapping_header_panel.invalidate_due_to_changed_prop(
-                                    ItemProp::ControlEnabled,
-                                    initiator,
-                                );
-                            }
-                            P::FeedbackIsEnabled => {
-                                self.mapping_header_panel.invalidate_due_to_changed_prop(
-                                    ItemProp::FeedbackEnabled,
-                                    initiator,
-                                );
-                            }
-                            P::ActivationConditionProp(p) => {
-                                if let Some(p) = p {
-                                    let item_prop = ItemProp::from_activation_condition_prop(p);
-                                    self.mapping_header_panel
-                                        .invalidate_due_to_changed_prop(item_prop, initiator);
-                                } else {
-                                    self.mapping_header_panel.invalidate_controls();
-                                }
-                            }
+        use Affected::*;
+        use CompartmentProp::*;
+        use SessionProp::*;
+        match affected {
+            One(InCompartment(compartment, One(InGroup(group_id, affected)))) => match affected {
+                Multiple => {
+                    self.mapping_header_panel.invalidate_controls();
+                }
+                One(prop) => {
+                    use GroupProp as P;
+                    match prop {
+                        P::Name => {
+                            self.mapping_header_panel
+                                .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
                         }
-                    } else {
-                        self.mapping_header_panel.invalidate_controls();
+                        P::Tags => {
+                            self.mapping_header_panel
+                                .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
+                        }
+                        P::ControlIsEnabled => {
+                            self.mapping_header_panel.invalidate_due_to_changed_prop(
+                                ItemProp::ControlEnabled,
+                                initiator,
+                            );
+                        }
+                        P::FeedbackIsEnabled => {
+                            self.mapping_header_panel.invalidate_due_to_changed_prop(
+                                ItemProp::FeedbackEnabled,
+                                initiator,
+                            );
+                        }
+                        P::InActivationCondition(p) => match p {
+                            Multiple => {
+                                self.mapping_header_panel.invalidate_controls();
+                            }
+                            One(p) => {
+                                let item_prop = ItemProp::from_activation_condition_prop(p);
+                                self.mapping_header_panel
+                                    .invalidate_due_to_changed_prop(item_prop, initiator);
+                            }
+                        },
                     }
                 }
-                _ => {}
             },
             _ => {}
         }
-    }
-
-    fn when<I: Send + Sync + Clone + 'static>(
-        self: &Rc<Self>,
-        event: impl LocalObservable<'static, Item = I, Err = ()> + 'static,
-        reaction: impl Fn(Rc<Self>, I) + 'static + Copy,
-    ) {
-        when(event.take_until(self.view.closed()))
-            .with(Rc::downgrade(self))
-            .do_sync(move |panel, item| reaction(panel, item));
     }
 }
 

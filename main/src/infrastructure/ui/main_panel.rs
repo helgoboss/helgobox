@@ -318,19 +318,7 @@ impl SessionUi for Weak<MainPanel> {
     }
 
     fn handle_affected(&self, affected: Affected<SessionProp>, initiator: Option<u32>) {
-        // We notify in the next main loop cycle. First, because otherwise we can easily run into
-        // BorrowMut errors (because the handler might borrow the session but we still have it
-        // borrowed at this point because this handler is called by the session). Second, because
-        // deferring the reaction seems to result in a smoother user experience.
-        //
-        // Sending all affected properties to the next main loop cycle as one batch can improve
-        // could make flickering less likely, so do it.
-        let weak_main_panel = self.clone();
-        crate::base::Global::task_support()
-            .do_later_in_main_thread_from_main_thread_asap(move || {
-                upgrade_panel(&weak_main_panel).handle_affected(affected, initiator);
-            })
-            .unwrap();
+        upgrade_panel(self).handle_affected(affected, initiator);
     }
 }
 

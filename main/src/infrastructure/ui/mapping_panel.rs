@@ -143,92 +143,87 @@ impl MappingPanel {
         affected: &Affected<SessionProp>,
         initiator: Option<u32>,
     ) {
-        if let Some(iter) = affected.opt_iter() {
-            for prop in iter {
-                self.handle_session_prop_change(prop, initiator);
-            }
-        }
-        // TODO-medium Handle full session change as well.
-    }
-
-    fn handle_session_prop_change(
-        self: &SharedView<Self>,
-        prop: SessionProp,
-        initiator: Option<u32>,
-    ) {
-        // Filter non-processed changes out before we do the preparation work.
-        let prop = match prop {
-            SessionProp::CompartmentProp(
-                compartment,
-                Some(CompartmentProp::MappingProp(id, prop)),
-            ) if self.qualified_mapping_id() == Some(QualifiedMappingId::new(compartment, id)) => {
-                prop
-            }
-            // TODO-medium Handle session props as well
-            _ => return,
-        };
-        // At this point we know already it's a prop change for *our* mapping.
-        // Mark as programmatical invocation.
-        let panel_clone = self.clone();
-        panel_clone.is_invoked_programmatically.set(true);
-        scopeguard::defer! { panel_clone.is_invoked_programmatically.set(false); }
-        // If the reaction can't be displayed anymore because the mapping is not filled anymore,
-        // so what.
-        let _ = self.clone().read(|view| {
-            if let Some(prop) = prop {
-                use MappingProp as P;
-                match prop {
-                    P::Name => {
-                        view.invalidate_window_title();
-                        view.panel
-                            .mapping_header_panel
-                            .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
+        use Affected::*;
+        use CompartmentProp::*;
+        use SessionProp::*;
+        match affected {
+            One(InCompartment(compartment, One(InMapping(mapping_id, affected))))
+                if Some(QualifiedMappingId::new(*compartment, *mapping_id))
+                    == self.qualified_mapping_id() =>
+            {
+                // At this point we know already it's a prop change for *our* mapping.
+                // Mark as programmatical invocation.
+                let panel_clone = self.clone();
+                panel_clone.is_invoked_programmatically.set(true);
+                scopeguard::defer! { panel_clone.is_invoked_programmatically.set(false); }
+                // If the reaction can't be displayed anymore because the mapping is not filled anymore,
+                // so what.
+                let _ = self.clone().read(|view| match affected {
+                    Multiple => {
+                        view.invalidate_all_controls();
                     }
-                    P::Tags => {
-                        view.panel
-                            .mapping_header_panel
-                            .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
-                    }
-                    P::AdvancedSettings => {
-                        view.invalidate_mapping_advanced_settings_button();
-                    }
-                    P::ControlIsEnabled => {
-                        view.panel
-                            .mapping_header_panel
-                            .invalidate_due_to_changed_prop(ItemProp::ControlEnabled, initiator);
-                        view.invalidate_mode_controls();
-                    }
-                    P::FeedbackIsEnabled => {
-                        view.panel
-                            .mapping_header_panel
-                            .invalidate_due_to_changed_prop(ItemProp::FeedbackEnabled, initiator);
-                        view.invalidate_mode_controls();
-                    }
-                    P::IsEnabled => {
-                        view.invalidate_mapping_enabled_check_box();
-                    }
-                    P::VisibleInProjection => {
-                        view.invalidate_mapping_visible_in_projection_check_box();
-                    }
-                    P::FeedbackSendBehavior => {
-                        view.invalidate_mapping_feedback_send_behavior_combo_box();
-                    }
-                    P::GroupId => {}
-                    P::ActivationConditionProp(p) => {
-                        if let Some(p) = p {
-                            let item_prop = ItemProp::from_activation_condition_prop(p);
-                            view.panel
-                                .mapping_header_panel
-                                .invalidate_due_to_changed_prop(item_prop, initiator);
-                        } else {
-                            view.panel.mapping_header_panel.invalidate_controls();
+                    One(prop) => {
+                        use MappingProp as P;
+                        match prop {
+                            P::Name => {
+                                view.invalidate_window_title();
+                                view.panel
+                                    .mapping_header_panel
+                                    .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
+                            }
+                            P::Tags => {
+                                view.panel
+                                    .mapping_header_panel
+                                    .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
+                            }
+                            P::AdvancedSettings => {
+                                view.invalidate_mapping_advanced_settings_button();
+                            }
+                            P::ControlIsEnabled => {
+                                view.panel
+                                    .mapping_header_panel
+                                    .invalidate_due_to_changed_prop(
+                                        ItemProp::ControlEnabled,
+                                        initiator,
+                                    );
+                                view.invalidate_mode_controls();
+                            }
+                            P::FeedbackIsEnabled => {
+                                view.panel
+                                    .mapping_header_panel
+                                    .invalidate_due_to_changed_prop(
+                                        ItemProp::FeedbackEnabled,
+                                        initiator,
+                                    );
+                                view.invalidate_mode_controls();
+                            }
+                            P::IsEnabled => {
+                                view.invalidate_mapping_enabled_check_box();
+                            }
+                            P::VisibleInProjection => {
+                                view.invalidate_mapping_visible_in_projection_check_box();
+                            }
+                            P::FeedbackSendBehavior => {
+                                view.invalidate_mapping_feedback_send_behavior_combo_box();
+                            }
+                            P::GroupId => {}
+                            P::InActivationCondition(p) => match p {
+                                Multiple => {
+                                    view.panel.mapping_header_panel.invalidate_controls();
+                                }
+                                One(p) => {
+                                    let item_prop = ItemProp::from_activation_condition_prop(p);
+                                    view.panel
+                                        .mapping_header_panel
+                                        .invalidate_due_to_changed_prop(item_prop, initiator);
+                                }
+                            },
                         }
                     }
-                }
-            } else {
-                view.invalidate_all_controls();
+                });
             }
-        });
+            _ => {}
+        }
     }
 
     fn source_match_indicator_control(&self) -> Window {
@@ -620,8 +615,8 @@ impl MappingPanel {
         self.edit_yaml(
             |m| m.advanced_settings().cloned(),
             move |m, yaml| {
-                let session = session.upgrade().expect("session gone");
-                let result = session.borrow_mut().change_mapping_from_ui(
+                let result = Session::change_mapping_from_ui_simple(
+                    session.clone(),
                     m,
                     MappingCommand::SetAdvancedSettings(yaml),
                     None,
@@ -970,16 +965,16 @@ impl<'a> MutableMappingPanel<'a> {
             .selected_combo_box_item_index()
             .try_into()
             .expect("invalid feedback send behavior");
-        self.mapping_set(MappingCommand::SetFeedbackSendBehavior(behavior));
+        self.change_mapping(MappingCommand::SetFeedbackSendBehavior(behavior));
     }
 
-    fn mapping_set(&mut self, val: MappingCommand) {
-        self.mapping_set_with_notifier(val, None);
+    fn change_mapping(&mut self, val: MappingCommand) {
+        self.change_mapping_with_notifier(val, None);
     }
 
-    fn mapping_set_with_notifier(&mut self, val: MappingCommand, notifier: Option<u32>) {
+    fn change_mapping_with_notifier(&mut self, val: MappingCommand, notifier: Option<u32>) {
         self.session
-            .change_mapping_from_ui(self.mapping, val, notifier)
+            .change_mapping_from_ui_expert(self.mapping, val, notifier, self.panel.session.clone())
             .unwrap();
     }
 
@@ -988,7 +983,7 @@ impl<'a> MutableMappingPanel<'a> {
             .view
             .require_control(root::IDC_MAPPING_ENABLED_CHECK_BOX)
             .is_checked();
-        self.mapping_set(MappingCommand::SetIsEnabled(checked));
+        self.change_mapping(MappingCommand::SetIsEnabled(checked));
     }
 
     fn update_mapping_is_visible_in_projection(&mut self) {
@@ -996,7 +991,7 @@ impl<'a> MutableMappingPanel<'a> {
             .view
             .require_control(root::ID_MAPPING_SHOW_IN_PROJECTION_CHECK_BOX)
             .is_checked();
-        self.mapping_set(MappingCommand::SetVisibleInProjection(checked));
+        self.change_mapping(MappingCommand::SetVisibleInProjection(checked));
     }
 
     fn update_mode_hint(&self, mode_parameter: ModeParameter) {

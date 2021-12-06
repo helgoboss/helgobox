@@ -33,9 +33,9 @@ pub enum MappingCommand {
     SetVisibleInProjection(bool),
     SetAdvancedSettings(Option<serde_yaml::mapping::Mapping>),
     ChangeActivationCondition(ActivationConditionCommand),
+    ClearName,
 }
 
-#[derive(Copy, Clone)]
 pub enum MappingProp {
     Name,
     Tags,
@@ -46,8 +46,7 @@ pub enum MappingProp {
     FeedbackSendBehavior,
     VisibleInProjection,
     AdvancedSettings,
-    /// `None` means that the complete activation condition is affected.
-    ActivationConditionProp(Option<ActivationConditionProp>),
+    InActivationCondition(Affected<ActivationConditionProp>),
 }
 
 impl GetProcessingRelevance for MappingProp {
@@ -61,9 +60,7 @@ impl GetProcessingRelevance for MappingProp {
             | P::FeedbackSendBehavior
             | P::VisibleInProjection
             | P::AdvancedSettings => Some(ProcessingRelevance::ProcessingRelevant),
-            P::ActivationConditionProp(p) => p
-                .map(|p| p.processing_relevance())
-                .unwrap_or(Some(ProcessingRelevance::ProcessingRelevant)),
+            P::InActivationCondition(p) => p.processing_relevance(),
             P::IsEnabled => Some(ProcessingRelevance::PersistentProcessingRelevant),
             MappingProp::GroupId => {
                 // This is handled in different ways.
@@ -170,10 +167,10 @@ impl Change for MappingModel {
                 self.visible_in_projection = v;
                 One(P::VisibleInProjection)
             }
-            C::ChangeActivationCondition(cmd) => {
-                let affected = self.activation_condition_model.change(cmd)?;
-                affected.map(P::ActivationConditionProp)
-            }
+            C::ChangeActivationCondition(cmd) => One(P::InActivationCondition(
+                self.activation_condition_model.change(cmd)?,
+            )),
+            C::ClearName => self.change(MappingCommand::SetName(String::new()))?,
         };
         Ok(affected)
     }
@@ -274,11 +271,6 @@ impl MappingModel {
         }
     }
 
-    pub fn clear_name(&mut self) {
-        // TODO-high Notify!
-        self.name == String::new();
-    }
-
     pub fn make_project_independent(&mut self, context: ExtendedProcessorContext) {
         let compartment = self.compartment();
         let target = &mut self.target_model;
@@ -361,7 +353,6 @@ impl MappingModel {
         } else {
             Default::default()
         };
-        // TODO-high Notify!
         self.extension_model = extension_model;
         Ok(())
     }

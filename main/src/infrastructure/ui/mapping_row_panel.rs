@@ -1,5 +1,5 @@
 use crate::application::{
-    Affected, CompartmentProp, MappingCommand, MappingModel, MappingProp, SessionProp,
+    Affected, CompartmentProp, MappingCommand, MappingModel, MappingProp, Session, SessionProp,
     SharedMapping, SharedSession, SourceCategory, TargetCategory, TargetModelFormatMultiLine,
     WeakSession,
 };
@@ -81,29 +81,25 @@ impl MappingRowPanel {
     pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
         // If the reaction can't be displayed anymore because the mapping is not filled anymore,
         // so what.
+        use Affected::*;
+        use CompartmentProp::*;
+        use SessionProp::*;
         let _ = self.with_mapping(|view, m| {
-            if let Some(iter) = affected.opt_iter() {
-                for prop in iter {
-                    view.handle_session_prop_change(prop, initiator, m);
+            match affected {
+                One(InCompartment(compartment, One(InGroup(_, _))))
+                    if *compartment == m.compartment() =>
+                {
+                    // Refresh to display potentially new inherited tags.
+                    self.invalidate_name_labels(m);
                 }
-            }
-            // TODO-medium Handle full session change as well.
-        });
-    }
-
-    fn handle_session_prop_change(
-        &self,
-        prop: SessionProp,
-        initiator: Option<u32>,
-        m: &MappingModel,
-    ) {
-        match prop {
-            SessionProp::CompartmentProp(compartment, Some(prop))
-                if m.compartment() == compartment =>
-            {
-                match prop {
-                    CompartmentProp::MappingProp(mapping_id, prop) if mapping_id == m.id() => {
-                        if let Some(prop) = prop {
+                One(InCompartment(compartment, One(InMapping(mapping_id, affected))))
+                    if *compartment == m.compartment() && *mapping_id == m.id() =>
+                {
+                    match affected {
+                        Multiple => {
+                            self.invalidate_all_controls(m);
+                        }
+                        One(prop) => {
                             use MappingProp as P;
                             match prop {
                                 P::Name | P::Tags => {
@@ -122,21 +118,14 @@ impl MappingRowPanel {
                                 | MappingProp::FeedbackSendBehavior
                                 | MappingProp::VisibleInProjection
                                 | MappingProp::AdvancedSettings
-                                | MappingProp::ActivationConditionProp(_) => {}
+                                | MappingProp::InActivationCondition(_) => {}
                             }
-                        } else {
-                            self.invalidate_all_controls(m);
                         }
                     }
-                    CompartmentProp::GroupProp(_, _) => {
-                        // Refresh to display potentially new inherited tags.
-                        self.invalidate_name_labels(m);
-                    }
-                    _ => {}
                 }
+                _ => {}
             }
-            _ => {}
-        }
+        });
     }
 
     pub fn handle_matched_mapping(&self) {
@@ -545,17 +534,7 @@ impl MappingRowPanel {
             .view
             .require_control(IDC_MAPPING_ROW_ENABLED_CHECK_BOX)
             .is_checked();
-        self.mapping_set(MappingCommand::SetIsEnabled(checked));
-    }
-
-    fn mapping_set(&self, val: MappingCommand) {
-        let session = self.session();
-        let mut session = session.borrow_mut();
-        let mapping = self.require_mapping();
-        let mut mapping = mapping.borrow_mut();
-        session
-            .change_mapping_from_ui(&mut mapping, val, None)
-            .unwrap();
+        self.change_mapping(MappingCommand::SetIsEnabled(checked));
     }
 
     fn update_control_is_enabled(&self) {
@@ -563,7 +542,7 @@ impl MappingRowPanel {
             .view
             .require_control(ID_MAPPING_ROW_CONTROL_CHECK_BOX)
             .is_checked();
-        self.mapping_set(MappingCommand::SetControlIsEnabled(checked));
+        self.change_mapping(MappingCommand::SetControlIsEnabled(checked));
     }
 
     fn update_feedback_is_enabled(&self) {
@@ -571,7 +550,14 @@ impl MappingRowPanel {
             .view
             .require_control(ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
             .is_checked();
-        self.mapping_set(MappingCommand::SetFeedbackIsEnabled(checked));
+        self.change_mapping(MappingCommand::SetFeedbackIsEnabled(checked));
+    }
+
+    fn change_mapping(&self, cmd: MappingCommand) {
+        let mapping = self.require_mapping();
+        let mut mapping = mapping.borrow_mut();
+        Session::change_mapping_from_ui_simple(self.session.clone(), &mut mapping, cmd, None)
+            .unwrap();
     }
 
     fn notify_user_on_error(&self, result: Result<(), Box<dyn Error>>) {
@@ -929,9 +915,12 @@ fn move_mapping_to_group(
     let group_id = group_id
         .or_else(move || add_group_via_dialog(cloned_session, compartment).ok())
         .ok_or("no group selected")?;
-    session
-        .borrow_mut()
-        .move_mappings_to_group(compartment, &[mapping_id], group_id)?;
+    session.borrow_mut().move_mappings_to_group(
+        compartment,
+        &[mapping_id],
+        group_id,
+        Rc::downgrade(&session),
+    )?;
     Ok(())
 }
 

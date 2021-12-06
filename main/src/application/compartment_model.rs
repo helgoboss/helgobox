@@ -1,5 +1,5 @@
 use crate::application::{
-    GroupCommand, GroupModel, GroupProp, MappingCommand, MappingModel, MappingProp,
+    Affected, GroupCommand, GroupModel, GroupProp, MappingCommand, MappingModel, MappingProp,
     ParameterSetting,
 };
 use crate::domain::{GroupId, MappingId};
@@ -18,10 +18,7 @@ pub enum CompartmentCommand {
     ChangeMapping(MappingId, MappingCommand),
 }
 
-#[derive(Copy, Clone)]
 pub enum CompartmentProp {
-    /// `None` means that the complete group is affected.
-    GroupProp(GroupId, Option<GroupProp>),
-    /// `None` means that the complete mapping is affected.
-    MappingProp(MappingId, Option<MappingProp>),
+    InGroup(GroupId, Affected<GroupProp>),
+    InMapping(MappingId, Affected<MappingProp>),
 }

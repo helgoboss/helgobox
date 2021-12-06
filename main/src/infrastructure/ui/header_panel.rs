@@ -17,8 +17,8 @@ use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
     reaper_supports_global_midi_filter, Affected, CompartmentProp, ControllerPreset, FxId,
-    MainPreset, MainPresetAutoLoadMode, ParameterSetting, Preset, PresetManager, SessionProp,
-    SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    MainPreset, MainPresetAutoLoadMode, MappingCommand, ParameterSetting, Preset, PresetManager,
+    Session, SessionProp, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
@@ -92,27 +92,19 @@ impl HeaderPanel {
         if !self.is_open() {
             return;
         }
-        if let Some(iter) = affected.opt_iter() {
-            for prop in iter {
-                self.handle_session_prop_change(prop, initiator);
-            }
-        }
-        // TODO-medium Handle complete session change
-    }
-
-    fn handle_session_prop_change(&self, prop: SessionProp, initiator: Option<u32>) {
-        match prop {
-            SessionProp::CompartmentProp(compartment, Some(compartment_prop))
-                if compartment == self.active_compartment() =>
+        use Affected::*;
+        use CompartmentProp::*;
+        use SessionProp::*;
+        match affected {
+            One(InCompartment(compartment, One(InGroup(_, _))))
+                if *compartment == self.active_compartment() =>
             {
-                match compartment_prop {
-                    CompartmentProp::MappingProp(mapping_id, _) => {}
-                    CompartmentProp::GroupProp(group_id, _) => {
-                        self.invalidate_group_controls();
-                    }
-                }
+                self.invalidate_group_controls();
             }
             _ => {}
+        }
+        if let Some(open_group_panel) = self.group_panel.borrow_mut().as_ref() {
+            open_group_panel.handle_affected(affected, initiator);
         }
     }
 
@@ -761,8 +753,16 @@ impl HeaderPanel {
         ) {
             return;
         }
+        let session = self.session();
+        let mut session = session.borrow_mut();
         for m in listed_mappings {
-            m.borrow_mut().clear_name();
+            let mut mapping = m.borrow_mut();
+            session.change_mapping_from_ui_expert(
+                &mut mapping,
+                MappingCommand::ClearName,
+                None,
+                self.session.clone(),
+            );
         }
     }
 
@@ -838,7 +838,12 @@ impl HeaderPanel {
             .into_iter()
             .map(|m| m.borrow().id())
             .collect();
-        session.move_mappings_to_group(compartment, &mapping_ids, group_id)?;
+        session.move_mappings_to_group(
+            compartment,
+            &mapping_ids,
+            group_id,
+            self.session.clone(),
+        )?;
         Ok(())
     }
 
