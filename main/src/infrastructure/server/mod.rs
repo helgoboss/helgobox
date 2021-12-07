@@ -932,7 +932,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
                         .filter(|mp| {
                             let mp = mp.borrow();
                             mp.visible_in_projection()
-                                && mp.source_model.category.get() == SourceCategory::Virtual
+                                && mp.source_model.category() == SourceCategory::Virtual
                                 && mp.source_model.create_control_element() == control_element
                                 && instance_state.mapping_is_on(mp.qualified_id())
                         });

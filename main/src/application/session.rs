@@ -691,7 +691,7 @@ impl Session {
                     let virtual_source =
                         CompoundMappingSource::Virtual(VirtualSource::new(element));
                     let mut virtual_model = SourceModel::default();
-                    virtual_model.apply_from_source(&virtual_source);
+                    let _ = virtual_model.apply_from_source(&virtual_source);
                     Some(virtual_model)
                 } else {
                     None
@@ -789,23 +789,18 @@ impl Session {
                 }
                 // Keep auto-correcting mode settings
                 if self.auto_correct_settings.get() {
-                    let subscription = when(
-                        mapping
-                            .source_model
-                            .changed()
-                            .merge(mapping.target_model.changed()),
-                    )
-                    .with(weak_session.clone())
-                    .do_sync(move |session, _| {
-                        // Parameter values are not important for mode auto correction because
-                        // dynamic targets don't really profit from it anyway. Therefore just
-                        // use zero parameters.
-                        session.borrow_mut().change(
-                            SessionCommand::AdjustMappingModeIfNecessary(qualified_mapping_id),
-                            None,
-                            Rc::downgrade(&session),
-                        );
-                    });
+                    let subscription = when(mapping.target_model.changed())
+                        .with(weak_session.clone())
+                        .do_sync(move |session, _| {
+                            // Parameter values are not important for mode auto correction because
+                            // dynamic targets don't really profit from it anyway. Therefore just
+                            // use zero parameters.
+                            session.borrow_mut().change(
+                                SessionCommand::AdjustMappingModeIfNecessary(qualified_mapping_id),
+                                None,
+                                Rc::downgrade(&session),
+                            );
+                        });
                     all_subscriptions.add(subscription);
                 }
                 SubscriptionGuard::new(all_subscriptions)
@@ -1085,7 +1080,7 @@ impl Session {
         .unwrap();
     }
 
-    /// The gateway point to change something in the session just using IDs, also deeply nested
+    /// The gateway point to change something in the session just using commands, also deeply nested
     /// things such as target properties.
     ///
     /// Reasoning: With this single point of entry for changing something in the session, we can
@@ -1096,28 +1091,57 @@ impl Session {
         initiator: Option<u32>,
         weak_session: WeakSession,
     ) -> Result<(), String> {
+        self.change_with_closure(initiator, weak_session, |session| {
+            use Affected::*;
+            use SessionCommand as C;
+            use SessionProp as P;
+            let affected = match cmd {
+                C::ChangeCompartment(compartment, cmd) => session
+                    .change_compartment_internal(compartment, cmd)?
+                    .map(|affected| One(P::InCompartment(compartment, affected))),
+                C::AdjustMappingModeIfNecessary(id) => session
+                    .changing_mapping(id, |ctx| {
+                        ctx.mapping.adjust_mode_if_necessary(ctx.extended_context)
+                    })?
+                    .map(|affected| One(P::InCompartment(id.compartment, affected))),
+                C::ResetMappingMode(id) => session
+                    .changing_mapping(id, |ctx| ctx.mapping.reset_mode(ctx.extended_context))?
+                    .map(|affected| One(P::InCompartment(id.compartment, affected))),
+                C::SetPreferredMappingModeValues(id) => session
+                    .changing_mapping(id, |ctx| {
+                        ctx.mapping.set_preferred_mode_values(ctx.extended_context)
+                    })?
+                    .map(|affected| One(P::InCompartment(id.compartment, affected))),
+            };
+            Ok(affected)
+        })
+    }
+
+    fn change_mapping_with_closure(
+        &mut self,
+        id: QualifiedMappingId,
+        initiator: Option<u32>,
+        weak_session: WeakSession,
+        f: impl FnOnce(MappingChangeContext) -> ChangeResult<MappingProp>,
+    ) -> Result<(), String> {
         use Affected::*;
-        use SessionCommand as C;
         use SessionProp as P;
-        let opt_affected = match cmd {
-            C::ChangeCompartment(compartment, cmd) => self
-                .change_compartment_internal(compartment, cmd)?
-                .map(|affected| One(P::InCompartment(compartment, affected))),
-            C::AdjustMappingModeIfNecessary(id) => self
-                .changing_mapping(id, |ctx| {
-                    ctx.mapping.adjust_mode_if_necessary(ctx.extended_context)
-                })?
-                .map(|affected| One(P::InCompartment(id.compartment, affected))),
-            C::ResetMappingMode(id) => self
-                .changing_mapping(id, |ctx| ctx.mapping.reset_mode(ctx.extended_context))?
-                .map(|affected| One(P::InCompartment(id.compartment, affected))),
-            C::SetPreferredMappingModeValues(id) => self
-                .changing_mapping(id, |ctx| {
-                    ctx.mapping.set_preferred_mode_values(ctx.extended_context)
-                })?
-                .map(|affected| One(P::InCompartment(id.compartment, affected))),
-        };
-        if let Some(affected) = opt_affected {
+        let affected = self
+            .changing_mapping(id, f)?
+            .map(|affected| One(P::InCompartment(id.compartment, affected)));
+        if let Some(affected) = affected {
+            self.handle_affected(affected, initiator, weak_session);
+        }
+        Ok(())
+    }
+
+    fn change_with_closure(
+        &mut self,
+        initiator: Option<u32>,
+        weak_session: WeakSession,
+        f: impl FnOnce(&mut Session) -> ChangeResult<SessionProp>,
+    ) -> Result<(), String> {
+        if let Some(affected) = f(self)? {
             self.handle_affected(affected, initiator, weak_session);
         }
         Ok(())
@@ -1147,13 +1171,16 @@ impl Session {
                     let mut session = session.borrow_mut();
                     match &affected {
                         One(InCompartment(compartment, One(InGroup(group_id, affected)))) => {
+                            // Sync all mappings to processor if necessary (change of a single
+                            // group can affect many mappings)
                             if affected.processing_relevance().is_some() {
-                                // Change of a single group can affect many mappings
                                 session.sync_all_mappings_full(*compartment);
                             }
+                            // Mark dirty
                             session.mark_compartment_dirty(*compartment);
                         }
                         One(InCompartment(compartment, One(InMapping(mapping_id, affected)))) => {
+                            // Sync mapping to processors if necessary.
                             if let Some(relevance) = affected.processing_relevance() {
                                 if let Some((_, mapping)) =
                                     session.find_mapping_and_index_by_id(*compartment, *mapping_id)
@@ -1173,10 +1200,23 @@ impl Session {
                                         }
                                     }
                                 }
-                                // Sync mapping to processors if necessary.
-                                session.mark_compartment_dirty(*compartment);
-                                session.notify_mapping_changed(*compartment);
                             }
+                            // Mark dirty
+                            session.mark_compartment_dirty(*compartment);
+                            // Push changes to projection server
+                            // TODO-high Can now be solved more elegantly without subject!
+                            session.notify_mapping_changed(*compartment);
+                            // Auto-correct settings.
+                            // Parameter values are not important for mode auto correction because
+                            // dynamic targets don't really profit from it anyway. Therefore just
+                            // use zero parameters.
+                            let qualified_mapping_id =
+                                QualifiedMappingId::new(*compartment, *mapping_id);
+                            session.change(
+                                SessionCommand::AdjustMappingModeIfNecessary(qualified_mapping_id),
+                                None,
+                                weak_session,
+                            );
                         }
                         _ => {}
                     }
@@ -1591,7 +1631,7 @@ impl Session {
     ) {
         let (mapping_id, osc_arg_index_hint) = {
             let m = mapping.borrow();
-            (m.qualified_id(), m.source_model.osc_arg_index.get())
+            (m.qualified_id(), m.source_model.osc_arg_index())
         };
         self.mapping_which_learns_source.set(Some(mapping_id));
         when(
@@ -1615,15 +1655,16 @@ impl Session {
         )
         .with(session)
         .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
-        .do_async(|session, event: MessageCaptureEvent| {
-            let session = session.borrow();
-            if let Some(qualified_id) = session.mapping_which_learns_source.get_ref() {
-                if let Some((_, m)) =
-                    session.find_mapping_and_index_by_id(qualified_id.compartment, qualified_id.id)
-                {
-                    if let Some(source) = session.create_compound_source(event) {
-                        m.borrow_mut().source_model.apply_from_source(&source);
-                    }
+        .do_async(|shared_session, event: MessageCaptureEvent| {
+            let mut session = shared_session.borrow_mut();
+            if let Some(qualified_id) = session.mapping_which_learns_source.get() {
+                if let Some(source) = session.create_compound_source(event) {
+                    session.change_mapping_with_closure(
+                        qualified_id,
+                        None,
+                        Rc::downgrade(&shared_session),
+                        |ctx| Ok(ctx.mapping.source_model.apply_from_source(&source)),
+                    );
                 }
             }
         });

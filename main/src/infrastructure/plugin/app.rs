@@ -1002,7 +1002,9 @@ impl App {
                 let compound_source = s
                     .create_compound_source(event)
                     .ok_or("couldn't create compound source")?;
-                m.source_model.apply_from_source(&compound_source);
+                // TODO-high Test if it's okay to ignore the change events here. I guess yes
+                //  and I think it's even cleaner.
+                let _ = m.source_model.apply_from_source(&compound_source);
                 m.target_model
                     .apply_from_target(&reaper_target, s.extended_context(), compartment);
                 drop(m);

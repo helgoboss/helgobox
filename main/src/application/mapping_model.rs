@@ -1,8 +1,9 @@
 use crate::application::{
     convert_factor_to_unit_value, ActivationConditionCommand, ActivationConditionModel,
     ActivationConditionProp, Affected, Change, ChangeResult, GetProcessingRelevance,
-    MappingExtensionModel, ModeCommand, ModeModel, ModeProp, ProcessingRelevance, SourceModel,
-    TargetCategory, TargetModel, TargetModelFormatVeryShort, TargetModelWithContext,
+    MappingExtensionModel, ModeCommand, ModeModel, ModeProp, ProcessingRelevance, SourceCommand,
+    SourceModel, SourceProp, TargetCategory, TargetModel, TargetModelFormatVeryShort,
+    TargetModelWithContext,
 };
 use crate::base::{prop, Prop};
 use crate::domain::{
@@ -33,6 +34,7 @@ pub enum MappingCommand {
     SetVisibleInProjection(bool),
     SetAdvancedSettings(Option<serde_yaml::mapping::Mapping>),
     ChangeActivationCondition(ActivationConditionCommand),
+    ChangeSource(SourceCommand),
     ChangeMode(ModeCommand),
     ClearName,
 }
@@ -49,6 +51,7 @@ pub enum MappingProp {
     AdvancedSettings,
     InActivationCondition(Affected<ActivationConditionProp>),
     InMode(Affected<ModeProp>),
+    InSource(Affected<SourceProp>),
 }
 
 impl GetProcessingRelevance for MappingProp {
@@ -64,6 +67,7 @@ impl GetProcessingRelevance for MappingProp {
             | P::AdvancedSettings => Some(ProcessingRelevance::ProcessingRelevant),
             P::InActivationCondition(p) => p.processing_relevance(),
             P::InMode(p) => p.processing_relevance(),
+            P::InSource(p) => p.processing_relevance(),
             P::IsEnabled => Some(ProcessingRelevance::PersistentProcessingRelevant),
             MappingProp::GroupId => {
                 // This is handled in different ways.
@@ -175,6 +179,13 @@ impl<'a> Change<'a> for MappingModel {
                     .activation_condition_model
                     .change(cmd)?
                     .map(|affected| One(P::InActivationCondition(affected)));
+                return Ok(affected);
+            }
+            C::ChangeSource(cmd) => {
+                let affected = self
+                    .source_model
+                    .change(cmd)?
+                    .map(|affected| One(P::InSource(affected)));
                 return Ok(affected);
             }
             C::ChangeMode(cmd) => {
@@ -438,9 +449,7 @@ impl MappingModel {
     pub fn changed_processing_relevant(
         &self,
     ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.source_model
-            .changed()
-            .merge(self.target_model.changed())
+        self.target_model.changed()
     }
 
     pub fn base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {

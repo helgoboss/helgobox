@@ -114,6 +114,9 @@ impl MappingRowPanel {
                                 P::FeedbackIsEnabled => {
                                     self.invalidate_feedback_check_box(m);
                                 }
+                                P::InSource(_) => {
+                                    self.invalidate_source_label(m);
+                                }
                                 _ => {}
                             }
                         }
@@ -229,7 +232,7 @@ impl MappingRowPanel {
 
     fn invalidate_source_label(&self, mapping: &MappingModel) {
         let plain_label = mapping.source_model.to_string();
-        let rich_label = if mapping.source_model.category.get() == SourceCategory::Virtual {
+        let rich_label = if mapping.source_model.category() == SourceCategory::Virtual {
             let session = self.session();
             let session = session.borrow();
             let controller_mappings = session.mappings(MappingCompartment::ControllerMappings);
@@ -396,9 +399,6 @@ impl MappingRowPanel {
         let session = self.session();
         let session = session.borrow();
         let instance_state = session.instance_state().borrow();
-        self.when(mapping.source_model.changed(), |view| {
-            view.with_mapping(Self::invalidate_source_label);
-        });
         self.when(
             mapping
                 .target_model
