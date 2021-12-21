@@ -46,6 +46,7 @@ pub struct ModeModelData {
     pub turbo_rate: u64,
     #[serde(default, skip_serializing_if = "is_default")]
     pub eel_control_transformation: String,
+    /// Also used as text expression for text feedback
     #[serde(default, skip_serializing_if = "is_default")]
     pub eel_feedback_transformation: String,
     #[serde(default, skip_serializing_if = "is_default")]

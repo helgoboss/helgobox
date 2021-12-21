@@ -10,7 +10,7 @@ local zoom_rate = 100
 local scroll_rate = 100
 
 -- Set `follow_track_selection` to `true` in order to switch between tracks by selecting them.
-local follow_track_selection = true
+local follow_track_selection = false
 -- Setting this to false is supposed to prevent navigation to the master track when using `follow_track_selection`
 -- but correctly doesn't work 100%.
 local support_nav_to_master_track = true
@@ -866,8 +866,11 @@ local mappings = {
         },
         glue = {
             target_interval = not follow_track_selection and {0, 0.01} or nil,
-            feedback_transformation = follow_track_selection and "{{ target.numeric_value }}" or "x = y + 0.01",
-            feedback_kind = follow_track_selection and "Text" or "Numeric"
+            feedback = {
+                kind = follow_track_selection and "Text" or "Numeric",
+                transformation = not follow_track_selection and "x = y + 0.01" or nil,
+                text_expression = follow_track_selection and "{{ target.numeric_value }}" or nil,
+            },
         },
         target = follow_track_selection and { kind = "CycleThroughTracks" } or {
             kind = "FxParameterValue",
@@ -889,8 +892,10 @@ local mappings = {
             scope = "Tc",
         },
         glue = {
-            feedback_transformation = "{{ target.position.project_default.mcu }}",
-            feedback_kind = "Text",
+            feedback = {
+                kind = "Text",
+                text_expression = "{{ target.position.project_default.mcu }}",
+            },
         },
         target = {
             kind = "Seek",
@@ -1215,8 +1220,10 @@ for ch = 0, channel_count - 1 do
             id = prefix.."lcd/line1",
         },
         glue = {
-            feedback_transformation = "{{ target.track.name }}",
-            feedback_kind = "Text",
+            feedback = {
+                kind = "Text",
+                text_expression = "{{ target.track.name }}",
+            },
         },
         target = {
             kind = "Track",
@@ -1237,8 +1244,10 @@ for ch = 0, channel_count - 1 do
             id = prefix.."lcd/line2",
         },
         glue = {
-            feedback_transformation = "{{ target.pan.mcu }}",
-            feedback_kind = "Text",
+            feedback = {
+                kind = "Text",
+                text_expression = "{{ target.pan.mcu }}",
+            },
         },
         target = {
             kind = "TrackPan",
