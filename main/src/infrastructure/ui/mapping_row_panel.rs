@@ -117,6 +117,10 @@ impl MappingRowPanel {
                                 P::InSource(_) => {
                                     self.invalidate_source_label(m);
                                 }
+                                P::InTarget(_) => {
+                                    self.invalidate_name_labels(m);
+                                    self.invalidate_target_label(m);
+                                }
                                 _ => {}
                             }
                         }
@@ -399,18 +403,12 @@ impl MappingRowPanel {
         let session = self.session();
         let session = session.borrow();
         let instance_state = session.instance_state().borrow();
-        self.when(
-            mapping
-                .target_model
-                .changed()
-                .merge(ReaperTarget::potential_static_change_events()),
-            |view| {
-                view.with_mapping(|p, m| {
-                    p.invalidate_name_labels(m);
-                    p.invalidate_target_label(m);
-                });
-            },
-        );
+        self.when(ReaperTarget::potential_static_change_events(), |view| {
+            view.with_mapping(|p, m| {
+                p.invalidate_name_labels(m);
+                p.invalidate_target_label(m);
+            });
+        });
         self.when(session.mapping_which_learns_source_changed(), |view| {
             view.with_mapping(Self::invalidate_learn_source_button);
         });

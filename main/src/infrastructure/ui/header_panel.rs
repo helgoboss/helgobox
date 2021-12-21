@@ -2052,8 +2052,8 @@ impl HeaderPanel {
             && self.ask_user_if_project_independence_desired()
         {
             session
-                .borrow()
-                .make_mappings_project_independent(compartment);
+                .borrow_mut()
+                .make_mappings_project_independent(compartment, self.session.clone());
         }
     }
 

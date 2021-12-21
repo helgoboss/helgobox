@@ -33,13 +33,14 @@ use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
     get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
     ActivationConditionProp, Affected, AutomationModeOverrideType, BookmarkAnchorType,
-    CompartmentCommand, CompartmentProp, ConcreteFxInstruction, ConcreteTrackInstruction,
-    MappingCommand, MappingModel, MappingProp, MidiSourceType, ModeCommand, ModeModel, ModeProp,
-    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionCommand,
-    SessionProp, SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel,
-    SourceProp, TargetCategory, TargetModel, TargetModelWithContext, TargetUnit,
-    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
-    VirtualTrackType, WeakSession,
+    ChangeResult, CompartmentCommand, CompartmentProp, ConcreteFxInstruction,
+    ConcreteTrackInstruction, MappingChangeContext, MappingCommand, MappingModel, MappingProp,
+    MidiSourceType, ModeCommand, ModeModel, ModeProp, RealearnAutomationMode, RealearnTrackArea,
+    ReaperSourceType, Session, SessionCommand, SessionProp, SharedMapping, SharedSession,
+    SourceCategory, SourceCommand, SourceModel, SourceProp, TargetCategory, TargetCommand,
+    TargetModel, TargetModelWithContext, TargetProp, TargetUnit, TrackRouteSelectorType,
+    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
+    WeakSession,
 };
 use crate::base::Global;
 use crate::domain::{
@@ -160,214 +161,338 @@ impl MappingPanel {
                 // If the reaction can't be displayed anymore because the mapping is not filled anymore,
                 // so what.
                 let _ = self.clone().read(|view| match affected {
-                    Multiple => {
-                        view.invalidate_all_controls();
-                    }
-                    One(prop) => {
-                        use MappingProp as P;
-                        match prop {
-                            P::Name => {
-                                view.invalidate_window_title();
-                                view.panel
-                                    .mapping_header_panel
-                                    .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
-                            }
-                            P::Tags => {
-                                view.panel
-                                    .mapping_header_panel
-                                    .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
-                            }
-                            P::AdvancedSettings => {
-                                view.invalidate_mapping_advanced_settings_button();
-                            }
-                            P::ControlIsEnabled => {
-                                view.panel
-                                    .mapping_header_panel
-                                    .invalidate_due_to_changed_prop(
-                                        ItemProp::ControlEnabled,
-                                        initiator,
-                                    );
-                                view.invalidate_mode_controls();
-                            }
-                            P::FeedbackIsEnabled => {
-                                view.panel
-                                    .mapping_header_panel
-                                    .invalidate_due_to_changed_prop(
-                                        ItemProp::FeedbackEnabled,
-                                        initiator,
-                                    );
-                                view.invalidate_mode_controls();
-                            }
-                            P::IsEnabled => {
-                                view.invalidate_mapping_enabled_check_box();
-                            }
-                            P::VisibleInProjection => {
-                                view.invalidate_mapping_visible_in_projection_check_box();
-                            }
-                            P::FeedbackSendBehavior => {
-                                view.invalidate_mapping_feedback_send_behavior_combo_box();
-                            }
-                            P::GroupId => {}
-                            P::InActivationCondition(p) => match p {
-                                Multiple => {
-                                    view.panel.mapping_header_panel.invalidate_controls();
-                                }
-                                One(p) => {
-                                    let item_prop = ItemProp::from_activation_condition_prop(p);
+                        Multiple => {
+                            view.invalidate_all_controls();
+                        }
+                        One(prop) => {
+                            use MappingProp as P;
+                            match prop {
+                                P::Name => {
+                                    view.invalidate_window_title();
                                     view.panel
                                         .mapping_header_panel
-                                        .invalidate_due_to_changed_prop(item_prop, initiator);
+                                        .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
                                 }
-                            },
-                            P::InSource(p) => match p {
-                                Multiple => {
-                                    view.invalidate_source_controls();
+                                P::Tags => {
+                                    view.panel
+                                        .mapping_header_panel
+                                        .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
+                                }
+                                P::AdvancedSettings => {
+                                    view.invalidate_mapping_advanced_settings_button();
+                                }
+                                P::ControlIsEnabled => {
+                                    view.panel
+                                        .mapping_header_panel
+                                        .invalidate_due_to_changed_prop(
+                                            ItemProp::ControlEnabled,
+                                            initiator,
+                                        );
                                     view.invalidate_mode_controls();
-                                    view.invalidate_help();
                                 }
-                                One(p) => {
-                                    use SourceProp as P;
-                                    match p {
-                                        P::Category | P::MidiSourceType | P::ControlElementType => {
-                                            view.invalidate_source_controls();
-                                            view.invalidate_mode_controls();
-                                            view.invalidate_help();
+                                P::FeedbackIsEnabled => {
+                                    view.panel
+                                        .mapping_header_panel
+                                        .invalidate_due_to_changed_prop(
+                                            ItemProp::FeedbackEnabled,
+                                            initiator,
+                                        );
+                                    view.invalidate_mode_controls();
+                                }
+                                P::IsEnabled => {
+                                    view.invalidate_mapping_enabled_check_box();
+                                }
+                                P::VisibleInProjection => {
+                                    view.invalidate_mapping_visible_in_projection_check_box();
+                                }
+                                P::FeedbackSendBehavior => {
+                                    view.invalidate_mapping_feedback_send_behavior_combo_box();
+                                }
+                                P::GroupId => {}
+                                P::InActivationCondition(p) => match p {
+                                    Multiple => {
+                                        view.panel.mapping_header_panel.invalidate_controls();
+                                    }
+                                    One(p) => {
+                                        let item_prop = ItemProp::from_activation_condition_prop(p);
+                                        view.panel
+                                            .mapping_header_panel
+                                            .invalidate_due_to_changed_prop(item_prop, initiator);
+                                    }
+                                },
+                                P::InSource(p) => match p {
+                                    Multiple => {
+                                        view.invalidate_source_controls();
+                                        view.invalidate_mode_controls();
+                                        view.invalidate_help();
+                                    }
+                                    One(p) => {
+                                        use SourceProp as P;
+                                        match p {
+                                            P::Category | P::MidiSourceType | P::ControlElementType => {
+                                                view.invalidate_source_controls();
+                                                view.invalidate_mode_controls();
+                                                view.invalidate_help();
+                                            }
+                                            P::Channel => {
+                                                view.invalidate_source_control_visibilities();
+                                                view.invalidate_source_line_3_combo_box_1();
+                                                view.invalidate_source_line_5_combo_box();
+                                            }
+                                            P::MidiMessageNumber => {
+                                                view.invalidate_source_line_4_combo_box();
+                                            }
+                                            P::ParameterNumberMessageNumber |
+                                            P::OscArgIndex |
+                                            P::ControlElementId => {
+                                                view.invalidate_source_line_4_edit_control(initiator);
+                                            }
+                                            P::CustomCharacter |
+                                            P::OscArgTypeTag => {
+                                                view.invalidate_source_line_5_combo_box();
+                                                view.invalidate_mode_controls();
+                                                view.invalidate_help();
+                                            }
+                                            P::MidiClockTransportMessage => {
+                                                view.invalidate_source_line_3_combo_box_2();
+                                            }
+                                            P::IsRegistered => {
+                                                view.invalidate_source_line_4_check_box();
+                                            }
+                                            P::Is14Bit => {
+                                                view.invalidate_source_controls();
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::DisplayType => {
+                                                view.invalidate_source_controls();
+                                            }
+                                            P::DisplayId => {
+                                                view.invalidate_source_line_4_combo_box();
+                                            }
+                                            P::Line => {
+                                                view.invalidate_source_line_5_combo_box();
+                                            }
+                                            P::OscAddressPattern |
+                                            P::RawMidiPattern |
+                                            P::MidiScript => {
+                                                view.invalidate_source_line_7_edit_control(initiator);
+                                            }
+                                            P::OscArgIsRelative => {
+                                                view.invalidate_source_controls();
+                                                view.invalidate_mode_controls();
+                                                view.invalidate_help();
+                                            }
+                                            P::ReaperSourceType => {}
                                         }
-                                        P::Channel => {
-                                            view.invalidate_source_control_visibilities();
-                                            view.invalidate_source_line_3_combo_box_1();
-                                            view.invalidate_source_line_5_combo_box();
+                                    }
+                                }
+                                P::InMode(p) => match p {
+                                    Multiple => {
+                                        view.invalidate_mode_controls();
+                                        view.invalidate_help();
+                                    }
+                                    One(p) => {
+                                        use ModeProp as P;
+                                        match p {
+                                            P::AbsoluteMode => {
+                                                view.invalidate_mode_controls();
+                                                view.invalidate_help();
+                                            }
+                                            P::TargetValueInterval => {
+                                                view.invalidate_mode_min_target_value_controls(
+                                                    initiator,
+                                                );
+                                                view.invalidate_mode_max_target_value_controls(
+                                                    initiator,
+                                                );
+                                            }
+                                            P::SourceValueInterval => {
+                                                view.invalidate_mode_source_value_controls(initiator);
+                                            }
+                                            P::Reverse => {
+                                                view.invalidate_mode_reverse_check_box();
+                                            }
+                                            P::PressDurationInterval | P::FireMode | P::TurboRate => {
+                                                view.invalidate_mode_fire_controls(initiator);
+                                            }
+                                            P::JumpInterval => {
+                                                view.invalidate_mode_min_jump_controls(initiator);
+                                                view.invalidate_mode_max_jump_controls(initiator);
+                                            }
+                                            P::OutOfRangeBehavior => {
+                                                view.invalidate_mode_out_of_range_behavior_combo_box();
+                                            }
+                                            P::RoundTargetValue => {
+                                                view.invalidate_mode_round_target_value_check_box();
+                                            }
+                                            P::TakeoverMode => {
+                                                view.invalidate_mode_takeover_mode_combo_box();
+                                            }
+                                            P::ButtonUsage => {
+                                                view.invalidate_mode_button_usage_combo_box();
+                                            }
+                                            P::EncoderUsage => {
+                                                view.invalidate_mode_encoder_usage_combo_box();
+                                            }
+                                            P::EelControlTransformation => {
+                                                view.invalidate_mode_eel_control_transformation_edit_control(initiator);
+                                            }
+                                            P::EelFeedbackTransformation | P::TextualFeedbackExpression => {
+                                                view.invalidate_mode_eel_feedback_transformation_edit_control(initiator);
+                                            }
+                                            P::StepInterval => {
+                                                view.invalidate_mode_step_controls(initiator);
+                                            }
+                                            P::Rotate => {
+                                                view.invalidate_mode_rotate_check_box();
+                                            }
+                                            P::MakeAbsolute => {
+                                                view.invalidate_mode_controls();
+                                                view.invalidate_help();
+                                            }
+                                            P::GroupInteraction => {
+                                                view.invalidate_mode_group_interaction_combo_box();
+                                            }
+                                            P::TargetValueSequence => {
+                                                view.invalidate_mode_target_value_sequence_edit_control(initiator);
+                                            }
+                                            P::FeedbackType => {
+                                                view.invalidate_mode_controls();
+                                                view.invalidate_help();
+                                            }
+                                            P::FeedbackColor | P::FeedbackBackgroundColor => {
+                                                view.invalidate_mode_feedback_type_button();
+                                            }
                                         }
-                                        P::MidiMessageNumber => {
-                                            view.invalidate_source_line_4_combo_box();
+                                    }
+                                },
+
+                                P::InTarget(p) => match p {
+                                    Multiple => {
+                                        view.invalidate_target_controls(None);
+                                    }
+                                    One(p) => {
+                                        use TargetProp as P;
+                                        match p {
+                                            P::Category | P::TargetType | P::ControlElementType => {
+                                                view.invalidate_window_title();
+                                                view.invalidate_target_controls(None);
+                                                view.invalidate_mode_controls();
+                                                view.invalidate_help();
+                                            }
+                                            P::TrackType | P::TrackIndex | P::TrackId | P::TrackName
+                                            | P::TrackExpression | P::BookmarkType | P::BookmarkAnchorType
+                                            | P::BookmarkRef | P::TransportAction | P::AnyOnParameter
+                                            | P::Action => {
+                                                view.invalidate_window_title();
+                                                view.invalidate_target_controls(initiator);
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::ControlElementId => {
+                                                view.invalidate_window_title();
+                                                view.invalidate_target_line_2(initiator);
+                                            }
+                                            P::Unit => {
+                                                view.invalidate_target_value_controls();
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::FxType | P::FxIndex | P::FxId | P::FxName | P::FxExpression | P::FxIsInputFx => {
+                                                view.invalidate_window_title();
+                                                view.invalidate_target_controls(initiator);
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::RouteSelectorType | P::RouteType | P::RouteIndex | P::RouteId | P::RouteName | P::RouteExpression => {
+                                                view.invalidate_target_controls(initiator);
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::ParamType | P::ParamName | P::ParamExpression => {
+                                                view.invalidate_target_controls(initiator);
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::ParamIndex => {
+                                                view.invalidate_target_value_controls();
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::ActionInvocationType => {
+                                                view.invalidate_target_line_3(None);
+                                                view.invalidate_target_value_controls();
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::SoloBehavior | P::TouchedParameterType | P::AutomationMode | P::TrackArea | P::SlotIndex => {
+                                                view.invalidate_target_line_3(None);
+                                            }
+                                            P::AutomationModeOverrideType => {
+                                                view.invalidate_window_title();
+                                                view.invalidate_target_line_2_combo_box_2(initiator);
+                                                view.invalidate_target_line_3(None);
+                                            }
+                                            P::FxSnapshot | P::FxDisplayType  => {
+                                                view.invalidate_target_line_4(None);
+                                                view.invalidate_target_value_controls();
+                                            }
+                                            P::TrackExclusivity => {
+                                                view.invalidate_target_line_4(initiator);
+                                                view.invalidate_target_value_controls();
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::GroupId => {
+                                                view.invalidate_target_line_2(initiator);
+                                                view.invalidate_target_value_controls();
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::OscArgIndex |
+                                            P::OscArgTypeTag => {
+                                                view.invalidate_target_line_4(initiator);
+                                                view.invalidate_target_value_controls();
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::ScrollArrangeView | P::SeekPlay => {
+                                                view.invalidate_target_check_boxes();
+                                                view.invalidate_target_value_controls();
+                                            }
+                                            P::EnableOnlyIfTrackSelected | P::ScrollMixer | P::MoveView => {
+                                                view.invalidate_target_check_boxes();
+                                            }
+                                            P::WithTrack => {
+                                                view.invalidate_target_controls(None);
+                                            }
+                                            P::EnableOnlyIfFxHasFocus | P::UseProject => {
+                                                view.invalidate_target_check_boxes();
+                                            }
+                                            P::UseRegions  | P::NextBar => {
+                                                view.invalidate_target_check_boxes();
+                                            }
+                                            P::UseLoopPoints | P::Buffered | P::PollForFeedback => {
+                                                view.invalidate_target_check_boxes();
+                                            }
+                                            P::UseTimeSelection => {
+                                                view.invalidate_target_check_boxes();
+                                            }
+                                            P::FeedbackResolution => {
+                                                view.invalidate_target_line_2_combo_box_1();
+                                            }
+                                            P::RawMidiPattern | P::OscAddressPattern => {
+                                                view.invalidate_target_line_3(initiator);
+                                                view.invalidate_mode_controls();
+                                            }
+                                            P::SendMidiDestination | P::OscDevId => {
+                                                view.invalidate_target_line_2(None);
+                                            }
+                                            P::Tags => {
+                                                view.invalidate_target_line_4_edit_control(initiator);
+                                            }
+                                            P::Exclusivity => {
+                                                view.invalidate_target_line_4_combo_box_1();
+                                            }
+                                            P::ActiveMappingsOnly => {
+                                                view.invalidate_target_check_box_2();
+                                            }
                                         }
-                                        P::ParameterNumberMessageNumber |
-                                        P::OscArgIndex |
-                                        P::ControlElementId => {
-                                            view.invalidate_source_line_4_edit_control(initiator);
-                                        }
-                                        P::CustomCharacter |
-                                        P::OscArgTypeTag => {
-                                            view.invalidate_source_line_5_combo_box();
-                                            view.invalidate_mode_controls();
-                                            view.invalidate_help();
-                                        }
-                                        P::MidiClockTransportMessage => {
-                                            view.invalidate_source_line_3_combo_box_2();
-                                        }
-                                        P::IsRegistered => {
-                                            view.invalidate_source_line_4_check_box();
-                                        }
-                                        P::Is14Bit => {
-                                            view.invalidate_source_controls();
-                                            view.invalidate_mode_controls();
-                                        }
-                                        P::DisplayType => {
-                                            view.invalidate_source_controls();
-                                        }
-                                        P::DisplayId => {
-                                            view.invalidate_source_line_4_combo_box();
-                                        }
-                                        P::Line => {
-                                            view.invalidate_source_line_5_combo_box();
-                                        }
-                                        P::OscAddressPattern |
-                                        P::RawMidiPattern|
-                                        P::MidiScript => {
-                                            view.invalidate_source_line_7_edit_control(initiator);
-                                        }
-                                        P::OscArgIsRelative => {
-                                            view.invalidate_source_controls();
-                                            view.invalidate_mode_controls();
-                                            view.invalidate_help();
-                                        }
-                                        P::ReaperSourceType => {}
                                     }
                                 }
                             }
-                            P::InMode(p) => match p {
-                                Multiple => {
-                                    view.invalidate_mode_controls();
-                                    view.invalidate_help();
-                                }
-                                One(p) => {
-                                    use ModeProp as P;
-                                    match p {
-                                        P::AbsoluteMode => {
-                                            view.invalidate_mode_controls();
-                                            view.invalidate_help();
-                                        }
-                                        P::TargetValueInterval => {
-                                            view.invalidate_mode_min_target_value_controls(
-                                                initiator,
-                                            );
-                                            view.invalidate_mode_max_target_value_controls(
-                                                initiator,
-                                            );
-                                        }
-                                        P::SourceValueInterval => {
-                                            view.invalidate_mode_source_value_controls(initiator);
-                                        }
-                                        P::Reverse => {
-                                            view.invalidate_mode_reverse_check_box();
-                                        }
-                                        P::PressDurationInterval | P::FireMode | P::TurboRate => {
-                                            view.invalidate_mode_fire_controls(initiator);
-                                        }
-                                        P::JumpInterval => {
-                                            view.invalidate_mode_min_jump_controls(initiator);
-                                            view.invalidate_mode_max_jump_controls(initiator);
-                                        }
-                                        P::OutOfRangeBehavior => {
-                                            view.invalidate_mode_out_of_range_behavior_combo_box();
-                                        }
-                                        P::RoundTargetValue => {
-                                            view.invalidate_mode_round_target_value_check_box();
-                                        }
-                                        P::TakeoverMode => {
-                                            view.invalidate_mode_takeover_mode_combo_box();
-                                        }
-                                        P::ButtonUsage => {
-                                            view.invalidate_mode_button_usage_combo_box();
-                                        }
-                                        P::EncoderUsage => {
-                                            view.invalidate_mode_encoder_usage_combo_box();
-                                        }
-                                        P::EelControlTransformation => {
-                                            view.invalidate_mode_eel_control_transformation_edit_control(initiator);
-                                        }
-                                        P::EelFeedbackTransformation | P::TextualFeedbackExpression => {
-                                            view.invalidate_mode_eel_feedback_transformation_edit_control(initiator);
-                                        }
-                                        P::StepInterval => {
-                                            view.invalidate_mode_step_controls(initiator);
-                                        }
-                                        P::Rotate => {
-                                            view.invalidate_mode_rotate_check_box();
-                                        }
-                                        P::MakeAbsolute => {
-                                            view.invalidate_mode_controls();
-                                            view.invalidate_help();
-                                        }
-                                        P::GroupInteraction => {
-                                            view.invalidate_mode_group_interaction_combo_box();
-                                        }
-                                        P::TargetValueSequence => {
-                                            view.invalidate_mode_target_value_sequence_edit_control(initiator);
-                                        }
-                                        P::FeedbackType => {
-                                            view.invalidate_mode_controls();
-                                            view.invalidate_help();
-                                        }
-                                        P::FeedbackColor | P::FeedbackBackgroundColor => {
-                                            view.invalidate_mode_feedback_type_button();
-                                        }
-                                    }
-                                }
-                            },
                         }
-                    }
-                });
+                    });
             }
             _ => {}
         }
@@ -393,15 +518,31 @@ impl MappingPanel {
             .toggle_learning_target(&session, self.qualified_mapping_id().expect("no mapping"));
     }
 
+    fn change_target_with_closure(
+        &self,
+        initiator: Option<u32>,
+        f: impl FnOnce(MappingChangeContext) -> Option<Affected<TargetProp>>,
+    ) {
+        let session = self.session();
+        let mut session = session.borrow_mut();
+        let mapping = self.displayed_mapping().expect("no mapping set");
+        let mut mapping = mapping.borrow_mut();
+        session
+            .change_mapping_with_closure(&mut mapping, initiator, self.session.clone(), |ctx| {
+                Ok(f(ctx).map(|affected| Affected::One(MappingProp::InTarget(affected))))
+            })
+            .unwrap();
+    }
+
     fn handle_target_line_2_button_press(self: SharedView<Self>) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
-        let category = mapping.borrow().target_model.category.get();
+        let category = mapping.borrow().target_model.category();
         match category {
             TargetCategory::Reaper => {
                 self.write(|p| p.handle_target_line_2_button_press());
             }
             TargetCategory::Virtual => {
-                let control_element_type = mapping.borrow().target_model.control_element_type.get();
+                let control_element_type = mapping.borrow().target_model.control_element_type();
                 let window = self.view.require_window();
                 let text = prompt_for_predefined_control_element_name(
                     window,
@@ -409,11 +550,10 @@ impl MappingPanel {
                     &HashMap::new(),
                 )
                 .ok_or("nothing picked")?;
-                mapping
-                    .borrow_mut()
-                    .target_model
-                    .control_element_id
-                    .set(text.parse().unwrap_or_default());
+                let element_id = text.parse().unwrap_or_default();
+                self.change_mapping(MappingCommand::ChangeTarget(
+                    TargetCommand::SetControlElementId(element_id),
+                ));
             }
         };
         Ok(())
@@ -421,7 +561,7 @@ impl MappingPanel {
 
     fn handle_target_line_3_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
-        let target_type = mapping.borrow().target_model.r#type.get();
+        let target_type = mapping.borrow().target_model.target_type();
         match target_type {
             ReaperTargetType::SendMidi => {
                 if let Some(preset) =
@@ -490,7 +630,7 @@ impl MappingPanel {
                     let instance_state = instance_state.borrow();
                     let mapping = self.mapping();
                     let mapping = mapping.borrow();
-                    let slot_index = mapping.target_model.slot_index.get();
+                    let slot_index = mapping.target_model.slot_index();
                     if let Ok(slot) = instance_state.get_slot(slot_index) {
                         if let Some(content) = &slot.descriptor().content {
                             let info = SlotInfo {
@@ -537,7 +677,7 @@ impl MappingPanel {
                         .project_or_current_project()
                         .first_selected_item()
                         .ok_or("no item selected")?;
-                    let slot_index = self.mapping().borrow().target_model.slot_index.get();
+                    let slot_index = self.mapping().borrow().target_model.slot_index();
                     let mut instance_state = session.instance_state().borrow_mut();
                     instance_state.fill_slot_with_item_source(slot_index, item)
                 };
@@ -615,12 +755,12 @@ impl MappingPanel {
 
     fn handle_target_line_4_button_press(&self) -> Result<(), &'static str> {
         let mapping = self.displayed_mapping().ok_or("no mapping set")?;
-        let target_type = mapping.borrow().target_model.r#type.get();
+        let target_type = mapping.borrow().target_model.target_type();
         match target_type {
             ReaperTargetType::Action => {
                 let reaper = Reaper::get().medium_reaper();
                 use InitialAction::*;
-                let initial_action = match mapping.borrow().target_model.action.get_ref().as_ref() {
+                let initial_action = match mapping.borrow().target_model.action() {
                     None => NoneSelected,
                     Some(a) => Selected(a.command_id()),
                 };
@@ -825,7 +965,7 @@ impl MappingPanel {
                 true,
                 false,
                 self.displayed_mapping()
-                    .map(|m| m.borrow().target_model.unit.get())
+                    .map(|m| m.borrow().target_model.unit())
                     .unwrap_or_default(),
                 session.control_context(),
             );
@@ -1104,8 +1244,7 @@ impl<'a> MutableMappingPanel<'a> {
                         (None, None) => return,
                         (Some(i), None) => (BookmarkType::Marker, i),
                         (None, Some(i)) => (BookmarkType::Region, i),
-                        (Some(mi), Some(ri)) => match self.mapping.target_model.bookmark_type.get()
-                        {
+                        (Some(mi), Some(ri)) => match self.mapping.target_model.bookmark_type() {
                             BookmarkType::Marker => (BookmarkType::Marker, mi),
                             BookmarkType::Region => (BookmarkType::Region, ri),
                         },
@@ -1138,6 +1277,21 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn change_mapping(&mut self, val: MappingCommand) {
         self.change_mapping_with_initiator(val, None);
+    }
+
+    fn change_target_with_closure(
+        &mut self,
+        initiator: Option<u32>,
+        f: impl FnOnce(MappingChangeContext) -> Option<Affected<TargetProp>>,
+    ) {
+        self.session
+            .change_mapping_with_closure(
+                self.mapping,
+                initiator,
+                self.panel.session.clone(),
+                |ctx| Ok(f(ctx).map(|affected| Affected::One(MappingProp::InTarget(affected)))),
+            )
+            .unwrap();
     }
 
     fn change_mapping_with_initiator(&mut self, val: MappingCommand, initiator: Option<u32>) {
@@ -1604,7 +1758,7 @@ impl<'a> MutableMappingPanel<'a> {
         let target = self.first_resolved_target()?;
         let text = self.view.require_control(edit_control_id).text().ok()?;
         let control_context = self.session.control_context();
-        match self.mapping.target_model.unit.get() {
+        match self.mapping.target_model.unit() {
             TargetUnit::Native => target.parse_as_value(text.as_str(), control_context).ok(),
             TargetUnit::Percent => parse_unit_value_from_percentage(&text).ok(),
         }
@@ -1614,7 +1768,7 @@ impl<'a> MutableMappingPanel<'a> {
         let target = self.first_resolved_target()?;
         let text = self.view.require_control(edit_control_id).text().ok()?;
         let control_context = self.session.control_context();
-        match self.mapping.target_model.unit.get() {
+        match self.mapping.target_model.unit() {
             TargetUnit::Native => target
                 .parse_as_step_size(text.as_str(), control_context)
                 .ok(),
@@ -1752,7 +1906,7 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(control_id)
             .text()
             .unwrap_or_else(|_| "".to_string());
-        let sequence = match self.mapping.target_model.unit.get() {
+        let sequence = match self.mapping.target_model.unit() {
             TargetUnit::Native => {
                 if let Some(t) = self.first_resolved_target() {
                     let t = WithControlContext::new(self.session.control_context(), &t);
@@ -2067,7 +2221,7 @@ impl<'a> MutableMappingPanel<'a> {
 
     fn handle_target_unit_button_press(&mut self) {
         use TargetUnit::*;
-        let next_unit = match self.mapping.target_model.unit.get() {
+        let next_unit = match self.mapping.target_model.unit() {
             Native => Percent,
             Percent => Native,
         };
@@ -2088,7 +2242,7 @@ impl<'a> MutableMappingPanel<'a> {
     fn update_target_type(&mut self) {
         let b = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
         use TargetCategory::*;
-        match self.mapping.target_model.category.get() {
+        match self.mapping.target_model.category() {
             Reaper => {
                 let data = b.selected_combo_box_item_data() as usize;
                 self.mapping
@@ -2131,11 +2285,11 @@ impl<'a> MutableMappingPanel<'a> {
                         .selected_combo_box_item_index()
                         .try_into()
                         .unwrap_or_default();
-                    self.mapping.target_model.set_track_type_from_ui(
-                        track_type,
-                        self.session.context(),
-                        Some(combo_id),
-                    );
+                    self.change_target_with_closure(Some(combo_id), |ctx| {
+                        ctx.mapping
+                            .target_model
+                            .set_track_type_from_ui(track_type, ctx.extended_context.context)
+                    });
                 }
                 _ => {}
             },
@@ -2158,11 +2312,13 @@ impl<'a> MutableMappingPanel<'a> {
                         .selected_combo_box_item_index()
                         .try_into()
                         .unwrap_or_default();
-                    self.mapping.target_model.set_fx_type_from_ui(
-                        fx_type,
-                        self.session.extended_context(),
-                        self.mapping.compartment(),
-                    );
+                    self.change_target_with_closure(None, |ctx| {
+                        ctx.mapping.target_model.set_fx_type_from_ui(
+                            fx_type,
+                            self.session.extended_context(),
+                            self.mapping.compartment(),
+                        )
+                    });
                 }
                 t if t.supports_send() => {
                     let i = combo.selected_combo_box_item_index();
@@ -2236,7 +2392,7 @@ impl<'a> MutableMappingPanel<'a> {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::GoToBookmark => {
-                    let value: u32 = match self.mapping.target_model.bookmark_anchor_type.get() {
+                    let value: u32 = match self.mapping.target_model.bookmark_anchor_type() {
                         BookmarkAnchorType::Id => combo.selected_combo_box_item_data() as _,
                         BookmarkAnchorType::Index => combo.selected_combo_box_item_index() as _,
                     };
@@ -2296,12 +2452,13 @@ impl<'a> MutableMappingPanel<'a> {
                     let project = self.session.context().project_or_current_project();
                     let i = combo.selected_combo_box_item_index();
                     if let Some(track) = project.track_by_index(i as _) {
-                        self.mapping.target_model.set_concrete_track(
-                            ConcreteTrackInstruction::ByIdWithTrack(track),
-                            false,
-                            true,
-                            Some(combo_id),
-                        );
+                        self.change_target_with_closure(Some(combo_id), |ctx| {
+                            ctx.mapping.target_model.set_concrete_track(
+                                ConcreteTrackInstruction::ByIdWithTrack(track),
+                                false,
+                                true,
+                            )
+                        });
                     }
                 }
                 _ => {}
@@ -2317,7 +2474,7 @@ impl<'a> MutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_fx() => {
                     if let Ok(track) = self.target_with_context().first_effective_track() {
-                        let chain = if self.mapping.target_model.fx_is_input_fx.get() {
+                        let chain = if self.mapping.target_model.fx_is_input_fx() {
                             track.input_fx_chain()
                         } else {
                             track.normal_fx_chain()
@@ -2418,7 +2575,7 @@ impl<'a> MutableMappingPanel<'a> {
                 t if t.supports_send() => {
                     if let Ok(track) = self.target_with_context().first_effective_track() {
                         let i = combo.selected_combo_box_item_index();
-                        let route_type = self.mapping.target_model.route_type.get();
+                        let route_type = self.mapping.target_model.route_type();
                         if let Ok(route) = resolve_track_route_by_index(&track, route_type, i as _)
                         {
                             if let Some(TrackRoutePartner::Track(t)) = route.partner() {
@@ -2461,7 +2618,7 @@ impl<'a> MutableMappingPanel<'a> {
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 _ if self.mapping.target_model.supports_track() => {
-                    match self.mapping.target_model.track_type.get() {
+                    match self.mapping.target_model.track_type() {
                         VirtualTrackType::Dynamic => {
                             let expression = control.text().unwrap_or_default();
                             self.mapping
@@ -2517,7 +2674,7 @@ impl<'a> MutableMappingPanel<'a> {
                         .osc_address_pattern
                         .set_with_initiator(pattern, Some(edit_control_id));
                 }
-                t if t.supports_fx() => match self.mapping.target_model.fx_type.get() {
+                t if t.supports_fx() => match self.mapping.target_model.fx_type() {
                     VirtualFxType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
                         self.mapping
@@ -2559,7 +2716,7 @@ impl<'a> MutableMappingPanel<'a> {
                         .osc_arg_index
                         .set_with_initiator(parse_osc_arg_index(&text), Some(edit_control_id));
                 }
-                ReaperTargetType::FxParameter => match self.mapping.target_model.param_type.get() {
+                ReaperTargetType::FxParameter => match self.mapping.target_model.param_type() {
                     VirtualFxParameterType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
                         self.mapping
@@ -2583,8 +2740,7 @@ impl<'a> MutableMappingPanel<'a> {
                     }
                     VirtualFxParameterType::ById => {}
                 },
-                t if t.supports_send() => match self.mapping.target_model.route_selector_type.get()
-                {
+                t if t.supports_send() => match self.mapping.target_model.route_selector_type() {
                     TrackRouteSelectorType::Dynamic => {
                         let expression = control.text().unwrap_or_default();
                         self.mapping
@@ -2622,11 +2778,11 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn target_category(&self) -> TargetCategory {
-        self.mapping.target_model.category.get()
+        self.mapping.target_model.category()
     }
 
     fn reaper_target_type(&self) -> ReaperTargetType {
-        self.mapping.target_model.r#type.get()
+        self.mapping.target_model.target_type()
     }
 
     fn target_with_context(&'a self) -> TargetModelWithContext<'a> {
@@ -2899,7 +3055,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_enabled(self.mapping.compartment() != MappingCompartment::MainMappings);
         self.view
             .require_control(root::ID_TARGET_CATEGORY_COMBO_BOX)
-            .select_combo_box_item_by_index(self.target.category.get().into())
+            .select_combo_box_item_by_index(self.target.category().into())
             .unwrap();
     }
 
@@ -3388,16 +3544,16 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_type_combo_box_value(&self) {
         let combo = self.view.require_control(root::ID_TARGET_TYPE_COMBO_BOX);
         use TargetCategory::*;
-        let hint = match self.target.category.get() {
+        let hint = match self.target.category() {
             Reaper => {
-                let item_data: usize = self.target.r#type.get().into();
+                let item_data: usize = self.target.target_type().into();
                 combo
                     .select_combo_box_item_by_data(item_data as isize)
                     .unwrap();
-                self.target.r#type.get().hint()
+                self.target.target_type().hint()
             }
             Virtual => {
-                let item_index = self.target.control_element_type.get().into();
+                let item_index = self.target.control_element_type().into();
                 combo.select_combo_box_item_by_index(item_index).unwrap();
                 ""
             }
@@ -3408,11 +3564,11 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn target_category(&self) -> TargetCategory {
-        self.target.category.get()
+        self.target.category()
     }
 
     fn reaper_target_type(&self) -> ReaperTargetType {
-        self.target.r#type.get()
+        self.target.target_type()
     }
 
     fn invalidate_target_line_2_label_1(&self) {
@@ -3421,7 +3577,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Transport => Some("Action"),
                 ReaperTargetType::AnyOn => Some("Parameter"),
                 ReaperTargetType::AutomationModeOverride => Some("Behavior"),
-                ReaperTargetType::GoToBookmark => match self.target.bookmark_type.get() {
+                ReaperTargetType::GoToBookmark => match self.target.bookmark_type() {
                     BookmarkType::Marker => Some("Marker"),
                     BookmarkType::Region => Some("Region"),
                 },
@@ -3461,21 +3617,19 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_LINE_2_COMBO_BOX_1);
         match self.target_category() {
-            TargetCategory::Reaper => match self.target.r#type.get() {
+            TargetCategory::Reaper => match self.target.target_type() {
                 _ if self.target.supports_track() => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualTrackType::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(self.target.track_type.get().into())
+                        .select_combo_box_item_by_index(self.target.target_type().into())
                         .unwrap();
                 }
                 ReaperTargetType::GoToBookmark => {
                     combo.show();
                     combo.fill_combo_box_indexed(BookmarkAnchorType::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(
-                            self.target.bookmark_anchor_type.get().into(),
-                        )
+                        .select_combo_box_item_by_index(self.target.bookmark_anchor_type().into())
                         .unwrap();
                 }
                 ReaperTargetType::LoadMappingSnapshot => {
@@ -3487,7 +3641,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.fill_combo_box_indexed(FeedbackResolution::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(
-                            self.mapping.target_model.feedback_resolution.get().into(),
+                            self.mapping.target_model.feedback_resolution().into(),
                         )
                         .unwrap();
                 }
@@ -3514,7 +3668,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.fill_combo_box_indexed(TransportAction::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(
-                            self.mapping.target_model.transport_action.get().into(),
+                            self.mapping.target_model.transport_action().into(),
                         )
                         .unwrap();
                 }
@@ -3523,7 +3677,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.fill_combo_box_indexed(AnyOnParameter::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(
-                            self.mapping.target_model.any_on_parameter.get().into(),
+                            self.mapping.target_model.any_on_parameter().into(),
                         )
                         .unwrap();
                 }
@@ -3534,8 +3688,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .select_combo_box_item_by_index(
                             self.mapping
                                 .target_model
-                                .automation_mode_override_type
-                                .get()
+                                .automation_mode_override_type()
                                 .into(),
                         )
                         .unwrap();
@@ -3543,13 +3696,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::GoToBookmark => {
                     combo.show();
                     let project = self.target_with_context().project();
-                    let bookmark_type = self.target.bookmark_type.get();
+                    let bookmark_type = self.target.bookmark_type();
                     let bookmarks = bookmark_combo_box_entries(project, bookmark_type);
                     combo.fill_combo_box_with_data_vec(bookmarks.collect());
                     select_bookmark_in_combo_box(
                         combo,
-                        self.target.bookmark_anchor_type.get(),
-                        self.target.bookmark_ref.get(),
+                        self.target.bookmark_anchor_type(),
+                        self.target.bookmark_ref(),
                     );
                 }
                 ReaperTargetType::NavigateWithinGroup => {
@@ -3563,7 +3716,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                             .map(|(i, g)| (i as isize, g.borrow().to_string())),
                     );
                     // Select value
-                    let group_id = self.target.group_id.get();
+                    let group_id = self.target.group_id();
                     match self
                         .session
                         .find_group_index_by_id_sorted(compartment, group_id)
@@ -3582,7 +3735,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.fill_combo_box_indexed(SendMidiDestination::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(
-                            self.mapping.target_model.send_midi_destination.get().into(),
+                            self.mapping.target_model.send_midi_destination().into(),
                         )
                         .unwrap();
                 }
@@ -3598,7 +3751,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                                 .map(|(i, dev)| (i as isize, dev.get_list_label(true))),
                         ),
                     );
-                    if let Some(dev_id) = self.mapping.target_model.osc_dev_id.get() {
+                    if let Some(dev_id) = self.mapping.target_model.osc_dev_id() {
                         match osc_device_manager.find_index_by_id(&dev_id) {
                             None => {
                                 combo.select_new_combo_box_item(format!(
@@ -3614,7 +3767,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
                 _ if self.target.supports_track() => {
                     if matches!(
-                        self.target.track_type.get(),
+                        self.target.track_type(),
                         VirtualTrackType::ById | VirtualTrackType::ByIdOrName
                     ) {
                         combo.show();
@@ -3664,14 +3817,14 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 _ if self.target.supports_track() => {
                     control.show();
-                    let text = match self.target.track_type.get() {
-                        VirtualTrackType::Dynamic => self.target.track_expression.get_ref().clone(),
+                    let text = match self.target.track_type() {
+                        VirtualTrackType::Dynamic => self.target.track_expression().to_owned(),
                         VirtualTrackType::ByIndex => {
-                            let index = self.target.track_index.get();
+                            let index = self.target.track_index();
                             (index + 1).to_string()
                         }
                         VirtualTrackType::ByName | VirtualTrackType::AllByName => {
-                            self.target.track_name.get_ref().clone()
+                            self.target.track_name().to_owned()
                         }
                         _ => {
                             control.hide();
@@ -3685,7 +3838,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 }
             },
             TargetCategory::Virtual => {
-                let text = self.target.control_element_id.get().to_string();
+                let text = self.target.control_element_id().to_string();
                 control.set_text(text);
                 control.show();
             }
@@ -3798,19 +3951,17 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::SendOsc => {
                     control.show();
-                    let text = format_osc_arg_index(self.target.osc_arg_index.get());
+                    let text = format_osc_arg_index(self.target.osc_arg_index());
                     control.set_text(text.as_str());
                 }
                 ReaperTargetType::FxParameter => {
-                    let text = match self.target.param_type.get() {
+                    let text = match self.target.param_type() {
                         VirtualFxParameterType::Dynamic => {
-                            Some(self.target.param_expression.get_ref().clone())
+                            Some(self.target.param_expression().to_owned())
                         }
-                        VirtualFxParameterType::ByName => {
-                            Some(self.target.param_name.get_ref().clone())
-                        }
+                        VirtualFxParameterType::ByName => Some(self.target.param_name().to_owned()),
                         VirtualFxParameterType::ByIndex => {
-                            let index = self.target.param_index.get();
+                            let index = self.target.param_index();
                             Some((index + 1).to_string())
                         }
                         VirtualFxParameterType::ById => None,
@@ -3818,13 +3969,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                     control.set_text_or_hide(text);
                 }
                 t if t.supports_send() => {
-                    let text = match self.target.route_selector_type.get() {
+                    let text = match self.target.route_selector_type() {
                         TrackRouteSelectorType::Dynamic => {
                             self.target.route_expression.get_ref().clone()
                         }
-                        TrackRouteSelectorType::ByName => self.target.route_name.get_ref().clone(),
+                        TrackRouteSelectorType::ByName => self.target.route_name().to_owned(),
                         TrackRouteSelectorType::ByIndex => {
-                            let index = self.target.route_index.get();
+                            let index = self.target.route_index();
                             (index + 1).to_string()
                         }
                         _ => {
@@ -3836,7 +3987,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     control.show();
                 }
                 t if t.supports_tags() => {
-                    let text = format_tags_as_csv(self.target.tags.get_ref());
+                    let text = format_tags_as_csv(self.target.tags());
                     control.set_text(text);
                     control.show();
                 }
@@ -3861,23 +4012,23 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::SendMidi => {
                     control.show();
-                    let text = self.target.raw_midi_pattern.get_ref();
-                    control.set_text(text.as_str());
+                    let text = self.target.raw_midi_pattern();
+                    control.set_text(text);
                 }
                 ReaperTargetType::SendOsc => {
                     control.show();
-                    let text = self.target.osc_address_pattern.get_ref();
-                    control.set_text(text.as_str());
+                    let text = self.target.osc_address_pattern();
+                    control.set_text(text);
                 }
                 t if t.supports_fx() => {
-                    let text = match self.target.fx_type.get() {
-                        VirtualFxType::Dynamic => self.target.fx_expression.get_ref().clone(),
+                    let text = match self.target.fx_type() {
+                        VirtualFxType::Dynamic => self.target.fx_expression().to_owned(),
                         VirtualFxType::ByIndex => {
-                            let index = self.target.fx_index.get();
+                            let index = self.target.fx_index();
                             (index + 1).to_string()
                         }
                         VirtualFxType::ByName | VirtualFxType::AllByName => {
-                            self.target.fx_name.get_ref().clone()
+                            self.target.fx_name().to_owned()
                         }
                         _ => {
                             control.hide();
@@ -3931,7 +4082,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t if t.supports_fx_display_type() => Some("Display"),
                 t if t.supports_tags() => Some("Tags"),
                 t if t.supports_exclusivity() => Some("Exclusivity"),
-                t if t.supports_send() => match self.target.route_type.get() {
+                t if t.supports_send() => match self.target.route_type() {
                     TrackRouteType::Send => Some("Send"),
                     TrackRouteType::Receive => Some("Receive"),
                     TrackRouteType::HardwareOutput => Some("Output"),
@@ -3950,7 +4101,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_slot() => {
                     let instance_state = self.session.instance_state().borrow();
-                    let slot = instance_state.get_slot(self.target.slot_index.get()).ok();
+                    let slot = instance_state.get_slot(self.target.slot_index()).ok();
                     let (label, enabled) = if let Some(slot) = slot {
                         if let Some(content) = &slot.descriptor().content {
                             match content {
@@ -3986,7 +4137,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 ReaperTargetType::Action => Some(self.target.action_name_label().to_string()),
                 ReaperTargetType::LoadFxSnapshot => {
-                    let label = if let Some(snapshot) = self.target.fx_snapshot.get_ref() {
+                    let label = if let Some(snapshot) = self.target.fx_snapshot() {
                         snapshot.to_string()
                     } else {
                         "<Empty>".to_owned()
@@ -4007,28 +4158,28 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
-            TargetCategory::Reaper => match self.target.r#type.get() {
+            TargetCategory::Reaper => match self.target.target_type() {
                 t if t.supports_slot() => {
                     combo.show();
                     combo.fill_combo_box_indexed(
                         (0..CLIP_SLOT_COUNT).map(|i| format!("Slot {}", i + 1)),
                     );
                     combo
-                        .select_combo_box_item_by_index(self.target.slot_index.get())
+                        .select_combo_box_item_by_index(self.target.slot_index())
                         .unwrap();
                 }
                 t if t.supports_fx() => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualFxType::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(self.target.fx_type.get().into())
+                        .select_combo_box_item_by_index(self.target.fx_type().into())
                         .unwrap();
                 }
                 t if t.supports_send() => {
                     combo.show();
                     combo.fill_combo_box_indexed(TrackRouteType::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(self.target.route_type.get().into())
+                        .select_combo_box_item_by_index(self.target.route_type().into())
                         .unwrap();
                 }
                 _ => combo.hide(),
@@ -4044,25 +4195,24 @@ impl<'a> ImmutableMappingPanel<'a> {
             .view
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_1);
         match self.target_category() {
-            TargetCategory::Reaper => match self.target.r#type.get() {
+            TargetCategory::Reaper => match self.target.target_type() {
                 ReaperTargetType::SendOsc => {
                     combo.show();
                     combo.fill_combo_box_indexed(OscTypeTag::into_enum_iter());
-                    let tag = self.target.osc_arg_type_tag.get();
+                    let tag = self.target.osc_arg_type_tag();
                     combo.select_combo_box_item_by_index(tag.into()).unwrap();
                 }
                 ReaperTargetType::FxParameter => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualFxParameterType::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(self.target.param_type.get().into())
+                        .select_combo_box_item_by_index(self.target.param_type().into())
                         .unwrap();
                 }
                 ReaperTargetType::NavigateWithinGroup => {
                     combo.show();
                     combo.fill_combo_box_indexed(SimpleExclusivity::into_enum_iter());
-                    let simple_exclusivity: SimpleExclusivity =
-                        self.target.exclusivity.get().into();
+                    let simple_exclusivity: SimpleExclusivity = self.target.exclusivity().into();
                     combo
                         .select_combo_box_item_by_index(simple_exclusivity.into())
                         .unwrap();
@@ -4071,16 +4221,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.show();
                     combo.fill_combo_box_indexed(Exclusivity::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(self.target.exclusivity.get().into())
+                        .select_combo_box_item_by_index(self.target.exclusivity().into())
                         .unwrap();
                 }
                 t if t.supports_send() => {
                     combo.show();
                     combo.fill_combo_box_indexed(TrackRouteSelectorType::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(
-                            self.target.route_selector_type.get().into(),
-                        )
+                        .select_combo_box_item_by_index(self.target.route_selector_type().into())
                         .unwrap();
                 }
                 _ => combo.hide(),
@@ -4099,11 +4247,11 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_fx() => {
                     if matches!(
-                        self.target.fx_type.get(),
+                        self.target.fx_type(),
                         VirtualFxType::ById | VirtualFxType::ByIdOrIndex
                     ) {
                         combo.show();
-                        if self.target.track_type.get().is_sticky() {
+                        if self.target.track_type().is_sticky() {
                             let context = self.session.extended_context();
                             if let Ok(track) = self
                                 .target
@@ -4111,7 +4259,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                                 .first_effective_track()
                             {
                                 // Fill
-                                let chain = if self.target.fx_is_input_fx.get() {
+                                let chain = if self.target.fx_is_input_fx() {
                                     track.input_fx_chain()
                                 } else {
                                     track.normal_fx_chain()
@@ -4153,39 +4301,35 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.show();
                     combo.fill_combo_box_indexed(ActionInvocationType::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(
-                            self.target.action_invocation_type.get().into(),
-                        )
+                        .select_combo_box_item_by_index(self.target.action_invocation_type.into())
                         .unwrap();
                 }
                 ReaperTargetType::TrackSolo => {
                     combo.show();
                     combo.fill_combo_box_indexed(SoloBehavior::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(self.target.solo_behavior.get().into())
+                        .select_combo_box_item_by_index(self.target.solo_behavior().into())
                         .unwrap();
                 }
                 ReaperTargetType::TrackShow => {
                     combo.show();
                     combo.fill_combo_box_indexed(RealearnTrackArea::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(self.target.track_area.get().into())
+                        .select_combo_box_item_by_index(self.target.track_area().into())
                         .unwrap();
                 }
                 _ if self.target.supports_automation_mode() => {
                     combo.show();
                     combo.fill_combo_box_indexed(RealearnAutomationMode::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(self.target.automation_mode.get().into())
+                        .select_combo_box_item_by_index(self.target.automation_mode().into())
                         .unwrap();
                 }
                 ReaperTargetType::AutomationTouchState => {
                     combo.show();
                     combo.fill_combo_box_indexed(TouchedParameterType::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(
-                            self.target.touched_parameter_type.get().into(),
-                        )
+                        .select_combo_box_item_by_index(self.target.touched_parameter_type().into())
                         .unwrap();
                 }
                 _ => {
@@ -4209,12 +4353,12 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.fill_combo_box_indexed(TransportAction::into_enum_iter());
                     combo
                         .select_combo_box_item_by_index(
-                            self.mapping.target_model.transport_action.get().into(),
+                            self.mapping.target_model.transport_action().into(),
                         )
                         .unwrap();
                 }
                 ReaperTargetType::FxParameter
-                    if self.target.param_type.get() == VirtualFxParameterType::ById =>
+                    if self.target.param_type() == VirtualFxParameterType::ById =>
                 {
                     combo.show();
                     let context = self.session.extended_context();
@@ -4224,7 +4368,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .first_fx()
                     {
                         combo.fill_combo_box_indexed(fx_parameter_combo_box_entries(&fx));
-                        let param_index = self.target.param_index.get();
+                        let param_index = self.target.param_index();
                         combo
                             .select_combo_box_item_by_index(param_index as _)
                             .unwrap_or_else(|_| {
@@ -4239,18 +4383,18 @@ impl<'a> ImmutableMappingPanel<'a> {
                     combo.show();
                     combo.fill_combo_box_indexed(TrackExclusivity::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(self.target.track_exclusivity.get().into())
+                        .select_combo_box_item_by_index(self.target.track_exclusivity().into())
                         .unwrap();
                 }
                 t if t.supports_fx_display_type() => {
                     combo.show();
                     combo.fill_combo_box_indexed(FxDisplayType::into_enum_iter());
                     combo
-                        .select_combo_box_item_by_index(self.target.fx_display_type.get().into())
+                        .select_combo_box_item_by_index(self.target.fx_display_type().into())
                         .unwrap();
                 }
                 t if t.supports_send() => {
-                    if self.target.route_selector_type.get() == TrackRouteSelectorType::ById {
+                    if self.target.route_selector_type() == TrackRouteSelectorType::ById {
                         combo.show();
                         let context = self.session.extended_context();
                         let target_with_context = self
@@ -4258,14 +4402,14 @@ impl<'a> ImmutableMappingPanel<'a> {
                             .with_context(context, self.mapping.compartment());
                         if let Ok(track) = target_with_context.first_effective_track() {
                             // Fill
-                            let route_type = self.target.route_type.get();
+                            let route_type = self.target.route_type();
                             combo.fill_combo_box_indexed_vec(send_combo_box_entries(
                                 &track, route_type,
                             ));
                             // Set
                             if route_type == TrackRouteType::HardwareOutput {
                                 // Hardware output uses indexes, not IDs.
-                                let i = self.target.route_index.get();
+                                let i = self.target.route_index();
                                 combo
                                     .select_combo_box_item_by_index(i as _)
                                     .unwrap_or_else(|_| {
@@ -4309,23 +4453,23 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_check_box_1(&self) {
-        let state = match self.target.category.get() {
-            TargetCategory::Reaper => match self.target.r#type.get() {
-                ReaperTargetType::Action => Some(("With track", self.target.with_track.get())),
+        let state = match self.target.category() {
+            TargetCategory::Reaper => match self.target.target_type() {
+                ReaperTargetType::Action => Some(("With track", self.target.with_track())),
                 ReaperTargetType::GoToBookmark => {
-                    let is_regions = self.target.bookmark_type.get() == BookmarkType::Region;
+                    let is_regions = self.target.bookmark_type() == BookmarkType::Region;
                     Some(("Regions", is_regions))
                 }
-                ReaperTargetType::Seek => Some(("Seek play", self.target.seek_play.get())),
+                ReaperTargetType::Seek => Some(("Seek play", self.target.seek_play())),
                 t if t.supports_fx_chain() => {
                     if matches!(
-                        self.target.fx_type.get(),
+                        self.target.fx_type(),
                         VirtualFxType::Focused | VirtualFxType::This
                     ) {
                         None
                     } else {
-                        let is_input_fx = self.target.fx_is_input_fx.get();
-                        let label = if self.target.track_type.get() == VirtualTrackType::Master {
+                        let is_input_fx = self.target.fx_is_input_fx();
+                        let label = if self.target.track_type() == VirtualTrackType::Master {
                             "Monitoring FX"
                         } else {
                             "Input FX"
@@ -4334,7 +4478,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     }
                 }
                 t if t.supports_track_scrolling() => {
-                    Some(("Scroll TCP", self.target.scroll_arrange_view.get()))
+                    Some(("Scroll TCP", self.target.scroll_arrange_view()))
                 }
                 _ => None,
             },
@@ -4344,31 +4488,29 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_check_box_2(&self) {
-        let state = match self.target.category.get() {
-            TargetCategory::Reaper => match self.target.r#type.get() {
-                ReaperTargetType::LoadMappingSnapshot => Some((
-                    "Active mappings only",
-                    self.target.active_mappings_only.get(),
-                )),
+        let state = match self.target.category() {
+            TargetCategory::Reaper => match self.target.target_type() {
+                ReaperTargetType::LoadMappingSnapshot => {
+                    Some(("Active mappings only", self.target.active_mappings_only()))
+                }
                 _ if self.mapping.target_model.supports_track_must_be_selected() => {
                     if self
                         .target
-                        .track_type
-                        .get()
+                        .track_type()
                         .track_selected_condition_makes_sense()
                     {
                         Some((
                             "Track must be selected",
-                            self.target.enable_only_if_track_selected.get(),
+                            self.target.enable_only_if_track_selected(),
                         ))
                     } else {
                         None
                     }
                 }
                 t if t.supports_track_scrolling() => {
-                    Some(("Scroll mixer", self.target.scroll_mixer.get()))
+                    Some(("Scroll mixer", self.target.scroll_mixer()))
                 }
-                ReaperTargetType::Seek => Some(("Move view", self.target.move_view.get())),
+                ReaperTargetType::Seek => Some(("Move view", self.target.move_view())),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -4377,19 +4519,19 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_check_box_3(&self) {
-        let state = match self.target.category.get() {
-            TargetCategory::Reaper => match self.target.r#type.get() {
+        let state = match self.target.category() {
+            TargetCategory::Reaper => match self.target.target_type() {
                 t if t.supports_fx() => {
-                    if self.target.fx_type.get() == VirtualFxType::Focused {
+                    if self.target.fx_type() == VirtualFxType::Focused {
                         None
                     } else {
                         Some((
                             "FX must have focus",
-                            self.target.enable_only_if_fx_has_focus.get(),
+                            self.target.enable_only_if_fx_has_focus(),
                         ))
                     }
                 }
-                ReaperTargetType::Seek => Some(("Use project", self.target.use_project.get())),
+                ReaperTargetType::Seek => Some(("Use project", self.target.use_project())),
                 _ => None,
             },
             TargetCategory::Virtual => None,
@@ -4398,21 +4540,21 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_check_box_4(&self) {
-        let state = match self.target.category.get() {
-            TargetCategory::Reaper => match self.target.r#type.get() {
-                ReaperTargetType::Seek => Some(("Use regions", self.target.use_regions.get())),
+        let state = match self.target.category() {
+            TargetCategory::Reaper => match self.target.target_type() {
+                ReaperTargetType::Seek => Some(("Use regions", self.target.use_regions())),
                 ReaperTargetType::ClipTransport
                     if matches!(
-                        self.target.transport_action.get(),
+                        self.target.transport_action(),
                         TransportAction::PlayStop
                             | TransportAction::PlayPause
                             | TransportAction::Stop
                     ) =>
                 {
-                    Some(("Next bar", self.target.next_bar.get()))
+                    Some(("Next bar", self.target.next_bar()))
                 }
                 t if t.supports_poll_for_feedback() => {
-                    Some(("Poll for feedback", self.target.poll_for_feedback.get()))
+                    Some(("Poll for feedback", self.target.poll_for_feedback()))
                 }
                 _ => None,
             },
@@ -4423,13 +4565,11 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn invalidate_target_check_box_5(&self) {
         let checkbox_id = root::ID_TARGET_CHECK_BOX_5;
-        let state = match self.target.category.get() {
-            TargetCategory::Reaper => match self.target.r#type.get() {
-                ReaperTargetType::Seek => {
-                    Some(("Use loop points", self.target.use_loop_points.get()))
-                }
+        let state = match self.target.category() {
+            TargetCategory::Reaper => match self.target.target_type() {
+                ReaperTargetType::Seek => Some(("Use loop points", self.target.use_loop_points())),
                 ReaperTargetType::GoToBookmark => {
-                    Some(("Set loop points", self.target.use_loop_points.get()))
+                    Some(("Set loop points", self.target.use_loop_points()))
                 }
                 ReaperTargetType::ClipTransport
                     if matches!(
@@ -4437,7 +4577,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         TransportAction::PlayStop | TransportAction::PlayPause
                     ) =>
                 {
-                    let is_enabled = !self.target.next_bar.get();
+                    let is_enabled = !self.target.next_bar();
                     self.view
                         .require_control(checkbox_id)
                         .set_enabled(is_enabled);
@@ -4454,13 +4594,13 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_check_box_6(&self) {
-        let state = match self.target.category.get() {
-            TargetCategory::Reaper => match self.target.r#type.get() {
+        let state = match self.target.category() {
+            TargetCategory::Reaper => match self.target.target_type() {
                 ReaperTargetType::Seek => {
-                    Some(("Use time selection", self.target.use_time_selection.get()))
+                    Some(("Use time selection", self.target.use_time_selection()))
                 }
                 ReaperTargetType::GoToBookmark => {
-                    Some(("Set time selection", self.target.use_time_selection.get()))
+                    Some(("Set time selection", self.target.use_time_selection()))
                 }
                 _ => None,
             },
@@ -4580,7 +4720,7 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_unit_button(&self) {
-        let unit = self.mapping.target_model.unit.get();
+        let unit = self.mapping.target_model.unit();
         let control_context = self.session.control_context();
         let (value_unit, step_size_unit) = match unit {
             TargetUnit::Native => self
@@ -4616,7 +4756,6 @@ impl<'a> ImmutableMappingPanel<'a> {
 
     fn register_listeners(&self) {
         self.register_session_listeners();
-        self.register_target_listeners();
         self.register_help_listeners();
     }
 
@@ -5042,7 +5181,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             edit_control_id,
             false,
             use_step_sizes,
-            self.target.unit.get(),
+            self.target.unit(),
             self.session.control_context(),
         );
     }
@@ -5345,7 +5484,7 @@ impl<'a> ImmutableMappingPanel<'a> {
             return;
         }
         let sequence = self.mode.target_value_sequence();
-        let formatted = match self.target.unit.get() {
+        let formatted = match self.target.unit() {
             TargetUnit::Native => {
                 if let Some(t) = self.first_resolved_target() {
                     let t = WithControlContext::new(self.session.control_context(), &t);
@@ -5383,254 +5522,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.view
             .require_control(root::ID_MODE_EEL_FEEDBACK_TRANSFORMATION_EDIT_CONTROL)
             .set_text(prop);
-    }
-
-    fn register_target_listeners(&self) {
-        let target = self.target;
-        self.panel.when(
-            target
-                .category
-                .changed()
-                .merge(target.r#type.changed())
-                .merge(target.control_element_type.changed()),
-            |view, _| {
-                view.invalidate_window_title();
-                view.invalidate_target_controls(None);
-                view.invalidate_mode_controls();
-                view.invalidate_help();
-            },
-        );
-        self.panel.when(target.unit.changed(), |view, _| {
-            view.invalidate_target_value_controls();
-            view.invalidate_mode_controls();
-        });
-        self.panel.when(
-            target
-                .track_type
-                .changed_with_initiator()
-                .merge(target.track_index.changed_with_initiator())
-                .merge(target.track_id.changed_with_initiator())
-                .merge(target.track_name.changed_with_initiator())
-                .merge(target.track_expression.changed_with_initiator())
-                .merge(target.bookmark_type.changed_with_initiator())
-                .merge(target.bookmark_anchor_type.changed_with_initiator())
-                .merge(target.bookmark_ref.changed_with_initiator())
-                .merge(target.transport_action.changed_with_initiator())
-                .merge(target.any_on_parameter.changed_with_initiator())
-                .merge(target.action.changed_with_initiator()),
-            |view, initiator| {
-                view.invalidate_window_title();
-                view.invalidate_target_controls(initiator);
-                view.invalidate_mode_controls();
-            },
-        );
-        self.panel.when(
-            target.control_element_id.changed_with_initiator(),
-            |view, initiator| {
-                view.invalidate_window_title();
-                view.invalidate_target_line_2(initiator);
-            },
-        );
-        self.panel.when(
-            target
-                .fx_type
-                .changed_with_initiator()
-                .merge(target.fx_index.changed_with_initiator())
-                .merge(target.fx_id.changed_with_initiator())
-                .merge(target.fx_name.changed_with_initiator())
-                .merge(target.fx_expression.changed_with_initiator())
-                .merge(target.fx_is_input_fx.changed_with_initiator()),
-            |view, initiator| {
-                view.invalidate_target_controls(initiator);
-                view.invalidate_mode_controls();
-            },
-        );
-        self.panel.when(
-            target
-                .route_selector_type
-                .changed_with_initiator()
-                .merge(target.route_type.changed_with_initiator())
-                .merge(target.route_index.changed_with_initiator())
-                .merge(target.route_id.changed_with_initiator())
-                .merge(target.route_name.changed_with_initiator())
-                .merge(target.route_expression.changed_with_initiator()),
-            |view, initiator| {
-                view.invalidate_target_controls(initiator);
-                view.invalidate_mode_controls();
-            },
-        );
-        self.panel.when(
-            target
-                .param_type
-                .changed_with_initiator()
-                .merge(target.param_name.changed_with_initiator())
-                .merge(target.param_expression.changed_with_initiator()),
-            |view, initiator| {
-                view.invalidate_target_controls(initiator);
-                view.invalidate_mode_controls();
-            },
-        );
-        self.panel.when(target.param_index.changed(), |view, _| {
-            view.invalidate_target_value_controls();
-            view.invalidate_mode_controls();
-        });
-        self.panel
-            .when(target.action_invocation_type.changed(), |view, _| {
-                view.invalidate_target_line_3(None);
-                view.invalidate_target_value_controls();
-                view.invalidate_mode_controls();
-            });
-        self.panel.when(
-            target
-                .solo_behavior
-                .changed()
-                .merge(target.touched_parameter_type.changed())
-                .merge(target.automation_mode.changed())
-                .merge(target.automation_mode_override_type.changed())
-                .merge(target.track_area.changed())
-                .merge(target.slot_index.changed()),
-            |view, _| {
-                view.invalidate_target_line_3(None);
-            },
-        );
-        self.panel.when(
-            target
-                .fx_snapshot
-                .changed()
-                .merge(target.fx_display_type.changed()),
-            |view, _| {
-                view.invalidate_target_line_4(None);
-                view.invalidate_target_value_controls();
-            },
-        );
-        self.panel.when(
-            target.track_exclusivity.changed_with_initiator(),
-            |view, initiator| {
-                view.invalidate_target_line_4(initiator);
-                view.invalidate_target_value_controls();
-                view.invalidate_mode_controls();
-            },
-        );
-        self.panel.when(
-            target.group_id.changed_with_initiator(),
-            |view, initiator| {
-                view.invalidate_target_line_2(initiator);
-                view.invalidate_target_value_controls();
-                view.invalidate_mode_controls();
-            },
-        );
-        self.panel.when(
-            target
-                .osc_arg_type_tag
-                .changed_with_initiator()
-                .merge(target.osc_arg_index.changed_with_initiator()),
-            |view, initiator| {
-                view.invalidate_target_line_4(initiator);
-                view.invalidate_target_value_controls();
-                view.invalidate_mode_controls();
-            },
-        );
-        self.panel.when(
-            target
-                .fx_is_input_fx
-                .changed()
-                .merge(target.bookmark_type.changed())
-                .merge(target.scroll_arrange_view.changed())
-                .merge(target.seek_play.changed()),
-            |view, _| {
-                view.invalidate_window_title();
-                view.invalidate_target_check_boxes();
-                view.invalidate_target_value_controls();
-            },
-        );
-        self.panel.when(
-            target
-                .enable_only_if_track_selected
-                .changed()
-                .merge(target.scroll_mixer.changed())
-                .merge(target.move_view.changed()),
-            |view, _| {
-                view.invalidate_target_check_boxes();
-            },
-        );
-        self.panel.when(target.with_track.changed(), |view, _| {
-            view.invalidate_target_controls(None);
-        });
-        self.panel.when(
-            target
-                .enable_only_if_fx_has_focus
-                .changed()
-                .merge(target.use_project.changed()),
-            |view, _| {
-                view.invalidate_target_check_boxes();
-            },
-        );
-        self.panel.when(
-            target
-                .use_regions
-                .changed()
-                .merge(target.next_bar.changed()),
-            |view, _| {
-                view.invalidate_target_check_boxes();
-            },
-        );
-        self.panel.when(
-            target
-                .use_loop_points
-                .changed()
-                .merge(target.buffered.changed())
-                .merge(target.poll_for_feedback.changed()),
-            |view, _| {
-                view.invalidate_target_check_boxes();
-            },
-        );
-        self.panel
-            .when(target.use_time_selection.changed(), |view, _| {
-                view.invalidate_target_check_boxes();
-            });
-        self.panel
-            .when(target.active_mappings_only.changed(), |view, _| {
-                view.invalidate_target_check_box_2();
-            });
-        self.panel.when(target.exclusivity.changed(), |view, _| {
-            view.invalidate_target_line_4_combo_box_1();
-        });
-        self.panel
-            .when(target.feedback_resolution.changed(), |view, _| {
-                view.invalidate_target_line_2_combo_box_1();
-            });
-        self.panel.when(
-            target
-                .automation_mode_override_type
-                .changed_with_initiator(),
-            |view, initiator| {
-                view.invalidate_window_title();
-                view.invalidate_target_line_2_combo_box_2(initiator);
-            },
-        );
-        self.panel.when(
-            target
-                .send_midi_destination
-                .changed()
-                .merge(target.osc_dev_id.changed()),
-            |view, _| {
-                view.invalidate_target_line_2(None);
-            },
-        );
-        self.panel.when(
-            target
-                .raw_midi_pattern
-                .changed_with_initiator()
-                .merge(target.osc_address_pattern.changed_with_initiator()),
-            |view, initiator| {
-                view.invalidate_target_line_3(initiator);
-                view.invalidate_mode_controls();
-            },
-        );
-        self.panel
-            .when(target.tags.changed_with_initiator(), |view, initiator| {
-                view.invalidate_target_line_4_edit_control(initiator);
-            });
     }
 
     fn fill_source_category_combo_box(&self) {
@@ -6527,19 +6418,19 @@ fn prompt_for_color(
                         move || OpenColorPicker(color_target),
                     ),
                 ])
-                .chain(IntoIterator::into_iter(["target.track.color", "target.bookmark.color"]).map(|key| {
-                    item_with_opts(
-                        key,
-                        ItemOpts {
-                            enabled: true,
-                            checked: {
-                                matches!(relevant_color, Some(VirtualColor::Prop{prop}) if key == prop)
+                    .chain(IntoIterator::into_iter(["target.track.color", "target.bookmark.color"]).map(|key| {
+                        item_with_opts(
+                            key,
+                            ItemOpts {
+                                enabled: true,
+                                checked: {
+                                    matches!(relevant_color, Some(VirtualColor::Prop{prop}) if key == prop)
+                                },
                             },
-                        },
-                        move || UseColorProp(color_target, key),
-                    )
-                }))
-                .collect(),
+                            move || UseColorProp(color_target, key),
+                        )
+                    }))
+                    .collect(),
             )
         };
         let entries = vec![

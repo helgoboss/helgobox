@@ -2,8 +2,8 @@ use crate::application::{
     convert_factor_to_unit_value, ActivationConditionCommand, ActivationConditionModel,
     ActivationConditionProp, Affected, Change, ChangeResult, GetProcessingRelevance,
     MappingExtensionModel, ModeCommand, ModeModel, ModeProp, ProcessingRelevance, SourceCommand,
-    SourceModel, SourceProp, TargetCategory, TargetModel, TargetModelFormatVeryShort,
-    TargetModelWithContext,
+    SourceModel, SourceProp, TargetCategory, TargetCommand, TargetModel,
+    TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
 };
 use crate::base::{prop, Prop};
 use crate::domain::{
@@ -36,6 +36,7 @@ pub enum MappingCommand {
     ChangeActivationCondition(ActivationConditionCommand),
     ChangeSource(SourceCommand),
     ChangeMode(ModeCommand),
+    ChangeTarget(TargetCommand),
     ClearName,
 }
 
@@ -50,8 +51,9 @@ pub enum MappingProp {
     VisibleInProjection,
     AdvancedSettings,
     InActivationCondition(Affected<ActivationConditionProp>),
-    InMode(Affected<ModeProp>),
     InSource(Affected<SourceProp>),
+    InMode(Affected<ModeProp>),
+    InTarget(Affected<TargetProp>),
 }
 
 impl GetProcessingRelevance for MappingProp {
@@ -68,6 +70,7 @@ impl GetProcessingRelevance for MappingProp {
             P::InActivationCondition(p) => p.processing_relevance(),
             P::InMode(p) => p.processing_relevance(),
             P::InSource(p) => p.processing_relevance(),
+            P::InTarget(p) => p.processing_relevance(),
             P::IsEnabled => Some(ProcessingRelevance::PersistentProcessingRelevant),
             MappingProp::GroupId => {
                 // This is handled in different ways.
@@ -117,14 +120,6 @@ pub fn share_mapping(mapping: MappingModel) -> SharedMapping {
 impl PartialEq for MappingModel {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self as _, other as _)
-    }
-}
-
-fn get_default_target_category_for_compartment(compartment: MappingCompartment) -> TargetCategory {
-    use MappingCompartment::*;
-    match compartment {
-        ControllerMappings => TargetCategory::Virtual,
-        MainMappings => TargetCategory::Reaper,
     }
 }
 
@@ -195,6 +190,13 @@ impl<'a> Change<'a> for MappingModel {
                     .map(|affected| One(P::InMode(affected)));
                 return Ok(affected);
             }
+            C::ChangeTarget(cmd) => {
+                let affected = self
+                    .target_model
+                    .change(cmd)?
+                    .map(|affected| One(P::InTarget(affected)));
+                return Ok(affected);
+            }
             C::ClearName => return self.change(MappingCommand::SetName(String::new())),
         };
         Ok(Some(affected))
@@ -222,10 +224,7 @@ impl MappingModel {
             visible_in_projection: true,
             source_model: Default::default(),
             mode_model: Default::default(),
-            target_model: TargetModel {
-                category: prop(get_default_target_category_for_compartment(compartment)),
-                ..Default::default()
-            },
+            target_model: TargetModel::default_for_compartment(compartment),
             advanced_settings: None,
             extension_model: Default::default(),
         }
@@ -296,13 +295,17 @@ impl MappingModel {
         }
     }
 
-    pub fn make_project_independent(&mut self, context: ExtendedProcessorContext) {
+    #[must_use]
+    pub fn make_project_independent(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Option<Affected<MappingProp>> {
         let compartment = self.compartment();
         let target = &mut self.target_model;
-        match target.category.get() {
+        match target.category() {
             TargetCategory::Reaper => {
                 let changed_to_track_ignore_fx = if target.supports_fx() {
-                    let refers_to_project = target.fx_type.get().refers_to_project();
+                    let refers_to_project = target.fx_type().refers_to_project();
                     if refers_to_project {
                         let target_with_context = target.with_context(context, compartment);
                         let virtual_fx = if target_with_context.first_fx().ok().as_ref()
@@ -321,8 +324,7 @@ impl MappingModel {
                 } else {
                     false
                 };
-                if target.r#type.get().supports_track()
-                    && target.track_type.get().refers_to_project()
+                if target.target_type().supports_track() && target.track_type().refers_to_project()
                 {
                     let new_virtual_track = if changed_to_track_ignore_fx {
                         // Track doesn't matter at all. We change it to <This>. Looks nice.
@@ -336,11 +338,12 @@ impl MappingModel {
                         None
                     };
                     if let Some(t) = new_virtual_track {
-                        target.set_virtual_track(t, Some(context.context()));
+                        let _ = target.set_virtual_track(t, Some(context.context()));
                     }
                 }
+                Some(Affected::Multiple)
             }
-            TargetCategory::Virtual => {}
+            TargetCategory::Virtual => None,
         }
     }
 
@@ -349,7 +352,7 @@ impl MappingModel {
         context: ExtendedProcessorContext,
     ) -> Result<(), Box<dyn Error>> {
         let target = &mut self.target_model;
-        match target.category.get() {
+        match target.category() {
             TargetCategory::Reaper => {
                 if target.supports_track() {
                     target.make_track_sticky(self.compartment, context)?;
@@ -439,17 +442,6 @@ impl MappingModel {
             ))?
             .map(|affected| Affected::One(MappingProp::InMode(affected)));
         Ok(affected)
-    }
-
-    /// Fires whenever a property has changed that has an effect on control/feedback processing.
-    ///
-    /// However, we don't include properties here which are changed by the processing layer
-    /// (such as `is_enabled`) because that would mean the complete mapping will be synced as a
-    /// result, whereas we want to sync processing stuff faster!  
-    pub fn changed_processing_relevant(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.target_model.changed()
     }
 
     pub fn base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {
