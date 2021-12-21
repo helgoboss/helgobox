@@ -1,8 +1,9 @@
-use std::sync::Mutex;
 use arboard::Clipboard;
 use once_cell::sync::Lazy;
+use std::sync::Mutex;
 
-static CLIPBOARD: Lazy<Mutex<Clipboard>> = Lazy::new(|| Mutex::new(Clipboard::new().expect("couldn't create clipboard")));
+static CLIPBOARD: Lazy<Mutex<Clipboard>> =
+    Lazy::new(|| Mutex::new(Clipboard::new().expect("couldn't create clipboard")));
 
 pub fn copy_text_to_clipboard(text: String) {
     let mut clipboard = CLIPBOARD.lock().unwrap();
