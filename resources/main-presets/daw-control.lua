@@ -888,8 +888,8 @@ local mappings = {
         group = "lcd",
         control_enabled = false,
         source = {
-            kind = "MackieSevenSegmentDisplay",
-            scope = "Tc",
+            kind = "Virtual",
+            id = "lcd/timecode",
         },
         glue = {
             feedback = {
