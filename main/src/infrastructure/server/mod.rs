@@ -688,8 +688,7 @@ pub fn keep_informing_clients_about_session_events(shared_session: &SharedSessio
     when(
         instance_state
             .on_mappings_changed()
-            .merge(session.mapping_list_changed().map_to(()))
-            .merge(session.mapping_changed().map_to(())),
+            .merge(session.mapping_list_changed().map_to(())),
     )
     .with(Rc::downgrade(shared_session))
     .do_async(|session, _| {
@@ -755,7 +754,7 @@ fn send_updated_active_controller(session: &Session) -> Result<(), &'static str>
     )
 }
 
-fn send_updated_controller_routing(session: &Session) -> Result<(), &'static str> {
+pub fn send_updated_controller_routing(session: &Session) -> Result<(), &'static str> {
     send_to_clients_subscribed_to(
         &Topic::ControllerRouting {
             session_id: session.id().to_string(),

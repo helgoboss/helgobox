@@ -43,7 +43,12 @@ pub trait SessionUi {
     fn parameters_changed(&self, session: &Session);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
     fn mapping_matched(&self, event: MappingMatchedEvent);
-    fn handle_affected(&self, affected: Affected<SessionProp>, initiator: Option<u32>);
+    fn handle_affected(
+        &self,
+        session: &Session,
+        affected: Affected<SessionProp>,
+        initiator: Option<u32>,
+    );
 }
 
 /// This represents the user session with one ReaLearn instance.
@@ -89,7 +94,6 @@ pub struct Session {
         LocalSubject<'static, (MappingCompartment, Option<MappingId>), ()>,
     group_list_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     parameter_settings_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
-    mapping_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     incoming_msg_captured_subject: LocalSubject<'static, MessageCaptureEvent, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     group_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
@@ -218,7 +222,6 @@ impl Session {
             mapping_list_changed_subject: Default::default(),
             group_list_changed_subject: Default::default(),
             parameter_settings_changed_subject: Default::default(),
-            mapping_changed_subject: Default::default(),
             incoming_msg_captured_subject: Default::default(),
             mapping_subscriptions: Default::default(),
             group_subscriptions: Default::default(),
@@ -1203,9 +1206,6 @@ impl Session {
                             }
                             // Mark dirty
                             session.mark_compartment_dirty(*compartment);
-                            // Push changes to projection server
-                            // TODO-high Can now be solved more elegantly without subject!
-                            session.notify_mapping_changed(*compartment);
                             // Auto-correct settings.
                             if session.auto_correct_settings.get() {
                                 let qualified_mapping_id =
@@ -1229,7 +1229,7 @@ impl Session {
                     // need to borrow the session mutably. In case it's going to be an issue,
                     // we can also choose to clone the weak main panel instead.
                     let session = session.borrow();
-                    session.ui.handle_affected(affected, initiator);
+                    session.ui.handle_affected(&session, affected, initiator);
                 }
             })
             .unwrap();
@@ -2056,13 +2056,6 @@ impl Session {
         self.group_list_changed_subject.clone()
     }
 
-    /// Fires if a mapping itself has been changed.
-    pub fn mapping_changed(
-        &self,
-    ) -> impl LocalObservable<'static, Item = MappingCompartment, Err = ()> + 'static {
-        self.mapping_changed_subject.clone()
-    }
-
     /// Fires when a parameter setting has been changed.
     pub fn parameter_settings_changed(
         &self,
@@ -2266,11 +2259,6 @@ impl Session {
 
     fn notify_parameter_settings_changed(&mut self, compartment: MappingCompartment) {
         AsyncNotifier::notify(&mut self.parameter_settings_changed_subject, &compartment);
-    }
-
-    /// Notifies listeners async a mapping in a mapping list has changed.
-    fn notify_mapping_changed(&mut self, compartment: MappingCompartment) {
-        AsyncNotifier::notify(&mut self.mapping_changed_subject, &compartment);
     }
 
     fn sync_upper_floor_membership(&self) {
