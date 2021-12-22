@@ -48,6 +48,7 @@ pub enum SourceCommand {
     SetControlElementId(VirtualControlElementId),
 }
 
+#[derive(PartialEq)]
 pub enum SourceProp {
     Category,
     MidiSourceType,

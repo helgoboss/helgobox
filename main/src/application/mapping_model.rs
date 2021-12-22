@@ -1,9 +1,9 @@
 use crate::application::{
-    convert_factor_to_unit_value, ActivationConditionCommand, ActivationConditionModel,
-    ActivationConditionProp, Affected, Change, ChangeResult, GetProcessingRelevance,
-    MappingExtensionModel, ModeCommand, ModeModel, ModeProp, ProcessingRelevance, SourceCommand,
-    SourceModel, SourceProp, TargetCategory, TargetCommand, TargetModel,
-    TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
+    convert_factor_to_unit_value, merge_affected, ActivationConditionCommand,
+    ActivationConditionModel, ActivationConditionProp, Affected, Change, ChangeResult,
+    GetProcessingRelevance, MappingExtensionModel, ModeCommand, ModeModel, ModeProp,
+    ProcessingRelevance, SourceCommand, SourceModel, SourceProp, TargetCategory, TargetCommand,
+    TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
 };
 use crate::base::{prop, Prop};
 use crate::domain::{
@@ -40,6 +40,7 @@ pub enum MappingCommand {
     ClearName,
 }
 
+#[derive(PartialEq)]
 pub enum MappingProp {
     Name,
     Tags,
@@ -431,8 +432,20 @@ impl MappingModel {
         Ok(Some(Affected::Multiple))
     }
 
+    pub fn set_absolute_mode_and_preferred_values(
+        &mut self,
+        context: ExtendedProcessorContext,
+        mode: AbsoluteMode,
+    ) -> ChangeResult<MappingProp> {
+        let affected_1 = self.change(MappingCommand::ChangeMode(ModeCommand::SetAbsoluteMode(
+            mode,
+        )))?;
+        let affected_2 = self.set_preferred_mode_values(context)?;
+        Ok(merge_affected(affected_1, affected_2))
+    }
+
     // Changes mode settings if there are some preferred ones for a certain source or target.
-    pub fn set_preferred_mode_values(
+    fn set_preferred_mode_values(
         &mut self,
         context: ExtendedProcessorContext,
     ) -> ChangeResult<MappingProp> {

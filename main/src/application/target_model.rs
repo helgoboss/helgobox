@@ -128,6 +128,7 @@ pub enum TargetCommand {
     SetActiveMappingsOnly(bool),
 }
 
+#[derive(PartialEq)]
 pub enum TargetProp {
     Category,
     Unit,

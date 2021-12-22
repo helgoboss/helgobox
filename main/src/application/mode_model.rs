@@ -55,6 +55,7 @@ pub enum ModeCommand {
     ResetWithinType,
 }
 
+#[derive(PartialEq)]
 pub enum ModeProp {
     AbsoluteMode,
     TargetValueInterval,

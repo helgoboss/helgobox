@@ -14,6 +14,7 @@ pub enum ActivationConditionCommand {
     SetEelCondition(String),
 }
 
+#[derive(PartialEq)]
 pub enum ActivationConditionProp {
     ActivationType,
     ModifierCondition1,

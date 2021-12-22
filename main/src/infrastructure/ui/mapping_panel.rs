@@ -1730,15 +1730,14 @@ impl<'a> MutableMappingPanel<'a> {
             .try_into()
             .expect("invalid mode type");
         self.update_mode_hint(ModeParameter::SpecificAbsoluteMode(mode));
-        // TODO-high Couldn't this be one "transaction" now?
-        self.change_mapping(MappingCommand::ChangeMode(ModeCommand::SetAbsoluteMode(
-            mode,
-        )));
         self.session.change_mapping_with_closure(
             self.mapping,
             None,
             self.panel.session.clone(),
-            |ctx| ctx.mapping.set_preferred_mode_values(ctx.extended_context),
+            |ctx| {
+                ctx.mapping
+                    .set_absolute_mode_and_preferred_values(ctx.extended_context, mode)
+            },
         );
     }
 

@@ -1,6 +1,7 @@
 use enum_iterator::IntoEnumIterator;
 
 /// A type which can express what properties are potentially be affected by a change operation.
+#[derive(PartialEq)]
 pub enum Affected<T> {
     /// Just the given property might be affected.
     One(T),
@@ -57,4 +58,27 @@ pub trait Change<'a> {
 
 pub trait GetProcessingRelevance {
     fn processing_relevance(&self) -> Option<ProcessingRelevance>;
+}
+
+pub fn merge_affected<T: PartialEq>(
+    affected_1: Option<Affected<T>>,
+    affected_2: Option<Affected<T>>,
+) -> Option<Affected<T>> {
+    match (affected_1, affected_2) {
+        (None, None) => None,
+        (None, Some(a)) | (Some(a), None) => Some(a),
+        (Some(a), Some(b)) => {
+            use Affected::*;
+            match (a, b) {
+                (_, Multiple) | (Multiple, _) => Some(Multiple),
+                (One(p1), One(p2)) => {
+                    if p1 == p2 {
+                        Some(One(p1))
+                    } else {
+                        Some(Multiple)
+                    }
+                }
+            }
+        }
+    }
 }
