@@ -72,6 +72,6 @@ impl GroupModelData {
             self.enabled_data.feedback_is_enabled,
         ));
         self.activation_condition_data
-            .apply_to_model(model.activation_condition_model_mut());
+            .apply_to_model(&mut model.activation_condition_model);
     }
 }

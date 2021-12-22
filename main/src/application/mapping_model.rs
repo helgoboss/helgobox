@@ -94,7 +94,7 @@ pub struct MappingModel {
     control_is_enabled: bool,
     feedback_is_enabled: bool,
     feedback_send_behavior: FeedbackSendBehavior,
-    activation_condition_model: ActivationConditionModel,
+    pub activation_condition_model: ActivationConditionModel,
     visible_in_projection: bool,
     pub source_model: SourceModel,
     pub mode_model: ModeModel,
@@ -265,11 +265,6 @@ impl MappingModel {
 
     pub fn activation_condition_model(&self) -> &ActivationConditionModel {
         &self.activation_condition_model
-    }
-
-    // TODO-high Replace because it leaks internals and might make one forget about notification.
-    pub fn activation_condition_model_mut(&mut self) -> &mut ActivationConditionModel {
-        &mut self.activation_condition_model
     }
 
     pub fn reset_key(&mut self) {

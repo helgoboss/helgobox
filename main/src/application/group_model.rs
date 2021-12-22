@@ -60,7 +60,7 @@ pub struct GroupModel {
     tags: Vec<Tag>,
     control_is_enabled: bool,
     feedback_is_enabled: bool,
-    activation_condition_model: ActivationConditionModel,
+    pub activation_condition_model: ActivationConditionModel,
 }
 
 impl<'a> Change<'a> for GroupModel {
@@ -127,11 +127,6 @@ impl GroupModel {
 
     pub fn activation_condition_model(&self) -> &ActivationConditionModel {
         &self.activation_condition_model
-    }
-
-    // TODO-high Replace because it leaks internals and might make one forget about notification.
-    pub fn activation_condition_model_mut(&mut self) -> &mut ActivationConditionModel {
-        &mut self.activation_condition_model
     }
 }
 

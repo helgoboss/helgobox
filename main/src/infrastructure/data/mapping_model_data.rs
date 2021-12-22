@@ -183,7 +183,7 @@ impl MappingModelData {
             .unwrap_or_default();
         model.change(P::SetGroupId(group_id));
         self.activation_condition_data
-            .apply_to_model(model.activation_condition_model_mut());
+            .apply_to_model(&mut model.activation_condition_model);
         let compartment = model.compartment();
         self.source
             .apply_to_model_flexible(&mut model.source_model, compartment, preset_version);
