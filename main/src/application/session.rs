@@ -3,7 +3,7 @@ use crate::application::{
     CompartmentModel, CompartmentProp, ControllerPreset, FxId, GroupCommand, GroupModel, GroupProp,
     MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp, Preset,
     PresetLinkManager, PresetManager, ProcessingRelevance, QualifiedGroupId, SharedGroup,
-    SharedMapping, SourceModel, TargetCategory, TargetModel, VirtualControlElementType,
+    SharedMapping, SourceModel, TargetCategory, TargetModel, TargetProp, VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
 use crate::base::{prop, when, AsyncNotifier, Global, Prop};
@@ -538,7 +538,8 @@ impl Session {
         )
         .with(weak_session.clone())
         .do_sync(|s, _| {
-            s.borrow().invalidate_fx_indexes_of_mapping_targets();
+            s.borrow_mut()
+                .invalidate_fx_indexes_of_mapping_targets(Rc::downgrade(&s));
         });
         // When FX focus changes, maybe trigger main preset change
         when(
@@ -601,12 +602,20 @@ impl Session {
         }
     }
 
-    fn invalidate_fx_indexes_of_mapping_targets(&self) {
-        for m in self.all_mappings() {
-            let mut m = m.borrow_mut();
-            let compartment = m.compartment();
-            m.target_model
-                .invalidate_fx_index(self.extended_context(), compartment);
+    fn invalidate_fx_indexes_of_mapping_targets(&mut self, weak_session: WeakSession) {
+        let ids: Vec<_> = self
+            .all_mappings()
+            .map(|m| m.borrow().qualified_id())
+            .collect();
+        for id in ids {
+            self.change_mapping_by_id_with_closure(id, None, weak_session.clone(), |ctx| {
+                let affected = ctx
+                    .mapping
+                    .target_model
+                    .invalidate_fx_index(ctx.extended_context, ctx.mapping.compartment())
+                    .map(|affected| Affected::One(MappingProp::InTarget(affected)));
+                Ok(affected)
+            });
         }
     }
 
@@ -743,8 +752,8 @@ impl Session {
             })
     }
 
-    fn learn_target(&mut self, target: &ReaperTarget) {
-        // Prevent learning targets from in other project tabs (leads to weird effects, just think
+    fn learn_target(&mut self, target: &ReaperTarget, weak_session: WeakSession) {
+        // Prevent learning targets from other project tabs (leads to weird effects, just think
         // about it)
         if let Some(p) = target.project() {
             if p != self.context.project_or_current_project() {
@@ -752,14 +761,19 @@ impl Session {
             }
         }
         if let Some(qualified_id) = self.mapping_which_learns_target.replace(None) {
-            if let Some((_, mapping)) = self.find_mapping_and_index_by_qualified_id(qualified_id) {
+            if let Some(mapping) = self
+                .find_mapping_and_index_by_qualified_id(qualified_id)
+                .map(|(_, m)| m.clone())
+            {
                 let mut mapping = mapping.borrow_mut();
                 let compartment = mapping.compartment();
-                mapping.target_model.apply_from_target(
-                    target,
-                    self.extended_context(),
-                    compartment,
-                );
+                self.change_target_with_closure(&mut mapping, None, weak_session, |ctx| {
+                    ctx.mapping.target_model.apply_from_target(
+                        target,
+                        ctx.extended_context,
+                        compartment,
+                    )
+                });
             }
         }
     }
@@ -1039,14 +1053,6 @@ impl Session {
                         ctx.mapping.adjust_mode_if_necessary(ctx.extended_context)
                     })?
                     .map(|affected| One(P::InCompartment(id.compartment, affected))),
-                C::ResetMappingMode(id) => session
-                    .changing_mapping_by_id(id, |ctx| ctx.mapping.reset_mode(ctx.extended_context))?
-                    .map(|affected| One(P::InCompartment(id.compartment, affected))),
-                C::SetPreferredMappingModeValues(id) => session
-                    .changing_mapping_by_id(id, |ctx| {
-                        ctx.mapping.set_preferred_mode_values(ctx.extended_context)
-                    })?
-                    .map(|affected| One(P::InCompartment(id.compartment, affected))),
             };
             Ok(affected)
         })
@@ -1070,6 +1076,18 @@ impl Session {
         Ok(())
     }
 
+    pub fn change_target_with_closure(
+        &mut self,
+        mapping: &mut MappingModel,
+        initiator: Option<u32>,
+        weak_session: WeakSession,
+        f: impl FnOnce(MappingChangeContext) -> Option<Affected<TargetProp>>,
+    ) -> Result<(), String> {
+        self.change_mapping_with_closure(mapping, initiator, weak_session, |ctx| {
+            Ok(f(ctx).map(|affected| Affected::One(MappingProp::InTarget(affected))))
+        })
+    }
+
     pub fn change_mapping_with_closure(
         &mut self,
         mapping: &mut MappingModel,
@@ -1086,6 +1104,35 @@ impl Session {
             self.handle_affected(affected, initiator, weak_session);
         }
         Ok(())
+    }
+
+    pub fn notify_compartment_has_changed(
+        &mut self,
+        compartment: MappingCompartment,
+        weak_session: WeakSession,
+    ) {
+        use Affected::*;
+        self.handle_affected(
+            Affected::One(SessionProp::InCompartment(compartment, Affected::Multiple)),
+            None,
+            weak_session,
+        );
+    }
+
+    pub fn notify_mapping_has_changed(
+        &mut self,
+        id: QualifiedMappingId,
+        weak_session: WeakSession,
+    ) {
+        use Affected::*;
+        self.handle_affected(
+            Affected::One(SessionProp::InCompartment(
+                id.compartment,
+                Affected::One(CompartmentProp::InMapping(id.id, Affected::Multiple)),
+            )),
+            None,
+            weak_session,
+        );
     }
 
     fn change_with_closure(
@@ -1669,7 +1716,9 @@ impl Session {
             session.mapping_which_learns_target.set(None);
         })
         .do_async(|session, target| {
-            session.borrow_mut().learn_target(target.as_ref());
+            session
+                .borrow_mut()
+                .learn_target(target.as_ref(), Rc::downgrade(&session));
         });
     }
 
@@ -2154,11 +2203,21 @@ impl Session {
                     GroupId::default(),
                     VirtualControlElementType::Multi,
                 );
-                m.borrow_mut().target_model.apply_from_target(
-                    target,
-                    self.extended_context(),
-                    compartment,
-                );
+                {
+                    let mut mapping = m.borrow_mut();
+                    self.change_target_with_closure(
+                        &mut mapping,
+                        None,
+                        Rc::downgrade(session),
+                        |ctx| {
+                            ctx.mapping.target_model.apply_from_target(
+                                target,
+                                ctx.extended_context,
+                                compartment,
+                            )
+                        },
+                    );
+                }
                 m
             }
             Some(m) => m.clone(),
@@ -2592,8 +2651,6 @@ pub fn reaper_supports_global_midi_filter() -> bool {
 pub enum SessionCommand {
     ChangeCompartment(MappingCompartment, CompartmentCommand),
     AdjustMappingModeIfNecessary(QualifiedMappingId),
-    ResetMappingMode(QualifiedMappingId),
-    SetPreferredMappingModeValues(QualifiedMappingId),
 }
 
 pub enum SessionProp {

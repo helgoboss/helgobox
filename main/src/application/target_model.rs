@@ -950,45 +950,43 @@ impl TargetModel {
         &mut self,
         compartment: MappingCompartment,
         context: ExtendedProcessorContext,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Option<Affected<TargetProp>>, Box<dyn Error>> {
         if self.track_type.is_sticky() {
-            return Ok(());
+            return Ok(None);
         };
         let track = self
             .with_context(context, compartment)
             .first_effective_track()?;
         let virtual_track = virtualize_track(&track, context.context(), false);
         self.set_virtual_track(virtual_track, Some(context.context()));
-        Ok(())
+        Ok(Some(Affected::Multiple))
     }
 
     pub fn make_fx_sticky(
         &mut self,
         compartment: MappingCompartment,
         context: ExtendedProcessorContext,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Option<Affected<TargetProp>>, Box<dyn Error>> {
         if self.fx_type.is_sticky() {
-            return Ok(());
+            return Ok(None);
         };
         let fx = self.with_context(context, compartment).first_fx()?;
         let virtual_fx = virtualize_fx(&fx, context.context(), false);
-        self.set_virtual_fx(virtual_fx, context, compartment);
-        Ok(())
+        Ok(self.set_virtual_fx(virtual_fx, context, compartment))
     }
 
     pub fn make_route_sticky(
         &mut self,
         compartment: MappingCompartment,
         context: ExtendedProcessorContext,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Option<Affected<TargetProp>>, Box<dyn Error>> {
         if self.route_selector_type.is_sticky() {
-            return Ok(());
+            return Ok(None);
         };
         let desc = self.track_route_descriptor()?;
         let route = desc.resolve_first(context, compartment)?;
         let virtual_route = virtualize_route(&route, context.context(), false);
-        self.set_virtual_route(virtual_route);
-        Ok(())
+        Ok(self.set_virtual_route(virtual_route))
     }
 
     pub fn take_fx_snapshot(
@@ -1011,13 +1009,14 @@ impl TargetModel {
         Ok(fx_snapshot)
     }
 
+    #[must_use]
     pub fn invalidate_fx_index(
         &mut self,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) {
+    ) -> Option<Affected<TargetProp>> {
         if !self.supports_fx() {
-            return;
+            return None;
         }
         if let Ok(actual_fx) = self.with_context(context, compartment).first_fx() {
             let new_virtual_fx = match self.virtual_fx() {
@@ -1041,8 +1040,12 @@ impl TargetModel {
                 None => None,
             };
             if let Some(virtual_fx) = new_virtual_fx {
-                self.set_virtual_fx(virtual_fx, context, compartment);
+                self.set_virtual_fx(virtual_fx, context, compartment)
+            } else {
+                None
             }
+        } else {
+            None
         }
     }
 
@@ -1052,7 +1055,7 @@ impl TargetModel {
         track: VirtualTrack,
         context: Option<&ProcessorContext>,
     ) -> Option<Affected<TargetProp>> {
-        self.set_track_from_prop_values(TrackPropValues::from_virtual_track(track), true, context);
+        self.set_track_from_prop_values(TrackPropValues::from_virtual_track(track), true, context)
     }
 
     /// Sets the track type and in certain cases also updates a few other target properties.
@@ -1158,8 +1161,9 @@ impl TargetModel {
         }
     }
 
-    pub fn set_virtual_route(&mut self, route: VirtualTrackRoute) {
-        self.set_route(TrackRoutePropValues::from_virtual_route(route), true);
+    #[must_use]
+    pub fn set_virtual_route(&mut self, route: VirtualTrackRoute) -> Option<Affected<TargetProp>> {
+        self.set_route(TrackRoutePropValues::from_virtual_route(route), true)
     }
 
     #[must_use]
@@ -1174,6 +1178,7 @@ impl TargetModel {
         self.route_name = route.name;
         self.route_index = route.index;
         self.route_expression = route.expression;
+        Some(Affected::Multiple)
     }
 
     #[must_use]
@@ -1188,9 +1193,10 @@ impl TargetModel {
             true,
             Some(context),
             compartment,
-        );
+        )
     }
 
+    #[must_use]
     pub fn set_fx_from_prop_values(
         &mut self,
         fx: FxPropValues,
@@ -1203,26 +1209,30 @@ impl TargetModel {
         self.fx_is_input_fx = fx.is_input_fx;
         use VirtualFxType::*;
         match fx.r#type {
-            This => self.set_concrete_fx(
-                ConcreteFxInstruction::This(context.map(|c| c.context())),
-                // Already notified above
-                false,
-                with_notification,
-            ),
-            ById => self.set_concrete_fx(
-                ConcreteFxInstruction::ById {
-                    is_input_fx: Some(fx.is_input_fx),
-                    id: fx.id,
-                    track: context.and_then(|c| {
-                        self.with_context(c, compartment)
-                            .first_effective_track()
-                            .ok()
-                    }),
-                },
-                // Already notified above
-                false,
-                with_notification,
-            ),
+            This => {
+                let _ = self.set_concrete_fx(
+                    ConcreteFxInstruction::This(context.map(|c| c.context())),
+                    // Already notified above
+                    false,
+                    with_notification,
+                );
+            }
+            ById => {
+                let _ = self.set_concrete_fx(
+                    ConcreteFxInstruction::ById {
+                        is_input_fx: Some(fx.is_input_fx),
+                        id: fx.id,
+                        track: context.and_then(|c| {
+                            self.with_context(c, compartment)
+                                .first_effective_track()
+                                .ok()
+                        }),
+                    },
+                    // Already notified above
+                    false,
+                    with_notification,
+                );
+            }
             ByName | AllByName => {
                 self.fx_name = fx.name;
             }
@@ -1234,9 +1244,11 @@ impl TargetModel {
                 self.fx_index = fx.index;
             }
             Dynamic | Focused => {}
-        }
+        };
+        Some(Affected::Multiple)
     }
 
+    #[must_use]
     pub fn set_fx_parameter(
         &mut self,
         param: FxParameterPropValues,
@@ -1246,8 +1258,10 @@ impl TargetModel {
         self.param_name = param.name;
         self.param_index = param.index;
         self.param_expression = param.expression;
+        Some(Affected::Multiple)
     }
 
+    #[must_use]
     pub fn set_seek_options(
         &mut self,
         options: SeekOptions,
@@ -1260,6 +1274,7 @@ impl TargetModel {
         self.move_view = options.move_view;
         self.seek_play = options.seek_play;
         self.feedback_resolution = options.feedback_resolution;
+        Some(Affected::Multiple)
     }
 
     /// Sets the track to one of the concrete types ById or This, also setting other important
@@ -1351,7 +1366,7 @@ impl TargetModel {
         self.r#type = ReaperTargetType::from_target(target);
         if let Some(actual_fx) = target.fx() {
             let virtual_fx = virtualize_fx(actual_fx, context, true);
-            self.set_virtual_fx(virtual_fx, extended_context, compartment);
+            let _ = self.set_virtual_fx(virtual_fx, extended_context, compartment);
             let track = if let Some(track) = actual_fx.track() {
                 track.clone()
             } else {
@@ -1365,10 +1380,10 @@ impl TargetModel {
         }
         if let Some(send) = target.route() {
             let virtual_route = virtualize_route(send, context, true);
-            self.set_virtual_route(virtual_route);
+            let _ = self.set_virtual_route(virtual_route);
         }
         if let Some(track_exclusivity) = target.track_exclusivity() {
-            self.track_exclusivity.set(track_exclusivity);
+            self.track_exclusivity = track_exclusivity;
         }
         match target {
             Action(t) => {
@@ -1409,6 +1424,7 @@ impl TargetModel {
             },
             _ => {}
         };
+        Some(Affected::Multiple)
     }
 
     pub fn virtual_default(

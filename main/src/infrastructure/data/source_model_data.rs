@@ -105,15 +105,13 @@ impl SourceModelData {
     }
 
     pub fn apply_to_model(&self, model: &mut SourceModel, compartment: MappingCompartment) {
-        self.apply_to_model_flexible(model, true, compartment, None);
+        self.apply_to_model_flexible(model, compartment, None);
     }
 
     /// Applies this data to the given source model. Doesn't proceed if data is invalid.
     pub fn apply_to_model_flexible(
         &self,
         model: &mut SourceModel,
-        // TODO-high Must be removed eventually because we always go without notification now.
-        with_notification: bool,
         compartment: MappingCompartment,
         preset_version: Option<&Version>,
     ) {
@@ -264,7 +262,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model_flexible(&mut model, false, MappingCompartment::MainMappings, None);
+        data.apply_to_model_flexible(&mut model, MappingCompartment::MainMappings, None);
         // Then
         assert_eq!(
             model.midi_source_type(),
@@ -297,7 +295,7 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model_flexible(&mut model, false, MappingCompartment::MainMappings, None);
+        data.apply_to_model_flexible(&mut model, MappingCompartment::MainMappings, None);
         // Then
         assert_eq!(model.midi_source_type(), MidiSourceType::ClockTransport);
         assert_eq!(model.channel(), None);

@@ -136,7 +136,7 @@ impl ModeModelData {
     }
 
     pub fn apply_to_model(&self, model: &mut ModeModel) {
-        self.apply_to_model_flexible(model, &MigrationDescriptor::default(), "", true);
+        self.apply_to_model_flexible(model, &MigrationDescriptor::default(), "");
     }
 
     pub fn apply_to_model_flexible(
@@ -144,8 +144,6 @@ impl ModeModelData {
         model: &mut ModeModel,
         migration_descriptor: &MigrationDescriptor,
         mapping_name: &str,
-        // TODO-high Must be removed eventually because we always go without notification now.
-        with_notification: bool,
     ) {
         use ModeCommand as P;
         model.change(P::SetAbsoluteMode(self.r#type));

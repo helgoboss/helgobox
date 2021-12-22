@@ -243,7 +243,7 @@ impl MappingRowPanel {
             let mappings: Vec<_> = controller_mappings
                 .filter(|m| {
                     let m = m.borrow();
-                    m.target_model.category.get() == TargetCategory::Virtual
+                    m.target_model.category() == TargetCategory::Virtual
                         && m.target_model.create_control_element()
                             == mapping.source_model.create_control_element()
                 })
@@ -966,10 +966,10 @@ enum ObjectType {
 
 fn paste_data_object_in_place(
     data_object: DataObject,
-    session: SharedSession,
+    shared_session: SharedSession,
     triple: MappingTriple,
 ) -> Result<(), &'static str> {
-    let mut session = session.borrow_mut();
+    let mut session = shared_session.borrow_mut();
     let mapping = session
         .find_mapping_and_index_by_id(triple.compartment, triple.mapping_id)
         .ok_or("mapping not found")?
@@ -989,19 +989,20 @@ fn paste_data_object_in_place(
                 }
             };
             let conversion_context = session.compartment_in_session(mapping.compartment());
+            // TODO-medium It would simplify things if we would just translate this into a new model
+            //  and then call a Session method to completely replace a model by its ID. Same with
+            //  other data object types.
             m.apply_to_model(
                 &mut mapping,
                 conversion_context,
                 Some(session.extended_context()),
             );
-            // TODO-high Let notify session that mapping changed (or everything).
         }
         DataObject::Source(Envelope { value: s }) => {
             s.apply_to_model(&mut mapping.source_model, triple.compartment);
         }
         DataObject::Mode(Envelope { value: m }) => {
             m.apply_to_model(&mut mapping.mode_model);
-            // TODO-high Let notify session that mapping changed (or everything).
         }
         DataObject::Target(Envelope { value: t }) => {
             let compartment_in_session = session.compartment_in_session(triple.compartment);
@@ -1014,6 +1015,7 @@ fn paste_data_object_in_place(
         }
         _ => return Err("can only paste mapping, source, mode and target in place"),
     };
+    session.notify_mapping_has_changed(mapping.qualified_id(), Rc::downgrade(&shared_session));
     Ok(())
 }
 

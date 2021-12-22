@@ -924,7 +924,7 @@ fn get_controller_routing(session: &Session) -> ControllerRouting {
                 return None;
             }
             let target_descriptor = if instance_state.mapping_is_on(m.qualified_id()) {
-                if m.target_model.category.get() == TargetCategory::Virtual {
+                if m.target_model.category() == TargetCategory::Virtual {
                     // Virtual
                     let control_element = m.target_model.create_control_element();
                     let matching_main_mappings = session

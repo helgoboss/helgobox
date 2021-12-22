@@ -3,10 +3,10 @@ use super::none_if_minus_one;
 use reaper_high::{BookmarkType, Fx, Guid, Reaper};
 
 use crate::application::{
-    AutomationModeOverrideType, BookmarkAnchorType, FxParameterPropValues, FxPropValues,
-    FxSnapshot, RealearnAutomationMode, RealearnTrackArea, TargetCategory, TargetModel, TargetUnit,
-    TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType, VirtualControlElementType,
-    VirtualFxParameterType, VirtualFxType, VirtualTrackType,
+    AutomationModeOverrideType, BookmarkAnchorType, Change, FxParameterPropValues, FxPropValues,
+    FxSnapshot, RealearnAutomationMode, RealearnTrackArea, TargetCategory, TargetCommand,
+    TargetModel, TargetUnit, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
+    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_some_default};
 use crate::base::notification;
@@ -145,69 +145,65 @@ impl TargetModelData {
         conversion_context: &impl ModelToDataConversionContext,
     ) -> Self {
         Self {
-            category: model.category.get(),
-            unit: model.unit.get(),
-            r#type: model.r#type.get(),
-            command_name: model
-                .action
-                .get_ref()
-                .as_ref()
-                .map(|a| match a.command_name() {
-                    // Built-in actions don't have a command name but a persistent command ID.
-                    // Use command ID as string.
-                    None => a.command_id().to_string(),
-                    // ReaScripts and custom actions have a command name as persistent identifier.
-                    Some(name) => name.into_string(),
-                }),
-            invocation_type: model.action_invocation_type.get(),
+            category: model.category(),
+            unit: model.unit(),
+            r#type: model.target_type(),
+            command_name: model.action().map(|a| match a.command_name() {
+                // Built-in actions don't have a command name but a persistent command ID.
+                // Use command ID as string.
+                None => a.command_id().to_string(),
+                // ReaScripts and custom actions have a command name as persistent identifier.
+                Some(name) => name.into_string(),
+            }),
+            invocation_type: model.action_invocation_type(),
             // Not serialized anymore because deprecated
             invoke_relative: None,
             track_data: serialize_track(model.track()),
-            enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
-            with_track: model.with_track.get(),
+            enable_only_if_track_is_selected: model.enable_only_if_track_selected(),
+            with_track: model.with_track(),
             fx_data: serialize_fx(model.fx()),
-            enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
+            enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus(),
             track_route_data: serialize_track_route(model.track_route()),
             fx_parameter_data: serialize_fx_parameter(model.fx_parameter()),
             select_exclusively: None,
-            solo_behavior: Some(model.solo_behavior.get()),
-            track_exclusivity: model.track_exclusivity.get(),
-            transport_action: model.transport_action.get(),
-            any_on_parameter: model.any_on_parameter.get(),
-            control_element_type: model.control_element_type.get(),
+            solo_behavior: Some(model.solo_behavior()),
+            track_exclusivity: model.track_exclusivity(),
+            transport_action: model.transport_action(),
+            any_on_parameter: model.any_on_parameter(),
+            control_element_type: model.control_element_type(),
             control_element_index: VirtualControlElementIdData::from_model(
-                model.control_element_id.get(),
+                model.control_element_id(),
             ),
-            fx_snapshot: model.fx_snapshot.get_ref().clone(),
-            touched_parameter_type: model.touched_parameter_type.get(),
+            fx_snapshot: model.fx_snapshot().cloned(),
+            touched_parameter_type: model.touched_parameter_type(),
             bookmark_data: BookmarkData {
-                anchor: model.bookmark_anchor_type.get(),
-                r#ref: model.bookmark_ref.get(),
-                is_region: model.bookmark_type.get() == BookmarkType::Region,
+                anchor: model.bookmark_anchor_type(),
+                r#ref: model.bookmark_ref(),
+                is_region: model.bookmark_type() == BookmarkType::Region,
             },
             seek_options: model.seek_options(),
-            track_area: model.track_area.get(),
-            track_automation_mode: model.automation_mode.get(),
-            automation_mode_override_type: model.automation_mode_override_type.get(),
-            fx_display_type: model.fx_display_type.get(),
-            scroll_arrange_view: model.scroll_arrange_view.get(),
-            scroll_mixer: model.scroll_mixer.get(),
-            send_midi_destination: model.send_midi_destination.get(),
-            raw_midi_pattern: model.raw_midi_pattern.get_ref().clone(),
-            osc_address_pattern: model.osc_address_pattern.get_ref().clone(),
-            osc_arg_index: model.osc_arg_index.get(),
-            osc_arg_type: model.osc_arg_type_tag.get(),
-            osc_dev_id: model.osc_dev_id.get(),
-            slot_index: model.slot_index.get(),
-            next_bar: model.next_bar.get(),
-            buffered: model.buffered.get(),
-            poll_for_feedback: model.poll_for_feedback.get(),
-            tags: model.tags.get_ref().clone(),
-            exclusivity: model.exclusivity.get(),
+            track_area: model.track_area(),
+            track_automation_mode: model.automation_mode(),
+            automation_mode_override_type: model.automation_mode_override_type(),
+            fx_display_type: model.fx_display_type(),
+            scroll_arrange_view: model.scroll_arrange_view(),
+            scroll_mixer: model.scroll_mixer(),
+            send_midi_destination: model.send_midi_destination(),
+            raw_midi_pattern: model.raw_midi_pattern().to_owned(),
+            osc_address_pattern: model.osc_address_pattern().to_owned(),
+            osc_arg_index: model.osc_arg_index(),
+            osc_arg_type: model.osc_arg_type_tag(),
+            osc_dev_id: model.osc_dev_id(),
+            slot_index: model.slot_index(),
+            next_bar: model.next_bar(),
+            buffered: model.buffered(),
+            poll_for_feedback: model.poll_for_feedback(),
+            tags: model.tags().to_vec(),
+            exclusivity: model.exclusivity(),
             group_id: conversion_context
-                .group_key_by_id(model.group_id.get())
+                .group_key_by_id(model.group_id())
                 .unwrap_or_default(),
-            active_mappings_only: model.active_mappings_only.get(),
+            active_mappings_only: model.active_mappings_only(),
         }
     }
 
@@ -222,7 +218,6 @@ impl TargetModelData {
             model,
             Some(context),
             Some(App::version()),
-            true,
             compartment,
             conversion_context,
         );
@@ -236,24 +231,18 @@ impl TargetModelData {
         model: &mut TargetModel,
         context: Option<ExtendedProcessorContext>,
         preset_version: Option<&Version>,
-        with_notification: bool,
         compartment: MappingCompartment,
         conversion_context: impl DataToModelConversionContext,
     ) {
+        use TargetCommand as C;
         let final_category = if self.category.is_allowed_in(compartment) {
             self.category
         } else {
             TargetCategory::default_for(compartment)
         };
-        model
-            .category
-            .set_with_optional_notification(final_category, with_notification);
-        model
-            .unit
-            .set_with_optional_notification(self.unit, with_notification);
-        model
-            .r#type
-            .set_with_optional_notification(self.r#type, with_notification);
+        model.change(C::SetCategory(final_category));
+        model.change(C::SetUnit(self.unit));
+        model.change(C::SetTargetType(self.r#type));
         let reaper = Reaper::get();
         let action = match self.command_name.as_ref() {
             None => None,
@@ -270,9 +259,7 @@ impl TargetModelData {
                 Err(_) => Some(reaper.action_by_command_name(command_name.as_str())),
             },
         };
-        model
-            .action
-            .set_with_optional_notification(action, with_notification);
+        model.change(C::SetAction(action));
         let invocation_type = if let Some(invoke_relative) = self.invoke_relative {
             // Very old ReaLearn version
             if invoke_relative {
@@ -283,37 +270,26 @@ impl TargetModelData {
         } else {
             self.invocation_type
         };
-        model
-            .action_invocation_type
-            .set_with_optional_notification(invocation_type, with_notification);
+        model.change(C::SetActionInvocationType(invocation_type));
         let track_prop_values = deserialize_track(&self.track_data);
-        model.set_track_from_prop_values(
-            track_prop_values,
-            with_notification,
-            context.map(|c| c.context()),
-        );
-        model
-            .enable_only_if_track_selected
-            .set_with_optional_notification(
-                self.enable_only_if_track_is_selected,
-                with_notification,
-            );
-        model
-            .with_track
-            .set_with_optional_notification(self.with_track, with_notification);
+        model.set_track_from_prop_values(track_prop_values, false, context.map(|c| c.context()));
+        model.change(C::SetEnableOnlyIfTrackSelected(
+            self.enable_only_if_track_is_selected,
+        ));
+        model.change(C::SetWithTrack(self.with_track));
         let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
         let fx_prop_values = deserialize_fx(
             &self.fx_data,
             context.map(|c| (c, compartment, &virtual_track)),
         );
-        model.set_fx_from_prop_values(fx_prop_values, with_notification, context, compartment);
-        model
-            .enable_only_if_fx_has_focus
-            .set_with_optional_notification(self.enable_only_if_fx_has_focus, with_notification);
+        model.set_fx_from_prop_values(fx_prop_values, false, context, compartment);
+        model.change(C::SetEnableOnlyIfFxHasFocus(
+            self.enable_only_if_fx_has_focus,
+        ));
         let route_prop_values = deserialize_track_route(&self.track_route_data);
-        model.set_route(route_prop_values, with_notification);
+        model.set_route(route_prop_values, false);
         let fx_param_prop_values = deserialize_fx_parameter(&self.fx_parameter_data);
-        model.set_fx_parameter(fx_param_prop_values, with_notification);
+        model.set_fx_parameter(fx_param_prop_values, false);
         let track_exclusivity = if let Some(select_exclusively) = self.select_exclusively {
             // Should only be set in versions < 2.4.0.
             if select_exclusively {
@@ -324,9 +300,7 @@ impl TargetModelData {
         } else {
             self.track_exclusivity
         };
-        model
-            .track_exclusivity
-            .set_with_optional_notification(track_exclusivity, with_notification);
+        model.change(C::SetTrackExclusivity(track_exclusivity));
         let solo_behavior = self.solo_behavior.unwrap_or_else(|| {
             let is_old_preset = preset_version
                 .map(|v| v < &Version::new(2, 4, 0))
@@ -337,58 +311,31 @@ impl TargetModelData {
                 SoloBehavior::InPlace
             }
         });
-        model
-            .solo_behavior
-            .set_with_optional_notification(solo_behavior, with_notification);
-        model
-            .transport_action
-            .set_with_optional_notification(self.transport_action, with_notification);
-        model
-            .any_on_parameter
-            .set_with_optional_notification(self.any_on_parameter, with_notification);
-        model
-            .control_element_type
-            .set_with_optional_notification(self.control_element_type, with_notification);
-        model.control_element_id.set_with_optional_notification(
+        model.change(C::SetSoloBehavior(solo_behavior));
+        model.change(C::SetTransportAction(self.transport_action));
+        model.change(C::SetAnyOnParameter(self.any_on_parameter));
+        model.change(C::SetControlElementType(self.control_element_type));
+        model.change(C::SetControlElementId(
             self.control_element_index.to_model(),
-            with_notification,
-        );
-        model
-            .fx_snapshot
-            .set_with_optional_notification(self.fx_snapshot.clone(), with_notification);
-        model
-            .touched_parameter_type
-            .set_with_optional_notification(self.touched_parameter_type, with_notification);
+        ));
+        model.change(C::SetFxSnapshot(self.fx_snapshot.clone()));
+        model.change(C::SetTouchedParameterType(self.touched_parameter_type));
         let bookmark_type = if self.bookmark_data.is_region {
             BookmarkType::Region
         } else {
             BookmarkType::Marker
         };
-        model
-            .bookmark_type
-            .set_with_optional_notification(bookmark_type, with_notification);
-        model
-            .bookmark_anchor_type
-            .set_with_optional_notification(self.bookmark_data.anchor, with_notification);
-        model
-            .bookmark_ref
-            .set_with_optional_notification(self.bookmark_data.r#ref, with_notification);
-        model.set_seek_options(self.seek_options, with_notification);
-        model
-            .track_area
-            .set_with_optional_notification(self.track_area, with_notification);
-        model
-            .automation_mode
-            .set_with_optional_notification(self.track_automation_mode, with_notification);
-        model
-            .automation_mode_override_type
-            .set_with_optional_notification(self.automation_mode_override_type, with_notification);
-        model
-            .fx_display_type
-            .set_with_optional_notification(self.fx_display_type, with_notification);
-        model
-            .scroll_arrange_view
-            .set_with_optional_notification(self.scroll_arrange_view, with_notification);
+        model.change(C::SetBookmarkType(bookmark_type));
+        model.change(C::SetBookmarkAnchorType(self.bookmark_data.anchor));
+        model.change(C::SetBookmarkRef(self.bookmark_data.r#ref));
+        model.set_seek_options(self.seek_options, false);
+        model.change(C::SetTrackArea(self.track_area));
+        model.change(C::SetAutomationMode(self.track_automation_mode));
+        model.change(C::SetAutomationModeOverrideType(
+            self.automation_mode_override_type,
+        ));
+        model.change(C::SetFxDisplayType(self.fx_display_type));
+        model.change(C::SetScrollArrangeView(self.scroll_arrange_view));
         let scroll_mixer = if self.category == TargetCategory::Reaper
             && self.r#type == ReaperTargetType::TrackSelection
         {
@@ -403,54 +350,24 @@ impl TargetModelData {
         } else {
             self.scroll_mixer
         };
-        model
-            .scroll_mixer
-            .set_with_optional_notification(scroll_mixer, with_notification);
-        model
-            .send_midi_destination
-            .set_with_optional_notification(self.send_midi_destination, with_notification);
-        model
-            .raw_midi_pattern
-            .set_with_optional_notification(self.raw_midi_pattern.clone(), with_notification);
-        model
-            .osc_address_pattern
-            .set_with_optional_notification(self.osc_address_pattern.clone(), with_notification);
-        model
-            .osc_arg_index
-            .set_with_optional_notification(self.osc_arg_index, with_notification);
-        model
-            .osc_arg_type_tag
-            .set_with_optional_notification(self.osc_arg_type, with_notification);
-        model
-            .osc_dev_id
-            .set_with_optional_notification(self.osc_dev_id, with_notification);
-        model
-            .slot_index
-            .set_with_optional_notification(self.slot_index, with_notification);
-        model
-            .next_bar
-            .set_with_optional_notification(self.next_bar, with_notification);
-        model
-            .buffered
-            .set_with_optional_notification(self.buffered, with_notification);
-        model
-            .poll_for_feedback
-            .set_with_optional_notification(self.poll_for_feedback, with_notification);
-        model
-            .tags
-            .set_with_optional_notification(self.tags.clone(), with_notification);
-        model
-            .exclusivity
-            .set_with_optional_notification(self.exclusivity, with_notification);
+        model.change(C::SetScrollMixer(scroll_mixer));
+        model.change(C::SetSendMidiDestination(self.send_midi_destination));
+        model.change(C::SetRawMidiPattern(self.raw_midi_pattern.clone()));
+        model.change(C::SetOscAddressPattern(self.osc_address_pattern.clone()));
+        model.change(C::SetOscArgIndex(self.osc_arg_index));
+        model.change(C::SetOscArgTypeTag(self.osc_arg_type));
+        model.change(C::SetOscDevId(self.osc_dev_id));
+        model.change(C::SetSlotIndex(self.slot_index));
+        model.change(C::SetNextBar(self.next_bar));
+        model.change(C::SetBuffered(self.buffered));
+        model.change(C::SetPollForFeedback(self.poll_for_feedback));
+        model.change(C::SetTags(self.tags.clone()));
+        model.change(C::SetExclusivity(self.exclusivity));
         let group_id = conversion_context
             .group_id_by_key(&self.group_id)
             .unwrap_or_default();
-        model
-            .group_id
-            .set_with_optional_notification(group_id, with_notification);
-        model
-            .active_mappings_only
-            .set_with_optional_notification(self.active_mappings_only, with_notification);
+        model.change(C::SetGroupId(group_id));
+        model.change(C::SetActiveMappingsOnly(self.active_mappings_only));
     }
 }
 

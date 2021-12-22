@@ -780,7 +780,8 @@ impl HeaderPanel {
     }
 
     fn make_targets_of_listed_mappings_sticky(&self) {
-        let listed_mappings = self.get_listened_mappings(self.active_compartment());
+        let compartment = self.active_compartment();
+        let listed_mappings = self.get_listened_mappings(compartment);
         if listed_mappings.is_empty() {
             return;
         }
@@ -794,7 +795,7 @@ impl HeaderPanel {
             return;
         }
         let session = self.session();
-        let session = session.borrow();
+        let mut session = session.borrow_mut();
         let context = session.extended_context();
         let errors: Vec<_> = listed_mappings
             .iter()
@@ -809,6 +810,7 @@ impl HeaderPanel {
                 })
             })
             .collect();
+        session.notify_compartment_has_changed(compartment, self.session.clone());
         if !errors.is_empty() {
             notify_processing_result("Errors occurred when making targets sticky", errors);
         }

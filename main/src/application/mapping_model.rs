@@ -316,7 +316,7 @@ impl MappingModel {
                         } else {
                             VirtualFx::Focused
                         };
-                        target.set_virtual_fx(virtual_fx, context, compartment);
+                        let _ = target.set_virtual_fx(virtual_fx, context, compartment);
                         true
                     } else {
                         false
@@ -350,7 +350,7 @@ impl MappingModel {
     pub fn make_target_sticky(
         &mut self,
         context: ExtendedProcessorContext,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Option<Affected<MappingProp>>, Box<dyn Error>> {
         let target = &mut self.target_model;
         match target.category() {
             TargetCategory::Reaper => {
@@ -366,7 +366,7 @@ impl MappingModel {
             }
             TargetCategory::Virtual => {}
         }
-        Ok(())
+        Ok(Some(Affected::Multiple))
     }
 
     pub fn advanced_settings(&self) -> Option<&serde_yaml::Mapping> {
@@ -427,7 +427,8 @@ impl MappingModel {
 
     pub fn reset_mode(&mut self, context: ExtendedProcessorContext) -> ChangeResult<MappingProp> {
         self.mode_model.change(ModeCommand::ResetWithinType)?;
-        self.set_preferred_mode_values(context)
+        self.set_preferred_mode_values(context)?;
+        Ok(Some(Affected::Multiple))
     }
 
     // Changes mode settings if there are some preferred ones for a certain source or target.

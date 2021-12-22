@@ -140,7 +140,6 @@ impl MappingModelData {
         self.apply_to_model_internal(
             migration_descriptor,
             preset_version,
-            false,
             conversion_context,
             processor_context,
             &mut model,
@@ -159,7 +158,6 @@ impl MappingModelData {
         self.apply_to_model_internal(
             &MigrationDescriptor::default(),
             Some(App::version()),
-            true,
             conversion_context,
             processor_context,
             model,
@@ -173,8 +171,6 @@ impl MappingModelData {
         &self,
         migration_descriptor: &MigrationDescriptor,
         preset_version: Option<&Version>,
-        // TODO-high Must be removed eventually because we always go without notification now.
-        with_notification: bool,
         conversion_context: impl DataToModelConversionContext,
         processor_context: Option<ExtendedProcessorContext>,
         model: &mut MappingModel,
@@ -189,23 +185,14 @@ impl MappingModelData {
         self.activation_condition_data
             .apply_to_model(model.activation_condition_model_mut());
         let compartment = model.compartment();
-        self.source.apply_to_model_flexible(
-            &mut model.source_model,
-            with_notification,
-            compartment,
-            preset_version,
-        );
-        self.mode.apply_to_model_flexible(
-            &mut model.mode_model,
-            migration_descriptor,
-            &self.name,
-            with_notification,
-        );
+        self.source
+            .apply_to_model_flexible(&mut model.source_model, compartment, preset_version);
+        self.mode
+            .apply_to_model_flexible(&mut model.mode_model, migration_descriptor, &self.name);
         self.target.apply_to_model_flexible(
             &mut model.target_model,
             processor_context,
             preset_version,
-            with_notification,
             compartment,
             conversion_context,
         );

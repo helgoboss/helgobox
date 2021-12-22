@@ -977,11 +977,21 @@ impl App {
             self.find_first_relevant_session_with_source_matching(compartment, &capture_result)
         {
             // There's already a mapping with that source. Change target of that mapping.
-            mapping.borrow_mut().target_model.apply_from_target(
-                &reaper_target,
-                session.borrow().extended_context(),
-                compartment,
-            );
+            {
+                let mut m = mapping.borrow_mut();
+                session.borrow_mut().change_target_with_closure(
+                    &mut m,
+                    None,
+                    Rc::downgrade(&session),
+                    |ctx| {
+                        ctx.mapping.target_model.apply_from_target(
+                            &reaper_target,
+                            ctx.extended_context,
+                            compartment,
+                        )
+                    },
+                );
+            }
             (session, mapping)
         } else {
             // There's no mapping with that source yet. Add it to the previously determined first
@@ -1005,8 +1015,11 @@ impl App {
                 // TODO-high Test if it's okay to ignore the change events here. I guess yes
                 //  and I think it's even cleaner.
                 let _ = m.source_model.apply_from_source(&compound_source);
-                m.target_model
-                    .apply_from_target(&reaper_target, s.extended_context(), compartment);
+                let _ = m.target_model.apply_from_target(
+                    &reaper_target,
+                    s.extended_context(),
+                    compartment,
+                );
                 drop(m);
                 mapping
             };
