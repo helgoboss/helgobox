@@ -1,6 +1,6 @@
 use crate::application::{
     ActivationConditionCommand, ActivationConditionModel, ActivationConditionProp, Affected,
-    Change, ChangeResult, GetProcessingRelevance, GroupData, ProcessingRelevance,
+    Change, GetProcessingRelevance, GroupData, ProcessingRelevance,
 };
 use crate::domain::{GroupId, GroupKey, MappingCompartment, Tag};
 use core::fmt;

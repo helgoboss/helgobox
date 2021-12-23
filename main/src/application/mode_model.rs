@@ -8,9 +8,7 @@ use helgoboss_learn::{
     VirtualColor,
 };
 
-use crate::application::{
-    Affected, Change, ChangeResult, GetProcessingRelevance, ProcessingRelevance,
-};
+use crate::application::{Affected, Change, GetProcessingRelevance, ProcessingRelevance};
 use std::time::Duration;
 
 pub enum ModeCommand {

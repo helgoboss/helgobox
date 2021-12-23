@@ -1,9 +1,10 @@
 use crate::application::{
-    ActivationType, Affected, BankConditionModel, Change, ChangeResult, GetProcessingRelevance,
+    ActivationType, Affected, BankConditionModel, Change, GetProcessingRelevance,
     ModifierConditionModel, ProcessingRelevance,
 };
 use crate::domain::{ActivationCondition, EelCondition};
 
+#[allow(clippy::enum_variant_names)]
 pub enum ActivationConditionCommand {
     SetActivationType(ActivationType),
     SetModifierCondition1(ModifierConditionModel),

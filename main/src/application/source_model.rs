@@ -1,5 +1,5 @@
 use crate::application::{
-    Affected, Change, ChangeResult, GetProcessingRelevance, MappingProp, ProcessingRelevance,
+    Affected, Change, GetProcessingRelevance, MappingProp, ProcessingRelevance,
 };
 use crate::domain::{
     CompoundMappingSource, EelMidiSourceScript, ExtendedSourceCharacter, MappingCompartment,
@@ -22,6 +22,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::Display;
 
+#[allow(clippy::enum_variant_names)]
 pub enum SourceCommand {
     SetCategory(SourceCategory),
     SetMidiSourceType(MidiSourceType),

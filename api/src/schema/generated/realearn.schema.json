@@ -315,19 +315,64 @@
         "DecrementOnly"
       ]
     },
+    "Feedback": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "background_color": {
+              "$ref": "#/definitions/VirtualColor"
+            },
+            "color": {
+              "$ref": "#/definitions/VirtualColor"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "Numeric"
+              ]
+            },
+            "transformation": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "background_color": {
+              "$ref": "#/definitions/VirtualColor"
+            },
+            "color": {
+              "$ref": "#/definitions/VirtualColor"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "Text"
+              ]
+            },
+            "text_expression": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "FeedbackBehavior": {
       "type": "string",
       "enum": [
         "Normal",
         "SendFeedbackAfterControl",
         "PreventEchoFeedback"
-      ]
-    },
-    "FeedbackKind": {
-      "type": "string",
-      "enum": [
-        "Numeric",
-        "Text"
       ]
     },
     "FeedbackResolution": {
@@ -763,17 +808,8 @@
         "encoder_filter": {
           "$ref": "#/definitions/EncoderFilter"
         },
-        "feedback_background_color": {
-          "$ref": "#/definitions/VirtualColor"
-        },
-        "feedback_foreground_color": {
-          "$ref": "#/definitions/VirtualColor"
-        },
-        "feedback_kind": {
-          "$ref": "#/definitions/FeedbackKind"
-        },
-        "feedback_transformation": {
-          "type": "string"
+        "feedback": {
+          "$ref": "#/definitions/Feedback"
         },
         "fire_mode": {
           "$ref": "#/definitions/FireMode"
@@ -2383,7 +2419,7 @@
             "kind": {
               "type": "string",
               "enum": [
-                "TrackTool"
+                "Track"
               ]
             },
             "track": {

@@ -319,6 +319,7 @@ impl SessionUi for Weak<MainPanel> {
         upgrade_panel(self).handle_matched_mapping(event);
     }
 
+    #[allow(clippy::single_match)]
     fn handle_affected(
         &self,
         session: &Session,

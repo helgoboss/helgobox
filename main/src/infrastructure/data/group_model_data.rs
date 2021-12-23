@@ -38,7 +38,7 @@ impl GroupModelData {
                 feedback_is_enabled: model.feedback_is_enabled(),
             },
             activation_condition_data: ActivationConditionData::from_model(
-                &model.activation_condition_model(),
+                model.activation_condition_model(),
             ),
         }
     }

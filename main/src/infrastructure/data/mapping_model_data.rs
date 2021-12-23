@@ -208,7 +208,7 @@ impl MappingModelData {
             FeedbackSendBehavior::Normal
         };
         model.change(P::SetFeedbackSendBehavior(feedback_send_behavior));
-        model.set_advanced_settings(self.advanced.clone());
+        let _ = model.set_advanced_settings(self.advanced.clone());
         model.change(P::SetVisibleInProjection(self.visible_in_projection));
     }
 }

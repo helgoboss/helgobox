@@ -1272,9 +1272,12 @@ impl<'a> MutableMappingPanel<'a> {
         initiator: Option<u32>,
         f: impl FnOnce(MappingChangeContext) -> Option<Affected<TargetProp>>,
     ) {
-        self.session
-            .change_target_with_closure(self.mapping, initiator, self.panel.session.clone(), f)
-            .unwrap();
+        self.session.change_target_with_closure(
+            self.mapping,
+            initiator,
+            self.panel.session.clone(),
+            f,
+        );
     }
 
     fn change_mapping_with_initiator(&mut self, val: MappingCommand, initiator: Option<u32>) {
@@ -1699,7 +1702,7 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn reset_mode(&mut self) {
-        self.session.change_mapping_with_closure(
+        let _ = self.session.change_mapping_with_closure(
             self.mapping,
             None,
             self.panel.session.clone(),
@@ -1714,13 +1717,14 @@ impl<'a> MutableMappingPanel<'a> {
             .try_into()
             .expect("invalid mode type");
         self.update_mode_hint(ModeParameter::SpecificAbsoluteMode(mode));
-        self.session.change_mapping_with_closure(
+        let _ = self.session.change_mapping_with_closure(
             self.mapping,
             None,
             self.panel.session.clone(),
             |ctx| {
-                ctx.mapping
-                    .set_absolute_mode_and_preferred_values(ctx.extended_context, mode)
+                Ok(ctx
+                    .mapping
+                    .set_absolute_mode_and_preferred_values(ctx.extended_context, mode))
             },
         );
     }

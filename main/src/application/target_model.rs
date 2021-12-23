@@ -10,8 +10,7 @@ use reaper_high::{
 use serde::{Deserialize, Serialize};
 
 use crate::application::{
-    Affected, Change, ChangeResult, GetProcessingRelevance, ProcessingRelevance,
-    VirtualControlElementType,
+    Affected, Change, GetProcessingRelevance, ProcessingRelevance, VirtualControlElementType,
 };
 use crate::domain::{
     find_bookmark, get_fx_param, get_fxs, get_non_present_virtual_route_label,
@@ -55,6 +54,7 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use wildmatch::WildMatch;
 
+#[allow(clippy::enum_variant_names)]
 pub enum TargetCommand {
     SetCategory(TargetCategory),
     SetUnit(TargetUnit),
@@ -924,7 +924,7 @@ impl TargetModel {
             .with_context(context, compartment)
             .first_effective_track()?;
         let virtual_track = virtualize_track(&track, context.context(), false);
-        self.set_virtual_track(virtual_track, Some(context.context()));
+        let _ = self.set_virtual_track(virtual_track, Some(context.context()));
         Ok(Some(Affected::Multiple))
     }
 

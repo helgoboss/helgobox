@@ -609,7 +609,8 @@ impl Session {
                     .invalidate_fx_index(ctx.extended_context, ctx.mapping.compartment())
                     .map(|affected| Affected::One(MappingProp::InTarget(affected)));
                 Ok(affected)
-            });
+            })
+            .expect("error when invalidating FX indexes");
         }
     }
 
@@ -1017,8 +1018,7 @@ impl Session {
             ),
             None,
             weak_session,
-        )
-        .unwrap();
+        );
     }
 
     /// The gateway point to change something in the session just using commands, also deeply nested
@@ -1031,8 +1031,8 @@ impl Session {
         cmd: SessionCommand,
         initiator: Option<u32>,
         weak_session: WeakSession,
-    ) -> Result<(), String> {
-        self.change_with_closure(initiator, weak_session, |session| {
+    ) {
+        let _ = self.change_with_closure(initiator, weak_session, |session| {
             use Affected::*;
             use SessionCommand as C;
             use SessionProp as P;
@@ -1047,7 +1047,7 @@ impl Session {
                     .map(|affected| One(P::InCompartment(id.compartment, affected))),
             };
             Ok(affected)
-        })
+        });
     }
 
     pub fn change_mapping_by_id_with_closure(
@@ -1074,10 +1074,10 @@ impl Session {
         initiator: Option<u32>,
         weak_session: WeakSession,
         f: impl FnOnce(MappingChangeContext) -> Option<Affected<TargetProp>>,
-    ) -> Result<(), String> {
-        self.change_mapping_with_closure(mapping, initiator, weak_session, |ctx| {
+    ) {
+        let _ = self.change_mapping_with_closure(mapping, initiator, weak_session, |ctx| {
             Ok(f(ctx).map(|affected| Affected::One(MappingProp::InTarget(affected))))
-        })
+        });
     }
 
     pub fn change_mapping_with_closure(
@@ -1246,7 +1246,7 @@ impl Session {
     ) -> ChangeResult<CompartmentProp> {
         let mapping = self
             .find_mapping_and_index_by_id(id.compartment, id.id)
-            .ok_or(String::from("mapping not found"))?
+            .ok_or_else(|| String::from("mapping not found"))?
             .1
             .clone();
         let mut mapping = mapping.borrow_mut();
@@ -1639,12 +1639,14 @@ impl Session {
             let mut session = shared_session.borrow_mut();
             if let Some(qualified_id) = session.mapping_which_learns_source.get() {
                 if let Some(source) = session.create_compound_source(event) {
-                    session.change_mapping_by_id_with_closure(
-                        qualified_id,
-                        None,
-                        Rc::downgrade(&shared_session),
-                        |ctx| Ok(ctx.mapping.source_model.apply_from_source(&source)),
-                    );
+                    session
+                        .change_mapping_by_id_with_closure(
+                            qualified_id,
+                            None,
+                            Rc::downgrade(&shared_session),
+                            |ctx| Ok(ctx.mapping.source_model.apply_from_source(&source)),
+                        )
+                        .unwrap();
                 }
             }
         });

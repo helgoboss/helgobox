@@ -416,7 +416,7 @@ impl MappingModel {
         context: ExtendedProcessorContext,
     ) -> Option<Affected<MappingProp>> {
         self.mode_model.change(ModeCommand::ResetWithinType);
-        self.set_preferred_mode_values(context);
+        let _ = self.set_preferred_mode_values(context);
         Some(Affected::Multiple)
     }
 
@@ -429,16 +429,17 @@ impl MappingModel {
         Ok(Some(Affected::One(MappingProp::AdvancedSettings)))
     }
 
+    #[must_use]
     pub fn set_absolute_mode_and_preferred_values(
         &mut self,
         context: ExtendedProcessorContext,
         mode: AbsoluteMode,
-    ) -> ChangeResult<MappingProp> {
+    ) -> Option<Affected<MappingProp>> {
         let affected_1 = self.change(MappingCommand::ChangeMode(ModeCommand::SetAbsoluteMode(
             mode,
         )));
         let affected_2 = self.set_preferred_mode_values(context);
-        Ok(merge_affected(affected_1, affected_2))
+        merge_affected(affected_1, affected_2)
     }
 
     // Changes mode settings if there are some preferred ones for a certain source or target.
