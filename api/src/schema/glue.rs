@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Glue {
+    //region Relevant for control and feedback
     #[serde(skip_serializing_if = "Option::is_none")]
     pub absolute_mode: Option<AbsoluteMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -13,28 +14,29 @@ pub struct Glue {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reverse: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_of_range_behavior: Option<OutOfRangeBehavior>,
+    //endregion
+
+    //region Relevant for control only (might change in future)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_value_sequence: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub round_target_value: Option<bool>,
+    //endregion
+
+    //region Relevant for control only (guaranteed)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub wrap: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jump_interval: Option<Interval<f64>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub takeover_mode: Option<TakeoverMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub control_transformation: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub step_size_interval: Option<Interval<f64>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub step_factor_interval: Option<Interval<i32>>,
-    // TODO-high Should we add a separate feedback_text_expression?
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub feedback_transformation: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub feedback_color: Option<VirtualColor>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub feedback_background_color: Option<VirtualColor>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub out_of_range_behavior: Option<OutOfRangeBehavior>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub takeover_mode: Option<TakeoverMode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub round_target_value: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub control_transformation: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub button_filter: Option<ButtonFilter>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -44,11 +46,13 @@ pub struct Glue {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interaction: Option<Interaction>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub target_value_sequence: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub feedback_kind: Option<FeedbackKind>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub fire_mode: Option<FireMode>,
+    //endregion
+
+    //region Relevant for feedback only (guaranteed)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub feedback: Option<Feedback>,
+    //endregion
 }
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -189,16 +193,44 @@ pub enum Interaction {
     InverseTargetValueOnOnly,
 }
 
-#[derive(Copy, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub enum FeedbackKind {
-    Numeric,
-    Text,
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FeedbackCommons {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<VirtualColor>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub background_color: Option<VirtualColor>,
 }
 
-impl Default for FeedbackKind {
+#[derive(PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
+pub enum Feedback {
+    Numeric(NumericFeedback),
+    Text(TextFeedback),
+}
+
+impl Default for Feedback {
     fn default() -> Self {
-        Self::Numeric
+        Self::Numeric(NumericFeedback::default())
     }
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NumericFeedback {
+    #[serde(flatten)]
+    pub commons: FeedbackCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transformation: Option<String>,
+}
+
+#[derive(PartialEq, Default, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TextFeedback {
+    #[serde(flatten)]
+    pub commons: FeedbackCommons,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_expression: Option<String>,
 }
 
 #[derive(Copy, Clone, PartialEq, Default, Serialize, Deserialize, JsonSchema)]

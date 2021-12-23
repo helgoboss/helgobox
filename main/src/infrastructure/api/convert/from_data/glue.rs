@@ -6,7 +6,7 @@ use helgoboss_learn::{
     OutOfRangeBehavior, TakeoverMode, UnitValue, VirtualColor,
 };
 use realearn_api::schema;
-use realearn_api::schema::PropColor;
+use realearn_api::schema::{NumericFeedback, PropColor, TextFeedback};
 
 pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionResult<schema::Glue> {
     let glue = schema::Glue {
@@ -38,9 +38,6 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
             );
             style.required_value_with_default(interval, defaults::GLUE_STEP_FACTOR_INTERVAL)
         },
-        feedback_transformation: style.required_value(data.eel_feedback_transformation),
-        feedback_color: data.feedback_color.map(convert_virtual_color),
-        feedback_background_color: data.feedback_background_color.map(convert_virtual_color),
         out_of_range_behavior: {
             use schema::OutOfRangeBehavior as T;
             use OutOfRangeBehavior::*;
@@ -106,12 +103,24 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
             }
         },
         target_value_sequence: style.required_value(data.target_value_sequence.to_string()),
-        feedback_kind: {
-            use schema::FeedbackKind as T;
+        feedback: {
+            use schema::Feedback as T;
             use FeedbackType::*;
             let v = match data.feedback_type {
-                Numerical => T::Numeric,
-                Textual => T::Text,
+                Numerical => T::Numeric(NumericFeedback {
+                    commons: convert_feedback_commons(
+                        data.feedback_color,
+                        data.feedback_background_color,
+                    )?,
+                    transformation: style.required_value(data.eel_feedback_transformation),
+                }),
+                Textual => T::Text(TextFeedback {
+                    commons: convert_feedback_commons(
+                        data.feedback_color,
+                        data.feedback_background_color,
+                    )?,
+                    text_expression: style.required_value(data.eel_feedback_transformation),
+                }),
             };
             style.required_value(v)
         },
@@ -185,4 +194,15 @@ fn convert_virtual_color(v: VirtualColor) -> schema::VirtualColor {
         Rgb(c) => T::Rgb(schema::RgbColor(c.r(), c.g(), c.b())),
         Prop { prop } => T::Prop(PropColor { prop }),
     }
+}
+
+fn convert_feedback_commons(
+    color: Option<VirtualColor>,
+    background_color: Option<VirtualColor>,
+) -> ConversionResult<schema::FeedbackCommons> {
+    let commons = schema::FeedbackCommons {
+        color: color.map(convert_virtual_color),
+        background_color: background_color.map(convert_virtual_color),
+    };
+    Ok(commons)
 }
