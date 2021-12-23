@@ -82,7 +82,7 @@ impl<'a> Change<'a> for SourceModel {
     type Command = SourceCommand;
     type Prop = SourceProp;
 
-    fn change(&mut self, cmd: Self::Command) -> ChangeResult<SourceProp> {
+    fn change(&mut self, cmd: Self::Command) -> Option<Affected<SourceProp>> {
         use Affected::*;
         use SourceCommand as C;
         use SourceProp as P;
@@ -172,7 +172,7 @@ impl<'a> Change<'a> for SourceModel {
                 One(P::ControlElementId)
             }
         };
-        Ok(Some(affected))
+        Some(affected)
     }
 }
 

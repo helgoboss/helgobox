@@ -948,10 +948,10 @@ impl Session {
         mapping: &mut MappingModel,
         cmd: MappingCommand,
         initiator: Option<u32>,
-    ) -> Result<(), String> {
+    ) {
         let session = weak_session.upgrade().expect("session gone");
         let mut session = session.borrow_mut();
-        session.change_mapping_from_ui_expert(mapping, cmd, initiator, weak_session)
+        session.change_mapping_from_ui_expert(mapping, cmd, initiator, weak_session);
     }
 
     pub fn change_mapping_from_ui_expert(
@@ -960,8 +960,8 @@ impl Session {
         cmd: MappingCommand,
         initiator: Option<u32>,
         weak_session: WeakSession,
-    ) -> Result<(), String> {
-        if let Some(affected) = mapping.change(cmd)? {
+    ) {
+        if let Some(affected) = mapping.change(cmd) {
             use Affected::*;
             let affected = One(SessionProp::InCompartment(
                 mapping.compartment(),
@@ -969,7 +969,6 @@ impl Session {
             ));
             self.handle_affected(affected, initiator, weak_session);
         }
-        Ok(())
     }
 
     pub fn change_group_from_ui_simple(
@@ -977,10 +976,10 @@ impl Session {
         group: &mut GroupModel,
         cmd: GroupCommand,
         initiator: Option<u32>,
-    ) -> Result<(), String> {
+    ) {
         let session = weak_session.upgrade().expect("session gone");
         let mut session = session.borrow_mut();
-        session.change_group_from_ui_expert(group, cmd, initiator, weak_session)
+        session.change_group_from_ui_expert(group, cmd, initiator, weak_session);
     }
 
     pub fn change_group_from_ui_expert(
@@ -989,8 +988,8 @@ impl Session {
         cmd: GroupCommand,
         initiator: Option<u32>,
         weak_session: WeakSession,
-    ) -> Result<(), String> {
-        if let Some(affected) = group.change(cmd)? {
+    ) {
+        if let Some(affected) = group.change(cmd) {
             use Affected::*;
             let affected = One(SessionProp::InCompartment(
                 group.compartment(),
@@ -998,7 +997,6 @@ impl Session {
             ));
             self.handle_affected(affected, initiator, weak_session);
         }
-        Ok(())
     }
 
     /// Changes a mapping with notification and without initiator.
@@ -1044,7 +1042,7 @@ impl Session {
                     .map(|affected| One(P::InCompartment(compartment, affected))),
                 C::AdjustMappingModeIfNecessary(id) => session
                     .changing_mapping_by_id(id, |ctx| {
-                        ctx.mapping.adjust_mode_if_necessary(ctx.extended_context)
+                        Ok(ctx.mapping.adjust_mode_if_necessary(ctx.extended_context))
                     })?
                     .map(|affected| One(P::InCompartment(id.compartment, affected))),
             };
@@ -1235,7 +1233,7 @@ impl Session {
         let affected = match cmd {
             C::ChangeMapping(mapping_id, cmd) => self.changing_mapping_by_id(
                 QualifiedMappingId::new(compartment, mapping_id),
-                move |ctx| ctx.mapping.change(cmd),
+                move |ctx| Ok(ctx.mapping.change(cmd)),
             )?,
         };
         Ok(affected)

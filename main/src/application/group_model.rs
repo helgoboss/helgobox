@@ -53,7 +53,7 @@ impl<'a> Change<'a> for GroupModel {
     type Command = GroupCommand;
     type Prop = GroupProp;
 
-    fn change(&mut self, cmd: GroupCommand) -> ChangeResult<GroupProp> {
+    fn change(&mut self, cmd: GroupCommand) -> Option<Affected<GroupProp>> {
         use Affected::*;
         use GroupCommand as C;
         use GroupProp as P;
@@ -75,14 +75,13 @@ impl<'a> Change<'a> for GroupModel {
                 One(P::FeedbackIsEnabled)
             }
             C::ChangeActivationCondition(cmd) => {
-                let affected = self
+                return self
                     .activation_condition_model
-                    .change(cmd)?
+                    .change(cmd)
                     .map(|affected| One(P::InActivationCondition(affected)));
-                return Ok(affected);
             }
         };
-        Ok(Some(affected))
+        Some(affected)
     }
 }
 

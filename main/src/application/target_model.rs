@@ -203,7 +203,7 @@ impl<'a> Change<'a> for TargetModel {
     type Command = TargetCommand;
     type Prop = TargetProp;
 
-    fn change(&mut self, cmd: Self::Command) -> ChangeResult<TargetProp> {
+    fn change(&mut self, cmd: Self::Command) -> Option<Affected<TargetProp>> {
         use Affected::*;
         use TargetCommand as C;
         use TargetProp as P;
@@ -461,7 +461,7 @@ impl<'a> Change<'a> for TargetModel {
                 One(P::ActiveMappingsOnly)
             }
         };
-        Ok(Some(affected))
+        Some(affected)
     }
 }
 

@@ -544,8 +544,7 @@ impl MappingRowPanel {
     fn change_mapping(&self, cmd: MappingCommand) {
         let mapping = self.require_mapping();
         let mut mapping = mapping.borrow_mut();
-        Session::change_mapping_from_ui_simple(self.session.clone(), &mut mapping, cmd, None)
-            .unwrap();
+        Session::change_mapping_from_ui_simple(self.session.clone(), &mut mapping, cmd, None);
     }
 
     fn notify_user_on_error(&self, result: Result<(), Box<dyn Error>>) {

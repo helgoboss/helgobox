@@ -40,7 +40,10 @@ impl<'a> Change<'a> for ActivationConditionModel {
     type Command = ActivationConditionCommand;
     type Prop = ActivationConditionProp;
 
-    fn change(&mut self, cmd: ActivationConditionCommand) -> ChangeResult<ActivationConditionProp> {
+    fn change(
+        &mut self,
+        cmd: ActivationConditionCommand,
+    ) -> Option<Affected<ActivationConditionProp>> {
         use ActivationConditionCommand as C;
         use ActivationConditionProp as P;
         use Affected::*;
@@ -66,7 +69,7 @@ impl<'a> Change<'a> for ActivationConditionModel {
                 One(P::EelCondition)
             }
         };
-        Ok(Some(affected))
+        Some(affected)
     }
 }
 

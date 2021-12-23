@@ -77,7 +77,7 @@ pub trait Change<'a> {
     type Command;
     type Prop;
 
-    fn change(&mut self, cmd: Self::Command) -> ChangeResult<Self::Prop>;
+    fn change(&mut self, cmd: Self::Command) -> Option<Affected<Self::Prop>>;
 }
 
 pub trait GetProcessingRelevance {

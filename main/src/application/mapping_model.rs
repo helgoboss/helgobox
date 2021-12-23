@@ -30,7 +30,6 @@ pub enum MappingCommand {
     SetFeedbackIsEnabled(bool),
     SetFeedbackSendBehavior(FeedbackSendBehavior),
     SetVisibleInProjection(bool),
-    SetAdvancedSettings(Option<serde_yaml::mapping::Mapping>),
     ChangeActivationCondition(ActivationConditionCommand),
     ChangeSource(SourceCommand),
     ChangeMode(ModeCommand),
@@ -126,7 +125,7 @@ impl<'a> Change<'a> for MappingModel {
     type Command = MappingCommand;
     type Prop = MappingProp;
 
-    fn change(&mut self, cmd: MappingCommand) -> ChangeResult<MappingProp> {
+    fn change(&mut self, cmd: MappingCommand) -> Option<Affected<MappingProp>> {
         use Affected::*;
         use MappingCommand as C;
         use MappingProp as P;
@@ -138,11 +137,6 @@ impl<'a> Change<'a> for MappingModel {
             C::SetTags(v) => {
                 self.tags = v;
                 One(P::Tags)
-            }
-            C::SetAdvancedSettings(yaml) => {
-                self.advanced_settings = yaml;
-                self.update_extension_model_from_advanced_settings()?;
-                One(P::AdvancedSettings)
             }
             C::SetGroupId(v) => {
                 self.group_id = v;
@@ -169,36 +163,32 @@ impl<'a> Change<'a> for MappingModel {
                 One(P::VisibleInProjection)
             }
             C::ChangeActivationCondition(cmd) => {
-                let affected = self
+                return self
                     .activation_condition_model
-                    .change(cmd)?
+                    .change(cmd)
                     .map(|affected| One(P::InActivationCondition(affected)));
-                return Ok(affected);
             }
             C::ChangeSource(cmd) => {
-                let affected = self
+                return self
                     .source_model
-                    .change(cmd)?
+                    .change(cmd)
                     .map(|affected| One(P::InSource(affected)));
-                return Ok(affected);
             }
             C::ChangeMode(cmd) => {
-                let affected = self
+                return self
                     .mode_model
-                    .change(cmd)?
+                    .change(cmd)
                     .map(|affected| One(P::InMode(affected)));
-                return Ok(affected);
             }
             C::ChangeTarget(cmd) => {
-                let affected = self
+                return self
                     .target_model
-                    .change(cmd)?
+                    .change(cmd)
                     .map(|affected| One(P::InTarget(affected)));
-                return Ok(affected);
             }
             C::ClearName => return self.change(MappingCommand::SetName(String::new())),
         };
-        Ok(Some(affected))
+        Some(affected)
     }
 }
 
@@ -401,10 +391,11 @@ impl MappingModel {
         }
     }
 
+    #[must_use]
     pub fn adjust_mode_if_necessary(
         &mut self,
         context: ExtendedProcessorContext,
-    ) -> ChangeResult<MappingProp> {
+    ) -> Option<Affected<MappingProp>> {
         let with_context = self.with_context(context);
         if with_context.mode_makes_sense() == Ok(false) {
             if let Ok(preferred_mode_type) = with_context.preferred_mode_type() {
@@ -412,17 +403,30 @@ impl MappingModel {
                     .change(ModeCommand::SetAbsoluteMode(preferred_mode_type));
                 self.set_preferred_mode_values(context)
             } else {
-                Ok(None)
+                None
             }
         } else {
-            Ok(None)
+            None
         }
     }
 
-    pub fn reset_mode(&mut self, context: ExtendedProcessorContext) -> ChangeResult<MappingProp> {
-        self.mode_model.change(ModeCommand::ResetWithinType)?;
-        self.set_preferred_mode_values(context)?;
-        Ok(Some(Affected::Multiple))
+    #[must_use]
+    pub fn reset_mode(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Option<Affected<MappingProp>> {
+        self.mode_model.change(ModeCommand::ResetWithinType);
+        self.set_preferred_mode_values(context);
+        Some(Affected::Multiple)
+    }
+
+    pub fn set_advanced_settings(
+        &mut self,
+        yaml: Option<serde_yaml::mapping::Mapping>,
+    ) -> ChangeResult<MappingProp> {
+        self.advanced_settings = yaml;
+        self.update_extension_model_from_advanced_settings()?;
+        Ok(Some(Affected::One(MappingProp::AdvancedSettings)))
     }
 
     pub fn set_absolute_mode_and_preferred_values(
@@ -432,23 +436,22 @@ impl MappingModel {
     ) -> ChangeResult<MappingProp> {
         let affected_1 = self.change(MappingCommand::ChangeMode(ModeCommand::SetAbsoluteMode(
             mode,
-        )))?;
-        let affected_2 = self.set_preferred_mode_values(context)?;
+        )));
+        let affected_2 = self.set_preferred_mode_values(context);
         Ok(merge_affected(affected_1, affected_2))
     }
 
     // Changes mode settings if there are some preferred ones for a certain source or target.
+    #[must_use]
     fn set_preferred_mode_values(
         &mut self,
         context: ExtendedProcessorContext,
-    ) -> ChangeResult<MappingProp> {
-        let affected = self
-            .mode_model
+    ) -> Option<Affected<MappingProp>> {
+        self.mode_model
             .change(ModeCommand::SetStepInterval(
                 self.with_context(context).preferred_step_interval(),
-            ))?
-            .map(|affected| Affected::One(MappingProp::InMode(affected)));
-        Ok(affected)
+            ))
+            .map(|affected| Affected::One(MappingProp::InMode(affected)))
     }
 
     pub fn base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {

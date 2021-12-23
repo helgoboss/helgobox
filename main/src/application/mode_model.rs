@@ -171,7 +171,7 @@ impl<'a> Change<'a> for ModeModel {
     type Command = ModeCommand;
     type Prop = ModeProp;
 
-    fn change(&mut self, cmd: ModeCommand) -> ChangeResult<ModeProp> {
+    fn change(&mut self, cmd: ModeCommand) -> Option<Affected<ModeProp>> {
         use Affected::*;
         use ModeCommand as C;
         use ModeProp as P;
@@ -319,7 +319,7 @@ impl<'a> Change<'a> for ModeModel {
                 Multiple
             }
         };
-        Ok(Some(affected))
+        Some(affected)
     }
 }
 

@@ -729,9 +729,7 @@ impl MappingPanel {
         let mut session = session.borrow_mut();
         let mapping = self.displayed_mapping().expect("no mapping set");
         let mut mapping = mapping.borrow_mut();
-        session
-            .change_mapping_from_ui_expert(&mut mapping, val, initiator, self.session.clone())
-            .unwrap();
+        session.change_mapping_from_ui_expert(&mut mapping, val, initiator, self.session.clone());
     }
 
     fn handle_target_line_4_button_press(&self) -> Result<(), &'static str> {
@@ -777,15 +775,12 @@ impl MappingPanel {
                                 let cmd = MappingCommand::ChangeTarget(TargetCommand::SetAction(
                                     Some(action),
                                 ));
-                                session
-                                    .borrow_mut()
-                                    .change_mapping_from_ui_expert(
-                                        &mut mapping,
-                                        cmd,
-                                        None,
-                                        weak_session.clone(),
-                                    )
-                                    .unwrap();
+                                session.borrow_mut().change_mapping_from_ui_expert(
+                                    &mut mapping,
+                                    cmd,
+                                    None,
+                                    weak_session.clone(),
+                                );
                             }
                         },
                         || {
@@ -912,11 +907,12 @@ impl MappingPanel {
         self.edit_yaml(
             |m| m.advanced_settings().cloned(),
             move |m, yaml| {
-                let result = Session::change_mapping_from_ui_simple(
-                    session.clone(),
+                let session = session.upgrade().expect("session gone");
+                let result = session.borrow_mut().change_mapping_with_closure(
                     m,
-                    MappingCommand::SetAdvancedSettings(yaml),
                     None,
+                    Rc::downgrade(&session),
+                    |ctx| ctx.mapping.set_advanced_settings(yaml),
                 );
                 result
             },
@@ -1282,9 +1278,12 @@ impl<'a> MutableMappingPanel<'a> {
     }
 
     fn change_mapping_with_initiator(&mut self, val: MappingCommand, initiator: Option<u32>) {
-        self.session
-            .change_mapping_from_ui_expert(self.mapping, val, initiator, self.panel.session.clone())
-            .unwrap();
+        self.session.change_mapping_from_ui_expert(
+            self.mapping,
+            val,
+            initiator,
+            self.panel.session.clone(),
+        );
     }
 
     fn update_mapping_is_enabled(&mut self) {
@@ -1704,7 +1703,7 @@ impl<'a> MutableMappingPanel<'a> {
             self.mapping,
             None,
             self.panel.session.clone(),
-            |ctx| ctx.mapping.reset_mode(ctx.extended_context),
+            |ctx| Ok(ctx.mapping.reset_mode(ctx.extended_context)),
         );
     }
 
