@@ -774,8 +774,10 @@ impl HeaderPanel {
             return;
         }
         let shared_session = self.session();
-        let mut session = shared_session.borrow_mut();
-        let result = session.virtualize_main_mappings();
+        let result = {
+            let mut session = shared_session.borrow_mut();
+            session.virtualize_main_mappings()
+        };
         self.notify_user_on_error(result.map_err(|e| e.into()));
     }
 
