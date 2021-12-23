@@ -127,9 +127,6 @@ ReaLearn versions and therefore might be partially outdated:
 
 * https://www.youtube.com/watch?v=WKF2LmIueY8[How To: ReaLearn and MIDI Controller for Track Sends in REAPER - Tutorial]
 * https://www.youtube.com/watch?v=UrYrAxnB19I[using ReaLearn to assign MIDI controllers to (VST) plugin parameters in Cockos Reaper]
-* https://www.youtube.com/watch?v=p0LBdXXcg7g[MIDI Controller Feedback in REAPER with ReaLearn and LBX SmartKnobs - Tutorial]
-** With ReaLearn 2, it should be easier to use ReaLearn's "preset auto-load" feature instead of adding LBX SmartKnobs
- to the mix.
 
 === Usage scenarios
 
@@ -170,11 +167,9 @@ wherever you want or need it (limitation: using it in a take FX chain is not pos
 … the possibilities are endless. It's all up to you! Use your creativity.
 
 All of that makes ReaLearn especially well-suited for performers, people who use REAPER as a
-platform for live playing. It might be less interesting to people who use REAPER for arranging,
-mixing and mastering only and are satisfied with a control surface off the shelf. But even so,
-as long as you have some general-purpose MIDI controller and you want a fine-tuned mapping to DAW parameters
+platform for live playing. It might be less interesting to people who are satisfied with a control surface setup off the shelf. But even so, as long as you have some general-purpose MIDI controller and you want a fine-tuned mapping to DAW parameters
 of all sorts, give ReaLearn a try. It might be just what you need. More so if the controller supports feedback
-(e.g. motorized faders or LEDs).
+(e.g. motorized faders, LEDs or LCDs).
 
 *Summary:* _ReaLearn is tailored to usage scenarios typically desired by performers._
 
@@ -195,9 +190,8 @@ image:images/screenshot-main-panel-annotated.svg[Main panel]
 
 On the very top you see the _header panel_ for changing settings or doing things that affect
 this complete instance of ReaLearn. Below that there's the _mapping rows panel_ which displays all
-main mappings in this instance of ReaLearn. There can be very many of them. I've heard from users who use
-hundreds. On the very bottom you see some information about the version of ReaLearn that you are
-running. It's important to include this information in bug reports.
+main mappings in this instance of ReaLearn. There can be very many of them. On the very bottom you see some information about the version of ReaLearn that you are
+running.
 
 It can be useful to route all keyboard input to ReaLearn, so you can enter spaces in the "Search" field:
 
@@ -243,17 +237,18 @@ If the label remains at "Stop" at step 3, you need to have a look at your MIDI s
 
 * Make sure *Enable input from this device* is checked for your controller MIDI input device in
  the REAPER preferences.
-* Please note: _Enable input for control messages_ is totally irrelevant for ReaLearn. This is
++
+NOTE: _Enable input for control messages_ is totally irrelevant for ReaLearn. This is
 only used for REAPER's built-in MIDI learn, which uses the so-called _control MIDI path_.
-ReaLearn on the other hand uses the track MIDI path - which is one reason why it is so flexible.
+With ReaLearn, you use the same MIDI path for controlling and playing, which is one reason why it is so flexible. It provides local and global MIDI message filtering, so you still don't need to worry about messages that are intended for control but suddenly cause your synthesizer to play MIDI notes.
 * Make sure your audio hardware is not stuck (playback in REAPER should work).
 * Make sure the track is armed for recording and has the appropriate MIDI device input.
-* Sometimes it's necessary to make your controller enter a specific MIDI mode.
++
+NOTE: This is necessary only if _Control input_ is set to _<FX input>_, which is the default. If you capture MIDI from a specific device, the track doesn't have to be armed.
 * Some controllers, especially DAW controllers, are able to work with several protocols (MCU, HUI, MIDI, …).
-* Although MCU and HUI is also just MIDI under the hood, they are more limited (because specialized) in comparison
- to MIDI - so sometimes not all control elements work in the MCU/HUI mode of operation.
-* Therefore you need to consult your controller's manual and take the necessary steps to put it into something like
- a "general-purpose MIDI" mode.
+** For this simple test, it's probably the best to make your controller enter a specific MIDI operation mode.
+** Although MCU and HUI is also just MIDI under the hood, these operation modes are more specialized and therefore need a bit of special attention. ReaLearn conveniently handles these modes when using the <<mackie-control>> controller preset.
+** In any case, please consult the <<tested-controllers>> section, maybe you will find some information about your controller.
 
 When you read this the first time, you might get the impression that this is a lot of work for
 setting up one simple control mapping. It's not. Learning mappings is a matter of a few secs after
@@ -349,18 +344,7 @@ If it doesn't work and you have ruled out MIDI connection issues, here are some 
  section you'll learn how to do that.
 * Example: Presonus Faderport
 
-Personally, I've made good feedback experiences with the following controllers (but I haven't tried
-very many, so this is for sure a very incomplete list):
-
-* DJ TechTools Midi Fighter Twister
-* Akai APC Key 25
-* Presonus Faderport
-
-Also have a look into the section <<tested-controllers,Tested controllers>>. Maybe your controller is listed there
-along with some tips.
-
-All hardware examples are provided to the best of my knowledge. If anything is incorrect or has
-changed in the meanwhile, please let me know!
+TIP: Have a look into the section <<tested-controllers,Tested controllers>>. Maybe your controller is listed there along with some tips.
 
 === Editing a mapping
 
@@ -4126,6 +4110,7 @@ presets offer a controller layout (and thus can be instantly used with the _Proj
 The majority of controller presets is discussed in the section <<tested-controllers,Tested controllers>>. Here we only
 discuss those that don't directly model a real-world controller.
 
+[#mackie-control]
 === Mackie Control
 
 *Covered domains:* DAW
