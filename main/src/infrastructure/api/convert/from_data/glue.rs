@@ -27,7 +27,10 @@ pub fn convert_glue(data: ModeModelData, style: ConversionStyle) -> ConversionRe
         ),
         step_size_interval: {
             style.required_value_with_default(
-                schema::Interval(data.min_step_size.get(), data.max_step_size.get()),
+                schema::Interval(
+                    data.min_step_size.get().abs(),
+                    data.max_step_size.get().abs(),
+                ),
                 defaults::GLUE_STEP_SIZE_INTERVAL,
             )
         },
