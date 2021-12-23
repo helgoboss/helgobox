@@ -668,6 +668,7 @@ pub struct FxData {
     /// Since 1.12.0-pre8
     #[serde(rename = "fxName", default, skip_serializing_if = "is_default")]
     pub name: Option<String>,
+    // TODO-medium This is actually a property of the track FX chain, not the FX
     #[serde(default, skip_serializing_if = "is_default")]
     pub is_input_fx: bool,
     #[serde(rename = "fxExpression", default, skip_serializing_if = "is_default")]
