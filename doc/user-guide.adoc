@@ -27,7 +27,7 @@ Here's a step-by-step guide to help you get started with ReaLearn and a MIDI con
 +
 [NOTE]
 ====
-The option _Do not send reset messages_ isn't available in some older REAPER versions. If you don't use any external hardware synths, you can untick the global options *Reset on: Play* and *Reset on: Stop* instead!
+The option _Do not send reset messages_ isn't available in older REAPER versions. If you don't use any external hardware synths, you can untick the global options *Reset on: Play* and *Reset on: Stop* instead!
 ====
 . Check if there's an existing controller preset for your MIDI controller (this is optional but can make things
  easier).
@@ -78,7 +78,7 @@ viewpoint it's a VSTi plug-in, so it is an instrument, quite literally. That's o
 it immediately apart from the more conventional control surface feature in REAPER and 3rd-party
 efforts such as https://forum.cockos.com/showthread.php?t=183143[CSI] or
 http://www.mossgrabers.de/Software/Reaper/Reaper.html[DrivenByMoss]. The goal of the
-latter-mentioned is to equip REAPER with out-of-the-box support for specific controllers, typically
+latter-mentioned is to equip REAPER with support for specific controllers, typically
 dedicated DAW controllers such as
 https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Mackie_Control_Universal.jpg/1600px-Mackie_Control_Universal.jpg[Mackie MCU]
 that are tailored to control a DAW just like a hardware mixer. And I suppose they do a pretty good
@@ -90,10 +90,7 @@ and intuitively without writing configuration files. All of that on a _per-insta
 are saved as part of the ReaLearn instance and therefore as part of your REAPER project. No need to pollute your global
 control mappings just for the needs of one project!
 
-Nevertheless, since version 2, ReaLearn is also a great choice for setting up global mappings for usage across
-multiple projects. It provides a simple yet powerful preset system to make a set of mappings reusable in all of your
-projects. Just add ReaLearn to the monitoring FX chain of REAPER (View → Monitoring FX) and ReaLearn will be instantly
-available in all of your REAPER sessions without having to add it to a project first.
+Nevertheless, since version 2, ReaLearn is also a great choice for setting up global mappings for usage across multiple projects. Just add ReaLearn to the monitoring FX chain of REAPER (View → Monitoring FX) and ReaLearn will be instantly available in all of your REAPER sessions without having to add it to a project first. In addition, ReaLearn provides a simple yet powerful preset system to make a set of mappings reusable in whatever project you want.
 
 ReaLearn is designed to get the most out of general-purpose MIDI controllers, which - compared to the big
 and bulky DAW consoles - usually have the advantage of being small, USB-powered, more versatile and easier on the

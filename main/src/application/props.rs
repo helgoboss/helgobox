@@ -47,6 +47,32 @@ pub enum ProcessingRelevance {
 
 pub type ChangeResult<T> = Result<Option<Affected<T>>, String>;
 
+/// Usable for changing values of properties in an infallible way.
+///
+/// This is a bit like the Flux pattern. One has commands (or actions) that describe how to change
+/// state and the store (in this case the value itself) changes its state accordingly.
+///
+/// This pattern has been introduced in #492 when changing the change-notification mechanism.
+/// We moved from an Rx-based approach where each property has its own subscribers to a more
+/// flexible and much more memory-friendly approach that works by letting any property change start
+/// at the session and letting the session handle the notification centrally.
+///
+/// This command pattern is actually not necessary for this new change-notification mechanism. We
+/// could also provide simple setter methods that return `Affected` values (as we already do when
+/// we apply more complex changes than just changing a few properties). This would have the
+/// advantage that we can choose more specific return types, not such a generic one (e.g. `Result`
+/// if the change is fallible). However, we introduced the pattern and it's too early to remove it.
+///
+/// Because it also has some potential advantages:
+///
+/// - It unifies infallible property write access.
+/// - It allows for hierarchical changes without the need for closures, e.g. the command to change a
+///   target property p of a mapping m in compartment c is expressed as a simple object! This also
+///   has a nice symmetry to the way affected properties are returned (which is also hierarchial).
+/// - Because of this unification, we could record changes, log them easily, even build some undo
+///   system on it.
+///
+/// Let's see where this goes!
 pub trait Change<'a> {
     type Command;
     type Prop;
