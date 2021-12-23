@@ -536,7 +536,7 @@ impl Session {
                 .take_until(self.party_is_over()),
         )
         .with(weak_session.clone())
-        .do_sync(|s, _| {
+        .do_async(|s, _| {
             s.borrow_mut()
                 .invalidate_fx_indexes_of_mapping_targets(Rc::downgrade(&s));
         });
