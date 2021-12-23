@@ -1,9 +1,9 @@
 use crate::application::{
     share_group, share_mapping, Affected, Change, ChangeResult, CompartmentCommand,
-    CompartmentModel, CompartmentProp, ControllerPreset, FxId, GroupCommand, GroupModel, GroupProp,
+    CompartmentModel, CompartmentProp, ControllerPreset, FxId, GroupCommand, GroupModel,
     MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp, Preset,
-    PresetLinkManager, PresetManager, ProcessingRelevance, QualifiedGroupId, SharedGroup,
-    SharedMapping, SourceModel, TargetCategory, TargetModel, TargetProp, VirtualControlElementType,
+    PresetLinkManager, PresetManager, ProcessingRelevance, SharedGroup, SharedMapping, SourceModel,
+    TargetCategory, TargetModel, TargetProp, VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
 use crate::base::{prop, when, AsyncNotifier, Global, Prop};
@@ -308,19 +308,15 @@ impl Session {
         mappings_have_project_references(self.mappings[compartment].iter())
     }
 
-    pub fn make_mappings_project_independent(
-        &mut self,
-        compartment: MappingCompartment,
-        weak_session: WeakSession,
-    ) {
+    pub fn make_mappings_project_independent(&mut self, compartment: MappingCompartment) {
         let context = self.extended_context();
         for m in &self.mappings[compartment] {
             let _ = m.borrow_mut().make_project_independent(context);
         }
-        self.notify_everything_has_changed(weak_session);
+        self.notify_everything_has_changed();
     }
 
-    pub fn virtualize_main_mappings(&mut self, session: WeakSession) -> Result<(), String> {
+    pub fn virtualize_main_mappings(&mut self) -> Result<(), String> {
         let count = self.mappings[MappingCompartment::MainMappings]
             .iter()
             .filter(|m| {
@@ -333,7 +329,7 @@ impl Session {
                 }
             })
             .count();
-        self.notify_everything_has_changed(session);
+        self.notify_everything_has_changed();
         if count > 0 {
             return Err(format!("Couldn't virtualize {} mappings.", count));
         }
@@ -419,7 +415,7 @@ impl Session {
         self.parameter_settings[compartment] = settings;
     }
 
-    fn full_sync(&mut self, weak_session: WeakSession) {
+    fn full_sync(&mut self) {
         // It's important to sync feedback device first, otherwise the initial feedback messages
         // won't arrive!
         self.sync_settings();
@@ -452,7 +448,7 @@ impl Session {
     // TODO-low Too large. Split this into several methods.
     pub fn activate(&mut self, weak_session: WeakSession) {
         // Initial sync
-        self.full_sync(weak_session.clone());
+        self.full_sync();
         // Whenever something in the group list changes, resubscribe to those groups and sync
         // (because a mapping could have changed its group).
         when(self.group_list_changed())
@@ -576,19 +572,14 @@ impl Session {
                 let fx_id = currently_focused_fx
                     .as_ref()
                     .and_then(|f| FxId::from_fx(f, false).ok());
-                s.borrow_mut()
-                    .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
+                s.borrow_mut().auto_load_preset_linked_to_fx(fx_id);
             }
         });
     }
 
-    pub fn activate_main_preset_auto_load_mode(
-        &mut self,
-        mode: MainPresetAutoLoadMode,
-        session: WeakSession,
-    ) {
+    pub fn activate_main_preset_auto_load_mode(&mut self, mode: MainPresetAutoLoadMode) {
         if mode != MainPresetAutoLoadMode::Off {
-            self.activate_main_preset(None, session).unwrap();
+            self.activate_main_preset(None).unwrap();
         }
         self.main_preset_auto_load_mode.set(mode);
     }
@@ -597,11 +588,11 @@ impl Session {
         self.main_preset_auto_load_mode.get() != MainPresetAutoLoadMode::Off
     }
 
-    fn auto_load_preset_linked_to_fx(&mut self, fx_id: Option<FxId>, weak_session: WeakSession) {
+    fn auto_load_preset_linked_to_fx(&mut self, fx_id: Option<FxId>) {
         let preset_id =
             fx_id.and_then(|id| self.main_preset_link_manager.find_preset_linked_to_fx(&id));
         if self.active_main_preset_id != preset_id {
-            let _ = self.activate_main_preset(preset_id, weak_session);
+            let _ = self.activate_main_preset(preset_id);
         }
     }
 
@@ -1116,7 +1107,7 @@ impl Session {
     ) {
         use Affected::*;
         self.handle_affected(
-            Affected::One(SessionProp::InCompartment(compartment, Affected::Multiple)),
+            One(SessionProp::InCompartment(compartment, Multiple)),
             None,
             weak_session,
         );
@@ -1129,9 +1120,9 @@ impl Session {
     ) {
         use Affected::*;
         self.handle_affected(
-            Affected::One(SessionProp::InCompartment(
+            One(SessionProp::InCompartment(
                 id.compartment,
-                Affected::One(CompartmentProp::InMapping(id.id, Affected::Multiple)),
+                One(CompartmentProp::InMapping(id.id, Multiple)),
             )),
             None,
             weak_session,
@@ -1173,7 +1164,7 @@ impl Session {
                     use SessionProp::*;
                     let mut session = session.borrow_mut();
                     match &affected {
-                        One(InCompartment(compartment, One(InGroup(group_id, affected)))) => {
+                        One(InCompartment(compartment, One(InGroup(_, affected)))) => {
                             // Sync all mappings to processor if necessary (change of a single
                             // group can affect many mappings)
                             if affected.processing_relevance().is_some() {
@@ -1240,20 +1231,8 @@ impl Session {
         compartment: MappingCompartment,
         cmd: CompartmentCommand,
     ) -> ChangeResult<CompartmentProp> {
-        use Affected::*;
         use CompartmentCommand as C;
-        use CompartmentProp as P;
         let affected = match cmd {
-            C::ChangeGroup(group_id, cmd) => {
-                let group = self
-                    .find_group_by_id_including_default_group(compartment, group_id)
-                    .ok_or(String::from("group not found"))?
-                    .clone();
-                let mut group = group.borrow_mut();
-                group
-                    .change(cmd)?
-                    .map(|affected| One(CompartmentProp::InGroup(group_id, affected)))
-            }
             C::ChangeMapping(mapping_id, cmd) => self.changing_mapping_by_id(
                 QualifiedMappingId::new(compartment, mapping_id),
                 move |ctx| ctx.mapping.change(cmd),
@@ -1896,11 +1875,7 @@ impl Session {
         self.compartment_is_dirty[compartment].get()
     }
 
-    pub fn activate_controller_preset(
-        &mut self,
-        id: Option<String>,
-        weak_session: WeakSession,
-    ) -> Result<(), &'static str> {
+    pub fn activate_controller_preset(&mut self, id: Option<String>) -> Result<(), &'static str> {
         let compartment = MappingCompartment::ControllerMappings;
         let model = if let Some(id) = id.as_ref() {
             let preset = self
@@ -1913,16 +1888,12 @@ impl Session {
             None
         };
         self.active_controller_preset_id = id;
-        self.replace_compartment(compartment, model, weak_session);
+        self.replace_compartment(compartment, model);
         self.compartment_is_dirty[compartment].set(false);
         Ok(())
     }
 
-    pub fn activate_main_preset(
-        &mut self,
-        id: Option<String>,
-        weak_session: WeakSession,
-    ) -> Result<(), &'static str> {
+    pub fn activate_main_preset(&mut self, id: Option<String>) -> Result<(), &'static str> {
         let compartment = MappingCompartment::MainMappings;
         let model = if let Some(id) = id.as_ref() {
             let preset = self
@@ -1935,7 +1906,7 @@ impl Session {
             None
         };
         self.active_main_preset_id = id;
-        self.replace_compartment(compartment, model, weak_session);
+        self.replace_compartment(compartment, model);
         self.compartment_is_dirty[compartment].set(false);
         Ok(())
     }
@@ -1960,9 +1931,8 @@ impl Session {
         &mut self,
         compartment: MappingCompartment,
         model: Option<CompartmentModel>,
-        weak_session: WeakSession,
     ) {
-        self.replace_compartment(compartment, model, weak_session);
+        self.replace_compartment(compartment, model);
         self.mark_compartment_dirty(compartment);
     }
 
@@ -1971,7 +1941,6 @@ impl Session {
         &mut self,
         compartment: MappingCompartment,
         model: Option<CompartmentModel>,
-        weak_session: WeakSession,
     ) {
         if let Some(model) = model {
             let default_group = match compartment {
@@ -1986,7 +1955,7 @@ impl Session {
             self.clear_compartment_data(compartment);
         }
         self.reset_parameters(compartment);
-        self.notify_everything_has_changed(weak_session);
+        self.notify_everything_has_changed();
     }
 
     fn reset_parameters(&self, compartment: MappingCompartment) {
@@ -2451,8 +2420,8 @@ impl Session {
     ///
     /// Explicitly doesn't mark the project as dirty - because this is also used when loading data
     /// (project load, undo, redo, preset change).
-    pub fn notify_everything_has_changed(&mut self, weak_session: WeakSession) {
-        self.full_sync(weak_session);
+    pub fn notify_everything_has_changed(&mut self) {
+        self.full_sync();
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());
     }
@@ -2530,7 +2499,7 @@ impl DomainEventHandler for WeakSession {
                 session.ui.parameters_changed(&session);
             }
             FullResyncRequested => {
-                session.borrow_mut().full_sync(self.clone());
+                session.borrow_mut().full_sync();
             }
             ProjectionFeedback(value) => {
                 if let Ok(s) = session.try_borrow() {

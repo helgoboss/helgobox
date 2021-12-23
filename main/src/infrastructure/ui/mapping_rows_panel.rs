@@ -15,7 +15,7 @@ use slog::debug;
 use std::cmp;
 
 use crate::application::{
-    Affected, CompartmentProp, Session, SessionProp, SharedMapping, SharedSession, WeakSession,
+    Affected, Session, SessionProp, SharedMapping, SharedSession, WeakSession,
 };
 use crate::domain::{MappingCompartment, MappingId, MappingMatchedEvent};
 use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};

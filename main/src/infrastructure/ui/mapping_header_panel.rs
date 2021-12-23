@@ -9,8 +9,8 @@ use std::rc::{Rc, Weak};
 
 use crate::application::{
     ActivationConditionCommand, ActivationConditionProp, ActivationType, BankConditionModel,
-    CompartmentCommand, GroupCommand, GroupModel, MappingCommand, MappingModel,
-    ModifierConditionModel, Session, SessionCommand, SharedSession, WeakSession,
+    GroupCommand, GroupModel, MappingCommand, MappingModel, ModifierConditionModel, Session,
+    SharedSession, WeakSession,
 };
 use crate::domain::{MappingCompartment, Tag, COMPARTMENT_PARAMETER_COUNT};
 use std::fmt::Debug;

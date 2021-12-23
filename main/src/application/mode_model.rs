@@ -1,5 +1,4 @@
-use crate::base::{prop, Prop};
-use crate::domain::{EelTransformation, ExtendedProcessorContext, Mode, OutputVariable};
+use crate::domain::{EelTransformation, Mode, OutputVariable};
 
 use helgoboss_learn::{
     check_mode_applicability, full_discrete_interval, full_unit_interval, AbsoluteMode,
@@ -8,8 +7,6 @@ use helgoboss_learn::{
     OutOfRangeBehavior, SoftSymmetricUnitValue, TakeoverMode, UnitValue, ValueSequence,
     VirtualColor,
 };
-
-use rxrust::prelude::*;
 
 use crate::application::{
     Affected, Change, ChangeResult, GetProcessingRelevance, ProcessingRelevance,

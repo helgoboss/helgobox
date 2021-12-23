@@ -1,5 +1,4 @@
 use crate::base::default_util::is_default;
-use crate::base::{prop, Prop};
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use helgoboss_learn::{ControlType, OscArgDescriptor, OscTypeTag, Target};
@@ -8,7 +7,6 @@ use reaper_high::{
     Action, BookmarkType, Fx, FxParameter, Guid, Project, Track, TrackRoute, TrackRoutePartner,
 };
 
-use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::application::{
@@ -48,7 +46,6 @@ use serde_repr::*;
 use std::borrow::Cow;
 use std::error::Error;
 
-use crate::application::Affected::One;
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackArea, TrackLocation,
     TrackSendDirection,
@@ -67,15 +64,11 @@ pub enum TargetCommand {
     SetAction(Option<Action>),
     SetActionInvocationType(ActionInvocationType),
     SetWithTrack(bool),
-    SetTrackType(VirtualTrackType),
-    SetTrackId(Option<Guid>),
     SetTrackName(String),
     SetTrackIndex(u32),
     SetTrackExpression(String),
     SetEnableOnlyIfTrackSelected(bool),
-    SetFxType(VirtualFxType),
     SetFxIsInputFx(bool),
-    SetFxId(Option<Guid>),
     SetFxName(String),
     SetFxIndex(u32),
     SetFxExpression(String),
@@ -247,14 +240,6 @@ impl<'a> Change<'a> for TargetModel {
                 self.with_track = v;
                 One(P::WithTrack)
             }
-            C::SetTrackType(v) => {
-                self.track_type = v;
-                One(P::TrackType)
-            }
-            C::SetTrackId(v) => {
-                self.track_id = v;
-                One(P::TrackId)
-            }
             C::SetTrackName(v) => {
                 self.track_name = v;
                 One(P::TrackName)
@@ -271,17 +256,9 @@ impl<'a> Change<'a> for TargetModel {
                 self.enable_only_if_track_selected = v;
                 One(P::EnableOnlyIfTrackSelected)
             }
-            C::SetFxType(v) => {
-                self.fx_type = v;
-                One(P::FxType)
-            }
             C::SetFxIsInputFx(v) => {
                 self.fx_is_input_fx = v;
                 One(P::FxIsInputFx)
-            }
-            C::SetFxId(v) => {
-                self.fx_id = v;
-                One(P::FxId)
             }
             C::SetFxName(v) => {
                 self.fx_name = v;
@@ -699,10 +676,6 @@ impl TargetModel {
         self.track_type
     }
 
-    pub fn track_id(&self) -> Option<Guid> {
-        self.track_id
-    }
-
     pub fn track_name(&self) -> &str {
         &self.track_name
     }
@@ -725,10 +698,6 @@ impl TargetModel {
 
     pub fn fx_is_input_fx(&self) -> bool {
         self.fx_is_input_fx
-    }
-
-    pub fn fx_id(&self) -> Option<Guid> {
-        self.fx_id
     }
 
     pub fn fx_name(&self) -> &str {
@@ -769,10 +738,6 @@ impl TargetModel {
 
     pub fn route_type(&self) -> TrackRouteType {
         self.route_type
-    }
-
-    pub fn route_id(&self) -> Option<Guid> {
-        self.route_id
     }
 
     pub fn route_index(&self) -> u32 {
@@ -1164,15 +1129,11 @@ impl TargetModel {
 
     #[must_use]
     pub fn set_virtual_route(&mut self, route: VirtualTrackRoute) -> Option<Affected<TargetProp>> {
-        self.set_route(TrackRoutePropValues::from_virtual_route(route), true)
+        self.set_route(TrackRoutePropValues::from_virtual_route(route))
     }
 
     #[must_use]
-    pub fn set_route(
-        &mut self,
-        route: TrackRoutePropValues,
-        with_notification: bool,
-    ) -> Option<Affected<TargetProp>> {
+    pub fn set_route(&mut self, route: TrackRoutePropValues) -> Option<Affected<TargetProp>> {
         self.route_selector_type = route.selector_type;
         self.route_type = route.r#type;
         self.route_id = route.id;
@@ -1253,7 +1214,6 @@ impl TargetModel {
     pub fn set_fx_parameter(
         &mut self,
         param: FxParameterPropValues,
-        with_notification: bool,
     ) -> Option<Affected<TargetProp>> {
         self.param_type = param.r#type;
         self.param_name = param.name;
@@ -1263,11 +1223,7 @@ impl TargetModel {
     }
 
     #[must_use]
-    pub fn set_seek_options(
-        &mut self,
-        options: SeekOptions,
-        with_notification: bool,
-    ) -> Option<Affected<TargetProp>> {
+    pub fn set_seek_options(&mut self, options: SeekOptions) -> Option<Affected<TargetProp>> {
         self.use_time_selection = options.use_time_selection;
         self.use_loop_points = options.use_loop_points;
         self.use_regions = options.use_regions;

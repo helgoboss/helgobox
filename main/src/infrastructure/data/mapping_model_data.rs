@@ -1,6 +1,4 @@
-use crate::application::{
-    Change, CompartmentCommand, MappingCommand, MappingModel, Session, SessionCommand,
-};
+use crate::application::{Change, MappingCommand, MappingModel};
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     ExtendedProcessorContext, FeedbackSendBehavior, GroupId, GroupKey, MappingCompartment,

@@ -1,6 +1,5 @@
 use crate::application::{
-    Affected, GroupCommand, GroupModel, GroupProp, MappingCommand, MappingModel, MappingProp,
-    ParameterSetting,
+    Affected, GroupModel, GroupProp, MappingCommand, MappingModel, MappingProp, ParameterSetting,
 };
 use crate::domain::{GroupId, MappingId};
 use std::collections::HashMap;
@@ -14,7 +13,6 @@ pub struct CompartmentModel {
 }
 
 pub enum CompartmentCommand {
-    ChangeGroup(GroupId, GroupCommand),
     ChangeMapping(MappingId, MappingCommand),
 }
 

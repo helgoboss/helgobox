@@ -2,10 +2,8 @@ use crate::application::{
     ActivationConditionCommand, ActivationConditionModel, ActivationConditionProp, Affected,
     Change, ChangeResult, GetProcessingRelevance, GroupData, ProcessingRelevance,
 };
-use crate::base::{prop, Prop};
 use crate::domain::{GroupId, GroupKey, MappingCompartment, Tag};
 use core::fmt;
-use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
@@ -35,18 +33,6 @@ impl GetProcessingRelevance for GroupProp {
             P::InActivationCondition(p) => p.processing_relevance(),
             P::Name => None,
         }
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct QualifiedGroupId {
-    pub compartment: MappingCompartment,
-    pub id: GroupId,
-}
-
-impl QualifiedGroupId {
-    pub fn new(compartment: MappingCompartment, id: GroupId) -> Self {
-        Self { compartment, id }
     }
 }
 
@@ -192,10 +178,6 @@ impl GroupModel {
 
     pub fn id(&self) -> GroupId {
         self.id
-    }
-
-    pub fn qualified_id(&self) -> QualifiedGroupId {
-        QualifiedGroupId::new(self.compartment, self.id)
     }
 
     pub fn key(&self) -> &GroupKey {

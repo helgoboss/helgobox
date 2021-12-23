@@ -5,7 +5,6 @@ use crate::domain::{
 };
 
 use crate::application::{MappingModel, Session};
-use crate::infrastructure::ui::Item;
 use enum_map::{enum_map, EnumMap};
 use rxrust::prelude::*;
 use std::cell::RefCell;

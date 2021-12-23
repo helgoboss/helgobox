@@ -1,12 +1,9 @@
 use crate::application::{
     Affected, CompartmentProp, GroupProp, SessionProp, WeakGroup, WeakSession,
 };
-use crate::base::when;
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{ItemProp, MappingHeaderPanel};
 use reaper_low::raw;
-use rxrust::prelude::*;
-use std::rc::Rc;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -40,7 +37,7 @@ impl GroupPanel {
         use CompartmentProp::*;
         use SessionProp::*;
         match affected {
-            One(InCompartment(compartment, One(InGroup(group_id, affected)))) => match affected {
+            One(InCompartment(_, One(InGroup(_, affected)))) => match affected {
                 Multiple => {
                     self.mapping_header_panel.invalidate_controls();
                 }

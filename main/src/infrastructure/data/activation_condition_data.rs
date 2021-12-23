@@ -1,6 +1,6 @@
 use crate::application::{
     ActivationConditionCommand, ActivationConditionModel, ActivationType, BankConditionModel,
-    Change, ModifierConditionModel, Session,
+    Change, ModifierConditionModel,
 };
 use crate::base::default_util::is_default;
 use serde::{Deserialize, Serialize};

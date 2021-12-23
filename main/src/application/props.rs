@@ -1,5 +1,3 @@
-use enum_iterator::IntoEnumIterator;
-
 /// A type which can express what properties are potentially be affected by a change operation.
 #[derive(PartialEq)]
 pub enum Affected<T> {

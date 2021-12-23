@@ -5,7 +5,6 @@ use crate::application::{
     ProcessingRelevance, SourceCommand, SourceModel, SourceProp, TargetCategory, TargetCommand,
     TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
 };
-use crate::base::{prop, Prop};
 use crate::domain::{
     ActivationCondition, CompoundMappingSource, CompoundMappingTarget, ExtendedProcessorContext,
     ExtendedSourceCharacter, FeedbackSendBehavior, GroupId, MainMapping, MappingCompartment,
@@ -17,7 +16,6 @@ use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
     ModeParameter, SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
 };
-use rxrust::prelude::*;
 
 use std::cell::RefCell;
 use std::error::Error;

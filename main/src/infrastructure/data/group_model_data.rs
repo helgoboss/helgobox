@@ -1,9 +1,8 @@
-use crate::application::{Change, GroupCommand, GroupModel, Session};
+use crate::application::{Change, GroupCommand, GroupModel};
 use crate::base::default_util::is_default;
 use crate::domain::{GroupId, GroupKey, MappingCompartment, Tag};
 use crate::infrastructure::data::{ActivationConditionData, EnabledData};
 use serde::{Deserialize, Serialize};
-use std::borrow::BorrowMut;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

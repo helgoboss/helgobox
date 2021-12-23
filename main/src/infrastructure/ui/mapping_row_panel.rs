@@ -78,13 +78,13 @@ impl MappingRowPanel {
         }
     }
 
-    pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
+    pub fn handle_affected(&self, affected: &Affected<SessionProp>, _initiator: Option<u32>) {
         // If the reaction can't be displayed anymore because the mapping is not filled anymore,
         // so what.
         use Affected::*;
         use CompartmentProp::*;
         use SessionProp::*;
-        let _ = self.with_mapping(|view, m| {
+        let _ = self.with_mapping(|_, m| {
             match affected {
                 One(InCompartment(compartment, One(InGroup(_, _))))
                     if *compartment == m.compartment() =>
@@ -149,20 +149,14 @@ impl MappingRowPanel {
         Some(mapping.id())
     }
 
-    pub fn group_id(&self) -> Option<GroupId> {
-        let mapping = self.optional_mapping()?;
-        let mapping = mapping.borrow();
-        Some(mapping.group_id())
-    }
-
     pub fn set_mapping(self: &SharedView<Self>, mapping: Option<SharedMapping>) {
         self.party_is_over_subject.borrow_mut().next(());
         match &mapping {
             None => self.view.require_window().hide(),
             Some(m) => {
                 self.view.require_window().show();
-                self.invalidate_all_controls(m.borrow().deref());
-                self.register_listeners(m.borrow().deref());
+                self.invalidate_all_controls(&m.borrow());
+                self.register_listeners();
             }
         }
         self.mapping.replace(mapping);
@@ -399,7 +393,7 @@ impl MappingRowPanel {
         }
     }
 
-    fn register_listeners(self: &SharedView<Self>, mapping: &MappingModel) {
+    fn register_listeners(self: &SharedView<Self>) {
         let session = self.session();
         let session = session.borrow();
         let instance_state = session.instance_state().borrow();

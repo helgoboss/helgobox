@@ -1,7 +1,6 @@
 use crate::application::{
     Affected, Change, ChangeResult, GetProcessingRelevance, MappingProp, ProcessingRelevance,
 };
-use crate::base::{prop, Prop};
 use crate::domain::{
     CompoundMappingSource, EelMidiSourceScript, ExtendedSourceCharacter, MappingCompartment,
     MidiSource, ReaperSource, VirtualControlElement, VirtualControlElementId, VirtualSource,
@@ -16,7 +15,6 @@ use helgoboss_learn::{
 };
 use helgoboss_midi::{Channel, U14, U7};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_repr::*;
 use std::borrow::Cow;
@@ -1020,7 +1018,6 @@ impl ReaperSourceType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use helgoboss_midi::test_util::*;
 
     #[test]
     fn create_source() {

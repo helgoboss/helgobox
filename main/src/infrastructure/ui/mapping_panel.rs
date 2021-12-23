@@ -32,15 +32,14 @@ use std::rc::Rc;
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
     get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
-    ActivationConditionProp, Affected, AutomationModeOverrideType, BookmarkAnchorType, Change,
-    ChangeResult, CompartmentCommand, CompartmentProp, ConcreteFxInstruction,
-    ConcreteTrackInstruction, MappingChangeContext, MappingCommand, MappingModel, MappingProp,
-    MidiSourceType, ModeCommand, ModeModel, ModeProp, RealearnAutomationMode, RealearnTrackArea,
-    ReaperSourceType, Session, SessionCommand, SessionProp, SharedMapping, SharedSession,
-    SourceCategory, SourceCommand, SourceModel, SourceProp, TargetCategory, TargetCommand,
-    TargetModel, TargetModelWithContext, TargetProp, TargetUnit, TrackRouteSelectorType,
-    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
-    WeakSession,
+    Affected, AutomationModeOverrideType, BookmarkAnchorType, Change, CompartmentProp,
+    ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext, MappingCommand,
+    MappingModel, MappingProp, MidiSourceType, ModeCommand, ModeModel, ModeProp,
+    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionProp,
+    SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel, SourceProp,
+    TargetCategory, TargetCommand, TargetModel, TargetModelWithContext, TargetProp, TargetUnit,
+    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
+    VirtualTrackType, WeakSession,
 };
 use crate::base::Global;
 use crate::domain::{
@@ -516,20 +515,6 @@ impl MappingPanel {
         session
             .borrow_mut()
             .toggle_learning_target(&session, self.qualified_mapping_id().expect("no mapping"));
-    }
-
-    fn change_target_with_closure(
-        &self,
-        initiator: Option<u32>,
-        f: impl FnOnce(MappingChangeContext) -> Option<Affected<TargetProp>>,
-    ) {
-        let session = self.session();
-        let mut session = session.borrow_mut();
-        let mapping = self.displayed_mapping().expect("no mapping set");
-        let mut mapping = mapping.borrow_mut();
-        session
-            .change_target_with_closure(&mut mapping, initiator, self.session.clone(), f)
-            .unwrap();
     }
 
     fn handle_target_line_2_button_press(self: SharedView<Self>) -> Result<(), &'static str> {

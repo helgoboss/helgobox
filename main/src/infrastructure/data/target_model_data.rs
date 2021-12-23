@@ -287,9 +287,9 @@ impl TargetModelData {
             self.enable_only_if_fx_has_focus,
         ));
         let route_prop_values = deserialize_track_route(&self.track_route_data);
-        model.set_route(route_prop_values, false);
+        model.set_route(route_prop_values);
         let fx_param_prop_values = deserialize_fx_parameter(&self.fx_parameter_data);
-        model.set_fx_parameter(fx_param_prop_values, false);
+        model.set_fx_parameter(fx_param_prop_values);
         let track_exclusivity = if let Some(select_exclusively) = self.select_exclusively {
             // Should only be set in versions < 2.4.0.
             if select_exclusively {
@@ -328,7 +328,7 @@ impl TargetModelData {
         model.change(C::SetBookmarkType(bookmark_type));
         model.change(C::SetBookmarkAnchorType(self.bookmark_data.anchor));
         model.change(C::SetBookmarkRef(self.bookmark_data.r#ref));
-        model.set_seek_options(self.seek_options, false);
+        model.set_seek_options(self.seek_options);
         model.change(C::SetTrackArea(self.track_area));
         model.change(C::SetAutomationMode(self.track_automation_mode));
         model.change(C::SetAutomationModeOverrideType(

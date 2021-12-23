@@ -2,9 +2,7 @@ use crate::infrastructure::ui::{MainPanel, MappingPanel, SessionMessagePanel};
 use reaper_high::Reaper;
 use slog::debug;
 
-use crate::application::{
-    Affected, CompartmentProp, Session, SessionProp, SharedMapping, WeakSession,
-};
+use crate::application::{Affected, Session, SessionProp, SharedMapping, WeakSession};
 use crate::domain::{MappingCompartment, MappingId, MappingMatchedEvent, TargetValueChangedEvent};
 use swell_ui::{SharedView, View, WeakView, Window};
 

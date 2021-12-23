@@ -18,7 +18,7 @@ use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 use crate::application::{
     reaper_supports_global_midi_filter, Affected, CompartmentProp, ControllerPreset, FxId,
     MainPreset, MainPresetAutoLoadMode, MappingCommand, ParameterSetting, Preset, PresetManager,
-    Session, SessionProp, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
+    SessionProp, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
@@ -775,7 +775,7 @@ impl HeaderPanel {
         }
         let shared_session = self.session();
         let mut session = shared_session.borrow_mut();
-        let result = session.virtualize_main_mappings(Rc::downgrade(&shared_session));
+        let result = session.virtualize_main_mappings();
         self.notify_user_on_error(result.map_err(|e| e.into()));
     }
 
@@ -1720,7 +1720,7 @@ impl HeaderPanel {
         }
         self.session()
             .borrow_mut()
-            .activate_main_preset_auto_load_mode(mode, self.session.clone());
+            .activate_main_preset_auto_load_mode(mode);
     }
 
     fn update_preset(&self) {
@@ -1757,13 +1757,9 @@ impl HeaderPanel {
         let mut session = session.borrow_mut();
         match compartment {
             MappingCompartment::ControllerMappings => {
-                session
-                    .activate_controller_preset(preset_id, self.session.clone())
-                    .unwrap();
+                session.activate_controller_preset(preset_id).unwrap();
             }
-            MappingCompartment::MainMappings => session
-                .activate_main_preset(preset_id, self.session.clone())
-                .unwrap(),
+            MappingCompartment::MainMappings => session.activate_main_preset(preset_id).unwrap(),
         };
     }
 
@@ -1896,7 +1892,7 @@ impl HeaderPanel {
             let version = App::version();
             match data.to_model(Some(version), compartment) {
                 Ok(model) => {
-                    session.import_compartment(compartment, Some(model), self.session.clone());
+                    session.import_compartment(compartment, Some(model));
                 }
                 Err(e) => {
                     self.view.require_window().alert("ReaLearn", e);
@@ -2026,12 +2022,8 @@ impl HeaderPanel {
             };
         let active_preset_id = active_preset_id.ok_or("no preset selected")?.to_string();
         match compartment {
-            MappingCompartment::ControllerMappings => {
-                session.activate_controller_preset(None, self.session.clone())?
-            }
-            MappingCompartment::MainMappings => {
-                session.activate_main_preset(None, self.session.clone())?
-            }
+            MappingCompartment::ControllerMappings => session.activate_controller_preset(None)?,
+            MappingCompartment::MainMappings => session.activate_main_preset(None)?,
         };
         preset_manager.remove_preset(&active_preset_id)?;
         Ok(())
@@ -2055,7 +2047,7 @@ impl HeaderPanel {
         {
             session
                 .borrow_mut()
-                .make_mappings_project_independent(compartment, self.session.clone());
+                .make_mappings_project_independent(compartment);
         }
     }
 
@@ -2158,7 +2150,7 @@ impl HeaderPanel {
                     .controller_preset_manager()
                     .borrow_mut()
                     .add_preset(controller)?;
-                session.activate_controller_preset(Some(preset_id), self.session.clone())?;
+                session.activate_controller_preset(Some(preset_id))?;
             }
             MappingCompartment::MainMappings => {
                 let main_preset =
@@ -2167,7 +2159,7 @@ impl HeaderPanel {
                     .main_preset_manager()
                     .borrow_mut()
                     .add_preset(main_preset)?;
-                session.activate_main_preset(Some(preset_id), self.session.clone())?;
+                session.activate_main_preset(Some(preset_id))?;
             }
         };
         Ok(())

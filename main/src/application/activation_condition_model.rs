@@ -2,9 +2,7 @@ use crate::application::{
     ActivationType, Affected, BankConditionModel, Change, ChangeResult, GetProcessingRelevance,
     ModifierConditionModel, ProcessingRelevance,
 };
-use crate::base::Prop;
 use crate::domain::{ActivationCondition, EelCondition};
-use rxrust::prelude::*;
 
 pub enum ActivationConditionCommand {
     SetActivationType(ActivationType),
@@ -91,19 +89,6 @@ impl ActivationConditionModel {
 
     pub fn eel_condition(&self) -> &str {
         &self.eel_condition
-    }
-
-    /// Returns true if this is a property that has an effect on control/feedback processing.
-    pub fn is_processing_relevant_prop(&self, prop: ActivationConditionProp) -> bool {
-        use ActivationConditionProp as P;
-        matches!(
-            prop,
-            P::ActivationType
-                | P::ModifierCondition1
-                | P::ModifierCondition2
-                | P::EelCondition
-                | P::BankCondition
-        )
     }
 
     pub fn create_activation_condition(&self) -> ActivationCondition {

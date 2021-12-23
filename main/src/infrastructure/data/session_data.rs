@@ -359,7 +359,7 @@ impl SessionData {
                 .set_without_notification(unmatched);
         }
         // Groups
-        let mut get_final_default_group =
+        let get_final_default_group =
             |def_group: Option<&GroupModelData>, compartment: MappingCompartment| {
                 def_group
                     .map(|g| g.to_model(compartment, true))
@@ -404,7 +404,7 @@ impl SessionData {
                         &migration_descriptor,
                         self.version.as_ref(),
                         session.compartment_in_session(compartment),
-                        Some(session.extended_context()),
+                        Some(session.extended_context_with_params(params)),
                     )
                 })
                 .collect();
