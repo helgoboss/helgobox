@@ -1872,13 +1872,15 @@ impl Session {
     }
 
     pub fn active_controller(&self) -> Option<ControllerPreset> {
+        // TODO-high Pull up into infrastructure layer and load data directly instead of model
         let id = self.active_controller_preset_id()?;
-        self.controller_preset_manager.find_by_id(id)
+        self.controller_preset_manager.load_by_id(id)
     }
 
     pub fn active_main_preset(&self) -> Option<MainPreset> {
+        // TODO-high Pull up into infrastructure layer and load data directly instead of model
         let id = self.active_main_preset_id()?;
-        self.main_preset_manager.find_by_id(id)
+        self.main_preset_manager.load_by_id(id)
     }
 
     pub fn controller_preset_is_out_of_date(&self) -> bool {
@@ -1905,7 +1907,7 @@ impl Session {
         let model = if let Some(id) = id.as_ref() {
             let preset = self
                 .controller_preset_manager
-                .find_by_id(id)
+                .load_by_id(id)
                 .ok_or("controller preset not found")?;
             Some(preset.data().clone())
         } else {
@@ -1927,7 +1929,7 @@ impl Session {
         let model = if let Some(id) = id.as_ref() {
             let preset = self
                 .main_preset_manager
-                .find_by_id(id)
+                .load_by_id(id)
                 .ok_or("main preset not found")?;
             Some(preset.data().clone())
         } else {

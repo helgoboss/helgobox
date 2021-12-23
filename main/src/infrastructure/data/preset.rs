@@ -15,9 +15,15 @@ use std::path::{Path, PathBuf};
 #[derive(Debug)]
 pub struct FileBasedPresetManager<P: Preset, PD: PresetData<P = P>> {
     preset_dir_path: PathBuf,
-    presets: Vec<P>,
+    preset_descriptors: Vec<PresetDescriptor>,
     changed_subject: LocalSubject<'static, (), ()>,
     p: PhantomData<PD>,
+}
+
+#[derive(Debug)]
+pub struct PresetDescriptor {
+    pub id: String,
+    pub name: String,
 }
 
 pub trait ExtendedPresetManager {
@@ -26,29 +32,26 @@ pub trait ExtendedPresetManager {
     fn remove_preset(&mut self, id: &str) -> Result<(), &'static str>;
 }
 
+// TODO-high P can be eliminated because it's associated type of PD
 impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     pub fn new(preset_dir_path: PathBuf) -> FileBasedPresetManager<P, PD> {
         let mut manager = FileBasedPresetManager {
             preset_dir_path,
-            presets: vec![],
+            preset_descriptors: vec![],
             changed_subject: Default::default(),
             p: PhantomData,
         };
-        // TODO-high Woah, this needs around 70 MB of RAM just for a few presets! WTH!
-        //  It's because first, a MappingModel needs more RAM than expected and second,
-        //  we have presets installed with around 2000 mappings, they are all loaded into
-        //  memory on start - not optimal.
-        let _ = manager.load_presets_internal();
+        let _ = manager.load_preset_descriptors_internal();
         manager
     }
 
-    pub fn load_presets(&mut self) -> Result<(), String> {
-        self.load_presets_internal()?;
+    pub fn load_preset_descriptors(&mut self) -> Result<(), String> {
+        self.load_preset_descriptors_internal()?;
         self.notify_changed();
         Ok(())
     }
 
-    fn load_presets_internal(&mut self) -> Result<(), String> {
+    fn load_preset_descriptors_internal(&mut self) -> Result<(), String> {
         let preset_file_paths = fs::read_dir(&self.preset_dir_path)
             .map_err(|_| "couldn't read preset directory".to_string())?
             .filter_map(|result| {
@@ -63,26 +66,28 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 };
                 Some(path)
             });
-        self.presets = preset_file_paths
-            .filter_map(|p| match Self::load_preset(p) {
-                Ok(p) => Some(p),
+        self.preset_descriptors = preset_file_paths
+            .filter_map(|path| match Self::load_preset_data(path) {
+                Ok((id, pd)) => Some(pd.into_descriptor(id)),
                 Err(msg) => {
                     notification::warn(msg);
                     None
                 }
             })
             .collect();
-        self.presets
-            .sort_unstable_by_key(|p| p.name().to_lowercase());
+        self.preset_descriptors
+            .sort_unstable_by_key(|p| p.name.to_lowercase());
         Ok(())
     }
 
-    pub fn presets(&self) -> impl Iterator<Item = &P> + ExactSizeIterator {
-        self.presets.iter()
+    pub fn preset_descriptors(
+        &self,
+    ) -> impl Iterator<Item = &PresetDescriptor> + ExactSizeIterator {
+        self.preset_descriptors.iter()
     }
 
-    pub fn find_by_index(&self, index: usize) -> Option<&P> {
-        self.presets.get(index)
+    pub fn find_by_index(&self, index: usize) -> Option<&PresetDescriptor> {
+        self.preset_descriptors.get(index)
     }
 
     pub fn add_preset(&mut self, preset: P) -> Result<(), &'static str> {
@@ -94,7 +99,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         data.clear_id();
         let json = serde_json::to_string_pretty(&data).map_err(|_| "couldn't serialize preset")?;
         fs::write(path, json).map_err(|_| "couldn't write preset file")?;
-        let _ = self.load_presets();
+        let _ = self.load_preset_descriptors();
         Ok(())
     }
 
@@ -113,7 +118,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             \n\
             - Preset count: {}\n\
             ",
-            self.presets.len(),
+            self.preset_descriptors.len(),
         );
         Reaper::get().show_console_msg(msg);
     }
@@ -126,28 +131,19 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         self.preset_dir_path.join(format!("{}.json", id))
     }
 
-    fn load_preset(path: impl AsRef<Path>) -> Result<P, String> {
-        let path = path.as_ref();
-        let id = path
-            .file_stem()
-            .ok_or_else(|| {
-                format!(
-                    "Preset file \"{}\" only has an extension but not a name. \
-                    The name is necessary because it makes up the preset ID.",
-                    path.display()
-                )
-            })?
-            .to_string_lossy()
-            .to_string();
-        let json = fs::read_to_string(&path)
+    fn load_preset_data_internal(path: &Path) -> Result<PD, String> {
+        let json = fs::read_to_string(path)
             .map_err(|_| format!("Couldn't read preset file \"{}\".", path.display()))?;
-        let data: PD = serde_json::from_str(&json).map_err(|e| {
+        serde_json::from_str(&json).map_err(|e| {
             format!(
                 "Preset file {} isn't valid. Details:\n\n{}",
                 path.display(),
                 e
             )
-        })?;
+        })
+    }
+
+    fn convert_to_model(id: &str, path: &Path, data: PD) -> Result<P, String> {
         if let Some(v) = data.version() {
             if App::version() < v {
                 let msg = format!(
@@ -165,24 +161,41 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                 return Err(msg);
             }
         }
-        data.to_model(id)
+        data.to_model(id.to_owned())
+    }
+
+    fn load_preset_data(path: impl AsRef<Path>) -> Result<(String, PD), String> {
+        let path = path.as_ref();
+        let id = path
+            .file_stem()
+            .ok_or_else(|| {
+                format!(
+                    "Preset file \"{}\" only has an extension but not a name. \
+                    The name is necessary because it makes up the preset ID.",
+                    path.display()
+                )
+            })?
+            .to_string_lossy()
+            .to_string();
+        let data = Self::load_preset_data_internal(path)?;
+        Ok((id, data))
     }
 }
 
 impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPresetManager<P, PD> {
     fn find_index_by_id(&self, id: &str) -> Option<usize> {
-        self.presets.iter().position(|p| p.id() == id)
+        self.preset_descriptors.iter().position(|p| &p.id == id)
     }
 
     fn find_id_by_index(&self, index: usize) -> Option<String> {
         let preset = self.find_by_index(index)?;
-        Some(preset.id().to_string())
+        Some(preset.id.clone())
     }
 
     fn remove_preset(&mut self, id: &str) -> Result<(), &'static str> {
         let path = self.get_preset_file_path(id);
         fs::remove_file(path).map_err(|_| "couldn't delete preset file")?;
-        let _ = self.load_presets();
+        let _ = self.load_preset_descriptors();
         Ok(())
     }
 }
@@ -190,8 +203,15 @@ impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPreset
 impl<P: Preset, PD: PresetData<P = P>> PresetManager for FileBasedPresetManager<P, PD> {
     type PresetType = P;
 
-    fn find_by_id(&self, id: &str) -> Option<P> {
-        self.presets.iter().find(|c| c.id() == id).cloned()
+    fn load_by_id(&self, id: &str) -> Option<P> {
+        let path = self.get_preset_file_path(id);
+        self.preset_descriptors
+            .iter()
+            .find(|desc| &desc.id == id)
+            .and_then(|desc| {
+                let data = Self::load_preset_data_internal(&path).ok()?;
+                Self::convert_to_model(id, &path, data).ok()
+            })
     }
 }
 
@@ -205,4 +225,6 @@ pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {
     fn clear_id(&mut self);
 
     fn version(&self) -> Option<&Version>;
+
+    fn into_descriptor(self, id: String) -> PresetDescriptor;
 }

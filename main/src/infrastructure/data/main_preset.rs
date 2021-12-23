@@ -3,6 +3,7 @@ use crate::base::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
     CompartmentModelData, ExtendedPresetManager, FileBasedPresetManager, PresetData,
+    PresetDescriptor,
 };
 
 use crate::infrastructure::plugin::App;
@@ -18,8 +19,8 @@ pub type SharedMainPresetManager = Rc<RefCell<FileBasedMainPresetManager>>;
 impl PresetManager for SharedMainPresetManager {
     type PresetType = MainPreset;
 
-    fn find_by_id(&self, id: &str) -> Option<MainPreset> {
-        self.borrow().find_by_id(id)
+    fn load_by_id(&self, id: &str) -> Option<MainPreset> {
+        self.borrow().load_by_id(id)
     }
 }
 
@@ -78,5 +79,12 @@ impl PresetData for MainPresetData {
 
     fn version(&self) -> Option<&Version> {
         self.version.as_ref()
+    }
+
+    fn into_descriptor(self, id: String) -> PresetDescriptor {
+        PresetDescriptor {
+            id,
+            name: self.name,
+        }
     }
 }

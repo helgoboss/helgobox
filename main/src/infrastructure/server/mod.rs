@@ -333,7 +333,7 @@ fn handle_patch_controller_route(
     let controller_manager = App::get().controller_preset_manager();
     let mut controller_manager = controller_manager.borrow_mut();
     let mut controller = controller_manager
-        .find_by_id(&controller_id)
+        .load_by_id(&controller_id)
         .ok_or_else(controller_not_found)?;
     controller.update_custom_data(custom_data_key.to_string(), req.value);
     controller_manager
@@ -379,7 +379,8 @@ fn handle_controller_route(session_id: String) -> Result<Json, Response<&'static
     let controller = App::get()
         .controller_preset_manager()
         .borrow()
-        .find_by_id(controller_id)
+        // TODO-high Load data directly instead of model
+        .load_by_id(controller_id)
         .ok_or_else(controller_not_found)?;
     let controller_data = ControllerPresetData::from_model(&controller);
     Ok(reply::json(&controller_data))

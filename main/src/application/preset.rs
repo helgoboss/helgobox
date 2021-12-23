@@ -11,5 +11,6 @@ pub trait Preset: Clone + Debug {
 pub trait PresetManager: fmt::Debug {
     type PresetType;
 
-    fn find_by_id(&self, id: &str) -> Option<Self::PresetType>;
+    // TODO-high Turn into Result<Self::PresetType, String> and expose load error
+    fn load_by_id(&self, id: &str) -> Option<Self::PresetType>;
 }

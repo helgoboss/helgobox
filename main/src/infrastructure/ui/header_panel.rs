@@ -471,11 +471,11 @@ impl HeaderPanel {
                         menu(
                             format!("<Add link from FX \"{}\" to ...>", fx_id),
                             main_preset_manager
-                                .presets()
+                                .preset_descriptors()
                                 .map(move |p| {
                                     let fx_id = fx_id.clone();
-                                    let preset_id = p.id().to_owned();
-                                    item(p.name(), move || {
+                                    let preset_id = p.id.clone();
+                                    item(&p.name, move || {
                                         MenuAction::LinkToPreset(fx_id, preset_id)
                                     })
                                 })
@@ -497,14 +497,14 @@ impl HeaderPanel {
                             .chain(once(item("<Remove link>", move || {
                                 MenuAction::RemovePresetLink(fx_id_1)
                             })))
-                            .chain(main_preset_manager.presets().map(move |p| {
+                            .chain(main_preset_manager.preset_descriptors().map(move |p| {
                                 let fx_id = fx_id_2.clone();
-                                let preset_id = p.id().to_owned();
+                                let preset_id = p.id.clone();
                                 item_with_opts(
-                                    p.name(),
+                                    &p.name,
                                     ItemOpts {
                                         enabled: true,
-                                        checked: p.id() == preset_id_0,
+                                        checked: p.id == preset_id_0,
                                     },
                                     move || MenuAction::LinkToPreset(fx_id, preset_id),
                                 )
@@ -1291,9 +1291,9 @@ impl HeaderPanel {
                     App::get()
                         .controller_preset_manager()
                         .borrow()
-                        .presets()
+                        .preset_descriptors()
                         .enumerate()
-                        .map(|(i, c)| (i as isize, c.to_string())),
+                        .map(|(i, c)| (i as isize, c.name.clone())),
                 ),
             ),
             MappingCompartment::MainMappings => combo.fill_combo_box_with_data_small(
@@ -1301,9 +1301,9 @@ impl HeaderPanel {
                     App::get()
                         .main_preset_manager()
                         .borrow()
-                        .presets()
+                        .preset_descriptors()
                         .enumerate()
-                        .map(|(i, c)| (i as isize, c.to_string())),
+                        .map(|(i, c)| (i as isize, c.name.clone())),
                 ),
             ),
         };
@@ -2041,8 +2041,11 @@ impl HeaderPanel {
         let _ = App::get()
             .controller_preset_manager()
             .borrow_mut()
-            .load_presets();
-        let _ = App::get().main_preset_manager().borrow_mut().load_presets();
+            .load_preset_descriptors();
+        let _ = App::get()
+            .main_preset_manager()
+            .borrow_mut()
+            .load_preset_descriptors();
     }
 
     fn make_mappings_project_independent_if_desired(&self) {
@@ -2074,7 +2077,7 @@ impl HeaderPanel {
             MappingCompartment::ControllerMappings => {
                 let preset_manager = App::get().controller_preset_manager();
                 let mut controller_preset = preset_manager
-                    .find_by_id(preset_id)
+                    .load_by_id(preset_id)
                     .ok_or("controller preset not found")?;
                 controller_preset.update_realearn_data(compartment_model);
                 preset_manager
@@ -2084,7 +2087,7 @@ impl HeaderPanel {
             MappingCompartment::MainMappings => {
                 let preset_manager = App::get().main_preset_manager();
                 let mut main_preset = preset_manager
-                    .find_by_id(preset_id)
+                    .load_by_id(preset_id)
                     .ok_or("main preset not found")?;
                 main_preset.update_data(compartment_model);
                 preset_manager.borrow_mut().update_preset(main_preset)?;
