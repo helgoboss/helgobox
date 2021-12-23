@@ -34,10 +34,9 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             changed_subject: Default::default(),
             p: PhantomData,
         };
-        // TODO-high Woah, this needs around 70 MB of RAM just for a few presets! WTH!
-        //  It's because first, a MappingModel needs more RAM than expected and second,
-        //  we have presets installed with around 2000 mappings, they are all loaded into
-        //  memory on start - not optimal.
+        // Pre-loading all presets used to take lots of memory when we still used Rx Props, around
+        // 70 MB with my preset collection. But now the same takes just 5 MB, so this alone is not
+        // an urgent reason anymore to move to lazy preset loading.
         let _ = manager.load_presets_internal();
         manager
     }
