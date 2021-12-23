@@ -11,7 +11,6 @@ use crate::domain::{
 };
 use crate::infrastructure::data::SessionData;
 use crate::infrastructure::plugin::App;
-use std::rc::Rc;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use vst::plugin::PluginParameters;
 
@@ -101,7 +100,7 @@ impl RealearnPluginParameters {
             .unwrap();
         *self.parameters_mut() = parameters;
         // Notify
-        session.notify_everything_has_changed(Rc::downgrade(&shared_session));
+        session.notify_everything_has_changed();
     }
 
     fn session(&self) -> Option<SharedSession> {

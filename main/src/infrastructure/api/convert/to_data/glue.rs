@@ -23,8 +23,8 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         None
     };
     if let (Some(ssi), Some(sfi)) = (conv_step_size_interval, conv_step_factor_interval) {
-        if (ssi.min_val().get() - sfi.min_val().get()).abs() > BASE_EPSILON
-            || (ssi.max_val().get() - sfi.max_val().get()).abs() > BASE_EPSILON
+        if (ssi.min_val().get() - sfi.min_val().get().abs()).abs() > BASE_EPSILON
+            || (ssi.max_val().get() - sfi.max_val().get().abs()).abs() > BASE_EPSILON
         {
             return Err(
                 "Only one of `step_size_interval` and `step_factor_interval` can be set".into(),

@@ -8,9 +8,9 @@ use vst::plugin::HostCallback;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ExtendedProcessorContext<'a> {
-    context: &'a ProcessorContext,
-    params: &'a ParameterArray,
-    control_context: ControlContext<'a>,
+    pub context: &'a ProcessorContext,
+    pub params: &'a ParameterArray,
+    pub control_context: ControlContext<'a>,
 }
 
 impl<'a> ExtendedProcessorContext<'a> {

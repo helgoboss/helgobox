@@ -1,4 +1,4 @@
-use crate::application::ModeModel;
+use crate::application::{Change, ModeCommand, ModeModel};
 use crate::base::default_util::{is_default, is_unit_value_one, unit_value_one};
 use crate::infrastructure::data::MigrationDescriptor;
 use crate::infrastructure::plugin::App;
@@ -97,55 +97,47 @@ fn is_default_step_size(v: &SoftSymmetricUnitValue) -> bool {
 impl ModeModelData {
     pub fn from_model(model: &ModeModel) -> Self {
         Self {
-            r#type: model.r#type.get(),
-            min_source_value: model.source_value_interval.get_ref().min_val(),
-            max_source_value: model.source_value_interval.get_ref().max_val(),
-            min_target_value: model.target_value_interval.get_ref().min_val(),
-            max_target_value: model.target_value_interval.get_ref().max_val(),
-            min_target_jump: model.jump_interval.get_ref().min_val(),
-            max_target_jump: model.jump_interval.get_ref().max_val(),
-            min_step_size: model.step_interval.get_ref().min_val(),
-            max_step_size: model.step_interval.get_ref().max_val(),
-            min_press_millis: model
-                .press_duration_interval
-                .get_ref()
-                .min_val()
-                .as_millis() as _,
-            max_press_millis: model
-                .press_duration_interval
-                .get_ref()
-                .max_val()
-                .as_millis() as _,
-            turbo_rate: model.turbo_rate.get().as_millis() as _,
-            eel_control_transformation: model.eel_control_transformation.get_ref().clone(),
-            eel_feedback_transformation: if model.feedback_type.get().is_textual() {
-                model.textual_feedback_expression.get_ref().clone()
+            r#type: model.absolute_mode(),
+            min_source_value: model.source_value_interval().min_val(),
+            max_source_value: model.source_value_interval().max_val(),
+            min_target_value: model.target_value_interval().min_val(),
+            max_target_value: model.target_value_interval().max_val(),
+            min_target_jump: model.jump_interval().min_val(),
+            max_target_jump: model.jump_interval().max_val(),
+            min_step_size: model.step_interval().min_val(),
+            max_step_size: model.step_interval().max_val(),
+            min_press_millis: model.press_duration_interval().min_val().as_millis() as _,
+            max_press_millis: model.press_duration_interval().max_val().as_millis() as _,
+            turbo_rate: model.turbo_rate().as_millis() as _,
+            eel_control_transformation: model.eel_control_transformation().to_owned(),
+            eel_feedback_transformation: if model.feedback_type().is_textual() {
+                model.textual_feedback_expression().to_owned()
             } else {
-                model.eel_feedback_transformation.get_ref().clone()
+                model.eel_feedback_transformation().to_owned()
             },
-            feedback_color: model.feedback_color.get_ref().clone(),
-            feedback_background_color: model.feedback_background_color.get_ref().clone(),
-            reverse_is_enabled: model.reverse.get(),
+            feedback_color: model.feedback_color().cloned(),
+            feedback_background_color: model.feedback_background_color().cloned(),
+            reverse_is_enabled: model.reverse(),
             // Not used anymore since ReaLearn v1.11.0
             ignore_out_of_range_source_values_is_enabled: false,
-            out_of_range_behavior: model.out_of_range_behavior.get(),
-            fire_mode: model.fire_mode.get(),
-            round_target_value: model.round_target_value.get(),
+            out_of_range_behavior: model.out_of_range_behavior(),
+            fire_mode: model.fire_mode(),
+            round_target_value: model.round_target_value(),
             // Not used anymore since ReaLearn v2.8.0-pre3
             scale_mode_enabled: false,
-            takeover_mode: model.takeover_mode.get(),
-            button_usage: model.button_usage.get(),
-            encoder_usage: model.encoder_usage.get(),
-            rotate_is_enabled: model.rotate.get(),
-            make_absolute_enabled: model.make_absolute.get(),
-            group_interaction: model.group_interaction.get(),
-            target_value_sequence: model.target_value_sequence.get_ref().clone(),
-            feedback_type: model.feedback_type.get(),
+            takeover_mode: model.takeover_mode(),
+            button_usage: model.button_usage(),
+            encoder_usage: model.encoder_usage(),
+            rotate_is_enabled: model.rotate(),
+            make_absolute_enabled: model.make_absolute(),
+            group_interaction: model.group_interaction(),
+            target_value_sequence: model.target_value_sequence().clone(),
+            feedback_type: model.feedback_type(),
         }
     }
 
     pub fn apply_to_model(&self, model: &mut ModeModel) {
-        self.apply_to_model_flexible(model, &MigrationDescriptor::default(), "", true);
+        self.apply_to_model_flexible(model, &MigrationDescriptor::default(), "");
     }
 
     pub fn apply_to_model_flexible(
@@ -153,15 +145,13 @@ impl ModeModelData {
         model: &mut ModeModel,
         migration_descriptor: &MigrationDescriptor,
         mapping_name: &str,
-        with_notification: bool,
     ) {
-        model
-            .r#type
-            .set_with_optional_notification(self.r#type, with_notification);
-        model.source_value_interval.set_with_optional_notification(
-            Interval::new(self.min_source_value, self.max_source_value),
-            with_notification,
-        );
+        use ModeCommand as P;
+        model.change(P::SetAbsoluteMode(self.r#type));
+        model.change(P::SetSourceValueInterval(Interval::new(
+            self.min_source_value,
+            self.max_source_value,
+        )));
         {
             let saved_target_interval = Interval::new(self.min_target_value, self.max_target_value);
             let actual_target_interval = if migration_descriptor.target_interval_transformation_117
@@ -177,104 +167,60 @@ impl ModeModelData {
             } else {
                 saved_target_interval
             };
-            model
-                .target_value_interval
-                .set_with_optional_notification(actual_target_interval, with_notification);
+            model.change(P::SetTargetValueInterval(actual_target_interval));
         }
-        model.step_interval.set_with_optional_notification(
-            Interval::new(self.min_step_size, self.max_step_size),
-            with_notification,
-        );
-        model
-            .press_duration_interval
-            .set_with_optional_notification(
-                Interval::new(
-                    Duration::from_millis(self.min_press_millis),
-                    Duration::from_millis(self.max_press_millis),
-                ),
-                with_notification,
-            );
-        model.turbo_rate.set_with_optional_notification(
-            Duration::from_millis(self.turbo_rate),
-            with_notification,
-        );
-        model.jump_interval.set_with_optional_notification(
-            Interval::new(self.min_target_jump, self.max_target_jump),
-            with_notification,
-        );
-        model
-            .eel_control_transformation
-            .set_with_optional_notification(
-                self.eel_control_transformation.clone(),
-                with_notification,
-            );
+        model.change(P::SetStepInterval(Interval::new(
+            self.min_step_size,
+            self.max_step_size,
+        )));
+        model.change(P::SetPressDurationInterval(Interval::new(
+            Duration::from_millis(self.min_press_millis),
+            Duration::from_millis(self.max_press_millis),
+        )));
+        model.change(P::SetTurboRate(Duration::from_millis(self.turbo_rate)));
+        model.change(P::SetJumpInterval(Interval::new(
+            self.min_target_jump,
+            self.max_target_jump,
+        )));
+        model.change(P::SetEelControlTransformation(
+            self.eel_control_transformation.clone(),
+        ));
         let (eel_fb_transformation, textual_fb_expression) = if self.feedback_type.is_textual() {
             (String::new(), self.eel_feedback_transformation.clone())
         } else {
             (self.eel_feedback_transformation.clone(), String::new())
         };
-        model
-            .eel_feedback_transformation
-            .set_with_optional_notification(eel_fb_transformation, with_notification);
-        model
-            .textual_feedback_expression
-            .set_with_optional_notification(textual_fb_expression, with_notification);
-        model
-            .feedback_color
-            .set_with_optional_notification(self.feedback_color.clone(), with_notification);
-        model
-            .feedback_background_color
-            .set_with_optional_notification(
-                self.feedback_background_color.clone(),
-                with_notification,
-            );
-        model
-            .reverse
-            .set_with_optional_notification(self.reverse_is_enabled, with_notification);
+        model.change(P::SetEelFeedbackTransformation(eel_fb_transformation));
+        model.change(P::SetTextualFeedbackExpression(textual_fb_expression));
+        model.change(P::SetFeedbackColor(self.feedback_color.clone()));
+        model.change(P::SetFeedbackBackgroundColor(
+            self.feedback_background_color.clone(),
+        ));
+        model.change(P::SetReverse(self.reverse_is_enabled));
         let actual_out_of_range_behavior = if self.ignore_out_of_range_source_values_is_enabled {
             // Data saved with ReaLearn version < 1.11.0
             OutOfRangeBehavior::Ignore
         } else {
             self.out_of_range_behavior
         };
-        model
-            .fire_mode
-            .set_with_optional_notification(self.fire_mode, with_notification);
-        model
-            .out_of_range_behavior
-            .set_with_optional_notification(actual_out_of_range_behavior, with_notification);
-        model
-            .round_target_value
-            .set_with_optional_notification(self.round_target_value, with_notification);
+        model.change(P::SetFireMode(self.fire_mode));
+        model.change(P::SetOutOfRangeBehavior(actual_out_of_range_behavior));
+        model.change(P::SetRoundTargetValue(self.round_target_value));
         let takeover_mode = if self.scale_mode_enabled {
             // ReaLearn < 2.8.0-pre3 used this flag instead of the enum.
             TakeoverMode::LongTimeNoSee
         } else {
             self.takeover_mode
         };
-        model
-            .takeover_mode
-            .set_with_optional_notification(takeover_mode, with_notification);
-        model
-            .button_usage
-            .set_with_optional_notification(self.button_usage, with_notification);
-        model
-            .encoder_usage
-            .set_with_optional_notification(self.encoder_usage, with_notification);
-        model
-            .rotate
-            .set_with_optional_notification(self.rotate_is_enabled, with_notification);
-        model
-            .make_absolute
-            .set_with_optional_notification(self.make_absolute_enabled, with_notification);
-        model
-            .group_interaction
-            .set_with_optional_notification(self.group_interaction, with_notification);
-        model
-            .target_value_sequence
-            .set_with_optional_notification(self.target_value_sequence.clone(), with_notification);
-        model
-            .feedback_type
-            .set_with_optional_notification(self.feedback_type, with_notification);
+        model.change(P::SetTakeoverMode(takeover_mode));
+        model.change(P::SetButtonUsage(self.button_usage));
+        model.change(P::SetEncoderUsage(self.encoder_usage));
+        model.change(P::SetRotate(self.rotate_is_enabled));
+        model.change(P::SetMakeAbsolute(self.make_absolute_enabled));
+        model.change(P::SetGroupInteraction(self.group_interaction));
+        model.change(P::SetTargetValueSequence(
+            self.target_value_sequence.clone(),
+        ));
+        model.change(P::SetFeedbackType(self.feedback_type));
     }
 }

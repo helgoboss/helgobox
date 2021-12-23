@@ -34,6 +34,9 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             changed_subject: Default::default(),
             p: PhantomData,
         };
+        // Pre-loading all presets used to take lots of memory when we still used Rx Props, around
+        // 70 MB with my preset collection. But now the same takes just 5 MB, so this alone is not
+        // an urgent reason anymore to move to lazy preset loading.
         let _ = manager.load_presets_internal();
         manager
     }

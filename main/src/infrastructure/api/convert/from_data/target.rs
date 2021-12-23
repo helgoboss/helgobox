@@ -683,15 +683,17 @@ fn convert_fx_chain_descriptor(
             data.enable_only_if_track_is_selected,
             style,
         ),
-        chain: {
-            let chain = if data.fx_data.is_input_fx {
-                schema::TrackFxChain::Input
-            } else {
-                schema::TrackFxChain::Normal
-            };
-            style.required_value(chain)
-        },
+        chain: convert_fx_chain(data.fx_data.is_input_fx, style),
     }
+}
+
+fn convert_fx_chain(is_input_fx: bool, style: ConversionStyle) -> Option<schema::TrackFxChain> {
+    let chain = if is_input_fx {
+        schema::TrackFxChain::Input
+    } else {
+        schema::TrackFxChain::Normal
+    };
+    style.required_value(chain)
 }
 
 fn convert_fx_parameter_descriptor(

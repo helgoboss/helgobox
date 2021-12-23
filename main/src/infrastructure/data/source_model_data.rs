@@ -1,6 +1,7 @@
 use super::none_if_minus_one;
 use crate::application::{
-    MidiSourceType, ReaperSourceType, SourceCategory, SourceModel, VirtualControlElementType,
+    Change, MidiSourceType, ReaperSourceType, SourceCategory, SourceCommand, SourceModel,
+    VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
 use crate::base::notification;
@@ -74,59 +75,55 @@ pub struct SourceModelData {
 impl SourceModelData {
     pub fn from_model(model: &SourceModel) -> Self {
         Self {
-            category: model.category.get(),
-            r#type: model.midi_source_type.get(),
-            channel: model.channel.get(),
-            number: if model.midi_source_type.get() == MidiSourceType::ParameterNumberValue {
-                model.parameter_number_message_number.get()
+            category: model.category(),
+            r#type: model.midi_source_type(),
+            channel: model.channel(),
+            number: if model.midi_source_type() == MidiSourceType::ParameterNumberValue {
+                model.parameter_number_message_number()
             } else {
-                model.midi_message_number.get().map(|n| n.into())
+                model.midi_message_number().map(|n| n.into())
             },
-            character: model.custom_character.get(),
-            is_registered: model.is_registered.get(),
-            is_14_bit: model.is_14_bit.get(),
-            message: model.midi_clock_transport_message.get(),
-            raw_midi_pattern: model.raw_midi_pattern.get_ref().clone(),
-            midi_script: model.midi_script.get_ref().clone(),
-            display_type: model.display_type.get(),
-            display_id: model.display_id.get(),
-            line: model.line.get(),
-            osc_address_pattern: model.osc_address_pattern.get_ref().clone(),
-            osc_arg_index: model.osc_arg_index.get(),
-            osc_arg_type: model.osc_arg_type_tag.get(),
-            osc_arg_is_relative: model.osc_arg_is_relative.get(),
-            control_element_type: model.control_element_type.get(),
+            character: model.custom_character(),
+            is_registered: model.is_registered(),
+            is_14_bit: model.is_14_bit(),
+            message: model.midi_clock_transport_message(),
+            raw_midi_pattern: model.raw_midi_pattern().to_owned(),
+            midi_script: model.midi_script().to_owned(),
+            display_type: model.display_type(),
+            display_id: model.display_id(),
+            line: model.line(),
+            osc_address_pattern: model.osc_address_pattern().to_owned(),
+            osc_arg_index: model.osc_arg_index(),
+            osc_arg_type: model.osc_arg_type_tag(),
+            osc_arg_is_relative: model.osc_arg_is_relative(),
+            control_element_type: model.control_element_type(),
             control_element_index: VirtualControlElementIdData::from_model(
-                model.control_element_id.get(),
+                model.control_element_id(),
             ),
-            reaper_source_type: model.reaper_source_type.get(),
+            reaper_source_type: model.reaper_source_type(),
         }
     }
 
     pub fn apply_to_model(&self, model: &mut SourceModel, compartment: MappingCompartment) {
-        self.apply_to_model_flexible(model, true, compartment, None);
+        self.apply_to_model_flexible(model, compartment, None);
     }
 
     /// Applies this data to the given source model. Doesn't proceed if data is invalid.
     pub fn apply_to_model_flexible(
         &self,
         model: &mut SourceModel,
-        with_notification: bool,
         compartment: MappingCompartment,
         preset_version: Option<&Version>,
     ) {
+        use SourceCommand as P;
         let final_category = if self.category.is_allowed_in(compartment) {
             self.category
         } else {
             SourceCategory::default_for(compartment)
         };
-        model
-            .category
-            .set_with_optional_notification(final_category, with_notification);
+        model.change(P::SetCategory(final_category));
         if self.r#type == MidiSourceType::ParameterNumberValue {
-            model
-                .parameter_number_message_number
-                .set_with_optional_notification(self.number, with_notification)
+            model.change(P::SetParameterNumberMessageNumber(self.number));
         } else {
             let number: Option<U7> = match self.number {
                 None => None,
@@ -138,16 +135,10 @@ impl SourceModelData {
                     }
                 },
             };
-            model
-                .midi_message_number
-                .set_with_optional_notification(number, with_notification);
+            model.change(P::SetMidiMessageNumber(number));
         };
-        model
-            .midi_source_type
-            .set_with_optional_notification(self.r#type, with_notification);
-        model
-            .channel
-            .set_with_optional_notification(self.channel, with_notification);
+        model.change(P::SetMidiSourceType(self.r#type));
+        model.change(P::SetChannel(self.channel));
         let character = if self.category == SourceCategory::Midi
             && self.r#type == MidiSourceType::ControlChangeValue
             && self.is_14_bit == Some(true)
@@ -165,55 +156,24 @@ impl SourceModelData {
         } else {
             self.character
         };
-        model
-            .custom_character
-            .set_with_optional_notification(character, with_notification);
-        model
-            .is_registered
-            .set_with_optional_notification(self.is_registered, with_notification);
-        model
-            .is_14_bit
-            .set_with_optional_notification(self.is_14_bit, with_notification);
-        model
-            .midi_clock_transport_message
-            .set_with_optional_notification(self.message, with_notification);
-        model
-            .raw_midi_pattern
-            .set_with_optional_notification(self.raw_midi_pattern.clone(), with_notification);
-        model
-            .midi_script
-            .set_with_optional_notification(self.midi_script.clone(), with_notification);
-        model
-            .display_type
-            .set_with_optional_notification(self.display_type, with_notification);
-        model
-            .display_id
-            .set_with_optional_notification(self.display_id, with_notification);
-        model
-            .line
-            .set_with_optional_notification(self.line, with_notification);
-        model
-            .osc_address_pattern
-            .set_with_optional_notification(self.osc_address_pattern.clone(), with_notification);
-        model
-            .osc_arg_index
-            .set_with_optional_notification(self.osc_arg_index, with_notification);
-        model
-            .osc_arg_type_tag
-            .set_with_optional_notification(self.osc_arg_type, with_notification);
-        model
-            .osc_arg_is_relative
-            .set_with_optional_notification(self.osc_arg_is_relative, with_notification);
-        model
-            .control_element_type
-            .set_with_optional_notification(self.control_element_type, with_notification);
-        model.control_element_id.set_with_optional_notification(
+        model.change(P::SetCustomCharacter(character));
+        model.change(P::SetIsRegistered(self.is_registered));
+        model.change(P::SetIs14Bit(self.is_14_bit));
+        model.change(P::SetMidiClockTransportMessage(self.message));
+        model.change(P::SetRawMidiPattern(self.raw_midi_pattern.clone()));
+        model.change(P::SetMidiScript(self.midi_script.clone()));
+        model.change(P::SetDisplayType(self.display_type));
+        model.change(P::SetDisplayId(self.display_id));
+        model.change(P::SetLine(self.line));
+        model.change(P::SetOscAddressPattern(self.osc_address_pattern.clone()));
+        model.change(P::SetOscArgIndex(self.osc_arg_index));
+        model.change(P::SetOscArgTypeTag(self.osc_arg_type));
+        model.change(P::SetOscArgIsRelative(self.osc_arg_is_relative));
+        model.change(P::SetControlElementType(self.control_element_type));
+        model.change(P::SetControlElementId(
             self.control_element_index.to_model(),
-            with_notification,
-        );
-        model
-            .reaper_source_type
-            .set_with_optional_notification(self.reaper_source_type, with_notification);
+        ));
+        model.change(P::SetReaperSourceType(self.reaper_source_type));
     }
 }
 
@@ -302,22 +262,22 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model_flexible(&mut model, false, MappingCompartment::MainMappings, None);
+        data.apply_to_model_flexible(&mut model, MappingCompartment::MainMappings, None);
         // Then
         assert_eq!(
-            model.midi_source_type.get(),
+            model.midi_source_type(),
             MidiSourceType::ParameterNumberValue
         );
-        assert_eq!(model.channel.get(), Some(channel(8)));
-        assert_eq!(model.midi_message_number.get(), None);
-        assert_eq!(model.parameter_number_message_number.get(), None);
-        assert_eq!(model.custom_character.get(), SourceCharacter::RangeElement);
+        assert_eq!(model.channel(), Some(channel(8)));
+        assert_eq!(model.midi_message_number(), None);
+        assert_eq!(model.parameter_number_message_number(), None);
+        assert_eq!(model.custom_character(), SourceCharacter::RangeElement);
         assert_eq!(
-            model.midi_clock_transport_message.get(),
+            model.midi_clock_transport_message(),
             MidiClockTransportMessage::Start
         );
-        assert_eq!(model.is_registered.get(), Some(true));
-        assert_eq!(model.is_14_bit.get(), Some(true));
+        assert_eq!(model.is_registered(), Some(true));
+        assert_eq!(model.is_14_bit(), Some(true));
     }
 
     #[test]
@@ -335,32 +295,31 @@ mod tests {
         };
         let mut model = SourceModel::default();
         // When
-        data.apply_to_model_flexible(&mut model, false, MappingCompartment::MainMappings, None);
+        data.apply_to_model_flexible(&mut model, MappingCompartment::MainMappings, None);
         // Then
-        assert_eq!(model.midi_source_type.get(), MidiSourceType::ClockTransport);
-        assert_eq!(model.channel.get(), None);
-        assert_eq!(model.midi_message_number.get(), Some(u7(112)));
-        assert_eq!(model.parameter_number_message_number.get(), None);
-        assert_eq!(model.custom_character.get(), SourceCharacter::RangeElement);
+        assert_eq!(model.midi_source_type(), MidiSourceType::ClockTransport);
+        assert_eq!(model.channel(), None);
+        assert_eq!(model.midi_message_number(), Some(u7(112)));
+        assert_eq!(model.parameter_number_message_number(), None);
+        assert_eq!(model.custom_character(), SourceCharacter::RangeElement);
         assert_eq!(
-            model.midi_clock_transport_message.get(),
+            model.midi_clock_transport_message(),
             MidiClockTransportMessage::Stop
         );
-        assert_eq!(model.is_registered.get(), None);
-        assert_eq!(model.is_14_bit.get(), Some(false));
+        assert_eq!(model.is_registered(), None);
+        assert_eq!(model.is_14_bit(), Some(false));
     }
 
     #[test]
     fn from_1() {
         // Given
+        use SourceCommand as C;
         let mut model = SourceModel::default();
-        model
-            .midi_source_type
-            .set(MidiSourceType::ControlChangeValue);
-        model.channel.set(Some(channel(15)));
-        model.midi_message_number.set(Some(u7(12)));
-        model.custom_character.set(SourceCharacter::Encoder2);
-        model.is_14_bit.set(Some(true));
+        model.change(C::SetMidiSourceType(MidiSourceType::ControlChangeValue));
+        model.change(C::SetChannel(Some(channel(15))));
+        model.change(C::SetMidiMessageNumber(Some(u7(12))));
+        model.change(C::SetCustomCharacter(SourceCharacter::Encoder2));
+        model.change(C::SetIs14Bit(Some(true)));
         // When
         let data = SourceModelData::from_model(&model);
         // Then
@@ -385,19 +344,18 @@ mod tests {
     #[test]
     fn from_2() {
         // Given
+        use SourceCommand as C;
         let mut model = SourceModel::default();
-        model
-            .midi_source_type
-            .set(MidiSourceType::ParameterNumberValue);
-        model.channel.set(None);
-        model.midi_message_number.set(Some(u7(77)));
-        model.parameter_number_message_number.set(Some(u14(78)));
-        model.custom_character.set(SourceCharacter::Encoder1);
-        model.is_14_bit.set(Some(true));
-        model.is_registered.set(Some(true));
-        model
-            .midi_clock_transport_message
-            .set(MidiClockTransportMessage::Continue);
+        model.change(C::SetMidiSourceType(MidiSourceType::ParameterNumberValue));
+        model.change(C::SetChannel(None));
+        model.change(C::SetMidiMessageNumber(Some(u7(77))));
+        model.change(C::SetParameterNumberMessageNumber(Some(u14(78))));
+        model.change(C::SetCustomCharacter(SourceCharacter::Encoder1));
+        model.change(C::SetIs14Bit(Some(true)));
+        model.change(C::SetIsRegistered(Some(true)));
+        model.change(C::SetMidiClockTransportMessage(
+            MidiClockTransportMessage::Continue,
+        ));
         // When
         let data = SourceModelData::from_model(&model);
         // Then

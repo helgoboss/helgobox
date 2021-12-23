@@ -1,6 +1,7 @@
 use crate::application::{
-    MappingModel, SharedMapping, SharedSession, SourceCategory, TargetCategory,
-    TargetModelFormatMultiLine, WeakSession,
+    Affected, CompartmentProp, MappingCommand, MappingModel, MappingProp, Session, SessionProp,
+    SharedMapping, SharedSession, SourceCategory, TargetCategory, TargetModelFormatMultiLine,
+    WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
@@ -9,7 +10,7 @@ use crate::domain::{
 
 use crate::infrastructure::api::convert::from_data::ConversionStyle;
 use crate::infrastructure::data::{
-    CompartmentInSession, MappingModelData, ModeModelData, SourceModelData, TargetModelData,
+    MappingModelData, ModeModelData, SourceModelData, TargetModelData,
 };
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::bindings::root::{
@@ -77,6 +78,59 @@ impl MappingRowPanel {
         }
     }
 
+    pub fn handle_affected(&self, affected: &Affected<SessionProp>, _initiator: Option<u32>) {
+        // If the reaction can't be displayed anymore because the mapping is not filled anymore,
+        // so what.
+        use Affected::*;
+        use CompartmentProp::*;
+        use SessionProp::*;
+        let _ = self.with_mapping(|_, m| {
+            match affected {
+                One(InCompartment(compartment, One(InGroup(_, _))))
+                    if *compartment == m.compartment() =>
+                {
+                    // Refresh to display potentially new inherited tags.
+                    self.invalidate_name_labels(m);
+                }
+                One(InCompartment(compartment, One(InMapping(mapping_id, affected))))
+                    if *compartment == m.compartment() && *mapping_id == m.id() =>
+                {
+                    match affected {
+                        Multiple => {
+                            self.invalidate_all_controls(m);
+                        }
+                        One(prop) => {
+                            use MappingProp as P;
+                            match prop {
+                                P::Name | P::Tags => {
+                                    self.invalidate_name_labels(m);
+                                }
+                                P::IsEnabled => {
+                                    self.invalidate_enabled_check_box(m);
+                                }
+                                P::ControlIsEnabled => {
+                                    self.invalidate_control_check_box(m);
+                                }
+                                P::FeedbackIsEnabled => {
+                                    self.invalidate_feedback_check_box(m);
+                                }
+                                P::InSource(_) => {
+                                    self.invalidate_source_label(m);
+                                }
+                                P::InTarget(_) => {
+                                    self.invalidate_name_labels(m);
+                                    self.invalidate_target_label(m);
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        });
+    }
+
     pub fn handle_matched_mapping(&self) {
         self.source_match_indicator_control().enable();
         self.view
@@ -101,8 +155,8 @@ impl MappingRowPanel {
             None => self.view.require_window().hide(),
             Some(m) => {
                 self.view.require_window().show();
-                self.invalidate_all_controls(m.borrow().deref());
-                self.register_listeners(m.borrow().deref());
+                self.invalidate_all_controls(&m.borrow());
+                self.register_listeners();
             }
         }
         self.mapping.replace(mapping);
@@ -138,16 +192,16 @@ impl MappingRowPanel {
         // Initialize right label with tags
         let session = self.session();
         let session = session.borrow();
-        let group_id = mapping.group_id.get();
+        let group_id = mapping.group_id();
         let compartment = main_state.active_compartment.get();
         let group = session.find_group_by_id_including_default_group(compartment, group_id);
         let mut right_label = if let Some(g) = group {
             // Group present. Merge group tags with mapping tags.
             let g = g.borrow();
-            format_tags_as_csv(g.tags.get_ref().iter().chain(mapping.tags.get_ref()))
+            format_tags_as_csv(g.tags().iter().chain(mapping.tags()))
         } else {
             // Group not present. Use mapping tags only.
-            format_tags_as_csv(mapping.tags.get_ref())
+            format_tags_as_csv(mapping.tags())
         };
         // Add group name to right label if all groups are shown.
         if main_state
@@ -155,7 +209,7 @@ impl MappingRowPanel {
             .is_none()
         {
             let group_label = if let Some(g) = group {
-                g.borrow().name().to_owned()
+                g.borrow().effective_name().to_owned()
             } else {
                 "<group not present>".to_owned()
             };
@@ -176,14 +230,14 @@ impl MappingRowPanel {
 
     fn invalidate_source_label(&self, mapping: &MappingModel) {
         let plain_label = mapping.source_model.to_string();
-        let rich_label = if mapping.source_model.category.get() == SourceCategory::Virtual {
+        let rich_label = if mapping.source_model.category() == SourceCategory::Virtual {
             let session = self.session();
             let session = session.borrow();
             let controller_mappings = session.mappings(MappingCompartment::ControllerMappings);
             let mappings: Vec<_> = controller_mappings
                 .filter(|m| {
                     let m = m.borrow();
-                    m.target_model.category.get() == TargetCategory::Virtual
+                    m.target_model.category() == TargetCategory::Virtual
                         && m.target_model.create_control_element()
                             == mapping.source_model.create_control_element()
                 })
@@ -287,19 +341,19 @@ impl MappingRowPanel {
     fn invalidate_enabled_check_box(&self, mapping: &MappingModel) {
         self.view
             .require_control(root::IDC_MAPPING_ROW_ENABLED_CHECK_BOX)
-            .set_checked(mapping.is_enabled.get());
+            .set_checked(mapping.is_enabled());
     }
 
     fn invalidate_control_check_box(&self, mapping: &MappingModel) {
         self.view
             .require_control(root::ID_MAPPING_ROW_CONTROL_CHECK_BOX)
-            .set_checked(mapping.control_is_enabled.get());
+            .set_checked(mapping.control_is_enabled());
     }
 
     fn invalidate_feedback_check_box(&self, mapping: &MappingModel) {
         self.view
             .require_control(root::ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
-            .set_checked(mapping.feedback_is_enabled.get());
+            .set_checked(mapping.feedback_is_enabled());
     }
 
     fn invalidate_on_indicator(&self, mapping: &MappingModel) {
@@ -339,49 +393,21 @@ impl MappingRowPanel {
         }
     }
 
-    fn register_listeners(self: &SharedView<Self>, mapping: &MappingModel) {
+    fn register_listeners(self: &SharedView<Self>) {
         let session = self.session();
         let session = session.borrow();
         let instance_state = session.instance_state().borrow();
-        self.when(
-            mapping.name.changed().merge(mapping.tags.changed()),
-            |view| {
-                view.with_mapping(Self::invalidate_name_labels);
-            },
-        );
-        self.when(mapping.source_model.changed(), |view| {
-            view.with_mapping(Self::invalidate_source_label);
-        });
-        self.when(
-            mapping
-                .target_model
-                .changed()
-                .merge(ReaperTarget::potential_static_change_events()),
-            |view| {
-                view.with_mapping(|p, m| {
-                    p.invalidate_name_labels(m);
-                    p.invalidate_target_label(m);
-                });
-            },
-        );
-        self.when(mapping.is_enabled.changed(), |view| {
-            view.with_mapping(Self::invalidate_enabled_check_box);
-        });
-        self.when(mapping.control_is_enabled.changed(), |view| {
-            view.with_mapping(Self::invalidate_control_check_box);
-        });
-        self.when(mapping.feedback_is_enabled.changed(), |view| {
-            view.with_mapping(Self::invalidate_feedback_check_box);
+        self.when(ReaperTarget::potential_static_change_events(), |view| {
+            view.with_mapping(|p, m| {
+                p.invalidate_name_labels(m);
+                p.invalidate_target_label(m);
+            });
         });
         self.when(session.mapping_which_learns_source_changed(), |view| {
             view.with_mapping(Self::invalidate_learn_source_button);
         });
         self.when(session.mapping_which_learns_target_changed(), |view| {
             view.with_mapping(Self::invalidate_learn_target_button);
-        });
-        self.when(session.group_changed().map_to(()), move |view| {
-            // Refresh to display potentially new inherited tags.
-            view.with_mapping(Self::invalidate_name_labels);
         });
         self.when(instance_state.on_mappings_changed(), |view| {
             view.with_mapping(Self::invalidate_on_indicator);
@@ -492,27 +518,33 @@ impl MappingRowPanel {
     }
 
     fn update_is_enabled(&self) {
-        self.require_mapping().borrow_mut().is_enabled.set(
-            self.view
-                .require_control(IDC_MAPPING_ROW_ENABLED_CHECK_BOX)
-                .is_checked(),
-        );
+        let checked = self
+            .view
+            .require_control(IDC_MAPPING_ROW_ENABLED_CHECK_BOX)
+            .is_checked();
+        self.change_mapping(MappingCommand::SetIsEnabled(checked));
     }
 
     fn update_control_is_enabled(&self) {
-        self.require_mapping().borrow_mut().control_is_enabled.set(
-            self.view
-                .require_control(ID_MAPPING_ROW_CONTROL_CHECK_BOX)
-                .is_checked(),
-        );
+        let checked = self
+            .view
+            .require_control(ID_MAPPING_ROW_CONTROL_CHECK_BOX)
+            .is_checked();
+        self.change_mapping(MappingCommand::SetControlIsEnabled(checked));
     }
 
     fn update_feedback_is_enabled(&self) {
-        self.require_mapping().borrow_mut().feedback_is_enabled.set(
-            self.view
-                .require_control(ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
-                .is_checked(),
-        );
+        let checked = self
+            .view
+            .require_control(ID_MAPPING_ROW_FEEDBACK_CHECK_BOX)
+            .is_checked();
+        self.change_mapping(MappingCommand::SetFeedbackIsEnabled(checked));
+    }
+
+    fn change_mapping(&self, cmd: MappingCommand) {
+        let mapping = self.require_mapping();
+        let mut mapping = mapping.borrow_mut();
+        Session::change_mapping_from_ui_simple(self.session.clone(), &mut mapping, cmd, None);
     }
 
     fn notify_user_on_error(&self, result: Result<(), Box<dyn Error>>) {
@@ -529,10 +561,7 @@ impl MappingRowPanel {
         let data_object = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = CompartmentInSession {
-                session: &session,
-                compartment: self.active_compartment(),
-            };
+            let compartment_in_session = session.compartment_in_session(self.active_compartment());
             DataObject::try_from_api_object(api_object, &compartment_in_session)?
         };
         paste_data_object_in_place(data_object, self.session(), self.mapping_triple()?)?;
@@ -547,10 +576,7 @@ impl MappingRowPanel {
         let data_mappings = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = CompartmentInSession {
-                session: &session,
-                compartment: self.active_compartment(),
-            };
+            let compartment_in_session = session.compartment_in_session(self.active_compartment());
             DataObject::try_from_api_mappings(api_mappings, &compartment_in_session)?
         };
         let triple = self.mapping_triple()?;
@@ -570,7 +596,7 @@ impl MappingRowPanel {
         let triple = MappingTriple {
             compartment: mapping.compartment(),
             mapping_id: mapping.id(),
-            group_id: mapping.group_id.get(),
+            group_id: mapping.group_id(),
         };
         Ok(triple)
     }
@@ -609,7 +635,7 @@ impl MappingRowPanel {
                 text_from_clipboard.is_some() && data_object_from_clipboard.is_none();
             let text_from_clipboard_clone = text_from_clipboard.clone();
             let data_object_from_clipboard_clone = data_object_from_clipboard.clone();
-            let group_id = mapping.group_id.get();
+            let group_id = mapping.group_id();
             let entries = vec![
                 item("Copy", || MenuAction::CopyPart(ObjectType::Mapping)),
                 {
@@ -777,10 +803,12 @@ impl MappingRowPanel {
                     group_id,
                 );
             }
-            MenuAction::LogDebugInfo => self
-                .session()
-                .borrow()
-                .log_mapping(triple.compartment, triple.mapping_id),
+            MenuAction::LogDebugInfo => {
+                let _ = self
+                    .session()
+                    .borrow()
+                    .log_mapping(triple.compartment, triple.mapping_id);
+            }
         }
         Ok(())
     }
@@ -874,9 +902,12 @@ fn move_mapping_to_group(
     let group_id = group_id
         .or_else(move || add_group_via_dialog(cloned_session, compartment).ok())
         .ok_or("no group selected")?;
-    session
-        .borrow_mut()
-        .move_mappings_to_group(compartment, &[mapping_id], group_id)?;
+    session.borrow_mut().move_mappings_to_group(
+        compartment,
+        &[mapping_id],
+        group_id,
+        Rc::downgrade(&session),
+    )?;
     Ok(())
 }
 
@@ -893,10 +924,7 @@ fn copy_mapping_object(
         .ok_or("mapping not found")?;
     use ObjectType::*;
     let mapping = mapping.borrow();
-    let compartment_in_session = CompartmentInSession {
-        session: &session,
-        compartment,
-    };
+    let compartment_in_session = session.compartment_in_session(compartment);
     let data_object = match object_type {
         Mapping => DataObject::Mapping(Envelope {
             value: Box::new(MappingModelData::from_model(
@@ -931,17 +959,15 @@ enum ObjectType {
 
 fn paste_data_object_in_place(
     data_object: DataObject,
-    session: SharedSession,
+    shared_session: SharedSession,
     triple: MappingTriple,
 ) -> Result<(), &'static str> {
-    let session = session.borrow();
-    let (_, mapping) = session
+    let mut session = shared_session.borrow_mut();
+    let mapping = session
         .find_mapping_and_index_by_id(triple.compartment, triple.mapping_id)
-        .ok_or("mapping not found")?;
-    let compartment_in_session = CompartmentInSession {
-        session: &session,
-        compartment: triple.compartment,
-    };
+        .ok_or("mapping not found")?
+        .1
+        .clone();
     let mut mapping = mapping.borrow_mut();
     match data_object {
         DataObject::Mapping(Envelope { value: mut m }) => {
@@ -955,10 +981,14 @@ fn paste_data_object_in_place(
                     group.borrow().key().clone()
                 }
             };
+            let conversion_context = session.compartment_in_session(mapping.compartment());
+            // TODO-medium It would simplify things if we would just translate this into a new model
+            //  and then call a Session method to completely replace a model by its ID. Same with
+            //  other data object types.
             m.apply_to_model(
                 &mut mapping,
-                session.extended_context(),
-                &compartment_in_session,
+                conversion_context,
+                Some(session.extended_context()),
             );
         }
         DataObject::Source(Envelope { value: s }) => {
@@ -968,15 +998,17 @@ fn paste_data_object_in_place(
             m.apply_to_model(&mut mapping.mode_model);
         }
         DataObject::Target(Envelope { value: t }) => {
+            let compartment_in_session = session.compartment_in_session(triple.compartment);
             t.apply_to_model(
                 &mut mapping.target_model,
                 triple.compartment,
                 session.extended_context(),
-                &compartment_in_session,
+                compartment_in_session,
             );
         }
         _ => return Err("can only paste mapping, source, mode and target in place"),
     };
+    session.notify_mapping_has_changed(mapping.qualified_id(), Rc::downgrade(&shared_session));
     Ok(())
 }
 
@@ -1010,18 +1042,14 @@ pub fn paste_mappings(
             group.key().clone()
         }
     };
-    let compartment_in_session = CompartmentInSession {
-        session: &session,
-        compartment,
-    };
     let new_mappings: Vec<_> = mapping_datas
         .into_iter()
         .map(|mut data| {
             data.group_id = group_key.clone();
             data.to_model(
                 compartment,
-                session.extended_context(),
-                &compartment_in_session,
+                session.compartment_in_session(compartment),
+                Some(session.extended_context()),
             )
         })
         .collect();

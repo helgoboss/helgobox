@@ -843,10 +843,14 @@ fn convert_chain_desc(t: FxChainDescriptor) -> ConversionResult<FxChainDesc> {
     let desc = match t {
         Track { track, chain } => FxChainDesc {
             track_desc: convert_track_desc(track.unwrap_or_default())?,
-            is_input_fx: chain.unwrap_or_default() == TrackFxChain::Input,
+            is_input_fx: convert_chain(chain),
         },
     };
     Ok(desc)
+}
+
+fn convert_chain(chain: Option<TrackFxChain>) -> bool {
+    chain.unwrap_or_default() == TrackFxChain::Input
 }
 
 fn convert_route_desc(t: RouteDescriptor) -> ConversionResult<RouteDesc> {
@@ -1001,8 +1005,11 @@ fn convert_fx_desc(t: FxDescriptor) -> ConversionResult<FxDesc> {
         ),
     };
     let desc = FxDesc {
+        fx_data: FxData {
+            is_input_fx: chain_desc.is_input_fx,
+            ..serialize_fx(props)
+        },
         chain_desc,
-        fx_data: serialize_fx(props),
         fx_must_have_focus,
     };
     Ok(desc)

@@ -16,9 +16,9 @@ use slog::debug;
 use swell_ui::{MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 use crate::application::{
-    reaper_supports_global_midi_filter, ControllerPreset, FxId, MainPreset, MainPresetAutoLoadMode,
-    ParameterSetting, Preset, PresetManager, SharedMapping, SharedSession,
-    VirtualControlElementType, WeakSession,
+    reaper_supports_global_midi_filter, Affected, CompartmentProp, ControllerPreset, FxId,
+    MainPreset, MainPresetAutoLoadMode, MappingCommand, ParameterSetting, Preset, PresetManager,
+    SessionProp, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
 use crate::base::when;
 use crate::domain::{
@@ -27,7 +27,7 @@ use crate::domain::{
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
-    CompartmentInSession, CompartmentModelData, ExtendedPresetManager, MappingModelData, OscDevice,
+    CompartmentModelData, ExtendedPresetManager, MappingModelData, OscDevice,
 };
 use crate::infrastructure::plugin::{
     warn_about_failed_server_start, App, RealearnPluginParameters,
@@ -85,6 +85,26 @@ impl HeaderPanel {
             panel_manager,
             group_panel: Default::default(),
             is_invoked_programmatically: false.into(),
+        }
+    }
+
+    pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
+        if !self.is_open() {
+            return;
+        }
+        use Affected::*;
+        use CompartmentProp::*;
+        use SessionProp::*;
+        match affected {
+            One(InCompartment(compartment, One(InGroup(_, _))))
+                if *compartment == self.active_compartment() =>
+            {
+                self.invalidate_group_controls();
+            }
+            _ => {}
+        }
+        if let Some(open_group_panel) = self.group_panel.borrow_mut().as_ref() {
+            open_group_panel.handle_affected(affected, initiator);
         }
     }
 
@@ -708,10 +728,7 @@ impl HeaderPanel {
         let session = self.session();
         let session = session.borrow();
         let compartment = self.active_compartment();
-        let compartment_in_session = CompartmentInSession {
-            session: &session,
-            compartment,
-        };
+        let compartment_in_session = session.compartment_in_session(compartment);
         let mapping_datas = self
             .get_listened_mappings(compartment)
             .iter()
@@ -736,8 +753,16 @@ impl HeaderPanel {
         ) {
             return;
         }
+        let session = self.session();
+        let mut session = session.borrow_mut();
         for m in listed_mappings {
-            m.borrow_mut().clear_name();
+            let mut mapping = m.borrow_mut();
+            session.change_mapping_from_ui_expert(
+                &mut mapping,
+                MappingCommand::ClearName,
+                None,
+                self.session.clone(),
+            );
         }
     }
 
@@ -749,13 +774,16 @@ impl HeaderPanel {
             return;
         }
         let shared_session = self.session();
-        let mut session = shared_session.borrow_mut();
-        let result = session.virtualize_main_mappings(Rc::downgrade(&shared_session));
+        let result = {
+            let mut session = shared_session.borrow_mut();
+            session.virtualize_main_mappings()
+        };
         self.notify_user_on_error(result.map_err(|e| e.into()));
     }
 
     fn make_targets_of_listed_mappings_sticky(&self) {
-        let listed_mappings = self.get_listened_mappings(self.active_compartment());
+        let compartment = self.active_compartment();
+        let listed_mappings = self.get_listened_mappings(compartment);
         if listed_mappings.is_empty() {
             return;
         }
@@ -769,7 +797,7 @@ impl HeaderPanel {
             return;
         }
         let session = self.session();
-        let session = session.borrow();
+        let mut session = session.borrow_mut();
         let context = session.extended_context();
         let errors: Vec<_> = listed_mappings
             .iter()
@@ -784,6 +812,7 @@ impl HeaderPanel {
                 })
             })
             .collect();
+        session.notify_compartment_has_changed(compartment, self.session.clone());
         if !errors.is_empty() {
             notify_processing_result("Errors occurred when making targets sticky", errors);
         }
@@ -813,7 +842,12 @@ impl HeaderPanel {
             .into_iter()
             .map(|m| m.borrow().id())
             .collect();
-        session.move_mappings_to_group(compartment, &mapping_ids, group_id)?;
+        session.move_mappings_to_group(
+            compartment,
+            &mapping_ids,
+            group_id,
+            self.session.clone(),
+        )?;
         Ok(())
     }
 
@@ -843,10 +877,7 @@ impl HeaderPanel {
         let data_mappings = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = CompartmentInSession {
-                session: &session,
-                compartment: self.active_compartment(),
-            };
+            let compartment_in_session = session.compartment_in_session(self.active_compartment());
             DataObject::try_from_api_mappings(api_mappings, &compartment_in_session)?
         };
         self.paste_replace_all_in_group(data_mappings);
@@ -864,10 +895,6 @@ impl HeaderPanel {
         let compartment = main_state.active_compartment.get();
         let session = self.session();
         let mut session = session.borrow_mut();
-        let compartment_in_session = CompartmentInSession {
-            session: &session,
-            compartment,
-        };
         let group_key = if let Some(group) = session.find_group_by_id(compartment, group_id) {
             group.borrow().key().clone()
         } else {
@@ -879,8 +906,8 @@ impl HeaderPanel {
                 data.group_id = group_key.clone();
                 data.to_model(
                     compartment,
-                    session.extended_context(),
-                    &compartment_in_session,
+                    session.compartment_in_session(compartment),
+                    Some(session.extended_context()),
                 )
             })
             .collect();
@@ -1695,7 +1722,7 @@ impl HeaderPanel {
         }
         self.session()
             .borrow_mut()
-            .activate_main_preset_auto_load_mode(mode, self.session.clone());
+            .activate_main_preset_auto_load_mode(mode);
     }
 
     fn update_preset(&self) {
@@ -1732,13 +1759,9 @@ impl HeaderPanel {
         let mut session = session.borrow_mut();
         match compartment {
             MappingCompartment::ControllerMappings => {
-                session
-                    .activate_controller_preset(preset_id, self.session.clone())
-                    .unwrap();
+                session.activate_controller_preset(preset_id).unwrap();
             }
-            MappingCompartment::MainMappings => session
-                .activate_main_preset(preset_id, self.session.clone())
-                .unwrap(),
+            MappingCompartment::MainMappings => session.activate_main_preset(preset_id).unwrap(),
         };
     }
 
@@ -1815,10 +1838,7 @@ impl HeaderPanel {
         let res = {
             let session = self.session();
             let session = session.borrow();
-            let compartment_in_session = CompartmentInSession {
-                session: &session,
-                compartment: self.active_compartment(),
-            };
+            let compartment_in_session = session.compartment_in_session(self.active_compartment());
             deserialize_data_object(&text, &compartment_in_session)?
         };
         match res.value {
@@ -1874,7 +1894,7 @@ impl HeaderPanel {
             let version = App::version();
             match data.to_model(Some(version), compartment) {
                 Ok(model) => {
-                    session.import_compartment(compartment, Some(model), self.session.clone());
+                    session.import_compartment(compartment, Some(model));
                 }
                 Err(e) => {
                     self.view.require_window().alert("ReaLearn", e);
@@ -2004,12 +2024,8 @@ impl HeaderPanel {
             };
         let active_preset_id = active_preset_id.ok_or("no preset selected")?.to_string();
         match compartment {
-            MappingCompartment::ControllerMappings => {
-                session.activate_controller_preset(None, self.session.clone())?
-            }
-            MappingCompartment::MainMappings => {
-                session.activate_main_preset(None, self.session.clone())?
-            }
+            MappingCompartment::ControllerMappings => session.activate_controller_preset(None)?,
+            MappingCompartment::MainMappings => session.activate_main_preset(None)?,
         };
         preset_manager.remove_preset(&active_preset_id)?;
         Ok(())
@@ -2032,7 +2048,7 @@ impl HeaderPanel {
             && self.ask_user_if_project_independence_desired()
         {
             session
-                .borrow()
+                .borrow_mut()
                 .make_mappings_project_independent(compartment);
         }
     }
@@ -2136,7 +2152,7 @@ impl HeaderPanel {
                     .controller_preset_manager()
                     .borrow_mut()
                     .add_preset(controller)?;
-                session.activate_controller_preset(Some(preset_id), self.session.clone())?;
+                session.activate_controller_preset(Some(preset_id))?;
             }
             MappingCompartment::MainMappings => {
                 let main_preset =
@@ -2145,7 +2161,7 @@ impl HeaderPanel {
                     .main_preset_manager()
                     .borrow_mut()
                     .add_preset(main_preset)?;
-                session.activate_main_preset(Some(preset_id), self.session.clone())?;
+                session.activate_main_preset(Some(preset_id))?;
             }
         };
         Ok(())
@@ -2249,9 +2265,6 @@ impl HeaderPanel {
                 .merge(session.osc_output_device_id.changed()),
             |view, _| view.invalidate_feedback_output_combo_box(),
         );
-        self.when(session.group_changed(), |view, _| {
-            view.invalidate_group_controls();
-        });
         let main_state = self.main_state.borrow();
         self.when(
             main_state.displayed_group_for_any_compartment_changed(),

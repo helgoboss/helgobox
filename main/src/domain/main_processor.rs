@@ -983,8 +983,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 RefreshAllTargets => {
                     self.refresh_all_targets();
                 }
-                UpdateSingleMapping(compartment, mapping) => {
-                    self.update_single_mapping(compartment, mapping);
+                UpdateSingleMapping(mapping) => {
+                    self.update_single_mapping(mapping);
                 }
                 UpdatePersistentMappingProcessingState { id, state } => {
                     self.update_persistent_mapping_processing_state(id, state);
@@ -1979,11 +1979,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         Reaper::get().show_console_msg(msg);
     }
 
-    fn update_single_mapping(
-        &mut self,
-        compartment: MappingCompartment,
-        mut mapping: Box<MainMapping>,
-    ) {
+    fn update_single_mapping(&mut self, mut mapping: Box<MainMapping>) {
+        let compartment = mapping.compartment();
         debug!(
             self.basics.logger,
             "Updating single mapping {:?} in {}...",
@@ -2238,7 +2235,7 @@ pub enum NormalMainTask {
     UpdateAllMappings(MappingCompartment, Vec<MainMapping>),
     /// Replaces the given mapping.
     // Boxed because much larger struct size than other variants.
-    UpdateSingleMapping(MappingCompartment, Box<MainMapping>),
+    UpdateSingleMapping(Box<MainMapping>),
     // Available separately for performance reasons, because these updates are also triggered
     // triggered by processing itself, so it should happen fast.
     UpdatePersistentMappingProcessingState {

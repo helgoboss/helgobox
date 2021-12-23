@@ -1,10 +1,9 @@
-use crate::application::{WeakGroup, WeakSession};
-use crate::base::when;
+use crate::application::{
+    Affected, CompartmentProp, GroupProp, SessionProp, WeakGroup, WeakSession,
+};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::{ItemProp, MappingHeaderPanel};
 use reaper_low::raw;
-use rxrust::prelude::*;
-use std::rc::Rc;
 use swell_ui::{DialogUnits, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -29,79 +28,58 @@ impl GroupPanel {
         }
     }
 
-    fn register_listeners(self: Rc<Self>) {
-        let group = self.group.upgrade().expect("group gone");
-        let group = group.borrow();
-        self.when(group.name.changed_with_initiator(), |view, initiator| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
-        });
-        self.when(group.tags.changed_with_initiator(), |view, initiator| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
-        });
-        self.when(group.control_is_enabled.changed(), |view, _| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::ControlEnabled, None);
-        });
-        self.when(group.feedback_is_enabled.changed(), |view, _| {
-            view.mapping_header_panel
-                .invalidate_due_to_changed_prop(ItemProp::FeedbackEnabled, None);
-        });
-        self.when(
-            group.activation_condition_model.activation_type.changed(),
-            |view, _| {
-                view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ActivationType, None);
-            },
-        );
-        self.when(
-            group
-                .activation_condition_model
-                .modifier_condition_1
-                .changed(),
-            |view, _| {
-                view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition1, None);
-            },
-        );
-        self.when(
-            group
-                .activation_condition_model
-                .modifier_condition_2
-                .changed(),
-            |view, _| {
-                view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::ModifierCondition2, None);
-            },
-        );
-        self.when(
-            group.activation_condition_model.bank_condition.changed(),
-            |view, _| {
-                view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::BankCondition, None);
-            },
-        );
-        self.when(
-            group
-                .activation_condition_model
-                .eel_condition
-                .changed_with_initiator(),
-            |view, initiator| {
-                view.mapping_header_panel
-                    .invalidate_due_to_changed_prop(ItemProp::EelCondition, initiator);
-            },
-        );
-    }
-
-    fn when<I: Send + Sync + Clone + 'static>(
-        self: &Rc<Self>,
-        event: impl LocalObservable<'static, Item = I, Err = ()> + 'static,
-        reaction: impl Fn(Rc<Self>, I) + 'static + Copy,
+    #[allow(clippy::single_match)]
+    pub fn handle_affected(
+        self: &SharedView<Self>,
+        affected: &Affected<SessionProp>,
+        initiator: Option<u32>,
     ) {
-        when(event.take_until(self.view.closed()))
-            .with(Rc::downgrade(self))
-            .do_sync(move |panel, item| reaction(panel, item));
+        use Affected::*;
+        use CompartmentProp::*;
+        use SessionProp::*;
+        match affected {
+            One(InCompartment(_, One(InGroup(_, affected)))) => match affected {
+                Multiple => {
+                    self.mapping_header_panel.invalidate_controls();
+                }
+                One(prop) => {
+                    use GroupProp as P;
+                    match prop {
+                        P::Name => {
+                            self.mapping_header_panel
+                                .invalidate_due_to_changed_prop(ItemProp::Name, initiator);
+                        }
+                        P::Tags => {
+                            self.mapping_header_panel
+                                .invalidate_due_to_changed_prop(ItemProp::Tags, initiator);
+                        }
+                        P::ControlIsEnabled => {
+                            self.mapping_header_panel.invalidate_due_to_changed_prop(
+                                ItemProp::ControlEnabled,
+                                initiator,
+                            );
+                        }
+                        P::FeedbackIsEnabled => {
+                            self.mapping_header_panel.invalidate_due_to_changed_prop(
+                                ItemProp::FeedbackEnabled,
+                                initiator,
+                            );
+                        }
+                        P::InActivationCondition(p) => match p {
+                            Multiple => {
+                                self.mapping_header_panel.invalidate_controls();
+                            }
+                            One(p) => {
+                                let item_prop = ItemProp::from_activation_condition_prop(p);
+                                self.mapping_header_panel
+                                    .invalidate_due_to_changed_prop(item_prop, initiator);
+                            }
+                        },
+                    }
+                }
+            },
+            _ => {}
+        }
     }
 }
 
@@ -116,7 +94,6 @@ impl View for GroupPanel {
 
     fn opened(self: SharedView<Self>, window: Window) -> bool {
         self.mapping_header_panel.clone().open(window);
-        self.register_listeners();
         true
     }
 
