@@ -18,7 +18,7 @@ impl greeter_server::Greeter for MyGreeter {
         println!("Got a request: {:?}", request);
 
         let reply = HelloReply {
-            message: format!("Hello {}!", request.into_inner().name).into(),
+            message: format!("Hello {}!", request.into_inner().name),
         };
 
         Ok(Response::new(reply))

@@ -5,6 +5,7 @@ use std::net::SocketAddr;
 use tokio::sync::broadcast;
 use tonic::transport::Server;
 
+#[allow(dead_code)]
 pub async fn start_grpc_server(
     address: SocketAddr,
     mut shutdown_receiver: broadcast::Receiver<()>,

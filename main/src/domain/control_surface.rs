@@ -252,11 +252,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.emit_device_changes_as_reaper_source_messages();
         self.process_incoming_osc_messages();
         self.run_main_processors();
-        // TODO-high Just an experiment
-        if let Some(t) = Reaper::get().current_project().first_track() {
-            let vol = t.volume();
-            let _ = BackboneState::server_event_sender().send(vol.soft_normalized_value());
-        }
+        // // TODO-high-grpc Just an experiment
+        // if let Some(t) = Reaper::get().current_project().first_track() {
+        //     let vol = t.volume();
+        //     let _ = BackboneState::server_event_sender().send(vol.soft_normalized_value());
+        // }
         #[cfg(feature = "realearn-meter")]
         if self.metrics_enabled {
             self.process_metrics();
