@@ -280,7 +280,7 @@ impl App {
             self.additional_feedback_event_sender.clone(),
         )));
         App::get().register_actions();
-        server::keep_informing_clients_about_sessions();
+        server::http::keep_informing_clients_about_sessions();
         debug_util::register_resolve_symbols_action();
         crate::infrastructure::test::register_test_action();
         let list_of_recently_focused_fx = self.list_of_recently_focused_fx.clone();

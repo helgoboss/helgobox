@@ -31,9 +31,9 @@ use std::sync::{Arc, Mutex};
 
 use crate::application::{Session, SharedSession};
 use crate::infrastructure::plugin::app::App;
-use crate::infrastructure::server;
 
 use crate::base::notification;
+use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
 use std::convert::TryInto;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
@@ -361,7 +361,7 @@ impl RealearnPlugin {
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);
-                server::keep_informing_clients_about_session_events(&shared_session);
+                keep_informing_clients_about_session_events(&shared_session);
                 App::get().register_session(weak_session.clone());
                 // Main processor - (domain, owned by REAPER control surface)
                 // Register the main processor with the global ReaLearn control surface. We let it
