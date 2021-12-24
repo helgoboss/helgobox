@@ -25,6 +25,7 @@ jobs:
           profile: minimal
           toolchain: 1.55.0
           override: true
+      - run: rustup component add rustfmt
       - name: cargo check
         uses: actions-rs/cargo@v1
         with:
@@ -44,6 +45,7 @@ jobs:
           profile: minimal
           toolchain: 1.55.0
           override: true
+      - run: rustup component add rustfmt
       - name: cargo build
         uses: actions-rs/cargo@v1
         with:
