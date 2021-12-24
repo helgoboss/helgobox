@@ -23,8 +23,8 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         None
     };
     if let (Some(ssi), Some(sfi)) = (conv_step_size_interval, conv_step_factor_interval) {
-        if (ssi.min_val().get() - sfi.min_val().get()).abs() > BASE_EPSILON
-            || (ssi.max_val().get() - sfi.max_val().get()).abs() > BASE_EPSILON
+        if (ssi.min_val().get() - sfi.min_val().get().abs()).abs() > BASE_EPSILON
+            || (ssi.max_val().get() - sfi.max_val().get().abs()).abs() > BASE_EPSILON
         {
             return Err(
                 "Only one of `step_size_interval` and `step_factor_interval` can be set".into(),
@@ -35,6 +35,37 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         .or(conv_step_size_interval)
         .unwrap_or_else(|| convert_step_size_interval(defaults::GLUE_STEP_SIZE_INTERVAL).unwrap());
     let fire_mode = g.fire_mode.unwrap_or_default();
+    struct FbCommonsData {
+        color: Option<helgoboss_learn::VirtualColor>,
+        background_color: Option<helgoboss_learn::VirtualColor>,
+    }
+    struct FbData {
+        feedback_type: helgoboss_learn::FeedbackType,
+        commons: FbCommonsData,
+        transformation: String,
+    }
+    let fb_data = {
+        use helgoboss_learn::FeedbackType as T;
+        use Feedback::*;
+        fn convert_fb_commons(commons: FeedbackCommons) -> FbCommonsData {
+            FbCommonsData {
+                color: commons.color.map(convert_virtual_color),
+                background_color: commons.background_color.map(convert_virtual_color),
+            }
+        }
+        match g.feedback.unwrap_or_default() {
+            Numeric(fb) => FbData {
+                feedback_type: T::Numerical,
+                commons: convert_fb_commons(fb.commons),
+                transformation: fb.transformation.unwrap_or_default(),
+            },
+            Text(fb) => FbData {
+                feedback_type: T::Textual,
+                commons: convert_fb_commons(fb.commons),
+                transformation: fb.text_expression.unwrap_or_default(),
+            },
+        }
+    };
     let (min_press_millis, max_press_millis) = {
         use FireMode::*;
         match &fire_mode {
@@ -94,10 +125,10 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
             }
         },
         eel_control_transformation: g.control_transformation.unwrap_or_default(),
-        eel_feedback_transformation: g.feedback_transformation.unwrap_or_default(),
+        eel_feedback_transformation: fb_data.transformation,
         reverse_is_enabled: g.reverse.unwrap_or(defaults::GLUE_REVERSE),
-        feedback_color: g.feedback_color.map(convert_virtual_color),
-        feedback_background_color: g.feedback_background_color.map(convert_virtual_color),
+        feedback_color: fb_data.commons.color,
+        feedback_background_color: fb_data.commons.background_color,
         ignore_out_of_range_source_values_is_enabled: false,
         out_of_range_behavior: {
             use helgoboss_learn::OutOfRangeBehavior as T;
@@ -179,14 +210,7 @@ pub fn convert_glue(g: Glue) -> ConversionResult<ModeModelData> {
         } else {
             Default::default()
         },
-        feedback_type: {
-            use helgoboss_learn::FeedbackType as T;
-            use FeedbackKind::*;
-            match g.feedback_kind.unwrap_or_default() {
-                Numeric => T::Numerical,
-                Text => T::Textual,
-            }
-        },
+        feedback_type: fb_data.feedback_type,
     };
     Ok(data)
 }

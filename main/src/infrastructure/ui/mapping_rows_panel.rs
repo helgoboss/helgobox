@@ -14,7 +14,9 @@ use rxrust::prelude::*;
 use slog::debug;
 use std::cmp;
 
-use crate::application::{Session, SharedMapping, SharedSession, WeakSession};
+use crate::application::{
+    Affected, Session, SessionProp, SharedMapping, SharedSession, WeakSession,
+};
 use crate::domain::{MappingCompartment, MappingId, MappingMatchedEvent};
 use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
@@ -71,6 +73,15 @@ impl MappingRowsPanel {
             if row.mapping_id() == Some(event.mapping_id) {
                 row.handle_matched_mapping();
             }
+        }
+    }
+
+    pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
+        if !self.is_open() {
+            return;
+        }
+        for row in &self.rows {
+            row.handle_affected(affected, initiator);
         }
     }
 
@@ -377,7 +388,7 @@ impl MappingRowsPanel {
         let search_expression = main_state.search_expression.get_ref();
         if !search_expression.is_empty()
             && !search_expression.matches(&mapping.effective_name())
-            && !search_expression.matches_any_tag(mapping.tags.get_ref())
+            && !search_expression.matches_any_tag(mapping.tags())
             && !search_expression.matches_any_tag_in_group(&mapping, session)
         {
             return false;

@@ -44,15 +44,20 @@ use url::Url;
 
 const CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE: usize = 500;
 const CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE: usize = 500;
-// Probably can get quite much on action invocation.
-// https://github.com/helgoboss/realearn/issues/234
+// Probably can get quite much on action invocation
+// (https://github.com/helgoboss/realearn/issues/234). Doesn't need much memory at the time of this
+// writing (around 2 MB).
 const ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE: usize = 20_000;
 // If we have very many instances, this might not be enough. But the task size is so
 // small, so why not make it a great number? It's global, not per instance. For one
 // instance we had 2000 before and it worked great. With 100_000 we can easily cover 50 instances
-// and yet it's only around 1 MB memory usage (globally). We are on the safe side!
+// and yet it's only around 8 MB memory usage (globally). We are on the safe side!
 const FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 100_000;
-const GARBAGE_QUEUE_SIZE: usize = 100_000;
+// This needs around 12 MB of memory! However, globally only once. Plus, it's safer to have this
+// large. Otherwise we might run into deallocation in audio thread, which might lead to crackle.
+// Unless someone really needs ReaLearn on a very memory-constrained environment, we better leave it
+// that high. If one day this gets important, we need to measure.
+const GARBAGE_QUEUE_SIZE: usize = 50_000;
 const INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE: usize = 5000;
 const NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
@@ -249,6 +254,8 @@ impl App {
     /// Executed globally just once when module loaded.
     pub fn init_static(logger: Logger, context: PluginContext) {
         Swell::make_available_globally(Swell::load(context));
+        // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
+        //  so not a big deal. Still, maybe could be improved?
         Reaper::setup_with_defaults(
             context,
             logger,
@@ -973,11 +980,21 @@ impl App {
             self.find_first_relevant_session_with_source_matching(compartment, &capture_result)
         {
             // There's already a mapping with that source. Change target of that mapping.
-            mapping.borrow_mut().target_model.apply_from_target(
-                &reaper_target,
-                session.borrow().extended_context(),
-                compartment,
-            );
+            {
+                let mut m = mapping.borrow_mut();
+                session.borrow_mut().change_target_with_closure(
+                    &mut m,
+                    None,
+                    Rc::downgrade(&session),
+                    |ctx| {
+                        ctx.mapping.target_model.apply_from_target(
+                            &reaper_target,
+                            ctx.extended_context,
+                            compartment,
+                        )
+                    },
+                );
+            }
             (session, mapping)
         } else {
             // There's no mapping with that source yet. Add it to the previously determined first
@@ -998,9 +1015,12 @@ impl App {
                 let compound_source = s
                     .create_compound_source(event)
                     .ok_or("couldn't create compound source")?;
-                m.source_model.apply_from_source(&compound_source);
-                m.target_model
-                    .apply_from_target(&reaper_target, s.extended_context(), compartment);
+                let _ = m.source_model.apply_from_source(&compound_source);
+                let _ = m.target_model.apply_from_target(
+                    &reaper_target,
+                    s.extended_context(),
+                    compartment,
+                );
                 drop(m);
                 mapping
             };

@@ -9,7 +9,7 @@ use reaper_high::Reaper;
 use slog::debug;
 use std::cell::{Cell, RefCell};
 
-use crate::application::{Session, SessionUi, WeakSession};
+use crate::application::{Affected, CompartmentProp, Session, SessionProp, SessionUi, WeakSession};
 use crate::base::when;
 use crate::domain::{
     MappingCompartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
@@ -209,6 +209,21 @@ impl MainPanel {
         }
     }
 
+    fn handle_affected(
+        self: SharedView<Self>,
+        affected: Affected<SessionProp>,
+        initiator: Option<u32>,
+    ) {
+        if let Some(data) = self.active_data.borrow() {
+            data.panel_manager
+                .borrow()
+                .handle_affected(&affected, initiator);
+            data.mapping_rows_panel
+                .handle_affected(&affected, initiator);
+            data.header_panel.handle_affected(&affected, initiator);
+        }
+    }
+
     fn handle_changed_parameters(&self, session: &Session) {
         if let Some(data) = self.active_data.borrow() {
             data.panel_manager
@@ -300,6 +315,27 @@ impl SessionUi for Weak<MainPanel> {
 
     fn mapping_matched(&self, event: MappingMatchedEvent) {
         upgrade_panel(self).handle_matched_mapping(event);
+    }
+
+    #[allow(clippy::single_match)]
+    fn handle_affected(
+        &self,
+        session: &Session,
+        affected: Affected<SessionProp>,
+        initiator: Option<u32>,
+    ) {
+        // Update secondary GUIs (e.g. Projection)
+        use Affected::*;
+        use CompartmentProp::*;
+        use SessionProp::*;
+        match &affected {
+            One(InCompartment(_, One(InMapping(_, _)))) => {
+                let _ = send_updated_controller_routing(session);
+            }
+            _ => {}
+        }
+        // Update primary GUI
+        upgrade_panel(self).handle_affected(affected, initiator);
     }
 }
 

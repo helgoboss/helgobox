@@ -1,5 +1,5 @@
 use crate::application::{
-    empty_parameter_settings, reaper_supports_global_midi_filter, GroupModel,
+    empty_parameter_settings, reaper_supports_global_midi_filter, CompartmentInSession, GroupModel,
     MainPresetAutoLoadMode, ParameterSetting, Session,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
@@ -365,46 +365,46 @@ impl SessionData {
                     .map(|g| g.to_model(compartment, true))
                     .unwrap_or_else(|| GroupModel::default_for_compartment(compartment))
             };
-        session
-            .default_group(MappingCompartment::MainMappings)
-            .replace(get_final_default_group(
-                self.default_group.as_ref(),
-                MappingCompartment::MainMappings,
-            ));
-        session.set_groups_without_notification(
+        let main_default_group = get_final_default_group(
+            self.default_group.as_ref(),
             MappingCompartment::MainMappings,
-            self.groups
-                .iter()
-                .map(|g| g.to_model(MappingCompartment::MainMappings, false)),
+        );
+        let controller_default_group = get_final_default_group(
+            self.default_controller_group.as_ref(),
+            MappingCompartment::ControllerMappings,
         );
         session
+            .default_group(MappingCompartment::MainMappings)
+            .replace(main_default_group);
+        let main_groups: Vec<_> = self
+            .groups
+            .iter()
+            .map(|g| g.to_model(MappingCompartment::MainMappings, false))
+            .collect();
+        let controller_groups: Vec<_> = self
+            .controller_groups
+            .iter()
+            .map(|g| g.to_model(MappingCompartment::ControllerMappings, false))
+            .collect();
+        session.set_groups_without_notification(MappingCompartment::MainMappings, main_groups);
+        session
             .default_group(MappingCompartment::ControllerMappings)
-            .replace(get_final_default_group(
-                self.default_controller_group.as_ref(),
-                MappingCompartment::ControllerMappings,
-            ));
+            .replace(controller_default_group);
         session.set_groups_without_notification(
             MappingCompartment::ControllerMappings,
-            self.controller_groups
-                .iter()
-                .map(|g| g.to_model(MappingCompartment::ControllerMappings, false)),
+            controller_groups,
         );
         // Mappings
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
-            let extended_context = session.extended_context_with_params(params);
-            let compartment_in_session = CompartmentInSession {
-                session,
-                compartment,
-            };
             let mappings: Vec<_> = mappings
                 .iter()
                 .map(|m| {
                     m.to_model_flexible(
                         compartment,
-                        Some(extended_context),
                         &migration_descriptor,
                         self.version.as_ref(),
-                        &compartment_in_session,
+                        session.compartment_in_session(compartment),
+                        Some(session.extended_context_with_params(params)),
                     )
                 })
                 .collect();
@@ -501,11 +501,6 @@ fn get_parameter_settings(data_map: &HashMap<String, ParameterData>) -> Vec<Para
         }
     }
     settings
-}
-
-pub struct CompartmentInSession<'a> {
-    pub session: &'a Session,
-    pub compartment: MappingCompartment,
 }
 
 impl<'a> ModelToDataConversionContext for CompartmentInSession<'a> {

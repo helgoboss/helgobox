@@ -2,7 +2,7 @@ use crate::infrastructure::ui::{MainPanel, MappingPanel, SessionMessagePanel};
 use reaper_high::Reaper;
 use slog::debug;
 
-use crate::application::{Session, SharedMapping, WeakSession};
+use crate::application::{Affected, Session, SessionProp, SharedMapping, WeakSession};
 use crate::domain::{MappingCompartment, MappingId, MappingMatchedEvent, TargetValueChangedEvent};
 use swell_ui::{SharedView, View, WeakView, Window};
 
@@ -37,6 +37,12 @@ impl IndependentPanelManager {
         self.do_with_mapping_panel(event.compartment, event.mapping_id, |p| {
             p.handle_matched_mapping();
         });
+    }
+
+    pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
+        for p in self.mapping_panels.iter().filter(|p| p.is_open()) {
+            p.handle_affected(affected, initiator);
+        }
     }
 
     fn do_with_mapping_panel(
