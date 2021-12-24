@@ -16,7 +16,9 @@ use crate::domain::{
     TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
-use crate::infrastructure::server::http::send_projection_feedback_to_subscribed_clients;
+use crate::infrastructure::server::http::{
+    send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
+};
 use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv};
 use rxrust::prelude::*;
 use std::borrow::Cow;

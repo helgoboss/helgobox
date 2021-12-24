@@ -163,8 +163,7 @@ pub fn keep_informing_clients_about_session_events(shared_session: &SharedSessio
     when(
         instance_state
             .on_mappings_changed()
-            .merge(session.mapping_list_changed().map_to(()))
-            .merge(session.mapping_changed().map_to(())),
+            .merge(session.mapping_list_changed().map_to(())),
     )
     .with(Rc::downgrade(shared_session))
     .do_async(|session, _| {

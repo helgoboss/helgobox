@@ -1,12 +1,8 @@
 use crate::domain::BackboneState;
 use crate::infrastructure::server::grpc::proto::{greeter_server, DoubleReply, DoubleRequest};
 use crate::infrastructure::server::grpc::proto::{HelloReply, HelloRequest};
-use futures::stream::BoxStream;
 use futures::{Stream, StreamExt};
-use std::alloc::alloc;
 use std::pin::Pin;
-use tokio::sync::broadcast;
-use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use tokio_stream::wrappers::BroadcastStream;
 use tonic::{Request, Response, Status};
 
@@ -32,7 +28,7 @@ impl greeter_server::Greeter for MyGreeter {
 
     async fn stream_experiment(
         &self,
-        request: Request<DoubleRequest>,
+        _request: Request<DoubleRequest>,
     ) -> Result<Response<Self::StreamExperimentStream>, Status> {
         let receiver = BackboneState::server_event_sender().subscribe();
         let receiver_stream = BroadcastStream::new(receiver).map(|value| match value {

@@ -116,19 +116,19 @@ pub fn get_controller_routing(session: &Session) -> ControllerRouting {
         .mappings(MappingCompartment::ControllerMappings)
         .filter_map(|m| {
             let m = m.borrow();
-            if !m.visible_in_projection.get() {
+            if !m.visible_in_projection() {
                 return None;
             }
             let target_descriptor = if instance_state.mapping_is_on(m.qualified_id()) {
-                if m.target_model.category.get() == TargetCategory::Virtual {
+                if m.target_model.category() == TargetCategory::Virtual {
                     // Virtual
                     let control_element = m.target_model.create_control_element();
                     let matching_main_mappings = session
                         .mappings(MappingCompartment::MainMappings)
                         .filter(|mp| {
                             let mp = mp.borrow();
-                            mp.visible_in_projection.get()
-                                && mp.source_model.category.get() == SourceCategory::Virtual
+                            mp.visible_in_projection()
+                                && mp.source_model.category() == SourceCategory::Virtual
                                 && mp.source_model.create_control_element() == control_element
                                 && instance_state.mapping_is_on(mp.qualified_id())
                         });
