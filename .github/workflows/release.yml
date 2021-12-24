@@ -73,6 +73,7 @@ jobs:
           toolchain: 1.55.0-${{ matrix.toolchain-suffix }}
           target: ${{ matrix.target }}
           override: true
+      - run: rustup component add rustfmt
       # Install OS dependencies (Linux only)
       - name: Install native Linux dependencies
         if: matrix.os == 'ubuntu-latest'
