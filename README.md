@@ -16,7 +16,8 @@ Sophisticated [REAPER](https://www.reaper.fm/) MIDI/OSC-learn VST instrument plu
 
 - [Installation](#installation)
 - [Usage](#usage)
-- [Contribution](#contribution)
+- [Contributing](#contributing)
+- [Architecture](#architecture)
 - [Links](#links)
 
 ## Installation
