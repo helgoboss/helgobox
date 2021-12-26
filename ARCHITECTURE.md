@@ -48,11 +48,11 @@ graph TD;
 
 The *main* module of ReaLearn is roughly built around an architectural pattern called *Onion Architecture* or *Clean Architecture*. This means it's divided into multiple "onion" layers:
 
-TODO-high Insert layers diagram
+![ReaLearn onion layers](doc/images/onion-layers.svg)
 
 These layers follow a simple and strict rule:
 
-> Outer layers use code of inner layers, **but inner layers are not allowed to use code of outer layers!!!**
+> Outer layers use code of inner layers, **but inner layers are not allowed to use code of outer layers!**
 
 This rule prevents "Spaghetti code" between the different layers and makes sure there's a clean separation between different responsibilities. 
 
