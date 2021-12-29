@@ -5,7 +5,7 @@ use reaper_high::Reaper;
 use reaper_low::firewall;
 use slog::debug;
 
-use crate::application::{SharedSession, WeakSession};
+use crate::application::{SharedSession, SharedSessionState, WeakSession};
 use crate::domain::{
     MappingCompartment, ParameterArray, ParameterMainTask, ZEROED_PLUGIN_PARAMETERS,
 };
@@ -22,15 +22,21 @@ pub struct RealearnPluginParameters {
     data_to_be_loaded: RwLock<Option<Vec<u8>>>,
     parameter_main_task_sender: crossbeam_channel::Sender<ParameterMainTask>,
     parameters: RwLock<ParameterArray>,
+    session_state: SendOrSyncWhatever<SharedSessionState>,
 }
 
 impl RealearnPluginParameters {
-    pub fn new(parameter_main_task_channel: crossbeam_channel::Sender<ParameterMainTask>) -> Self {
+    pub fn new(
+        parameter_main_task_channel: crossbeam_channel::Sender<ParameterMainTask>,
+        session_state: SharedSessionState,
+    ) -> Self {
         Self {
             session: AtomicLazyCell::new(),
             data_to_be_loaded: Default::default(),
             parameter_main_task_sender: parameter_main_task_channel,
             parameters: RwLock::new(ZEROED_PLUGIN_PARAMETERS),
+            // We will never access the session state in another thread than the main thread.
+            session_state: unsafe { SendOrSyncWhatever::new(session_state) },
         }
     }
 
@@ -172,17 +178,15 @@ impl PluginParameters for RealearnPluginParameters {
 
     fn get_parameter_name(&self, index: i32) -> String {
         firewall(|| {
-            let name = if let Some(s) = self.session() {
-                let index = index as u32;
-                if let Some(compartment) = MappingCompartment::by_absolute_param_index(index) {
-                    let rel_index = compartment.relativize_absolute_index(index);
-                    Some(
-                        s.borrow()
-                            .get_qualified_parameter_name(compartment, rel_index),
-                    )
-                } else {
-                    None
-                }
+            let index = index as u32;
+            let name = if let Some(compartment) = MappingCompartment::by_absolute_param_index(index)
+            {
+                let rel_index = compartment.relativize_absolute_index(index);
+                let name = self
+                    .session_state
+                    .borrow()
+                    .get_qualified_parameter_name(compartment, rel_index);
+                Some(name)
             } else {
                 None
             };

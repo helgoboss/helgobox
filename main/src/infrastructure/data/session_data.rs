@@ -1,6 +1,6 @@
 use crate::application::{
     empty_parameter_settings, reaper_supports_global_midi_filter, CompartmentInSession, GroupModel,
-    MainPresetAutoLoadMode, ParameterSetting, Session,
+    MainPresetAutoLoadMode, ParameterSetting, Session, SessionState,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
@@ -189,6 +189,7 @@ impl SessionData {
             ))
         };
         let instance_state = session.instance_state().borrow();
+        let session_state = session.state().borrow();
         SessionData {
             version: Some(App::version().clone()),
             id: Some(session.id().to_string()),
@@ -227,12 +228,12 @@ impl SessionData {
             active_main_preset_id: session.active_main_preset_id().map(|id| id.to_string()),
             main_preset_auto_load_mode: session.main_preset_auto_load_mode.get(),
             parameters: get_parameter_data_map(
-                session,
+                &session_state,
                 parameters,
                 MappingCompartment::MainMappings,
             ),
             controller_parameters: get_parameter_data_map(
-                session,
+                &session_state,
                 parameters,
                 MappingCompartment::ControllerMappings,
             ),
@@ -422,14 +423,17 @@ impl SessionData {
             .set_without_notification(self.main_preset_auto_load_mode);
         session.tags.set_without_notification(self.tags.clone());
         // Parameters
-        session.set_parameter_settings_without_notification(
-            MappingCompartment::MainMappings,
-            get_parameter_settings(&self.parameters),
-        );
-        session.set_parameter_settings_without_notification(
-            MappingCompartment::ControllerMappings,
-            get_parameter_settings(&self.controller_parameters),
-        );
+        {
+            let mut session_state = session.state().borrow_mut();
+            session_state.set_parameter_settings_without_notification(
+                MappingCompartment::MainMappings,
+                get_parameter_settings(&self.parameters),
+            );
+            session_state.set_parameter_settings_without_notification(
+                MappingCompartment::ControllerMappings,
+                get_parameter_settings(&self.controller_parameters),
+            );
+        }
         // Instance state
         {
             let mut instance_state = session.instance_state().borrow_mut();
@@ -472,7 +476,7 @@ impl SessionData {
 }
 
 fn get_parameter_data_map(
-    session: &Session,
+    session_state: &SessionState,
     parameters: &ParameterArray,
     compartment: MappingCompartment,
 ) -> HashMap<String, ParameterData> {
@@ -480,7 +484,7 @@ fn get_parameter_data_map(
         .filter_map(|i| {
             let parameter_slice = compartment.slice_params(parameters);
             let value = parameter_slice[i as usize];
-            let settings = session.get_parameter_settings(compartment, i);
+            let settings = session_state.get_parameter_settings(compartment, i);
             if value == 0.0 && settings.name.is_empty() {
                 return None;
             }
@@ -521,6 +525,8 @@ impl<'a> ApiToDataConversionContext for CompartmentInSession<'a> {
     fn param_index_by_key(&self, key: &str) -> Option<u32> {
         let (i, _) = self
             .session
+            .state()
+            .borrow()
             .find_parameter_setting_by_key(self.compartment, key)?;
         Some(i)
     }

@@ -29,7 +29,7 @@ use std::rc::Rc;
 
 use std::sync::{Arc, Mutex};
 
-use crate::application::{Session, SharedSession};
+use crate::application::{Session, SharedSession, SharedSessionState};
 use crate::infrastructure::plugin::app::App;
 
 use crate::base::notification;
@@ -87,6 +87,7 @@ pub struct RealearnPlugin {
     // audio hook that also drives processing (because in some cases the VST processing is
     // stopped). That's why we need an Rc/RefCell.
     real_time_processor: SharedRealTimeProcessor,
+    session_state: SharedSessionState,
     // For detecting play state changes
     was_playing_in_last_cycle: bool,
 }
@@ -116,8 +117,11 @@ impl Plugin for RealearnPlugin {
                 crossbeam_channel::bounded(PARAMETER_MAIN_TASK_QUEUE_SIZE);
             let instance_id = InstanceId::random();
             let logger = App::logger().new(o!("instance" => instance_id.to_string()));
-            let plugin_parameters =
-                Arc::new(RealearnPluginParameters::new(parameter_main_task_sender));
+            let session_state: SharedSessionState = Default::default();
+            let plugin_parameters = Arc::new(RealearnPluginParameters::new(
+                parameter_main_task_sender,
+                session_state.clone(),
+            ));
             let real_time_processor = RealTimeProcessor::new(
                 instance_id,
                 &logger,
@@ -144,6 +148,7 @@ impl Plugin for RealearnPlugin {
                 control_main_task_receiver,
                 normal_rt_to_main_task_receiver,
                 was_playing_in_last_cycle: false,
+                session_state,
             }
         })
         .unwrap_or_default()
@@ -323,6 +328,7 @@ impl RealearnPlugin {
         let normal_rt_to_main_task_receiver = self.normal_rt_to_main_task_receiver.clone();
         let logger = self.logger.clone();
         let instance_id = self.instance_id;
+        let session_state = self.session_state.clone();
         Global::task_support()
             .do_later_in_main_thread_from_main_thread_asap(move || {
                 let processor_context = match ProcessorContext::from_host(host) {
@@ -356,6 +362,7 @@ impl RealearnPlugin {
                     App::get().main_preset_manager(),
                     App::get().preset_link_manager(),
                     instance_state.clone(),
+                    session_state,
                     App::get().feedback_audio_hook_task_sender(),
                     App::get().osc_feedback_task_sender(),
                 );

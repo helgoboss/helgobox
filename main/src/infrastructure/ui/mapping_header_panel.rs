@@ -561,11 +561,16 @@ impl MappingHeaderPanel {
         };
         let session = self.session();
         let session = session.borrow();
+        let session_state = session.state().borrow();
         b.fill_combo_box_with_data_small(start.into_iter().chain(
             (0..COMPARTMENT_PARAMETER_COUNT).map(|i| {
                 (
                     i as isize,
-                    format!("{}. {}", i + 1, session.get_parameter_name(compartment, i)),
+                    format!(
+                        "{}. {}",
+                        i + 1,
+                        session_state.get_parameter_name(compartment, i)
+                    ),
                 )
             }),
         ));

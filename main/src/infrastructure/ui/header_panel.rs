@@ -268,6 +268,7 @@ impl HeaderPanel {
                 text_from_clipboard.is_some() && data_object_from_clipboard.is_none();
             let session = self.session();
             let session = session.borrow();
+            let session_state = session.state().borrow();
             let compartment = self.active_compartment();
             let group_id = self.active_group_id();
             let last_focused_fx_id = App::get().previously_focused_fx().and_then(|fx| {
@@ -368,7 +369,7 @@ impl HeaderPanel {
                                         item(
                                             format!(
                                                 "{}...",
-                                                session.get_parameter_name(compartment, i)
+                                                session_state.get_parameter_name(compartment, i)
                                             ),
                                             move || {
                                                 MenuAction::EditCompartmentParameter(compartment, i)
@@ -2653,9 +2654,10 @@ fn edit_compartment_parameter(
     let range = offset..(offset + PARAM_BATCH_SIZE);
     let current_settings: Vec<_> = {
         let session = session.borrow();
+        let session_state = session.state().borrow();
         range
             .clone()
-            .map(|i| session.get_parameter_settings(compartment, i))
+            .map(|i| session_state.get_parameter_settings(compartment, i))
             .cloned()
             .collect()
     };

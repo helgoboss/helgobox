@@ -3222,7 +3222,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.12.0-pre.2"
+version = "2.12.0-pre.3"
 dependencies = [
  "approx",
  "arboard",

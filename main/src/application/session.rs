@@ -1,9 +1,10 @@
 use crate::application::{
-    share_group, share_mapping, Affected, Change, ChangeResult, CompartmentCommand,
-    CompartmentModel, CompartmentProp, ControllerPreset, FxId, GroupCommand, GroupModel,
-    MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp, Preset,
-    PresetLinkManager, PresetManager, ProcessingRelevance, SharedGroup, SharedMapping, SourceModel,
-    TargetCategory, TargetModel, TargetProp, VirtualControlElementType,
+    empty_parameter_settings, share_group, share_mapping, Affected, Change, ChangeResult,
+    CompartmentCommand, CompartmentModel, CompartmentProp, ControllerPreset, FxId, GroupCommand,
+    GroupModel, MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp,
+    Preset, PresetLinkManager, PresetManager, ProcessingRelevance, SharedGroup, SharedMapping,
+    SharedSessionState, SourceModel, TargetCategory, TargetModel, TargetProp,
+    VirtualControlElementType,
 };
 use crate::base::default_util::is_default;
 use crate::base::{prop, when, AsyncNotifier, Global, Prop};
@@ -16,10 +17,10 @@ use crate::domain::{
     OscDeviceId, OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
     QualifiedMappingId, RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState,
     SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
-    VirtualSourceValue, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    VirtualSourceValue, ZEROED_PLUGIN_PARAMETERS,
 };
 use derivative::Derivative;
-use enum_map::{enum_map, EnumMap};
+use enum_map::EnumMap;
 use serde::{Deserialize, Serialize};
 
 use reaper_high::Reaper;
@@ -103,8 +104,9 @@ pub struct Session {
     #[derivative(Debug = "ignore")]
     ui: Box<dyn SessionUi>,
     instance_container: &'static dyn InstanceContainer,
+    /// A secondary copy of the canonical parameters stored in the infrastructure layer.
     parameters: ParameterArray,
-    parameter_settings: EnumMap<MappingCompartment, Vec<ParameterSetting>>,
+    state: SharedSessionState,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
     main_preset_link_manager: Box<dyn PresetLinkManager>,
@@ -181,6 +183,7 @@ impl Session {
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
         instance_state: SharedInstanceState,
+        state: SharedSessionState,
         global_feedback_audio_hook_task_sender: &'static RealTimeSender<FeedbackAudioHookTask>,
         global_osc_feedback_task_sender: &'static crossbeam_channel::Sender<OscFeedbackTask>,
     ) -> Session {
@@ -231,10 +234,7 @@ impl Session {
             ui: Box::new(ui),
             instance_container,
             parameters: ZEROED_PLUGIN_PARAMETERS,
-            parameter_settings: enum_map! {
-                MappingCompartment::ControllerMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
-                MappingCompartment::MainMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
-            },
+            state,
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
             main_preset_link_manager: Box::new(preset_link_manager),
@@ -336,83 +336,10 @@ impl Session {
         Ok(())
     }
 
-    pub fn get_parameter_settings(
-        &self,
-        compartment: MappingCompartment,
-        index: u32,
-    ) -> &ParameterSetting {
-        &self.parameter_settings[compartment][index as usize]
-    }
-
-    pub fn non_default_parameter_settings_by_compartment(
-        &self,
-        compartment: MappingCompartment,
-    ) -> HashMap<u32, ParameterSetting> {
-        self.parameter_settings[compartment]
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| !s.is_default())
-            .map(|(i, s)| (i as u32, s.clone()))
-            .collect()
-    }
-
-    pub fn get_qualified_parameter_name(
-        &self,
-        compartment: MappingCompartment,
-        rel_index: u32,
-    ) -> String {
-        let name = self.get_parameter_name(compartment, rel_index);
-        let compartment_label = match compartment {
-            MappingCompartment::ControllerMappings => "Ctrl",
-            MappingCompartment::MainMappings => "Main",
-        };
-        format!("{} p{}: {}", compartment_label, rel_index + 1, name)
-    }
-
     pub fn mappings_are_read_only(&self, compartment: MappingCompartment) -> bool {
         self.is_learning_many_mappings()
             || (compartment == MappingCompartment::MainMappings
                 && self.main_preset_auto_load_is_active())
-    }
-
-    pub fn get_parameter_name(&self, compartment: MappingCompartment, rel_index: u32) -> String {
-        let setting = &self.parameter_settings[compartment][rel_index as usize];
-        if setting.name.is_empty() {
-            format!("Param {}", rel_index + 1)
-        } else {
-            setting.name.clone()
-        }
-    }
-
-    pub fn set_parameter_settings(
-        &mut self,
-        compartment: MappingCompartment,
-        settings: impl Iterator<Item = (u32, ParameterSetting)>,
-    ) {
-        for (i, s) in settings {
-            self.parameter_settings[compartment][i as usize] = s;
-        }
-        self.notify_parameter_settings_changed(compartment);
-    }
-
-    pub fn set_parameter_settings_without_notification(
-        &mut self,
-        compartment: MappingCompartment,
-        parameter_settings: Vec<ParameterSetting>,
-    ) {
-        self.parameter_settings[compartment] = parameter_settings;
-    }
-
-    pub fn set_parameter_settings_from_non_default(
-        &mut self,
-        compartment: MappingCompartment,
-        parameter_settings: HashMap<u32, ParameterSetting>,
-    ) {
-        let mut settings = empty_parameter_settings();
-        for (i, s) in parameter_settings {
-            settings[i as usize] = s;
-        }
-        self.parameter_settings[compartment] = settings;
     }
 
     fn full_sync(&mut self) {
@@ -854,18 +781,6 @@ impl Session {
         self.groups[compartment]
             .iter()
             .find(|g| g.borrow().key() == key)
-    }
-
-    pub fn find_parameter_setting_by_key(
-        &self,
-        compartment: MappingCompartment,
-        key: &str,
-    ) -> Option<(u32, &ParameterSetting)> {
-        self.parameter_settings[compartment]
-            .iter()
-            .enumerate()
-            .find(|(_, s)| s.key.as_ref().map(|k| k == key).unwrap_or(false))
-            .map(|(i, s)| (i as u32, s))
     }
 
     pub fn find_group_by_id_including_default_group(
@@ -1913,7 +1828,10 @@ impl Session {
 
     pub fn extract_compartment_model(&self, compartment: MappingCompartment) -> CompartmentModel {
         CompartmentModel {
-            parameters: self.non_default_parameter_settings_by_compartment(compartment),
+            parameters: self
+                .state
+                .borrow()
+                .non_default_parameter_settings_by_compartment(compartment),
             default_group: self.default_group(compartment).borrow().clone(),
             groups: self
                 .groups(compartment)
@@ -1950,7 +1868,9 @@ impl Session {
             default_group.replace(model.default_group);
             self.set_groups_without_notification(compartment, model.groups.into_iter());
             self.set_mappings_without_notification(compartment, model.mappings);
-            self.set_parameter_settings_from_non_default(compartment, model.parameters);
+            self.state
+                .borrow_mut()
+                .set_parameter_settings_from_non_default(compartment, model.parameters);
         } else {
             self.clear_compartment_data(compartment);
         }
@@ -1972,7 +1892,24 @@ impl Session {
             .replace(GroupModel::default_for_compartment(compartment));
         self.set_groups_without_notification(compartment, std::iter::empty());
         self.set_mappings_without_notification(compartment, std::iter::empty());
-        self.set_parameter_settings_without_notification(compartment, empty_parameter_settings());
+        self.state
+            .borrow_mut()
+            .set_parameter_settings_without_notification(compartment, empty_parameter_settings());
+    }
+
+    pub fn state(&self) -> &SharedSessionState {
+        &self.state
+    }
+
+    pub fn set_parameter_settings(
+        &mut self,
+        compartment: MappingCompartment,
+        settings: impl Iterator<Item = (u32, ParameterSetting)>,
+    ) {
+        self.state
+            .borrow_mut()
+            .set_parameter_settings_without_notification_from_iter(compartment, settings);
+        self.notify_parameter_settings_changed(compartment);
     }
 
     fn containing_fx_enabled_or_disabled(
@@ -2573,10 +2510,6 @@ pub type SharedSession = Rc<RefCell<Session>>;
 /// Always use this when storing a reference to a session. This avoids memory leaks and ghost
 /// sessions.
 pub type WeakSession = Weak<RefCell<Session>>;
-
-pub fn empty_parameter_settings() -> Vec<ParameterSetting> {
-    vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize]
-}
 
 fn mappings_have_project_references<'a>(
     mut mappings: impl Iterator<Item = &'a SharedMapping>,
