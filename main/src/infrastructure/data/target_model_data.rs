@@ -243,23 +243,27 @@ impl TargetModelData {
         model.change(C::SetCategory(final_category));
         model.change(C::SetUnit(self.unit));
         model.change(C::SetTargetType(self.r#type));
-        let reaper = Reaper::get();
-        let action = match self.command_name.as_ref() {
-            None => None,
-            Some(command_name) => match command_name.parse::<u32>() {
-                // Could parse this as command ID integer. This is a built-in action.
-                Ok(command_id_int) => match command_id_int.try_into() {
-                    Ok(command_id) => Some(reaper.main_section().action_by_command_id(command_id)),
-                    Err(_) => {
-                        notification::warn(format!("Invalid command ID {}", command_id_int));
-                        None
-                    }
+        if self.category == TargetCategory::Reaper && self.r#type == ReaperTargetType::Action {
+            let reaper = Reaper::get();
+            let action = match self.command_name.as_ref() {
+                None => None,
+                Some(command_name) => match command_name.parse::<u32>() {
+                    // Could parse this as command ID integer. This is a built-in action.
+                    Ok(command_id_int) => match command_id_int.try_into() {
+                        Ok(command_id) => {
+                            Some(reaper.main_section().action_by_command_id(command_id))
+                        }
+                        Err(_) => {
+                            notification::warn(format!("Invalid command ID {}", command_id_int));
+                            None
+                        }
+                    },
+                    // Couldn't parse this as integer. This is a ReaScript or custom action.
+                    Err(_) => Some(reaper.action_by_command_name(command_name.as_str())),
                 },
-                // Couldn't parse this as integer. This is a ReaScript or custom action.
-                Err(_) => Some(reaper.action_by_command_name(command_name.as_str())),
-            },
-        };
-        model.change(C::SetAction(action));
+            };
+            model.change(C::SetAction(action));
+        }
         let invocation_type = if let Some(invoke_relative) = self.invoke_relative {
             // Very old ReaLearn version
             if invoke_relative {
