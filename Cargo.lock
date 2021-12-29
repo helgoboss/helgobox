@@ -3342,7 +3342,7 @@ dependencies = [
 [[package]]
 name = "reaper-high"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1edee1c7f992dea1cf2ef0e05d7e6229baa3cb71"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4dbeb8e3b7082f58c06f929c78c1cf124422fc76"
 dependencies = [
  "backtrace",
  "c_str_macro",
@@ -3368,7 +3368,7 @@ dependencies = [
 [[package]]
 name = "reaper-low"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1edee1c7f992dea1cf2ef0e05d7e6229baa3cb71"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4dbeb8e3b7082f58c06f929c78c1cf124422fc76"
 dependencies = [
  "c_str_macro",
  "cc",
@@ -3382,7 +3382,7 @@ dependencies = [
 [[package]]
 name = "reaper-macros"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1edee1c7f992dea1cf2ef0e05d7e6229baa3cb71"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4dbeb8e3b7082f58c06f929c78c1cf124422fc76"
 dependencies = [
  "darling 0.10.2",
  "quote 1.0.9",
@@ -3392,7 +3392,7 @@ dependencies = [
 [[package]]
 name = "reaper-medium"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1edee1c7f992dea1cf2ef0e05d7e6229baa3cb71"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4dbeb8e3b7082f58c06f929c78c1cf124422fc76"
 dependencies = [
  "c_str_macro",
  "derive_more",
@@ -3411,7 +3411,7 @@ dependencies = [
 [[package]]
 name = "reaper-rx"
 version = "0.1.0"
-source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#1edee1c7f992dea1cf2ef0e05d7e6229baa3cb71"
+source = "git+https://github.com/helgoboss/reaper-rs.git?branch=master#4dbeb8e3b7082f58c06f929c78c1cf124422fc76"
 dependencies = [
  "crossbeam-channel",
  "helgoboss-midi",
@@ -3584,7 +3584,7 @@ dependencies = [
 [[package]]
 name = "rxrust"
 version = "0.13.0"
-source = "git+https://github.com/rxRust/rxRust?branch=master#349e50b3197e05926e2378ef8fc45cb67ad43b83"
+source = "git+https://github.com/rxRust/rxRust?rev=349e50b3197e05926e2378ef8fc45cb67ad43b83#349e50b3197e05926e2378ef8fc45cb67ad43b83"
 dependencies = [
  "async-std",
  "futures",

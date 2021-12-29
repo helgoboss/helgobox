@@ -41,7 +41,11 @@ pub struct FxPresetTarget {
 impl RealearnTarget for FxPresetTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         // `+ 1` because "<no preset>" is also a possible value.
-        let preset_count = self.fx.preset_count().unwrap_or(0);
+        let preset_count = self
+            .fx
+            .preset_index_and_count()
+            .map(|res| res.count)
+            .unwrap_or(0);
         (
             ControlType::AbsoluteDiscrete {
                 atomic_step_size: convert_count_to_step_size(preset_count + 1),
@@ -132,6 +136,11 @@ impl RealearnTarget for FxPresetTarget {
             CompoundChangeEvent::Reaper(ChangeEvent::FxPresetChanged(e)) if e.fx == self.fx => {
                 (true, None)
             }
+            CompoundChangeEvent::Reaper(ChangeEvent::FxParameterValueChanged(e))
+                if e.parameter.fx() == &self.fx =>
+            {
+                (true, None)
+            }
             _ => (false, None),
         }
     }
@@ -150,7 +159,7 @@ impl RealearnTarget for FxPresetTarget {
     }
 
     fn numeric_value(&self, _: ControlContext) -> Option<NumericValue> {
-        let index = self.fx.preset_index().ok().flatten()?;
+        let index = self.fx.preset_index_and_count().ok()?.index?;
         Some(NumericValue::Discrete(index as i32 + 1))
     }
 
@@ -163,11 +172,10 @@ impl<'a> Target<'a> for FxPresetTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, _: Self::Context) -> Option<AbsoluteValue> {
-        let preset_count = self.fx.preset_count().ok()?;
+        let res = self.fx.preset_index_and_count().ok()?;
         // Because we count "<No preset>" as a possible value, this is equal.
-        let max_value = preset_count;
-        let preset_index = self.fx.preset_index().ok()?;
-        let actual_value = preset_index.map(|i| i + 1).unwrap_or(0);
+        let max_value = res.count;
+        let actual_value = res.index.map(|i| i + 1).unwrap_or(0);
         Some(AbsoluteValue::Discrete(Fraction::new(
             actual_value,
             max_value,

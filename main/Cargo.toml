@@ -35,7 +35,7 @@ helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_re
 serde_with = "1.6.4"
 c_str_macro = "1.0.2"
 vst = "0.2.1"
-rxrust = { git = "https://github.com/rxRust/rxRust", branch = "master" }
+rxrust = { git = "https://github.com/rxRust/rxRust", rev = "349e50b3197e05926e2378ef8fc45cb67ad43b83" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 serde_repr = "0.1.5"

@@ -703,7 +703,7 @@ pub fn format_bool_as_on_off(value: bool) -> &'static str {
 }
 
 pub fn convert_unit_value_to_preset_index(fx: &Fx, value: UnitValue) -> Option<u32> {
-    convert_unit_to_discrete_value_with_none(value, fx.preset_count().ok()?)
+    convert_unit_to_discrete_value_with_none(value, fx.preset_index_and_count().ok()?.count)
 }
 
 pub fn convert_unit_value_to_track_index(project: Project, value: UnitValue) -> Option<u32> {
@@ -755,7 +755,12 @@ pub fn shown_fx_unit_value(fx_chain: &FxChain, index: Option<u32>) -> UnitValue 
 }
 
 pub fn fx_preset_unit_value(fx: &Fx, index: Option<u32>) -> UnitValue {
-    convert_discrete_to_unit_value_with_none(index, fx.preset_count().unwrap_or(0))
+    convert_discrete_to_unit_value_with_none(
+        index,
+        fx.preset_index_and_count()
+            .map(|res| res.count)
+            .unwrap_or(0),
+    )
 }
 
 fn convert_discrete_to_unit_value_with_none(value: Option<u32>, count: u32) -> UnitValue {
