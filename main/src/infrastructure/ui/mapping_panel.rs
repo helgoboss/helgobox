@@ -30,16 +30,17 @@ use std::ptr::null;
 use std::rc::Rc;
 
 use crate::application::{
-    convert_factor_to_unit_value, convert_unit_value_to_factor, get_bookmark_label, get_fx_label,
-    get_fx_param_label, get_non_present_bookmark_label, get_optional_fx_label, get_route_label,
-    Affected, AutomationModeOverrideType, BookmarkAnchorType, Change, CompartmentProp,
-    ConcreteFxInstruction, ConcreteTrackInstruction, MappingChangeContext, MappingCommand,
-    MappingModel, MappingProp, MidiSourceType, ModeCommand, ModeModel, ModeProp,
-    RealearnAutomationMode, RealearnTrackArea, ReaperSourceType, Session, SessionProp,
-    SharedMapping, SharedSession, SourceCategory, SourceCommand, SourceModel, SourceProp,
-    TargetCategory, TargetCommand, TargetModel, TargetModelWithContext, TargetProp, TargetUnit,
-    TrackRouteSelectorType, VirtualControlElementType, VirtualFxParameterType, VirtualFxType,
-    VirtualTrackType, WeakSession,
+    convert_factor_to_unit_value, convert_unit_value_to_factor, format_osc_feedback_args,
+    get_bookmark_label, get_fx_label, get_fx_param_label, get_non_present_bookmark_label,
+    get_optional_fx_label, get_route_label, parse_osc_feedback_args, Affected,
+    AutomationModeOverrideType, BookmarkAnchorType, Change, CompartmentProp, ConcreteFxInstruction,
+    ConcreteTrackInstruction, MappingChangeContext, MappingCommand, MappingModel, MappingProp,
+    MidiSourceType, ModeCommand, ModeModel, ModeProp, RealearnAutomationMode, RealearnTrackArea,
+    ReaperSourceType, Session, SessionProp, SharedMapping, SharedSession, SourceCategory,
+    SourceCommand, SourceModel, SourceProp, TargetCategory, TargetCommand, TargetModel,
+    TargetModelWithContext, TargetProp, TargetUnit, TrackRouteSelectorType,
+    VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
+    WeakSession,
 };
 use crate::base::Global;
 use crate::domain::{
@@ -272,8 +273,10 @@ impl MappingPanel {
                                                 view.invalidate_source_line_5_combo_box();
                                             }
                                             P::OscAddressPattern |
-                                            P::RawMidiPattern |
-                                            P::MidiScript => {
+                                            P::RawMidiPattern => {
+                                                view.invalidate_source_line_3_edit_control(initiator);
+                                            }
+                                            P::MidiScript | P::OscFeedbackArgs => {
                                                 view.invalidate_source_line_7_edit_control(initiator);
                                             }
                                             P::OscArgIsRelative => {
@@ -1541,8 +1544,9 @@ impl<'a> MutableMappingPanel<'a> {
         };
     }
 
-    fn handle_source_line_7_edit_control_change(&mut self) {
-        let edit_control_id = root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL;
+    #[allow(clippy::single_match)]
+    fn handle_source_line_3_edit_control_change(&mut self) {
+        let edit_control_id = root::ID_SOURCE_LINE_3_EDIT_CONTROL;
         let c = self.view.require_control(edit_control_id);
         if let Ok(value) = c.text() {
             use SourceCategory::*;
@@ -1551,12 +1555,6 @@ impl<'a> MutableMappingPanel<'a> {
                     MidiSourceType::Raw => {
                         self.change_mapping_with_initiator(
                             MappingCommand::ChangeSource(SourceCommand::SetRawMidiPattern(value)),
-                            Some(edit_control_id),
-                        );
-                    }
-                    MidiSourceType::Script => {
-                        self.change_mapping_with_initiator(
-                            MappingCommand::ChangeSource(SourceCommand::SetMidiScript(value)),
                             Some(edit_control_id),
                         );
                     }
@@ -1570,6 +1568,33 @@ impl<'a> MutableMappingPanel<'a> {
                 }
                 Reaper | Virtual | Never => {}
             }
+        }
+    }
+
+    #[allow(clippy::single_match)]
+    fn handle_source_line_7_edit_control_change(&mut self) {
+        let edit_control_id = root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL;
+        let c = self.view.require_control(edit_control_id);
+        let value = c.text().unwrap_or_default();
+        use SourceCategory::*;
+        match self.mapping.source_model.category() {
+            Midi => match self.mapping.source_model.midi_source_type() {
+                MidiSourceType::Script => {
+                    self.change_mapping_with_initiator(
+                        MappingCommand::ChangeSource(SourceCommand::SetMidiScript(value)),
+                        Some(edit_control_id),
+                    );
+                }
+                _ => {}
+            },
+            Osc => {
+                let args = parse_osc_feedback_args(&value);
+                self.change_mapping_with_initiator(
+                    MappingCommand::ChangeSource(SourceCommand::SetOscFeedbackArgs(args)),
+                    Some(edit_control_id),
+                )
+            }
+            _ => {}
         }
     }
 
@@ -3052,7 +3077,7 @@ impl<'a> ImmutableMappingPanel<'a> {
         self.invalidate_source_learn_button();
         self.invalidate_source_category_combo_box();
         self.invalidate_source_line_2();
-        self.invalidate_source_line_3();
+        self.invalidate_source_line_3(None);
         self.invalidate_source_line_4(None);
         self.invalidate_source_line_5();
         self.invalidate_source_check_box_2();
@@ -3141,18 +3166,24 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text(text);
     }
 
-    fn invalidate_source_line_3(&self) {
+    fn invalidate_source_line_3(&self, initiator: Option<u32>) {
         self.invalidate_source_line_3_label_1();
         self.invalidate_source_line_3_label_2();
         self.invalidate_source_line_3_combo_box_1();
         self.invalidate_source_line_3_combo_box_2();
+        self.invalidate_source_line_3_edit_control(initiator);
     }
 
     #[allow(clippy::single_match)]
     fn invalidate_source_line_3_label_1(&self) {
         use SourceCategory::*;
         let text = match self.source.category() {
-            Midi if self.source.supports_channel() => Some("Channel"),
+            Midi => match self.source.midi_source_type() {
+                MidiSourceType::Raw => Some("Pattern"),
+                t if t.supports_channel() => Some("Channel"),
+                _ => None,
+            },
+            Osc => Some("Address"),
             _ => None,
         };
         self.view
@@ -3406,11 +3437,10 @@ impl<'a> ImmutableMappingPanel<'a> {
         use SourceCategory::*;
         let text = match self.source.category() {
             Midi => match self.source.midi_source_type() {
-                MidiSourceType::Raw => Some("Pattern"),
                 MidiSourceType::Script => Some("Script"),
                 _ => None,
             },
-            Osc => Some("Address"),
+            Osc => Some("Feedback arguments"),
             _ => None,
         };
         self.view
@@ -3418,27 +3448,46 @@ impl<'a> ImmutableMappingPanel<'a> {
             .set_text_or_hide(text);
     }
 
-    fn invalidate_source_line_7_edit_control(&self, initiator: Option<u32>) {
-        if initiator == Some(root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL) {
+    fn invalidate_source_line_3_edit_control(&self, initiator: Option<u32>) {
+        let control_id = root::ID_SOURCE_LINE_3_EDIT_CONTROL;
+        if initiator == Some(control_id) {
             return;
         }
-        let c = self
-            .view
-            .require_control(root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL);
+        let c = self.view.require_control(control_id);
+        use SourceCategory::*;
+        let value_text = match self.source.category() {
+            Midi => match self.source.midi_source_type() {
+                MidiSourceType::Raw => Some(self.source.raw_midi_pattern()),
+                _ => None,
+            },
+            Osc => Some(self.source.osc_address_pattern()),
+            _ => None,
+        };
+        c.set_text_or_hide(value_text);
+    }
+
+    fn invalidate_source_line_7_edit_control(&self, initiator: Option<u32>) {
+        let control_id = root::ID_SOURCE_OSC_ADDRESS_PATTERN_EDIT_CONTROL;
+        if initiator == Some(control_id) {
+            return;
+        }
+        let c = self.view.require_control(control_id);
         use SourceCategory::*;
         let (value_text, read_only) = match self.source.category() {
             Midi => match self.source.midi_source_type() {
-                MidiSourceType::Raw => (Some(self.source.raw_midi_pattern()), false),
                 MidiSourceType::Script => {
                     let midi_script = self.source.midi_script();
                     (
-                        Some(midi_script.lines().next().unwrap_or_default()),
+                        Some(midi_script.lines().next().unwrap_or_default().to_owned()),
                         midi_script.lines().count() > 1,
                     )
                 }
                 _ => (None, false),
             },
-            Osc => (Some(self.source.osc_address_pattern()), false),
+            Osc => {
+                let text = format_osc_feedback_args(self.source.osc_feedback_args());
+                (Some(text), false)
+            }
             _ => (None, false),
         };
         c.set_text_or_hide(value_text);
@@ -5914,6 +5963,9 @@ impl View for MappingPanel {
         };
         match resource_id {
             // Source
+            root::ID_SOURCE_LINE_3_EDIT_CONTROL => {
+                view.write(|p| p.handle_source_line_3_edit_control_change());
+            }
             root::ID_SOURCE_NUMBER_EDIT_CONTROL => {
                 view.write(|p| p.handle_source_line_4_edit_control_change());
             }
@@ -6404,7 +6456,7 @@ fn prompt_for_predefined_control_element_name(
 
 #[derive(Copy, Clone, Display)]
 enum ColorTarget {
-    #[display(fmt = "Text color (if supported)")]
+    #[display(fmt = "Color (if supported)")]
     Color,
     #[display(fmt = "Background color (if supported)")]
     BackgroundColor,

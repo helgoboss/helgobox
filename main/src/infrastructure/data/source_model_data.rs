@@ -63,6 +63,8 @@ pub struct SourceModelData {
     pub osc_arg_type: OscTypeTag,
     #[serde(default, skip_serializing_if = "is_default")]
     pub osc_arg_is_relative: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub osc_feedback_args: Vec<String>,
     // Virtual
     #[serde(default, skip_serializing_if = "is_default")]
     pub control_element_type: VirtualControlElementType,
@@ -96,6 +98,7 @@ impl SourceModelData {
             osc_arg_index: model.osc_arg_index(),
             osc_arg_type: model.osc_arg_type_tag(),
             osc_arg_is_relative: model.osc_arg_is_relative(),
+            osc_feedback_args: model.osc_feedback_args().to_vec(),
             control_element_type: model.control_element_type(),
             control_element_index: VirtualControlElementIdData::from_model(
                 model.control_element_id(),
@@ -169,6 +172,7 @@ impl SourceModelData {
         model.change(P::SetOscArgIndex(self.osc_arg_index));
         model.change(P::SetOscArgTypeTag(self.osc_arg_type));
         model.change(P::SetOscArgIsRelative(self.osc_arg_is_relative));
+        model.change(P::SetOscFeedbackArgs(self.osc_feedback_args.clone()));
         model.change(P::SetControlElementType(self.control_element_type));
         model.change(P::SetControlElementId(
             self.control_element_index.to_model(),

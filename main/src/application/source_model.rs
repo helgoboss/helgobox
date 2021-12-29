@@ -42,6 +42,7 @@ pub enum SourceCommand {
     SetOscArgIndex(Option<u32>),
     SetOscArgTypeTag(OscTypeTag),
     SetOscArgIsRelative(bool),
+    SetOscFeedbackArgs(Vec<String>),
     SetReaperSourceType(ReaperSourceType),
     SetControlElementType(VirtualControlElementType),
     SetControlElementId(VirtualControlElementId),
@@ -67,6 +68,7 @@ pub enum SourceProp {
     OscArgIndex,
     OscArgTypeTag,
     OscArgIsRelative,
+    OscFeedbackArgs,
     ReaperSourceType,
     ControlElementType,
     ControlElementId,
@@ -160,6 +162,10 @@ impl<'a> Change<'a> for SourceModel {
                 self.osc_arg_is_relative = v;
                 One(P::OscArgIsRelative)
             }
+            SourceCommand::SetOscFeedbackArgs(v) => {
+                self.osc_feedback_args = v;
+                One(P::OscFeedbackArgs)
+            }
             C::SetReaperSourceType(v) => {
                 self.reaper_source_type = v;
                 One(P::ReaperSourceType)
@@ -200,6 +206,7 @@ pub struct SourceModel {
     osc_arg_index: Option<u32>,
     osc_arg_type_tag: OscTypeTag,
     osc_arg_is_relative: bool,
+    osc_feedback_args: Vec<String>,
     // REAPER
     reaper_source_type: ReaperSourceType,
     // Virtual
@@ -230,6 +237,7 @@ impl Default for SourceModel {
             osc_arg_index: Some(0),
             osc_arg_type_tag: Default::default(),
             osc_arg_is_relative: false,
+            osc_feedback_args: vec![],
             reaper_source_type: Default::default(),
         }
     }
@@ -306,6 +314,10 @@ impl SourceModel {
 
     pub fn osc_arg_is_relative(&self) -> bool {
         self.osc_arg_is_relative
+    }
+
+    pub fn osc_feedback_args(&self) -> &[String] {
+        &self.osc_feedback_args
     }
 
     pub fn reaper_source_type(&self) -> ReaperSourceType {
@@ -537,8 +549,14 @@ impl SourceModel {
                 CompoundMappingSource::Virtual(virtual_source)
             }
             Osc => {
-                let osc_source =
-                    OscSource::new(self.osc_address_pattern.clone(), self.osc_arg_descriptor());
+                let osc_source = OscSource::new(
+                    self.osc_address_pattern.clone(),
+                    self.osc_arg_descriptor(),
+                    self.osc_feedback_args
+                        .iter()
+                        .map(|prop_string| prop_string.parse().unwrap_or_default())
+                        .collect(),
+                );
                 CompoundMappingSource::Osc(osc_source)
             }
             Reaper => {
@@ -603,19 +621,9 @@ impl SourceModel {
         if !self.is_midi() {
             return false;
         }
-        use MidiSourceType::*;
-        matches!(
-            self.midi_source_type,
-            ChannelPressureAmount
-                | ControlChangeValue
-                | NoteVelocity
-                | PolyphonicKeyPressureAmount
-                | NoteKeyNumber
-                | ParameterNumberValue
-                | PitchBendChangeValue
-                | ProgramChangeNumber
-        )
+        self.midi_source_type.supports_channel()
     }
+
     pub fn display_count(&self) -> u8 {
         self.display_type.display_count()
     }
@@ -879,6 +887,21 @@ impl MidiSourceType {
         }
     }
 
+    pub fn supports_channel(self) -> bool {
+        use MidiSourceType::*;
+        matches!(
+            self,
+            ChannelPressureAmount
+                | ControlChangeValue
+                | NoteVelocity
+                | PolyphonicKeyPressureAmount
+                | NoteKeyNumber
+                | ParameterNumberValue
+                | PitchBendChangeValue
+                | ProgramChangeNumber
+        )
+    }
+
     pub fn supports_midi_message_number(self) -> bool {
         use MidiSourceType::*;
         matches!(
@@ -1014,6 +1037,14 @@ impl ReaperSourceType {
             RealearnInstanceStart => Self::RealearnInstanceStart,
         }
     }
+}
+
+pub fn parse_osc_feedback_args(text: &str) -> Vec<String> {
+    text.split_whitespace().map(|s| s.to_owned()).collect()
+}
+
+pub fn format_osc_feedback_args(args: &[String]) -> String {
+    itertools::join(args.iter(), " ")
 }
 
 #[cfg(test)]

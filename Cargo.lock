@@ -1659,6 +1659,8 @@ dependencies = [
  "serde_repr",
  "serde_with",
  "smallvec",
+ "strum",
+ "strum_macros",
 ]
 
 [[package]]

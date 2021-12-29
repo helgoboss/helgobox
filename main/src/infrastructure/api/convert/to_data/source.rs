@@ -84,6 +84,10 @@ pub fn convert_source(s: Source) -> ConversionResult<SourceModelData> {
             Osc(s) => s.relative.unwrap_or(defaults::SOURCE_OSC_IS_RELATIVE),
             _ => false,
         },
+        osc_feedback_args: match &s {
+            Osc(s) => s.feedback_arguments.as_ref().cloned().unwrap_or_default(),
+            _ => Default::default(),
+        },
         control_element_type: match &s {
             Virtual(s) => convert_control_element_type(s.character.unwrap_or_default()),
             _ => Default::default(),

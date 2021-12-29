@@ -172,6 +172,7 @@ pub fn convert_source(
                     data.osc_arg_is_relative,
                     defaults::SOURCE_OSC_IS_RELATIVE,
                 ),
+                feedback_arguments: style.required_value(data.osc_feedback_args),
             };
             schema::Source::Osc(s)
         }

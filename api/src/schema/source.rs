@@ -283,6 +283,8 @@ mod osc {
         pub argument: Option<OscArgument>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub relative: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub feedback_arguments: Option<Vec<String>>,
     }
 }
 
