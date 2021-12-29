@@ -4067,6 +4067,8 @@ of the machine on which OSC/PILOT runs.
 
 This works well, including 10-bit fader resolution, feedback for the motorized fader and turning LEDs on/off.
 
+NOTE: If you turn on the *Off* button LED, the fader will be disabled. This seems to be a behavior built right into the hardware.
+
 [discrete]
 ==== Preparation
 
