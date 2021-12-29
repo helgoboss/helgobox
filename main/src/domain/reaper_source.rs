@@ -1,9 +1,13 @@
+use core::fmt;
 use derive_more::Display;
 use helgoboss_learn::{
     format_percentage_without_unit, parse_percentage_without_unit, ControlValue,
     DetailedSourceCharacter, SourceCharacter, UnitValue,
 };
+use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
+use std::collections::HashSet;
 use std::convert::TryInto;
+use std::fmt::{Display, Formatter};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ReaperSource {
@@ -36,11 +40,11 @@ impl ReaperSource {
     pub fn control(&self, msg: &ReaperMessage) -> Option<ControlValue> {
         use ReaperMessage::*;
         let control_value = match msg {
-            MidiDevicesConnected => match self {
+            MidiDevicesConnected(_) => match self {
                 ReaperSource::MidiDeviceChanges => ControlValue::AbsoluteContinuous(UnitValue::MAX),
                 _ => return None,
             },
-            MidiDevicesDisconnected => match self {
+            MidiDevicesDisconnected(_) => match self {
                 ReaperSource::MidiDeviceChanges => ControlValue::AbsoluteContinuous(UnitValue::MIN),
                 _ => return None,
             },
@@ -55,9 +59,27 @@ impl ReaperSource {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash, Display)]
+#[derive(PartialEq, Debug, Display)]
 pub enum ReaperMessage {
-    MidiDevicesConnected,
-    MidiDevicesDisconnected,
+    #[display(fmt = "MidiDevicesConnected ({})", _0)]
+    MidiDevicesConnected(MidiDeviceChangePayload),
+    #[display(fmt = "MidiDevicesDisconnected ({})", _0)]
+    MidiDevicesDisconnected(MidiDeviceChangePayload),
     RealearnInstanceStarted,
+}
+
+#[derive(PartialEq, Debug)]
+pub struct MidiDeviceChangePayload {
+    pub input_devices: HashSet<MidiInputDeviceId>,
+    pub output_devices: HashSet<MidiOutputDeviceId>,
+}
+
+impl Display for MidiDeviceChangePayload {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Input devices: {:?}, Output devices: {:?}",
+            &self.input_devices, &self.output_devices
+        )
+    }
 }

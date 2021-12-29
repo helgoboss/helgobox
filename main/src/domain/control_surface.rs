@@ -3,8 +3,8 @@ use crate::domain::{
     ActivationChange, BackboneState, CompoundMappingSource, DeviceChangeDetector,
     DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, EelTransformation,
     FeedbackOutput, FeedbackRealTimeTask, InstanceId, LifecycleMidiData, MainProcessor,
-    MidiCaptureSender, NormalRealTimeTask, OscDeviceId, OscInputDevice, OscScanResult,
-    RealTimeCompoundMappingTarget, RealTimeMapping, ReaperMessage, ReaperTarget,
+    MidiCaptureSender, MidiDeviceChangePayload, NormalRealTimeTask, OscDeviceId, OscInputDevice,
+    OscScanResult, RealTimeCompoundMappingTarget, RealTimeMapping, ReaperMessage, ReaperTarget,
     SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
@@ -475,11 +475,19 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 .poll_for_midi_output_device_changes();
             let mut msgs = Vec::with_capacity(2);
             if !midi_in_diff.added_devices.is_empty() || !midi_out_diff.added_devices.is_empty() {
-                msgs.push(ReaperMessage::MidiDevicesConnected);
+                let payload = MidiDeviceChangePayload {
+                    input_devices: midi_in_diff.added_devices,
+                    output_devices: midi_out_diff.added_devices,
+                };
+                msgs.push(ReaperMessage::MidiDevicesConnected(payload));
             }
             if !midi_in_diff.removed_devices.is_empty() || !midi_out_diff.removed_devices.is_empty()
             {
-                msgs.push(ReaperMessage::MidiDevicesDisconnected);
+                let payload = MidiDeviceChangePayload {
+                    input_devices: midi_in_diff.removed_devices,
+                    output_devices: midi_out_diff.removed_devices,
+                };
+                msgs.push(ReaperMessage::MidiDevicesDisconnected(payload));
             }
             for p in &mut self.main_processors {
                 for msg in &msgs {

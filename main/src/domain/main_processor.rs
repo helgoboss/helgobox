@@ -24,6 +24,7 @@ use helgoboss_learn::{
 use std::borrow::Cow;
 use std::cell::RefCell;
 
+use crate::base::Global;
 use crate::domain::ui_util::{
     format_incoming_midi_message, format_midi_source_value, format_osc_message, format_osc_packet,
     format_raw_midi, log_control_input, log_feedback_output, log_learn_input, log_lifecycle_output,
@@ -40,6 +41,7 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::time::Duration;
 
 // This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;
@@ -1462,6 +1464,36 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     pub fn process_reaper_message(&mut self, msg: &ReaperMessage) {
+        // First process internally.
+        // Convenience: Send all feedback whenever a MIDI device is connected.
+        if let ReaperMessage::MidiDevicesConnected(payload) = msg {
+            if let Some(FeedbackOutput::Midi(MidiDestination::Device(dev_id))) =
+                self.basics.feedback_output
+            {
+                if payload.output_devices.contains(&dev_id) {
+                    let sender = self.basics.channels.self_normal_sender.clone();
+                    let _ = Global::task_support().do_later_in_main_thread_from_main_thread(
+                        // Wait a bit. Some devices need some time to get ready.
+                        Duration::from_secs(3),
+                        move || {
+                            // TODO-medium Make it work on Windows.
+                            //  At least on Windows, it's currently necessary to reset the MIDI
+                            //  device before sending the feedback. However, until now, REAPER API
+                            //  doesn't provide a function to reset one specific device only.
+                            //  Resetting all devices works but might have bad side effects (e.g.
+                            //  stopping notes when using external synths). I asked REAPER devs to
+                            //  create such a function. Let's see.
+                            // TODO-medium As soon as resetting one specific device is possible,
+                            //  also do the reset whenever the control input matches, not just the
+                            //  feedback output!
+                            // Reaper::get().medium_reaper().midi_reinit();
+                            let _ = sender.try_send(NormalMainTask::SendAllFeedback);
+                        },
+                    );
+                }
+            }
+        }
+        // Then let mappings with REAPER sources process them, if controlling enabled.
         if self.basics.control_mode != ControlMode::Controlling {
             return;
         }
