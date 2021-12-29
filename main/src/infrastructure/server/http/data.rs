@@ -319,6 +319,6 @@ enum EventType {
 }
 
 fn get_controller(session: &Session) -> Option<ControllerPresetData> {
-    let controller = session.active_controller()?;
+    let controller = session.active_controller_preset()?;
     Some(ControllerPresetData::from_model(&controller))
 }

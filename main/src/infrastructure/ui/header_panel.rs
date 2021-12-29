@@ -1267,17 +1267,15 @@ impl HeaderPanel {
             } else {
                 let session = self.session();
                 let session = session.borrow();
-                let (preset_is_active, is_dirty) = match self.active_compartment() {
-                    MappingCompartment::ControllerMappings => (
-                        session.active_controller_preset_id().is_some(),
-                        session.controller_preset_is_out_of_date(),
-                    ),
-                    MappingCompartment::MainMappings => (
-                        session.active_main_preset().is_some(),
-                        session.main_preset_is_out_of_date(),
-                    ),
+                let compartment = self.active_compartment();
+                let preset_is_active = match compartment {
+                    MappingCompartment::ControllerMappings => {
+                        session.active_controller_preset_id().is_some()
+                    }
+                    MappingCompartment::MainMappings => session.active_main_preset().is_some(),
                 };
-                (preset_is_active && is_dirty, true, preset_is_active)
+                let preset_is_dirty = session.compartment_or_preset_is_dirty(compartment);
+                (preset_is_active && preset_is_dirty, true, preset_is_active)
             }
         };
         save_button.set_enabled(save_button_enabled);
@@ -1288,6 +1286,7 @@ impl HeaderPanel {
     fn fill_preset_combo_box(&self) {
         let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
         let vec = vec![(-1isize, "<None>".to_string())];
+        // TODO-high Use new App::preset_manager() method.
         match self.active_compartment() {
             MappingCompartment::ControllerMappings => combo.fill_combo_box_with_data_small(
                 vec.into_iter().chain(
@@ -1317,18 +1316,9 @@ impl HeaderPanel {
         let enabled = !self.mappings_are_read_only();
         let session = self.session();
         let session = session.borrow();
-        let (preset_manager, active_preset_id): (Box<dyn ExtendedPresetManager>, _) =
-            match self.active_compartment() {
-                MappingCompartment::ControllerMappings => (
-                    Box::new(App::get().controller_preset_manager()),
-                    session.active_controller_preset_id(),
-                ),
-                MappingCompartment::MainMappings => (
-                    Box::new(App::get().main_preset_manager()),
-                    session.active_main_preset_id(),
-                ),
-            };
-        let data = match active_preset_id {
+        let compartment = self.active_compartment();
+        let preset_manager = App::get().preset_manager(compartment);
+        let data = match session.active_preset_id(compartment) {
             None => -1isize,
             Some(id) => match preset_manager.find_index_by_id(id) {
                 None => {
@@ -1701,6 +1691,7 @@ impl HeaderPanel {
     }
 
     fn update_preset_auto_load_mode(&self) {
+        let compartment = MappingCompartment::MainMappings;
         self.main_state.borrow_mut().stop_filter_learning();
         let mode = self
             .view
@@ -1710,16 +1701,20 @@ impl HeaderPanel {
             .expect("invalid preset auto-load mode");
         let session = self.session();
         if mode != MainPresetAutoLoadMode::Off {
-            if session.borrow().main_preset_is_out_of_date() {
-                let msg = "Your mapping changes will be lost. Consider to save them first. Do you really want to continue?";
-                if !self.view.require_window().confirm("ReaLearn", msg) {
+            {
+                if session.borrow().compartment_or_preset_is_dirty(compartment)
+                    && !self
+                        .view
+                        .require_window()
+                        .confirm("ReaLearn", COMPARTMENT_CHANGES_WARNING_TEXT)
+                {
                     self.invalidate_preset_auto_load_mode_combo_box();
                     return;
                 }
             }
             self.panel_manager()
                 .borrow_mut()
-                .hide_all_with_compartment(MappingCompartment::MainMappings);
+                .hide_all_with_compartment(compartment);
         }
         self.session()
             .borrow_mut()
@@ -1730,23 +1725,16 @@ impl HeaderPanel {
         self.main_state.borrow_mut().stop_filter_learning();
         let session = self.session();
         let compartment = self.active_compartment();
-        let (preset_manager, mappings_are_dirty): (Box<dyn ExtendedPresetManager>, _) =
-            match compartment {
-                MappingCompartment::ControllerMappings => (
-                    Box::new(App::get().controller_preset_manager()),
-                    session.borrow().controller_preset_is_out_of_date(),
-                ),
-                MappingCompartment::MainMappings => (
-                    Box::new(App::get().main_preset_manager()),
-                    session.borrow().main_preset_is_out_of_date(),
-                ),
-            };
-        if mappings_are_dirty {
-            let msg = "Your mapping changes will be lost. Consider to save them first. Do you really want to continue?";
-            if !self.view.require_window().confirm("ReaLearn", msg) {
-                self.invalidate_preset_combo_box_value();
-                return;
-            }
+        let preset_manager = App::get().preset_manager(compartment);
+        let compartment_is_dirty = session.borrow().compartment_or_preset_is_dirty(compartment);
+        if compartment_is_dirty
+            && !self
+                .view
+                .require_window()
+                .confirm("ReaLearn", COMPARTMENT_CHANGES_WARNING_TEXT)
+        {
+            self.invalidate_preset_combo_box_value();
+            return;
         }
         let preset_id = match self
             .view
@@ -2012,18 +2000,11 @@ impl HeaderPanel {
         let session = self.session();
         let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
-        let (mut preset_manager, active_preset_id): (Box<dyn ExtendedPresetManager>, _) =
-            match compartment {
-                MappingCompartment::ControllerMappings => (
-                    Box::new(App::get().controller_preset_manager()),
-                    session.active_controller_preset_id(),
-                ),
-                MappingCompartment::MainMappings => (
-                    Box::new(App::get().main_preset_manager()),
-                    session.active_main_preset_id(),
-                ),
-            };
-        let active_preset_id = active_preset_id.ok_or("no preset selected")?.to_string();
+        let mut preset_manager = App::get().preset_manager(compartment);
+        let active_preset_id = session
+            .active_preset_id(compartment)
+            .ok_or("no preset selected")?
+            .to_string();
         match compartment {
             MappingCompartment::ControllerMappings => session.activate_controller_preset(None)?,
             MappingCompartment::MainMappings => session.activate_main_preset(None)?,
@@ -2059,11 +2040,9 @@ impl HeaderPanel {
         let session = self.session();
         let mut session = session.borrow_mut();
         let compartment = self.active_compartment();
-        let preset_id = match compartment {
-            MappingCompartment::ControllerMappings => session.active_controller_preset_id(),
-            MappingCompartment::MainMappings => session.active_main_preset_id(),
-        }
-        .ok_or("no active preset")?;
+        let preset_id = session
+            .active_preset_id(compartment)
+            .ok_or("no active preset")?;
         let compartment_model = session.extract_compartment_model(compartment);
         match compartment {
             MappingCompartment::ControllerMappings => {
@@ -2140,7 +2119,7 @@ impl HeaderPanel {
         match compartment {
             MappingCompartment::ControllerMappings => {
                 let custom_data = session
-                    .active_controller()
+                    .active_controller_preset()
                     .map(|c| c.custom_data().clone())
                     .unwrap_or_default();
                 let controller = ControllerPreset::new(
@@ -2738,3 +2717,5 @@ fn edit_osc_device(mut dev: OscDevice) -> Result<OscDevice, EditOscDevError> {
         Err(EditOscDevError::Unexpected("couldn't split"))
     }
 }
+
+const COMPARTMENT_CHANGES_WARNING_TEXT: &str = "Mapping/group/parameter changes in this compartment will be lost. Consider to save them first. Do you really want to continue?";

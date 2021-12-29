@@ -223,9 +223,11 @@ impl SessionData {
             mappings: from_mappings(MappingCompartment::MainMappings),
             controller_mappings: from_mappings(MappingCompartment::ControllerMappings),
             active_controller_id: session
-                .active_controller_preset_id()
+                .active_preset_id(MappingCompartment::ControllerMappings)
                 .map(|id| id.to_string()),
-            active_main_preset_id: session.active_main_preset_id().map(|id| id.to_string()),
+            active_main_preset_id: session
+                .active_preset_id(MappingCompartment::MainMappings)
+                .map(|id| id.to_string()),
             main_preset_auto_load_mode: session.main_preset_auto_load_mode.get(),
             parameters: get_parameter_data_map(
                 &session_state,

@@ -1761,33 +1761,34 @@ impl Session {
         self.active_controller_preset_id.as_deref()
     }
 
-    pub fn active_main_preset_id(&self) -> Option<&str> {
-        self.active_main_preset_id.as_deref()
+    pub fn active_preset_id(&self, compartment: MappingCompartment) -> Option<&str> {
+        let id = match compartment {
+            MappingCompartment::ControllerMappings => &self.active_controller_preset_id,
+            MappingCompartment::MainMappings => &self.active_main_preset_id,
+        };
+        id.as_deref()
     }
 
-    pub fn active_controller(&self) -> Option<ControllerPreset> {
-        let id = self.active_controller_preset_id()?;
+    pub fn active_controller_preset(&self) -> Option<ControllerPreset> {
+        let id = self.active_preset_id(MappingCompartment::ControllerMappings)?;
         self.controller_preset_manager.find_by_id(id)
     }
 
     pub fn active_main_preset(&self) -> Option<MainPreset> {
-        let id = self.active_main_preset_id()?;
+        let id = self.active_preset_id(MappingCompartment::MainMappings)?;
         self.main_preset_manager.find_by_id(id)
     }
 
-    pub fn controller_preset_is_out_of_date(&self) -> bool {
-        self.preset_is_out_of_date(MappingCompartment::ControllerMappings)
-    }
-
-    pub fn main_preset_is_out_of_date(&self) -> bool {
-        self.preset_is_out_of_date(MappingCompartment::MainMappings)
-    }
-
-    fn preset_is_out_of_date(&self, compartment: MappingCompartment) -> bool {
-        if self.active_main_preset_id.is_none() {
-            return self.mapping_count(compartment) > 0 || !self.groups.is_empty();
-        };
-        self.compartment_is_dirty[compartment].get()
+    /// Returns `true` if the preset has unsaved changes (if a preset is active) or if at least one
+    /// mapping or group exists (if no preset is active).
+    pub fn compartment_or_preset_is_dirty(&self, compartment: MappingCompartment) -> bool {
+        if self.active_preset_id(compartment).is_some() {
+            // Preset active.
+            self.compartment_is_dirty[compartment].get()
+        } else {
+            // No preset active.
+            !self.mappings[compartment].is_empty() || !self.groups[compartment].is_empty()
+        }
     }
 
     pub fn activate_controller_preset(&mut self, id: Option<String>) -> Result<(), &'static str> {

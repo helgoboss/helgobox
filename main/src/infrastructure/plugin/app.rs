@@ -14,9 +14,9 @@ use crate::domain::{
     SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
-    FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
-    OscDevice, OscDeviceManager, SharedControllerPresetManager, SharedMainPresetManager,
-    SharedOscDeviceManager, SharedPresetLinkManager,
+    ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
+    FileBasedPresetLinkManager, OscDevice, OscDeviceManager, SharedControllerPresetManager,
+    SharedMainPresetManager, SharedOscDeviceManager, SharedPresetLinkManager,
 };
 use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
@@ -604,6 +604,16 @@ impl App {
 
     pub fn main_preset_manager(&self) -> SharedMainPresetManager {
         self.main_preset_manager.clone()
+    }
+
+    pub fn preset_manager(
+        &self,
+        compartment: MappingCompartment,
+    ) -> Box<dyn ExtendedPresetManager> {
+        match compartment {
+            MappingCompartment::ControllerMappings => Box::new(self.controller_preset_manager()),
+            MappingCompartment::MainMappings => Box::new(self.main_preset_manager()),
+        }
     }
 
     pub fn preset_link_manager(&self) -> SharedPresetLinkManager {
