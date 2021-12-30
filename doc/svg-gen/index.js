@@ -9,6 +9,10 @@ import '@svgdotjs/svg.topath.js';
 
 const script_dir = path.resolve('doc/svg-gen');
 
+// We need to embed the CSS into the SVG, otherwise the browser won't load it, tried it.
+// (see https://stackoverflow.com/questions/18434094/how-to-style-svg-with-external-css).
+const stylesheet = fs.readFileSync(path.resolve(script_dir, 'styles.css'));
+
 generate()
 
 async function generate() {
@@ -18,26 +22,22 @@ async function generate() {
 }
 
 async function generateModulesDiagram() {
-    const dot = fs.readFileSync(path.resolve(script_dir, 'modules.dot'));
-    return convertDotToSvg(dot);
+    const draw = await loadDotToSvgCanvas('modules.dot');
+    return draw.svg();
 }
 
 async function generateComponentDiagram() {
-    const dot = fs.readFileSync(path.resolve(script_dir, 'components.dot'));
-    return convertDotToSvg(dot);
+    const draw = await loadDotToSvgCanvas('components.dot');
+    return draw.svg();
 }
 
 function generateOnionLayersDiagram() {
-    const window = createSVGWindow()
-    const document = window.document
-    registerWindow(window, document)
+    const draw = initSvgCanvas();
     const width = 410;
     const height = 410;
-    const draw = SVG(document.documentElement).size(width, height);
-    // We need to embed the CSS into the SVG, otherwise the browser won't load it, tried it.
-    // (see https://stackoverflow.com/questions/18434094/how-to-style-svg-with-external-css).
-    const css = fs.readFileSync(path.resolve(script_dir, 'styles.css'));
-    draw.element('style').words(css)
+    draw.size(width, height);
+    embedStylesheet(draw);
+
     // Default attributes
     const defaultFontSize = 15;
     const defaultArrowColor = 'black';
@@ -175,6 +175,16 @@ function generateOnionLayersDiagram() {
     return draw.svg();
 }
 
+async function loadDotToSvgCanvas(dotFileName) {
+    const dot = fs.readFileSync(path.resolve(script_dir, dotFileName));
+    const svg = await convertDotToSvg(dot);
+    const qualifiedSvg = svg.replace(/<(\?xml|(!DOCTYPE[^>\[]+(\[[^\]]+)?))+[^>]+>/g, '');
+    const draw = initSvgCanvas();
+    draw.svg(qualifiedSvg)
+    embedStylesheet(draw);
+    return draw;
+}
+
 async function convertDotToSvg(dot) {
     const data = Buffer.from(dot, 'utf8')
     const compressed = pako.deflate(data, {level: 9})
@@ -183,4 +193,15 @@ async function convertDotToSvg(dot) {
         .replace(/\+/g, '-').replace(/\//g, '_')
     const response = await got(`https://kroki.io/graphviz/svg/${body}`);
     return response.body
+}
+
+function initSvgCanvas() {
+    const window = createSVGWindow()
+    const document = window.document
+    registerWindow(window, document)
+    return SVG(document.documentElement);
+}
+
+function embedStylesheet(draw) {
+    draw.element('style').words(stylesheet)
 }

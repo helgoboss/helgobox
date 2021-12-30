@@ -1,6 +1,5 @@
-digraph D {
+digraph components {
   node [shape = "box"];
-  // edge [constraint = true];
   compound = true;
   // newrank = true;
   rankdir = "TB";
@@ -11,23 +10,23 @@ digraph D {
   Reaper;
 
   subgraph cluster_realearn {
-    App;
-    Server;
-    Backbone;
-    RealearnControlSurfaceMiddleware;
-    RealearnAudioHook;
-    OscOutputDevice;
+    App [class = "infrastructure"];
+    Server [class = "infrastructure"];
+    Backbone [class = "processing"];
+    RealearnControlSurfaceMiddleware [class = "processing"];
+    RealearnAudioHook [class = "processing"];
+    OscOutputDevice [class = "processing"];
 
     subgraph cluster_instance {
       infrastructure_layer [shape = point style = invis];
       application_layer [shape = point style = invis];
       processing_layer [shape = point style = invis];
-      RealearnPlugin;
-      RealearnUi;
-      Session;
-      InstanceState;
-      RealTimeProcessor [width = 2, height = 3];
-      MainProcessor [width = 2, height = 3];
+      RealearnPlugin [class = "infrastructure"];
+      RealearnUi [class = "infrastructure"];
+      Session [class = "management"];
+      InstanceState [class = "processing"];
+      RealTimeProcessor [width = 2, height = 3, class = "processing"];
+      MainProcessor [width = 2, height = 3, class = "processing"];
 
       {
         rank = same;
@@ -48,10 +47,12 @@ digraph D {
       }
 
       label = "Instance";
+      class = "level-2";
       infrastructure_layer -> application_layer -> processing_layer [style = invis];
     }
 
     label = "ReaLearn";
+    class = "level-1";
   }
 
 

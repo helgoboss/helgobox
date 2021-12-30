@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svgjs="http://svgjs.dev/svgjs" width="410" height="410"><style>@keyframes go-right {
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svgjs="http://svgjs.dev/svgjs" width="410" height="410"><style>/* Animations */
+
+@keyframes go-right {
     from {
         transform: translate(0px, 0px);
     }
@@ -7,13 +9,67 @@
     }
 }
 
-tspan {
+/* Global appearance */
+
+text {
     font-family: sans-serif;
     fill: var(--md-grey-900);
 }
 
+/* Graphviz diagrams */
+
+.graph text {
+    font-size: 12px;
+}
+
+.cluster.level-1 &gt; polygon {
+    fill: var(--md-grey-50);
+}
+
+.cluster.level-2 &gt; polygon {
+    fill: var(--md-grey-100);
+}
+
+.node polygon {
+    fill: var(--md-grey-200);
+}
+
+.node.infrastructure polygon {
+    fill: var(--infrastructure-layer-color);
+}
+
+.node.management polygon {
+    fill: var(--management-layer-color);
+}
+
+.node.processing polygon {
+    fill: var(--processing-layer-color);
+}
+
+.node.base polygon {
+    fill: var(--base-layer-color);
+}
+
+/* Onion diagrams */
+
+.layer-circle {
+    fill-opacity: 1.0;
+    stroke-width: 2;
+    stroke: var(--md-grey-400);
+}
+
+.layer-label, .layer-secondary-label {
+    letter-spacing: 1px;
+}
+
 .layer-secondary-label tspan {
     fill: var(--md-grey-500);
+}
+
+.arrow-label {
+    filter: drop-shadow( 3px 3px 2px rgba(0, 0, 0, .2));
+    font-weight: bold;
+    fill: var(--md-grey-700);
 }
 
 .rule-arrow .arrow-pattern-path {
@@ -29,37 +85,35 @@ tspan {
     fill: var(--md-green-900);
 }
 
-.arrow-label {
-    filter: drop-shadow( 3px 3px 2px rgba(0, 0, 0, .2));
-    font-weight: bold;
-    fill: var(--md-grey-700);
-}
+/* ReaLearn onion diagram */
 
 .infrastructure .layer-circle {
-    fill: var(--md-yellow-100);
+    fill: var(--infrastructure-layer-color);
 }
 
 .management .layer-circle {
-    fill: var(--md-light-green-100);
+    fill: var(--management-layer-color);
 }
 
 .processing .layer-circle {
-    fill: var(--md-light-blue-50);
+    fill: var(--processing-layer-color);
 }
 
 .base .layer-circle {
-    fill: var(--md-blue-grey-100);
+    fill: var(--base-layer-color);
 }
 
-.layer-circle {
-    fill-opacity: 1.0;
-    stroke-width: 2;
-    stroke: var(--md-grey-400);
+/* Custom color palette */
+
+:root {
+    --infrastructure-layer-color: var(--md-yellow-100);
+    --management-layer-color: var(--md-light-green-100);
+    --processing-layer-color: var(--md-light-blue-50);
+    --base-layer-color: var(--md-blue-grey-100);
 }
 
-.layer-label, .layer-secondary-label {
-    letter-spacing: 1px;
-}
+
+/* Material Design color palette */
 
 :root {
     --md-red-50: #ffebee;
