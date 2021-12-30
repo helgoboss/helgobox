@@ -24,23 +24,8 @@ Technically, ReaLearn is a *third-party native VST plug-in for REAPER that makes
 
 ReaLearn is built in a modular fashion. The following diagram shows the most important modules (excuding 3rd-party modules):
 
-[source,mermaid]
-----
-graph TD;
-    subgraph realearn
-        main;
-        swell-ui;
-        api;
-    end
-    main --> api;
-    main --> swell-ui;
-    main --> reaper-rs;
-    main --> helgoboss-learn;
-    main --> helgoboss-midi;
-    reaper-rs --> helgoboss-midi;
-    helgoboss-learn --> helgoboss-midi;
-
-----
+[.text-center]
+image:doc/images/modules.svg[ReaLearn modules]
 
 * *main:* The main module of ReaLearn which contains most of its code. We will learn more about it in the following sections.
 * *api:* This contains the data structures for ReaLearn presets. Its main use case is "ReaLearn Script", a way to build mappings with the Lua scripting language.
@@ -129,84 +114,5 @@ The contents and responsibilities of each layer are described in the following.
 * ReaLearn is made up by a plethora of data structures that resemble components, which can be considered as ReaLearn's "main pillars".
 * Some of these components are part of each instance, others exist globally only once.
 
-TODO-high Build very basic diagram in Graphviz (using SVG classes and - if necessary - absolutely positioned nodes)then post-process it with SVG.js and style it with CSS.
-
-[source,mermaid]
-----
-flowchart TB
-    subgraph reaper
-        MidiInputDevice;
-        MidiOutputDevice;
-        FxChain;
-        Reaper;
-    end
-
-    subgraph realearn
-        subgraph global
-            subgraph global-infrastructure
-                App;
-                Server;
-            end
-    
-            subgraph global-processing
-                Backbone;
-                RealearnControlSurfaceMiddleware;
-                RealearnAudioHook;
-                OscOutputDevice;
-            end
-        end
-
-        subgraph instance
-            subgraph instance-infrastructure
-                RealearnPlugin;
-                RealearnUi;
-            end
-    
-            subgraph instance-management
-                Session;
-            end
-    
-            subgraph instance-processing
-                RealTimeProcessor;
-                MainProcessor;
-                InstanceState;
-            end
-        end
-    end
-    
-    %% General
-    Session -."Sync mappings".-> MainProcessor
-    MainProcessor -."Sync mappings".-> RealTimeProcessor
-    MainProcessor --"Events"--> Session
-    Session --"Events"--> RealearnUi
-
-    %% Feedback direction
-    Reaper --"REAPER change events"--> RealearnControlSurfaceMiddleware
-    InstanceState -."Instance change events".-> RealearnControlSurfaceMiddleware
-    RealearnControlSurfaceMiddleware --"REAPER and instance change events"--> MainProcessor
-
-    %% Control direction (OSC)
-    RealearnControlSurfaceMiddleware --"OSC control events"--> MainProcessor
-
-    %% Feedback direction (OSC)
-    MainProcessor -."OSC feedback events".-> OscOutputDevice
-
-    %% Control direction (MIDI)
-    RealTimeProcessor -."Control values (from MIDI events)".-> MainProcessor
-
-    %% Control direction (MIDI, FX input)
-    FxChain --"MIDI control events (FX input)"--> RealearnPlugin
-    RealearnPlugin --"MIDI control events (FX input)"--> RealTimeProcessor
-
-    %% Feedback direction (MIDI, FX output)
-    MainProcessor -."MIDI feedback events (FX output)".-> RealTimeProcessor
-    RealTimeProcessor --"MIDI feedback events (FX output)"--> FxChain
-
-    %% Control direction (MIDI, device input)
-    MidiInputDevice --"MIDI control events (device input)"--> RealearnAudioHook
-    RealearnAudioHook --"MIDI control events (device input)"--> RealTimeProcessor
-
-    %% Feedback direction (MIDI, device output)
-    MainProcessor -."MIDI feedback events (device output)".-> RealearnAudioHook
-    RealearnAudioHook --"MIDI feedback events (device output)"--> MidiOutputDevice
-----
+[.text-center]
+image:doc/images/components.svg[ReaLearn components]

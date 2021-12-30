@@ -1,0 +1,16 @@
+digraph D {
+  node [shape = "box"];
+  subgraph cluster_realearn {
+    label = "ReaLearn";
+    main;
+    swell_ui;
+    api;
+  }
+  main -> api;
+  main -> swell_ui;
+  main -> reaper_rs;
+  main -> helgoboss_learn;
+  main -> helgoboss_midi;
+  reaper_rs -> helgoboss_midi;
+  helgoboss_learn -> helgoboss_midi;
+}

@@ -1,5 +1,5 @@
 digraph D {
-  node [shape = "box" style=filled, fillcolor = grey];
+  node [shape = "box"];
   // edge [constraint = true];
   compound = true;
   // newrank = true;
@@ -20,8 +20,8 @@ digraph D {
 
     subgraph cluster_instance {
       infrastructure_layer [shape = point style = invis];
-        application_layer [shape = point style = invis];
-        processing_layer [shape = point style = invis]
+      application_layer [shape = point style = invis];
+      processing_layer [shape = point style = invis];
       RealearnPlugin;
       RealearnUi;
       Session;
@@ -50,11 +50,11 @@ digraph D {
       label = "Instance";
       infrastructure_layer -> application_layer -> processing_layer [style = invis];
     }
-    
+
     label = "ReaLearn";
   }
 
-    
+
   // General
   Session -> MainProcessor [label = "Sync mappings", style = "dashed"]
   MainProcessor -> RealTimeProcessor [label = "Sync mappings", style = "dashed"]

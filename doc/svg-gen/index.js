@@ -1,23 +1,42 @@
-const {createSVGWindow} = require('svgdom')
-const window = createSVGWindow()
-const document = window.document
-const {SVG, registerWindow} = require('@svgdotjs/svg.js')
-const fs = require('fs')
-const path = require("path")
-require('@svgdotjs/svg.topath.js')
+import { createSVGWindow } from "svgdom";
+import svgjs from "@svgdotjs/svg.js";
+const { SVG, registerWindow } = svgjs;
+import * as fs from 'fs';
+import * as path from 'path';
+import pako from "pako";
+import got from "got";
+import '@svgdotjs/svg.topath.js';
 
-registerWindow(window, document)
+const script_dir = path.resolve('doc/svg-gen');
 
-const onionLayers = generateOnionLayersDiagram();
-fs.writeFileSync('doc/images/onion-layers.svg', onionLayers.svg())
+generate()
+
+async function generate() {
+    fs.writeFileSync('doc/images/modules.svg', await generateModulesDiagram())
+    fs.writeFileSync('doc/images/onion-layers.svg', generateOnionLayersDiagram())
+    fs.writeFileSync('doc/images/components.svg', await generateComponentDiagram())
+}
+
+async function generateModulesDiagram() {
+    const dot = fs.readFileSync(path.resolve(script_dir, 'modules.dot'));
+    return convertDotToSvg(dot);
+}
+
+async function generateComponentDiagram() {
+    const dot = fs.readFileSync(path.resolve(script_dir, 'components.dot'));
+    return convertDotToSvg(dot);
+}
 
 function generateOnionLayersDiagram() {
+    const window = createSVGWindow()
+    const document = window.document
+    registerWindow(window, document)
     const width = 410;
     const height = 410;
     const draw = SVG(document.documentElement).size(width, height);
     // We need to embed the CSS into the SVG, otherwise the browser won't load it, tried it.
     // (see https://stackoverflow.com/questions/18434094/how-to-style-svg-with-external-css).
-    const css = fs.readFileSync(path.resolve(__dirname, 'styles.css'));
+    const css = fs.readFileSync(path.resolve(script_dir, 'styles.css'));
     draw.element('style').words(css)
     // Default attributes
     const defaultFontSize = 15;
@@ -73,7 +92,7 @@ function generateOnionLayersDiagram() {
             .circle(radius * 2)
             .center(width / 2, height / 2)
             .fill('none')
-            .stroke({ color: 'black' })
+            .stroke({color: 'black'})
             .addClass('layer-circle')
         const pathRadius = radius - spacing / 2;
         const radiusFix = defaultFontSize / 3;
@@ -153,5 +172,15 @@ function generateOnionLayersDiagram() {
         return outer_group;
     }
 
-    return draw;
+    return draw.svg();
+}
+
+async function convertDotToSvg(dot) {
+    const data = Buffer.from(dot, 'utf8')
+    const compressed = pako.deflate(data, {level: 9})
+    const body = Buffer.from(compressed)
+        .toString('base64')
+        .replace(/\+/g, '-').replace(/\//g, '_')
+    const response = await got(`https://kroki.io/graphviz/svg/${body}`);
+    return response.body
 }
