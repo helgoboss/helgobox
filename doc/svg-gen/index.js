@@ -16,9 +16,9 @@ function generateOnionLayersDiagram() {
     const width = 410;
     const height = 410;
     const draw = SVG(document.documentElement).size(width, height);
-    // const css = fs.readFileSync(path.resolve(__dirname, "styles.css"));
-    // draw.element('style').words(css)
-    draw.style("@import 'styles.css';");
+    const css = fs.readFileSync(path.resolve(__dirname, "../images/styles.css"));
+    draw.element('style').words(css)
+    // draw.style("@import 'styles.css';");
     const defaultFontSize = 15;
     const defaultTextColor = colors.grey[900];
     const defaultArrowColor = colors.green[900];
