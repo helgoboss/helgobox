@@ -16,9 +16,11 @@ function generateOnionLayersDiagram() {
     const width = 410;
     const height = 410;
     const draw = SVG(document.documentElement).size(width, height);
-    const css = fs.readFileSync(path.resolve(__dirname, "../images/styles.css"));
+    // We need to embed the CSS into the SVG, otherwise the browser won't load it, tried it.
+    // (see https://stackoverflow.com/questions/18434094/how-to-style-svg-with-external-css).
+    const css = fs.readFileSync(path.resolve(__dirname, 'styles.css'));
     draw.element('style').words(css)
-    // draw.style("@import 'styles.css';");
+    // Default attributes
     const defaultFontSize = 15;
     const defaultTextColor = colors.grey[900];
     const defaultArrowColor = colors.green[900];
