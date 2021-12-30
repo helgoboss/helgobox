@@ -10,7 +10,7 @@
 :osc_preset_content: There are no ReaLearn controller presets for OSC layouts yet. Although technically possible in exactly the same way as with controller presets for MIDI devices, OSC layouts are very custom, so I'm not sure if it would make much sense to create presets. Time will show.
 
 |===
-|Last update of text: |`2021-12-23 (v2.12.0-pre.1)`
+|Last update of text: |`2021-12-30 (v2.12.0-pre.4)`
 |Last update of relevant screenshots: |`2021-04-27 (v2.8.0)`
 |===
 
@@ -1472,19 +1472,146 @@ If you want to know how to define which text shall be sent to the displays, plea
 
 OSC sources allow configuration of the following aspects:
 
-* *Address:* This needs to correspond exactly to the address of the corresponding control element on your OSC device.
+[discrete]
+====== Address
+
+This needs to correspond exactly to the address of the corresponding control element on your OSC device.
  Example: `/1/fader1`. You don't need to figure that out yourself, just use the _Learn_ function.
-* *Argument:* Each OSC message consists of an arbitrary number of arguments. In most cases, e.g. with faders, knobs or
+
+[discrete]
+====== Argument
+
+Each OSC message consists of an arbitrary number of arguments. In most cases, e.g. with faders, knobs or
  buttons it's just one argument. X/Y controls often send 2 arguments, one for each axis. There are rare cases
  in which messages have even more arguments. This field allows you to enter the number of the argument that ReaLearn
  should look at and process. `1` denotes the first argument, `2` the second one, and so on.
-* *Type:* Denotes the argument type which ReaLearn should use to construct the proper feedback message. This is
- usually the same type that's used for control direction. However, for control direction, this is irrelevant because
- ReaLearn deals with whatever type arrives in the appropriate way. If you use _Learn_, the type is automatically
- filled. ReaLearn will always try to learn the type of the argument number entered in the _Argument_ text field.
-* *Is relative:* Some messages transmitted by OSC devices are meant to be interpreted as relative
+
+[discrete]
+====== Type
+
+Denotes the argument type which ReaLearn should use to construct a proper feedback message.
+
+* This is usually the same type as the one used for control direction. For control direction, choosing an explicit type is irrelevant because ReaLearn handles whatever type arrives automatically in the best possible way.
+* If you use _Learn_, the type is filled automatically.
+* The value that's send will be derived from the type (see <<feedback-arguments>>):
++
+[cols="m,m"]
+|===
+| Type | Property
+
+| Float | value.float
+| Double | value.double
+| Bool | value.bool
+| Nil | nil
+| Inf | inf
+| String | value.string
+| Color | style.color
+|===
+* If you want more control over what feedback values are sent, use the _Feedback arguments_ field.
+
+
+[discrete]
+====== Is relative
+
+Some messages transmitted by OSC devices are meant to be interpreted as relative
  increments/decrements instead of absolute values, e.g. jog wheels. When you enable this checkbox, ReaLearn will
  treat each received _1_ value as an increment and _0_ value a decrement.
+
+
+[discrete]
+[#feedback-arguments]
+====== Feedback arguments
+
+Allows you to define exactly which feedback value is sent at which argument position. If this field is non-empty, the _Type_ dropdown will be ignored.
+
+The format of this field is very simple: You enter feedback value property keys separated by spaces. Each entered property key corresponds to one argument position. E.g. if you want ReaLearn to send the current feedback value in text form at argument 1 and the color (see <<feedback-style>>) as RRGGBB string at argument 2, you would enter:
+
+----
+value.string style.color.rrggbb
+----
+
+The following properties are available:
+
+[cols="m,m,1"]
+|===
+| Property | Type | Description
+
+|
+value.float
+|
+Float
+|
+Numeric feedback value interpreted as float
+
+|
+value.double
+|
+Double
+|
+Numeric feedback value interpreted as double
+
+|
+value.bool
+|
+Bool
+|
+Numeric feedback interpreted as bool (on/off only)
+
+|
+value.string
+|
+String
+|
+Numeric or textual feedback value formatted as string
+
+
+|
+style.color.rrggbb
+|
+String
+|
+Feedback value color formatted as RRGGBB string
+
+
+|
+style.background_color.rrggbb
+|
+String
+|
+Feedback value background color formatted as RRGGBB string
+
+
+
+|
+style.color
+|
+Color
+|
+Feedback value color as native OSC color
+
+
+|
+style.background_color
+|
+Color
+|
+Feedback value background color as native OSC color
+
+
+|
+nil
+|
+Nil
+|
+Nil value
+
+|
+inf
+|
+Infinity
+|
+Infinity value
+|===
 
 ===== Category "REAPER"
 
@@ -2758,7 +2885,7 @@ Name of the first resolved target send/receive/output (if supported).
 +
 For target-specific placeholders, please look up the corresponding <<target>> section.
 
-
+[#feedback-style]
 ===== Feedback style (... button)
 
 The ... button options to change the _feedback style_. At the moment, it's all about setting colors. Expect more style properties to follow in future versions of ReaLearn.
@@ -3969,6 +4096,8 @@ ReaLearn:
 Works for both control and feedback.
 
 This recent version of TouchOSC fixes the issue with X/Y controls. It's able to receive the feedback values for X and Y on different OSC addresses, which is perfect for the way ReaLearn works (one mapping per axis).
+
+NOTE: If you want to send a color value to TouchOSC, use the feedback argument `style.color.rrggbb`. This sends a string instead of a native OSC _Color_ value (latter is not supported by TouchOSC). The string can be directly mapped to a color property in the TouchOSC editor.
 
 [discrete]
 ==== Setup
