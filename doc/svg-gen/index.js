@@ -3,6 +3,7 @@ const window = createSVGWindow()
 const document = window.document
 const {SVG, registerWindow} = require('@svgdotjs/svg.js')
 const fs = require('fs')
+const path = require("path")
 const colors = require('material-colors')
 require('@svgdotjs/svg.topath.js')
 
@@ -15,12 +16,14 @@ function generateOnionLayersDiagram() {
     const width = 410;
     const height = 410;
     const draw = SVG(document.documentElement).size(width, height);
-    const ruleArrowStyle = 4;
+    // const css = fs.readFileSync(path.resolve(__dirname, "styles.css"));
+    // draw.element('style').words(css)
+    draw.style("@import 'styles.css';");
     const defaultFontSize = 15;
     const defaultTextColor = colors.grey[900];
     const defaultArrowColor = colors.green[900];
     const defaultArrowWidth = 2;
-    const defaultArrowTextColor = defaultArrowColor;
+    const defaultArrowTextColor = colors.grey[700];
     const baseFont = {
         family: 'sans-serif',
         fill: defaultTextColor,
@@ -47,10 +50,13 @@ function generateOnionLayersDiagram() {
 
     // Arrows
     drawArrow(infrastructureLayer.x(), infrastructureLayer.cy(), baseLayer.cx(), baseLayer.cy(), {
-        text: 'May use code in',
+        text: 'may use code in',
         patternOrColor: arrowPattern,
         width: 10,
         drawHead: false,
+        pathClass: 'go-right',
+        textClass: 'arrow-label',
+        useClipping: true,
     });
 
     function arrowHead() {
@@ -117,20 +123,41 @@ function generateOnionLayersDiagram() {
         });
     }
 
-    function drawArrow(x1, y1, x2, y2, {patternOrColor, width, head, text, textColor, drawHead = true}) {
+    function drawArrow(x1, y1, x2, y2, {
+        patternOrColor = defaultArrowColor,
+        width = defaultArrowWidth,
+        head = defaultArrowHead,
+        text,
+        textColor = defaultArrowTextColor,
+        drawHead = true,
+        pathClass = undefined,
+        textClass = undefined,
+        useClipping = false,
+    }) {
+        // Group for clipping
+        const g = draw.group();
         // Arrow itself
-        const el = draw.line(x1, y1, x2, y2).toPath();
-        el.stroke({color: patternOrColor || defaultArrowColor, width: width || defaultArrowWidth});
+        const line = useClipping ? g.line(x1 - 100, y1, x2 + 100, y2) : g.line(x1, y1, x2, y2);
+        const path = line.toPath().addClass(pathClass);
+        path.stroke({color: patternOrColor, width});
         // Head
         if (drawHead) {
-            el.marker('end', (head || defaultArrowHead).size(8, 8))
+            path.marker('end', head.size(8, 8))
         }
         // Text
-        el
+        draw.textPath()
+            .plot(path.array())
             .text(add => {
                 add.tspan(text).dy(-10)
             })
-            .font({...baseFont, anchor: 'middle', startOffset: '50%', fill: textColor || defaultArrowTextColor});
+            .addClass(textClass)
+            .font({...baseFont, anchor: 'middle', startOffset: '50%', fill: textColor});
+        // Clip (useful for keeping CSS transform animation within bounds)
+        if (useClipping) {
+            const clip = g.clip()
+                .add(g.polygon().plot([[x1, y1 - width], [x2, y2 - width], [x2, y1 + width], [12, y2 + width]]));
+            g.clipWith(clip);
+        }
     }
 
     return draw;
