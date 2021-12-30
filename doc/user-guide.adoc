@@ -1472,13 +1472,11 @@ If you want to know how to define which text shall be sent to the displays, plea
 
 OSC sources allow configuration of the following aspects:
 
-[discrete]
 ====== Address
 
 This needs to correspond exactly to the address of the corresponding control element on your OSC device.
  Example: `/1/fader1`. You don't need to figure that out yourself, just use the _Learn_ function.
 
-[discrete]
 ====== Argument
 
 Each OSC message consists of an arbitrary number of arguments. In most cases, e.g. with faders, knobs or
@@ -1486,7 +1484,6 @@ Each OSC message consists of an arbitrary number of arguments. In most cases, e.
  in which messages have even more arguments. This field allows you to enter the number of the argument that ReaLearn
  should look at and process. `1` denotes the first argument, `2` the second one, and so on.
 
-[discrete]
 ====== Type
 
 Denotes the argument type which ReaLearn should use to construct a proper feedback message.
@@ -1510,7 +1507,6 @@ Denotes the argument type which ReaLearn should use to construct a proper feedba
 * If you want more control over what feedback values are sent, use the _Feedback arguments_ field.
 
 
-[discrete]
 ====== Is relative
 
 Some messages transmitted by OSC devices are meant to be interpreted as relative
@@ -1518,7 +1514,6 @@ Some messages transmitted by OSC devices are meant to be interpreted as relative
  treat each received _1_ value as an increment and _0_ value a decrement.
 
 
-[discrete]
 [#feedback-arguments]
 ====== Feedback arguments
 
