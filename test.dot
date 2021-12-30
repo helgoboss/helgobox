@@ -1,0 +1,93 @@
+digraph D {
+  node [shape = "box" style=filled, fillcolor = grey];
+  // edge [constraint = true];
+  compound = true;
+  // newrank = true;
+  rankdir = "TB";
+
+  MidiInputDevice;
+  MidiOutputDevice;
+  FxChain;
+  Reaper;
+
+  subgraph cluster_realearn {
+    App;
+    Server;
+    Backbone;
+    RealearnControlSurfaceMiddleware;
+    RealearnAudioHook;
+    OscOutputDevice;
+
+    subgraph cluster_instance {
+      infrastructure_layer [shape = point style = invis];
+        application_layer [shape = point style = invis];
+        processing_layer [shape = point style = invis]
+      RealearnPlugin;
+      RealearnUi;
+      Session;
+      InstanceState;
+      RealTimeProcessor [width = 2, height = 3];
+      MainProcessor [width = 2, height = 3];
+
+      {
+        rank = same;
+        infrastructure_layer;
+        RealearnUi;
+      }
+      {
+        rank = same;
+        application_layer;
+        Session;
+      }
+      {
+        rank = same;
+        processing_layer;
+        RealTimeProcessor;
+        MainProcessor;
+        InstanceState;
+      }
+
+      label = "Instance";
+      infrastructure_layer -> application_layer -> processing_layer [style = invis];
+    }
+    
+    label = "ReaLearn";
+  }
+
+    
+  // General
+  Session -> MainProcessor [label = "Sync mappings", style = "dashed"]
+  MainProcessor -> RealTimeProcessor [label = "Sync mappings", style = "dashed"]
+  MainProcessor -> Session [label = "Events"]
+  Session -> RealearnUi [label = "Events"]
+
+  // Feedback direction
+  Reaper -> RealearnControlSurfaceMiddleware [label = "REAPER change events"]
+  InstanceState -> RealearnControlSurfaceMiddleware [label = "Instance change events", style = "dashed"]
+  RealearnControlSurfaceMiddleware -> MainProcessor [label = "REAPER and instance change events"]
+
+  // Control direction (OSC)
+  RealearnControlSurfaceMiddleware -> MainProcessor [label = "OSC control events"]
+
+  // Feedback direction (OSC)
+  MainProcessor -> OscOutputDevice [label = "OSC feedback events", style = "dashed"]
+
+  // Control direction (MIDI)
+  RealTimeProcessor -> MainProcessor [label = "Control values (from MIDI events)", style = "dashed"]
+
+  // Control direction (MIDI, FX input)
+  FxChain -> RealearnPlugin [label = "MIDI control events (FX input)"]
+  RealearnPlugin -> RealTimeProcessor [label = "MIDI control events (FX input)"]
+
+  // Feedback direction (MIDI, FX output)
+  MainProcessor -> RealTimeProcessor [label = "MIDI feedback events (FX output)", style = "dashed"]
+  RealTimeProcessor -> FxChain [label = "MIDI feedback events (FX output)", constraint = false]
+
+  // Control direction (MIDI, device input)
+  MidiInputDevice -> RealearnAudioHook [label = "MIDI control events (device input)"]
+  RealearnAudioHook -> RealTimeProcessor [label = "MIDI control events (device input)"]
+
+  // Feedback direction (MIDI, device output)
+  MainProcessor -> RealearnAudioHook [label = "MIDI feedback events (device output)", style = "dashed"]
+  RealearnAudioHook -> MidiOutputDevice [label = "MIDI feedback events (device output)"]
+}
