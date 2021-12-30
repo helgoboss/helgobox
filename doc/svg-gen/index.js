@@ -4,7 +4,6 @@ const document = window.document
 const {SVG, registerWindow} = require('@svgdotjs/svg.js')
 const fs = require('fs')
 const path = require("path")
-const colors = require('material-colors')
 require('@svgdotjs/svg.topath.js')
 
 registerWindow(window, document)
@@ -22,7 +21,7 @@ function generateOnionLayersDiagram() {
     draw.element('style').words(css)
     // Default attributes
     const defaultFontSize = 15;
-    const defaultArrowColor = colors.black;
+    const defaultArrowColor = 'black';
     const defaultArrowWidth = 2;
     const baseFont = {
         size: defaultFontSize,
