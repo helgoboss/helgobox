@@ -1,5 +1,5 @@
 = ReaLearn
-:toc:
+:toc: preamble
 :sectnums:
 :sectnumlevels: 2
 
