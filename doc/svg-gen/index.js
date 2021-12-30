@@ -22,33 +22,24 @@ function generateOnionLayersDiagram() {
     draw.element('style').words(css)
     // Default attributes
     const defaultFontSize = 15;
-    const defaultTextColor = colors.grey[900];
-    const defaultArrowColor = colors.green[900];
+    const defaultArrowColor = colors.black;
     const defaultArrowWidth = 2;
-    const defaultArrowTextColor = colors.grey[700];
     const baseFont = {
-        family: 'sans-serif',
-        fill: defaultTextColor,
         size: defaultFontSize,
     }
-    const arrowPattern = createArrowPattern();
+    const arrowPattern = createArrowPattern('rule-arrow');
     const defaultArrowHead = arrowHead();
 
     // Layers
-    const layerColorDepth = 100;
-    const infrastructureLayerColor = colors.yellow[layerColorDepth];
-    const managementLayerColor = colors.lightGreen[layerColorDepth];
-    const processingLayerColor = colors.lightBlue[layerColorDepth];
-    const baseLayerColor = colors.blueGrey[layerColorDepth];
-    const infrastructureLayer = layer(4, 'infrastructure', infrastructureLayerColor, [
+    const infrastructureLayer = layer(4, 'infrastructure', 'infrastructure', [
         'GUI',
         'API',
         'Persistence',
         'Server',
     ]);
-    layer(3, 'management', managementLayerColor);
-    layer(2, 'processing', processingLayerColor);
-    const baseLayer = layer(1, 'base', baseLayerColor);
+    layer(3, 'management', 'management');
+    layer(2, 'processing', 'processing');
+    const baseLayer = layer(1, 'base', 'base');
 
     // Arrows
     drawArrow(infrastructureLayer.x(), infrastructureLayer.cy(), baseLayer.cx(), baseLayer.cy(), {
@@ -56,14 +47,13 @@ function generateOnionLayersDiagram() {
         patternOrColor: arrowPattern,
         width: 10,
         drawHead: false,
-        pathClass: 'go-right',
-        textClass: 'arrow-label',
+        cssClass: 'rule-arrow',
         useClipping: true,
     });
 
     function arrowHead() {
         return draw.marker(10, 7, (add) => {
-            add.polygon('0,0 10,3.5 0,7').fill(defaultArrowColor);
+            add.polygon('0,0 10,3.5 0,7').addClass('arrow-head');
         });
     }
 
@@ -76,16 +66,16 @@ function generateOnionLayersDiagram() {
         ];
     }
 
-    function layer(index, label, color, components = []) {
-        const g = draw.group();
+    function layer(index, cssClass, label, components = []) {
+        const g = draw.group().addClass(cssClass);
         const spacing = 50;
         const radius = index * spacing;
         const circle = g
             .circle(radius * 2)
-            .stroke({color: colors.grey[500], width: 2})
             .center(width / 2, height / 2)
-            .fill(color)
-            .attr('fill-opacity', 1.0);
+            .fill('none')
+            .stroke({ color: 'black' })
+            .addClass('layer-circle')
         const pathRadius = radius - spacing / 2;
         const radiusFix = defaultFontSize / 3;
         const upperArc = arcPath(
@@ -97,8 +87,8 @@ function generateOnionLayersDiagram() {
         g.textPath(label, upperArc)
             .attr('text-anchor', 'middle')
             .attr('startOffset', '50%')
-            .attr('letter-spacing', 1)
-            .font(baseFont);
+            .font(baseFont)
+            .addClass('layer-label')
         const lowerArc = arcPath(
             pathRadius + radiusFix,
             circle.cx(),
@@ -111,17 +101,19 @@ function generateOnionLayersDiagram() {
             g.textPath(components[i], lowerArc)
                 .attr('text-anchor', 'middle')
                 .attr('startOffset', `${offset}%`)
-                .attr('letter-spacing', 1)
-                .font({...baseFont, fill: colors.grey[500]});
+                .font(baseFont)
+                .addClass('layer-secondary-label');
         }
         return circle;
     }
 
-    function createArrowPattern() {
+    function createArrowPattern(cssClass = undefined) {
         return draw.pattern(30, 20, (add) => {
-            const g = add.group();
-            g.line(0, 3.5, 10, 3.5).stroke({color: defaultArrowColor, width: 1});
-            g.polygon('10,0 20,3.5 10,7').fill(defaultArrowColor);
+            const g = add.group().addClass(cssClass);
+            g.line(0, 3.5, 10, 3.5)
+                .stroke({color: defaultArrowColor, width: 1})
+                .addClass('arrow-pattern-path');
+            g.polygon('10,0 20,3.5 10,7').addClass('arrow-pattern-head');
         });
     }
 
@@ -130,36 +122,36 @@ function generateOnionLayersDiagram() {
         width = defaultArrowWidth,
         head = defaultArrowHead,
         text,
-        textColor = defaultArrowTextColor,
         drawHead = true,
-        pathClass = undefined,
-        textClass = undefined,
+        cssClass = undefined,
         useClipping = false,
     }) {
         // Group for clipping
-        const g = draw.group();
+        const outer_group = draw.group().addClass(cssClass);
+        const inner_group = outer_group.group();
         // Arrow itself
-        const line = useClipping ? g.line(x1 - 100, y1, x2 + 100, y2) : g.line(x1, y1, x2, y2);
-        const path = line.toPath().addClass(pathClass);
+        const line = useClipping ? inner_group.line(x1 - 100, y1, x2 + 100, y2) : inner_group.line(x1, y1, x2, y2);
+        const path = line.toPath().addClass('arrow-path');
         path.stroke({color: patternOrColor, width});
         // Head
         if (drawHead) {
             path.marker('end', head.size(8, 8))
         }
         // Text
-        draw.textPath()
+        outer_group.textPath()
             .plot(path.array())
             .text(add => {
                 add.tspan(text).dy(-10)
             })
-            .addClass(textClass)
-            .font({...baseFont, anchor: 'middle', startOffset: '50%', fill: textColor});
+            .addClass('arrow-label')
+            .font({...baseFont, anchor: 'middle', startOffset: '50%'});
         // Clip (useful for keeping CSS transform animation within bounds)
         if (useClipping) {
-            const clip = g.clip()
-                .add(g.polygon().plot([[x1, y1 - width], [x2, y2 - width], [x2, y1 + width], [12, y2 + width]]));
-            g.clipWith(clip);
+            const clip = inner_group.clip()
+                .add(inner_group.polygon().plot([[x1, y1 - width], [x2, y2 - width], [x2, y1 + width], [12, y2 + width]]));
+            inner_group.clipWith(clip);
         }
+        return outer_group;
     }
 
     return draw;

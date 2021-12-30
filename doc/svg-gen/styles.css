@@ -6,13 +6,59 @@
         transform: translate(30px, 0px);
     }
 }
-.go-right {
+
+tspan {
+    font-family: sans-serif;
+    fill: var(--md-grey-900);
+}
+
+.layer-secondary-label tspan {
+    fill: var(--md-grey-500);
+}
+
+.rule-arrow .arrow-pattern-path {
+    stroke: var(--md-green-900);
+}
+
+.rule-arrow .arrow-path {
     animation: go-right 2s linear infinite;
+    stroke-width: 10;
+}
+
+.rule-arrow .arrow-head, .rule-arrow .arrow-pattern-head {
+    fill: var(--md-green-900);
 }
 
 .arrow-label {
     filter: drop-shadow( 3px 3px 2px rgba(0, 0, 0, .2));
     font-weight: bold;
+    fill: var(--md-grey-700);
+}
+
+.infrastructure .layer-circle {
+    fill: var(--md-yellow-100);
+}
+
+.management .layer-circle {
+    fill: var(--md-light-green-100);
+}
+
+.processing .layer-circle {
+    fill: var(--md-light-blue-50);
+}
+
+.base .layer-circle {
+    fill: var(--md-blue-grey-100);
+}
+
+.layer-circle {
+    fill-opacity: 1.0;
+    stroke-width: 2;
+    stroke: var(--md-grey-400);
+}
+
+.layer-label, .layer-secondary-label {
+    letter-spacing: 1px;
 }
 
 :root {
@@ -107,7 +153,7 @@
     --md-blue-a700: #2962ff;
 
     --md-light-blue-50: #e1f5fe;
-    --md-light-blue-100: #b3e5fc;
+    --md-light-blue-100: #466b86;
     --md-light-blue-200: #81d4fa;
     --md-light-blue-300: #4fc3f7;
     --md-light-blue-400: #29b6f6;
