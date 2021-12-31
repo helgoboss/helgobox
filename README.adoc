@@ -1,6 +1,5 @@
 = ReaLearn
 :toc: preamble
-:sectnums:
 :sectnumlevels: 2
 
 image:https://github.com/helgoboss/realearn/actions/workflows/windows-x86_64.yml/badge.svg[Windows x86_64,link=https://github.com/helgoboss/realearn/actions/workflows/windows-x86_64.yml]
