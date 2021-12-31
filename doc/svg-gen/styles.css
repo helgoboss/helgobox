@@ -52,7 +52,7 @@ text {
     fill: var(--layer-base-color);
 }
 
-.edge.com-async {
+.edge.com-async path {
     stroke-dasharray: 5, 2;
 }
 
