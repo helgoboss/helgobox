@@ -19,6 +19,24 @@ async function generate() {
     fs.writeFileSync('doc/images/modules.svg', await generateModulesDiagram())
     fs.writeFileSync('doc/images/onion-layers.svg', generateOnionLayersDiagram())
     fs.writeFileSync('doc/images/components.svg', await generateComponentDiagram())
+    fs.writeFileSync('doc/images/components-midi-fx.svg', await generateComponentDiagram([
+        'role-realtime-general',
+        'role-realtime-midi-general',
+        'role-realtime-midi-fx'
+    ]))
+    fs.writeFileSync('doc/images/components-midi-device.svg', await generateComponentDiagram([
+        'role-realtime-general',
+        'role-realtime-midi-general',
+        'role-realtime-midi-device'
+    ]))
+    fs.writeFileSync('doc/images/components-osc.svg', await generateComponentDiagram([
+        'role-realtime-general',
+        'role-realtime-osc',
+    ]))
+    fs.writeFileSync('doc/images/components-management.svg', await generateComponentDiagram([
+        'role-sync-data',
+        'role-notify',
+    ]))
 }
 
 async function generateModulesDiagram() {
@@ -26,8 +44,14 @@ async function generateModulesDiagram() {
     return draw.svg();
 }
 
-async function generateComponentDiagram() {
+async function generateComponentDiagram(shownEdgeClasses = undefined) {
     const draw = await loadDotToSvgCanvas('components.dot');
+    if (shownEdgeClasses) {
+        draw.style('.edge', {visibility: 'hidden'})
+        for (let edgeClass of shownEdgeClasses) {
+            draw.style(`.edge.${edgeClass}`, {visibility: 'visible'})
+        }
+    }
     return draw.svg();
 }
 
@@ -49,15 +73,15 @@ function generateOnionLayersDiagram() {
     const defaultArrowHead = arrowHead();
 
     // Layers
-    const infrastructureLayer = layer(4, 'infrastructure', 'infrastructure', [
+    const infrastructureLayer = layer(4, 'layer-infrastructure', 'infrastructure', [
         'GUI',
         'API',
         'Persistence',
         'Server',
     ]);
-    layer(3, 'management', 'management');
-    layer(2, 'processing', 'processing');
-    const baseLayer = layer(1, 'base', 'base');
+    layer(3, 'layer-management', 'management');
+    layer(2, 'layer-processing', 'processing');
+    const baseLayer = layer(1, 'layer-base', 'base');
 
     // Arrows
     drawArrow(infrastructureLayer.x(), infrastructureLayer.cy(), baseLayer.cx(), baseLayer.cy(), {
@@ -93,7 +117,7 @@ function generateOnionLayersDiagram() {
             .center(width / 2, height / 2)
             .fill('none')
             .stroke({color: 'black'})
-            .addClass('layer-circle')
+            .addClass('layerpart-circle')
         const pathRadius = radius - spacing / 2;
         const radiusFix = defaultFontSize / 3;
         const upperArc = arcPath(
@@ -106,7 +130,7 @@ function generateOnionLayersDiagram() {
             .attr('text-anchor', 'middle')
             .attr('startOffset', '50%')
             .font(baseFont)
-            .addClass('layer-label')
+            .addClass('layerpart-label')
         const lowerArc = arcPath(
             pathRadius + radiusFix,
             circle.cx(),
@@ -120,7 +144,7 @@ function generateOnionLayersDiagram() {
                 .attr('text-anchor', 'middle')
                 .attr('startOffset', `${offset}%`)
                 .font(baseFont)
-                .addClass('layer-secondary-label');
+                .addClass('layerpart-secondary-label');
         }
         return circle;
     }
@@ -161,7 +185,7 @@ function generateOnionLayersDiagram() {
             .text(add => {
                 add.tspan(text).dy(-10)
             })
-            .addClass('arrow-label')
+            .addClass('arrowpart-label')
             .font({...baseFont, anchor: 'middle', startOffset: '50%'});
         // Clip (useful for keeping CSS transform animation within bounds)
         if (useClipping) {

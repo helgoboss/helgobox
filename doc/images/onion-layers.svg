@@ -22,6 +22,8 @@ text {
     font-size: 12px;
 }
 
+/* ReaLearn component diagram */
+
 .cluster.level-1 &gt; polygon {
     fill: var(--md-grey-50);
 }
@@ -34,43 +36,71 @@ text {
     fill: var(--md-grey-200);
 }
 
-.node.infrastructure polygon {
-    fill: var(--infrastructure-layer-color);
+.node.layer-infrastructure polygon {
+    fill: var(--layer-infrastructure-color);
 }
 
-.node.management polygon {
-    fill: var(--management-layer-color);
+.node.layer-management polygon {
+    fill: var(--layer-management-color);
 }
 
-.node.processing polygon {
-    fill: var(--processing-layer-color);
+.node.layer-processing polygon {
+    fill: var(--layer-processing-color);
 }
 
-.node.base polygon {
-    fill: var(--base-layer-color);
+.node.layer-base polygon {
+    fill: var(--layer-base-color);
 }
 
-.edge.async {
+.edge.com-async {
     stroke-dasharray: 5, 2;
+}
+
+.edge.dir-control text, .edge.dir-control polygon {
+    fill: var(--dir-control-color);
+}
+
+.edge.dir-feedback text, .edge.dir-feedback polygon {
+    fill: var(--dir-feedback-color);
+}
+
+.edge.dir-control path, .edge.dir-control polygon {
+    stroke: var(--dir-control-color);
+}
+
+.edge.dir-feedback path, .edge.dir-feedback polygon {
+    stroke: var(--dir-feedback-color);
+}
+
+.edge.type-general, .edge.type-midi-general {
+    opacity: 0.5;
+}
+
+.edge {
+    stroke-width: 2;
+}
+
+.edge.type-general path, .edge.type-midi-general path {
+    stroke-width: 1;
 }
 
 /* Onion diagrams */
 
-.layer-circle {
+.layerpart-circle {
     fill-opacity: 1.0;
     stroke-width: 2;
     stroke: var(--md-grey-400);
 }
 
-.layer-label, .layer-secondary-label {
+.layerpart-label, .layerpart-secondary-label {
     letter-spacing: 1px;
 }
 
-.layer-secondary-label tspan {
+.layerpart-secondary-label tspan {
     fill: var(--md-grey-500);
 }
 
-.arrow-label {
+.arrowpart-label {
     filter: drop-shadow( 3px 3px 2px rgba(0, 0, 0, .2));
     font-weight: bold;
     fill: var(--md-grey-700);
@@ -91,29 +121,34 @@ text {
 
 /* ReaLearn onion diagram */
 
-.infrastructure .layer-circle {
-    fill: var(--infrastructure-layer-color);
+.layer-infrastructure .layerpart-circle {
+    fill: var(--layer-infrastructure-color);
 }
 
-.management .layer-circle {
-    fill: var(--management-layer-color);
+.layer-management .layerpart-circle {
+    fill: var(--layer-management-color);
 }
 
-.processing .layer-circle {
-    fill: var(--processing-layer-color);
+.layer-processing .layerpart-circle {
+    fill: var(--layer-processing-color);
 }
 
-.base .layer-circle {
-    fill: var(--base-layer-color);
+.layer-base .layerpart-circle {
+    fill: var(--layer-base-color);
 }
 
 /* Custom color palette */
 
 :root {
-    --infrastructure-layer-color: var(--md-yellow-100);
-    --management-layer-color: var(--md-light-green-100);
-    --processing-layer-color: var(--md-light-blue-50);
-    --base-layer-color: var(--md-blue-grey-100);
+    /* Layer colors */
+    --layer-infrastructure-color: var(--md-yellow-100);
+    --layer-management-color: var(--md-light-green-100);
+    --layer-processing-color: var(--md-light-blue-50);
+    --layer-base-color: var(--md-blue-grey-100);
+    
+    /* Direction colors */
+    --dir-control-color: var(--md-amber-900);
+    --dir-feedback-color: var(--md-cyan-900);
 }
 
 
@@ -415,4 +450,4 @@ text {
 
 
 }
-</style><defs><pattern x="0" y="0" width="30" height="20" patternUnits="userSpaceOnUse" id="SvgjsPattern1008"><g class="rule-arrow"><line x1="0" y1="3.5" x2="10" y2="3.5" stroke-width="1" stroke="black" class="arrow-pattern-path"></line><polygon points="10,0 20,3.5 10,7" class="arrow-pattern-head"></polygon></g></pattern><marker markerWidth="10" markerHeight="7" refX="5" refY="3.5" viewBox="0 0 10 7" orient="auto"><polygon points="0,0 10,3.5 0,7" class="arrow-head"></polygon></marker><path d="M35 205A-170 -170 0 0 1 375 205 " id="SvgjsPath1000"></path><path d="M25 205A-180 -180 0 0 0 385 205 " id="SvgjsPath1001"></path><path d="M25 205A-180 -180 0 0 0 385 205 " id="SvgjsPath1002"></path><path d="M25 205A-180 -180 0 0 0 385 205 " id="SvgjsPath1003"></path><path d="M25 205A-180 -180 0 0 0 385 205 " id="SvgjsPath1004"></path><path d="M85 205A-120 -120 0 0 1 325 205 " id="SvgjsPath1005"></path><path d="M135 205A-70 -70 0 0 1 275 205 " id="SvgjsPath1006"></path><path d="M185 205A-20 -20 0 0 1 225 205 " id="SvgjsPath1007"></path><path d="M-95 205L305 205 " id="SvgjsPath1009"></path><clipPath id="SvgjsClipPath1010"><polygon points="5,195 205,195 205,215 12,215"></polygon></clipPath></defs><g class="infrastructure"><circle r="200" cx="205" cy="205" fill="none" stroke="black" class="layer-circle"></circle><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1000" text-anchor="middle" startOffset="50%" font-size="15" class="layer-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">infrastructure</tspan></textPath></text><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1001" text-anchor="middle" startOffset="12.5%" font-size="15" class="layer-secondary-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">GUI</tspan></textPath></text><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1002" text-anchor="middle" startOffset="37.5%" font-size="15" class="layer-secondary-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">API</tspan></textPath></text><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1003" text-anchor="middle" startOffset="62.5%" font-size="15" class="layer-secondary-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">Persistence</tspan></textPath></text><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1004" text-anchor="middle" startOffset="87.5%" font-size="15" class="layer-secondary-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">Server</tspan></textPath></text></g><g class="management"><circle r="150" cx="205" cy="205" fill="none" stroke="black" class="layer-circle"></circle><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1005" text-anchor="middle" startOffset="50%" font-size="15" class="layer-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">management</tspan></textPath></text></g><g class="processing"><circle r="100" cx="205" cy="205" fill="none" stroke="black" class="layer-circle"></circle><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1006" text-anchor="middle" startOffset="50%" font-size="15" class="layer-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">processing</tspan></textPath></text></g><g class="base"><circle r="50" cx="205" cy="205" fill="none" stroke="black" class="layer-circle"></circle><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1007" text-anchor="middle" startOffset="50%" font-size="15" class="layer-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">base</tspan></textPath></text></g><g class="rule-arrow"><g clip-path="url(&quot;#SvgjsClipPath1010&quot;)"><path d="M-95 205L305 205 " class="arrow-path" stroke-width="10" stroke="url(&quot;#SvgjsPattern1008&quot;)"></path></g><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1009" class="arrow-label" font-size="15" text-anchor="middle" startOffset="50%" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="-10">may use code in</tspan></textPath></text></g></svg>
+</style><defs><pattern x="0" y="0" width="30" height="20" patternUnits="userSpaceOnUse" id="SvgjsPattern1008"><g class="rule-arrow"><line x1="0" y1="3.5" x2="10" y2="3.5" stroke-width="1" stroke="black" class="arrow-pattern-path"></line><polygon points="10,0 20,3.5 10,7" class="arrow-pattern-head"></polygon></g></pattern><marker markerWidth="10" markerHeight="7" refX="5" refY="3.5" viewBox="0 0 10 7" orient="auto"><polygon points="0,0 10,3.5 0,7" class="arrow-head"></polygon></marker><path d="M35 205A-170 -170 0 0 1 375 205 " id="SvgjsPath1000"></path><path d="M25 205A-180 -180 0 0 0 385 205 " id="SvgjsPath1001"></path><path d="M25 205A-180 -180 0 0 0 385 205 " id="SvgjsPath1002"></path><path d="M25 205A-180 -180 0 0 0 385 205 " id="SvgjsPath1003"></path><path d="M25 205A-180 -180 0 0 0 385 205 " id="SvgjsPath1004"></path><path d="M85 205A-120 -120 0 0 1 325 205 " id="SvgjsPath1005"></path><path d="M135 205A-70 -70 0 0 1 275 205 " id="SvgjsPath1006"></path><path d="M185 205A-20 -20 0 0 1 225 205 " id="SvgjsPath1007"></path><path d="M-95 205L305 205 " id="SvgjsPath1009"></path><clipPath id="SvgjsClipPath1010"><polygon points="5,195 205,195 205,215 12,215"></polygon></clipPath></defs><g class="layer-infrastructure"><circle r="200" cx="205" cy="205" fill="none" stroke="black" class="layerpart-circle"></circle><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1000" text-anchor="middle" startOffset="50%" font-size="15" class="layerpart-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">infrastructure</tspan></textPath></text><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1001" text-anchor="middle" startOffset="12.5%" font-size="15" class="layerpart-secondary-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">GUI</tspan></textPath></text><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1002" text-anchor="middle" startOffset="37.5%" font-size="15" class="layerpart-secondary-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">API</tspan></textPath></text><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1003" text-anchor="middle" startOffset="62.5%" font-size="15" class="layerpart-secondary-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">Persistence</tspan></textPath></text><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1004" text-anchor="middle" startOffset="87.5%" font-size="15" class="layerpart-secondary-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">Server</tspan></textPath></text></g><g class="layer-management"><circle r="150" cx="205" cy="205" fill="none" stroke="black" class="layerpart-circle"></circle><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1005" text-anchor="middle" startOffset="50%" font-size="15" class="layerpart-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">management</tspan></textPath></text></g><g class="layer-processing"><circle r="100" cx="205" cy="205" fill="none" stroke="black" class="layerpart-circle"></circle><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1006" text-anchor="middle" startOffset="50%" font-size="15" class="layerpart-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">processing</tspan></textPath></text></g><g class="layer-base"><circle r="50" cx="205" cy="205" fill="none" stroke="black" class="layerpart-circle"></circle><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1007" text-anchor="middle" startOffset="50%" font-size="15" class="layerpart-label" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="0" x="0" svgjs:data="{&quot;newLined&quot;:true}">base</tspan></textPath></text></g><g class="rule-arrow"><g clip-path="url(&quot;#SvgjsClipPath1010&quot;)"><path d="M-95 205L305 205 " class="arrow-path" stroke-width="10" stroke="url(&quot;#SvgjsPattern1008&quot;)"></path></g><text svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><textPath href="#SvgjsPath1009" class="arrowpart-label" font-size="15" text-anchor="middle" startOffset="50%" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}"><tspan dy="-10">may use code in</tspan></textPath></text></g></svg>

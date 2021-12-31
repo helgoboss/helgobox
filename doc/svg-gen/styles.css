@@ -22,6 +22,8 @@ text {
     font-size: 12px;
 }
 
+/* ReaLearn component diagram */
+
 .cluster.level-1 > polygon {
     fill: var(--md-grey-50);
 }
@@ -34,43 +36,71 @@ text {
     fill: var(--md-grey-200);
 }
 
-.node.infrastructure polygon {
-    fill: var(--infrastructure-layer-color);
+.node.layer-infrastructure polygon {
+    fill: var(--layer-infrastructure-color);
 }
 
-.node.management polygon {
-    fill: var(--management-layer-color);
+.node.layer-management polygon {
+    fill: var(--layer-management-color);
 }
 
-.node.processing polygon {
-    fill: var(--processing-layer-color);
+.node.layer-processing polygon {
+    fill: var(--layer-processing-color);
 }
 
-.node.base polygon {
-    fill: var(--base-layer-color);
+.node.layer-base polygon {
+    fill: var(--layer-base-color);
 }
 
-.edge.async {
+.edge.com-async {
     stroke-dasharray: 5, 2;
+}
+
+.edge.dir-control text, .edge.dir-control polygon {
+    fill: var(--dir-control-color);
+}
+
+.edge.dir-feedback text, .edge.dir-feedback polygon {
+    fill: var(--dir-feedback-color);
+}
+
+.edge.dir-control path, .edge.dir-control polygon {
+    stroke: var(--dir-control-color);
+}
+
+.edge.dir-feedback path, .edge.dir-feedback polygon {
+    stroke: var(--dir-feedback-color);
+}
+
+.edge.type-general, .edge.type-midi-general {
+    opacity: 0.5;
+}
+
+.edge {
+    stroke-width: 2;
+}
+
+.edge.type-general path, .edge.type-midi-general path {
+    stroke-width: 1;
 }
 
 /* Onion diagrams */
 
-.layer-circle {
+.layerpart-circle {
     fill-opacity: 1.0;
     stroke-width: 2;
     stroke: var(--md-grey-400);
 }
 
-.layer-label, .layer-secondary-label {
+.layerpart-label, .layerpart-secondary-label {
     letter-spacing: 1px;
 }
 
-.layer-secondary-label tspan {
+.layerpart-secondary-label tspan {
     fill: var(--md-grey-500);
 }
 
-.arrow-label {
+.arrowpart-label {
     filter: drop-shadow( 3px 3px 2px rgba(0, 0, 0, .2));
     font-weight: bold;
     fill: var(--md-grey-700);
@@ -91,29 +121,34 @@ text {
 
 /* ReaLearn onion diagram */
 
-.infrastructure .layer-circle {
-    fill: var(--infrastructure-layer-color);
+.layer-infrastructure .layerpart-circle {
+    fill: var(--layer-infrastructure-color);
 }
 
-.management .layer-circle {
-    fill: var(--management-layer-color);
+.layer-management .layerpart-circle {
+    fill: var(--layer-management-color);
 }
 
-.processing .layer-circle {
-    fill: var(--processing-layer-color);
+.layer-processing .layerpart-circle {
+    fill: var(--layer-processing-color);
 }
 
-.base .layer-circle {
-    fill: var(--base-layer-color);
+.layer-base .layerpart-circle {
+    fill: var(--layer-base-color);
 }
 
 /* Custom color palette */
 
 :root {
-    --infrastructure-layer-color: var(--md-yellow-100);
-    --management-layer-color: var(--md-light-green-100);
-    --processing-layer-color: var(--md-light-blue-50);
-    --base-layer-color: var(--md-blue-grey-100);
+    /* Layer colors */
+    --layer-infrastructure-color: var(--md-yellow-100);
+    --layer-management-color: var(--md-light-green-100);
+    --layer-processing-color: var(--md-light-blue-50);
+    --layer-base-color: var(--md-blue-grey-100);
+    
+    /* Direction colors */
+    --dir-control-color: var(--md-amber-900);
+    --dir-feedback-color: var(--md-cyan-900);
 }
 
 

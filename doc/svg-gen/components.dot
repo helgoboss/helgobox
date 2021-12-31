@@ -10,23 +10,23 @@ digraph components {
   Reaper;
 
   subgraph cluster_realearn {
-    App [class = "infrastructure"];
-    Server [class = "infrastructure"];
-    Backbone [class = "processing"];
-    RealearnControlSurfaceMiddleware [class = "processing"];
-    RealearnAudioHook [class = "processing"];
-    OscOutputDevice [class = "processing"];
+    App [class = "layer-infrastructure"];
+    Server [class = "layer-infrastructure"];
+    Backbone [class = "layer-processing"];
+    RealearnControlSurfaceMiddleware [class = "layer-processing"];
+    RealearnAudioHook [class = "layer-processing"];
+    OscOutputDevice [class = "layer-processing"];
 
     subgraph cluster_instance {
       infrastructure_layer [shape = point style = invis];
       application_layer [shape = point style = invis];
       processing_layer [shape = point style = invis];
-      RealearnPlugin [class = "infrastructure"];
-      RealearnUi [class = "infrastructure"];
-      Session [class = "management"];
-      InstanceState [class = "processing"];
-      RealTimeProcessor [width = 2, height = 3, class = "processing"];
-      MainProcessor [width = 2, height = 3, class = "processing"];
+      RealearnPlugin [class = "layer-infrastructure"];
+      RealearnUi [class = "layer-infrastructure"];
+      Session [class = "layer-management"];
+      InstanceState [class = "layer-processing"];
+      RealTimeProcessor [width = 2, height = 3, class = "layer-processing"];
+      MainProcessor [width = 2, height = 3, class = "layer-processing"];
 
       {
         rank = same;
@@ -57,38 +57,38 @@ digraph components {
 
 
   // General
-  Session -> MainProcessor [label = "Sync mappings", class = "async"]
-  MainProcessor -> RealTimeProcessor [label = "Sync mappings", class = "async"]
-  MainProcessor -> Session [label = "Events"]
-  Session -> RealearnUi [label = "Events"]
+  Session -> MainProcessor [label = "Sync data", class = "com-async role-sync-data"]
+  MainProcessor -> RealTimeProcessor [label = "Sync data", class = "com-async role-sync-data"]
+  MainProcessor -> Session [label = "Events", class = "com-sync role-notify"]
+  Session -> RealearnUi [label = "Events", class = "com-sync role-notify"]
 
   // Feedback direction
-  Reaper -> RealearnControlSurfaceMiddleware [label = "REAPER change events"]
-  InstanceState -> RealearnControlSurfaceMiddleware [label = "Instance change events", class = "async"]
-  RealearnControlSurfaceMiddleware -> MainProcessor [label = "REAPER and instance change events"]
+  Reaper -> RealearnControlSurfaceMiddleware [label = "REAPER change events", class = "com-sync dir-feedback type-general role-realtime-general"]
+  InstanceState -> RealearnControlSurfaceMiddleware [label = "Instance change events", class = "com-async dir-feedback type-general role-realtime-general"]
+  RealearnControlSurfaceMiddleware -> MainProcessor [label = "REAPER and instance change events", class = "com-sync dir-feedback type-general role-realtime-general"]
 
   // Control direction (OSC)
-  RealearnControlSurfaceMiddleware -> MainProcessor [label = "OSC control events"]
+  RealearnControlSurfaceMiddleware -> MainProcessor [label = "OSC control events", class = "com-sync dir-control type-osc role-realtime-osc"]
 
   // Feedback direction (OSC)
-  MainProcessor -> OscOutputDevice [label = "OSC feedback events", class = "async"]
+  MainProcessor -> OscOutputDevice [label = "OSC feedback events", class = "com-async dir-feedback type-osc role-realtime-osc"]
 
   // Control direction (MIDI)
-  RealTimeProcessor -> MainProcessor [label = "Control values (from MIDI events)", class = "async"]
+  RealTimeProcessor -> MainProcessor [label = "Control values (from MIDI events)", class = "com-async dir-control type-midi-general role-realtime-midi-general"]
 
   // Control direction (MIDI, FX input)
-  FxChain -> RealearnPlugin [label = "MIDI control events (FX input)"]
-  RealearnPlugin -> RealTimeProcessor [label = "MIDI control events (FX input)"]
+  FxChain -> RealearnPlugin [label = "MIDI control events (FX input)", class = "com-sync dir-control type-midi-fx role-realtime-midi-fx"]
+  RealearnPlugin -> RealTimeProcessor [label = "MIDI control events (FX input)", class = "com-sync dir-control type-midi-fx role-realtime-midi-fx"]
 
   // Feedback direction (MIDI, FX output)
-  MainProcessor -> RealTimeProcessor [label = "MIDI feedback events (FX output)", class = "async"]
-  RealTimeProcessor -> FxChain [label = "MIDI feedback events (FX output)", constraint = false]
+  MainProcessor -> RealTimeProcessor [label = "MIDI feedback events (FX output)", class = "com-async dir-feedback type-midi-fx role-realtime-midi-fx"]
+  RealTimeProcessor -> FxChain [label = "MIDI feedback events (FX output)", constraint = false, class = "com-sync dir-feedback type-midi-fx role-realtime-midi-fx"]
 
   // Control direction (MIDI, device input)
-  MidiInputDevice -> RealearnAudioHook [label = "MIDI control events (device input)"]
-  RealearnAudioHook -> RealTimeProcessor [label = "MIDI control events (device input)"]
+  MidiInputDevice -> RealearnAudioHook [label = "MIDI control events (device input)", class = "com-sync dir-control type-midi-device role-realtime-midi-device"]
+  RealearnAudioHook -> RealTimeProcessor [label = "MIDI control events (device input)", class = "com-sync dir-control type-midi-device role-realtime-midi-device"]
 
   // Feedback direction (MIDI, device output)
-  MainProcessor -> RealearnAudioHook [label = "MIDI feedback events (device output)", class = "async"]
-  RealearnAudioHook -> MidiOutputDevice [label = "MIDI feedback events (device output)"]
+  MainProcessor -> RealearnAudioHook [label = "MIDI feedback events (device output)", class = "com-async dir-feedback type-midi-device role-realtime-midi-device"]
+  RealearnAudioHook -> MidiOutputDevice [label = "MIDI feedback events (device output)", class = "com-sync dir-feedback type-midi-device role-realtime-midi-device"]
 }

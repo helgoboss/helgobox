@@ -114,5 +114,27 @@ The contents and responsibilities of each layer are described in the following.
 * ReaLearn is made up by a plethora of data structures that resemble components, which can be considered as ReaLearn's "main pillars".
 * Some of these components are part of each instance, others exist globally only once.
 
+=== Overview
+
 [.text-center]
 image:doc/images/components.svg[ReaLearn components]
+
+=== Focus: Management communication
+
+[.text-center]
+image:doc/images/components-management.svg[ReaLearn components]
+
+=== Focus: Real-time MIDI communication (from/to FX input/output)
+
+[.text-center]
+image:doc/images/components-midi-fx.svg[ReaLearn components]
+
+=== Focus: Real-time MIDI communication (from/to hardware device)
+
+[.text-center]
+image:doc/images/components-midi-device.svg[ReaLearn components]
+
+=== Focus: Real-time OSC communication
+
+[.text-center]
+image:doc/images/components-osc.svg[ReaLearn components]
