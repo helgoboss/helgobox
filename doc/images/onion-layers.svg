@@ -50,6 +50,10 @@ text {
     fill: var(--base-layer-color);
 }
 
+.edge.async {
+    stroke-dasharray: 5, 2;
+}
+
 /* Onion diagrams */
 
 .layer-circle {

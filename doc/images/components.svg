@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svgjs="http://svgjs.dev/svgjs"><svg width="1245pt" height="642pt" viewBox="0.00 0.00 1245.00 642.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg width="1245pt" height="642pt" viewBox="0.00 0.00 1245.00 642.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns:svgjs="http://svgjs.dev/svgjs">
 <g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 638)">
 <title>components</title>
 <polygon fill="white" stroke="transparent" points="-4,4 -4,-638 1241,-638 1241,4 -4,4"></polygon>
@@ -171,9 +171,9 @@
 <text text-anchor="middle" x="466.5" y="-498.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Events</text>
 </g>
 <!-- Session&#45;&gt;MainProcessor -->
-<g id="edge3" class="edge">
+<g id="edge3" class="edge async">
 <title>Session-&gt;MainProcessor</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M418.74,-445.02C402.58,-435.87 387.36,-422.68 396,-408 426.76,-355.72 488.17,-323.73 539.07,-305.22"></path>
+<path fill="none" stroke="black" d="M418.74,-445.02C402.58,-435.87 387.36,-422.68 396,-408 426.76,-355.72 488.17,-323.73 539.07,-305.22"></path>
 <polygon fill="black" stroke="black" points="540.5,-308.43 548.77,-301.81 538.17,-301.83 540.5,-308.43"></polygon>
 <text text-anchor="middle" x="438" y="-411.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Sync mappings</text>
 </g>
@@ -184,9 +184,9 @@
 <text text-anchor="middle" x="756" y="-278.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">InstanceState</text>
 </g>
 <!-- InstanceState&#45;&gt;RealearnControlSurfaceMiddleware -->
-<g id="edge8" class="edge">
+<g id="edge8" class="edge async">
 <title>InstanceState-&gt;RealearnControlSurfaceMiddleware</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M781.08,-300.19C811.82,-322.26 863.99,-363.1 898,-408 903.37,-415.09 907.99,-423.58 911.71,-431.53"></path>
+<path fill="none" stroke="black" d="M781.08,-300.19C811.82,-322.26 863.99,-363.1 898,-408 903.37,-415.09 907.99,-423.58 911.71,-431.53"></path>
 <polygon fill="black" stroke="black" points="908.56,-433.08 915.77,-440.84 914.98,-430.27 908.56,-433.08"></polygon>
 <text text-anchor="middle" x="968.5" y="-411.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Instance change events</text>
 </g>
@@ -198,23 +198,23 @@
 <text text-anchor="middle" x="1141.5" y="-455.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MIDI feedback events (FX output)</text>
 </g>
 <!-- RealTimeProcessor&#45;&gt;MainProcessor -->
-<g id="edge12" class="edge">
+<g id="edge12" class="edge async">
 <title>RealTimeProcessor-&gt;MainProcessor</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M340.29,-282C397.87,-282 478.51,-282 538.6,-282"></path>
+<path fill="none" stroke="black" d="M340.29,-282C397.87,-282 478.51,-282 538.6,-282"></path>
 <polygon fill="black" stroke="black" points="538.81,-285.5 548.81,-282 538.81,-278.5 538.81,-285.5"></polygon>
 <text text-anchor="middle" x="444.5" y="-288.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Control values (from MIDI events)</text>
 </g>
 <!-- MainProcessor&#45;&gt;RealearnAudioHook -->
-<g id="edge19" class="edge">
+<g id="edge19" class="edge async">
 <title>MainProcessor-&gt;RealearnAudioHook</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M549,-218.05C507.06,-181.5 461.84,-142.36 459,-141 422.88,-123.69 379.14,-114.9 342.63,-110.46"></path>
+<path fill="none" stroke="black" d="M549,-218.05C507.06,-181.5 461.84,-142.36 459,-141 422.88,-123.69 379.14,-114.9 342.63,-110.46"></path>
 <polygon fill="black" stroke="black" points="342.87,-106.97 332.54,-109.32 342.08,-113.92 342.87,-106.97"></polygon>
 <text text-anchor="middle" x="578" y="-144.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MIDI feedback events (device output)</text>
 </g>
 <!-- MainProcessor&#45;&gt;OscOutputDevice -->
-<g id="edge11" class="edge">
+<g id="edge11" class="edge async">
 <title>MainProcessor-&gt;OscOutputDevice</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M680.91,-173.94C684.04,-167.9 687.09,-161.89 690,-156 693.73,-148.47 697.51,-140.16 700.86,-132.52"></path>
+<path fill="none" stroke="black" d="M680.91,-173.94C684.04,-167.9 687.09,-161.89 690,-156 693.73,-148.47 697.51,-140.16 700.86,-132.52"></path>
 <polygon fill="black" stroke="black" points="704.09,-133.87 704.84,-123.3 697.66,-131.09 704.09,-133.87"></polygon>
 <text text-anchor="middle" x="756.5" y="-144.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">OSC feedback events</text>
 </g>
@@ -226,21 +226,21 @@
 <text text-anchor="middle" x="512.5" y="-411.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Events</text>
 </g>
 <!-- MainProcessor&#45;&gt;RealTimeProcessor -->
-<g id="edge4" class="edge">
+<g id="edge4" class="edge async">
 <title>MainProcessor-&gt;RealTimeProcessor</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M548.72,-298.95C545.95,-299.35 543.2,-299.7 540.5,-300 500.74,-304.39 404.05,-304.67 350.41,-299.96"></path>
+<path fill="none" stroke="black" d="M548.72,-298.95C545.95,-299.35 543.2,-299.7 540.5,-300 500.74,-304.39 404.05,-304.67 350.41,-299.96"></path>
 <polygon fill="black" stroke="black" points="350.58,-296.46 340.28,-298.95 349.89,-303.42 350.58,-296.46"></polygon>
 <text text-anchor="middle" x="444.5" y="-309.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Sync mappings</text>
 </g>
 <!-- MainProcessor&#45;&gt;RealTimeProcessor -->
-<g id="edge15" class="edge">
+<g id="edge15" class="edge async">
 <title>MainProcessor-&gt;RealTimeProcessor</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M548.71,-265.11C545.77,-264.69 542.86,-264.31 540,-264 500.45,-259.66 404.27,-259.39 350.46,-264.1"></path>
+<path fill="none" stroke="black" d="M548.71,-265.11C545.77,-264.69 542.86,-264.31 540,-264 500.45,-259.66 404.27,-259.39 350.46,-264.1"></path>
 <polygon fill="black" stroke="black" points="349.9,-260.64 340.29,-265.11 350.59,-267.61 349.9,-260.64"></polygon>
 <text text-anchor="middle" x="444.5" y="-267.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MIDI feedback events (FX output)</text>
 </g>
 </g>
-</svg><style>/* Animations */
+<style>/* Animations */
 
 @keyframes go-right {
     from {
@@ -290,6 +290,10 @@ text {
 
 .node.base polygon {
     fill: var(--base-layer-color);
+}
+
+.edge.async {
+    stroke-dasharray: 5, 2;
 }
 
 /* Onion diagrams */

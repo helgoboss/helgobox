@@ -178,9 +178,13 @@ function generateOnionLayersDiagram() {
 async function loadDotToSvgCanvas(dotFileName) {
     const dot = fs.readFileSync(path.resolve(script_dir, dotFileName));
     const svg = await convertDotToSvg(dot);
-    const qualifiedSvg = svg.replace(/<(\?xml|(!DOCTYPE[^>\[]+(\[[^\]]+)?))+[^>]+>/g, '');
-    const draw = initSvgCanvas();
-    draw.svg(qualifiedSvg)
+    const qualifiedSvg = svg.replace(/<(!DOCTYPE[^>\[]+(\[[^\]]+)?)+[^>]+>/g, '');
+    const window = createSVGWindow()
+    const document = window.document
+    registerWindow(window, document)
+    const originalDraw = SVG(document.documentElement);
+    originalDraw.svg(qualifiedSvg, true);
+    const draw = SVG(document.documentElement);
     embedStylesheet(draw);
     return draw;
 }

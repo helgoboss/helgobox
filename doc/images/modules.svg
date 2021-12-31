@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svgjs="http://svgjs.dev/svgjs"><svg width="377pt" height="227pt" viewBox="0.00 0.00 377.09 227.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg width="377pt" height="227pt" viewBox="0.00 0.00 377.09 227.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns:svgjs="http://svgjs.dev/svgjs">
 <g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 223)">
 <title>modules</title>
 <polygon fill="white" stroke="transparent" points="-4,4 -4,-223 373.09,-223 373.09,4 -4,4"></polygon>
@@ -86,7 +86,7 @@
 <polygon fill="black" stroke="black" points="124.5,-118.1 121,-108.1 117.5,-118.1 124.5,-118.1"></polygon>
 </g>
 </g>
-</svg><style>/* Animations */
+<style>/* Animations */
 
 @keyframes go-right {
     from {
@@ -136,6 +136,10 @@ text {
 
 .node.base polygon {
     fill: var(--base-layer-color);
+}
+
+.edge.async {
+    stroke-dasharray: 5, 2;
 }
 
 /* Onion diagrams */

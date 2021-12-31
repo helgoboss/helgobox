@@ -57,31 +57,31 @@ digraph components {
 
 
   // General
-  Session -> MainProcessor [label = "Sync mappings", style = "dashed"]
-  MainProcessor -> RealTimeProcessor [label = "Sync mappings", style = "dashed"]
+  Session -> MainProcessor [label = "Sync mappings", class = "async"]
+  MainProcessor -> RealTimeProcessor [label = "Sync mappings", class = "async"]
   MainProcessor -> Session [label = "Events"]
   Session -> RealearnUi [label = "Events"]
 
   // Feedback direction
   Reaper -> RealearnControlSurfaceMiddleware [label = "REAPER change events"]
-  InstanceState -> RealearnControlSurfaceMiddleware [label = "Instance change events", style = "dashed"]
+  InstanceState -> RealearnControlSurfaceMiddleware [label = "Instance change events", class = "async"]
   RealearnControlSurfaceMiddleware -> MainProcessor [label = "REAPER and instance change events"]
 
   // Control direction (OSC)
   RealearnControlSurfaceMiddleware -> MainProcessor [label = "OSC control events"]
 
   // Feedback direction (OSC)
-  MainProcessor -> OscOutputDevice [label = "OSC feedback events", style = "dashed"]
+  MainProcessor -> OscOutputDevice [label = "OSC feedback events", class = "async"]
 
   // Control direction (MIDI)
-  RealTimeProcessor -> MainProcessor [label = "Control values (from MIDI events)", style = "dashed"]
+  RealTimeProcessor -> MainProcessor [label = "Control values (from MIDI events)", class = "async"]
 
   // Control direction (MIDI, FX input)
   FxChain -> RealearnPlugin [label = "MIDI control events (FX input)"]
   RealearnPlugin -> RealTimeProcessor [label = "MIDI control events (FX input)"]
 
   // Feedback direction (MIDI, FX output)
-  MainProcessor -> RealTimeProcessor [label = "MIDI feedback events (FX output)", style = "dashed"]
+  MainProcessor -> RealTimeProcessor [label = "MIDI feedback events (FX output)", class = "async"]
   RealTimeProcessor -> FxChain [label = "MIDI feedback events (FX output)", constraint = false]
 
   // Control direction (MIDI, device input)
@@ -89,6 +89,6 @@ digraph components {
   RealearnAudioHook -> RealTimeProcessor [label = "MIDI control events (device input)"]
 
   // Feedback direction (MIDI, device output)
-  MainProcessor -> RealearnAudioHook [label = "MIDI feedback events (device output)", style = "dashed"]
+  MainProcessor -> RealearnAudioHook [label = "MIDI feedback events (device output)", class = "async"]
   RealearnAudioHook -> MidiOutputDevice [label = "MIDI feedback events (device output)"]
 }
