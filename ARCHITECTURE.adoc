@@ -24,7 +24,7 @@ Technically, ReaLearn is a *third-party native VST plug-in for REAPER which make
 
 == Modules
 
-ReaLearn is built in a modular fashion. The following diagram shows its most important modules (excuding 3rd-party modules):
+ReaLearn is built in a modular fashion. The following diagram shows ReaLearn's most important modules (excluding 3rd-party modules):
 
 [.text-center]
 image:doc/images/modules.svg[ReaLearn modules]
