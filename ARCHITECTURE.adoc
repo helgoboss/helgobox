@@ -9,7 +9,7 @@ This document describes the software architecture of ReaLearn. It's a work in pr
 
 Technically, ReaLearn is a *third-party native VST plug-in for REAPER which makes heavy use of the REAPER extension API*.
 
-... Woah! That is a lot to take in! Let’s see what this means in detail:
+… Woah! That is a lot to take in! Let’s see what this means in detail:
 
 * First and foremost, ReaLearn is a *plug-in for REAPER*. That means ReaLearn is a software module which is loaded by REAPER dynamically (at runtime). It comes in the form of a link:https://en.m.wikipedia.org/wiki/Dynamic-link_library[DLL] on Windows, a link:https://stackoverflow.com/questions/2339679/what-are-the-differences-between-so-and-dylib-on-macos[DYLIB] on macOS and a link:https://superuser.com/questions/71404/what-is-an-so-file[SO] on Linux. Communication goes both ways: ReaLearn calls REAPER functions and REAPER calls ReaLearn functions ("callbacks").
 * It makes heavy use of the *REAPER extension API*. That means ReaLearn uses functions and data structures of REAPER which are _specific to REAPER_, so they are _not_ part of a DAW-agnostic plug-in standard. In theory, other DAWs could implement this API as well, but in practice only REAPER itself does it. The reason is that this API is huge and that many parts of it only make sense for REAPER. As a consequence, ReaLearn runs in REAPER only!
