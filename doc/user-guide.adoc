@@ -407,18 +407,22 @@ _controller_ compartment is shown:
  you choose the corresponding MIDI or OSC input device. Be aware that MIDI will only work if _Enable input
  from this device_ is checked for the selected MIDI input device in REAPER's MIDI preferences.
 * *Feedback output:* Here you can choose if and where ReaLearn should send MIDI/OSC feedback. By
- default it's set to _&lt;None&amp;gt_; for no feedback. If you want to enable feedback, pick a MIDI or OSC
+ default it's set to _<None>_ for no feedback. If you want to enable feedback, pick a MIDI or OSC
  output device here. Keep in mind that for MIDI, _Enable output to this device_ must be checked in REAPER's
  MIDI preferences. As an alternative, you can send feedback to _&lt;FX output&gt;_, which makes
  feedback MIDI events stream down to the next FX in the chain or to the track's hardware MIDI output.
- Tip: Latter option is great for checking which MIDI messages ReaLearn would send to your device. Just add
- a "ReaControlMIDI" FX right below ReaLearn and press "Show Log". Please note that sending MIDI feedback
++
+[WARNING]
+====
+Please note that sending MIDI feedback
  to the FX output has some drawbacks. First, it doesn't participate in ReaLearn's multi-instance feedback
  orchestration. That means you might experience LEDs/faders misbehaving when using multiple instances. Second, it
  doesn't work if ReaLearn FX is suspended, e.g. in the following cases:
-** ReaLearn FX is disabled.
-** Project is paused and ReaLearn track is not armed.
-** ReaLearn FX is on input FX chain and track is not armed.
+
+* ReaLearn FX is disabled.
+* Project is paused and ReaLearn track is not armed.
+* ReaLearn FX is on input FX chain and track is not armed.
+====
 * *Export to clipboard:* Pressing the export button allows you to copy ReaLearn's settings to the clipboard so you can import them in another instance or edit them in a text editor.
 ** *Export session as JSON:* Copies a _complete_ dump of ReaLearn's current settings (including all mappings, even controller mappings) to the clipboard. The dump's data format is
  https://www.json.org/json-en.html[JSON], a wide-spread data exchange format. It's a text format,
