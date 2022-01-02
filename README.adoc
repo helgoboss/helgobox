@@ -90,9 +90,11 @@ impression and stay tuned if you are interested in the details.
 
 ReaLearn is fired up just like any other VST instrument in REAPER: By adding it to an FX chain.
 
-*Main panel (containing the list of mappings):*
+.Main panel (containing the list of mappings)
+image::doc/images/screenshot–main–panel–annotated.svg[]
 
-*Mapping panel (for editing one particular mapping):*
+.Mapping panel (for editing one particular mapping)
+image::doc/images/screenshot–mapping–panel.png[]
 
 == Architecture
 
