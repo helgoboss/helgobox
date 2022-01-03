@@ -116,11 +116,11 @@ impl RealearnTarget for ClipSeekTarget {
 impl ClipSeekTarget {
     fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
         let instance_state = context.instance_state.borrow();
-        let secs = instance_state
+        instance_state
             .get_slot(self.slot_index)
             .ok()?
-            .position_in_seconds();
-        Some(secs)
+            .position_in_seconds()
+            .ok()
     }
 }
 

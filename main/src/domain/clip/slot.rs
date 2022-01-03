@@ -293,31 +293,41 @@ impl ClipSlot {
     /// Returns the current position within the slot clip on a percentage basis.
     pub fn proportional_position(&self) -> Result<UnitValue, &'static str> {
         let guard = lock(&self.register);
-        let src = guard.src().ok_or("no source loaded")?;
+        let src = guard.src().ok_or(NO_SOURCE_LOADED)?;
         if !matches!(self.state, State::Playing(_)) {
             return Ok(UnitValue::MIN);
         }
         let src = src.as_ref();
-        let pos_within_clip = src.pos_within_clip_scheduled();
+        let pos_within_clip = src.pos_within_clip();
         let length = src.query_inner_length();
         let percentage_pos = calculate_proportional_position(pos_within_clip, length);
         Ok(percentage_pos)
     }
 
     /// Returns the current clip position in seconds.
-    pub fn position_in_seconds(&self) -> PositionInSeconds {
-        lock(&self.register).cur_pos()
+    pub fn position_in_seconds(&self) -> Result<PositionInSeconds, &'static str> {
+        let guard = lock(&self.register);
+        let src = guard.src().ok_or(NO_SOURCE_LOADED)?;
+        if !matches!(self.state, State::Playing(_)) {
+            return Ok(PositionInSeconds::ZERO);
+        }
+        Ok(src.as_ref().pos_within_clip().unwrap_or_default())
     }
 
     /// Changes the clip position on a percentage basis.
-    pub fn set_position(&mut self, position: UnitValue) -> Result<ClipChangedEvent, &'static str> {
+    pub fn set_proportional_position(
+        &mut self,
+        desired_proportional_pos: UnitValue,
+    ) -> Result<ClipChangedEvent, &'static str> {
         let mut guard = lock(&self.register);
-        let source = guard.src_mut().ok_or("no source loaded")?;
+        let source = guard.src_mut().ok_or(NO_SOURCE_LOADED)?;
         let source = source.as_mut();
         let length = source.query_inner_length();
-        let real_pos = PositionInSeconds::new(position.get() * length.get());
-        guard.set_cur_pos(real_pos);
-        Ok(ClipChangedEvent::ClipPosition(position))
+        let desired_pos_in_secs =
+            PositionInSeconds::new(desired_proportional_pos.get() * length.get());
+        let start_pos_delta = source.pos_within_clip().unwrap_or_default() - desired_pos_in_secs;
+        source.adjust_start_pos_by(start_pos_delta);
+        Ok(ClipChangedEvent::ClipPosition(desired_proportional_pos))
     }
 
     fn start_transition(&mut self) -> State {
@@ -466,6 +476,7 @@ impl State {
                 let mut g = lock(reg);
                 g.set_src(Some(source));
                 // This only has an effect if "Next bar" disabled.
+                // TODO-high Remove
                 g.set_cur_pos(PositionInSeconds::new(0.0));
                 Ok(Suspended(SuspendedState {
                     is_paused: false,
@@ -547,6 +558,7 @@ impl SuspendedState {
         let next_state = State::Suspended(self);
         let mut g = lock(reg);
         // Reset position. Only has an effect if "Next bar" disabled.
+        // TODO-high Remove
         g.set_cur_pos(PositionInSeconds::new(0.0));
         Ok(next_state)
     }
@@ -555,6 +567,7 @@ impl SuspendedState {
         let mut g = lock(reg);
         g.set_src(None);
         // Reset position. Only has an effect if "Next bar" disabled.
+        // TODO-high Remove
         g.set_cur_pos(PositionInSeconds::new(0.0));
         Ok(State::Empty)
     }
@@ -708,6 +721,7 @@ impl PlayingState {
         // Reset position! Only has an effect if "Next bar" disabled.
         // TODO-medium I think setting the cursor position of the preview register is not even
         //  necessary anymore because we don't use it, or do we?
+        // TODO-high Remove
         g.set_cur_pos(PositionInSeconds::new(0.0));
         suspended
     }
@@ -736,7 +750,7 @@ impl PlayingState {
                 None => return (Ok(State::Playing(self)), None),
             };
             let src = src.as_ref();
-            let pos_within_clip = src.pos_within_clip_scheduled();
+            let pos_within_clip = src.pos_within_clip();
             let length = src.query_inner_length();
             (pos_within_clip, length)
         };
@@ -878,6 +892,7 @@ fn wait_until_all_notes_off_sent(reg: &SharedRegister, reset_position: bool) {
     // Make sure source gets reset to normal.
     let mut guard = lock(reg);
     if reset_position {
+        // TODO-high Remove
         guard.set_cur_pos(PositionInSeconds::new(0.0));
     }
     let src = match guard.src_mut() {
@@ -888,10 +903,12 @@ fn wait_until_all_notes_off_sent(reg: &SharedRegister, reset_position: bool) {
 }
 
 /// Returns `true` as soon as "All notes off" sent.
+// TODO-high reset_position is obsolete, I think
 fn attempt_to_send_all_notes_off(reg: &SharedRegister, reset_position: bool) -> bool {
     let mut guard = lock(reg);
     let successfully_sent = attempt_to_send_all_notes_off_with_guard(&mut guard);
     if successfully_sent && reset_position {
+        // TODO-high Remove
         guard.set_cur_pos(PositionInSeconds::new(0.0));
     };
     successfully_sent
@@ -943,3 +960,5 @@ fn get_next_bar_pos(project: Project) -> PositionInSeconds {
         PositionInBeats::ZERO,
     )
 }
+
+const NO_SOURCE_LOADED: &str = "no source loaded";

@@ -407,7 +407,9 @@ impl InstanceState {
         slot_index: usize,
         position: UnitValue,
     ) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.set_position(position)?;
+        let event = self
+            .get_slot_mut(slot_index)?
+            .set_proportional_position(position)?;
         self.send_clip_changed_event(slot_index, event);
         Ok(())
     }
