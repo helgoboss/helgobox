@@ -13,7 +13,9 @@ use helgoboss_learn::UnitValue;
 use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
-use crate::domain::clip::{Clip, ClipChangedEvent, ClipContent, ClipSlot, SlotPlayOptions};
+use crate::domain::clip::{
+    Clip, ClipChangedEvent, ClipContent, ClipSlot, SlotPlayOptions, SlotStopBehavior,
+};
 use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, Tag};
 
 pub const CLIP_SLOT_COUNT: usize = 8;
@@ -362,18 +364,28 @@ impl InstanceState {
 
     pub fn play(
         &mut self,
+        project: Project,
         slot_index: usize,
         track: Option<Track>,
         options: SlotPlayOptions,
     ) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.play(track, options)?;
+        let event = self
+            .get_slot_mut(slot_index)?
+            .play(project, track, options)?;
         self.send_clip_changed_event(slot_index, event);
         Ok(())
     }
 
     /// If repeat is not enabled and `immediately` is false, this has essentially no effect.
-    pub fn stop(&mut self, slot_index: usize, immediately: bool) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.stop(immediately)?;
+    pub fn stop(
+        &mut self,
+        slot_index: usize,
+        stop_behavior: SlotStopBehavior,
+        project: Project,
+    ) -> Result<(), &'static str> {
+        let event = self
+            .get_slot_mut(slot_index)?
+            .stop(stop_behavior, project)?;
         self.send_clip_changed_event(slot_index, event);
         Ok(())
     }

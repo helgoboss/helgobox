@@ -1,4 +1,4 @@
-use crate::domain::clip::{ClipChangedEvent, SlotPlayOptions};
+use crate::domain::clip::{ClipChangedEvent, SlotPlayOptions, SlotStopBehavior};
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, get_effective_tracks,
     transport_is_enabled_unit_value, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
@@ -23,11 +23,13 @@ impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
+        let project = context.context.project_or_current_project();
         let targets = if let Some(desc) = self.track_descriptor.as_ref() {
             get_effective_tracks(context, &desc.track, compartment)?
                 .into_iter()
                 .map(|track| {
                     ReaperTarget::ClipTransport(ClipTransportTarget {
+                        project,
                         track: Some(track),
                         slot_index: self.slot_index,
                         action: self.action,
@@ -37,6 +39,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
                 .collect()
         } else {
             vec![ReaperTarget::ClipTransport(ClipTransportTarget {
+                project,
                 track: None,
                 slot_index: self.slot_index,
                 action: self.action,
@@ -53,10 +56,22 @@ impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipTransportTarget {
+    pub project: Project,
     pub track: Option<Track>,
     pub slot_index: usize,
     pub action: TransportAction,
     pub play_options: SlotPlayOptions,
+}
+
+impl ClipTransportTarget {
+    fn stop_behavior(&self) -> SlotStopBehavior {
+        use SlotStopBehavior::*;
+        if self.play_options.next_bar {
+            EndOfClip
+        } else {
+            Immediately
+        }
+    }
 }
 
 impl RealearnTarget for ClipTransportTarget {
@@ -82,21 +97,31 @@ impl RealearnTarget for ClipTransportTarget {
         match self.action {
             PlayStop => {
                 if on {
-                    instance_state.play(self.slot_index, self.track.clone(), self.play_options)?;
+                    instance_state.play(
+                        self.project,
+                        self.slot_index,
+                        self.track.clone(),
+                        self.play_options,
+                    )?;
                 } else {
-                    instance_state.stop(self.slot_index, !self.play_options.next_bar)?;
+                    instance_state.stop(self.slot_index, self.stop_behavior(), self.project)?;
                 }
             }
             PlayPause => {
                 if on {
-                    instance_state.play(self.slot_index, self.track.clone(), self.play_options)?;
+                    instance_state.play(
+                        self.project,
+                        self.slot_index,
+                        self.track.clone(),
+                        self.play_options,
+                    )?;
                 } else {
                     instance_state.pause(self.slot_index)?;
                 }
             }
             Stop => {
                 if on {
-                    instance_state.stop(self.slot_index, !self.play_options.next_bar)?;
+                    instance_state.stop(self.slot_index, self.stop_behavior(), self.project)?;
                 }
             }
             Pause => {

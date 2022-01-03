@@ -36,6 +36,12 @@ pub enum ClipPcmSourceState {
     AllNotesOffSent = 12,
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum ClipStopPosition {
+    At(PositionInSeconds),
+    AtEndOfClip,
+}
+
 /// A PCM source which wraps a native REAPER PCM source and applies all kinds of clip
 /// functionality to it.
 ///
@@ -331,7 +337,7 @@ impl CustomPcmSource for ClipPcmSource {
                 1
             }
             EXT_SCHEDULE_STOP => {
-                let pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                let pos: ClipStopPosition = *(args.parm_1 as *mut _);
                 self.schedule_stop(pos);
                 1
             }
@@ -384,7 +390,7 @@ pub trait ClipPcmSourceSkills {
     fn query_state(&self) -> ClipPcmSourceState;
     fn reset(&mut self);
     fn schedule_start(&mut self, pos: Option<PositionInSeconds>, repeated: bool);
-    fn schedule_stop(&mut self, pos: PositionInSeconds);
+    fn schedule_stop(&mut self, pos: ClipStopPosition);
     fn backpedal_from_scheduled_stop(&mut self);
     fn query_inner_length(&self) -> DurationInSeconds;
     fn set_repeated(&mut self, repeated: bool);
@@ -415,8 +421,19 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         self.repeated = repeated;
     }
 
-    fn schedule_stop(&mut self, pos: PositionInSeconds) {
-        self.scheduled_stop_pos = Some(pos);
+    fn schedule_stop(&mut self, pos: ClipStopPosition) {
+        let resolved_stop_pos = match pos {
+            ClipStopPosition::At(pos) => pos,
+            ClipStopPosition::AtEndOfClip => {
+                // TODO-high What if we started playing immediately? I think immediate playing
+                //  doesn't work at all now because we would need at least some start pos. In that
+                //  case use this actual start pos.
+                let pos = self.scheduled_start_pos.unwrap_or_default().get()
+                    + self.query_inner_length().get();
+                PositionInSeconds::new(pos)
+            }
+        };
+        self.scheduled_stop_pos = Some(resolved_stop_pos);
     }
 
     fn backpedal_from_scheduled_stop(&mut self) {
@@ -472,12 +489,11 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         }
     }
 
-    fn schedule_stop(&mut self, pos: PositionInSeconds) {
-        let mut raw_pos = pos.get();
+    fn schedule_stop(&mut self, mut pos: ClipStopPosition) {
         unsafe {
             self.extended(
                 EXT_SCHEDULE_STOP,
-                &mut raw_pos as *mut _ as _,
+                &mut pos as *mut _ as _,
                 null_mut(),
                 null_mut(),
             );
