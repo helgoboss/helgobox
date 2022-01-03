@@ -796,21 +796,21 @@ impl PlayingState {
                         };
                         (
                             Ok(State::Playing(next_playing_state)),
-                            Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Playing)),
+                            Some(ClipChangedEvent::PlayState(ClipPlayState::Playing)),
                         )
                     }
                 } else {
                     // Probably length zero.
                     (
                         self.stop(reg, true, false),
-                        Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped)),
+                        Some(ClipChangedEvent::PlayState(ClipPlayState::Stopped)),
                     )
                 }
             }
         };
         let final_event = event.unwrap_or_else(|| {
             let position = calculate_proportional_position(pos_within_clip, length);
-            ClipChangedEvent::ClipPositionChanged(position)
+            ClipChangedEvent::ClipPosition(position)
         });
         (next_state, Some(final_event))
     }
