@@ -30,7 +30,7 @@ const EXT_BACKPEDAL_FROM_SCHEDULED_STOP: i32 = 2359777;
 /// Represents a state of the clip wrapper PCM source.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, TryFromPrimitive, IntoPrimitive)]
 #[repr(i32)]
-pub enum WrapperPcmSourceState {
+pub enum ClipPcmSourceState {
     Normal = 10,
     AllNotesOffRequested = 11,
     AllNotesOffSent = 12,
@@ -40,9 +40,9 @@ pub enum WrapperPcmSourceState {
 /// functionality to it.
 ///
 /// For example, it makes sure it starts at the right position.
-pub struct WrapperPcmSource {
+pub struct ClipPcmSource {
     inner: OwnedPcmSource,
-    state: WrapperPcmSourceState,
+    state: ClipPcmSourceState,
     counter: u64,
     scheduled_start_pos: Option<PositionInSeconds>,
     scheduled_stop_pos: Option<PositionInSeconds>,
@@ -50,13 +50,13 @@ pub struct WrapperPcmSource {
     is_midi: bool,
 }
 
-impl WrapperPcmSource {
+impl ClipPcmSource {
     /// Wraps the given native REAPER PCM source.
     pub fn new(inner: OwnedPcmSource) -> Self {
         let is_midi = pcm_source_is_midi(&inner);
         Self {
             inner,
-            state: WrapperPcmSourceState::Normal,
+            state: ClipPcmSourceState::Normal,
             counter: 0,
             scheduled_start_pos: None,
             scheduled_stop_pos: None,
@@ -108,7 +108,7 @@ impl WrapperPcmSource {
     }
 }
 
-impl CustomPcmSource for WrapperPcmSource {
+impl CustomPcmSource for ClipPcmSource {
     fn duplicate(&mut self) -> Option<OwnedPcmSource> {
         // Not correct but probably never used.
         self.inner.duplicate()
@@ -180,7 +180,7 @@ impl CustomPcmSource for WrapperPcmSource {
         // }
         self.counter += 1;
         // Actual stuff
-        use WrapperPcmSourceState::*;
+        use ClipPcmSourceState::*;
         match self.state {
             Normal => unsafe {
                 // TODO-high If not synced, do something like this:
@@ -379,9 +379,9 @@ fn send_all_notes_off(args: &GetSamplesArgs) {
     }
 }
 
-pub trait WrapperPcmSourceSkills {
+pub trait ClipPcmSourceSkills {
     fn request_all_notes_off(&mut self);
-    fn query_state(&self) -> WrapperPcmSourceState;
+    fn query_state(&self) -> ClipPcmSourceState;
     fn reset(&mut self);
     fn schedule_start(&mut self, pos: Option<PositionInSeconds>, repeated: bool);
     fn schedule_stop(&mut self, pos: PositionInSeconds);
@@ -396,17 +396,17 @@ pub trait WrapperPcmSourceSkills {
     fn pos_within_clip_scheduled(&self) -> Option<PositionInSeconds>;
 }
 
-impl WrapperPcmSourceSkills for WrapperPcmSource {
+impl ClipPcmSourceSkills for ClipPcmSource {
     fn request_all_notes_off(&mut self) {
-        self.state = WrapperPcmSourceState::AllNotesOffRequested;
+        self.state = ClipPcmSourceState::AllNotesOffRequested;
     }
 
-    fn query_state(&self) -> WrapperPcmSourceState {
+    fn query_state(&self) -> ClipPcmSourceState {
         self.state
     }
 
     fn reset(&mut self) {
-        self.state = WrapperPcmSourceState::Normal;
+        self.state = ClipPcmSourceState::Normal;
     }
 
     fn schedule_start(&mut self, pos: Option<PositionInSeconds>, repeated: bool) {
@@ -437,7 +437,7 @@ impl WrapperPcmSourceSkills for WrapperPcmSource {
     }
 }
 
-impl WrapperPcmSourceSkills for BorrowedPcmSource {
+impl ClipPcmSourceSkills for BorrowedPcmSource {
     fn request_all_notes_off(&mut self) {
         unsafe {
             self.extended(
@@ -449,7 +449,7 @@ impl WrapperPcmSourceSkills for BorrowedPcmSource {
         }
     }
 
-    fn query_state(&self) -> WrapperPcmSourceState {
+    fn query_state(&self) -> ClipPcmSourceState {
         let state = unsafe { self.extended(EXT_QUERY_STATE, null_mut(), null_mut(), null_mut()) };
         state.try_into().expect("invalid state")
     }

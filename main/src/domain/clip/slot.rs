@@ -14,9 +14,7 @@ use reaper_medium::{
 
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
-use crate::domain::clip::clip_source::{
-    WrapperPcmSource, WrapperPcmSourceSkills, WrapperPcmSourceState,
-};
+use crate::domain::clip::clip_source::{ClipPcmSource, ClipPcmSourceSkills, ClipPcmSourceState};
 use crate::domain::clip::source_util::pcm_source_is_midi;
 use crate::domain::clip::{Clip, ClipChangedEvent, ClipContent, ClipPlayState};
 
@@ -445,7 +443,7 @@ impl State {
     }
 
     pub fn fill_with_source(self, source: OwnedSource, reg: &SharedRegister) -> TransitionResult {
-        let source = WrapperPcmSource::new(source.into_raw());
+        let source = ClipPcmSource::new(source.into_raw());
         let source = create_custom_owned_pcm_source(source);
         let source = FlexibleOwnedPcmSource::Custom(source);
         use State::*;
@@ -861,7 +859,7 @@ fn attempt_to_send_all_notes_off_with_guard(
         return true;
     }
     // Don't just stop MIDI! Send all-notes-off first to prevent hanging notes.
-    use WrapperPcmSourceState::*;
+    use ClipPcmSourceState::*;
     match src.query_state() {
         Normal => {
             src.request_all_notes_off();
