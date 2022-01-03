@@ -298,7 +298,6 @@ impl ClipSlot {
             return Ok(UnitValue::MIN);
         }
         let src = src.as_ref();
-        // TODO-high Return based on guard.cur_pos() if slot is not synced (make this a slot prop!).
         let pos_within_clip = src.pos_within_clip_scheduled();
         let length = src.query_inner_length();
         let percentage_pos = calculate_proportional_position(pos_within_clip, length);
@@ -707,6 +706,8 @@ impl PlayingState {
         let suspended = self.suspend(reg, false, caused_by_transport_change);
         let mut g = lock(reg);
         // Reset position! Only has an effect if "Next bar" disabled.
+        // TODO-medium I think setting the cursor position of the preview register is not even
+        //  necessary anymore because we don't use it, or do we?
         g.set_cur_pos(PositionInSeconds::new(0.0));
         suspended
     }
@@ -735,8 +736,6 @@ impl PlayingState {
                 None => return (Ok(State::Playing(self)), None),
             };
             let src = src.as_ref();
-            // TODO-high Return based on guard.cur_pos() if slot is not synced (make this a slot
-            // prop!).
             let pos_within_clip = src.pos_within_clip_scheduled();
             let length = src.query_inner_length();
             (pos_within_clip, length)
@@ -795,6 +794,7 @@ impl PlayingState {
         pause: bool,
         caused_by_transport_change: bool,
     ) -> SuspendedState {
+        // TODO-high Now that we control the source itself, we could do this differently!
         wait_until_all_notes_off_sent(reg, false);
         if let Some(track) = self.args.track.as_ref() {
             // Check prevents error message on project close.
@@ -929,9 +929,9 @@ fn attempt_to_send_all_notes_off_with_guard(
 
 fn get_next_bar_pos(project: Project) -> PositionInSeconds {
     let reaper = Reaper::get().medium_reaper();
-    let current_pos = project.play_position_next_audio_block();
+    let timeline_pos = project.play_position_next_audio_block();
     let proj_context = project.context();
-    let res = reaper.time_map_2_time_to_beats(proj_context, current_pos);
+    let res = reaper.time_map_2_time_to_beats(proj_context, timeline_pos);
     let next_measure_index = if res.beats_since_measure.get() <= BASE_EPSILON {
         res.measure_index
     } else {

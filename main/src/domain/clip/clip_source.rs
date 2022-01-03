@@ -47,10 +47,14 @@ pub enum ClipStopPosition {
 ///
 /// For example, it makes sure it starts at the right position.
 pub struct ClipPcmSource {
+    /// This source contains the actual audio/MIDI data.
     inner: OwnedPcmSource,
     state: ClipPcmSourceState,
+    /// An ever-increasing counter which is used just for debugging purposes at the moment.
     counter: u64,
+    /// If set, the clip is playing or about to play. If not set, the clip is stopped.
     scheduled_start_pos: Option<PositionInSeconds>,
+    /// If set, the clip is about to stop. If not set, the clip is either stopped or playing.
     scheduled_stop_pos: Option<PositionInSeconds>,
     repeated: bool,
     is_midi: bool,
@@ -71,24 +75,27 @@ impl ClipPcmSource {
         }
     }
 
+    fn timeline_pos(&self) -> PositionInSeconds {
+        // TODO-high Save and use actual project in source.
+        Reaper::get()
+            .medium_reaper()
+            .get_play_position_2_ex(ProjectContext::CurrentProject)
+    }
+
     /// Returns the position starting from the time that this source was scheduled for start.
     ///
     /// Returns `None` if not scheduled or if beyond scheduled stop. Returns negative position if
     /// clip not yet playing.
     fn pos_from_start_scheduled(&self) -> Option<PositionInSeconds> {
         let scheduled_start_pos = self.scheduled_start_pos?;
-        // Position in clip is synced to project position.
-        let project_pos = Reaper::get()
-            .medium_reaper()
-            // TODO-high Save actual project in source.
-            .get_play_position_2_ex(ProjectContext::CurrentProject);
+        let timeline_pos = self.timeline_pos();
         // Return `None` if scheduled stop position is reached.
         if let Some(scheduled_stop_pos) = self.scheduled_stop_pos {
-            if project_pos.has_reached(scheduled_stop_pos) {
+            if timeline_pos.has_reached(scheduled_stop_pos) {
                 return None;
             }
         }
-        Some(project_pos - scheduled_start_pos)
+        Some(timeline_pos - scheduled_start_pos)
     }
 
     /// Calculates the current position within the clip considering the *repeated* setting.
@@ -189,10 +196,8 @@ impl CustomPcmSource for ClipPcmSource {
         use ClipPcmSourceState::*;
         match self.state {
             Normal => unsafe {
-                // TODO-high If not synced, do something like this:
-                // let pos_from_start = args.block.time_s();
-                // self.calculate_pos_within_clip(pos_from_start)
                 if let Some(pos) = self.pos_within_clip_scheduled() {
+                    // This means the clip is playing or about o play. At least not stopped.
                     // We want to start playing as soon as we reach the scheduled start position,
                     // that means pos == 0.0. In order to do that, we need to take into account that
                     // the audio buffer start point is not necessarily equal to the measure start
@@ -386,14 +391,40 @@ fn send_all_notes_off(args: &GetSamplesArgs) {
 }
 
 pub trait ClipPcmSourceSkills {
+    /// Makes the clip source return all-notes-off messages at the next opportunity.
     fn request_all_notes_off(&mut self);
+
+    /// Returns the state of this clip source.
     fn query_state(&self) -> ClipPcmSourceState;
+
     fn reset(&mut self);
+
+    /// Starts or at schedules playing of the clip.
+    ///
+    /// If position is set, this method schedules playing of the clip. If not, it starts playing it
+    /// immediately.
     fn schedule_start(&mut self, pos: Option<PositionInSeconds>, repeated: bool);
+
+    /// Schedules clip stop.
+    ///
+    // TODO-high This function is - at least at the moment - not used for immediate stopping. However, that
+    //  might change. Because even immediate stopping shouldn't stop immediately in case of MIDI (by
+    //  simply stopping the preview register) but send NOTE OFF stuff first.
     fn schedule_stop(&mut self, pos: ClipStopPosition);
+
+    /// "Undoes" a scheduled stop if user changes their mind.
     fn backpedal_from_scheduled_stop(&mut self);
+
+    /// Returns the clip length.
+    ///
+    /// The clip length is different from the clip source length. The clip source length is infinite
+    /// because it just acts as a sort of virtual track).
     fn query_inner_length(&self) -> DurationInSeconds;
+
+    /// Changes whether to repeat or not repeat the clip.
     fn set_repeated(&mut self, repeated: bool);
+
+    /// Returns the position within the clip.
     ///
     /// - Considers repeat.
     /// - Returns negative position if clip not yet playing.
@@ -416,7 +447,8 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn schedule_start(&mut self, pos: Option<PositionInSeconds>, repeated: bool) {
-        self.scheduled_start_pos = pos;
+        let resolved_pos = pos.unwrap_or_else(|| self.timeline_pos());
+        self.scheduled_start_pos = Some(resolved_pos);
         self.scheduled_stop_pos = None;
         self.repeated = repeated;
     }
@@ -424,14 +456,13 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     fn schedule_stop(&mut self, pos: ClipStopPosition) {
         let resolved_stop_pos = match pos {
             ClipStopPosition::At(pos) => pos,
-            ClipStopPosition::AtEndOfClip => {
-                // TODO-high What if we started playing immediately? I think immediate playing
-                //  doesn't work at all now because we would need at least some start pos. In that
-                //  case use this actual start pos.
-                let pos = self.scheduled_start_pos.unwrap_or_default().get()
-                    + self.query_inner_length().get();
-                PositionInSeconds::new(pos)
-            }
+            ClipStopPosition::AtEndOfClip => match self.scheduled_start_pos {
+                None => return,
+                Some(scheduled_start_pos) => {
+                    let pos = scheduled_start_pos.get() + self.query_inner_length().get();
+                    PositionInSeconds::new(pos)
+                }
+            },
         };
         self.scheduled_stop_pos = Some(resolved_stop_pos);
     }
