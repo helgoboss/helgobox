@@ -23,12 +23,13 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev libwebkit2gtk-4.0
+          sudo apt-get install nasm
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2020-12-10
+          toolchain: 1.55.0
           override: true
+      - run: rustup component add rustfmt
       - name: cargo check
         uses: actions-rs/cargo@v1
         with:
@@ -44,12 +45,13 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev libwebkit2gtk-4.0
+          sudo apt-get install nasm
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2020-12-10
+          toolchain: 1.55.0
           override: true
+      - run: rustup component add rustfmt
       - name: cargo build
         uses: actions-rs/cargo@v1
         with:
@@ -70,7 +72,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2020-12-10
+          toolchain: 1.55.0
           override: true
       - run: rustup component add rustfmt
       - name: cargo fmt
@@ -89,12 +91,13 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev libwebkit2gtk-4.0
+          sudo apt-get install nasm
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2020-12-10
+          toolchain: 1.55.0
           override: true
+      - run: rustup component add rustfmt
       - run: rustup component add clippy
       - name: cargo clippy
         uses: actions-rs/cargo@v1

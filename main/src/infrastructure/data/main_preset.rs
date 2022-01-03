@@ -1,18 +1,14 @@
-use crate::application::{
-    GroupModel, MainPreset, ParameterSetting, Preset, PresetManager, SharedGroup, SharedMapping,
-};
-use crate::core::default_util::is_default;
+use crate::application::{MainPreset, Preset, PresetManager};
+use crate::base::default_util::is_default;
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
-    ExtendedPresetManager, FileBasedPresetManager, GroupModelData, MappingModelData,
-    MigrationDescriptor, PresetData,
+    CompartmentModelData, ExtendedPresetManager, FileBasedPresetManager, PresetData,
 };
 
 use crate::infrastructure::plugin::App;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub type FileBasedMainPresetManager = FileBasedPresetManager<MainPreset, MainPresetData>;
@@ -24,28 +20,6 @@ impl PresetManager for SharedMainPresetManager {
 
     fn find_by_id(&self, id: &str) -> Option<MainPreset> {
         self.borrow().find_by_id(id)
-    }
-
-    fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool {
-        self.borrow().mappings_are_dirty(id, mappings)
-    }
-
-    fn parameter_settings_are_dirty(
-        &self,
-        id: &str,
-        parameter_settings: &HashMap<u32, ParameterSetting>,
-    ) -> bool {
-        self.borrow()
-            .parameter_settings_are_dirty(id, parameter_settings)
-    }
-
-    fn groups_are_dirty(
-        &self,
-        id: &str,
-        default_group: &SharedGroup,
-        groups: &[SharedGroup],
-    ) -> bool {
-        self.borrow().groups_are_dirty(id, default_group, groups)
     }
 }
 
@@ -72,14 +46,8 @@ pub struct MainPresetData {
     #[serde(skip_deserializing, skip_serializing_if = "is_default")]
     id: Option<String>,
     name: String,
-    #[serde(default, skip_serializing_if = "is_default")]
-    default_group: Option<GroupModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    groups: Vec<GroupModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    mappings: Vec<MappingModelData>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    parameters: HashMap<u32, ParameterSetting>,
+    #[serde(flatten)]
+    data: CompartmentModelData,
 }
 
 impl PresetData for MainPresetData {
@@ -89,58 +57,26 @@ impl PresetData for MainPresetData {
         MainPresetData {
             version: Some(App::version().clone()),
             id: Some(preset.id().to_string()),
-            default_group: Some(GroupModelData::from_model(preset.default_group())),
-            groups: preset
-                .groups()
-                .iter()
-                .map(|g| GroupModelData::from_model(g))
-                .collect(),
-            mappings: preset
-                .mappings()
-                .iter()
-                .map(|m| MappingModelData::from_model(&m))
-                .collect(),
-            parameters: preset.parameters().clone(),
+            data: CompartmentModelData::from_model(preset.data()),
             name: preset.name().to_string(),
         }
     }
 
-    fn to_model(&self, id: String) -> MainPreset {
-        let compartment = MappingCompartment::MainMappings;
-        let migration_descriptor = MigrationDescriptor::new(self.version.as_ref());
-        let final_default_group = self
-            .default_group
-            .as_ref()
-            .map(|g| g.to_model(compartment))
-            .unwrap_or_else(|| GroupModel::default_for_compartment(compartment));
-        MainPreset::new(
+    fn to_model(&self, id: String) -> Result<MainPreset, String> {
+        let preset = MainPreset::new(
             id,
             self.name.clone(),
-            final_default_group,
-            self.groups
-                .iter()
-                .map(|g| g.to_model(compartment))
-                .collect(),
-            self.mappings
-                .iter()
-                .map(|m| {
-                    m.to_model_flexible(
-                        compartment,
-                        None,
-                        &migration_descriptor,
-                        self.version.as_ref(),
-                    )
-                })
-                .collect(),
-            self.parameters.clone(),
-        )
+            self.data
+                .to_model(self.version.as_ref(), MappingCompartment::MainMappings)?,
+        );
+        Ok(preset)
     }
 
     fn clear_id(&mut self) {
         self.id = None;
     }
 
-    fn was_saved_with_newer_version(&self) -> bool {
-        App::given_version_is_newer_than_app_version(self.version.as_ref())
+    fn version(&self) -> Option<&Version> {
+        self.version.as_ref()
     }
 }

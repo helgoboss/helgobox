@@ -1,0 +1,31 @@
+{
+  "version": "2.9.1",
+  "id": "I3iqzlfV",
+  "controlDeviceId": "62",
+  "feedbackDeviceId": "fx-output",
+  "controllerMappings": [
+    {
+      "id": "134104a5-8eb1-4a07-b8a9-b65d0a8f74d3",
+      "name": "1",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 64
+      },
+      "mode": {
+        "minTargetValue": 0.01,
+        "maxTargetValue": 0.01,
+        "outOfRangeBehavior": "min"
+      },
+      "target": {
+        "fxAnchor": "this"
+      },
+      "sendFeedbackAfterControl": true
+    }
+  ],
+  "parameters": {
+    "0": {
+      "value": 0.5
+    }
+  }
+}

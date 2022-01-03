@@ -1,16 +1,18 @@
-use crate::core::eel::{Program, Vm};
+use crate::base::eel::{Program, Vm};
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{open_in_browser, open_in_text_editor};
+use derivative::Derivative;
 use reaper_low::raw;
 use std::cell::RefCell;
 use swell_ui::{SharedView, View, ViewContext, Window};
-use wrap_debug::WrapDebug;
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct EelEditorPanel {
     view: ViewContext,
     content: RefCell<String>,
-    apply: WrapDebug<Box<dyn Fn(String)>>,
+    #[derivative(Debug = "ignore")]
+    apply: Box<dyn Fn(String)>,
     vm: Vm,
 }
 
@@ -19,7 +21,7 @@ impl EelEditorPanel {
         Self {
             view: Default::default(),
             content: RefCell::new(initial_content),
-            apply: WrapDebug(Box::new(apply)),
+            apply: Box::new(apply),
             vm: Vm::new(),
         }
     }
@@ -123,6 +125,6 @@ impl View for EelEditorPanel {
 
 fn help() {
     open_in_browser(
-        "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md#script-source",
+        "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#script-source",
     );
 }

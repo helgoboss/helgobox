@@ -1,21 +1,26 @@
 use crate::application::{
-    empty_parameter_settings, GroupModel, MainPresetAutoLoadMode, ParameterSetting, Session,
+    empty_parameter_settings, reaper_supports_global_midi_filter, CompartmentInSession, GroupModel,
+    MainPresetAutoLoadMode, ParameterSetting, Session, SessionState,
 };
-use crate::core::default_util::{bool_true, is_bool_true, is_default};
+use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    ExtendedProcessorContext, MappingCompartment, MidiControlInput, MidiDestination, OscDeviceId,
-    ParameterArray, QualifiedSlotDescriptor, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    GroupId, GroupKey, InstanceState, MappingCompartment, MappingId, MidiControlInput,
+    MidiDestination, OscDeviceId, ParameterArray, QualifiedSlotDescriptor, Tag,
+    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
-    GroupModelData, MappingModelData, MigrationDescriptor, ParameterData,
+    ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
+    ParameterData,
 };
 use crate::infrastructure::plugin::App;
 
+use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
+use std::error::Error;
 use std::ops::Deref;
 
 /// This is the structure for loading and saving a ReaLearn session.
@@ -29,7 +34,7 @@ use std::ops::Deref;
 pub struct SessionData {
     // Since ReaLearn 1.12.0-pre18
     #[serde(default, skip_serializing_if = "is_default")]
-    version: Option<Version>,
+    pub version: Option<Version>,
     // Since ReaLearn 1.12.0-pre?
     #[serde(default, skip_serializing_if = "is_default")]
     id: Option<String>,
@@ -72,12 +77,45 @@ pub struct SessionData {
     active_main_preset_id: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
     main_preset_auto_load_mode: MainPresetAutoLoadMode,
+    // String key workaround because otherwise deserialization doesn't work with flattening,
+    // which is used in CompartmentModelData.
     #[serde(default, skip_serializing_if = "is_default")]
-    parameters: HashMap<u32, ParameterData>,
+    parameters: HashMap<String, ParameterData>,
+    // String key workaround because otherwise deserialization doesn't work with flattening,
+    // which is used in CompartmentModelData.
     #[serde(default, skip_serializing_if = "is_default")]
-    controller_parameters: HashMap<u32, ParameterData>,
+    controller_parameters: HashMap<String, ParameterData>,
     #[serde(default, skip_serializing_if = "is_default")]
     clip_slots: Vec<QualifiedSlotDescriptor>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub tags: Vec<Tag>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    controller: CompartmentState,
+    #[serde(default, skip_serializing_if = "is_default")]
+    main: CompartmentState,
+    #[serde(default, skip_serializing_if = "is_default")]
+    active_instance_tags: HashSet<Tag>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct CompartmentState {
+    #[serde(default, skip_serializing_if = "is_default")]
+    active_mapping_by_group: HashMap<GroupId, MappingId>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    active_mapping_tags: HashSet<Tag>,
+}
+
+impl CompartmentState {
+    fn from_instance_state(
+        instance_state: &InstanceState,
+        compartment: MappingCompartment,
+    ) -> Self {
+        CompartmentState {
+            active_mapping_by_group: instance_state.active_mapping_by_group(compartment).clone(),
+            active_mapping_tags: instance_state.active_mapping_tags(compartment).clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -119,20 +157,24 @@ impl Default for SessionData {
             parameters: Default::default(),
             controller_parameters: Default::default(),
             clip_slots: vec![],
+            tags: vec![],
+            controller: Default::default(),
+            main: Default::default(),
+            active_instance_tags: Default::default(),
         }
     }
 }
 
 impl SessionData {
-    pub fn was_saved_with_newer_version(&self) -> bool {
-        App::given_version_is_newer_than_app_version(self.version.as_ref())
-    }
-
     pub fn from_model(session: &Session, parameters: &ParameterArray) -> SessionData {
         let from_mappings = |compartment| {
+            let compartment_in_session = CompartmentInSession {
+                session,
+                compartment,
+            };
             session
                 .mappings(compartment)
-                .map(|m| MappingModelData::from_model(m.borrow().deref()))
+                .map(|m| MappingModelData::from_model(m.borrow().deref(), &compartment_in_session))
                 .collect()
         };
         let from_groups = |compartment| {
@@ -146,6 +188,8 @@ impl SessionData {
                 session.default_group(compartment).borrow().deref(),
             ))
         };
+        let instance_state = session.instance_state().borrow();
+        let session_state = session.state().borrow();
         SessionData {
             version: Some(App::version().clone()),
             id: Some(session.id().to_string()),
@@ -179,21 +223,33 @@ impl SessionData {
             mappings: from_mappings(MappingCompartment::MainMappings),
             controller_mappings: from_mappings(MappingCompartment::ControllerMappings),
             active_controller_id: session
-                .active_controller_preset_id()
+                .active_preset_id(MappingCompartment::ControllerMappings)
                 .map(|id| id.to_string()),
-            active_main_preset_id: session.active_main_preset_id().map(|id| id.to_string()),
+            active_main_preset_id: session
+                .active_preset_id(MappingCompartment::MainMappings)
+                .map(|id| id.to_string()),
             main_preset_auto_load_mode: session.main_preset_auto_load_mode.get(),
             parameters: get_parameter_data_map(
-                session,
+                &session_state,
                 parameters,
                 MappingCompartment::MainMappings,
             ),
             controller_parameters: get_parameter_data_map(
-                session,
+                &session_state,
                 parameters,
                 MappingCompartment::ControllerMappings,
             ),
-            clip_slots: { session.instance_state().borrow().filled_slot_descriptors() },
+            clip_slots: { instance_state.filled_slot_descriptors() },
+            tags: session.tags.get_ref().clone(),
+            controller: CompartmentState::from_instance_state(
+                &instance_state,
+                MappingCompartment::ControllerMappings,
+            ),
+            main: CompartmentState::from_instance_state(
+                &instance_state,
+                MappingCompartment::MainMappings,
+            ),
+            active_instance_tags: instance_state.active_instance_tags().clone(),
         }
     }
 
@@ -208,8 +264,13 @@ impl SessionData {
         &self,
         session: &mut Session,
         params: &ParameterArray,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), Box<dyn Error>> {
         // Validation
+        ensure_no_duplicate_compartment_data(
+            &self.mappings,
+            &self.groups,
+            self.parameters.values().map(|p| &p.settings),
+        )?;
         let (midi_control_input, osc_control_input) = match self.control_device_id.as_ref() {
             None => (MidiControlInput::FxInput, None),
             Some(dev_id) => {
@@ -253,12 +314,6 @@ impl SessionData {
             session.id.set_without_notification(id.clone())
         };
         session
-            .let_matched_events_through
-            .set_without_notification(self.let_matched_events_through);
-        session
-            .let_unmatched_events_through
-            .set_without_notification(self.let_unmatched_events_through);
-        session
             .auto_correct_settings
             .set(self.always_auto_detect_mode);
         session.lives_on_upper_floor.set(self.lives_on_upper_floor);
@@ -277,52 +332,86 @@ impl SessionData {
         session
             .osc_output_device_id
             .set_without_notification(osc_feedback_output);
+        // Let events through or not
+        {
+            let is_old_preset = self
+                .version
+                .as_ref()
+                .map(|v| v < &Version::parse("2.10.0-pre.10").unwrap())
+                .unwrap_or(true);
+            let (matched, unmatched) = if is_old_preset && session.control_input().is_midi_device()
+            {
+                // Old presets using MIDI device input didn't support global MIDI filtering. For
+                // backward compatibility, make sure that all messages are let through then!
+                (true, true)
+            } else if reaper_supports_global_midi_filter() {
+                // This is a new preset and REAPER supports global MIDI filtering.
+                (
+                    self.let_matched_events_through,
+                    self.let_unmatched_events_through,
+                )
+            } else {
+                // This is a new preset but REAPER doesn't support global MIDI filtering.
+                (true, true)
+            };
+            session
+                .let_matched_events_through
+                .set_without_notification(matched);
+            session
+                .let_unmatched_events_through
+                .set_without_notification(unmatched);
+        }
         // Groups
         let get_final_default_group =
             |def_group: Option<&GroupModelData>, compartment: MappingCompartment| {
                 def_group
-                    .map(|g| g.to_model(compartment))
+                    .map(|g| g.to_model(compartment, true))
                     .unwrap_or_else(|| GroupModel::default_for_compartment(compartment))
             };
+        let main_default_group = get_final_default_group(
+            self.default_group.as_ref(),
+            MappingCompartment::MainMappings,
+        );
+        let controller_default_group = get_final_default_group(
+            self.default_controller_group.as_ref(),
+            MappingCompartment::ControllerMappings,
+        );
         session
             .default_group(MappingCompartment::MainMappings)
-            .replace(get_final_default_group(
-                self.default_group.as_ref(),
-                MappingCompartment::MainMappings,
-            ));
-        session.set_groups_without_notification(
-            MappingCompartment::MainMappings,
-            self.groups
-                .iter()
-                .map(|g| g.to_model(MappingCompartment::MainMappings)),
-        );
+            .replace(main_default_group);
+        let main_groups: Vec<_> = self
+            .groups
+            .iter()
+            .map(|g| g.to_model(MappingCompartment::MainMappings, false))
+            .collect();
+        let controller_groups: Vec<_> = self
+            .controller_groups
+            .iter()
+            .map(|g| g.to_model(MappingCompartment::ControllerMappings, false))
+            .collect();
+        session.set_groups_without_notification(MappingCompartment::MainMappings, main_groups);
         session
             .default_group(MappingCompartment::ControllerMappings)
-            .replace(get_final_default_group(
-                self.default_controller_group.as_ref(),
-                MappingCompartment::ControllerMappings,
-            ));
+            .replace(controller_default_group);
         session.set_groups_without_notification(
             MappingCompartment::ControllerMappings,
-            self.controller_groups
-                .iter()
-                .map(|g| g.to_model(MappingCompartment::ControllerMappings)),
+            controller_groups,
         );
         // Mappings
-        let context = session.context().clone();
-        let extended_context = ExtendedProcessorContext::new(&context, &params);
         let mut apply_mappings = |compartment, mappings: &Vec<MappingModelData>| {
-            session.set_mappings_without_notification(
-                compartment,
-                mappings.iter().map(|m| {
+            let mappings: Vec<_> = mappings
+                .iter()
+                .map(|m| {
                     m.to_model_flexible(
                         compartment,
-                        Some(extended_context),
                         &migration_descriptor,
                         self.version.as_ref(),
+                        session.compartment_in_session(compartment),
+                        Some(session.extended_context_with_params(params)),
                     )
-                }),
-            );
+                })
+                .collect();
+            session.set_mappings_without_notification(compartment, mappings);
         };
         apply_mappings(MappingCompartment::MainMappings, &self.mappings);
         apply_mappings(
@@ -334,22 +423,45 @@ impl SessionData {
         session
             .main_preset_auto_load_mode
             .set_without_notification(self.main_preset_auto_load_mode);
+        session.tags.set_without_notification(self.tags.clone());
         // Parameters
-        session.set_parameter_settings_without_notification(
-            MappingCompartment::MainMappings,
-            get_parameter_settings(&self.parameters),
-        );
-        session.set_parameter_settings_without_notification(
-            MappingCompartment::ControllerMappings,
-            get_parameter_settings(&self.controller_parameters),
-        );
-        // Clip slots
+        {
+            let mut session_state = session.state().borrow_mut();
+            session_state.set_parameter_settings_without_notification(
+                MappingCompartment::MainMappings,
+                get_parameter_settings(&self.parameters),
+            );
+            session_state.set_parameter_settings_without_notification(
+                MappingCompartment::ControllerMappings,
+                get_parameter_settings(&self.controller_parameters),
+            );
+        }
+        // Instance state
         {
             let mut instance_state = session.instance_state().borrow_mut();
             instance_state.load_slots(
                 self.clip_slots.clone(),
                 Some(session.context().project_or_current_project()),
             )?;
+            instance_state
+                .set_active_instance_tags_without_notification(self.active_instance_tags.clone());
+            // Compartment-specific
+            instance_state.set_active_mapping_by_group(
+                MappingCompartment::ControllerMappings,
+                self.controller.active_mapping_by_group.clone(),
+            );
+            instance_state.set_active_mapping_by_group(
+                MappingCompartment::MainMappings,
+                self.main.active_mapping_by_group.clone(),
+            );
+            instance_state.set_active_mapping_tags(
+                MappingCompartment::ControllerMappings,
+                self.controller.active_mapping_tags.clone(),
+            );
+            instance_state.set_active_mapping_tags(
+                MappingCompartment::MainMappings,
+                self.main.active_mapping_tags.clone(),
+            );
         }
         Ok(())
     }
@@ -357,40 +469,89 @@ impl SessionData {
     pub fn parameters_as_array(&self) -> ParameterArray {
         let mut parameters = ZEROED_PLUGIN_PARAMETERS;
         for (i, p) in self.parameters.iter() {
-            parameters[*i as usize] = p.value;
+            if let Ok(i) = i.parse::<u32>() {
+                parameters[i as usize] = p.value;
+            }
         }
         parameters
     }
 }
 
 fn get_parameter_data_map(
-    session: &Session,
+    session_state: &SessionState,
     parameters: &ParameterArray,
     compartment: MappingCompartment,
-) -> HashMap<u32, ParameterData> {
+) -> HashMap<String, ParameterData> {
     (0..COMPARTMENT_PARAMETER_COUNT)
         .filter_map(|i| {
             let parameter_slice = compartment.slice_params(parameters);
             let value = parameter_slice[i as usize];
-            let settings = session.get_parameter_settings(compartment, i);
+            let settings = session_state.get_parameter_settings(compartment, i);
             if value == 0.0 && settings.name.is_empty() {
                 return None;
             }
             let data = ParameterData {
+                settings: settings.clone(),
                 value,
-                name: settings.name.clone(),
             };
-            Some((i, data))
+            Some((i.to_string(), data))
         })
         .collect()
 }
 
-fn get_parameter_settings(data_map: &HashMap<u32, ParameterData>) -> Vec<ParameterSetting> {
+fn get_parameter_settings(data_map: &HashMap<String, ParameterData>) -> Vec<ParameterSetting> {
     let mut settings = empty_parameter_settings();
     for (i, p) in data_map.iter() {
-        settings[*i as usize] = ParameterSetting {
-            name: p.name.clone(),
-        };
+        if let Ok(i) = i.parse::<u32>() {
+            settings[i as usize] = p.settings.clone();
+        }
     }
     settings
+}
+
+impl<'a> ModelToDataConversionContext for CompartmentInSession<'a> {
+    fn non_default_group_key_by_id(&self, group_id: GroupId) -> Option<GroupKey> {
+        let group = self.session.find_group_by_id(self.compartment, group_id)?;
+        Some(group.borrow().key().clone())
+    }
+}
+
+impl<'a> DataToModelConversionContext for CompartmentInSession<'a> {
+    fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId> {
+        let group = self.session.find_group_by_key(self.compartment, key)?;
+        Some(group.borrow().id())
+    }
+}
+
+impl<'a> ApiToDataConversionContext for CompartmentInSession<'a> {
+    fn param_index_by_key(&self, key: &str) -> Option<u32> {
+        let (i, _) = self
+            .session
+            .state()
+            .borrow()
+            .find_parameter_setting_by_key(self.compartment, key)?;
+        Some(i)
+    }
+}
+
+pub trait ModelToDataConversionContext {
+    fn group_key_by_id(&self, group_id: GroupId) -> Option<GroupKey> {
+        if group_id.is_default() {
+            return Some(GroupKey::default());
+        }
+        self.non_default_group_key_by_id(group_id)
+    }
+
+    fn non_default_group_key_by_id(&self, group_id: GroupId) -> Option<GroupKey>;
+}
+
+pub trait DataToModelConversionContext {
+    fn group_id_by_key(&self, key: &GroupKey) -> Option<GroupId> {
+        if key.is_empty() {
+            return Some(GroupId::default());
+        }
+        self.non_default_group_id_by_key(key)
+    }
+
+    fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId>;
 }

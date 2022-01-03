@@ -1,8 +1,8 @@
 use crate::infrastructure::ui::bindings::root;
+use derivative::Derivative;
 use reaper_low::raw;
 use std::cell::RefCell;
 use swell_ui::{SharedView, View, ViewContext, Window};
-use wrap_debug::WrapDebug;
 
 #[derive(Debug, Default)]
 pub struct MessagePanel {
@@ -10,11 +10,13 @@ pub struct MessagePanel {
     content: RefCell<MessagePanelContent>,
 }
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 struct MessagePanelContent {
     title: String,
     message: String,
-    on_close: WrapDebug<Box<dyn FnOnce()>>,
+    #[derivative(Debug = "ignore")]
+    on_close: Box<dyn FnOnce()>,
 }
 
 impl Default for MessagePanelContent {
@@ -22,7 +24,7 @@ impl Default for MessagePanelContent {
         Self {
             title: "".to_string(),
             message: "".to_string(),
-            on_close: WrapDebug(Box::new(|| ())),
+            on_close: Box::new(|| ()),
         }
     }
 }
@@ -32,9 +34,9 @@ impl MessagePanel {
         let prev_content = self.content.replace(MessagePanelContent {
             title,
             message,
-            on_close: WrapDebug(Box::new(on_close)),
+            on_close: Box::new(on_close),
         });
-        (prev_content.on_close.into_inner())();
+        (prev_content.on_close)();
         if self.is_open() {
             self.invalidate();
         }
@@ -50,7 +52,7 @@ impl MessagePanel {
 
     fn on_close(&self) {
         let prev_content = self.content.replace(Default::default());
-        (prev_content.on_close.into_inner())();
+        (prev_content.on_close)();
     }
 }
 

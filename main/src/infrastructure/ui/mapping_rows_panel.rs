@@ -1,21 +1,23 @@
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 
+use crate::base::when;
+use crate::infrastructure::ui::{
+    bindings::root, deserialize_data_object_from_json, get_text_from_clipboard, paste_mappings,
+    util, DataObject, IndependentPanelManager, MainState, MappingRowPanel,
+    SharedIndependentPanelManager, SharedMainState,
+};
+use realearn_api::schema::Envelope;
 use reaper_high::Reaper;
 use reaper_low::raw;
-
-use crate::core::when;
-use crate::infrastructure::ui::{
-    bindings::root, get_object_from_clipboard, paste_mappings, util, ClipboardObject,
-    IndependentPanelManager, MainState, MappingRowPanel, SharedIndependentPanelManager,
-    SharedMainState,
-};
-use rx_util::{SharedItemEvent, SharedPayload};
+use rxrust::prelude::*;
 use slog::debug;
 use std::cmp;
 
-use crate::application::{Session, SharedMapping, SharedSession, WeakSession};
-use crate::domain::{MappingCompartment, MappingId};
+use crate::application::{
+    Affected, Session, SessionProp, SharedMapping, SharedSession, WeakSession,
+};
+use crate::domain::{MappingCompartment, MappingId, MappingMatchedEvent};
 use swell_ui::{DialogUnits, MenuBar, Pixels, Point, SharedView, View, ViewContext, Window};
 
 #[derive(Debug)]
@@ -61,6 +63,26 @@ impl MappingRowsPanel {
 
     fn session(&self) -> SharedSession {
         self.session.upgrade().expect("session gone")
+    }
+
+    pub fn handle_matched_mapping(&self, event: MappingMatchedEvent) {
+        if event.compartment != self.active_compartment() {
+            return;
+        }
+        for row in &self.rows {
+            if row.mapping_id() == Some(event.mapping_id) {
+                row.handle_matched_mapping();
+            }
+        }
+    }
+
+    pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
+        if !self.is_open() {
+            return;
+        }
+        for row in &self.rows {
+            row.handle_affected(affected, initiator);
+        }
     }
 
     /// Also opens main panel, clears filters and switches compartment if necessary.
@@ -349,9 +371,9 @@ impl MappingRowsPanel {
                 }
             }
         }
-        if let Some(filter_source) = main_state.source_filter.get_ref() {
+        if let Some(source_filter) = main_state.source_filter.get_ref() {
             let mapping_source = mapping.source_model.create_source();
-            if mapping_source != *filter_source {
+            if !source_filter.matches(&mapping_source) {
                 return false;
             }
         }
@@ -364,7 +386,11 @@ impl MappingRowsPanel {
             }
         }
         let search_expression = main_state.search_expression.get_ref();
-        if !search_expression.is_empty() && !search_expression.matches(&mapping.effective_name()) {
+        if !search_expression.is_empty()
+            && !search_expression.matches(&mapping.effective_name())
+            && !search_expression.matches_any_tag(mapping.tags())
+            && !search_expression.matches_any_tag_in_group(&mapping, session)
+        {
             return false;
         }
         true
@@ -432,7 +458,7 @@ impl MappingRowsPanel {
             } else {
                 // Both filter is active and displayed group.
                 // Try filter while ignoring group.
-                if Self::filtered_mappings(&session, &main_state, compartment, true).count() == 0 {
+                if Self::filtered_mappings(session, main_state, compartment, true).count() == 0 {
                     EmptyMappingListCase::GroupAndFilterSetFilterIsProblem
                 } else {
                     EmptyMappingListCase::GroupAndFilterSetGroupIsProblem
@@ -501,7 +527,8 @@ impl MappingRowsPanel {
         let pure_menu = {
             use swell_ui::menu_tree::*;
             let shared_session = self.session();
-            let clipboard_object = get_object_from_clipboard();
+            let data_object_from_clipboard = get_text_from_clipboard()
+                .and_then(|text| deserialize_data_object_from_json(&text).ok());
             let main_state = self.main_state.borrow();
             let group_id = main_state
                 .displayed_group_for_active_compartment()
@@ -509,12 +536,12 @@ impl MappingRowsPanel {
                 .unwrap_or_default();
             let compartment = main_state.active_compartment.get();
             let entries = vec![{
-                let desc = match clipboard_object {
-                    Some(ClipboardObject::Mapping(m)) => Some((
+                let desc = match data_object_from_clipboard {
+                    Some(DataObject::Mapping(Envelope { value: m })) => Some((
                         format!("Paste mapping \"{}\" (insert here)", &m.name),
                         vec![*m],
                     )),
-                    Some(ClipboardObject::Mappings(vec)) => {
+                    Some(DataObject::Mappings(Envelope { value: vec })) => {
                         Some((format!("Paste {} mappings (insert here)", vec.len()), vec))
                     }
                     _ => None,
@@ -544,9 +571,9 @@ impl MappingRowsPanel {
         Ok(())
     }
 
-    fn when<I: SharedPayload>(
+    fn when<I: Send + Sync + Clone + 'static>(
         self: &SharedView<Self>,
-        event: impl SharedItemEvent<I>,
+        event: impl LocalObservable<'static, Item = I, Err = ()> + 'static,
         reaction: impl Fn(SharedView<Self>, I) + 'static + Clone,
     ) {
         when(event.take_until(self.view.closed()))
@@ -616,7 +643,7 @@ impl View for MappingRowsPanel {
         true
     }
 
-    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: raw::HWND) -> raw::HBRUSH {
+    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, _: Window) -> raw::HBRUSH {
         util::view::control_color_static_default(hdc, util::view::mapping_row_background_brush())
     }
 

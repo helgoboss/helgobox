@@ -1,0 +1,22 @@
+digraph modules {
+  node [shape = "box"];
+
+  reaper_rs [label = "reaper-rs"]
+  helgoboss_learn [label = "helgoboss-learn"]
+  helgoboss_midi [label = "helgoboss-midi"]
+
+  subgraph cluster_realearn {
+    label = "ReaLearn";
+    main;
+    swell_ui [label = "swell-ui"];
+    api;
+  }
+
+  main -> api;
+  main -> swell_ui;
+  main -> reaper_rs;
+  main -> helgoboss_learn;
+  main -> helgoboss_midi;
+  reaper_rs -> helgoboss_midi;
+  helgoboss_learn -> helgoboss_midi;
+}

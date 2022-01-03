@@ -2,8 +2,8 @@ use crate::infrastructure::ui::{MainPanel, MappingPanel, SessionMessagePanel};
 use reaper_high::Reaper;
 use slog::debug;
 
-use crate::application::{Session, SharedMapping, WeakSession};
-use crate::domain::{MappingCompartment, TargetValueChangedEvent};
+use crate::application::{Affected, Session, SessionProp, SharedMapping, WeakSession};
+use crate::domain::{MappingCompartment, MappingId, MappingMatchedEvent, TargetValueChangedEvent};
 use swell_ui::{SharedView, View, WeakView, Window};
 
 const MAX_PANEL_COUNT: u32 = 4;
@@ -28,15 +28,37 @@ impl IndependentPanelManager {
     }
 
     pub fn handle_changed_target_value(&self, event: TargetValueChangedEvent) {
+        self.do_with_mapping_panel(event.compartment, event.mapping_id, |p| {
+            p.handle_changed_target_value(event.targets, event.new_value)
+        });
+    }
+
+    pub fn handle_matched_mapping(&self, event: MappingMatchedEvent) {
+        self.do_with_mapping_panel(event.compartment, event.mapping_id, |p| {
+            p.handle_matched_mapping();
+        });
+    }
+
+    pub fn handle_affected(&self, affected: &Affected<SessionProp>, initiator: Option<u32>) {
+        for p in self.mapping_panels.iter().filter(|p| p.is_open()) {
+            p.handle_affected(affected, initiator);
+        }
+    }
+
+    fn do_with_mapping_panel(
+        &self,
+        compartment: MappingCompartment,
+        mapping_id: MappingId,
+        f: impl Fn(SharedView<MappingPanel>),
+    ) {
         for p in &self.mapping_panels {
             if let Some(m) = p.displayed_mapping() {
                 let is_our_mapping = {
                     let m = m.borrow();
-                    m.compartment() == event.compartment && m.id() == event.mapping_id
+                    m.compartment() == compartment && m.id() == mapping_id
                 };
                 if is_our_mapping {
-                    p.clone()
-                        .notify_target_value_changed(event.targets, event.new_value);
+                    f(p.clone());
                 }
             }
         }

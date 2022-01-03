@@ -1,6 +1,8 @@
-#![feature(option_result_contains, trait_alias)]
+#![recursion_limit = "512"]
+extern crate vst;
+
 #[macro_use]
-mod core;
+mod base;
 mod application;
 mod domain;
 mod infrastructure;

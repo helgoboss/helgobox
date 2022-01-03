@@ -23,9 +23,10 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2020-12-10
+          toolchain: 1.55.0
           target: aarch64-apple-darwin
           override: true
+      - run: rustup component add rustfmt
       - name: Set SDKROOT
         run: echo "SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path)" >> $GITHUB_ENV
       - name: Set MACOSX_DEPLOYMENT_TARGET

@@ -18,7 +18,10 @@ pub struct BackboneState {
     /// Value: Instance ID of the ReaLearn instance that owns the feedback output.
     feedback_output_usages: RefCell<HashMap<DeviceFeedbackOutput, HashSet<InstanceId>>>,
     upper_floor_instances: RefCell<HashSet<InstanceId>>,
+    server_event_sender: tokio::sync::broadcast::Sender<ServerEventType>,
 }
+
+pub type ServerEventType = f64;
 
 impl BackboneState {
     pub fn new(target_context: RealearnTargetContext) -> Self {
@@ -28,7 +31,12 @@ impl BackboneState {
             control_input_usages: Default::default(),
             feedback_output_usages: Default::default(),
             upper_floor_instances: Default::default(),
+            server_event_sender: tokio::sync::broadcast::channel(1000).0,
         }
+    }
+
+    pub fn server_event_sender() -> &'static tokio::sync::broadcast::Sender<ServerEventType> {
+        &BackboneState::get().server_event_sender
     }
 
     pub fn target_context() -> &'static RefCell<RealearnTargetContext> {

@@ -1,10 +1,24 @@
-fn main() {
+use std::error::Error;
+use std::path::PathBuf;
+
+fn main() -> Result<(), Box<dyn Error>> {
+    // Generate Rust code from gRPC / Protocol Buffers schema
+    {
+        let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+        let _ = std::fs::remove_file(out_dir.join("realearn.rs"));
+        tonic_build::configure()
+            .build_client(false)
+            .compile(&["../proto/realearn.proto"], &["../proto"])?;
+    }
+
     // Generate "built" file (containing build-time information)
     built::write_built_file().expect("Failed to acquire build-time information");
 
-    // Optionally generate bindings
+    // Optionally generate bindings and dialogs
     #[cfg(feature = "generate")]
     codegen::generate_bindings();
+    #[cfg(all(feature = "generate", target_family = "unix"))]
+    codegen::generate_dialogs();
 
     // Embed or compile dialogs
     #[cfg(target_family = "windows")]
@@ -14,6 +28,8 @@ fn main() {
 
     // Compile WDL EEL
     compile_eel();
+
+    Ok(())
 }
 
 fn compile_eel() {
@@ -50,6 +66,8 @@ fn compile_eel() {
     let mut build = cc::Build::new();
     build
         .warnings(false)
+        // To make it compile for ARM targets (armv7 and aarch64) whose char type is unsigned.
+        .define("WDL_ALLOW_UNSIGNED_DEFAULT_CHAR", None)
         .file("lib/WDL/WDL/eel2/nseel-cfunc.c")
         .file("lib/WDL/WDL/eel2/nseel-compiler.c")
         .file("lib/WDL/WDL/eel2/nseel-caltab.c")
@@ -57,40 +75,20 @@ fn compile_eel() {
         .file("lib/WDL/WDL/eel2/nseel-lextab.c")
         .file("lib/WDL/WDL/eel2/nseel-ram.c")
         .file("lib/WDL/WDL/eel2/nseel-yylex.c");
+    if target_arch == "arm" {
+        // To make it compile for Linux armv7 targets.
+        build.flag_if_supported("-marm");
+    }
     if let Some(f) = asm_object_file {
         build.object(f);
     }
     build.compile("wdl-eel");
 }
 
-/// Compiles dialog windows using SWELL's dialog generator (too obscure to be ported to Rust)
+/// Compiles dialog windows code which was previously generated via PHP script.
 #[cfg(target_family = "unix")]
 fn compile_dialogs() {
-    // Make RC file SWELL-compatible.
-    // ResEdit uses WS_CHILDWINDOW but SWELL understands WS_CHILD only. Rename it.
-    let modified_rc_content = std::fs::read_to_string("src/infrastructure/ui/realearn.rc")
-        .expect("couldn't read RC file")
-        .replace("WS_CHILDWINDOW", "WS_CHILD");
-    std::fs::write("../target/realearn.modified.rc", modified_rc_content)
-        .expect("couldn't write modified RC file");
-    // Use PHP to translate SWELL-compatible RC file to C++
-    let result = std::process::Command::new("php")
-        .arg("lib/WDL/WDL/swell/mac_resgen.php")
-        .arg("../target/realearn.modified.rc")
-        .output()
-        .expect("PHP dialog translator result not available");
-    std::fs::copy(
-        "../target/realearn.modified.rc_mac_dlg",
-        "src/infrastructure/ui/realearn.rc_mac_dlg",
-    )
-    .unwrap();
-    std::fs::copy(
-        "../target/realearn.modified.rc_mac_menu",
-        "src/infrastructure/ui/realearn.rc_mac_menu",
-    )
-    .unwrap();
-    assert!(result.status.success(), "PHP dialog translator failed");
-    // Compile the resulting C++ file
+    // Compile the C++ file resulting from the PHP script execution in the generate step.
     let mut build = cc::Build::new();
     build
         .cpp(true)
@@ -113,7 +111,7 @@ fn embed_dialog_resources() {
             std::env::set_var(key, value);
         }
     }
-    embed_resource::compile("src/infrastructure/ui/realearn.rc");
+    embed_resource::compile("src/infrastructure/ui/msvc/msvc.rc");
 }
 
 #[cfg(feature = "generate")]
@@ -126,16 +124,53 @@ mod codegen {
         generate_infrastructure_bindings();
     }
 
+    /// Generates dialog window C++ code from resource file using SWELL's PHP-based dialog generator
+    /// (too obscure to be ported to Rust).
+    #[cfg(target_family = "unix")]
+    pub fn generate_dialogs() {
+        use std::io::Read;
+        // Make RC file SWELL-compatible.
+        // ResEdit uses WS_CHILDWINDOW but SWELL understands WS_CHILD only. Rename it.
+        let mut rc_file = std::fs::File::open("src/infrastructure/ui/msvc/msvc.rc")
+            .expect("couldn't find msvc.rc");
+        let mut rc_buf = vec![];
+        rc_file
+            .read_to_end(&mut rc_buf)
+            .expect("couldn't read msvc.rc");
+        let (original_rc_content, ..) = encoding_rs::UTF_16LE.decode(&rc_buf);
+        let modified_rc_content = original_rc_content.replace("WS_CHILDWINDOW", "WS_CHILD");
+        std::fs::write("../target/realearn.modified.rc", modified_rc_content)
+            .expect("couldn't write modified RC file");
+        // Use PHP to translate SWELL-compatible RC file to C++
+        let result = std::process::Command::new("php")
+            .arg("lib/WDL/WDL/swell/mac_resgen.php")
+            .arg("../target/realearn.modified.rc")
+            .output()
+            .expect("PHP dialog translator result not available");
+        std::fs::copy(
+            "../target/realearn.modified.rc_mac_dlg",
+            "src/infrastructure/ui/realearn.rc_mac_dlg",
+        )
+        .unwrap();
+        std::fs::copy(
+            "../target/realearn.modified.rc_mac_menu",
+            "src/infrastructure/ui/realearn.rc_mac_menu",
+        )
+        .unwrap();
+        assert!(result.status.success(), "PHP dialog generation failed");
+    }
+
     fn generate_core_bindings() {
-        println!("cargo:rerun-if-changed=src/core/wrapper.hpp");
+        println!("cargo:rerun-if-changed=src/base/wrapper.hpp");
         let mut builder = bindgen::Builder::default()
-            .header("src/core/wrapper.hpp")
+            .header("src/base/wrapper.hpp")
             .clang_arg("-xc++")
             .enable_cxx_namespaces()
             .raw_line("#![allow(non_upper_case_globals)]")
             .raw_line("#![allow(non_camel_case_types)]")
             .raw_line("#![allow(non_snake_case)]")
             .raw_line("#![allow(dead_code)]")
+            .raw_line("#![allow(deref_nullptr)]")
             .whitelist_function("NSEEL_.*")
             .parse_callbacks(Box::new(bindgen::CargoCallbacks));
         if let Some(stdlib) = util::determine_cpp_stdlib() {
@@ -144,7 +179,7 @@ mod codegen {
         let bindings = builder.generate().expect("Unable to generate bindings");
         let out_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
         bindings
-            .write_to_file(out_path.join("src/core/bindings.rs"))
+            .write_to_file(out_path.join("src/base/bindings.rs"))
             .expect("Couldn't write bindings!");
     }
 
@@ -154,6 +189,7 @@ mod codegen {
         let bindings = bindgen::Builder::default()
             .header("src/infrastructure/ui/wrapper.hpp")
             .whitelist_var("ID_.*")
+            .whitelist_var("IDC_.*")
             .whitelist_var("IDM_.*")
             .whitelist_var("IDR_.*")
             .enable_cxx_namespaces()

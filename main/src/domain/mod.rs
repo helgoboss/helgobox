@@ -55,7 +55,7 @@ pub use conditional_activation::*;
 mod eventing;
 pub use eventing::*;
 
-mod ui_util;
+pub mod ui_util;
 
 mod realearn_target_context;
 pub use realearn_target_context::*;
@@ -77,3 +77,30 @@ pub use io::*;
 
 mod clip_slot;
 pub use clip_slot::*;
+
+mod targets;
+pub use targets::*;
+
+mod group;
+pub use group::*;
+
+mod midi_types;
+pub use midi_types::*;
+
+mod reaper_source;
+pub use reaper_source::*;
+
+mod device_change_detector;
+pub use device_change_detector::*;
+
+mod small_ascii_string;
+pub use small_ascii_string::*;
+
+mod tag;
+pub use tag::*;
+
+mod organization;
+pub use organization::*;
+
+mod props;
+pub use props::*;

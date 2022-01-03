@@ -1,27 +1,123 @@
-use crate::application::{ActivationConditionModel, GroupData};
-use crate::core::{prop, Prop};
-use crate::domain::MappingCompartment;
+use crate::application::{
+    ActivationConditionCommand, ActivationConditionModel, ActivationConditionProp, Affected,
+    Change, GetProcessingRelevance, GroupData, ProcessingRelevance,
+};
+use crate::domain::{GroupId, GroupKey, MappingCompartment, Tag};
 use core::fmt;
-use rx_util::UnitEvent;
-use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
-use uuid::Uuid;
+
+pub enum GroupCommand {
+    SetName(String),
+    SetTags(Vec<Tag>),
+    SetControlIsEnabled(bool),
+    SetFeedbackIsEnabled(bool),
+    ChangeActivationCondition(ActivationConditionCommand),
+}
+
+pub enum GroupProp {
+    Name,
+    Tags,
+    ControlIsEnabled,
+    FeedbackIsEnabled,
+    InActivationCondition(Affected<ActivationConditionProp>),
+}
+
+impl GetProcessingRelevance for GroupProp {
+    fn processing_relevance(&self) -> Option<ProcessingRelevance> {
+        use GroupProp as P;
+        match self {
+            P::Tags | P::ControlIsEnabled | P::FeedbackIsEnabled => {
+                Some(ProcessingRelevance::ProcessingRelevant)
+            }
+            P::InActivationCondition(p) => p.processing_relevance(),
+            P::Name => None,
+        }
+    }
+}
 
 /// A mapping group.
 #[derive(Clone, Debug)]
 pub struct GroupModel {
     compartment: MappingCompartment,
     id: GroupId,
-    pub name: Prop<String>,
-    pub control_is_enabled: Prop<bool>,
-    pub feedback_is_enabled: Prop<bool>,
+    key: GroupKey,
+    name: String,
+    tags: Vec<Tag>,
+    control_is_enabled: bool,
+    feedback_is_enabled: bool,
     pub activation_condition_model: ActivationConditionModel,
+}
+
+impl<'a> Change<'a> for GroupModel {
+    type Command = GroupCommand;
+    type Prop = GroupProp;
+
+    fn change(&mut self, cmd: GroupCommand) -> Option<Affected<GroupProp>> {
+        use Affected::*;
+        use GroupCommand as C;
+        use GroupProp as P;
+        let affected = match cmd {
+            C::SetName(v) => {
+                self.name = v;
+                One(P::Name)
+            }
+            C::SetTags(v) => {
+                self.tags = v;
+                One(P::Tags)
+            }
+            C::SetControlIsEnabled(v) => {
+                self.control_is_enabled = v;
+                One(P::ControlIsEnabled)
+            }
+            C::SetFeedbackIsEnabled(v) => {
+                self.feedback_is_enabled = v;
+                One(P::FeedbackIsEnabled)
+            }
+            C::ChangeActivationCondition(cmd) => {
+                return self
+                    .activation_condition_model
+                    .change(cmd)
+                    .map(|affected| One(P::InActivationCondition(affected)));
+            }
+        };
+        Some(affected)
+    }
+}
+
+impl GroupModel {
+    pub fn effective_name(&self) -> &str {
+        if self.is_default_group() {
+            "<Default>"
+        } else {
+            self.name()
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn tags(&self) -> &[Tag] {
+        &self.tags
+    }
+
+    pub fn control_is_enabled(&self) -> bool {
+        self.control_is_enabled
+    }
+
+    pub fn feedback_is_enabled(&self) -> bool {
+        self.feedback_is_enabled
+    }
+
+    pub fn activation_condition_model(&self) -> &ActivationConditionModel {
+        &self.activation_condition_model
+    }
 }
 
 impl fmt::Display for GroupModel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.name.get_ref())
+        write!(f, "{}", self.effective_name())
     }
 }
 
@@ -39,56 +135,38 @@ pub fn share_group(group: GroupModel) -> SharedGroup {
     Rc::new(RefCell::new(group))
 }
 
-#[derive(
-    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize, Default,
-)]
-#[serde(transparent)]
-pub struct GroupId {
-    uuid: Uuid,
-}
-
-impl GroupId {
-    pub fn is_default(&self) -> bool {
-        self.uuid.is_nil()
-    }
-
-    pub fn random() -> GroupId {
-        GroupId {
-            uuid: Uuid::new_v4(),
-        }
-    }
-}
-
-impl fmt::Display for GroupId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.uuid)
-    }
-}
-
 impl GroupModel {
     pub fn new_from_ui(compartment: MappingCompartment, name: String) -> Self {
-        Self::new_internal(compartment, GroupId::random(), name)
+        Self::new_internal(compartment, GroupId::random(), GroupKey::random(), name)
     }
 
-    pub fn new_from_data(compartment: MappingCompartment, id: GroupId) -> Self {
-        Self::new_internal(compartment, id, "".to_string())
+    pub fn new_from_data(compartment: MappingCompartment, id: GroupId, key: GroupKey) -> Self {
+        Self::new_internal(compartment, id, key, "".to_string())
     }
 
     pub fn default_for_compartment(compartment: MappingCompartment) -> Self {
         Self {
             compartment,
-            id: Default::default(),
+            id: GroupId::default(),
+            key: GroupKey::default(),
             name: Default::default(),
-            control_is_enabled: prop(true),
-            feedback_is_enabled: prop(true),
+            tags: Default::default(),
+            control_is_enabled: true,
+            feedback_is_enabled: true,
             activation_condition_model: ActivationConditionModel::default(),
         }
     }
 
-    fn new_internal(compartment: MappingCompartment, id: GroupId, name: String) -> Self {
+    fn new_internal(
+        compartment: MappingCompartment,
+        id: GroupId,
+        key: GroupKey,
+        name: String,
+    ) -> Self {
         Self {
             id,
-            name: prop(name),
+            key,
+            name,
             ..Self::default_for_compartment(compartment)
         }
     }
@@ -101,34 +179,22 @@ impl GroupModel {
         self.id
     }
 
+    pub fn key(&self) -> &GroupKey {
+        &self.key
+    }
+
     pub fn is_default_group(&self) -> bool {
-        self.id() == Default::default()
+        self.id.is_default()
     }
 
     pub fn create_data(&self) -> GroupData {
         GroupData {
-            control_is_enabled: self.control_is_enabled.get(),
-            feedback_is_enabled: self.feedback_is_enabled.get(),
+            control_is_enabled: self.control_is_enabled(),
+            feedback_is_enabled: self.feedback_is_enabled(),
             activation_condition: self
                 .activation_condition_model
                 .create_activation_condition(),
+            tags: self.tags.clone(),
         }
-    }
-
-    /// Fires whenever a property has changed that doesn't have an effect on control/feedback
-    /// processing.
-    pub fn changed_non_processing_relevant(&self) -> impl UnitEvent {
-        self.name.changed()
-    }
-
-    /// Fires whenever a property has changed that has an effect on control/feedback processing.
-    pub fn changed_processing_relevant(&self) -> impl UnitEvent {
-        self.control_is_enabled
-            .changed()
-            .merge(self.feedback_is_enabled.changed())
-            .merge(
-                self.activation_condition_model
-                    .changed_processing_relevant(),
-            )
     }
 }

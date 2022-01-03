@@ -1,15 +1,12 @@
-use crate::application::{
-    GroupModel, MappingModel, ParameterSetting, Preset, PresetManager, SharedGroup, SharedMapping,
-};
-use crate::infrastructure::data::{GroupModelData, MappingModelData};
+use crate::application::{Preset, PresetManager};
 
-use crate::core::notification;
+use crate::base::notification;
+use crate::infrastructure::plugin::App;
 use reaper_high::Reaper;
-use rx_util::UnitEvent;
 use rxrust::prelude::*;
+use semver::Version;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs;
 use std::marker::PhantomData;
@@ -37,6 +34,9 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
             changed_subject: Default::default(),
             p: PhantomData,
         };
+        // Pre-loading all presets used to take lots of memory when we still used Rx Props, around
+        // 70 MB with my preset collection. But now the same takes just 5 MB, so this alone is not
+        // an urgent reason anymore to move to lazy preset loading.
         let _ = manager.load_presets_internal();
         manager
     }
@@ -57,14 +57,22 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
                     return None;
                 }
                 let path = dir_entry.path();
-                if !path.extension().contains(&"json") {
+                if path.extension() != Some(std::ffi::OsStr::new("json")) {
                     return None;
                 };
                 Some(path)
             });
         self.presets = preset_file_paths
-            .filter_map(|p| Self::load_preset(p).ok())
+            .filter_map(|p| match Self::load_preset(p) {
+                Ok(p) => Some(p),
+                Err(msg) => {
+                    notification::warn(msg);
+                    None
+                }
+            })
             .collect();
+        self.presets
+            .sort_unstable_by_key(|p| p.name().to_lowercase());
         Ok(())
     }
 
@@ -93,7 +101,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         self.add_preset(preset)
     }
 
-    pub fn changed(&self) -> impl UnitEvent {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.changed_subject.clone()
     }
 
@@ -118,31 +126,45 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
     }
 
     fn load_preset(path: impl AsRef<Path>) -> Result<P, String> {
+        let path = path.as_ref();
         let id = path
-            .as_ref()
             .file_stem()
-            .ok_or_else(|| "preset file must have stem because it makes up the ID".to_string())?
+            .ok_or_else(|| {
+                format!(
+                    "Preset file \"{}\" only has an extension but not a name. \
+                    The name is necessary because it makes up the preset ID.",
+                    path.display()
+                )
+            })?
             .to_string_lossy()
             .to_string();
-        let json =
-            fs::read_to_string(&path).map_err(|_| "couldn't read preset file".to_string())?;
+        let json = fs::read_to_string(&path)
+            .map_err(|_| format!("Couldn't read preset file \"{}\".", path.display()))?;
         let data: PD = serde_json::from_str(&json).map_err(|e| {
             format!(
-                "Preset file {:?} isn't valid. Details:\n\n{}",
-                path.as_ref(),
+                "Preset file {} isn't valid. Details:\n\n{}",
+                path.display(),
                 e
             )
         })?;
-        if data.was_saved_with_newer_version() {
-            notification::warn(
-                "The preset that is about to load was saved with a newer version of ReaLearn. Things might not work as expected. Even more importantly: Saving the preset might result in loss of the data that was saved with the new ReaLearn version! Please consider upgrading your ReaLearn installation to the latest version.",
-            );
+        if let Some(v) = data.version() {
+            if App::version() < v {
+                let msg = format!(
+                    "Skipped loading of preset \"{}\" because it has been saved with \
+                         ReaLearn {}, which is newer than the installed version {}. \
+                         Please update your ReaLearn version. If this is not an option for you and \
+                         it's a factory preset installed from ReaPack, go back to an older version \
+                         of that preset and pin it so that future ReaPack synchronization won't \
+                         automatically update that preset. Alternatively, make your own copy of \
+                         the preset and uninstall the factory preset.",
+                    path.display(),
+                    v,
+                    App::version()
+                );
+                return Err(msg);
+            }
         }
-        Ok(data.to_model(id))
-    }
-
-    fn find_preset_ref_by_id(&self, id: &str) -> Option<&P> {
-        self.presets.iter().find(|c| c.id() == id)
+        data.to_model(id)
     }
 }
 
@@ -170,70 +192,6 @@ impl<P: Preset, PD: PresetData<P = P>> PresetManager for FileBasedPresetManager<
     fn find_by_id(&self, id: &str) -> Option<P> {
         self.presets.iter().find(|c| c.id() == id).cloned()
     }
-
-    fn mappings_are_dirty(&self, id: &str, mappings: &[SharedMapping]) -> bool {
-        let preset = match self.find_preset_ref_by_id(id) {
-            None => return false,
-            Some(c) => c,
-        };
-        if mappings.len() != preset.mappings().len() {
-            return true;
-        }
-        mappings
-            .iter()
-            .zip(preset.mappings().iter())
-            .any(|(actual_mapping, preset_mapping)| {
-                !mappings_are_equal(&actual_mapping.borrow(), preset_mapping)
-            })
-    }
-
-    fn parameter_settings_are_dirty(
-        &self,
-        id: &str,
-        parameter_settings: &HashMap<u32, ParameterSetting>,
-    ) -> bool {
-        let preset = match self.find_preset_ref_by_id(id) {
-            None => return false,
-            Some(c) => c,
-        };
-        parameter_settings != preset.parameters()
-    }
-
-    fn groups_are_dirty(
-        &self,
-        id: &str,
-        default_group: &SharedGroup,
-        groups: &[SharedGroup],
-    ) -> bool {
-        let preset = match self.find_preset_ref_by_id(id) {
-            None => return false,
-            Some(c) => c,
-        };
-        if groups.len() != preset.groups().len() {
-            return true;
-        }
-        if !groups_are_equal(&default_group.borrow(), preset.default_group()) {
-            return true;
-        }
-        groups
-            .iter()
-            .zip(preset.groups().iter())
-            .any(|(actual_group, preset_group)| {
-                !groups_are_equal(&actual_group.borrow(), preset_group)
-            })
-    }
-}
-
-fn groups_are_equal(first: &GroupModel, second: &GroupModel) -> bool {
-    let first_data = GroupModelData::from_model(first);
-    let second_data = GroupModelData::from_model(second);
-    first_data == second_data
-}
-
-fn mappings_are_equal(first: &MappingModel, second: &MappingModel) -> bool {
-    let first_data = MappingModelData::from_model(first);
-    let second_data = MappingModelData::from_model(second);
-    first_data == second_data
 }
 
 pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {
@@ -241,9 +199,9 @@ pub trait PresetData: Sized + Serialize + DeserializeOwned + Debug {
 
     fn from_model(preset: &Self::P) -> Self;
 
-    fn to_model(&self, id: String) -> Self::P;
+    fn to_model(&self, id: String) -> Result<Self::P, String>;
 
     fn clear_id(&mut self);
 
-    fn was_saved_with_newer_version(&self) -> bool;
+    fn version(&self) -> Option<&Version>;
 }

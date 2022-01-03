@@ -1,26 +1,29 @@
 use crate::domain::{
     classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
-    Garbage, GarbageBin, InstanceId, LifecycleMidiMessage, LifecyclePhase, MappingCompartment,
-    MappingId, MidiClockCalculator, MidiMessageClassification, MidiSource, MidiSourceScanner,
-    NormalRealTimeToMainThreadTask, PartialControlMatch, RealTimeCompoundMappingTarget,
-    RealTimeMapping, RealTimeReaperTarget, SendMidiDestination, VirtualSourceValue,
+    Event, FeedbackSendBehavior, Garbage, GarbageBin, InputMatchResult, InstanceId,
+    LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator,
+    MidiMessageClassification, MidiScanResult, MidiScanner, NormalRealTimeToMainThreadTask,
+    OrderedMappingMap, OwnedIncomingMidiMessage, PartialControlMatch,
+    PersistentMappingProcessingState, QualifiedMappingId, RealTimeCompoundMappingTarget,
+    RealTimeMapping, RealTimeReaperTarget, SampleOffset, SendMidiDestination, VirtualSourceValue,
 };
-use helgoboss_learn::{ControlValue, MidiSourceValue, RawMidiEvent};
+use helgoboss_learn::{ControlValue, MidiSourceValue};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
+    ShortMessageFactory, ShortMessageType,
 };
-use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
-use reaper_medium::{Hz, MidiFrameOffset, MidiInputDeviceId, MidiOutputDeviceId, SendMidiTime};
-use slog::debug;
-use std::collections::HashMap;
+use reaper_high::{MidiOutputDevice, Reaper};
+use reaper_medium::{Hz, MidiInputDeviceId, MidiOutputDeviceId, SendMidiTime};
+use slog::{debug, trace};
 
-use crate::core::Global;
+use crate::base::Global;
 use assert_no_alloc::permit_alloc;
 use enum_map::{enum_map, EnumMap};
+use std::convert::TryInto;
 use std::ptr::null_mut;
 use std::time::Duration;
-use vst::api::{EventType, Events, MidiEvent, SysExEvent};
+use vst::api::{EventType, Events, SysExEvent};
 use vst::host::Host;
 use vst::plugin::HostCallback;
 
@@ -35,7 +38,7 @@ pub struct RealTimeProcessor {
     control_mode: ControlMode,
     midi_control_input: MidiControlInput,
     midi_feedback_output: Option<MidiDestination>,
-    mappings: EnumMap<MappingCompartment, HashMap<MappingId, RealTimeMapping>>,
+    mappings: EnumMap<MappingCompartment, OrderedMappingMap<RealTimeMapping>>,
     let_matched_events_through: bool,
     let_unmatched_events_through: bool,
     // State
@@ -51,10 +54,13 @@ pub struct RealTimeProcessor {
     // Scanners for more complex MIDI message types
     nrpn_scanner: PollingParameterNumberMessageScanner,
     cc_14_bit_scanner: ControlChange14BitMessageScanner,
-    // For source learning
-    midi_source_scanner: MidiSourceScanner,
+    // For MIDI capturing
+    midi_scanner: MidiScanner,
     // For MIDI timing clock calculations
     midi_clock_calculator: MidiClockCalculator,
+    sample_rate: Hz,
+    input_logging_enabled: bool,
+    output_logging_enabled: bool,
 }
 
 impl RealTimeProcessor {
@@ -80,8 +86,8 @@ impl RealTimeProcessor {
             normal_main_task_sender,
             control_main_task_sender,
             mappings: enum_map! {
-                ControllerMappings => HashMap::with_capacity(1000),
-                MainMappings => HashMap::with_capacity(5000),
+                ControllerMappings => ordered_map_with_capacity(1000),
+                MainMappings => ordered_map_with_capacity(5000),
             },
             let_matched_events_through: false,
             let_unmatched_events_through: false,
@@ -89,35 +95,38 @@ impl RealTimeProcessor {
             cc_14_bit_scanner: Default::default(),
             midi_control_input: MidiControlInput::FxInput,
             midi_feedback_output: None,
-            midi_source_scanner: Default::default(),
+            midi_scanner: Default::default(),
             midi_clock_calculator: Default::default(),
             control_is_globally_enabled: true,
             feedback_is_globally_enabled: true,
             garbage_bin,
+            input_logging_enabled: false,
+            output_logging_enabled: false,
+            sample_rate: Hz::new(1.0),
         }
     }
 
     pub fn process_incoming_midi_from_vst(
         &mut self,
-        frame_offset: MidiFrameOffset,
-        msg: RawShortMessage,
-        is_reaper_generated: bool,
+        event: Event<IncomingMidiMessage>,
+        is_transport_start: bool,
         host: &HostCallback,
     ) {
         if self.midi_control_input == MidiControlInput::FxInput {
-            if is_reaper_generated {
+            // TODO-medium Maybe also filter when transport stopping
+            if is_transport_start && event.payload().might_be_automatically_generated_by_reaper() {
                 // Ignore note off messages which are a result of starting the transport. They
                 // are generated by REAPER in order to stop instruments from sounding. But ReaLearn
                 // is not an instrument in the classical sense. We don't want to reset target values
                 // just because play has been pressed!
-                self.process_unmatched_short(msg, Caller::Vst(host));
+                self.process_unmatched(event, Caller::Vst(host));
                 return;
             }
-            self.process_incoming_midi(frame_offset, msg, Caller::Vst(host));
+            self.process_incoming_midi(event, Caller::Vst(host));
         } else {
             // #33, #290 If MIDI input device is not set to <FX input>, we want to pass through all
-            // messages.
-            self.send_short_midi_to_fx_output(msg, Caller::Vst(host))
+            // messages that arrive on FX input.
+            self.send_incoming_midi_to_fx_output(event, Caller::Vst(host))
         }
     }
 
@@ -133,6 +142,28 @@ impl RealTimeProcessor {
         self.run_from_audio_hook_control_and_learn();
     }
 
+    pub fn midi_control_input(&self) -> MidiControlInput {
+        self.midi_control_input
+    }
+
+    pub fn control_is_globally_enabled(&self) -> bool {
+        self.control_is_globally_enabled
+    }
+
+    /// This should be called by audio hook in normal mode whenever it receives a MIDI message that
+    /// is relevant *for this ReaLearn instance* (the input device is not checked again).
+    ///
+    /// Returns whether this message should be filtered out from the global MIDI stream.
+    pub fn process_incoming_midi_from_audio_hook(
+        &mut self,
+        event: Event<IncomingMidiMessage>,
+    ) -> bool {
+        let matched = self.process_incoming_midi(event, Caller::AudioHook);
+        let let_through = (matched && self.let_matched_events_through)
+            || (!matched && self.let_unmatched_events_through);
+        !let_through
+    }
+
     fn request_full_sync_and_discard_tasks_if_successful(&mut self) {
         if self
             .normal_main_task_sender
@@ -140,8 +171,16 @@ impl RealTimeProcessor {
             .is_ok()
         {
             // Requesting a full resync was successful so we can safely discard accumulated tasks.
-            let discarded_normal_task_count = self.normal_task_receiver.try_iter().count();
-            let discarded_feedback_task_count = self.feedback_task_receiver.try_iter().count();
+            let discarded_normal_task_count = self
+                .normal_task_receiver
+                .try_iter()
+                .map(|t| self.garbage_bin.dispose(Garbage::NormalRealTimeTask(t)))
+                .count();
+            let discarded_feedback_task_count = self
+                .feedback_task_receiver
+                .try_iter()
+                .map(|t| self.garbage_bin.dispose(Garbage::FeedbackRealTimeTask(t)))
+                .count();
             permit_alloc(|| {
                 debug!(
                     self.logger,
@@ -194,7 +233,7 @@ impl RealTimeProcessor {
                     permit_alloc(|| {
                         debug!(
                             self.logger,
-                            "Updating {} {}...",
+                            "Updating {} mappings in {}...",
                             mappings.len(),
                             compartment
                         );
@@ -207,11 +246,12 @@ impl RealTimeProcessor {
                         );
                     }
                     // Clear existing mappings (without deallocating)
-                    for (_, m) in self.mappings[compartment].drain() {
+                    for (_, m) in self.mappings[compartment].drain(..) {
                         self.garbage_bin.dispose_real_time_mapping(m);
                     }
                     // Set
-                    self.mappings[compartment].extend(mappings.drain(..).map(|m| (m.id(), m)));
+                    let drained_mappings = mappings.drain(..).map(|m| (m.id(), m));
+                    self.mappings[compartment].extend(drained_mappings);
                     self.garbage_bin
                         .dispose(Garbage::RealTimeMappings(mappings));
                     // Handle activation MIDI
@@ -230,35 +270,46 @@ impl RealTimeProcessor {
                     permit_alloc(|| {
                         debug!(
                             self.logger,
-                            "Updating single {} {:?}...",
+                            "Updating single mapping {:?} in {}...",
+                            m.id(),
                             compartment,
-                            m.id()
                         );
                     });
-                    // Handle activation MIDI
+                    // Send lifecycle MIDI
                     if self.processor_feedback_is_effectively_on() {
                         let was_on_before = self.mappings[compartment]
                             .get(&m.id())
                             .map_or(false, |m| m.feedback_is_effectively_on());
                         let is_on_now = m.feedback_is_effectively_on();
-                        if is_on_now {
-                            self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                                compartment,
-                                &m,
-                                LifecyclePhase::Activation,
-                            );
-                        } else if was_on_before {
-                            self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                                compartment,
-                                &m,
-                                LifecyclePhase::Deactivation,
-                            );
-                        }
+                        self.send_lifecycle_midi_diff(&m, was_on_before, is_on_now)
                     }
-                    // Insert
+                    // Update
                     let old_mapping = self.mappings[compartment].insert(m.id(), m);
                     if let Some(m) = old_mapping {
                         self.garbage_bin.dispose_real_time_mapping(m);
+                    }
+                }
+                UpdatePersistentMappingProcessingState { id, state } => {
+                    permit_alloc(|| {
+                        debug!(
+                            self.logger,
+                            "Updating persistent state of {:?} in {}...", id.id, id.compartment
+                        );
+                    });
+                    // Update
+                    let (was_on_before, is_on_now) =
+                        if let Some(m) = self.mappings[id.compartment].get_mut(&id.id) {
+                            let was_on_before = m.feedback_is_effectively_on();
+                            m.update_persistent_processing_state(state);
+                            (was_on_before, m.feedback_is_effectively_on())
+                        } else {
+                            (false, false)
+                        };
+                    // Send lifecycle MIDI
+                    if self.processor_feedback_is_effectively_on() {
+                        if let Some(m) = self.mappings[id.compartment].get(&id.id) {
+                            self.send_lifecycle_midi_diff(m, was_on_before, is_on_now);
+                        }
                     }
                 }
                 UpdateTargetActivations(compartment, activation_updates) => {
@@ -286,7 +337,6 @@ impl RealTimeProcessor {
                             if let Some(m) = self.mappings[compartment].get(&update.id) {
                                 if m.feedback_is_effectively_on_ignoring_target_activation() {
                                     self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                                        compartment,
                                         m,
                                         update.is_active.into(),
                                     );
@@ -302,6 +352,8 @@ impl RealTimeProcessor {
                     let_unmatched_events_through,
                     midi_control_input,
                     midi_feedback_output,
+                    input_logging_enabled,
+                    output_logging_enabled,
                 } => {
                     permit_alloc(|| {
                         debug!(self.logger, "Updating settings...");
@@ -317,6 +369,8 @@ impl RealTimeProcessor {
                     self.let_unmatched_events_through = let_unmatched_events_through;
                     self.midi_control_input = midi_control_input;
                     self.midi_feedback_output = midi_feedback_output;
+                    self.input_logging_enabled = input_logging_enabled;
+                    self.output_logging_enabled = output_logging_enabled;
                     // Handle activation
                     if self.processor_feedback_is_effectively_on() && feedback_output_changing {
                         self.send_lifecycle_midi_for_all_mappings(LifecyclePhase::Activation);
@@ -326,6 +380,7 @@ impl RealTimeProcessor {
                     permit_alloc(|| {
                         debug!(self.logger, "Updating sample rate");
                     });
+                    self.sample_rate = sample_rate;
                     self.midi_clock_calculator.update_sample_rate(sample_rate);
                 }
                 StartLearnSource {
@@ -338,7 +393,7 @@ impl RealTimeProcessor {
                         allow_virtual_sources,
                         osc_arg_index_hint: None,
                     };
-                    self.midi_source_scanner.reset();
+                    self.midi_scanner.reset();
                 }
                 DisableControl => {
                     permit_alloc(|| {
@@ -357,6 +412,9 @@ impl RealTimeProcessor {
                 LogDebugInfo => {
                     self.log_debug_info(normal_task_count);
                 }
+                LogMapping(compartment, mapping_id) => {
+                    self.log_mapping(compartment, mapping_id);
+                }
                 UpdateMappingActivations(compartment, activation_updates) => {
                     permit_alloc(|| {
                         debug!(self.logger, "Updating mapping activations...");
@@ -373,7 +431,6 @@ impl RealTimeProcessor {
                             if let Some(m) = self.mappings[compartment].get(&update.id) {
                                 if m.feedback_is_effectively_on_ignoring_mapping_activation() {
                                     self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                                        compartment,
                                         m,
                                         update.is_active.into(),
                                     );
@@ -390,6 +447,20 @@ impl RealTimeProcessor {
         // danger that feedback it sent to the wrong device or not at all.
         if self.get_feedback_driver() == Driver::AudioHook {
             self.process_feedback_tasks(Caller::AudioHook);
+        }
+    }
+
+    fn send_lifecycle_midi_diff(&self, m: &RealTimeMapping, was_on_before: bool, is_on_now: bool) {
+        if is_on_now {
+            self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
+                m,
+                LifecyclePhase::Activation,
+            );
+        } else if was_on_before {
+            self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
+                m,
+                LifecyclePhase::Deactivation,
+            );
         }
     }
 
@@ -410,30 +481,14 @@ impl RealTimeProcessor {
     ) {
         for m in self.mappings[compartment].values() {
             if m.feedback_is_effectively_on() {
-                self.send_lifecycle_midi_to_feedback_output_from_audio_hook(compartment, m, phase);
+                self.send_lifecycle_midi_to_feedback_output_from_audio_hook(m, phase);
             }
         }
     }
 
-    /// This should *not* be called by the global audio hook when it's globally learning sources
+    /// This should *not* be called by the global audio hook when it's globally capturing MIDI
     /// because we want to pause controlling in that case!
     fn run_from_audio_hook_control_and_learn(&mut self) {
-        // Read MIDI events if MIDI control input set to device
-        if let MidiControlInput::Device(dev_id) = self.midi_control_input {
-            MidiInputDevice::new(dev_id).with_midi_input(|mi| {
-                if let Some(mi) = mi {
-                    for evt in mi.get_read_buf().enum_items(0) {
-                        // Current control mode is checked further down the callstack. No need to
-                        // check it here.
-                        self.process_incoming_midi(
-                            evt.frame_offset(),
-                            evt.message().to_other(),
-                            Caller::AudioHook,
-                        );
-                    }
-                }
-            });
-        }
         match self.control_mode {
             ControlMode::Disabled => {}
             ControlMode::Controlling => {
@@ -442,7 +497,10 @@ impl RealTimeProcessor {
                     // Poll (N)RPN scanner
                     for ch in 0..16 {
                         if let Some(nrpn_msg) = self.nrpn_scanner.poll(Channel::new(ch)) {
-                            self.process_incoming_midi_normal_nrpn(nrpn_msg, Caller::AudioHook);
+                            // TODO-medium We should memorize the offset of the latest short message
+                            //  making up the NRPN message instead!
+                            let event = Event::without_offset(nrpn_msg);
+                            self.process_incoming_midi_normal_nrpn(event, Caller::AudioHook);
                         }
                     }
                 }
@@ -451,9 +509,9 @@ impl RealTimeProcessor {
                 allow_virtual_sources,
                 ..
             } => {
-                // Poll source scanner if we are learning a source currently (local learning)
-                if let Some((source, _)) = self.midi_source_scanner.poll() {
-                    self.learn_source(source, allow_virtual_sources);
+                // For local learning/filtering
+                if let Some(res) = self.midi_scanner.poll() {
+                    self.send_captured_midi(res, allow_virtual_sources);
                 }
             }
         }
@@ -545,7 +603,8 @@ impl RealTimeProcessor {
                 })
                 .unwrap();
             // Detailled
-            println!(
+            trace!(
+                self.logger,
                 "\n\
             # Real-time processor\n\
             \n\
@@ -556,27 +615,48 @@ impl RealTimeProcessor {
         });
     }
 
-    fn process_incoming_midi(
-        &mut self,
-        frame_offset: MidiFrameOffset,
-        msg: RawShortMessage,
-        caller: Caller,
-    ) {
+    fn log_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
+        permit_alloc(|| {
+            let mapping = self.mappings[compartment].get(&mapping_id);
+            let msg = format!(
+                "\n\
+            # Real-time processor\n\
+            \n\
+            Mapping with ID {}:\n\
+            {:#?}
+            ",
+                mapping_id, mapping
+            );
+            Global::task_support()
+                .do_in_main_thread_asap(move || {
+                    Reaper::get().show_console_msg(msg);
+                })
+                .unwrap();
+        });
+    }
+
+    /// Returns if this MIDI event matched somehow.
+    fn process_incoming_midi(&mut self, event: Event<IncomingMidiMessage>, caller: Caller) -> bool {
         use MidiMessageClassification::*;
-        match classify_midi_message(msg) {
-            Normal => self.process_incoming_midi_normal(msg, caller),
+        match classify_midi_message(event.payload()) {
+            Normal => self.process_incoming_midi_normal(event, caller),
             Ignored => {
                 // ReaLearn doesn't process those. Forward them if user wants it.
-                self.process_unmatched_short(msg, caller);
+                self.process_unmatched(event, caller);
+                false
             }
             Timing => {
                 // Timing clock messages are treated special (calculates BPM).
                 // This is control-only, we never learn it.
                 if self.control_is_globally_enabled {
-                    if let Some(bpm) = self.midi_clock_calculator.feed(frame_offset) {
+                    if let Some(bpm) = self.midi_clock_calculator.feed(event.offset()) {
                         let source_value = MidiSourceValue::<RawShortMessage>::Tempo(bpm);
-                        self.control_midi(&source_value, caller);
+                        self.control_midi(Event::new(event.offset(), &source_value), caller)
+                    } else {
+                        false
                     }
+                } else {
+                    false
                 }
             }
         }
@@ -587,16 +667,16 @@ impl RealTimeProcessor {
     /// - (N)RPN messages
     /// - 14-bit CC messages
     /// - Short MIDI messaages
-    fn process_incoming_midi_normal(&mut self, msg: RawShortMessage, caller: Caller) {
+    ///
+    /// Returns whether the event somehow matched.
+    fn process_incoming_midi_normal(
+        &mut self,
+        event: Event<IncomingMidiMessage>,
+        caller: Caller,
+    ) -> bool {
         match self.control_mode {
             ControlMode::Controlling => {
                 if self.control_is_globally_enabled {
-                    if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
-                        self.process_incoming_midi_normal_nrpn(nrpn_msg, caller);
-                    }
-                    if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&msg) {
-                        self.process_incoming_midi_normal_cc14(cc14_msg, caller);
-                    }
                     // Even if an composite message ((N)RPN or CC 14-bit) was scanned, we still
                     // process the plain short MIDI message. This is desired.
                     // Rationale: If there's no mapping with a composite source
@@ -608,85 +688,200 @@ impl RealTimeProcessor {
                     // single messages can't be used anymore! Otherwise it would be
                     // confusing. They are consumed. That's the reason why
                     // we do the consumption check at a later state.
-                    self.process_incoming_midi_normal_plain(msg, caller);
+                    let matched_or_consumed_plain =
+                        self.process_incoming_midi_normal_plain(event, caller);
+                    let (matched_nrpn, matched_cc14) = match event.payload() {
+                        IncomingMidiMessage::Short(short_msg) => {
+                            let mut matched_nrpn = false;
+                            for nrpn_msg in self.nrpn_scanner.feed(&short_msg).iter().flatten() {
+                                let nrpn_event = Event::new(event.offset(), *nrpn_msg);
+                                if self.process_incoming_midi_normal_nrpn(nrpn_event, caller) {
+                                    matched_nrpn = true;
+                                }
+                            }
+                            let matched_cc14 =
+                                if let Some(cc14_msg) = self.cc_14_bit_scanner.feed(&short_msg) {
+                                    let cc14_event = Event::new(event.offset(), cc14_msg);
+                                    self.process_incoming_midi_normal_cc14(cc14_event, caller)
+                                } else {
+                                    false
+                                };
+                            (matched_nrpn, matched_cc14)
+                        }
+                        // A sys-ex message is never part of a compound message.
+                        IncomingMidiMessage::SysEx(_) => (false, false),
+                    };
+                    matched_or_consumed_plain || matched_nrpn || matched_cc14
+                } else {
+                    false
                 }
             }
             ControlMode::LearningSource {
                 allow_virtual_sources,
                 ..
             } => {
-                if let Some(source) = self.midi_source_scanner.feed_short(msg, None) {
-                    self.learn_source(source, allow_virtual_sources);
+                if self.input_logging_enabled {
+                    self.log_learn_input(event.payload());
                 }
+                let scan_result = match event.payload() {
+                    IncomingMidiMessage::Short(short_msg) => {
+                        self.midi_scanner.feed_short(short_msg, None)
+                    }
+                    IncomingMidiMessage::SysEx(bytes) => {
+                        // It's okay here to temporarily permit allocation because crackling during
+                        // learning is not a showstopper.
+                        permit_alloc(|| MidiScanResult::try_from_bytes(bytes, None).ok())
+                    }
+                };
+                if let Some(source) = scan_result {
+                    self.send_captured_midi(source, allow_virtual_sources);
+                }
+                true
             }
-            ControlMode::Disabled => {}
-        };
+            ControlMode::Disabled => {
+                // "Disabled" means we use this for global learning! We consider this therefore as
+                // matched.
+                true
+            }
+        }
     }
 
-    fn process_incoming_midi_normal_nrpn(&mut self, msg: ParameterNumberMessage, caller: Caller) {
-        let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(msg);
-        let matched = self.control_midi(&source_value, caller);
-        if self.midi_control_input != MidiControlInput::FxInput {
-            return;
+    /// Returns whether this message matched.
+    fn process_incoming_midi_normal_nrpn(
+        &mut self,
+        event: Event<ParameterNumberMessage>,
+        caller: Caller,
+    ) -> bool {
+        let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(event.payload());
+        let matched = self.control_midi(Event::new(event.offset(), &source_value), caller);
+        if self.input_logging_enabled {
+            self.log_control_input(source_value, false, matched);
         }
-        if (matched && self.let_matched_events_through)
-            || (!matched && self.let_unmatched_events_through)
+        if self.midi_control_input == MidiControlInput::FxInput
+            && ((matched && self.let_matched_events_through)
+                || (!matched && self.let_unmatched_events_through))
         {
-            for m in msg
+            for m in event
+                .payload()
                 .to_short_messages::<RawShortMessage>(DataEntryByteOrder::MsbFirst)
                 .iter()
                 .flatten()
             {
-                self.send_short_midi_to_fx_output(*m, caller);
+                self.send_short_midi_to_fx_output(Event::new(event.offset(), *m), caller);
             }
+        }
+        matched
+    }
+
+    /// Might allocate!
+    fn log_control_input(
+        &self,
+        msg: MidiSourceValue<RawShortMessage>,
+        consumed: bool,
+        matched: bool,
+    ) {
+        // It's okay to crackle when logging input.
+        if let Ok(msg) = permit_alloc(|| msg.try_into_owned()) {
+            self.control_main_task_sender
+                .try_send(ControlMainTask::LogControlInput {
+                    value: msg,
+                    match_result: if consumed {
+                        InputMatchResult::Consumed
+                    } else if matched {
+                        InputMatchResult::Matched
+                    } else {
+                        InputMatchResult::Unmatched
+                    },
+                })
+                .unwrap();
         }
     }
 
-    fn learn_source(&mut self, source: MidiSource, allow_virtual_sources: bool) {
+    /// Might allocate!
+    fn log_learn_input(&self, msg: IncomingMidiMessage) {
+        // It's okay if we crackle when logging input.
+        let owned_msg = permit_alloc(|| msg.to_owned());
+        self.control_main_task_sender
+            .try_send(ControlMainTask::LogLearnInput { msg: owned_msg })
+            .unwrap();
+    }
+
+    /// Might allocate!
+    fn log_lifecycle_output(&self, value: MidiSourceValue<RawShortMessage>) {
+        // It's okay to crackle when logging input.
+        if let Ok(value) = permit_alloc(|| value.try_into_owned()) {
+            self.normal_main_task_sender
+                .try_send(NormalRealTimeToMainThreadTask::LogLifecycleOutput { value })
+                .unwrap();
+        }
+    }
+
+    fn send_captured_midi(&mut self, scan_result: MidiScanResult, allow_virtual_sources: bool) {
         // If plug-in dropped, the receiver might be gone already because main processor is
         // unregistered synchronously.
-        let _ = self.normal_main_task_sender.try_send(
-            NormalRealTimeToMainThreadTask::LearnMidiSource {
-                source,
-                allow_virtual_sources,
-            },
-        );
+        let _ =
+            self.normal_main_task_sender
+                .try_send(NormalRealTimeToMainThreadTask::CaptureMidi {
+                    scan_result,
+                    allow_virtual_sources,
+                });
     }
 
+    /// Returns whether this message matched.
     fn process_incoming_midi_normal_cc14(
         &mut self,
-        msg: ControlChange14BitMessage,
+        event: Event<ControlChange14BitMessage>,
         caller: Caller,
-    ) {
-        let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(msg);
-        let matched = self.control_midi(&source_value, caller);
-        if self.midi_control_input != MidiControlInput::FxInput {
-            return;
+    ) -> bool {
+        let source_value = MidiSourceValue::<RawShortMessage>::ControlChange14Bit(event.payload());
+        let matched = self.control_midi(Event::new(event.offset(), &source_value), caller);
+        if self.input_logging_enabled {
+            self.log_control_input(source_value, false, matched);
         }
-        if (matched && self.let_matched_events_through)
-            || (!matched && self.let_unmatched_events_through)
+        if self.midi_control_input == MidiControlInput::FxInput
+            && ((matched && self.let_matched_events_through)
+                || (!matched && self.let_unmatched_events_through))
         {
-            for m in msg.to_short_messages::<RawShortMessage>().iter() {
-                self.send_short_midi_to_fx_output(*m, caller);
+            for m in event
+                .payload()
+                .to_short_messages::<RawShortMessage>()
+                .iter()
+            {
+                let short_event = Event::new(event.offset(), *m);
+                self.send_short_midi_to_fx_output(short_event, caller);
             }
         }
+        matched
     }
 
-    fn process_incoming_midi_normal_plain(&mut self, msg: RawShortMessage, caller: Caller) {
-        let source_value = MidiSourceValue::Plain(msg);
-        if self.is_consumed_by_at_least_one_source(msg) {
+    /// Returns whether this message matched or was at least consumed
+    /// (e.g. as part of a NRPN message).
+    fn process_incoming_midi_normal_plain(
+        &mut self,
+        event: Event<IncomingMidiMessage>,
+        caller: Caller,
+    ) -> bool {
+        let source_value = event.payload().to_source_value();
+        if self.is_consumed_by_at_least_one_source(event.payload()) {
+            if self.input_logging_enabled {
+                self.log_control_input(source_value, true, false);
+            }
             // Some short MIDI messages are just parts of bigger composite MIDI messages,
             // e.g. (N)RPN or 14-bit CCs. If we reach this point, the incoming message
             // could potentially match one of the (N)RPN or 14-bit CC mappings in the list
             // and therefore doesn't qualify anymore as a candidate for normal CC sources.
-            return;
+            return true;
         }
-        let matched = self.control_midi(&source_value, caller);
+        let matched = self.control_midi(Event::new(event.offset(), &source_value), caller);
+        if self.input_logging_enabled {
+            self.log_control_input(source_value, false, matched);
+        }
         if matched {
-            self.process_matched_short(msg, caller);
+            self.process_matched_short(event, caller);
         } else {
-            self.process_unmatched_short(msg, caller);
+            self.process_unmatched(event, caller);
         }
+        matched
     }
 
     fn all_mappings(&self) -> impl Iterator<Item = &RealTimeMapping> {
@@ -696,7 +891,11 @@ impl RealTimeProcessor {
     }
 
     /// Returns whether this source value matched one of the mappings.
-    fn control_midi(&mut self, value: &MidiSourceValue<RawShortMessage>, caller: Caller) -> bool {
+    fn control_midi(
+        &mut self,
+        value_event: Event<&MidiSourceValue<RawShortMessage>>,
+        caller: Caller,
+    ) -> bool {
         // We do pattern matching in order to use Rust's borrow splitting.
         let matched_controller = if let [ref mut controller_mappings, ref mut main_mappings] =
             self.mappings.as_mut_slice()
@@ -705,20 +904,21 @@ impl RealTimeProcessor {
                 &self.control_main_task_sender,
                 controller_mappings,
                 main_mappings,
-                value,
+                value_event,
                 caller,
                 self.midi_feedback_output,
+                self.output_logging_enabled,
             )
         } else {
             unreachable!()
         };
-        let matched_main = self.control_main_mappings_midi(value, caller);
+        let matched_main = self.control_main_mappings_midi(value_event, caller);
         matched_main || matched_controller
     }
 
     fn control_main_mappings_midi(
         &mut self,
-        source_value: &MidiSourceValue<RawShortMessage>,
+        source_value_event: Event<&MidiSourceValue<RawShortMessage>>,
         caller: Caller,
     ) -> bool {
         let compartment = MappingCompartment::MainMappings;
@@ -730,15 +930,19 @@ impl RealTimeProcessor {
             .filter(|m| m.control_is_effectively_on() && m.has_reaper_target())
         {
             if let CompoundMappingSource::Midi(s) = &m.source() {
-                if let Some(control_value) = s.control(source_value) {
+                if let Some(control_value) = s.control(source_value_event.payload()) {
                     let _ = process_real_mapping(
                         m,
                         &self.control_main_task_sender,
                         compartment,
-                        control_value,
-                        ControlOptions::default(),
+                        Event::new(source_value_event.offset(), control_value),
+                        ControlOptions {
+                            enforce_target_refresh: matched,
+                            ..Default::default()
+                        },
                         caller,
                         self.midi_feedback_output,
+                        self.output_logging_enabled,
                     );
                     matched = true;
                 }
@@ -747,49 +951,59 @@ impl RealTimeProcessor {
         matched
     }
 
-    fn process_matched_short(&self, msg: RawShortMessage, caller: Caller) {
+    fn process_matched_short(&self, event: Event<IncomingMidiMessage>, caller: Caller) {
         if self.midi_control_input != MidiControlInput::FxInput {
             return;
         }
         if !self.let_matched_events_through {
             return;
         }
-        self.send_short_midi_to_fx_output(msg, caller);
+        self.send_incoming_midi_to_fx_output(event, caller);
     }
 
-    fn process_unmatched_short(&self, msg: RawShortMessage, caller: Caller) {
+    fn process_unmatched(&self, event: Event<IncomingMidiMessage>, caller: Caller) {
         if self.midi_control_input != MidiControlInput::FxInput {
             return;
         }
         if !self.let_unmatched_events_through {
             return;
         }
-        self.send_short_midi_to_fx_output(msg, caller);
+        self.send_incoming_midi_to_fx_output(event, caller);
     }
 
-    fn is_consumed_by_at_least_one_source(&self, msg: RawShortMessage) -> bool {
-        self.all_mappings()
-            .any(|m| m.control_is_effectively_on() && m.consumes(msg))
+    fn is_consumed_by_at_least_one_source(&self, msg: IncomingMidiMessage) -> bool {
+        use IncomingMidiMessage::*;
+        match msg {
+            Short(msg) => self
+                .all_mappings()
+                .any(|m| m.control_is_effectively_on() && m.consumes(msg)),
+            // Sys-ex is never part of a compound message.
+            SysEx(_) => false,
+        }
     }
 
     fn send_midi_feedback(&self, value: MidiSourceValue<RawShortMessage>, caller: Caller) {
-        if let MidiSourceValue::Raw(msg) = value {
-            send_raw_midi_to_fx_output(&msg, caller);
-            self.garbage_bin.dispose(Garbage::RawMidiEvent(msg));
+        if let Some(evts) = value.to_raw() {
+            // TODO-medium We can implement in a way so we only need one host.process_events() call.
+            for evt in evts {
+                send_raw_midi_to_fx_output(evt.bytes(), SampleOffset::ZERO, caller);
+            }
         } else {
             let shorts = value.to_short_messages(DataEntryByteOrder::MsbFirst);
             if shorts[0].is_none() {
                 return;
             }
             for short in shorts.iter().flatten() {
-                self.send_short_midi_to_fx_output(*short, caller);
+                self.send_short_midi_to_fx_output(Event::without_offset(*short), caller);
             }
+        }
+        if let Some(garbage) = value.into_garbage() {
+            self.garbage_bin.dispose(Garbage::RawMidiEvents(garbage));
         }
     }
 
     fn send_lifecycle_midi_to_feedback_output_from_audio_hook(
         &self,
-        compartment: MappingCompartment,
         m: &RealTimeMapping,
         phase: LifecyclePhase,
     ) {
@@ -799,7 +1013,7 @@ impl RealTimeProcessor {
                     // We can't send it now because we don't have safe access to the host callback
                     // because this method is being called from the audio hook.
                     let _ = self.feedback_task_sender.try_send(
-                        FeedbackRealTimeTask::SendLifecycleMidi(compartment, m.id(), phase),
+                        FeedbackRealTimeTask::SendLifecycleMidi(m.compartment(), m.id(), phase),
                     );
                 }
                 MidiDestination::Device(dev_id) => {
@@ -808,9 +1022,23 @@ impl RealTimeProcessor {
                             for m in m.lifecycle_midi_messages(phase) {
                                 match m {
                                     LifecycleMidiMessage::Short(msg) => {
+                                        if self.output_logging_enabled {
+                                            self.log_lifecycle_output(MidiSourceValue::Plain(*msg));
+                                        }
                                         mo.send(*msg, SendMidiTime::Instantly);
                                     }
                                     LifecycleMidiMessage::Raw(data) => {
+                                        if self.output_logging_enabled {
+                                            permit_alloc(|| {
+                                                self.log_lifecycle_output(MidiSourceValue::Raw {
+                                                    // We don't use this as feedback value,
+                                                    // at least not in the sense that it
+                                                    // participates in feedback relay.
+                                                    feedback_address_info: None,
+                                                    events: vec![*data.clone()],
+                                                });
+                                            });
+                                        }
                                         mo.send_msg(&**data, SendMidiTime::Instantly);
                                     }
                                 }
@@ -825,13 +1053,40 @@ impl RealTimeProcessor {
     fn send_lifecycle_midi_to_fx_output(&self, messages: &[LifecycleMidiMessage], caller: Caller) {
         for m in messages {
             match m {
-                LifecycleMidiMessage::Short(msg) => self.send_short_midi_to_fx_output(*msg, caller),
-                LifecycleMidiMessage::Raw(data) => send_raw_midi_to_fx_output(data, caller),
+                LifecycleMidiMessage::Short(msg) => {
+                    if self.output_logging_enabled {
+                        self.log_lifecycle_output(MidiSourceValue::Plain(*msg));
+                    }
+                    self.send_short_midi_to_fx_output(Event::without_offset(*msg), caller)
+                }
+                LifecycleMidiMessage::Raw(data) => {
+                    if self.output_logging_enabled {
+                        permit_alloc(|| {
+                            self.log_lifecycle_output(MidiSourceValue::Raw {
+                                // We don't use this as feedback value,
+                                // at least not in the sense that it
+                                // participates in feedback relay.
+                                feedback_address_info: None,
+                                events: vec![*data.clone()],
+                            });
+                        });
+                    }
+                    send_raw_midi_to_fx_output(data.bytes(), SampleOffset::ZERO, caller)
+                }
             }
         }
     }
 
-    fn send_short_midi_to_fx_output(&self, msg: RawShortMessage, caller: Caller) {
+    fn send_incoming_midi_to_fx_output(&self, event: Event<IncomingMidiMessage>, caller: Caller) {
+        match event.payload() {
+            IncomingMidiMessage::Short(s) => {
+                self.send_short_midi_to_fx_output(Event::new(event.offset(), s), caller);
+            }
+            IncomingMidiMessage::SysEx(s) => send_raw_midi_to_fx_output(s, event.offset(), caller),
+        }
+    }
+
+    fn send_short_midi_to_fx_output(&self, event: Event<RawShortMessage>, caller: Caller) {
         let host = match caller {
             Caller::Vst(h) => h,
             _ => {
@@ -847,9 +1102,9 @@ impl RealTimeProcessor {
                 return;
             }
         };
-        let event = build_short_midi_vst_event(msg);
-        let events = build_vst_events(&event as *const _ as _);
-        host.process_events(&events);
+        let vst_event = build_short_midi_vst_event(event);
+        let vst_events = build_vst_events(&vst_event as *const _ as _);
+        host.process_events(&vst_events);
     }
 }
 
@@ -861,25 +1116,25 @@ fn build_vst_events(event: *mut vst::api::Event) -> Events {
     }
 }
 
-fn build_sysex_midi_vst_event(bytes: &[u8]) -> SysExEvent {
+fn build_sysex_midi_vst_event(bytes: &[u8], offset: SampleOffset) -> SysExEvent {
     SysExEvent {
         event_type: EventType::SysEx,
         byte_size: std::mem::size_of::<SysExEvent>() as _,
-        delta_frames: 0,
+        delta_frames: offset.get() as _,
         _flags: 0,
         data_size: bytes.len() as _,
         _reserved1: 0,
-        system_data: bytes as *const _ as _,
+        system_data: bytes.as_ptr() as _,
         _reserved2: 0,
     }
 }
 
-fn build_short_midi_vst_event(msg: RawShortMessage) -> MidiEvent {
-    let bytes = msg.to_bytes();
-    MidiEvent {
+fn build_short_midi_vst_event(event: Event<RawShortMessage>) -> vst::api::MidiEvent {
+    let bytes = event.payload().to_bytes();
+    vst::api::MidiEvent {
         event_type: EventType::Midi,
-        byte_size: std::mem::size_of::<MidiEvent>() as _,
-        delta_frames: 0,
+        byte_size: std::mem::size_of::<vst::api::MidiEvent>() as _,
+        delta_frames: event.offset().get() as _,
         flags: vst::api::MidiEventFlags::REALTIME_EVENT.bits(),
         note_length: 0,
         note_offset: 0,
@@ -957,11 +1212,17 @@ impl<T> RealTimeSender<T> {
 pub enum NormalRealTimeTask {
     UpdateAllMappings(MappingCompartment, Vec<RealTimeMapping>),
     UpdateSingleMapping(MappingCompartment, Box<Option<RealTimeMapping>>),
+    UpdatePersistentMappingProcessingState {
+        id: QualifiedMappingId,
+        state: PersistentMappingProcessingState,
+    },
     UpdateSettings {
         let_matched_events_through: bool,
         let_unmatched_events_through: bool,
         midi_control_input: MidiControlInput,
         midi_feedback_output: Option<MidiDestination>,
+        input_logging_enabled: bool,
+        output_logging_enabled: bool,
     },
     /// This takes care of propagating target activation states (for non-virtual mappings).
     UpdateTargetActivations(MappingCompartment, Vec<ActivationChange>),
@@ -971,6 +1232,7 @@ pub enum NormalRealTimeTask {
     /// parameter update occurs we can determine in a very granular way which targets are affected.
     UpdateMappingActivations(MappingCompartment, Vec<ActivationChange>),
     LogDebugInfo,
+    LogMapping(MappingCompartment, MappingId),
     UpdateSampleRate(Hz),
     StartLearnSource {
         allow_virtual_sources: bool,
@@ -1022,7 +1284,7 @@ pub enum FeedbackRealTimeTask {
     // When it comes to MIDI feedback, the real-time processor is only responsible for FX output
     // feedback. Direct-device feedback is taken care of by the global audio hook for reasons of
     // proper ordering.
-    FxOutputFeedback(MidiSourceValue<RawShortMessage>),
+    FxOutputFeedback(MidiSourceValue<'static, RawShortMessage>),
     // Used only if feedback output is <FX output>, otherwise done synchronously.
     SendLifecycleMidi(MappingCompartment, MappingId, LifecyclePhase),
 }
@@ -1056,25 +1318,27 @@ pub enum MidiDestination {
 fn control_controller_mappings_midi(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     // Mappings with virtual targets
-    controller_mappings: &mut HashMap<MappingId, RealTimeMapping>,
+    controller_mappings: &mut OrderedMappingMap<RealTimeMapping>,
     // Mappings with virtual sources
-    main_mappings: &mut HashMap<MappingId, RealTimeMapping>,
-    value: &MidiSourceValue<RawShortMessage>,
+    main_mappings: &mut OrderedMappingMap<RealTimeMapping>,
+    value_event: Event<&MidiSourceValue<RawShortMessage>>,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
+    output_logging_enabled: bool,
 ) -> bool {
     let mut matched = false;
+    let mut enforce_target_refresh = false;
     for m in controller_mappings
         .values_mut()
         .filter(|m| m.control_is_effectively_on())
     {
-        if let Some(control_match) = m.control_midi_virtualizing(value) {
+        if let Some(control_match) = m.control_midi_virtualizing(value_event.payload()) {
             use PartialControlMatch::*;
             let mapping_matched = match control_match {
                 ProcessVirtual(virtual_source_value) => control_main_mappings_virtual(
                     sender,
                     main_mappings,
-                    virtual_source_value,
+                    Event::new(value_event.offset(), virtual_source_value),
                     ControlOptions {
                         // We inherit "Send feedback after control" to the main processor if it's
                         // enabled for the virtual mapping. That's the easy way to do it.
@@ -1082,24 +1346,33 @@ fn control_controller_mappings_midi(
                         // control element, "feedback after control" will be sent to all of those,
                         // which is technically not necessary. It would be enough to just send it
                         // to the one that was touched. However, it also doesn't really hurt.
-                        enforce_send_feedback_after_control: m
-                            .options()
-                            .send_feedback_after_control,
+                        enforce_send_feedback_after_control: m.options().feedback_send_behavior
+                            == FeedbackSendBehavior::SendFeedbackAfterControl,
                         mode_control_options: m.mode_control_options(),
+                        // Not important yet at this point because virtual targets can't affect
+                        // subsequent virtual targets.
+                        enforce_target_refresh: false,
                     },
                     caller,
                     midi_feedback_output,
+                    output_logging_enabled,
                 ),
                 ProcessDirect(control_value) => {
                     let _ = process_real_mapping(
                         m,
                         sender,
                         MappingCompartment::ControllerMappings,
-                        control_value,
-                        ControlOptions::default(),
+                        Event::new(value_event.offset(), control_value),
+                        ControlOptions {
+                            enforce_target_refresh,
+                            ..Default::default()
+                        },
                         caller,
                         midi_feedback_output,
+                        output_logging_enabled,
                     );
+                    // We do this only for transactions of *real* targets matches.
+                    enforce_target_refresh = true;
                     true
                 }
             };
@@ -1111,40 +1384,50 @@ fn control_controller_mappings_midi(
     matched
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_real_mapping(
     mapping: &mut RealTimeMapping,
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     compartment: MappingCompartment,
-    value: ControlValue,
+    value_event: Event<ControlValue>,
     options: ControlOptions,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
+    output_logging_enabled: bool,
 ) -> Result<(), &'static str> {
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
-        mapping.resolved_target.as_ref()
+        mapping.resolved_target.as_mut()
     {
         // Must be processed here in real-time processor.
-        let v = mapping
+        let control_value: Option<ControlValue> = mapping
             .core
             .mode
-            .control(value, reaper_target, ())
+            .control_with_options(
+                value_event.payload(),
+                reaper_target,
+                (),
+                options.mode_control_options,
+            )
             .ok_or("mode didn't return control value")?
-            .as_absolute()?;
+            .into();
+        let v = control_value
+            .ok_or("target already has desired value")?
+            .to_absolute_value()?;
         match reaper_target {
             RealTimeReaperTarget::SendMidi(t) => {
                 // This is a type of mapping that we should process right here because we want to
                 // send a MIDI message and this needs to happen in the audio thread.
                 // Going to the main thread and back would be such a waste!
-                let raw_midi_event = t.pattern.to_concrete_midi_event(v);
+                let raw_midi_event = t.pattern().to_concrete_midi_event(v);
                 let midi_destination = match caller {
-                    Caller::Vst(_) => match t.destination {
+                    Caller::Vst(_) => match t.destination() {
                         SendMidiDestination::FxOutput => Some(MidiDestination::FxOutput),
                         SendMidiDestination::FeedbackOutput => {
                             Some(midi_feedback_output.ok_or("no feedback output set")?)
                         }
                     },
                     Caller::AudioHook => {
-                        match t.destination {
+                        match t.destination() {
                             SendMidiDestination::FxOutput => {
                                 // Control input = Device | Destination = FX output.
                                 // Not supported currently. It could be by introducing a new
@@ -1158,24 +1441,49 @@ fn process_real_mapping(
                         }
                     }
                 };
-                match midi_destination {
+                if output_logging_enabled && midi_destination.is_some() {
+                    permit_alloc(|| {
+                        sender
+                            .try_send(ControlMainTask::LogTargetOutput {
+                                event: Box::new(raw_midi_event),
+                            })
+                            .unwrap();
+                    });
+                }
+                let successful = match midi_destination {
                     Some(MidiDestination::FxOutput) => {
-                        send_raw_midi_to_fx_output(&raw_midi_event, caller);
+                        send_raw_midi_to_fx_output(
+                            raw_midi_event.bytes(),
+                            value_event.offset(),
+                            caller,
+                        );
+                        true
                     }
-                    Some(MidiDestination::Device(dev_id)) => {
-                        MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
+                    Some(MidiDestination::Device(dev_id)) => MidiOutputDevice::new(dev_id)
+                        .with_midi_output(|mo| {
                             if let Some(mo) = mo {
                                 mo.send_msg(&raw_midi_event, SendMidiTime::Instantly);
+                                true
+                            } else {
+                                false
                             }
-                        });
-                    }
-                    _ => {}
+                        }),
+                    _ => false,
                 };
+                if successful {
+                    t.set_artificial_value(v);
+                }
                 Ok(())
             }
         }
     } else {
-        forward_control_to_main_processor(sender, compartment, mapping.id(), value, options);
+        forward_control_to_main_processor(
+            sender,
+            compartment,
+            mapping.id(),
+            value_event.payload(),
+            options,
+        );
         Ok(())
     }
 }
@@ -1201,11 +1509,12 @@ fn forward_control_to_main_processor(
 /// Returns whether this source value matched one of the mappings.
 fn control_main_mappings_virtual(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
-    main_mappings: &mut HashMap<MappingId, RealTimeMapping>,
-    value: VirtualSourceValue,
+    main_mappings: &mut OrderedMappingMap<RealTimeMapping>,
+    value_event: Event<VirtualSourceValue>,
     options: ControlOptions,
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
+    output_logging_enabled: bool,
 ) -> bool {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
@@ -1215,15 +1524,19 @@ fn control_main_mappings_virtual(
         .filter(|m| m.control_is_effectively_on())
     {
         if let CompoundMappingSource::Virtual(s) = &m.source() {
-            if let Some(control_value) = s.control(&value) {
+            if let Some(control_value) = s.control(&value_event.payload()) {
                 let _ = process_real_mapping(
                     m,
                     sender,
                     MappingCompartment::MainMappings,
-                    control_value,
-                    options,
+                    Event::new(value_event.offset(), control_value),
+                    ControlOptions {
+                        enforce_target_refresh: matched,
+                        ..options
+                    },
                     caller,
                     midi_feedback_output,
+                    output_logging_enabled,
                 );
                 matched = true;
             }
@@ -1238,12 +1551,109 @@ enum Driver {
     Vst,
 }
 
-fn send_raw_midi_to_fx_output(data: &RawMidiEvent, caller: Caller) {
+fn send_raw_midi_to_fx_output(bytes: &[u8], offset: SampleOffset, caller: Caller) {
     let host = match caller {
         Caller::Vst(h) => h,
         _ => return,
     };
-    let event = build_sysex_midi_vst_event(data.bytes());
+    let event = build_sysex_midi_vst_event(bytes, offset);
     let events = build_vst_events(&event as *const _ as _);
     host.process_events(&events);
+}
+
+fn ordered_map_with_capacity<T>(cap: usize) -> OrderedMappingMap<T> {
+    let mut map = OrderedMappingMap::with_capacity(cap);
+    // This is a workaround for an indexmap bug which allocates space for entries on the
+    // first extend/reserve call although it should have been done already when creating
+    // it via with_capacity. Remember: We must not allocate in real-time thread!
+    map.reserve(0);
+    map
+}
+
+#[derive(Copy, Clone)]
+pub enum IncomingMidiMessage<'a> {
+    Short(RawShortMessage),
+    SysEx(&'a [u8]),
+}
+
+impl<'a> Event<IncomingMidiMessage<'a>> {
+    pub fn from_vst(e: vst::event::Event<'a>) -> Result<Self, &'static str> {
+        let msg = IncomingMidiMessage::from_vst(e)?;
+        let delta_frames = match e {
+            vst::event::Event::Midi(e) => e.delta_frames,
+            vst::event::Event::SysEx(e) => e.delta_frames,
+            vst::event::Event::Deprecated(e) => e.delta_frames,
+        };
+        // Negative offset was observed in the wild, see
+        // https://github.com/helgoboss/realearn/issues/54. Don't know what that's
+        // supposed to mean but falling back to zero should be okay in our case.
+        let offset = SampleOffset::new(std::cmp::max(0, delta_frames) as u64);
+        Ok(Event::new(offset, msg))
+    }
+
+    pub fn from_reaper(
+        e: &'a reaper_medium::MidiEvent,
+        sample_rate: Hz,
+    ) -> Result<Self, &'static str> {
+        let msg = IncomingMidiMessage::from_reaper(e.message())?;
+        // Frame offset is given in 1/1024000 of a second, *not* sample frames!
+        let offset = SampleOffset::from_frame_offset(e.frame_offset(), sample_rate);
+        Ok(Event::new(offset, msg))
+    }
+}
+
+impl<'a> IncomingMidiMessage<'a> {
+    pub fn from_vst(e: vst::event::Event<'a>) -> Result<Self, &'static str> {
+        let res = match e {
+            vst::event::Event::Midi(e) => {
+                let short_msg = RawShortMessage::from_bytes((
+                    e.data[0],
+                    e.data[1]
+                        .try_into()
+                        .map_err(|_| "first data byte invalid")?,
+                    e.data[2]
+                        .try_into()
+                        .map_err(|_| "second data byte invalid")?,
+                ));
+                let short_msg = short_msg.map_err(|_| "invalid status byte")?;
+                IncomingMidiMessage::Short(short_msg)
+            }
+            vst::event::Event::SysEx(e) => IncomingMidiMessage::SysEx(e.payload),
+            vst::event::Event::Deprecated(_) => return Err("deprecated message"),
+        };
+        Ok(res)
+    }
+
+    pub fn from_reaper(m: &'a reaper_medium::MidiMessage) -> Result<Self, &'static str> {
+        let res = if m.r#type() == ShortMessageType::SystemExclusiveStart {
+            Self::SysEx(m.as_slice())
+        } else {
+            Self::Short(m.to_other())
+        };
+        Ok(res)
+    }
+
+    fn to_owned(self) -> OwnedIncomingMidiMessage {
+        use IncomingMidiMessage::*;
+        match self {
+            Short(m) => OwnedIncomingMidiMessage::Short(m),
+            SysEx(m) => OwnedIncomingMidiMessage::SysEx(m.to_owned()),
+        }
+    }
+
+    fn might_be_automatically_generated_by_reaper(&self) -> bool {
+        match self {
+            // TODO-medium Maybe also filter all-sound-off (v6.36+dev0920).
+            IncomingMidiMessage::Short(m) => m.r#type() == ShortMessageType::NoteOff,
+            IncomingMidiMessage::SysEx(_) => false,
+        }
+    }
+
+    fn to_source_value(self) -> MidiSourceValue<'a, RawShortMessage> {
+        use IncomingMidiMessage::*;
+        match self {
+            Short(msg) => MidiSourceValue::Plain(msg),
+            SysEx(msg) => MidiSourceValue::BorrowedSysEx(msg),
+        }
+    }
 }

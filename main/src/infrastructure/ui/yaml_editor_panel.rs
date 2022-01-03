@@ -1,16 +1,18 @@
 use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{open_in_browser, open_in_text_editor};
+use derivative::Derivative;
 use reaper_low::raw;
 use serde_yaml::Mapping as YamlMapping;
 use std::cell::RefCell;
 use swell_ui::{SharedView, View, ViewContext, Window};
-use wrap_debug::WrapDebug;
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct YamlEditorPanel {
     view: ViewContext,
     content: RefCell<Result<Option<YamlMapping>, serde_yaml::Error>>,
-    apply: WrapDebug<Box<dyn Fn(Option<YamlMapping>)>>,
+    #[derivative(Debug = "ignore")]
+    apply: Box<dyn Fn(Option<YamlMapping>)>,
 }
 
 impl YamlEditorPanel {
@@ -21,7 +23,7 @@ impl YamlEditorPanel {
         Self {
             view: Default::default(),
             content: RefCell::new(Ok(initial_content)),
-            apply: WrapDebug(Box::new(apply)),
+            apply: Box::new(apply),
         }
     }
 
@@ -148,6 +150,6 @@ impl View for YamlEditorPanel {
 
 fn help() {
     open_in_browser(
-        "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.md#advanced-settings",
+        "https://github.com/helgoboss/realearn/blob/master/doc/user-guide.adoc#advanced-settings",
     );
 }

@@ -1,5 +1,4 @@
-use crate::core::default_util::is_default;
-use crate::core::Global;
+use crate::base::default_util::is_default;
 use crate::domain::ClipChangedEvent;
 use enumflags2::BitFlags;
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
@@ -262,7 +261,7 @@ impl ClipSlot {
     }
 
     pub fn play_state_changed_event(&self) -> ClipChangedEvent {
-        ClipChangedEvent::PlayStateChanged(self.play_state())
+        ClipChangedEvent::PlayState(self.play_state())
     }
 
     fn fill_with_source(&mut self, source: OwnedSource) -> Result<(), &'static str> {
@@ -328,7 +327,7 @@ impl ClipSlot {
     }
 
     pub fn repeat_changed_event(&self) -> ClipChangedEvent {
-        ClipChangedEvent::ClipRepeatChanged(self.descriptor.repeat)
+        ClipChangedEvent::ClipRepeat(self.descriptor.repeat)
     }
 
     pub fn toggle_repeat(&mut self) -> ClipChangedEvent {
@@ -346,7 +345,7 @@ impl ClipSlot {
     }
 
     pub fn volume_changed_event(&self) -> ClipChangedEvent {
-        ClipChangedEvent::ClipVolumeChanged(self.descriptor.volume)
+        ClipChangedEvent::ClipVolume(self.descriptor.volume)
     }
 
     pub fn set_volume(&mut self, volume: ReaperVolumeValue) -> ClipChangedEvent {
@@ -369,6 +368,10 @@ impl ClipSlot {
         Ok(percentage_pos)
     }
 
+    pub fn position_in_seconds(&self) -> PositionInSeconds {
+        lock(&self.register).cur_pos()
+    }
+
     pub fn set_position(&mut self, position: UnitValue) -> Result<ClipChangedEvent, &'static str> {
         let mut guard = lock(&self.register);
         let mut source = guard.src_mut().ok_or("no source loaded")?;
@@ -376,7 +379,7 @@ impl ClipSlot {
         let length = source.query_inner_length();
         let real_pos = PositionInSeconds::new(position.get() * length.get());
         guard.set_cur_pos(real_pos);
-        Ok(ClipChangedEvent::ClipPositionChanged(position))
+        Ok(ClipChangedEvent::ClipPosition(position))
     }
 
     fn start_transition(&mut self) -> State {
@@ -708,7 +711,7 @@ impl PlayingState {
                 }
                 Some(ScheduledFor::Play) => {
                     // We haven't even started playing yet! Okay, let's backpedal.
-                    // This is currently not reachable in "Toggle buttons" mode because we consider
+                    // This is currently not reachable in "Toggle button" mode because we consider
                     // "Scheduled for play" as 25% which is from the perspective of toggle mode
                     // still "off". So it will only send an "on" signal.
                     let suspended = self.suspend(reg, false, caused_by_transport_change);
@@ -776,7 +779,7 @@ impl PlayingState {
                     // active (e.g. respond to position changes) - which can't be good.
                     (
                         self.stop(reg, true, false),
-                        Some(ClipChangedEvent::PlayStateChanged(ClipPlayState::Stopped)),
+                        Some(ClipChangedEvent::PlayState(ClipPlayState::Stopped)),
                     )
                 }
             }
@@ -1127,7 +1130,7 @@ impl CustomPcmSource for WrapperPcmSource {
                 }
             },
             AllNotesOffRequested => {
-                send_all_notes_off(args);
+                send_all_notes_off(&args);
                 self.state = AllNotesOffSent;
             }
             AllNotesOffSent => {}
@@ -1285,7 +1288,7 @@ fn attempt_to_send_all_notes_off_with_guard(
     }
 }
 
-fn send_all_notes_off(args: GetSamplesArgs) {
+fn send_all_notes_off(args: &GetSamplesArgs) {
     for ch in 0..16 {
         let msg = RawShortMessage::control_change(
             Channel::new(ch),

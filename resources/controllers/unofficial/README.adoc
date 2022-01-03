@@ -1,0 +1,31 @@
+Here you will find third-party *controller presets* that didn't make it yet into the official Helgoboss ReaPack repository.
+
+Put them into your REAPER resource directory 
+(REAPER → Actions → Show action list… → Show REAPER resource path in explorer/finder) at
+`Data/helgoboss/realearn/presets/controller`.
+
+
+[cols="m,1,1,1"]
+|===
+| Preset file | Controller | Contributor | Description
+
+| link:behringer-x-touch-mini.json[]
+| https://www.behringer.com/product.html?modelCode=P0B3M[Behringer X-Touch Mini]
+| Thomas
+|
+
+| link:behringer-bcf2000.json[]
+| https://www.behringer.com/product.html?modelCode=P0246[Behringer BCF2000]
+| http://github.com/tanders/[Torsten Anders]
+| See https://github.com/helgoboss/realearn/issues/375[#375]
+
+| link:korg-nanokontrol2.json[]
+| https://www.korg.com/products/computergear/nanokontrol2/[Korg nanoKONTROL2]
+| ketstert
+| ketstert also provided some additional files, see https://forum.cockos.com/showthread.php?t=259932[this REAPER forum thread]
+
+| link:nektar-panorama-p6.json[]
+| https://nektartech.com/panorama-p4-p6/[Nektar Panorama P6]
+| http://github.com/tanders/[Torsten Anders]
+| See https://github.com/helgoboss/realearn/issues/374[#374]
+|===

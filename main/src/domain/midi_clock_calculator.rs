@@ -1,7 +1,8 @@
-use crate::core::MovingAverageCalculator;
+use crate::base::MovingAverageCalculator;
 use helgoboss_learn::Bpm;
 
-use reaper_medium::{Hz, MidiFrameOffset};
+use crate::domain::SampleOffset;
+use reaper_medium::Hz;
 use std::convert::TryInto;
 
 #[derive(Debug)]
@@ -32,11 +33,8 @@ impl MidiClockCalculator {
         self.sample_counter += sample_count as u64;
     }
 
-    pub fn feed(&mut self, frame_offset: MidiFrameOffset) -> Option<Bpm> {
-        // Frame offset is given in 1/1024000 of a second, *not* sample frames!
-        let offset_in_secs = frame_offset.get() as f64 / 1024000.0;
-        let offset_in_samples = (offset_in_secs * self.sample_rate.get()).round() as u64;
-        let timestamp_in_samples = self.sample_counter + offset_in_samples;
+    pub fn feed(&mut self, offset: SampleOffset) -> Option<Bpm> {
+        let timestamp_in_samples = self.sample_counter + offset.get();
         let prev_timestamp = self.previous_midi_clock_timestamp_in_samples;
         self.previous_midi_clock_timestamp_in_samples = timestamp_in_samples;
 

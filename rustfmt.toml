@@ -1,4 +1,4 @@
 max_width = 100
-comment_width = 100
-wrap_comments = true
-version = "Two"
+#comment_width = 100
+#wrap_comments = true
+#version = "Two"

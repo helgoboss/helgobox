@@ -1,9 +1,12 @@
-use crate::core::{prop, Prop};
-use crate::domain::{CompoundMappingSource, MappingCompartment, ReaperTarget};
+use crate::base::{prop, Prop};
+use crate::domain::{
+    CompoundMappingSource, GroupId, IncomingCompoundSourceValue, MappingCompartment,
+    MessageCaptureResult, ReaperTarget, Tag, VirtualSourceValue,
+};
 
-use crate::application::{GroupId, MappingModel};
+use crate::application::{MappingModel, Session};
 use enum_map::{enum_map, EnumMap};
-use rx_util::UnitEvent;
+use rxrust::prelude::*;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
@@ -15,7 +18,7 @@ pub type SharedMainState = Rc<RefCell<MainState>>;
 pub struct MainState {
     pub target_filter: Prop<Option<ReaperTarget>>,
     pub is_learning_target_filter: Prop<bool>,
-    pub source_filter: Prop<Option<CompoundMappingSource>>,
+    pub source_filter: Prop<Option<SourceFilter>>,
     pub is_learning_source_filter: Prop<bool>,
     pub active_compartment: Prop<MappingCompartment>,
     pub displayed_group: EnumMap<MappingCompartment, Prop<Option<GroupFilter>>>,
@@ -23,12 +26,43 @@ pub struct MainState {
     pub status_msg: Prop<String>,
 }
 
+#[derive(Clone, PartialEq, Debug)]
+pub struct SourceFilter {
+    /// Only can match mappings with real sources.
+    pub message_capture_result: MessageCaptureResult,
+    /// If the incoming message was successfully virtualized
+    /// (can match main mappings with virtual sources).
+    pub virtual_source_value: Option<VirtualSourceValue>,
+}
+
+impl SourceFilter {
+    pub fn matches(&self, source: &CompoundMappingSource) -> bool {
+        // First try real source matching.
+        if source
+            .control(self.message_capture_result.message())
+            .is_some()
+        {
+            return true;
+        }
+        // Then try virtual source matching (if the message was virtualized before).
+        if let Some(v) = self.virtual_source_value {
+            if source
+                .control(IncomingCompoundSourceValue::Virtual(&v))
+                .is_some()
+            {
+                return true;
+            }
+        }
+        false
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]
 pub struct GroupFilter(pub GroupId);
 
 impl GroupFilter {
     pub fn matches(&self, mapping: &MappingModel) -> bool {
-        mapping.group_id.get() == self.0
+        mapping.group_id() == self.0
     }
 
     pub fn group_id(&self) -> GroupId {
@@ -62,7 +96,9 @@ impl MainState {
         }
     }
 
-    pub fn displayed_group_for_any_compartment_changed(&self) -> impl UnitEvent {
+    pub fn displayed_group_for_any_compartment_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.displayed_group[MappingCompartment::ControllerMappings]
             .changed()
             .merge(self.displayed_group[MappingCompartment::MainMappings].changed())
@@ -123,7 +159,10 @@ impl MainState {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct SearchExpression(WildMatch);
+pub struct SearchExpression {
+    wild_match: WildMatch,
+    tag: Option<Tag>,
+}
 
 impl SearchExpression {
     pub fn new(text: &str) -> SearchExpression {
@@ -133,11 +172,39 @@ impl SearchExpression {
             let modified_text = format!("*{}*", text.to_lowercase());
             WildMatch::new(&modified_text)
         };
-        Self(wild_match)
+        fn extract_tag(text: &str) -> Option<Tag> {
+            let tag_name = text.strip_prefix('#')?;
+            tag_name.parse().ok()
+        }
+        Self {
+            wild_match,
+            tag: extract_tag(text),
+        }
     }
 
     pub fn matches(&self, text: &str) -> bool {
-        self.0.matches(&text.to_lowercase())
+        self.wild_match.matches(&text.to_lowercase())
+    }
+
+    pub fn matches_any_tag_in_group(&self, mapping: &MappingModel, session: &Session) -> bool {
+        if self.tag.is_none() {
+            return false;
+        }
+        if let Some(group) = session
+            .find_group_by_id_including_default_group(mapping.compartment(), mapping.group_id())
+        {
+            self.matches_any_tag(group.borrow().tags())
+        } else {
+            false
+        }
+    }
+
+    pub fn matches_any_tag(&self, tags: &[Tag]) -> bool {
+        if let Some(tag) = &self.tag {
+            tags.iter().any(|t| t == tag)
+        } else {
+            false
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -147,9 +214,9 @@ impl SearchExpression {
 
 impl fmt::Display for SearchExpression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = self.0.to_string();
+        let s = self.wild_match.to_string();
         let s = s.strip_prefix('*').unwrap_or(&s);
-        let s = s.strip_suffix('*').unwrap_or(&s);
+        let s = s.strip_suffix('*').unwrap_or(s);
         f.write_str(s)
     }
 }

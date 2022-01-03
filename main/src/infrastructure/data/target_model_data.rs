@@ -3,83 +3,93 @@ use super::none_if_minus_one;
 use reaper_high::{BookmarkType, Fx, Guid, Reaper};
 
 use crate::application::{
-    AutomationModeOverrideType, BookmarkAnchorType, FxParameterPropValues, FxPropValues,
-    FxSnapshot, RealearnAutomationMode, RealearnTrackArea, ReaperTargetType, TargetCategory,
-    TargetModel, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
+    AutomationModeOverrideType, BookmarkAnchorType, Change, FxParameterPropValues, FxPropValues,
+    FxSnapshot, RealearnAutomationMode, RealearnTrackArea, TargetCategory, TargetCommand,
+    TargetModel, TargetUnit, TrackPropValues, TrackRoutePropValues, TrackRouteSelectorType,
     VirtualControlElementType, VirtualFxParameterType, VirtualFxType, VirtualTrackType,
 };
-use crate::core::default_util::{is_default, is_none_or_some_default};
-use crate::core::notification;
+use crate::base::default_util::{bool_true, is_bool_true, is_default, is_none_or_some_default};
+use crate::base::notification;
 use crate::domain::{
-    get_fx_chain, ActionInvocationType, ExtendedProcessorContext, FxDisplayType,
-    MappingCompartment, OscDeviceId, SeekOptions, SendMidiDestination, SoloBehavior,
-    TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualTrack,
+    get_fx_chain, ActionInvocationType, AnyOnParameter, Exclusivity, ExtendedProcessorContext,
+    FxDisplayType, GroupKey, MappingCompartment, OscDeviceId, ReaperTargetType, SeekOptions,
+    SendMidiDestination, SoloBehavior, Tag, TouchedParameterType, TrackExclusivity, TrackRouteType,
+    TransportAction, VirtualTrack,
 };
-use crate::infrastructure::data::VirtualControlElementIdData;
+use crate::infrastructure::data::{
+    DataToModelConversionContext, ModelToDataConversionContext, VirtualControlElementIdData,
+};
 use crate::infrastructure::plugin::App;
 use helgoboss_learn::OscTypeTag;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TargetModelData {
     #[serde(default, skip_serializing_if = "is_default")]
     pub category: TargetCategory,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub unit: TargetUnit,
     // reaper_type would be a better name but we need backwards compatibility
     #[serde(default, skip_serializing_if = "is_default")]
     pub r#type: ReaperTargetType,
     // Action target
     #[serde(default, skip_serializing_if = "is_default")]
-    command_name: Option<String>,
+    pub command_name: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
-    invocation_type: ActionInvocationType,
+    pub invocation_type: ActionInvocationType,
     // Until ReaLearn 1.0.0-beta6
     #[serde(default, skip_serializing)]
-    invoke_relative: Option<bool>,
+    pub invoke_relative: Option<bool>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub with_track: bool,
     // Track target
     #[serde(flatten)]
-    track_data: TrackData,
+    pub track_data: TrackData,
     #[serde(default, skip_serializing_if = "is_default")]
-    enable_only_if_track_is_selected: bool,
+    pub enable_only_if_track_is_selected: bool,
     // FX target
     #[serde(flatten)]
-    fx_data: FxData,
+    pub fx_data: FxData,
     #[serde(default, skip_serializing_if = "is_default")]
-    enable_only_if_fx_has_focus: bool,
+    pub enable_only_if_fx_has_focus: bool,
     // Track route target
     #[serde(flatten)]
-    track_route_data: TrackRouteData,
+    pub track_route_data: TrackRouteData,
     // FX parameter target
     #[serde(flatten)]
-    fx_parameter_data: FxParameterData,
+    pub fx_parameter_data: FxParameterData,
     // Track selection target (replaced with `track_exclusivity` since v2.4.0)
     #[serde(default, skip_serializing_if = "is_default")]
-    select_exclusively: Option<bool>,
+    pub select_exclusively: Option<bool>,
     // Track solo target (since v2.4.0, also changed default from "ignore routing" to "in place")
     #[serde(default, skip_serializing_if = "is_none_or_some_default")]
-    solo_behavior: Option<SoloBehavior>,
+    pub solo_behavior: Option<SoloBehavior>,
     // Toggleable track targets (since v2.4.0)
     #[serde(default, skip_serializing_if = "is_default")]
-    track_exclusivity: TrackExclusivity,
+    pub track_exclusivity: TrackExclusivity,
     // Transport target
     #[serde(default, skip_serializing_if = "is_default")]
-    transport_action: TransportAction,
+    pub transport_action: TransportAction,
+    // Any-on target
     #[serde(default, skip_serializing_if = "is_default")]
-    control_element_type: VirtualControlElementType,
+    pub any_on_parameter: AnyOnParameter,
     #[serde(default, skip_serializing_if = "is_default")]
-    control_element_index: VirtualControlElementIdData,
+    pub control_element_type: VirtualControlElementType,
     #[serde(default, skip_serializing_if = "is_default")]
-    fx_snapshot: Option<FxSnapshot>,
+    pub control_element_index: VirtualControlElementIdData,
     #[serde(default, skip_serializing_if = "is_default")]
-    touched_parameter_type: TouchedParameterType,
+    pub fx_snapshot: Option<FxSnapshot>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub touched_parameter_type: TouchedParameterType,
     // Bookmark target
     #[serde(flatten)]
-    bookmark_data: BookmarkData,
+    pub bookmark_data: BookmarkData,
     // Seek target
     #[serde(flatten)]
-    seek_options: SeekOptions,
+    pub seek_options: SeekOptions,
     // Track show target
     #[serde(default, skip_serializing_if = "is_default")]
     pub track_area: RealearnTrackArea,
@@ -117,111 +127,143 @@ pub struct TargetModelData {
     pub next_bar: bool,
     #[serde(default, skip_serializing_if = "is_default")]
     pub buffered: bool,
+    #[serde(default = "bool_true", skip_serializing_if = "is_bool_true")]
+    pub poll_for_feedback: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub tags: Vec<Tag>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub exclusivity: Exclusivity,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub group_id: GroupKey,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub active_mappings_only: bool,
 }
 
 impl TargetModelData {
-    pub fn from_model(model: &TargetModel) -> Self {
+    pub fn from_model(
+        model: &TargetModel,
+        conversion_context: &impl ModelToDataConversionContext,
+    ) -> Self {
         Self {
-            category: model.category.get(),
-            r#type: model.r#type.get(),
-            command_name: model
-                .action
-                .get_ref()
-                .as_ref()
-                .map(|a| match a.command_name() {
-                    // Built-in actions don't have a command name but a persistent command ID.
-                    // Use command ID as string.
-                    None => a.command_id().to_string(),
-                    // ReaScripts and custom actions have a command name as persistent identifier.
-                    Some(name) => name.into_string(),
-                }),
-            invocation_type: model.action_invocation_type.get(),
+            category: model.category(),
+            unit: model.unit(),
+            r#type: model.target_type(),
+            command_name: model.action().map(|a| match a.command_name() {
+                // Built-in actions don't have a command name but a persistent command ID.
+                // Use command ID as string.
+                None => a.command_id().to_string(),
+                // ReaScripts and custom actions have a command name as persistent identifier.
+                Some(name) => name.into_string(),
+            }),
+            invocation_type: model.action_invocation_type(),
             // Not serialized anymore because deprecated
             invoke_relative: None,
             track_data: serialize_track(model.track()),
-            enable_only_if_track_is_selected: model.enable_only_if_track_selected.get(),
+            enable_only_if_track_is_selected: model.enable_only_if_track_selected(),
+            with_track: model.with_track(),
             fx_data: serialize_fx(model.fx()),
-            enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus.get(),
+            enable_only_if_fx_has_focus: model.enable_only_if_fx_has_focus(),
             track_route_data: serialize_track_route(model.track_route()),
             fx_parameter_data: serialize_fx_parameter(model.fx_parameter()),
             select_exclusively: None,
-            solo_behavior: Some(model.solo_behavior.get()),
-            track_exclusivity: model.track_exclusivity.get(),
-            transport_action: model.transport_action.get(),
-            control_element_type: model.control_element_type.get(),
+            solo_behavior: Some(model.solo_behavior()),
+            track_exclusivity: model.track_exclusivity(),
+            transport_action: model.transport_action(),
+            any_on_parameter: model.any_on_parameter(),
+            control_element_type: model.control_element_type(),
             control_element_index: VirtualControlElementIdData::from_model(
-                model.control_element_id.get(),
+                model.control_element_id(),
             ),
-            fx_snapshot: model.fx_snapshot.get_ref().clone(),
-            touched_parameter_type: model.touched_parameter_type.get(),
+            fx_snapshot: model.fx_snapshot().cloned(),
+            touched_parameter_type: model.touched_parameter_type(),
             bookmark_data: BookmarkData {
-                anchor: model.bookmark_anchor_type.get(),
-                r#ref: model.bookmark_ref.get(),
-                is_region: model.bookmark_type.get() == BookmarkType::Region,
+                anchor: model.bookmark_anchor_type(),
+                r#ref: model.bookmark_ref(),
+                is_region: model.bookmark_type() == BookmarkType::Region,
             },
             seek_options: model.seek_options(),
-            track_area: model.track_area.get(),
-            track_automation_mode: model.track_automation_mode.get(),
-            automation_mode_override_type: model.automation_mode_override_type.get(),
-            fx_display_type: model.fx_display_type.get(),
-            scroll_arrange_view: model.scroll_arrange_view.get(),
-            scroll_mixer: model.scroll_mixer.get(),
-            send_midi_destination: model.send_midi_destination.get(),
-            raw_midi_pattern: model.raw_midi_pattern.get_ref().clone(),
-            osc_address_pattern: model.osc_address_pattern.get_ref().clone(),
-            osc_arg_index: model.osc_arg_index.get(),
-            osc_arg_type: model.osc_arg_type_tag.get(),
-            osc_dev_id: model.osc_dev_id.get(),
-            slot_index: model.slot_index.get(),
-            next_bar: model.next_bar.get(),
-            buffered: model.buffered.get(),
+            track_area: model.track_area(),
+            track_automation_mode: model.automation_mode(),
+            automation_mode_override_type: model.automation_mode_override_type(),
+            fx_display_type: model.fx_display_type(),
+            scroll_arrange_view: model.scroll_arrange_view(),
+            scroll_mixer: model.scroll_mixer(),
+            send_midi_destination: model.send_midi_destination(),
+            raw_midi_pattern: model.raw_midi_pattern().to_owned(),
+            osc_address_pattern: model.osc_address_pattern().to_owned(),
+            osc_arg_index: model.osc_arg_index(),
+            osc_arg_type: model.osc_arg_type_tag(),
+            osc_dev_id: model.osc_dev_id(),
+            slot_index: model.slot_index(),
+            next_bar: model.next_bar(),
+            buffered: model.buffered(),
+            poll_for_feedback: model.poll_for_feedback(),
+            tags: model.tags().to_vec(),
+            exclusivity: model.exclusivity(),
+            group_id: conversion_context
+                .group_key_by_id(model.group_id())
+                .unwrap_or_default(),
+            active_mappings_only: model.active_mappings_only(),
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut TargetModel, compartment: MappingCompartment) {
-        self.apply_to_model_flexible(model, None, Some(App::version()), true, compartment);
+    pub fn apply_to_model(
+        &self,
+        model: &mut TargetModel,
+        compartment: MappingCompartment,
+        context: ExtendedProcessorContext,
+        conversion_context: impl DataToModelConversionContext,
+    ) {
+        self.apply_to_model_flexible(
+            model,
+            Some(context),
+            Some(App::version()),
+            compartment,
+            conversion_context,
+        );
     }
 
-    /// The context is necessary only if there's the possibility of loading data saved with
+    /// The context - if available - will be used to resolve some track/FX properties for UI
+    /// convenience. The context is necessary if there's the possibility of loading data saved with
     /// ReaLearn < 1.12.0.
     pub fn apply_to_model_flexible(
         &self,
         model: &mut TargetModel,
         context: Option<ExtendedProcessorContext>,
         preset_version: Option<&Version>,
-        with_notification: bool,
         compartment: MappingCompartment,
+        conversion_context: impl DataToModelConversionContext,
     ) {
+        use TargetCommand as C;
         let final_category = if self.category.is_allowed_in(compartment) {
             self.category
         } else {
             TargetCategory::default_for(compartment)
         };
-        model
-            .category
-            .set_with_optional_notification(final_category, with_notification);
-        model
-            .r#type
-            .set_with_optional_notification(self.r#type, with_notification);
-        let reaper = Reaper::get();
-        let action = match self.command_name.as_ref() {
-            None => None,
-            Some(command_name) => match command_name.parse::<u32>() {
-                // Could parse this as command ID integer. This is a built-in action.
-                Ok(command_id_int) => match command_id_int.try_into() {
-                    Ok(command_id) => Some(reaper.main_section().action_by_command_id(command_id)),
-                    Err(_) => {
-                        notification::warn(&format!("Invalid command ID {}", command_id_int));
-                        None
-                    }
+        model.change(C::SetCategory(final_category));
+        model.change(C::SetUnit(self.unit));
+        model.change(C::SetTargetType(self.r#type));
+        if self.category == TargetCategory::Reaper && self.r#type == ReaperTargetType::Action {
+            let reaper = Reaper::get();
+            let action = match self.command_name.as_ref() {
+                None => None,
+                Some(command_name) => match command_name.parse::<u32>() {
+                    // Could parse this as command ID integer. This is a built-in action.
+                    Ok(command_id_int) => match command_id_int.try_into() {
+                        Ok(command_id) => {
+                            Some(reaper.main_section().action_by_command_id(command_id))
+                        }
+                        Err(_) => {
+                            notification::warn(format!("Invalid command ID {}", command_id_int));
+                            None
+                        }
+                    },
+                    // Couldn't parse this as integer. This is a ReaScript or custom action.
+                    Err(_) => Some(reaper.action_by_command_name(command_name.as_str())),
                 },
-                // Couldn't parse this as integer. This is a ReaScript or custom action.
-                Err(_) => Some(reaper.action_by_command_name(command_name.as_str())),
-            },
-        };
-        model
-            .action
-            .set_with_optional_notification(action, with_notification);
+            };
+            model.change(C::SetAction(action));
+        }
         let invocation_type = if let Some(invoke_relative) = self.invoke_relative {
             // Very old ReaLearn version
             if invoke_relative {
@@ -232,44 +274,41 @@ impl TargetModelData {
         } else {
             self.invocation_type
         };
-        model
-            .action_invocation_type
-            .set_with_optional_notification(invocation_type, with_notification);
+        model.change(C::SetActionInvocationType(invocation_type));
         let track_prop_values = deserialize_track(&self.track_data);
-        model.set_track(track_prop_values, with_notification);
-        model
-            .enable_only_if_track_selected
-            .set_with_optional_notification(
-                self.enable_only_if_track_is_selected,
-                with_notification,
-            );
+        let _ = model.set_track_from_prop_values(
+            track_prop_values,
+            false,
+            context.map(|c| c.context()),
+        );
+        model.change(C::SetEnableOnlyIfTrackSelected(
+            self.enable_only_if_track_is_selected,
+        ));
+        model.change(C::SetWithTrack(self.with_track));
         let virtual_track = model.virtual_track().unwrap_or(VirtualTrack::This);
         let fx_prop_values = deserialize_fx(
             &self.fx_data,
-            context.map(|c| (c, compartment)),
-            &virtual_track,
+            context.map(|c| (c, compartment, &virtual_track)),
         );
-        model.set_fx(fx_prop_values, with_notification);
-        model
-            .enable_only_if_fx_has_focus
-            .set_with_optional_notification(self.enable_only_if_fx_has_focus, with_notification);
+        let _ = model.set_fx_from_prop_values(fx_prop_values, false, context, compartment);
+        model.change(C::SetEnableOnlyIfFxHasFocus(
+            self.enable_only_if_fx_has_focus,
+        ));
         let route_prop_values = deserialize_track_route(&self.track_route_data);
-        model.set_route(route_prop_values, with_notification);
+        let _ = model.set_route(route_prop_values);
         let fx_param_prop_values = deserialize_fx_parameter(&self.fx_parameter_data);
-        model.set_fx_parameter(fx_param_prop_values, with_notification);
+        let _ = model.set_fx_parameter(fx_param_prop_values);
         let track_exclusivity = if let Some(select_exclusively) = self.select_exclusively {
             // Should only be set in versions < 2.4.0.
             if select_exclusively {
-                TrackExclusivity::ExclusiveAll
+                TrackExclusivity::ExclusiveWithinProject
             } else {
                 TrackExclusivity::NonExclusive
             }
         } else {
             self.track_exclusivity
         };
-        model
-            .track_exclusivity
-            .set_with_optional_notification(track_exclusivity, with_notification);
+        model.change(C::SetTrackExclusivity(track_exclusivity));
         let solo_behavior = self.solo_behavior.unwrap_or_else(|| {
             let is_old_preset = preset_version
                 .map(|v| v < &Version::new(2, 4, 0))
@@ -280,98 +319,67 @@ impl TargetModelData {
                 SoloBehavior::InPlace
             }
         });
-        model
-            .solo_behavior
-            .set_with_optional_notification(solo_behavior, with_notification);
-        model
-            .transport_action
-            .set_with_optional_notification(self.transport_action, with_notification);
-        model
-            .control_element_type
-            .set_with_optional_notification(self.control_element_type, with_notification);
-        model.control_element_id.set_with_optional_notification(
+        model.change(C::SetSoloBehavior(solo_behavior));
+        model.change(C::SetTransportAction(self.transport_action));
+        model.change(C::SetAnyOnParameter(self.any_on_parameter));
+        model.change(C::SetControlElementType(self.control_element_type));
+        model.change(C::SetControlElementId(
             self.control_element_index.to_model(),
-            with_notification,
-        );
-        model
-            .fx_snapshot
-            .set_with_optional_notification(self.fx_snapshot.clone(), with_notification);
-        model
-            .touched_parameter_type
-            .set_with_optional_notification(self.touched_parameter_type, with_notification);
+        ));
+        model.change(C::SetFxSnapshot(self.fx_snapshot.clone()));
+        model.change(C::SetTouchedParameterType(self.touched_parameter_type));
         let bookmark_type = if self.bookmark_data.is_region {
             BookmarkType::Region
         } else {
             BookmarkType::Marker
         };
-        model
-            .bookmark_type
-            .set_with_optional_notification(bookmark_type, with_notification);
-        model
-            .bookmark_anchor_type
-            .set_with_optional_notification(self.bookmark_data.anchor, with_notification);
-        model
-            .bookmark_ref
-            .set_with_optional_notification(self.bookmark_data.r#ref, with_notification);
-        model.set_seek_options(self.seek_options, with_notification);
-        model
-            .track_area
-            .set_with_optional_notification(self.track_area, with_notification);
-        model
-            .track_automation_mode
-            .set_with_optional_notification(self.track_automation_mode, with_notification);
-        model
-            .automation_mode_override_type
-            .set_with_optional_notification(self.automation_mode_override_type, with_notification);
-        model
-            .fx_display_type
-            .set_with_optional_notification(self.fx_display_type, with_notification);
-        model
-            .scroll_arrange_view
-            .set_with_optional_notification(self.scroll_arrange_view, with_notification);
+        model.change(C::SetBookmarkType(bookmark_type));
+        model.change(C::SetBookmarkAnchorType(self.bookmark_data.anchor));
+        model.change(C::SetBookmarkRef(self.bookmark_data.r#ref));
+        let _ = model.set_seek_options(self.seek_options);
+        model.change(C::SetTrackArea(self.track_area));
+        model.change(C::SetAutomationMode(self.track_automation_mode));
+        model.change(C::SetAutomationModeOverrideType(
+            self.automation_mode_override_type,
+        ));
+        model.change(C::SetFxDisplayType(self.fx_display_type));
+        model.change(C::SetScrollArrangeView(self.scroll_arrange_view));
         let scroll_mixer = if self.category == TargetCategory::Reaper
             && self.r#type == ReaperTargetType::TrackSelection
         {
-            preset_version
+            let is_old_preset = preset_version
                 .map(|v| v < &Version::new(2, 8, 0))
-                .unwrap_or(true)
+                .unwrap_or(true);
+            if is_old_preset {
+                true
+            } else {
+                self.scroll_mixer
+            }
         } else {
             self.scroll_mixer
         };
-        model
-            .scroll_mixer
-            .set_with_optional_notification(scroll_mixer, with_notification);
-        model
-            .send_midi_destination
-            .set_with_optional_notification(self.send_midi_destination, with_notification);
-        model
-            .raw_midi_pattern
-            .set_with_optional_notification(self.raw_midi_pattern.clone(), with_notification);
-        model
-            .osc_address_pattern
-            .set_with_optional_notification(self.osc_address_pattern.clone(), with_notification);
-        model
-            .osc_arg_index
-            .set_with_optional_notification(self.osc_arg_index, with_notification);
-        model
-            .osc_arg_type_tag
-            .set_with_optional_notification(self.osc_arg_type, with_notification);
-        model
-            .osc_dev_id
-            .set_with_optional_notification(self.osc_dev_id, with_notification);
-        model
-            .slot_index
-            .set_with_optional_notification(self.slot_index, with_notification);
-        model
-            .next_bar
-            .set_with_optional_notification(self.next_bar, with_notification);
-        model
-            .buffered
-            .set_with_optional_notification(self.buffered, with_notification);
+        model.change(C::SetScrollMixer(scroll_mixer));
+        model.change(C::SetSendMidiDestination(self.send_midi_destination));
+        model.change(C::SetRawMidiPattern(self.raw_midi_pattern.clone()));
+        model.change(C::SetOscAddressPattern(self.osc_address_pattern.clone()));
+        model.change(C::SetOscArgIndex(self.osc_arg_index));
+        model.change(C::SetOscArgTypeTag(self.osc_arg_type));
+        model.change(C::SetOscDevId(self.osc_dev_id));
+        model.change(C::SetSlotIndex(self.slot_index));
+        model.change(C::SetNextBar(self.next_bar));
+        model.change(C::SetBuffered(self.buffered));
+        model.change(C::SetPollForFeedback(self.poll_for_feedback));
+        model.change(C::SetTags(self.tags.clone()));
+        model.change(C::SetExclusivity(self.exclusivity));
+        let group_id = conversion_context
+            .group_id_by_key(&self.group_id)
+            .unwrap_or_default();
+        model.change(C::SetGroupId(group_id));
+        model.change(C::SetActiveMappingsOnly(self.active_mappings_only));
     }
 }
 
-fn serialize_track(track: TrackPropValues) -> TrackData {
+pub fn serialize_track(track: TrackPropValues) -> TrackData {
     use VirtualTrackType::*;
     match track.r#type {
         This => TrackData {
@@ -386,7 +394,7 @@ fn serialize_track(track: TrackPropValues) -> TrackData {
             index: None,
             expression: None,
         },
-        SelectedMultiple => TrackData {
+        AllSelected => TrackData {
             guid: Some("selected*".to_string()),
             name: None,
             index: None,
@@ -416,6 +424,12 @@ fn serialize_track(track: TrackPropValues) -> TrackData {
             index: None,
             expression: None,
         },
+        AllByName => TrackData {
+            guid: Some("name*".to_string()),
+            name: Some(track.name),
+            index: None,
+            expression: None,
+        },
         ByIndex => TrackData {
             guid: None,
             name: None,
@@ -431,7 +445,7 @@ fn serialize_track(track: TrackPropValues) -> TrackData {
     }
 }
 
-fn serialize_fx(fx: FxPropValues) -> FxData {
+pub fn serialize_fx(fx: FxPropValues) -> FxData {
     use VirtualFxType::*;
     match fx.r#type {
         This => FxData {
@@ -474,6 +488,14 @@ fn serialize_fx(fx: FxPropValues) -> FxData {
             is_input_fx: fx.is_input_fx,
             expression: None,
         },
+        AllByName => FxData {
+            anchor: Some(VirtualFxType::AllByName),
+            index: None,
+            guid: None,
+            name: Some(fx.name),
+            is_input_fx: fx.is_input_fx,
+            expression: None,
+        },
         ByIndex => FxData {
             anchor: Some(VirtualFxType::ByIndex),
             index: Some(fx.index),
@@ -493,7 +515,7 @@ fn serialize_fx(fx: FxPropValues) -> FxData {
     }
 }
 
-fn serialize_fx_parameter(param: FxParameterPropValues) -> FxParameterData {
+pub fn serialize_fx_parameter(param: FxParameterPropValues) -> FxParameterData {
     use VirtualFxParameterType::*;
     match param.r#type {
         Dynamic => FxParameterData {
@@ -508,7 +530,7 @@ fn serialize_fx_parameter(param: FxParameterPropValues) -> FxParameterData {
             name: Some(param.name),
             expression: None,
         },
-        ByIndex => FxParameterData {
+        ById => FxParameterData {
             // Before 2.8.0 we didn't have a type and this was the default ... let's leave it
             // at that.
             r#type: None,
@@ -516,10 +538,18 @@ fn serialize_fx_parameter(param: FxParameterPropValues) -> FxParameterData {
             name: None,
             expression: None,
         },
+        ByIndex => FxParameterData {
+            // Before 2.8.0 we didn't have a type and this was the default ... let's leave it
+            // at that.
+            r#type: Some(param.r#type),
+            index: param.index,
+            name: None,
+            expression: None,
+        },
     }
 }
 
-fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
+pub fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
     use TrackRouteSelectorType::*;
     match route.selector_type {
         Dynamic => TrackRouteData {
@@ -559,9 +589,9 @@ fn serialize_track_route(route: TrackRoutePropValues) -> TrackRouteData {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct FxParameterData {
+pub struct FxParameterData {
     #[serde(rename = "paramType", default, skip_serializing_if = "is_default")]
     r#type: Option<VirtualFxParameterType>,
     #[serde(
@@ -581,17 +611,17 @@ struct FxParameterData {
     expression: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct TrackRouteData {
+pub struct TrackRouteData {
     #[serde(
         rename = "routeSelectorType",
         default,
         skip_serializing_if = "is_default"
     )]
-    selector_type: Option<TrackRouteSelectorType>,
+    pub selector_type: Option<TrackRouteSelectorType>,
     #[serde(rename = "routeType", default, skip_serializing_if = "is_default")]
-    r#type: TrackRouteType,
+    pub r#type: TrackRouteType,
     /// The only reason this is an option is that in ReaLearn < 1.11.0 we allowed the send
     /// index to be undefined (-1). However, going with a default of 0 is also okay so
     /// `None` and `Some(0)` means essentially the same thing to us now.
@@ -601,22 +631,22 @@ struct TrackRouteData {
         default,
         skip_serializing_if = "is_none_or_some_default"
     )]
-    index: Option<u32>,
+    pub index: Option<u32>,
     #[serde(rename = "routeGuid", default, skip_serializing_if = "is_default")]
-    guid: Option<String>,
+    pub guid: Option<String>,
     #[serde(rename = "routeName", default, skip_serializing_if = "is_default")]
-    name: Option<String>,
+    pub name: Option<String>,
     #[serde(
         rename = "routeExpression",
         default,
         skip_serializing_if = "is_default"
     )]
-    expression: Option<String>,
+    pub expression: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct FxData {
+pub struct FxData {
     /// Since 1.12.0-pre8. This is an option because we changed the default and wanted an easy
     /// way to detect when an old preset is loaded.
     // TODO-low If we would have a look at the version number at deserialization time, we could
@@ -625,7 +655,7 @@ struct FxData {
     //  negatively effect some prerelease testers. Another way to get rid of the redundant
     //  "fxAnchor" property would be to set this to none if the target type doesn't support FX.
     #[serde(rename = "fxAnchor", default, skip_serializing_if = "is_default")]
-    anchor: Option<VirtualFxType>,
+    pub anchor: Option<VirtualFxType>,
     /// The only reason this is an option is that in ReaLearn < 1.11.0 we allowed the FX
     /// index to be undefined (-1). However, going with a default of 0 is also okay so
     /// `None` and `Some(0)` means essentially the same thing to us now.
@@ -635,22 +665,23 @@ struct FxData {
         default,
         skip_serializing_if = "is_none_or_some_default"
     )]
-    index: Option<u32>,
+    pub index: Option<u32>,
     /// Since 1.12.0-pre1
     #[serde(rename = "fxGUID", default, skip_serializing_if = "is_default")]
-    guid: Option<String>,
+    pub guid: Option<String>,
     /// Since 1.12.0-pre8
     #[serde(rename = "fxName", default, skip_serializing_if = "is_default")]
-    name: Option<String>,
+    pub name: Option<String>,
+    // TODO-medium This is actually a property of the track FX chain, not the FX
     #[serde(default, skip_serializing_if = "is_default")]
-    is_input_fx: bool,
+    pub is_input_fx: bool,
     #[serde(rename = "fxExpression", default, skip_serializing_if = "is_default")]
-    expression: Option<String>,
+    pub expression: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct TrackData {
+pub struct TrackData {
     // None means "This" track
     #[serde(rename = "trackGUID", default, skip_serializing_if = "is_default")]
     guid: Option<String>,
@@ -666,7 +697,7 @@ struct TrackData {
     expression: Option<String>,
 }
 
-fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
+pub fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
     match track_data {
         TrackData {
             guid: None,
@@ -687,6 +718,15 @@ fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
                 allow_multiple: true,
             })
         }
+        TrackData {
+            guid: Some(g),
+            name: Some(n),
+            ..
+        } if g == "name*" => TrackPropValues {
+            r#type: VirtualTrackType::AllByName,
+            name: n.clone(),
+            ..Default::default()
+        },
         TrackData {
             guid: Some(g),
             name,
@@ -739,10 +779,10 @@ fn deserialize_track(track_data: &TrackData) -> TrackPropValues {
     }
 }
 
-fn deserialize_fx(
+/// The context and so on is only necessary if you want to load < 1.12.0 presets.
+pub fn deserialize_fx(
     fx_data: &FxData,
-    ctx: Option<(ExtendedProcessorContext, MappingCompartment)>,
-    virtual_track: &VirtualTrack,
+    ctx: Option<(ExtendedProcessorContext, MappingCompartment, &VirtualTrack)>,
 ) -> FxPropValues {
     match fx_data {
         // Special case: <Focused> for ReaLearn < 2.8.0-pre4.
@@ -760,8 +800,8 @@ fn deserialize_fx(
             is_input_fx,
             ..
         } => {
-            let (context, compartment) =
-                ctx.expect("trying to load pre-1.12.0 FX target without processor context");
+            let (context, compartment, virtual_track) =
+                ctx.expect("trying to load < 1.12.0 FX target without processor context");
             let fx =
                 get_guid_based_fx_at_index(context, virtual_track, *is_input_fx, *i, compartment)
                     .ok();
@@ -880,7 +920,7 @@ fn deserialize_fx(
     }
 }
 
-fn deserialize_fx_parameter(param_data: &FxParameterData) -> FxParameterPropValues {
+pub fn deserialize_fx_parameter(param_data: &FxParameterData) -> FxParameterPropValues {
     match param_data {
         // This is the case for versions < 2.8.0.
         FxParameterData {
@@ -889,7 +929,7 @@ fn deserialize_fx_parameter(param_data: &FxParameterData) -> FxParameterPropValu
             index: i,
             ..
         } => FxParameterPropValues {
-            r#type: VirtualFxParameterType::ByIndex,
+            r#type: VirtualFxParameterType::ById,
             index: *i,
             ..Default::default()
         },
@@ -908,11 +948,20 @@ fn deserialize_fx_parameter(param_data: &FxParameterData) -> FxParameterPropValu
             expression: e.clone(),
             ..Default::default()
         },
+        FxParameterData {
+            r#type: Some(VirtualFxParameterType::ByIndex),
+            index: i,
+            ..
+        } => FxParameterPropValues {
+            r#type: VirtualFxParameterType::ByIndex,
+            index: *i,
+            ..Default::default()
+        },
         _ => FxParameterPropValues::default(),
     }
 }
 
-fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
+pub fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
     match data {
         // This is the case for versions < 2.8.0.
         TrackRouteData {
@@ -943,14 +992,14 @@ fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
             }
         }
         TrackRouteData {
-            selector_type: Some(TrackRouteSelectorType::ByIndex),
+            selector_type: Some(TrackRouteSelectorType::ByIndex) | None,
             r#type: t,
-            index: Some(i),
+            index: i,
             ..
         } => TrackRoutePropValues {
             selector_type: TrackRouteSelectorType::ByIndex,
             r#type: *t,
-            index: *i,
+            index: i.unwrap_or(0),
             ..Default::default()
         },
         TrackRouteData {
@@ -979,19 +1028,19 @@ fn deserialize_track_route(data: &TrackRouteData) -> TrackRoutePropValues {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct BookmarkData {
+pub struct BookmarkData {
     #[serde(rename = "bookmarkAnchor", default, skip_serializing_if = "is_default")]
-    anchor: BookmarkAnchorType,
+    pub anchor: BookmarkAnchorType,
     #[serde(rename = "bookmarkRef", default, skip_serializing_if = "is_default")]
-    r#ref: u32,
+    pub r#ref: u32,
     #[serde(
         rename = "bookmarkIsRegion",
         default,
         skip_serializing_if = "is_default"
     )]
-    is_region: bool,
+    pub is_region: bool,
 }
 
 pub fn get_guid_based_fx_at_index(

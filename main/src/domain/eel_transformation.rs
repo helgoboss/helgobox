@@ -1,8 +1,12 @@
-use crate::core::eel;
-use helgoboss_learn::{Transformation, UnitValue};
-use std::convert::TryInto;
+use crate::base::eel;
+use helgoboss_learn::Transformation;
 
 use std::sync::Arc;
+
+#[derive(Default)]
+pub struct AdditionalEelTransformationInput {
+    pub y_last: f64,
+}
 
 #[derive(Debug)]
 struct EelUnit {
@@ -11,6 +15,7 @@ struct EelUnit {
     vm: eel::Vm,
     x: eel::Variable,
     y: eel::Variable,
+    y_last: eel::Variable,
 }
 
 #[derive(Clone, Debug)]
@@ -40,7 +45,14 @@ impl EelTransformation {
         let program = vm.compile(eel_script)?;
         let x = vm.register_variable("x");
         let y = vm.register_variable("y");
-        let eel_unit = EelUnit { program, vm, x, y };
+        let y_last = vm.register_variable("y_last");
+        let eel_unit = EelUnit {
+            program,
+            vm,
+            x,
+            y,
+            y_last,
+        };
         Ok(EelTransformation {
             eel_unit: Arc::new(eel_unit),
             output_var: result_var,
@@ -49,22 +61,26 @@ impl EelTransformation {
 }
 
 impl Transformation for EelTransformation {
+    type AdditionalInput = AdditionalEelTransformationInput;
+
     fn transform(
         &self,
-        input_value: UnitValue,
-        output_value: UnitValue,
-    ) -> Result<UnitValue, &'static str> {
+        input_value: f64,
+        output_value: f64,
+        additional_input: AdditionalEelTransformationInput,
+    ) -> Result<f64, &'static str> {
         let result = unsafe {
             use OutputVariable::*;
             let (input_var, output_var) = match self.output_var {
                 X => (&self.eel_unit.y, &self.eel_unit.x),
                 Y => (&self.eel_unit.x, &self.eel_unit.y),
             };
-            input_var.set(input_value.get());
-            output_var.set(output_value.get());
+            input_var.set(input_value);
+            output_var.set(output_value);
+            self.eel_unit.y_last.set(additional_input.y_last);
             self.eel_unit.program.execute();
             output_var.get()
         };
-        result.try_into().map_err(|_| "result is not a unit value")
+        Ok(result)
     }
 }

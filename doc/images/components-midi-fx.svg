@@ -1,0 +1,695 @@
+<svg width="1251pt" height="642pt" viewBox="0.00 0.00 1251.00 642.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" xmlns:svgjs="http://svgjs.dev/svgjs">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 638)">
+<title>components</title>
+<polygon fill="white" stroke="transparent" points="-4,4 -4,-638 1247,-638 1247,4 -4,4"></polygon>
+<g id="clust1" class="cluster level-1">
+<title>cluster_realearn</title>
+<polygon fill="none" stroke="black" points="158,-79 158,-626 1040,-626 1040,-79 158,-79"></polygon>
+<text text-anchor="middle" x="599" y="-610.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">ReaLearn</text>
+</g>
+<g id="clust2" class="cluster level-2">
+<title>cluster_instance</title>
+<polygon fill="none" stroke="black" points="166,-166 166,-595 808,-595 808,-166 166,-166"></polygon>
+<text text-anchor="middle" x="487" y="-579.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Instance</text>
+</g>
+<!-- MidiInputDevice -->
+<g id="node1" class="node">
+<title>MidiInputDevice</title>
+<polygon fill="none" stroke="black" points="110,-300 0,-300 0,-264 110,-264 110,-300"></polygon>
+<text text-anchor="middle" x="55" y="-278.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MidiInputDevice</text>
+</g>
+<!-- RealearnAudioHook -->
+<g id="node9" class="node layer-processing">
+<title>RealearnAudioHook</title>
+<polygon fill="none" stroke="black" points="332.5,-123 203.5,-123 203.5,-87 332.5,-87 332.5,-123"></polygon>
+<text text-anchor="middle" x="268" y="-101.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">RealearnAudioHook</text>
+</g>
+<!-- MidiInputDevice&#45;&gt;RealearnAudioHook -->
+<g id="edge17" class="edge com-sync dir-control type-midi-device role-realtime-midi-device">
+<title>MidiInputDevice-&gt;RealearnAudioHook</title>
+<path fill="none" stroke="black" d="M51.56,-263.66C46.81,-234.2 42.11,-174.31 74,-141 90.41,-123.86 145.94,-115.02 193.41,-110.52"></path>
+<polygon fill="black" stroke="black" points="193.75,-114 203.4,-109.62 193.13,-107.03 193.75,-114"></polygon>
+<text text-anchor="middle" x="169" y="-144.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MIDI control events (device input)</text>
+</g>
+<!-- MidiOutputDevice -->
+<g id="node2" class="node">
+<title>MidiOutputDevice</title>
+<polygon fill="none" stroke="black" points="327.5,-36 208.5,-36 208.5,0 327.5,0 327.5,-36"></polygon>
+<text text-anchor="middle" x="268" y="-14.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MidiOutputDevice</text>
+</g>
+<!-- FxChain -->
+<g id="node3" class="node">
+<title>FxChain</title>
+<polygon fill="none" stroke="black" points="1115.5,-564 1050.5,-564 1050.5,-528 1115.5,-528 1115.5,-564"></polygon>
+<text text-anchor="middle" x="1083" y="-542.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">FxChain</text>
+</g>
+<!-- RealearnPlugin -->
+<g id="node14" class="node layer-infrastructure">
+<title>RealearnPlugin</title>
+<polygon fill="none" stroke="black" points="368.5,-477 267.5,-477 267.5,-441 368.5,-441 368.5,-477"></polygon>
+<text text-anchor="middle" x="318" y="-455.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">RealearnPlugin</text>
+</g>
+<!-- FxChain&#45;&gt;RealearnPlugin -->
+<g id="edge13" class="edge com-sync dir-control type-midi-fx role-realtime-midi-fx">
+<title>FxChain-&gt;RealearnPlugin</title>
+<path fill="none" stroke="black" d="M1050.07,-529.76C1048.04,-529.1 1046.01,-528.5 1044,-528 944.52,-503.17 916.21,-518.19 814,-510 635.31,-495.67 589.75,-500.31 412,-477 401.17,-475.58 389.7,-473.77 378.62,-471.85"></path>
+<polygon fill="black" stroke="black" points="379.05,-468.38 368.59,-470.08 377.83,-475.27 379.05,-468.38"></polygon>
+<text text-anchor="middle" x="900.5" y="-498.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MIDI control events (FX input)</text>
+</g>
+<!-- Reaper -->
+<g id="node4" class="node">
+<title>Reaper</title>
+<polygon fill="none" stroke="black" points="1188.5,-564 1133.5,-564 1133.5,-528 1188.5,-528 1188.5,-564"></polygon>
+<text text-anchor="middle" x="1161" y="-542.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Reaper</text>
+</g>
+<!-- RealearnControlSurfaceMiddleware -->
+<g id="node8" class="node layer-processing">
+<title>RealearnControlSurfaceMiddleware</title>
+<polygon fill="none" stroke="black" points="1028,-477 816,-477 816,-441 1028,-441 1028,-477"></polygon>
+<text text-anchor="middle" x="922" y="-455.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">RealearnControlSurfaceMiddleware</text>
+</g>
+<!-- Reaper&#45;&gt;RealearnControlSurfaceMiddleware -->
+<g id="edge7" class="edge com-sync dir-feedback type-general role-realtime-general">
+<title>Reaper-&gt;RealearnControlSurfaceMiddleware</title>
+<path fill="none" stroke="black" d="M1133.24,-531.49C1130.47,-530.27 1127.69,-529.08 1125,-528 1080.08,-509.94 1028.31,-492.66 988.3,-480.03"></path>
+<polygon fill="black" stroke="black" points="989.24,-476.66 978.65,-477.01 987.15,-483.34 989.24,-476.66"></polygon>
+<text text-anchor="middle" x="1141.5" y="-498.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">REAPER change events</text>
+</g>
+<!-- App -->
+<g id="node5" class="node layer-infrastructure">
+<title>App</title>
+<polygon fill="none" stroke="black" points="1032,-564 978,-564 978,-528 1032,-528 1032,-564"></polygon>
+<text text-anchor="middle" x="1005" y="-542.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">App</text>
+</g>
+<!-- Server -->
+<g id="node6" class="node layer-infrastructure">
+<title>Server</title>
+<polygon fill="none" stroke="black" points="960,-564 906,-564 906,-528 960,-528 960,-564"></polygon>
+<text text-anchor="middle" x="933" y="-542.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Server</text>
+</g>
+<!-- Backbone -->
+<g id="node7" class="node layer-processing">
+<title>Backbone</title>
+<polygon fill="none" stroke="black" points="887.5,-564 816.5,-564 816.5,-528 887.5,-528 887.5,-564"></polygon>
+<text text-anchor="middle" x="852" y="-542.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Backbone</text>
+</g>
+<!-- MainProcessor -->
+<g id="node19" class="node layer-processing">
+<title>MainProcessor</title>
+<polygon fill="none" stroke="black" points="693,-390 549,-390 549,-174 693,-174 693,-390"></polygon>
+<text text-anchor="middle" x="621" y="-278.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MainProcessor</text>
+</g>
+<!-- RealearnControlSurfaceMiddleware&#45;&gt;MainProcessor -->
+<g id="edge9" class="edge com-sync dir-feedback type-general role-realtime-general">
+<title>RealearnControlSurfaceMiddleware-&gt;MainProcessor</title>
+<path fill="none" stroke="black" d="M815.77,-441.43C814.5,-441.28 813.25,-441.14 812,-441 783,-437.77 569.91,-444.33 550,-423 535.7,-407.68 536.4,-388.93 544.37,-370.19"></path>
+<polygon fill="black" stroke="black" points="547.61,-371.53 548.84,-361.01 541.32,-368.47 547.61,-371.53"></polygon>
+<text text-anchor="middle" x="652" y="-411.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">REAPER and instance change events</text>
+</g>
+<!-- RealearnControlSurfaceMiddleware&#45;&gt;MainProcessor -->
+<g id="edge10" class="edge com-sync dir-control type-osc role-realtime-osc">
+<title>RealearnControlSurfaceMiddleware-&gt;MainProcessor</title>
+<path fill="none" stroke="black" d="M822.13,-440.94C805.29,-436.27 788.32,-430.39 773,-423 763.31,-418.33 763.42,-413.19 754,-408 732.95,-396.4 722.45,-404.12 703,-390 702.36,-389.54 701.72,-389.07 701.09,-388.59"></path>
+<polygon fill="black" stroke="black" points="702.98,-385.62 693,-382.07 698.59,-391.07 702.98,-385.62"></polygon>
+<text text-anchor="middle" x="827" y="-411.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">OSC control events</text>
+</g>
+<!-- RealearnAudioHook&#45;&gt;MidiOutputDevice -->
+<g id="edge20" class="edge com-sync dir-feedback type-midi-device role-realtime-midi-device">
+<title>RealearnAudioHook-&gt;MidiOutputDevice</title>
+<path fill="none" stroke="black" d="M268,-86.8C268,-75.16 268,-59.55 268,-46.24"></path>
+<polygon fill="black" stroke="black" points="271.5,-46.18 268,-36.18 264.5,-46.18 271.5,-46.18"></polygon>
+<text text-anchor="middle" x="372" y="-57.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MIDI feedback events (device output)</text>
+</g>
+<!-- RealTimeProcessor -->
+<g id="node18" class="node layer-processing">
+<title>RealTimeProcessor</title>
+<polygon fill="none" stroke="black" points="340,-390 196,-390 196,-174 340,-174 340,-390"></polygon>
+<text text-anchor="middle" x="268" y="-278.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">RealTimeProcessor</text>
+</g>
+<!-- RealearnAudioHook&#45;&gt;RealTimeProcessor -->
+<g id="edge18" class="edge com-sync dir-control type-midi-device role-realtime-midi-device">
+<title>RealearnAudioHook-&gt;RealTimeProcessor</title>
+<path fill="none" stroke="black" d="M268,-123.23C268,-133.69 268,-148.05 268,-163.88"></path>
+<polygon fill="black" stroke="black" points="264.5,-163.91 268,-173.91 271.5,-163.91 264.5,-163.91"></polygon>
+<text text-anchor="middle" x="363" y="-144.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MIDI control events (device input)</text>
+</g>
+<!-- OscOutputDevice -->
+<g id="node10" class="node layer-processing">
+<title>OscOutputDevice</title>
+<polygon fill="none" stroke="black" points="769.5,-123 654.5,-123 654.5,-87 769.5,-87 769.5,-123"></polygon>
+<text text-anchor="middle" x="712" y="-101.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">OscOutputDevice</text>
+</g>
+<!-- infrastructure_layer -->
+<!-- application_layer -->
+<!-- infrastructure_layer&#45;&gt;application_layer -->
+<!-- processing_layer -->
+<!-- application_layer&#45;&gt;processing_layer -->
+<!-- RealearnPlugin&#45;&gt;RealTimeProcessor -->
+<g id="edge14" class="edge com-sync dir-control type-midi-fx role-realtime-midi-fx">
+<title>RealearnPlugin-&gt;RealTimeProcessor</title>
+<path fill="none" stroke="black" d="M267.41,-452.8C248.41,-448.11 228.62,-439.33 217,-423 211.94,-415.89 209.1,-408.22 207.98,-400.26"></path>
+<polygon fill="black" stroke="black" points="211.46,-399.85 207.45,-390.05 204.47,-400.21 211.46,-399.85"></polygon>
+<text text-anchor="middle" x="303.5" y="-411.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MIDI control events (FX input)</text>
+</g>
+<!-- RealearnUi -->
+<g id="node15" class="node layer-infrastructure">
+<title>RealearnUi</title>
+<polygon fill="none" stroke="black" points="489,-564 411,-564 411,-528 489,-528 489,-564"></polygon>
+<text text-anchor="middle" x="450" y="-542.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">RealearnUi</text>
+</g>
+<!-- Session -->
+<g id="node16" class="node layer-management">
+<title>Session</title>
+<polygon fill="none" stroke="black" points="479,-477 421,-477 421,-441 479,-441 479,-477"></polygon>
+<text text-anchor="middle" x="450" y="-455.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Session</text>
+</g>
+<!-- Session&#45;&gt;RealearnUi -->
+<g id="edge6" class="edge com-sync role-notify">
+<title>Session-&gt;RealearnUi</title>
+<path fill="none" stroke="black" d="M450,-477.18C450,-488.81 450,-504.42 450,-517.73"></path>
+<polygon fill="black" stroke="black" points="446.5,-517.8 450,-527.8 453.5,-517.8 446.5,-517.8"></polygon>
+<text text-anchor="middle" x="468.5" y="-498.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Events</text>
+</g>
+<!-- Session&#45;&gt;MainProcessor -->
+<g id="edge3" class="edge com-async role-sync-data">
+<title>Session-&gt;MainProcessor</title>
+<path fill="none" stroke="black" d="M425.12,-440.9C414.75,-431.55 406.46,-419.56 413,-408 440.07,-360.14 493.6,-328.59 539.57,-309.16"></path>
+<polygon fill="black" stroke="black" points="541.03,-312.35 548.96,-305.32 538.38,-305.87 541.03,-312.35"></polygon>
+<text text-anchor="middle" x="440" y="-411.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Sync data</text>
+</g>
+<!-- InstanceState -->
+<g id="node17" class="node layer-processing">
+<title>InstanceState</title>
+<polygon fill="none" stroke="black" points="800.5,-300 711.5,-300 711.5,-264 800.5,-264 800.5,-300"></polygon>
+<text text-anchor="middle" x="756" y="-278.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">InstanceState</text>
+</g>
+<!-- InstanceState&#45;&gt;RealearnControlSurfaceMiddleware -->
+<g id="edge8" class="edge com-async dir-feedback type-general role-realtime-general">
+<title>InstanceState-&gt;RealearnControlSurfaceMiddleware</title>
+<path fill="none" stroke="black" d="M775.77,-300.29C801.97,-323.6 849.05,-366.94 885,-408 891.69,-415.64 898.45,-424.41 904.34,-432.45"></path>
+<polygon fill="black" stroke="black" points="901.65,-434.72 910.33,-440.8 907.34,-430.63 901.65,-434.72"></polygon>
+<text text-anchor="middle" x="958.5" y="-411.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Instance change events</text>
+</g>
+<!-- RealTimeProcessor&#45;&gt;FxChain -->
+<g id="edge16" class="edge com-sync dir-feedback type-midi-fx role-realtime-midi-fx">
+<title>RealTimeProcessor-&gt;FxChain</title>
+<path fill="none" stroke="black" d="M340.09,-319.15C393.75,-344.1 469.58,-375.33 540,-390 567.27,-395.68 1021.36,-388.25 1041,-408 1062.63,-429.75 1049.69,-447.31 1042,-477 1039.7,-485.86 1034.3,-486.14 1032,-495 1030.33,-501.45 1028.89,-504.1 1032,-510 1034.6,-514.93 1038.23,-519.3 1042.38,-523.13"></path>
+<polygon fill="black" stroke="black" points="1040.3,-525.95 1050.3,-529.46 1044.67,-520.48 1040.3,-525.95"></polygon>
+<text text-anchor="middle" x="1147.5" y="-455.3" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MIDI feedback events (FX output)</text>
+</g>
+<!-- RealTimeProcessor&#45;&gt;MainProcessor -->
+<g id="edge12" class="edge com-async dir-control type-midi-general role-realtime-midi-general">
+<title>RealTimeProcessor-&gt;MainProcessor</title>
+<path fill="none" stroke="black" d="M340.29,-282C397.87,-282 478.51,-282 538.6,-282"></path>
+<polygon fill="black" stroke="black" points="538.81,-285.5 548.81,-282 538.81,-278.5 538.81,-285.5"></polygon>
+<text text-anchor="middle" x="444.5" y="-288.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Control values (from MIDI events)</text>
+</g>
+<!-- MainProcessor&#45;&gt;RealearnAudioHook -->
+<g id="edge19" class="edge com-async dir-feedback type-midi-device role-realtime-midi-device">
+<title>MainProcessor-&gt;RealearnAudioHook</title>
+<path fill="none" stroke="black" d="M549,-218.05C507.06,-181.5 461.84,-142.36 459,-141 422.88,-123.69 379.14,-114.9 342.63,-110.46"></path>
+<polygon fill="black" stroke="black" points="342.87,-106.97 332.54,-109.32 342.08,-113.92 342.87,-106.97"></polygon>
+<text text-anchor="middle" x="578" y="-144.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MIDI feedback events (device output)</text>
+</g>
+<!-- MainProcessor&#45;&gt;OscOutputDevice -->
+<g id="edge11" class="edge com-async dir-feedback type-osc role-realtime-osc">
+<title>MainProcessor-&gt;OscOutputDevice</title>
+<path fill="none" stroke="black" d="M680.91,-173.94C684.04,-167.9 687.09,-161.89 690,-156 693.73,-148.47 697.51,-140.16 700.86,-132.52"></path>
+<polygon fill="black" stroke="black" points="704.09,-133.87 704.84,-123.3 697.66,-131.09 704.09,-133.87"></polygon>
+<text text-anchor="middle" x="756.5" y="-144.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">OSC feedback events</text>
+</g>
+<!-- MainProcessor&#45;&gt;Session -->
+<g id="edge5" class="edge com-sync role-notify">
+<title>MainProcessor-&gt;Session</title>
+<path fill="none" stroke="black" d="M548.86,-347.61C528.87,-366.49 507.57,-387.56 489,-408 481.97,-415.74 474.78,-424.62 468.53,-432.73"></path>
+<polygon fill="black" stroke="black" points="465.65,-430.74 462.39,-440.82 471.22,-434.97 465.65,-430.74"></polygon>
+<text text-anchor="middle" x="507.5" y="-411.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Events</text>
+</g>
+<!-- MainProcessor&#45;&gt;RealTimeProcessor -->
+<g id="edge4" class="edge com-async role-sync-data">
+<title>MainProcessor-&gt;RealTimeProcessor</title>
+<path fill="none" stroke="black" d="M548.72,-298.95C545.95,-299.35 543.2,-299.7 540.5,-300 500.74,-304.39 404.05,-304.67 350.41,-299.96"></path>
+<polygon fill="black" stroke="black" points="350.58,-296.46 340.28,-298.95 349.89,-303.42 350.58,-296.46"></polygon>
+<text text-anchor="middle" x="444.5" y="-309.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">Sync data</text>
+</g>
+<!-- MainProcessor&#45;&gt;RealTimeProcessor -->
+<g id="edge15" class="edge com-async dir-feedback type-midi-fx role-realtime-midi-fx">
+<title>MainProcessor-&gt;RealTimeProcessor</title>
+<path fill="none" stroke="black" d="M548.71,-265.11C545.77,-264.69 542.86,-264.31 540,-264 500.45,-259.66 404.27,-259.39 350.46,-264.1"></path>
+<polygon fill="black" stroke="black" points="349.9,-260.64 340.29,-265.11 350.59,-267.61 349.9,-260.64"></polygon>
+<text text-anchor="middle" x="444.5" y="-267.8" font-family="Times,serif" font-size="14.00" svgjs:data="{&quot;leading&quot;:&quot;1.3&quot;}">MIDI feedback events (FX output)</text>
+</g>
+</g>
+<style>/* Animations */
+
+@keyframes go-right {
+    from {
+        transform: translate(0px, 0px);
+    }
+    to {
+        transform: translate(30px, 0px);
+    }
+}
+
+/* Global appearance */
+
+text {
+    font-family: sans-serif;
+    fill: var(--md-grey-900);
+}
+
+/* Graphviz diagrams */
+
+.graph text {
+    font-size: 12px;
+}
+
+/* ReaLearn component diagram */
+
+.cluster.level-1 &gt; polygon {
+    fill: var(--md-grey-50);
+}
+
+.cluster.level-2 &gt; polygon {
+    fill: var(--md-grey-100);
+}
+
+.node polygon {
+    fill: var(--md-grey-200);
+}
+
+.node.layer-infrastructure polygon {
+    fill: var(--layer-infrastructure-color);
+}
+
+.node.layer-management polygon {
+    fill: var(--layer-management-color);
+}
+
+.node.layer-processing polygon {
+    fill: var(--layer-processing-color);
+}
+
+.node.layer-base polygon {
+    fill: var(--layer-base-color);
+}
+
+.edge.com-async path {
+    stroke-dasharray: 5, 2;
+}
+
+.edge.dir-control text, .edge.dir-control polygon {
+    fill: var(--dir-control-color);
+}
+
+.edge.dir-feedback text, .edge.dir-feedback polygon {
+    fill: var(--dir-feedback-color);
+}
+
+.edge.dir-control path, .edge.dir-control polygon {
+    stroke: var(--dir-control-color);
+}
+
+.edge.dir-feedback path, .edge.dir-feedback polygon {
+    stroke: var(--dir-feedback-color);
+}
+
+.edge.type-general, .edge.type-midi-general {
+    opacity: 0.5;
+}
+
+.edge {
+    stroke-width: 2;
+}
+
+.edge.type-general path, .edge.type-midi-general path {
+    stroke-width: 1;
+}
+
+/* Onion diagrams */
+
+.layerpart-circle {
+    fill-opacity: 1.0;
+    stroke-width: 2;
+    stroke: var(--md-grey-400);
+}
+
+.layerpart-label, .layerpart-secondary-label {
+    letter-spacing: 1px;
+}
+
+.layerpart-secondary-label tspan {
+    fill: var(--md-grey-500);
+}
+
+.arrowpart-label {
+    filter: drop-shadow( 3px 3px 2px rgba(0, 0, 0, .2));
+    font-weight: bold;
+    fill: var(--md-grey-700);
+}
+
+.rule-arrow .arrow-pattern-path {
+    stroke: var(--md-green-900);
+}
+
+.rule-arrow .arrow-path {
+    animation: go-right 2s linear infinite;
+    stroke-width: 10;
+}
+
+.rule-arrow .arrow-head, .rule-arrow .arrow-pattern-head {
+    fill: var(--md-green-900);
+}
+
+/* ReaLearn onion diagram */
+
+.layer-infrastructure .layerpart-circle {
+    fill: var(--layer-infrastructure-color);
+}
+
+.layer-management .layerpart-circle {
+    fill: var(--layer-management-color);
+}
+
+.layer-processing .layerpart-circle {
+    fill: var(--layer-processing-color);
+}
+
+.layer-base .layerpart-circle {
+    fill: var(--layer-base-color);
+}
+
+/* Custom color palette */
+
+:root {
+    /* Layer colors */
+    --layer-infrastructure-color: var(--md-yellow-100);
+    --layer-management-color: var(--md-light-green-100);
+    --layer-processing-color: var(--md-light-blue-50);
+    --layer-base-color: var(--md-blue-grey-100);
+    
+    /* Direction colors */
+    --dir-control-color: var(--md-amber-900);
+    --dir-feedback-color: var(--md-cyan-900);
+}
+
+
+/* Material Design color palette */
+
+:root {
+    --md-red-50: #ffebee;
+    --md-red-100: #ffcdd2;
+    --md-red-200: #ef9a9a;
+    --md-red-300: #e57373;
+    --md-red-400: #ef5350;
+    --md-red-500: #f44336;
+    --md-red-600: #e53935;
+    --md-red-700: #d32f2f;
+    --md-red-800: #c62828;
+    --md-red-900: #b71c1c;
+    --md-red-a100: #ff8a80;
+    --md-red-a200: #ff5252;
+    --md-red-a400: #ff1744;
+    --md-red-a700: #d50000;
+
+    --md-pink-50: #fce4ec;
+    --md-pink-100: #f8bbd0;
+    --md-pink-200: #f48fb1;
+    --md-pink-300: #f06292;
+    --md-pink-400: #ec407a;
+    --md-pink-500: #e91e63;
+    --md-pink-600: #d81b60;
+    --md-pink-700: #c2185b;
+    --md-pink-800: #ad1457;
+    --md-pink-900: #880e4f;
+    --md-pink-a100: #ff80ab;
+    --md-pink-a200: #ff4081;
+    --md-pink-a400: #f50057;
+    --md-pink-a700: #c51162;
+
+    --md-purple-50: #f3e5f5;
+    --md-purple-100: #e1bee7;
+    --md-purple-200: #ce93d8;
+    --md-purple-300: #ba68c8;
+    --md-purple-400: #ab47bc;
+    --md-purple-500: #9c27b0;
+    --md-purple-600: #8e24aa;
+    --md-purple-700: #7b1fa2;
+    --md-purple-800: #6a1b9a;
+    --md-purple-900: #4a148c;
+    --md-purple-a100: #ea80fc;
+    --md-purple-a200: #e040fb;
+    --md-purple-a400: #d500f9;
+    --md-purple-a700: #aa00ff;
+
+    --md-deep-purple-50: #ede7f6;
+    --md-deep-purple-100: #d1c4e9;
+    --md-deep-purple-200: #b39ddb;
+    --md-deep-purple-300: #9575cd;
+    --md-deep-purple-400: #7e57c2;
+    --md-deep-purple-500: #673ab7;
+    --md-deep-purple-600: #5e35b1;
+    --md-deep-purple-700: #512da8;
+    --md-deep-purple-800: #4527a0;
+    --md-deep-purple-900: #311b92;
+    --md-deep-purple-a100: #b388ff;
+    --md-deep-purple-a200: #7c4dff;
+    --md-deep-purple-a400: #651fff;
+    --md-deep-purple-a700: #6200ea;
+
+    --md-indigo-50: #e8eaf6;
+    --md-indigo-100: #c5cae9;
+    --md-indigo-200: #9fa8da;
+    --md-indigo-300: #7986cb;
+    --md-indigo-400: #5c6bc0;
+    --md-indigo-500: #3f51b5;
+    --md-indigo-600: #3949ab;
+    --md-indigo-700: #303f9f;
+    --md-indigo-800: #283593;
+    --md-indigo-900: #1a237e;
+    --md-indigo-a100: #8c9eff;
+    --md-indigo-a200: #536dfe;
+    --md-indigo-a400: #3d5afe;
+    --md-indigo-a700: #304ffe;
+
+    --md-blue-50: #e3f2fd;
+    --md-blue-100: #bbdefb;
+    --md-blue-200: #90caf9;
+    --md-blue-300: #64b5f6;
+    --md-blue-400: #42a5f5;
+    --md-blue-500: #2196f3;
+    --md-blue-600: #1e88e5;
+    --md-blue-700: #1976d2;
+    --md-blue-800: #1565c0;
+    --md-blue-900: #0d47a1;
+    --md-blue-a100: #82b1ff;
+    --md-blue-a200: #448aff;
+    --md-blue-a400: #2979ff;
+    --md-blue-a700: #2962ff;
+
+    --md-light-blue-50: #e1f5fe;
+    --md-light-blue-100: #466b86;
+    --md-light-blue-200: #81d4fa;
+    --md-light-blue-300: #4fc3f7;
+    --md-light-blue-400: #29b6f6;
+    --md-light-blue-500: #03a9f4;
+    --md-light-blue-600: #039be5;
+    --md-light-blue-700: #0288d1;
+    --md-light-blue-800: #0277bd;
+    --md-light-blue-900: #01579b;
+    --md-light-blue-a100: #80d8ff;
+    --md-light-blue-a200: #40c4ff;
+    --md-light-blue-a400: #00b0ff;
+    --md-light-blue-a700: #0091ea;
+
+    --md-cyan-50: #e0f7fa;
+    --md-cyan-100: #b2ebf2;
+    --md-cyan-200: #80deea;
+    --md-cyan-300: #4dd0e1;
+    --md-cyan-400: #26c6da;
+    --md-cyan-500: #00bcd4;
+    --md-cyan-600: #00acc1;
+    --md-cyan-700: #0097a7;
+    --md-cyan-800: #00838f;
+    --md-cyan-900: #006064;
+    --md-cyan-a100: #84ffff;
+    --md-cyan-a200: #18ffff;
+    --md-cyan-a400: #00e5ff;
+    --md-cyan-a700: #00b8d4;
+
+    --md-teal-50: #e0f2f1;
+    --md-teal-100: #b2dfdb;
+    --md-teal-200: #80cbc4;
+    --md-teal-300: #4db6ac;
+    --md-teal-400: #26a69a;
+    --md-teal-500: #009688;
+    --md-teal-600: #00897b;
+    --md-teal-700: #00796b;
+    --md-teal-800: #00695c;
+    --md-teal-900: #004d40;
+    --md-teal-a100: #a7ffeb;
+    --md-teal-a200: #64ffda;
+    --md-teal-a400: #1de9b6;
+    --md-teal-a700: #00bfa5;
+
+    --md-green-50: #e8f5e9;
+    --md-green-100: #c8e6c9;
+    --md-green-200: #a5d6a7;
+    --md-green-300: #81c784;
+    --md-green-400: #66bb6a;
+    --md-green-500: #4caf50;
+    --md-green-600: #43a047;
+    --md-green-700: #388e3c;
+    --md-green-800: #2e7d32;
+    --md-green-900: #1b5e20;
+    --md-green-a100: #b9f6ca;
+    --md-green-a200: #69f0ae;
+    --md-green-a400: #00e676;
+    --md-green-a700: #00c853;
+
+    --md-light-green-50: #f1f8e9;
+    --md-light-green-100: #dcedc8;
+    --md-light-green-200: #c5e1a5;
+    --md-light-green-300: #aed581;
+    --md-light-green-400: #9ccc65;
+    --md-light-green-500: #8bc34a;
+    --md-light-green-600: #7cb342;
+    --md-light-green-700: #689f38;
+    --md-light-green-800: #558b2f;
+    --md-light-green-900: #33691e;
+    --md-light-green-a100: #ccff90;
+    --md-light-green-a200: #b2ff59;
+    --md-light-green-a400: #76ff03;
+    --md-light-green-a700: #64dd17;
+
+    --md-lime-50: #f9fbe7;
+    --md-lime-100: #f0f4c3;
+    --md-lime-200: #e6ee9c;
+    --md-lime-300: #dce775;
+    --md-lime-400: #d4e157;
+    --md-lime-500: #cddc39;
+    --md-lime-600: #c0ca33;
+    --md-lime-700: #afb42b;
+    --md-lime-800: #9e9d24;
+    --md-lime-900: #827717;
+    --md-lime-a100: #f4ff81;
+    --md-lime-a200: #eeff41;
+    --md-lime-a400: #c6ff00;
+    --md-lime-a700: #aeea00;
+
+    --md-yellow-50: #fffde7;
+    --md-yellow-100: #fff9c4;
+    --md-yellow-200: #fff59d;
+    --md-yellow-300: #fff176;
+    --md-yellow-400: #ffee58;
+    --md-yellow-500: #ffeb3b;
+    --md-yellow-600: #fdd835;
+    --md-yellow-700: #fbc02d;
+    --md-yellow-800: #f9a825;
+    --md-yellow-900: #f57f17;
+    --md-yellow-a100: #ffff8d;
+    --md-yellow-a200: #ffff00;
+    --md-yellow-a400: #ffea00;
+    --md-yellow-a700: #ffd600;
+
+    --md-amber-50: #fff8e1;
+    --md-amber-100: #ffecb3;
+    --md-amber-200: #ffe082;
+    --md-amber-300: #ffd54f;
+    --md-amber-400: #ffca28;
+    --md-amber-500: #ffc107;
+    --md-amber-600: #ffb300;
+    --md-amber-700: #ffa000;
+    --md-amber-800: #ff8f00;
+    --md-amber-900: #ff6f00;
+    --md-amber-a100: #ffe57f;
+    --md-amber-a200: #ffd740;
+    --md-amber-a400: #ffc400;
+    --md-amber-a700: #ffab00;
+
+    --md-orange-50: #fff3e0;
+    --md-orange-100: #ffe0b2;
+    --md-orange-200: #ffcc80;
+    --md-orange-300: #ffb74d;
+    --md-orange-400: #ffa726;
+    --md-orange-500: #ff9800;
+    --md-orange-600: #fb8c00;
+    --md-orange-700: #f57c00;
+    --md-orange-800: #ef6c00;
+    --md-orange-900: #e65100;
+    --md-orange-a100: #ffd180;
+    --md-orange-a200: #ffab40;
+    --md-orange-a400: #ff9100;
+    --md-orange-a700: #ff6d00;
+
+    --md-deep-orange-50: #fbe9e7;
+    --md-deep-orange-100: #ffccbc;
+    --md-deep-orange-200: #ffab91;
+    --md-deep-orange-300: #ff8a65;
+    --md-deep-orange-400: #ff7043;
+    --md-deep-orange-500: #ff5722;
+    --md-deep-orange-600: #f4511e;
+    --md-deep-orange-700: #e64a19;
+    --md-deep-orange-800: #d84315;
+    --md-deep-orange-900: #bf360c;
+    --md-deep-orange-a100: #ff9e80;
+    --md-deep-orange-a200: #ff6e40;
+    --md-deep-orange-a400: #ff3d00;
+    --md-deep-orange-a700: #dd2c00;
+
+    --md-brown-50: #efebe9;
+    --md-brown-100: #d7ccc8;
+    --md-brown-200: #bcaaa4;
+    --md-brown-300: #a1887f;
+    --md-brown-400: #8d6e63;
+    --md-brown-500: #795548;
+    --md-brown-600: #6d4c41;
+    --md-brown-700: #5d4037;
+    --md-brown-800: #4e342e;
+    --md-brown-900: #3e2723;
+
+    --md-grey-50: #fafafa;
+    --md-grey-100: #f5f5f5;
+    --md-grey-200: #eeeeee;
+    --md-grey-300: #e0e0e0;
+    --md-grey-400: #bdbdbd;
+    --md-grey-500: #9e9e9e;
+    --md-grey-600: #757575;
+    --md-grey-700: #616161;
+    --md-grey-800: #424242;
+    --md-grey-900: #212121;
+
+    --md-blue-grey-50: #eceff1;
+    --md-blue-grey-100: #cfd8dc;
+    --md-blue-grey-200: #b0bec5;
+    --md-blue-grey-300: #90a4ae;
+    --md-blue-grey-400: #78909c;
+    --md-blue-grey-500: #607d8b;
+    --md-blue-grey-600: #546e7a;
+    --md-blue-grey-700: #455a64;
+    --md-blue-grey-800: #37474f;
+    --md-blue-grey-900: #263238;
+
+    --md-black: #000000;
+
+    --md-white: #ffffff;
+
+    --md-dark-text-primary: rgba(0, 0, 0, 0.87);
+    --md-dark-text-secondary: rgba(0, 0, 0, 0.54);
+    --md-dark-text-disabled: rgba(0, 0, 0, 0.38);
+    --md-dark-text-dividers: rgba(0, 0, 0, 0.12);
+
+    --md-light-text-primary: rgba(255, 255, 255, 1);
+    --md-light-text-secondary: rgba(255, 255, 255, 0.7);
+    --md-light-text-disabled: rgba(255, 255, 255, 0.5);
+    --md-light-text-dividers: rgba(255, 255, 255, 0.12);
+
+    --md-dark-icons-active: rgba(0, 0, 0, 0.54);
+    --md-dark-icons-inactive: rgba(0, 0, 0, 0.38);
+
+    --md-light-icons-active: rgba(255, 255, 255, 1);
+    --md-light-icons-inactive: rgba(255, 255, 255, 0.5);
+
+
+}
+</style><style>.edge{visibility:hidden;}</style><style>.edge.role-realtime-general{visibility:visible;}</style><style>.edge.role-realtime-midi-general{visibility:visible;}</style><style>.edge.role-realtime-midi-fx{visibility:visible;}</style></svg>

@@ -1,41 +1,41 @@
 use crate::application::{
-    GroupId, InputDescriptor, Session, SharedMapping, SharedSession, VirtualControlElementType,
-    WeakSession,
+    Session, SharedMapping, SharedSession, VirtualControlElementType, WeakSession,
 };
-use crate::core::default_util::is_default;
-use crate::core::{notification, Global};
+use crate::base::default_util::is_default;
+use crate::base::{notification, Global};
 use crate::domain::{
-    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, FeedbackAudioHookTask, Garbage,
-    GarbageBin, InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment,
-    MidiSource, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor, OscFeedbackTask,
-    RealSource, RealTimeSender, RealearnAudioHook, RealearnControlSurfaceMainTask,
-    RealearnControlSurfaceMiddleware, RealearnControlSurfaceServerTask, RealearnTargetContext,
-    ReaperTarget, SharedRealTimeProcessor,
+    ActionInvokedEvent, AdditionalFeedbackEvent, BackboneState, EnableInstancesArgs, Exclusivity,
+    FeedbackAudioHookTask, Garbage, GarbageBin, GroupId, InputDescriptor, InstanceContainer,
+    InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment, MessageCaptureEvent,
+    MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
+    OscFeedbackTask, OscScanResult, RealTimeSender, RealearnAudioHook,
+    RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
+    RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetContext, ReaperTarget,
+    SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
-    FileBasedControllerPresetManager, FileBasedMainPresetManager, FileBasedPresetLinkManager,
-    OscDevice, OscDeviceManager, SharedControllerPresetManager, SharedMainPresetManager,
-    SharedOscDeviceManager, SharedPresetLinkManager,
+    ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
+    FileBasedPresetLinkManager, OscDevice, OscDeviceManager, SharedControllerPresetManager,
+    SharedMainPresetManager, SharedOscDeviceManager, SharedPresetLinkManager,
 };
 use crate::infrastructure::plugin::debug_util;
 use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use crate::infrastructure::ui::MessagePanel;
-use helgoboss_learn::OscSource;
 
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{
-    ActionValueChange, CommandId, HookPostCommand, HookPostCommand2, MidiInputDeviceId, ReaProject,
+    ActionValueChange, CommandId, HookPostCommand, HookPostCommand2, ReaProject,
     RegistrationHandle, SectionContext, WindowContext,
 };
 use reaper_rx::{ActionRxHookPostCommand, ActionRxHookPostCommand2};
-use rx_util::UnitEvent;
 use rxrust::prelude::*;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use slog::{debug, Drain, Logger};
 use std::cell::{Ref, RefCell};
+use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -44,15 +44,20 @@ use url::Url;
 
 const CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE: usize = 500;
 const CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE: usize = 500;
-// Probably can get quite much on action invocation.
-// https://github.com/helgoboss/realearn/issues/234
+// Probably can get quite much on action invocation
+// (https://github.com/helgoboss/realearn/issues/234). Doesn't need much memory at the time of this
+// writing (around 2 MB).
 const ADDITIONAL_FEEDBACK_EVENT_QUEUE_SIZE: usize = 20_000;
 // If we have very many instances, this might not be enough. But the task size is so
 // small, so why not make it a great number? It's global, not per instance. For one
 // instance we had 2000 before and it worked great. With 100_000 we can easily cover 50 instances
-// and yet it's only around 1 MB memory usage (globally). We are on the safe side!
+// and yet it's only around 8 MB memory usage (globally). We are on the safe side!
 const FEEDBACK_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 100_000;
-const GARBAGE_QUEUE_SIZE: usize = 100_000;
+// This needs around 12 MB of memory! However, globally only once. Plus, it's safer to have this
+// large. Otherwise we might run into deallocation in audio thread, which might lead to crackle.
+// Unless someone really needs ReaLearn on a very memory-constrained environment, we better leave it
+// that high. If one day this gets important, we need to measure.
+const GARBAGE_QUEUE_SIZE: usize = 50_000;
 const INSTANCE_ORCHESTRATION_EVENT_QUEUE_SIZE: usize = 5000;
 const NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE: usize = 2000;
 const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
@@ -68,6 +73,7 @@ pub type RealearnControlSurfaceMainTaskSender =
 pub type RealearnControlSurfaceServerTaskSender =
     crossbeam_channel::Sender<RealearnControlSurfaceServerTask>;
 
+#[derive(Debug)]
 pub struct App {
     state: RefCell<AppState>,
     controller_preset_manager: SharedControllerPresetManager,
@@ -153,7 +159,7 @@ impl Default for App {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct ListOfRecentlyFocusedFx {
     previous: Option<Fx>,
     current: Option<Fx>,
@@ -179,14 +185,6 @@ impl App {
             Version::parse(crate::infrastructure::plugin::built_info::PKG_VERSION).unwrap()
         });
         &VALUE
-    }
-
-    pub fn given_version_is_newer_than_app_version(version: Option<&Version>) -> bool {
-        if let Some(v) = version {
-            Self::version() < v
-        } else {
-            false
-        }
     }
 
     fn new(config: AppConfig) -> App {
@@ -256,6 +254,8 @@ impl App {
     /// Executed globally just once when module loaded.
     pub fn init_static(logger: Logger, context: PluginContext) {
         Swell::make_available_globally(Swell::load(context));
+        // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
+        //  so not a big deal. Still, maybe could be improved?
         Reaper::setup_with_defaults(
             context,
             logger,
@@ -280,7 +280,7 @@ impl App {
             self.additional_feedback_event_sender.clone(),
         )));
         App::get().register_actions();
-        server::keep_informing_clients_about_sessions();
+        server::http::keep_informing_clients_about_sessions();
         debug_util::register_resolve_symbols_action();
         crate::infrastructure::test::register_test_action();
         let list_of_recently_focused_fx = self.list_of_recently_focused_fx.clone();
@@ -295,7 +295,7 @@ impl App {
                 list_of_recently_focused_fx.borrow_mut().feed(fx);
             });
         let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
-            &App::logger(),
+            App::logger(),
             uninit_state.control_surface_main_task_receiver,
             uninit_state.control_surface_server_task_receiver,
             uninit_state.additional_feedback_event_receiver,
@@ -606,6 +606,16 @@ impl App {
         self.main_preset_manager.clone()
     }
 
+    pub fn preset_manager(
+        &self,
+        compartment: MappingCompartment,
+    ) -> Box<dyn ExtendedPresetManager> {
+        match compartment {
+            MappingCompartment::ControllerMappings => Box::new(self.controller_preset_manager()),
+            MappingCompartment::MainMappings => Box::new(self.main_preset_manager()),
+        }
+    }
+
     pub fn preset_link_manager(&self) -> SharedPresetLinkManager {
         self.preset_link_manager.clone()
     }
@@ -673,7 +683,7 @@ impl App {
             .unwrap();
     }
 
-    pub fn changed(&self) -> impl UnitEvent {
+    pub fn changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.changed_subject.borrow().clone()
     }
 
@@ -738,7 +748,7 @@ impl App {
         &CHANNEL
     }
 
-    pub fn sessions_changed(&self) -> impl UnitEvent {
+    pub fn sessions_changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.changed_subject.borrow().clone()
     }
 
@@ -750,6 +760,13 @@ impl App {
         self.find_session(|session| {
             let session = session.borrow();
             session.id() == session_id
+        })
+    }
+
+    pub fn find_session_by_containing_fx(&self, fx: &Fx) -> Option<SharedSession> {
+        self.find_session(|session| {
+            let session = session.borrow();
+            session.context().containing_fx() == fx
         })
     }
 
@@ -816,7 +833,7 @@ impl App {
                     Some(t) => t,
                 };
                 App::get()
-                    .start_learning_source_for_target(MappingCompartment::MainMappings, &target);
+                    .start_learning_source_for_target(MappingCompartment::MainMappings, target);
             },
             ActionKind::NotToggleable,
         );
@@ -889,21 +906,21 @@ impl App {
         self.show_message_panel("ReaLearn", "Touch some control elements!", || {
             App::stop_learning_sources();
         });
-        let midi_receiver = self.request_next_midi_sources();
-        let osc_receiver = self.request_next_osc_sources();
+        let midi_receiver = self.request_next_midi_messages();
+        let osc_receiver = self.request_next_osc_messages();
         loop {
-            let next_source = tokio::select! {
-                Ok((dev_id, source)) = midi_receiver.recv() => {
-                    Some(QualifiedRealSource::Midi(dev_id, source))
+            let next_capture_result = tokio::select! {
+                Ok(r) = midi_receiver.recv() => {
+                    Some(MessageCaptureResult::Midi(r))
                 }
-                Ok((dev_id, source)) = osc_receiver.recv() => {
-                    Some(QualifiedRealSource::Osc(dev_id, source))
+                Ok(r) = osc_receiver.recv() => {
+                    Some(MessageCaptureResult::Osc(r))
                 }
                 else => None
             };
-            if let Some(s) = next_source {
+            if let Some(r) = next_capture_result {
                 if let Some((session, mapping)) =
-                    self.find_first_relevant_session_with_source(compartment, &s)
+                    self.find_first_relevant_session_with_source_matching(compartment, &r)
                 {
                     self.close_message_panel();
                     session
@@ -951,11 +968,12 @@ impl App {
             );
             return Err("no ReaLearn instance");
         }
-        let real_source = self
-            .prompt_for_next_real_source("Touch a control element!")
+        let capture_result = self
+            .prompt_for_next_message("Touch a control element!")
             .await?;
-        let session = if let Some(s) =
-            self.find_first_relevant_session_with_input_from(&real_source)
+        let session = if let Some(s) = capture_result
+            .to_input_descriptor(false)
+            .and_then(|id| self.find_first_relevant_session_with_input_from(&id))
         {
             s
         } else {
@@ -969,13 +987,24 @@ impl App {
             .await?;
         self.close_message_panel();
         let (session, mapping) = if let Some((session, mapping)) =
-            self.find_first_relevant_session_with_source(compartment, &real_source)
+            self.find_first_relevant_session_with_source_matching(compartment, &capture_result)
         {
             // There's already a mapping with that source. Change target of that mapping.
-            mapping
-                .borrow_mut()
-                .target_model
-                .apply_from_target(&reaper_target, session.borrow().context());
+            {
+                let mut m = mapping.borrow_mut();
+                session.borrow_mut().change_target_with_closure(
+                    &mut m,
+                    None,
+                    Rc::downgrade(&session),
+                    |ctx| {
+                        ctx.mapping.target_model.apply_from_target(
+                            &reaper_target,
+                            ctx.extended_context,
+                            compartment,
+                        )
+                    },
+                );
+            }
             (session, mapping)
         } else {
             // There's no mapping with that source yet. Add it to the previously determined first
@@ -988,11 +1017,20 @@ impl App {
                     VirtualControlElementType::Multi,
                 );
                 let mut m = mapping.borrow_mut();
-                let compound_source =
-                    s.create_compound_source(real_source.into_unqualified_real_source(), true);
-                m.source_model.apply_from_source(&compound_source);
-                m.target_model
-                    .apply_from_target(&reaper_target, s.context());
+                let event = MessageCaptureEvent {
+                    result: capture_result,
+                    allow_virtual_sources: true,
+                    osc_arg_index_hint: None,
+                };
+                let compound_source = s
+                    .create_compound_source(event)
+                    .ok_or("couldn't create compound source")?;
+                let _ = m.source_model.apply_from_source(&compound_source);
+                let _ = m.target_model.apply_from_target(
+                    &reaper_target,
+                    s.extended_context(),
+                    compartment,
+                );
                 drop(m);
                 mapping
             };
@@ -1020,21 +1058,21 @@ impl App {
         Ok(())
     }
 
-    async fn prompt_for_next_real_source(
+    async fn prompt_for_next_message(
         &self,
         msg: &str,
-    ) -> Result<QualifiedRealSource, &'static str> {
+    ) -> Result<MessageCaptureResult, &'static str> {
         self.show_message_panel("ReaLearn", msg, || {
             App::stop_learning_sources();
         });
-        let midi_receiver = self.request_next_midi_sources();
-        let osc_receiver = self.request_next_osc_sources();
+        let midi_receiver = self.request_next_midi_messages();
+        let osc_receiver = self.request_next_osc_messages();
         tokio::select! {
-            Ok((dev_id, source)) = midi_receiver.recv() => {
-                Ok(QualifiedRealSource::Midi(dev_id, source))
+            Ok(r) = midi_receiver.recv() => {
+                Ok(MessageCaptureResult::Midi(r))
             }
-            Ok((dev_id, source)) = osc_receiver.recv() => {
-                Ok(QualifiedRealSource::Osc(dev_id, source))
+            Ok(r) = osc_receiver.recv() => {
+                Ok(MessageCaptureResult::Osc(r))
             }
             else => Err("stopped learning")
         }
@@ -1043,28 +1081,26 @@ impl App {
     fn stop_learning_sources() {
         App::get()
             .audio_hook_task_sender
-            .try_send(NormalAudioHookTask::StopLearningSources)
+            .try_send(NormalAudioHookTask::StopCapturingMidi)
             .unwrap();
         App::get()
             .control_surface_main_task_sender
-            .try_send(RealearnControlSurfaceMainTask::StopLearning)
+            .try_send(RealearnControlSurfaceMainTask::StopCapturingOsc)
             .unwrap();
     }
 
-    fn request_next_midi_sources(
-        &self,
-    ) -> async_channel::Receiver<(MidiInputDeviceId, MidiSource)> {
+    fn request_next_midi_messages(&self) -> async_channel::Receiver<MidiScanResult> {
         let (sender, receiver) = async_channel::bounded(500);
         self.audio_hook_task_sender
-            .try_send(NormalAudioHookTask::StartLearningSources(sender))
+            .try_send(NormalAudioHookTask::StartCapturingMidi(sender))
             .unwrap();
         receiver
     }
 
-    fn request_next_osc_sources(&self) -> async_channel::Receiver<(OscDeviceId, OscSource)> {
+    fn request_next_osc_messages(&self) -> async_channel::Receiver<OscScanResult> {
         let (sender, receiver) = async_channel::bounded(500);
         self.control_surface_main_task_sender
-            .try_send(RealearnControlSurfaceMainTask::StartLearningSources(sender))
+            .try_send(RealearnControlSurfaceMainTask::StartCapturingOsc(sender))
             .unwrap();
         receiver
     }
@@ -1082,7 +1118,7 @@ impl App {
     fn stop_learning_targets() {
         App::get()
             .control_surface_main_task_sender
-            .try_send(RealearnControlSurfaceMainTask::StopLearning)
+            .try_send(RealearnControlSurfaceMainTask::StopCapturingOsc)
             .unwrap();
     }
 
@@ -1161,7 +1197,7 @@ impl App {
     fn find_first_session_on_track(&self, track: &Track) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
-            session.context().track().contains(&track)
+            session.context().track() == Some(track)
         })
     }
 
@@ -1180,42 +1216,44 @@ impl App {
 
     fn find_first_relevant_session_with_input_from(
         &self,
-        real_source: &QualifiedRealSource,
+        input_descriptor: &InputDescriptor,
     ) -> Option<SharedSession> {
-        self.find_first_session_with_input_from(Some(Reaper::get().current_project()), real_source)
-            .or_else(|| self.find_first_session_with_input_from(None, real_source))
+        self.find_first_session_with_input_from(
+            Some(Reaper::get().current_project()),
+            input_descriptor,
+        )
+        .or_else(|| self.find_first_session_with_input_from(None, input_descriptor))
     }
 
     fn find_first_session_with_input_from(
         &self,
         project: Option<Project>,
-        real_source: &QualifiedRealSource,
+        input_descriptor: &InputDescriptor,
     ) -> Option<SharedSession> {
-        let input_descriptor = real_source.to_input_descriptor(false);
         self.find_session(|session| {
             let session = session.borrow();
-            session.context().project() == project && session.receives_input_from(&input_descriptor)
+            session.context().project() == project && session.receives_input_from(input_descriptor)
         })
     }
 
-    fn find_first_relevant_session_with_source(
+    fn find_first_relevant_session_with_source_matching(
         &self,
         compartment: MappingCompartment,
-        real_source: &QualifiedRealSource,
+        capture_result: &MessageCaptureResult,
     ) -> Option<(SharedSession, SharedMapping)> {
-        self.find_first_session_with_source(
+        self.find_first_session_with_source_matching(
             Some(Reaper::get().current_project()),
             compartment,
-            real_source,
+            capture_result,
         )
-        .or_else(|| self.find_first_session_with_source(None, compartment, real_source))
+        .or_else(|| self.find_first_session_with_source_matching(None, compartment, capture_result))
     }
 
-    fn find_first_session_with_source(
+    fn find_first_session_with_source_matching(
         &self,
         project: Option<Project>,
         compartment: MappingCompartment,
-        real_source: &QualifiedRealSource,
+        capture_result: &MessageCaptureResult,
     ) -> Option<(SharedSession, SharedMapping)> {
         self.sessions.borrow().iter().find_map(|session| {
             let session = session.upgrade()?;
@@ -1224,12 +1262,11 @@ impl App {
                 if s.context().project() != project {
                     return None;
                 }
-                let input_descriptor = real_source.to_input_descriptor(true);
+                let input_descriptor = capture_result.to_input_descriptor(true)?;
                 if !s.receives_input_from(&input_descriptor) {
                     return None;
                 }
-                let unqualified_real_source = real_source.clone().into_unqualified_real_source();
-                s.find_mapping_with_source(compartment, &unqualified_real_source)?
+                s.find_mapping_with_source(compartment, capture_result.message())?
                     .clone()
             };
             Some((session, mapping))
@@ -1252,7 +1289,7 @@ impl App {
         self.changed_subject.borrow_mut().next(());
     }
 
-    fn party_is_over(&self) -> impl UnitEvent {
+    fn party_is_over(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.party_is_over_subject.clone()
     }
 }
@@ -1264,7 +1301,7 @@ impl Drop for App {
     }
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
     main: MainConfig,
@@ -1308,7 +1345,7 @@ impl AppConfig {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct MainConfig {
     #[serde(default, skip_serializing_if = "is_default")]
     server_enabled: u8,
@@ -1369,7 +1406,7 @@ impl Default for MainConfig {
 
 fn build_detailed_version() -> String {
     use crate::infrastructure::plugin::built_info::*;
-    let dirty_mark = if GIT_DIRTY.contains(&true) {
+    let dirty_mark = if GIT_DIRTY == Some(true) {
         "-dirty"
     } else {
         ""
@@ -1408,35 +1445,6 @@ fn determine_module_base_address() -> Option<usize> {
     Some(hinstance.as_ptr() as usize)
 }
 
-#[derive(Clone)]
-enum QualifiedRealSource {
-    Midi(MidiInputDeviceId, MidiSource),
-    Osc(OscDeviceId, OscSource),
-}
-
-impl QualifiedRealSource {
-    fn to_input_descriptor(&self, ignore_midi_channel: bool) -> InputDescriptor {
-        match self {
-            QualifiedRealSource::Midi(dev_id, source) => InputDescriptor::Midi {
-                device_id: *dev_id,
-                channel: if ignore_midi_channel {
-                    None
-                } else {
-                    source.channel()
-                },
-            },
-            QualifiedRealSource::Osc(dev_id, _) => InputDescriptor::Osc { device_id: *dev_id },
-        }
-    }
-
-    fn into_unqualified_real_source(self) -> RealSource {
-        match self {
-            QualifiedRealSource::Midi(_, s) => RealSource::Midi(s),
-            QualifiedRealSource::Osc(_, s) => RealSource::Osc(s),
-        }
-    }
-}
-
 impl HookPostCommand for App {
     fn call(command_id: CommandId, _flag: i32) {
         App::get()
@@ -1465,5 +1473,52 @@ impl HookPostCommand2 for App {
                 command_id,
             }))
             .unwrap();
+    }
+}
+
+impl InstanceContainer for App {
+    fn enable_instances(&self, args: EnableInstancesArgs) -> Option<HashSet<Tag>> {
+        let mut activated_inverse_tags = HashSet::new();
+        for session in self.sessions.borrow().iter() {
+            if let Some(session) = session.upgrade() {
+                let session = session.borrow();
+                // Don't touch ourselves.
+                if *session.instance_id() == args.initiator_instance_id {
+                    continue;
+                }
+                // Don't leave the context (project if in project, FX chain if monitoring FX).
+                let context = session.context();
+                if context.project() != args.initiator_project {
+                    continue;
+                }
+                // Determine how to change the instances.
+                let session_tags = session.tags.get_ref();
+                let flag = match args.scope.determine_change(
+                    args.exclusivity,
+                    session_tags,
+                    args.is_enable,
+                ) {
+                    None => continue,
+                    Some(f) => f,
+                };
+                if args.exclusivity == Exclusivity::Exclusive && !args.is_enable {
+                    // Collect all *other* instance tags because they are going to be activated
+                    // and we have to know about them!
+                    activated_inverse_tags.extend(session_tags.iter().cloned());
+                }
+                let enable = if args.is_enable { flag } else { !flag };
+                let fx = context.containing_fx();
+                if enable {
+                    fx.enable();
+                } else {
+                    fx.disable();
+                }
+            }
+        }
+        if args.exclusivity == Exclusivity::Exclusive && !args.is_enable {
+            Some(activated_inverse_tags)
+        } else {
+            None
+        }
     }
 }

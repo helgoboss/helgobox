@@ -1,10 +1,11 @@
 use crate::application::{
-    ActivationConditionModel, ActivationType, BankConditionModel, ModifierConditionModel,
+    ActivationConditionCommand, ActivationConditionModel, ActivationType, BankConditionModel,
+    Change, ModifierConditionModel,
 };
-use crate::core::default_util::is_default;
+use crate::base::default_util::is_default;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivationConditionData {
     #[serde(default, skip_serializing_if = "is_default")]
@@ -22,29 +23,20 @@ pub struct ActivationConditionData {
 impl ActivationConditionData {
     pub fn from_model(model: &ActivationConditionModel) -> ActivationConditionData {
         ActivationConditionData {
-            activation_type: model.activation_type.get(),
-            modifier_condition_1: model.modifier_condition_1.get(),
-            modifier_condition_2: model.modifier_condition_2.get(),
-            program_condition: model.bank_condition.get(),
-            eel_condition: model.eel_condition.get_ref().clone(),
+            activation_type: model.activation_type(),
+            modifier_condition_1: model.modifier_condition_1(),
+            modifier_condition_2: model.modifier_condition_2(),
+            program_condition: model.bank_condition(),
+            eel_condition: model.eel_condition().to_owned(),
         }
     }
 
-    pub fn apply_to_model(&self, model: &mut ActivationConditionModel, with_notification: bool) {
-        model
-            .activation_type
-            .set_with_optional_notification(self.activation_type, with_notification);
-        model
-            .modifier_condition_1
-            .set_with_optional_notification(self.modifier_condition_1, with_notification);
-        model
-            .modifier_condition_2
-            .set_with_optional_notification(self.modifier_condition_2, with_notification);
-        model
-            .bank_condition
-            .set_with_optional_notification(self.program_condition, with_notification);
-        model
-            .eel_condition
-            .set_with_optional_notification(self.eel_condition.clone(), with_notification);
+    pub fn apply_to_model(&self, model: &mut ActivationConditionModel) {
+        use ActivationConditionCommand as V;
+        model.change(V::SetActivationType(self.activation_type));
+        model.change(V::SetModifierCondition1(self.modifier_condition_1));
+        model.change(V::SetModifierCondition2(self.modifier_condition_2));
+        model.change(V::SetBankCondition(self.program_condition));
+        model.change(V::SetEelCondition(self.eel_condition.clone()));
     }
 }

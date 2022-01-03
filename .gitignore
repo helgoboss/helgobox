@@ -119,4 +119,9 @@ modules.xml
 
 # End of https://www.gitignore.io/api/visualstudiocode
 
-**/*.rpp-bak
+*.rpp-bak
+*.rpp-PROX
+*.reapeaks
+.vs/
+*.aps
+*.user

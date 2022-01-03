@@ -1,46 +1,62 @@
 use crate::application::{
-    share_group, share_mapping, ControllerPreset, FxId, GroupId, GroupModel, MainPreset,
-    MainPresetAutoLoadMode, MappingModel, Preset, PresetLinkManager, PresetManager, SharedGroup,
-    SharedMapping, TargetCategory, TargetModel, VirtualControlElementType,
+    empty_parameter_settings, share_group, share_mapping, Affected, Change, ChangeResult,
+    CompartmentCommand, CompartmentModel, CompartmentProp, ControllerPreset, FxId, GroupCommand,
+    GroupModel, MainPreset, MainPresetAutoLoadMode, MappingCommand, MappingModel, MappingProp,
+    Preset, PresetLinkManager, PresetManager, ProcessingRelevance, SharedGroup, SharedMapping,
+    SharedSessionState, SourceModel, TargetCategory, TargetModel, TargetProp,
+    VirtualControlElementType,
 };
-use crate::core::default_util::is_default;
-use crate::core::{prop, when, AsyncNotifier, Global, Prop};
+use crate::base::default_util::is_default;
+use crate::base::{prop, when, AsyncNotifier, Global, Prop};
 use crate::domain::{
-    BackboneState, CompoundMappingSource, ControlInput, DomainEvent, DomainEventHandler,
-    ExtendedProcessorContext, FeedbackOutput, InstanceId, MainMapping, MappingCompartment,
-    MappingId, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask, OscDeviceId,
-    ParameterArray, ProcessorContext, ProjectionFeedbackValue, QualifiedMappingId, RealSource,
-    RealTimeSender, ReaperTarget, SharedInstanceState, TargetValueChangedEvent,
-    VirtualControlElementId, VirtualSource, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    BackboneState, CompoundMappingSource, ControlContext, ControlInput, DomainEvent,
+    DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask, FeedbackOutput, GroupId,
+    GroupKey, IncomingCompoundSourceValue, InputDescriptor, InstanceContainer, InstanceId,
+    InstanceState, MainMapping, MappingCompartment, MappingId, MappingKey, MappingMatchedEvent,
+    MessageCaptureEvent, MidiControlInput, MidiDestination, NormalMainTask, NormalRealTimeTask,
+    OscDeviceId, OscFeedbackTask, ParameterArray, ProcessorContext, ProjectionFeedbackValue,
+    QualifiedMappingId, RealTimeSender, RealearnTarget, ReaperTarget, SharedInstanceState,
+    SourceFeedbackValue, Tag, TargetValueChangedEvent, VirtualControlElementId, VirtualSource,
+    VirtualSourceValue, ZEROED_PLUGIN_PARAMETERS,
 };
-use enum_map::{enum_map, EnumMap};
+use derivative::Derivative;
+use enum_map::EnumMap;
 use serde::{Deserialize, Serialize};
 
 use reaper_high::Reaper;
-use rx_util::{BoxedUnitEvent, Event, Notifier, SharedItemEvent, SharedPayload, UnitEvent};
+use rx_util::Notifier;
+use rxrust::prelude::ops::box_it::LocalBoxOp;
 use rxrust::prelude::*;
-use slog::debug;
+use slog::{debug, trace};
 use std::cell::{Ref, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
-use helgoboss_midi::Channel;
+use core::iter;
+use helgoboss_learn::AbsoluteValue;
 use itertools::Itertools;
-use reaper_medium::{MidiInputDeviceId, RecordingInput};
+use reaper_medium::RecordingInput;
 use std::rc::{Rc, Weak};
-use wrap_debug::WrapDebug;
 
 pub trait SessionUi {
     fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId);
     fn target_value_changed(&self, event: TargetValueChangedEvent);
     fn parameters_changed(&self, session: &Session);
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue);
+    fn mapping_matched(&self, event: MappingMatchedEvent);
+    fn handle_affected(
+        &self,
+        session: &Session,
+        affected: Affected<SessionProp>,
+        initiator: Option<u32>,
+    );
 }
 
 /// This represents the user session with one ReaLearn instance.
 ///
 /// It's ReaLearn's main object which keeps everything together.
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Session {
     instance_id: InstanceId,
     /// Initially corresponds to instance ID but is persisted and can be user-customized. Should be
@@ -51,6 +67,8 @@ pub struct Session {
     pub let_matched_events_through: Prop<bool>,
     pub let_unmatched_events_through: Prop<bool>,
     pub auto_correct_settings: Prop<bool>,
+    pub input_logging_enabled: Prop<bool>,
+    pub output_logging_enabled: Prop<bool>,
     pub send_feedback_only_if_armed: Prop<bool>,
     pub midi_control_input: Prop<MidiControlInput>,
     pub midi_feedback_output: Prop<Option<MidiDestination>>,
@@ -58,6 +76,8 @@ pub struct Session {
     pub osc_output_device_id: Prop<Option<OscDeviceId>>,
     pub main_preset_auto_load_mode: Prop<MainPresetAutoLoadMode>,
     pub lives_on_upper_floor: Prop<bool>,
+    pub tags: Prop<Vec<Tag>>,
+    pub compartment_is_dirty: EnumMap<MappingCompartment, Prop<bool>>,
     // Is set when in the state of learning multiple mappings ("batch learn")
     learn_many_state: Prop<Option<LearnManyState>>,
     // We want that learn works independently of the UI, so they are session properties.
@@ -75,23 +95,24 @@ pub struct Session {
         LocalSubject<'static, (MappingCompartment, Option<MappingId>), ()>,
     group_list_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
     parameter_settings_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
-    mapping_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
-    group_changed_subject: LocalSubject<'static, MappingCompartment, ()>,
-    source_touched_subject: LocalSubject<'static, CompoundMappingSource, ()>,
+    incoming_msg_captured_subject: LocalSubject<'static, MessageCaptureEvent, ()>,
     mapping_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     group_subscriptions: EnumMap<MappingCompartment, Vec<SubscriptionGuard<LocalSubscription>>>,
     normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
     normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
-    ui: WrapDebug<Box<dyn SessionUi>>,
+    #[derivative(Debug = "ignore")]
+    ui: Box<dyn SessionUi>,
+    instance_container: &'static dyn InstanceContainer,
+    /// A secondary copy of the canonical parameters stored in the infrastructure layer.
     parameters: ParameterArray,
-    parameter_settings: EnumMap<MappingCompartment, Vec<ParameterSetting>>,
+    state: SharedSessionState,
     controller_preset_manager: Box<dyn PresetManager<PresetType = ControllerPreset>>,
     main_preset_manager: Box<dyn PresetManager<PresetType = MainPreset>>,
     main_preset_link_manager: Box<dyn PresetLinkManager>,
-    /// The mappings which are on (control or feedback enabled + mapping active + target active)
-    on_mappings: Prop<HashSet<MappingId>>,
     instance_state: SharedInstanceState,
+    global_feedback_audio_hook_task_sender: &'static RealTimeSender<FeedbackAudioHookTask>,
+    global_osc_feedback_task_sender: &'static crossbeam_channel::Sender<OscFeedbackTask>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -157,10 +178,14 @@ impl Session {
         normal_real_time_task_sender: RealTimeSender<NormalRealTimeTask>,
         normal_main_task_sender: crossbeam_channel::Sender<NormalMainTask>,
         ui: impl SessionUi + 'static,
+        instance_container: &'static dyn InstanceContainer,
         controller_manager: impl PresetManager<PresetType = ControllerPreset> + 'static,
         main_preset_manager: impl PresetManager<PresetType = MainPreset> + 'static,
         preset_link_manager: impl PresetLinkManager + 'static,
         instance_state: SharedInstanceState,
+        state: SharedSessionState,
+        global_feedback_audio_hook_task_sender: &'static RealTimeSender<FeedbackAudioHookTask>,
+        global_osc_feedback_task_sender: &'static crossbeam_channel::Sender<OscFeedbackTask>,
     ) -> Session {
         Self {
             // As long not changed (by loading a preset or manually changing session ID), the
@@ -171,6 +196,8 @@ impl Session {
             let_matched_events_through: prop(session_defaults::LET_MATCHED_EVENTS_THROUGH),
             let_unmatched_events_through: prop(session_defaults::LET_UNMATCHED_EVENTS_THROUGH),
             auto_correct_settings: prop(session_defaults::AUTO_CORRECT_SETTINGS),
+            input_logging_enabled: prop(false),
+            output_logging_enabled: prop(false),
             send_feedback_only_if_armed: prop(session_defaults::SEND_FEEDBACK_ONLY_IF_ARMED),
             midi_control_input: prop(MidiControlInput::FxInput),
             midi_feedback_output: prop(None),
@@ -178,6 +205,8 @@ impl Session {
             osc_output_device_id: prop(None),
             main_preset_auto_load_mode: prop(session_defaults::MAIN_PRESET_AUTO_LOAD_MODE),
             lives_on_upper_floor: prop(false),
+            tags: Default::default(),
+            compartment_is_dirty: Default::default(),
             learn_many_state: prop(None),
             mapping_which_learns_source: prop(None),
             mapping_which_learns_target: prop(None),
@@ -196,26 +225,27 @@ impl Session {
             mapping_list_changed_subject: Default::default(),
             group_list_changed_subject: Default::default(),
             parameter_settings_changed_subject: Default::default(),
-            mapping_changed_subject: Default::default(),
-            group_changed_subject: Default::default(),
-            source_touched_subject: Default::default(),
+            incoming_msg_captured_subject: Default::default(),
             mapping_subscriptions: Default::default(),
             group_subscriptions: Default::default(),
             normal_main_task_sender,
             normal_real_time_task_sender,
             party_is_over_subject: Default::default(),
-            ui: WrapDebug(Box::new(ui)),
+            ui: Box::new(ui),
+            instance_container,
             parameters: ZEROED_PLUGIN_PARAMETERS,
-            parameter_settings: enum_map! {
-                MappingCompartment::ControllerMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
-                MappingCompartment::MainMappings => vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize],
-            },
+            state,
             controller_preset_manager: Box::new(controller_manager),
             main_preset_manager: Box::new(main_preset_manager),
             main_preset_link_manager: Box::new(preset_link_manager),
-            on_mappings: Default::default(),
             instance_state,
+            global_feedback_audio_hook_task_sender,
+            global_osc_feedback_task_sender,
         }
+    }
+
+    pub fn instance_id(&self) -> &InstanceId {
+        &self.instance_id
     }
 
     pub fn id(&self) -> &str {
@@ -247,7 +277,7 @@ impl Session {
                 MidiControlInput::Device(dev_id) => dev_id == *device_id,
             },
             InputDescriptor::Osc { device_id } => {
-                self.osc_input_device_id.get_ref().contains(device_id)
+                self.osc_input_device_id.get_ref().as_ref() == Some(device_id)
             }
         }
     }
@@ -255,56 +285,55 @@ impl Session {
     pub fn find_mapping_with_source(
         &self,
         compartment: MappingCompartment,
-        actual_real_source: &RealSource,
+        source_value: IncomingCompoundSourceValue,
     ) -> Option<&SharedMapping> {
-        let actual_virt_source = self.virtualize_if_possible(actual_real_source);
+        let virtual_source_value = self.virtualize_source_value(source_value);
+        let instance_state = self.instance_state.borrow();
         use CompoundMappingSource::*;
         self.mappings(compartment).find(|m| {
             let m = m.borrow();
-            if !self.on_mappings.get_ref().contains(&m.id()) {
+            if !instance_state.mapping_is_on(m.qualified_id()) {
                 return false;
             }
             let mapping_source = m.source_model.create_source();
-            match (mapping_source, actual_virt_source, actual_real_source) {
-                (Virtual(map_source), Some(act_source), _) => map_source == act_source,
-                (Midi(map_source), _, RealSource::Midi(act_source)) => map_source == *act_source,
-                (Osc(map_source), _, RealSource::Osc(act_source)) => map_source == *act_source,
-                _ => false,
+            if let (Virtual(virtual_source), Some(v)) = (&mapping_source, &virtual_source_value) {
+                virtual_source.control(v).is_some()
+            } else {
+                mapping_source.control(source_value).is_some()
             }
         })
     }
 
-    pub fn get_parameter_settings(
-        &self,
-        compartment: MappingCompartment,
-        index: u32,
-    ) -> &ParameterSetting {
-        &self.parameter_settings[compartment][index as usize]
+    pub fn mappings_have_project_references(&self, compartment: MappingCompartment) -> bool {
+        mappings_have_project_references(self.mappings[compartment].iter())
     }
 
-    pub fn non_default_parameter_settings_by_compartment(
-        &self,
-        compartment: MappingCompartment,
-    ) -> HashMap<u32, ParameterSetting> {
-        self.parameter_settings[compartment]
+    pub fn make_mappings_project_independent(&mut self, compartment: MappingCompartment) {
+        let context = self.extended_context();
+        for m in &self.mappings[compartment] {
+            let _ = m.borrow_mut().make_project_independent(context);
+        }
+        self.notify_everything_has_changed();
+    }
+
+    pub fn virtualize_main_mappings(&mut self) -> Result<(), String> {
+        let count = self.mappings[MappingCompartment::MainMappings]
             .iter()
-            .enumerate()
-            .filter(|(_, s)| !s.is_default())
-            .map(|(i, s)| (i as u32, s.clone()))
-            .collect()
-    }
-
-    pub fn get_qualified_parameter_name(
-        &self,
-        compartment: MappingCompartment,
-        rel_index: u32,
-    ) -> String {
-        let name = self.get_parameter_name(compartment, rel_index);
-        let compartment_label = match compartment {
-            MappingCompartment::ControllerMappings => "Ctrl",
-            MappingCompartment::MainMappings => "Main",
-        };
-        format!("{} p{}: {}", compartment_label, rel_index + 1, name)
+            .filter(|m| {
+                let mut m = m.borrow_mut();
+                if let Some(virtual_source_model) = self.virtualize_source_model(&m.source_model) {
+                    m.source_model = virtual_source_model;
+                    false
+                } else {
+                    true
+                }
+            })
+            .count();
+        self.notify_everything_has_changed();
+        if count > 0 {
+            return Err(format!("Couldn't virtualize {} mappings.", count));
+        }
+        Ok(())
     }
 
     pub fn mappings_are_read_only(&self, compartment: MappingCompartment) -> bool {
@@ -313,50 +342,7 @@ impl Session {
                 && self.main_preset_auto_load_is_active())
     }
 
-    pub fn get_parameter_name(&self, compartment: MappingCompartment, rel_index: u32) -> String {
-        let setting = &self.parameter_settings[compartment][rel_index as usize];
-        if setting.name.is_empty() {
-            format!("Param {}", rel_index + 1)
-        } else {
-            setting.name.clone()
-        }
-    }
-
-    pub fn set_parameter_settings(
-        &mut self,
-        compartment: MappingCompartment,
-        settings: impl Iterator<Item = (u32, ParameterSetting)>,
-    ) {
-        for (i, s) in settings {
-            self.parameter_settings[compartment][i as usize] = s;
-        }
-        self.notify_parameter_settings_changed(compartment);
-    }
-
-    pub fn set_parameter_settings_without_notification(
-        &mut self,
-        compartment: MappingCompartment,
-        parameter_settings: Vec<ParameterSetting>,
-    ) {
-        self.parameter_settings[compartment] = parameter_settings;
-    }
-
-    pub fn set_parameter_settings_from_non_default(
-        &mut self,
-        compartment: MappingCompartment,
-        parameter_settings: &HashMap<u32, ParameterSetting>,
-    ) {
-        let mut settings = empty_parameter_settings();
-        for (i, s) in parameter_settings {
-            settings[*i as usize] = s.clone();
-        }
-        self.parameter_settings[compartment] = settings;
-    }
-
-    fn full_sync(&mut self, weak_session: WeakSession) {
-        for compartment in MappingCompartment::enum_iter() {
-            self.resubscribe_to_groups(weak_session.clone(), compartment);
-        }
+    fn full_sync(&mut self) {
         // It's important to sync feedback device first, otherwise the initial feedback messages
         // won't arrive!
         self.sync_settings();
@@ -365,43 +351,46 @@ impl Session {
         self.sync_feedback_is_globally_enabled();
         // Now sync mappings - which includes initial feedback.
         for compartment in MappingCompartment::enum_iter() {
-            self.resubscribe_to_mappings(compartment, weak_session.clone());
             self.sync_all_mappings_full(compartment);
         }
+    }
+
+    /// Makes all autostart mappings hit the target.
+    pub fn notify_realearn_instance_started(&self) {
+        self.normal_main_task_sender
+            .try_send(NormalMainTask::NotifyRealearnInstanceStarted)
+            .unwrap();
+    }
+
+    /// Instructs the main processor to hit the target directly.
+    ///
+    /// This doesn't invoke group interaction because it's meant to totally skip the mode.
+    pub fn hit_target(&self, id: QualifiedMappingId, value: AbsoluteValue) {
+        self.normal_main_task_sender
+            .try_send(NormalMainTask::HitTarget { id, value })
+            .unwrap();
     }
 
     /// Connects the dots.
     // TODO-low Too large. Split this into several methods.
     pub fn activate(&mut self, weak_session: WeakSession) {
         // Initial sync
-        self.full_sync(weak_session.clone());
-        // Whenever auto-correct setting changes, resubscribe to all mappings because
-        // that saves us some mapping subscriptions.
-        when(self.auto_correct_settings.changed())
-            .with(weak_session.clone())
-            .do_async(|shared_session, _| {
-                for compartment in MappingCompartment::enum_iter() {
-                    shared_session
-                        .borrow_mut()
-                        .resubscribe_to_mappings(compartment, Rc::downgrade(&shared_session));
-                }
-            });
-        // Whenever something in a specific mapping list changes, resubscribe to those mappings.
-        when(self.mapping_list_changed())
-            .with(weak_session.clone())
-            .do_async(|shared_session, (compartment, _)| {
-                shared_session
-                    .borrow_mut()
-                    .resubscribe_to_mappings(compartment, Rc::downgrade(&shared_session));
-            });
+        self.full_sync();
         // Whenever something in the group list changes, resubscribe to those groups and sync
         // (because a mapping could have changed its group).
         when(self.group_list_changed())
             .with(weak_session.clone())
             .do_async(|shared_session, compartment| {
                 let mut session = shared_session.borrow_mut();
-                session.resubscribe_to_groups(Rc::downgrade(&shared_session), compartment);
                 session.sync_all_mappings_full(compartment);
+                session.mark_compartment_dirty(compartment);
+            });
+        // Whenever something in the parameter settings changed, mark compartment dirty.
+        when(self.parameter_settings_changed())
+            .with(weak_session.clone())
+            .do_async(|shared_session, compartment| {
+                let mut session = shared_session.borrow_mut();
+                session.mark_compartment_dirty(compartment);
             });
         // Whenever anything in a mapping list changes and other things which affect all
         // processors (including the real-time processor which takes care of sources only), resync
@@ -443,14 +432,16 @@ impl Session {
         });
         // Marking project as dirty if certain things are changed. Should only contain events that
         // are triggered by the user.
-        when(
-            self.settings_changed()
-                .merge(self.mapping_list_changed().map_to(())),
-        )
-        .with(weak_session.clone())
-        .do_sync(move |s, _| {
-            s.borrow().mark_project_as_dirty();
-        });
+        when(self.settings_changed())
+            .with(weak_session.clone())
+            .do_sync(move |s, _| {
+                s.borrow().mark_dirty();
+            });
+        when(self.mapping_list_changed())
+            .with(weak_session.clone())
+            .do_sync(move |s, (compartment, _)| {
+                s.borrow_mut().mark_compartment_dirty(compartment);
+            });
         // Keep adding/removing instance to/from upper floor.
         when(self.lives_on_upper_floor.changed())
             .with(weak_session.clone())
@@ -472,8 +463,9 @@ impl Session {
                 .take_until(self.party_is_over()),
         )
         .with(weak_session.clone())
-        .do_sync(|s, _| {
-            s.borrow().invalidate_fx_indexes_of_mapping_targets();
+        .do_async(|s, _| {
+            s.borrow_mut()
+                .invalidate_fx_indexes_of_mapping_targets(Rc::downgrade(&s));
         });
         // When FX focus changes, maybe trigger main preset change
         when(
@@ -496,26 +488,25 @@ impl Session {
         .do_async(move |s, _| {
             if s.borrow().main_preset_auto_load_mode.get() == MainPresetAutoLoadMode::FocusedFx {
                 let currently_focused_fx = if let Some(fx) = Reaper::get().focused_fx() {
-                    if fx.window_is_open() { Some(fx) } else { None }
+                    if fx.window_is_open() {
+                        Some(fx)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 };
                 let fx_id = currently_focused_fx
                     .as_ref()
-                    .and_then(|f| FxId::from_fx(f, true).ok());
-                s.borrow_mut()
-                    .auto_load_preset_linked_to_fx(fx_id, Rc::downgrade(&s));
+                    .and_then(|f| FxId::from_fx(f, false).ok());
+                s.borrow_mut().auto_load_preset_linked_to_fx(fx_id);
             }
         });
     }
 
-    pub fn activate_main_preset_auto_load_mode(
-        &mut self,
-        mode: MainPresetAutoLoadMode,
-        session: WeakSession,
-    ) {
+    pub fn activate_main_preset_auto_load_mode(&mut self, mode: MainPresetAutoLoadMode) {
         if mode != MainPresetAutoLoadMode::Off {
-            self.activate_main_preset(None, session).unwrap();
+            self.activate_main_preset(None).unwrap();
         }
         self.main_preset_auto_load_mode.set(mode);
     }
@@ -524,25 +515,34 @@ impl Session {
         self.main_preset_auto_load_mode.get() != MainPresetAutoLoadMode::Off
     }
 
-    fn auto_load_preset_linked_to_fx(&mut self, fx_id: Option<FxId>, weak_session: WeakSession) {
+    fn auto_load_preset_linked_to_fx(&mut self, fx_id: Option<FxId>) {
         let preset_id =
             fx_id.and_then(|id| self.main_preset_link_manager.find_preset_linked_to_fx(&id));
         if self.active_main_preset_id != preset_id {
-            let _ = self.activate_main_preset(preset_id, weak_session);
+            let _ = self.activate_main_preset(preset_id);
         }
     }
 
-    fn invalidate_fx_indexes_of_mapping_targets(&self) {
-        for m in self.all_mappings() {
-            let mut m = m.borrow_mut();
-            let compartment = m.compartment();
-            m.target_model
-                .invalidate_fx_index(self.extended_context(), compartment);
+    fn invalidate_fx_indexes_of_mapping_targets(&mut self, weak_session: WeakSession) {
+        let ids: Vec<_> = self
+            .all_mappings()
+            .map(|m| m.borrow().qualified_id())
+            .collect();
+        for id in ids {
+            self.change_mapping_by_id_with_closure(id, None, weak_session.clone(), |ctx| {
+                let affected = ctx
+                    .mapping
+                    .target_model
+                    .invalidate_fx_index(ctx.extended_context, ctx.mapping.compartment())
+                    .map(|affected| Affected::One(MappingProp::InTarget(affected)));
+                Ok(affected)
+            })
+            .expect("error when invalidating FX indexes");
         }
     }
 
     /// Settings are all the things displayed in the ReaLearn header panel.
-    fn settings_changed(&self) -> impl UnitEvent {
+    fn settings_changed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.let_matched_events_through
             .changed()
             .merge(self.let_unmatched_events_through.changed())
@@ -553,59 +553,96 @@ impl Session {
             .merge(self.auto_correct_settings.changed())
             .merge(self.send_feedback_only_if_armed.changed())
             .merge(self.main_preset_auto_load_mode.changed())
+            .merge(self.input_logging_enabled.changed())
+            .merge(self.output_logging_enabled.changed())
     }
 
-    pub fn learn_source(&mut self, source: RealSource, allow_virtual_sources: bool) {
-        self.source_touched_subject
-            .next(self.create_compound_source(source, allow_virtual_sources));
+    pub fn captured_incoming_message(&mut self, event: MessageCaptureEvent) {
+        self.incoming_msg_captured_subject.next(event);
     }
 
     pub fn create_compound_source(
         &self,
-        source: RealSource,
-        allow_virtual_sources: bool,
-    ) -> CompoundMappingSource {
-        if allow_virtual_sources {
-            if let Some(virt_source) = self.virtualize_if_possible(&source) {
-                CompoundMappingSource::Virtual(virt_source)
-            } else {
-                source.into_compound_source()
+        event: MessageCaptureEvent,
+    ) -> Option<CompoundMappingSource> {
+        if event.allow_virtual_sources {
+            if let Some(virt_source) = self
+                .virtualize_source_value(event.result.message())
+                .map(VirtualSource::from_source_value)
+            {
+                return Some(CompoundMappingSource::Virtual(virt_source));
             }
-        } else {
-            source.into_compound_source()
         }
+        CompoundMappingSource::from_message_capture_event(event)
     }
 
-    fn virtualize_if_possible(&self, source: &RealSource) -> Option<VirtualSource> {
-        for m in self.mappings(MappingCompartment::ControllerMappings) {
-            let m = m.borrow();
-            if !m.control_is_enabled.get() {
-                continue;
-            }
-            if m.target_model.category.get() != TargetCategory::Virtual {
-                continue;
-            }
-            if !self.on_mappings.get_ref().contains(&m.id()) {
-                // Since virtual mappings support conditional activation, too!
-                continue;
-            }
-            if let Some(s) = RealSource::from_compound_source(m.source_model.create_source()) {
-                if s == *source {
-                    let virtual_source =
-                        VirtualSource::new(m.target_model.create_control_element());
-                    return Some(virtual_source);
+    pub fn virtualize_source_value(
+        &self,
+        source_value: IncomingCompoundSourceValue,
+    ) -> Option<VirtualSourceValue> {
+        let instance_state = self.instance_state.borrow();
+        let res = self
+            .active_virtual_controller_mappings(&instance_state)
+            .find_map(|m| {
+                let m = m.borrow();
+                if let Some(cv) = m.source_model.create_source().control(source_value) {
+                    let virtual_source_value =
+                        VirtualSourceValue::new(m.target_model.create_control_element(), cv);
+                    Some(virtual_source_value)
+                } else {
+                    None
                 }
-            }
-        }
-        None
+            });
+        res
     }
 
-    pub fn source_touched(
+    pub fn virtualize_source_model(&self, source_model: &SourceModel) -> Option<SourceModel> {
+        let instance_state = self.instance_state.borrow();
+        let res = self
+            .active_virtual_controller_mappings(&instance_state)
+            .find_map(|m| {
+                let m = m.borrow();
+                if m.source_model.create_source() == source_model.create_source() {
+                    let element = m.target_model.create_control_element();
+                    let virtual_source =
+                        CompoundMappingSource::Virtual(VirtualSource::new(element));
+                    let mut virtual_model = SourceModel::default();
+                    let _ = virtual_model.apply_from_source(&virtual_source);
+                    Some(virtual_model)
+                } else {
+                    None
+                }
+            });
+        res
+    }
+
+    fn active_virtual_controller_mappings<'a>(
+        &'a self,
+        instance_state: &'a InstanceState,
+    ) -> impl Iterator<Item = &SharedMapping> {
+        self.mappings(MappingCompartment::ControllerMappings)
+            .filter(move |m| {
+                let m = m.borrow();
+                if !m.control_is_enabled() {
+                    return false;
+                }
+                if m.target_model.category() != TargetCategory::Virtual {
+                    return false;
+                }
+                if !instance_state.mapping_is_on(m.qualified_id()) {
+                    // Since virtual mappings support conditional activation, too!
+                    return false;
+                }
+                true
+            })
+    }
+
+    pub fn incoming_msg_captured(
         &self,
         reenable_control_after_touched: bool,
         allow_virtual_sources: bool,
         osc_arg_index_hint: Option<u32>,
-    ) -> impl Event<CompoundMappingSource> {
+    ) -> impl LocalObservable<'static, Item = MessageCaptureEvent, Err = ()> + 'static {
         // TODO-low We should migrate this to the nice async-await mechanism that we use for global
         //  learning (via REAPER action). That way we don't need the subject and also don't need
         //  to pass the information through multiple processors whether we allow virtual sources.
@@ -623,129 +660,22 @@ impl Session {
             .unwrap();
         let rt_sender = self.normal_real_time_task_sender.clone();
         let main_sender = self.normal_main_task_sender.clone();
-        self.source_touched_subject.clone().finalize(move || {
-            if reenable_control_after_touched {
-                rt_sender
-                    .send(NormalRealTimeTask::ReturnToControlMode)
-                    .unwrap();
-                main_sender
-                    .try_send(NormalMainTask::ReturnToControlMode)
-                    .unwrap();
-            }
-        })
-    }
-
-    fn resubscribe_to_mappings(
-        &mut self,
-        compartment: MappingCompartment,
-        weak_session: WeakSession,
-    ) {
-        self.mapping_subscriptions[compartment] = self.mappings[compartment]
-            .iter()
-            .map(|shared_mapping| {
-                // We don't need to take until "party is over" because if the session disappears,
-                // we know the mappings disappear as well.
-                let mapping = shared_mapping.borrow();
-                let shared_mapping_clone = shared_mapping.clone();
-                let mut all_subscriptions = LocalSubscription::default();
-                // Keep syncing to processors
-                {
-                    let subscription = when(mapping.changed_processing_relevant())
-                        .with(weak_session.clone())
-                        .do_sync(move |session, _| {
-                            let mut session = session.borrow_mut();
-                            session.sync_single_mapping_to_processors(
-                                compartment,
-                                &shared_mapping_clone.borrow(),
-                            );
-                            session.mark_project_as_dirty();
-                            session.notify_mapping_changed(compartment);
-                        });
-                    all_subscriptions.add(subscription);
+        self.incoming_msg_captured_subject
+            .clone()
+            .finalize(move || {
+                if reenable_control_after_touched {
+                    rt_sender
+                        .send(NormalRealTimeTask::ReturnToControlMode)
+                        .unwrap();
+                    main_sender
+                        .try_send(NormalMainTask::ReturnToControlMode)
+                        .unwrap();
                 }
-                // Keep marking project as dirty
-                {
-                    let subscription = when(mapping.changed_non_processing_relevant())
-                        .with(weak_session.clone())
-                        .do_sync(move |session, _| {
-                            let mut session = session.borrow_mut();
-                            session.mark_project_as_dirty();
-                            session.notify_mapping_changed(compartment);
-                        });
-                    all_subscriptions.add(subscription);
-                }
-                // Keep auto-correcting mode settings
-                if self.auto_correct_settings.get() {
-                    let processor_context = self.context().clone();
-                    let subscription = when(
-                        mapping
-                            .source_model
-                            .changed()
-                            .merge(mapping.target_model.changed()),
-                    )
-                    .with(Rc::downgrade(&shared_mapping))
-                    .do_sync(move |mapping, _| {
-                        // Parameter values are not important for mode auto correction because
-                        // dynamic targets don't really profit from it anyway. Therefore just
-                        // use zero parameters.
-                        let extended_context = ExtendedProcessorContext::new(
-                            &processor_context,
-                            &ZEROED_PLUGIN_PARAMETERS,
-                        );
-                        mapping
-                            .borrow_mut()
-                            .adjust_mode_if_necessary(extended_context);
-                    });
-                    all_subscriptions.add(subscription);
-                }
-                SubscriptionGuard::new(all_subscriptions)
             })
-            .collect();
     }
 
-    fn resubscribe_to_groups(
-        &mut self,
-        weak_session: WeakSession,
-        compartment: MappingCompartment,
-    ) {
-        self.group_subscriptions[compartment] = self
-            .groups_including_default_group(compartment)
-            .map(|shared_group| {
-                // We don't need to take until "party is over" because if the session disappears,
-                // we know the groups disappear as well.
-                let group = shared_group.borrow();
-                let mut all_subscriptions = LocalSubscription::default();
-                // Keep syncing to processors
-                {
-                    let subscription = when(group.changed_processing_relevant())
-                        .with(weak_session.clone())
-                        .do_sync(move |session, _| {
-                            let mut session = session.borrow_mut();
-                            // Change of a single group can affect many mappings
-                            session.sync_all_mappings_full(compartment);
-                            session.mark_project_as_dirty();
-                            session.notify_group_changed(compartment);
-                        });
-                    all_subscriptions.add(subscription);
-                }
-                // Keep marking project as dirty
-                {
-                    let subscription = when(group.changed_non_processing_relevant())
-                        .with(weak_session.clone())
-                        .do_sync(move |session, _| {
-                            let mut session = session.borrow_mut();
-                            session.mark_project_as_dirty();
-                            session.notify_group_changed(compartment);
-                        });
-                    all_subscriptions.add(subscription);
-                }
-                SubscriptionGuard::new(all_subscriptions)
-            })
-            .collect();
-    }
-
-    fn learn_target(&mut self, target: &ReaperTarget) {
-        // Prevent learning targets from in other project tabs (leads to weird effects, just think
+    fn learn_target(&mut self, target: &ReaperTarget, weak_session: WeakSession) {
+        // Prevent learning targets from other project tabs (leads to weird effects, just think
         // about it)
         if let Some(p) = target.project() {
             if p != self.context.project_or_current_project() {
@@ -753,11 +683,19 @@ impl Session {
             }
         }
         if let Some(qualified_id) = self.mapping_which_learns_target.replace(None) {
-            if let Some((_, mapping)) = self.find_mapping_and_index_by_qualified_id(qualified_id) {
-                mapping
-                    .borrow_mut()
-                    .target_model
-                    .apply_from_target(target, &self.context);
+            if let Some(mapping) = self
+                .find_mapping_and_index_by_qualified_id(qualified_id)
+                .map(|(_, m)| m.clone())
+            {
+                let mut mapping = mapping.borrow_mut();
+                let compartment = mapping.compartment();
+                self.change_target_with_closure(&mut mapping, None, weak_session, |ctx| {
+                    ctx.mapping.target_model.apply_from_target(
+                        target,
+                        ctx.extended_context,
+                        compartment,
+                    )
+                });
             }
         }
     }
@@ -767,10 +705,34 @@ impl Session {
     }
 
     pub fn extended_context(&self) -> ExtendedProcessorContext {
-        ExtendedProcessorContext::new(&self.context, &self.parameters)
+        self.extended_context_with_params(&self.parameters)
     }
 
-    pub fn add_default_group(&mut self, compartment: MappingCompartment, name: String) -> GroupId {
+    pub fn extended_context_with_params<'a>(
+        &'a self,
+        params: &'a ParameterArray,
+    ) -> ExtendedProcessorContext<'a> {
+        ExtendedProcessorContext::new(&self.context, params, self.control_context())
+    }
+
+    pub fn control_context(&self) -> ControlContext {
+        ControlContext {
+            feedback_audio_hook_task_sender: self.global_feedback_audio_hook_task_sender,
+            osc_feedback_task_sender: self.global_osc_feedback_task_sender,
+            feedback_output: self.feedback_output(),
+            instance_container: self.instance_container,
+            instance_state: self.instance_state(),
+            instance_id: self.instance_id(),
+            output_logging_enabled: self.output_logging_enabled.get(),
+            processor_context: &self.context,
+        }
+    }
+
+    pub fn add_group_with_default_values(
+        &mut self,
+        compartment: MappingCompartment,
+        name: String,
+    ) -> GroupId {
         let group = GroupModel::new_from_ui(compartment, name);
         self.add_group(compartment, group)
     }
@@ -783,6 +745,7 @@ impl Session {
         id
     }
 
+    /// Also finds default group.
     pub fn find_group_index_by_id_sorted(
         &self,
         compartment: MappingCompartment,
@@ -794,11 +757,12 @@ impl Session {
 
     pub fn group_contains_mappings(&self, compartment: MappingCompartment, id: GroupId) -> bool {
         self.mappings(compartment)
-            .filter(|m| m.borrow().group_id.get() == id)
+            .filter(|m| m.borrow().group_id() == id)
             .count()
             > 0
     }
 
+    /// Doesn't find default group.
     pub fn find_group_by_id(
         &self,
         compartment: MappingCompartment,
@@ -807,6 +771,28 @@ impl Session {
         self.groups[compartment]
             .iter()
             .find(|g| g.borrow().id() == id)
+    }
+
+    pub fn find_group_by_key(
+        &self,
+        compartment: MappingCompartment,
+        key: &GroupKey,
+    ) -> Option<&SharedGroup> {
+        self.groups[compartment]
+            .iter()
+            .find(|g| g.borrow().key() == key)
+    }
+
+    pub fn find_group_by_id_including_default_group(
+        &self,
+        compartment: MappingCompartment,
+        id: GroupId,
+    ) -> Option<&SharedGroup> {
+        if id.is_default() {
+            Some(self.default_group(compartment))
+        } else {
+            self.find_group_by_id(compartment, id)
+        }
     }
 
     pub fn find_group_by_index_sorted(
@@ -821,9 +807,11 @@ impl Session {
         &self,
         compartment: MappingCompartment,
     ) -> impl Iterator<Item = &SharedGroup> {
-        self.groups[compartment]
-            .iter()
-            .sorted_by_key(|g| g.borrow().name.get_ref().clone())
+        iter::once(self.default_group(compartment)).chain(
+            self.groups[compartment]
+                .iter()
+                .sorted_by_key(|g| g.borrow().name().to_owned()),
+        )
     }
 
     pub fn move_mappings_to_group(
@@ -831,12 +819,15 @@ impl Session {
         compartment: MappingCompartment,
         mapping_ids: &[MappingId],
         group_id: GroupId,
+        weak_session: WeakSession,
     ) -> Result<(), &'static str> {
         for mapping_id in mapping_ids.iter() {
-            let (_, mapping) = self
-                .find_mapping_and_index_by_id(compartment, *mapping_id)
-                .ok_or("no such mapping")?;
-            mapping.borrow_mut().group_id.set(group_id);
+            let id = QualifiedMappingId::new(compartment, *mapping_id);
+            self.change_mapping_from_session(
+                id,
+                MappingCommand::SetGroupId(group_id),
+                weak_session.clone(),
+            );
         }
         self.notify_group_list_changed(compartment);
         Ok(())
@@ -850,16 +841,352 @@ impl Session {
     ) {
         self.groups[compartment].retain(|g| g.borrow().id() != id);
         if delete_mappings {
-            self.mappings[compartment].retain(|m| m.borrow().group_id.get() != id);
+            self.mappings[compartment].retain(|m| m.borrow().group_id() != id);
         } else {
             for m in self.mappings(compartment) {
                 let mut m = m.borrow_mut();
-                if m.group_id.get() == id {
-                    m.group_id.set_without_notification(GroupId::default());
+                if m.group_id() == id {
+                    let _ = m.change(MappingCommand::SetGroupId(GroupId::default()));
                 }
             }
         }
         self.notify_group_list_changed(compartment);
+    }
+
+    /// Changes a mapping with notification and without initiator, expecting the mutable mapping
+    /// itself to be passed as parameter.
+    ///
+    /// # Panics
+    ///
+    /// Panics if mapping not found.
+    pub fn change_mapping_from_ui_simple(
+        weak_session: WeakSession,
+        mapping: &mut MappingModel,
+        cmd: MappingCommand,
+        initiator: Option<u32>,
+    ) {
+        let session = weak_session.upgrade().expect("session gone");
+        let mut session = session.borrow_mut();
+        session.change_mapping_from_ui_expert(mapping, cmd, initiator, weak_session);
+    }
+
+    pub fn change_mapping_from_ui_expert(
+        &mut self,
+        mapping: &mut MappingModel,
+        cmd: MappingCommand,
+        initiator: Option<u32>,
+        weak_session: WeakSession,
+    ) {
+        if let Some(affected) = mapping.change(cmd) {
+            use Affected::*;
+            let affected = One(SessionProp::InCompartment(
+                mapping.compartment(),
+                One(CompartmentProp::InMapping(mapping.id(), affected)),
+            ));
+            self.handle_affected(affected, initiator, weak_session);
+        }
+    }
+
+    pub fn change_group_from_ui_simple(
+        weak_session: WeakSession,
+        group: &mut GroupModel,
+        cmd: GroupCommand,
+        initiator: Option<u32>,
+    ) {
+        let session = weak_session.upgrade().expect("session gone");
+        let mut session = session.borrow_mut();
+        session.change_group_from_ui_expert(group, cmd, initiator, weak_session);
+    }
+
+    pub fn change_group_from_ui_expert(
+        &mut self,
+        group: &mut GroupModel,
+        cmd: GroupCommand,
+        initiator: Option<u32>,
+        weak_session: WeakSession,
+    ) {
+        if let Some(affected) = group.change(cmd) {
+            use Affected::*;
+            let affected = One(SessionProp::InCompartment(
+                group.compartment(),
+                One(CompartmentProp::InGroup(group.id(), affected)),
+            ));
+            self.handle_affected(affected, initiator, weak_session);
+        }
+    }
+
+    /// Changes a mapping with notification and without initiator.
+    ///
+    /// # Panics
+    ///
+    /// Panics if mapping not found.
+    fn change_mapping_from_session(
+        &mut self,
+        id: QualifiedMappingId,
+        val: MappingCommand,
+        weak_session: WeakSession,
+    ) {
+        self.change(
+            SessionCommand::ChangeCompartment(
+                id.compartment,
+                CompartmentCommand::ChangeMapping(id.id, val),
+            ),
+            None,
+            weak_session,
+        );
+    }
+
+    /// The gateway point to change something in the session just using commands, also deeply nested
+    /// things such as target properties.
+    ///
+    /// Reasoning: With this single point of entry for changing something in the session, we can
+    /// easily intercept certain changes, notify the UI and so on. Without magic and without rxRust!
+    pub fn change(
+        &mut self,
+        cmd: SessionCommand,
+        initiator: Option<u32>,
+        weak_session: WeakSession,
+    ) {
+        let _ = self.change_with_closure(initiator, weak_session, |session| {
+            use Affected::*;
+            use SessionCommand as C;
+            use SessionProp as P;
+            let affected = match cmd {
+                C::ChangeCompartment(compartment, cmd) => session
+                    .change_compartment_internal(compartment, cmd)?
+                    .map(|affected| One(P::InCompartment(compartment, affected))),
+                C::AdjustMappingModeIfNecessary(id) => session
+                    .changing_mapping_by_id(id, |ctx| {
+                        Ok(ctx.mapping.adjust_mode_if_necessary(ctx.extended_context))
+                    })?
+                    .map(|affected| One(P::InCompartment(id.compartment, affected))),
+            };
+            Ok(affected)
+        });
+    }
+
+    pub fn change_mapping_by_id_with_closure(
+        &mut self,
+        id: QualifiedMappingId,
+        initiator: Option<u32>,
+        weak_session: WeakSession,
+        f: impl FnOnce(MappingChangeContext) -> ChangeResult<MappingProp>,
+    ) -> Result<(), String> {
+        use Affected::*;
+        use SessionProp as P;
+        let affected = self
+            .changing_mapping_by_id(id, f)?
+            .map(|affected| One(P::InCompartment(id.compartment, affected)));
+        if let Some(affected) = affected {
+            self.handle_affected(affected, initiator, weak_session);
+        }
+        Ok(())
+    }
+
+    pub fn change_target_with_closure(
+        &mut self,
+        mapping: &mut MappingModel,
+        initiator: Option<u32>,
+        weak_session: WeakSession,
+        f: impl FnOnce(MappingChangeContext) -> Option<Affected<TargetProp>>,
+    ) {
+        let _ = self.change_mapping_with_closure(mapping, initiator, weak_session, |ctx| {
+            Ok(f(ctx).map(|affected| Affected::One(MappingProp::InTarget(affected))))
+        });
+    }
+
+    pub fn change_mapping_with_closure(
+        &mut self,
+        mapping: &mut MappingModel,
+        initiator: Option<u32>,
+        weak_session: WeakSession,
+        f: impl FnOnce(MappingChangeContext) -> ChangeResult<MappingProp>,
+    ) -> Result<(), String> {
+        use Affected::*;
+        use SessionProp as P;
+        let affected = self
+            .changing_mapping(mapping, f)?
+            .map(|affected| One(P::InCompartment(mapping.compartment(), affected)));
+        if let Some(affected) = affected {
+            self.handle_affected(affected, initiator, weak_session);
+        }
+        Ok(())
+    }
+
+    pub fn notify_compartment_has_changed(
+        &mut self,
+        compartment: MappingCompartment,
+        weak_session: WeakSession,
+    ) {
+        use Affected::*;
+        self.handle_affected(
+            One(SessionProp::InCompartment(compartment, Multiple)),
+            None,
+            weak_session,
+        );
+    }
+
+    pub fn notify_mapping_has_changed(
+        &mut self,
+        id: QualifiedMappingId,
+        weak_session: WeakSession,
+    ) {
+        use Affected::*;
+        self.handle_affected(
+            One(SessionProp::InCompartment(
+                id.compartment,
+                One(CompartmentProp::InMapping(id.id, Multiple)),
+            )),
+            None,
+            weak_session,
+        );
+    }
+
+    fn change_with_closure(
+        &mut self,
+        initiator: Option<u32>,
+        weak_session: WeakSession,
+        f: impl FnOnce(&mut Session) -> ChangeResult<SessionProp>,
+    ) -> Result<(), String> {
+        if let Some(affected) = f(self)? {
+            self.handle_affected(affected, initiator, weak_session);
+        }
+        Ok(())
+    }
+
+    fn handle_affected(
+        &self,
+        affected: Affected<SessionProp>,
+        initiator: Option<u32>,
+        weak_session: WeakSession,
+    ) {
+        // We react in the next main loop cycle. First, because otherwise we can easily run into
+        // BorrowMut errors (because the handler might borrow the session but we still have it
+        // borrowed at this point because this handler is called by the session). Second, because
+        // deferring the reaction seems to result in a smoother user experience.
+        //
+        // Sending all affected properties to the next main loop cycle as one batch can improve
+        // could make flickering less likely, so do it.
+        Global::task_support()
+            .do_later_in_main_thread_from_main_thread_asap(move || {
+                // Internal reaction
+                let session = weak_session.upgrade().expect("session gone");
+                {
+                    use Affected::*;
+                    use CompartmentProp::*;
+                    use SessionProp::*;
+                    let mut session = session.borrow_mut();
+                    match &affected {
+                        One(InCompartment(compartment, One(InGroup(_, affected)))) => {
+                            // Sync all mappings to processor if necessary (change of a single
+                            // group can affect many mappings)
+                            if affected.processing_relevance().is_some() {
+                                session.sync_all_mappings_full(*compartment);
+                            }
+                            // Mark dirty
+                            session.mark_compartment_dirty(*compartment);
+                        }
+                        One(InCompartment(compartment, One(InMapping(mapping_id, affected)))) => {
+                            // Sync mapping to processors if necessary.
+                            if let Some(relevance) = affected.processing_relevance() {
+                                if let Some((_, mapping)) =
+                                    session.find_mapping_and_index_by_id(*compartment, *mapping_id)
+                                {
+                                    let mapping = mapping.borrow();
+                                    use ProcessingRelevance::*;
+                                    match relevance {
+                                        PersistentProcessingRelevant => {
+                                            // Keep syncing persistent mapping processing state only (shouldn't do too much
+                                            // because can be triggered by processing).
+                                            session
+                                                .sync_persistent_mapping_processing_state(&mapping);
+                                        }
+                                        ProcessingRelevant => {
+                                            // Keep syncing complete mappings to processors.
+                                            session.sync_single_mapping_to_processors(&mapping);
+                                        }
+                                    }
+                                }
+                            }
+                            // Mark dirty
+                            session.mark_compartment_dirty(*compartment);
+                            // Auto-correct settings.
+                            if session.auto_correct_settings.get() {
+                                let qualified_mapping_id =
+                                    QualifiedMappingId::new(*compartment, *mapping_id);
+                                session.change(
+                                    SessionCommand::AdjustMappingModeIfNecessary(
+                                        qualified_mapping_id,
+                                    ),
+                                    None,
+                                    weak_session,
+                                );
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                // UI reaction
+                {
+                    // Borrowing the session while UI update shouldn't be an issue
+                    // because we are just invalidating the UI. A UI reaction shouldn't
+                    // need to borrow the session mutably. In case it's going to be an issue,
+                    // we can also choose to clone the weak main panel instead.
+                    let session = session.borrow();
+                    session.ui.handle_affected(&session, affected, initiator);
+                }
+            })
+            .unwrap();
+    }
+
+    fn change_compartment_internal(
+        &mut self,
+        compartment: MappingCompartment,
+        cmd: CompartmentCommand,
+    ) -> ChangeResult<CompartmentProp> {
+        use CompartmentCommand as C;
+        let affected = match cmd {
+            C::ChangeMapping(mapping_id, cmd) => self.changing_mapping_by_id(
+                QualifiedMappingId::new(compartment, mapping_id),
+                move |ctx| Ok(ctx.mapping.change(cmd)),
+            )?,
+        };
+        Ok(affected)
+    }
+
+    fn changing_mapping_by_id(
+        &mut self,
+        id: QualifiedMappingId,
+        f: impl FnOnce(MappingChangeContext) -> ChangeResult<MappingProp>,
+    ) -> ChangeResult<CompartmentProp> {
+        let mapping = self
+            .find_mapping_and_index_by_id(id.compartment, id.id)
+            .ok_or_else(|| String::from("mapping not found"))?
+            .1
+            .clone();
+        let mut mapping = mapping.borrow_mut();
+        self.changing_mapping(&mut mapping, f)
+    }
+
+    fn changing_mapping(
+        &mut self,
+        mapping: &mut MappingModel,
+        f: impl FnOnce(MappingChangeContext) -> ChangeResult<MappingProp>,
+    ) -> ChangeResult<CompartmentProp> {
+        use Affected::*;
+        let change_context = MappingChangeContext {
+            mapping,
+            extended_context: self.extended_context(),
+        };
+        Ok(f(change_context)?
+            .map(|affected| One(CompartmentProp::InMapping(mapping.id(), affected))))
+    }
+
+    pub fn compartment_in_session(&self, compartment: MappingCompartment) -> CompartmentInSession {
+        CompartmentInSession {
+            session: self,
+            compartment,
+        }
     }
 
     pub fn add_default_mapping(
@@ -870,36 +1197,32 @@ impl Session {
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) -> SharedMapping {
-        let mut mapping = MappingModel::new(compartment, initial_group_id);
-        mapping
-            .name
-            .set_without_notification(self.generate_name_for_new_mapping(compartment));
+        let mut mapping = MappingModel::new(compartment, initial_group_id, MappingKey::random());
+        let new_name = self.generate_name_for_new_mapping(compartment);
+        let _ = mapping.change(MappingCommand::SetName(new_name));
         if compartment == MappingCompartment::ControllerMappings {
             let next_control_element_index =
                 self.get_next_control_element_index(control_element_type);
-            let target_model = TargetModel {
-                category: prop(TargetCategory::Virtual),
-                control_element_type: prop(control_element_type),
-                control_element_id: prop(VirtualControlElementId::Indexed(
-                    next_control_element_index,
-                )),
-                ..Default::default()
-            };
-            mapping.target_model = target_model;
+            mapping.target_model =
+                TargetModel::virtual_default(control_element_type, next_control_element_index);
         }
         self.add_mapping(compartment, mapping)
     }
 
+    /// Silently assigns random keys if given keys conflict with existing keys or are not unique.
     pub fn insert_mappings_at(
         &mut self,
         compartment: MappingCompartment,
         index: usize,
         mappings: impl Iterator<Item = MappingModel>,
     ) {
+        let mut mapping_key_set = self.mapping_key_set(compartment);
         let mut index = index.min(self.mappings[compartment].len());
         let mut first_mapping_id = None;
         for mut m in mappings {
-            m.set_id_without_notification(MappingId::random());
+            if !mapping_key_set.insert(m.key().clone()) {
+                m.reset_key();
+            }
             if first_mapping_id.is_none() {
                 first_mapping_id = Some(m.id());
             }
@@ -910,19 +1233,30 @@ impl Session {
         self.notify_mapping_list_changed(compartment, first_mapping_id);
     }
 
+    /// Silently assigns random keys if given keys conflict with existing keys or are not unique.
     pub fn replace_mappings_of_group(
         &mut self,
         compartment: MappingCompartment,
         group_id: GroupId,
         mappings: impl Iterator<Item = MappingModel>,
     ) {
-        self.mappings[compartment].retain(|m| m.borrow().group_id.get() != group_id);
+        let mut mapping_key_set = self.mapping_key_set(compartment);
+        self.mappings[compartment].retain(|m| m.borrow().group_id() != group_id);
         for mut m in mappings {
-            m.set_id_without_notification(MappingId::random());
+            if !mapping_key_set.insert(m.key().clone()) {
+                m.reset_key();
+            }
             let shared_mapping = share_mapping(m);
             self.mappings[compartment].push(shared_mapping);
         }
         self.notify_mapping_list_changed(compartment, None);
+    }
+
+    fn mapping_key_set(&self, compartment: MappingCompartment) -> HashSet<MappingKey> {
+        self.mappings[compartment]
+            .iter()
+            .map(|m| m.borrow().key().clone())
+            .collect()
     }
 
     fn get_next_control_element_index(&self, element_type: VirtualControlElementType) -> u32 {
@@ -931,12 +1265,12 @@ impl Session {
             .filter_map(|m| {
                 let m = m.borrow();
                 let target = &m.target_model;
-                if target.category.get() != TargetCategory::Virtual
-                    || target.control_element_type.get() != element_type
+                if target.category() != TargetCategory::Virtual
+                    || target.control_element_type() != element_type
                 {
                     return None;
                 }
-                if let VirtualControlElementId::Indexed(i) = target.control_element_id.get() {
+                if let VirtualControlElementId::Indexed(i) = target.control_element_id() {
                     Some(i)
                 } else {
                     None
@@ -1003,16 +1337,17 @@ impl Session {
         // Only relevant for controller mapping compartment
         control_element_type: VirtualControlElementType,
     ) {
-        let ignore_sources = match compartment {
-            MappingCompartment::ControllerMappings => {
-                // When batch-learning controller mappings, we just want to learn sources that have
-                // not yet been learned. Otherwise when we move a fader, we create many mappings in
-                // one go.
-                self.mappings(compartment)
-                    .map(|m| m.borrow().source_model.create_source())
-                    .collect()
-            }
-            MappingCompartment::MainMappings => HashSet::new(),
+        let ignore_sources: Vec<_> = match compartment {
+            // When batch-learning controller mappings, we just want to learn sources that have
+            // not yet been learned. Otherwise when we move a fader, we create many mappings in
+            // one go.
+            MappingCompartment::ControllerMappings => self
+                .mappings(compartment)
+                .map(|m| m.borrow().source_model.create_source())
+                .collect(),
+            // When batch-learning main mappings, we always wait for a target touch between the
+            // mappings, so this is not necessary.
+            MappingCompartment::MainMappings => vec![],
         };
         let mapping = self.add_default_mapping(compartment, initial_group_id, control_element_type);
         let qualified_mapping_id = mapping.borrow().qualified_id();
@@ -1070,7 +1405,9 @@ impl Session {
         }
     }
 
-    pub fn learn_many_state_changed(&self) -> impl UnitEvent {
+    pub fn learn_many_state_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.learn_many_state.changed()
     }
 
@@ -1153,11 +1490,15 @@ impl Session {
         self.id.set(self.instance_id.to_string());
     }
 
-    pub fn mapping_which_learns_source_changed(&self) -> impl UnitEvent {
+    pub fn mapping_which_learns_source_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.mapping_which_learns_source.changed()
     }
 
-    pub fn mapping_which_learns_target_changed(&self) -> impl UnitEvent {
+    pub fn mapping_which_learns_target_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.mapping_which_learns_target.changed()
     }
 
@@ -1167,7 +1508,7 @@ impl Session {
                 Rc::downgrade(session),
                 mapping.clone(),
                 true,
-                HashSet::new(),
+                vec![],
                 mapping.borrow().compartment() != MappingCompartment::ControllerMappings,
             );
         } else {
@@ -1180,36 +1521,47 @@ impl Session {
         session: WeakSession,
         mapping: SharedMapping,
         reenable_control_after_touched: bool,
-        ignore_sources: HashSet<CompoundMappingSource>,
+        ignore_sources: Vec<CompoundMappingSource>,
         allow_virtual_sources: bool,
     ) {
         let (mapping_id, osc_arg_index_hint) = {
             let m = mapping.borrow();
-            (m.qualified_id(), m.source_model.osc_arg_index.get())
+            (m.qualified_id(), m.source_model.osc_arg_index())
         };
         self.mapping_which_learns_source.set(Some(mapping_id));
         when(
-            self.source_touched(
+            self.incoming_msg_captured(
                 reenable_control_after_touched,
                 allow_virtual_sources,
                 osc_arg_index_hint,
             )
-            .filter(move |s| !ignore_sources.contains(s))
+            .filter(move |capture_event: &MessageCaptureEvent| {
+                !ignore_sources
+                    .iter()
+                    .any(|is| is.control(capture_event.result.message()).is_some())
+            })
             // We have this explicit stop criteria because we listen to global REAPER
             // events.
             .take_until(self.party_is_over())
+            // If the user stops learning manually without ever touching the controller.
             .take_until(self.mapping_which_learns_source.changed_to(None))
+            // We listen to just one message!
             .take(1),
         )
         .with(session)
         .finally(|session| session.borrow_mut().mapping_which_learns_source.set(None))
-        .do_async(|session, source| {
-            let session = session.borrow();
-            if let Some(qualified_id) = session.mapping_which_learns_source.get_ref() {
-                if let Some((_, m)) =
-                    session.find_mapping_and_index_by_id(qualified_id.compartment, qualified_id.id)
-                {
-                    m.borrow_mut().source_model.apply_from_source(&source);
+        .do_async(|shared_session, event: MessageCaptureEvent| {
+            let mut session = shared_session.borrow_mut();
+            if let Some(qualified_id) = session.mapping_which_learns_source.get() {
+                if let Some(source) = session.create_compound_source(event) {
+                    session
+                        .change_mapping_by_id_with_closure(
+                            qualified_id,
+                            None,
+                            Rc::downgrade(&shared_session),
+                            |ctx| Ok(ctx.mapping.source_model.apply_from_source(&source)),
+                        )
+                        .unwrap();
                 }
             }
         });
@@ -1258,7 +1610,9 @@ impl Session {
             session.mapping_which_learns_target.set(None);
         })
         .do_async(|session, target| {
-            session.borrow_mut().learn_target(target.as_ref());
+            session
+                .borrow_mut()
+                .learn_target(target.as_ref(), Rc::downgrade(&session));
         });
     }
 
@@ -1295,11 +1649,11 @@ impl Session {
         let mappings = &self.mappings[compartment];
         let total_mapping_count = mappings.len();
         let result_index = if within_same_group {
-            let group_id = mapping.borrow().group_id.get();
+            let group_id = mapping.borrow().group_id();
             let mut i = index as isize + increment;
             while i >= 0 && i < total_mapping_count as isize {
                 let m = &mappings[i as usize];
-                if m.borrow().group_id.get() == group_id {
+                if m.borrow().group_id() == group_id {
                     break;
                 }
                 i += increment;
@@ -1407,111 +1761,122 @@ impl Session {
         self.active_controller_preset_id.as_deref()
     }
 
-    pub fn active_main_preset_id(&self) -> Option<&str> {
-        self.active_main_preset_id.as_deref()
+    pub fn active_preset_id(&self, compartment: MappingCompartment) -> Option<&str> {
+        let id = match compartment {
+            MappingCompartment::ControllerMappings => &self.active_controller_preset_id,
+            MappingCompartment::MainMappings => &self.active_main_preset_id,
+        };
+        id.as_deref()
     }
 
-    pub fn active_controller(&self) -> Option<ControllerPreset> {
-        let id = self.active_controller_preset_id()?;
+    pub fn active_controller_preset(&self) -> Option<ControllerPreset> {
+        let id = self.active_preset_id(MappingCompartment::ControllerMappings)?;
         self.controller_preset_manager.find_by_id(id)
     }
 
     pub fn active_main_preset(&self) -> Option<MainPreset> {
-        let id = self.active_main_preset_id()?;
+        let id = self.active_preset_id(MappingCompartment::MainMappings)?;
         self.main_preset_manager.find_by_id(id)
     }
 
-    pub fn controller_preset_is_out_of_date(&self) -> bool {
-        let compartment = MappingCompartment::ControllerMappings;
-        let id = match &self.active_controller_preset_id {
-            None => return self.mapping_count(compartment) > 0,
-            Some(id) => id,
-        };
-        self.controller_preset_manager
-            .mappings_are_dirty(id, &self.mappings[compartment])
-            || self.controller_preset_manager.groups_are_dirty(
-                id,
-                &self.default_group(compartment),
-                &self.groups[compartment],
-            )
-            || self.controller_preset_manager.parameter_settings_are_dirty(
-                id,
-                &self.non_default_parameter_settings_by_compartment(compartment),
-            )
+    /// Returns `true` if the preset has unsaved changes (if a preset is active) or if at least one
+    /// mapping or group exists (if no preset is active).
+    pub fn compartment_or_preset_is_dirty(&self, compartment: MappingCompartment) -> bool {
+        if self.active_preset_id(compartment).is_some() {
+            // Preset active.
+            self.compartment_is_dirty[compartment].get()
+        } else {
+            // No preset active.
+            !self.mappings[compartment].is_empty() || !self.groups[compartment].is_empty()
+        }
     }
 
-    pub fn main_preset_is_out_of_date(&self) -> bool {
-        let compartment = MappingCompartment::MainMappings;
-        let id = match &self.active_main_preset_id {
-            None => {
-                return self.mapping_count(compartment) > 0 || !self.groups.is_empty();
-            }
-            Some(id) => id,
-        };
-        self.main_preset_manager
-            .mappings_are_dirty(id, &self.mappings[compartment])
-            || self.main_preset_manager.groups_are_dirty(
-                id,
-                &self.default_main_group,
-                &self.groups[compartment],
-            )
-            || self.main_preset_manager.parameter_settings_are_dirty(
-                id,
-                &self.non_default_parameter_settings_by_compartment(compartment),
-            )
-    }
-
-    pub fn activate_controller_preset(
-        &mut self,
-        id: Option<String>,
-        weak_session: WeakSession,
-    ) -> Result<(), &'static str> {
-        // TODO-medium The code duplication with main mappings is terrible.
+    pub fn activate_controller_preset(&mut self, id: Option<String>) -> Result<(), &'static str> {
         let compartment = MappingCompartment::ControllerMappings;
-        self.active_controller_preset_id = id.clone();
-        if let Some(id) = id.as_ref() {
+        let model = if let Some(id) = id.as_ref() {
             let preset = self
                 .controller_preset_manager
                 .find_by_id(id)
                 .ok_or("controller preset not found")?;
-            self.default_controller_group
-                .replace(preset.default_group().clone());
-            self.set_groups_without_notification(compartment, preset.groups().iter().cloned());
-            self.set_mappings_without_notification(compartment, preset.mappings().iter().cloned());
-            self.set_parameter_settings_from_non_default(compartment, preset.parameters());
+            Some(preset.data().clone())
         } else {
             // <None> preset
-            self.clear_compartment_data(compartment);
+            None
         };
-        self.reset_parameters(compartment);
-        self.notify_everything_has_changed(weak_session);
+        self.active_controller_preset_id = id;
+        self.replace_compartment(compartment, model);
+        self.compartment_is_dirty[compartment].set(false);
         Ok(())
     }
 
-    pub fn activate_main_preset(
-        &mut self,
-        id: Option<String>,
-        weak_session: WeakSession,
-    ) -> Result<(), &'static str> {
+    pub fn activate_main_preset(&mut self, id: Option<String>) -> Result<(), &'static str> {
         let compartment = MappingCompartment::MainMappings;
-        self.active_main_preset_id = id.clone();
-        if let Some(id) = id.as_ref() {
+        let model = if let Some(id) = id.as_ref() {
             let preset = self
                 .main_preset_manager
                 .find_by_id(id)
                 .ok_or("main preset not found")?;
-            self.default_main_group
-                .replace(preset.default_group().clone());
-            self.set_groups_without_notification(compartment, preset.groups().iter().cloned());
-            self.set_mappings_without_notification(compartment, preset.mappings().iter().cloned());
-            self.set_parameter_settings_from_non_default(compartment, preset.parameters());
+            Some(preset.data().clone())
         } else {
             // <None> preset
+            None
+        };
+        self.active_main_preset_id = id;
+        self.replace_compartment(compartment, model);
+        self.compartment_is_dirty[compartment].set(false);
+        Ok(())
+    }
+
+    pub fn extract_compartment_model(&self, compartment: MappingCompartment) -> CompartmentModel {
+        CompartmentModel {
+            parameters: self
+                .state
+                .borrow()
+                .non_default_parameter_settings_by_compartment(compartment),
+            default_group: self.default_group(compartment).borrow().clone(),
+            groups: self
+                .groups(compartment)
+                .map(|ptr| ptr.borrow().clone())
+                .collect(),
+            mappings: self
+                .mappings(compartment)
+                .map(|ptr| ptr.borrow().clone())
+                .collect(),
+        }
+    }
+
+    /// Precondition: The given compartment model should be valid (e.g. no duplicate IDs)!
+    pub fn import_compartment(
+        &mut self,
+        compartment: MappingCompartment,
+        model: Option<CompartmentModel>,
+    ) {
+        self.replace_compartment(compartment, model);
+        self.mark_compartment_dirty(compartment);
+    }
+
+    /// Precondition: The given compartment model should be valid (e.g. no duplicate IDs)!
+    fn replace_compartment(
+        &mut self,
+        compartment: MappingCompartment,
+        model: Option<CompartmentModel>,
+    ) {
+        if let Some(model) = model {
+            let default_group = match compartment {
+                MappingCompartment::MainMappings => &mut self.default_main_group,
+                MappingCompartment::ControllerMappings => &mut self.default_controller_group,
+            };
+            default_group.replace(model.default_group);
+            self.set_groups_without_notification(compartment, model.groups.into_iter());
+            self.set_mappings_without_notification(compartment, model.mappings);
+            self.state
+                .borrow_mut()
+                .set_parameter_settings_from_non_default(compartment, model.parameters);
+        } else {
             self.clear_compartment_data(compartment);
         }
         self.reset_parameters(compartment);
-        self.notify_everything_has_changed(weak_session);
-        Ok(())
+        self.notify_everything_has_changed();
     }
 
     fn reset_parameters(&self, compartment: MappingCompartment) {
@@ -1528,10 +1893,29 @@ impl Session {
             .replace(GroupModel::default_for_compartment(compartment));
         self.set_groups_without_notification(compartment, std::iter::empty());
         self.set_mappings_without_notification(compartment, std::iter::empty());
-        self.set_parameter_settings_without_notification(compartment, empty_parameter_settings());
+        self.state
+            .borrow_mut()
+            .set_parameter_settings_without_notification(compartment, empty_parameter_settings());
     }
 
-    fn containing_fx_enabled_or_disabled(&self) -> impl UnitEvent {
+    pub fn state(&self) -> &SharedSessionState {
+        &self.state
+    }
+
+    pub fn set_parameter_settings(
+        &mut self,
+        compartment: MappingCompartment,
+        settings: impl Iterator<Item = (u32, ParameterSetting)>,
+    ) {
+        self.state
+            .borrow_mut()
+            .set_parameter_settings_without_notification_from_iter(compartment, settings);
+        self.notify_parameter_settings_changed(compartment);
+    }
+
+    fn containing_fx_enabled_or_disabled(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         let containing_fx = self.context.containing_fx().clone();
         Global::control_surface_rx()
             .fx_enabled_changed()
@@ -1539,7 +1923,7 @@ impl Session {
             .map_to(())
     }
 
-    fn containing_track_armed_or_disarmed(&self) -> BoxedUnitEvent {
+    fn containing_track_armed_or_disarmed(&self) -> LocalBoxOp<'static, (), ()> {
         if let Some(track) = self.context.containing_fx().track().cloned() {
             Global::control_surface_rx()
                 .track_arm_changed()
@@ -1554,7 +1938,9 @@ impl Session {
     /// Fires if everything has changed. Supposed to be used by UI, should rerender everything.
     ///
     /// The session itself shouldn't subscribe to this.
-    pub fn everything_changed(&self) -> impl UnitEvent {
+    pub fn everything_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.everything_changed_subject.clone()
     }
 
@@ -1563,56 +1949,39 @@ impl Session {
     /// Doesn't fire if a mapping in the list or if the complete list has changed.
     pub fn mapping_list_changed(
         &self,
-    ) -> impl SharedItemEvent<(MappingCompartment, Option<MappingId>)> {
+    ) -> impl LocalObservable<'static, Item = (MappingCompartment, Option<MappingId>), Err = ()> + 'static
+    {
         self.mapping_list_changed_subject.clone()
     }
 
     /// Fires when a group has been added or removed.
     ///
     /// Doesn't fire if a group in the list or if the complete list has changed.
-    pub fn group_list_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
+    pub fn group_list_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = MappingCompartment, Err = ()> + 'static {
         self.group_list_changed_subject.clone()
     }
 
-    pub fn parameter_settings_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
+    /// Fires when a parameter setting has been changed.
+    pub fn parameter_settings_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = MappingCompartment, Err = ()> + 'static {
         self.parameter_settings_changed_subject.clone()
-    }
-
-    /// Fires if a group itself has been changed.
-    pub fn group_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
-        self.group_changed_subject.clone()
-    }
-
-    /// Fires if a mapping itself has been changed.
-    pub fn mapping_changed(&self) -> impl SharedItemEvent<MappingCompartment> {
-        self.mapping_changed_subject.clone()
     }
 
     pub fn set_mappings_without_notification(
         &mut self,
         compartment: MappingCompartment,
-        mappings: impl Iterator<Item = MappingModel>,
+        mappings: impl IntoIterator<Item = MappingModel>,
     ) {
-        // If we import JSON from clipboard, we might stumble upon duplicate mapping IDs. Fix those!
-        // This is a feature for power users.
-        let mut used_ids = HashSet::new();
-        let fixed_mappings: Vec<_> = mappings
-            .map(|mut m| {
-                if used_ids.contains(&m.id()) {
-                    m.set_id_without_notification(MappingId::random());
-                } else {
-                    used_ids.insert(m.id());
-                }
-                m
-            })
-            .collect();
-        self.mappings[compartment] = fixed_mappings.into_iter().map(share_mapping).collect();
+        self.mappings[compartment] = mappings.into_iter().map(share_mapping).collect();
     }
 
     pub fn set_groups_without_notification(
         &mut self,
         compartment: MappingCompartment,
-        groups: impl Iterator<Item = GroupModel>,
+        groups: impl IntoIterator<Item = GroupModel>,
     ) {
         self.groups[compartment] = groups.into_iter().map(share_group).collect();
     }
@@ -1645,12 +2014,31 @@ impl Session {
             .unwrap();
     }
 
-    pub fn mapping_is_on(&self, id: MappingId) -> bool {
-        self.on_mappings.get_ref().contains(&id)
+    pub fn log_mapping(
+        &self,
+        compartment: MappingCompartment,
+        mapping_id: MappingId,
+    ) -> Result<(), &'static str> {
+        let (_, mapping) = self
+            .find_mapping_and_index_by_id(compartment, mapping_id)
+            .ok_or("mapping not found")?;
+        debug!(
+            self.logger,
+            "MappingModel struct size: {}",
+            std::mem::size_of::<MappingModel>()
+        );
+        debug!(self.logger, "{:?}", mapping);
+        self.normal_main_task_sender
+            .try_send(NormalMainTask::LogMapping(compartment, mapping_id))
+            .unwrap();
+        self.normal_real_time_task_sender
+            .send(NormalRealTimeTask::LogMapping(compartment, mapping_id))
+            .unwrap();
+        Ok(())
     }
 
-    pub fn on_mappings_changed(&self) -> impl UnitEvent {
-        self.on_mappings.changed()
+    pub fn mapping_is_on(&self, id: QualifiedMappingId) -> bool {
+        self.instance_state.borrow().mapping_is_on(id)
     }
 
     fn log_debug_info_internal(&self) {
@@ -1679,7 +2067,8 @@ impl Session {
         );
         Reaper::get().show_console_msg(msg);
         // Detailled
-        println!(
+        trace!(
+            self.logger,
             "\n\
             # Session\n\
             \n\
@@ -1714,9 +2103,21 @@ impl Session {
                     GroupId::default(),
                     VirtualControlElementType::Multi,
                 );
-                m.borrow_mut()
-                    .target_model
-                    .apply_from_target(target, &self.context);
+                {
+                    let mut mapping = m.borrow_mut();
+                    self.change_target_with_closure(
+                        &mut mapping,
+                        None,
+                        Rc::downgrade(session),
+                        |ctx| {
+                            ctx.mapping.target_model.apply_from_target(
+                                target,
+                                ctx.extended_context,
+                                compartment,
+                            )
+                        },
+                    );
+                }
                 m
             }
             Some(m) => m.clone(),
@@ -1727,6 +2128,19 @@ impl Session {
 
     pub fn show_mapping(&self, compartment: MappingCompartment, mapping_id: MappingId) {
         self.ui.show_mapping(compartment, mapping_id);
+    }
+
+    /// Makes the main processor send feedback to the given sender instead of the configured
+    /// feedback output.
+    ///
+    /// Good for checking produced feedback when doing integration testing.
+    pub fn use_integration_test_feedback_sender(
+        &self,
+        sender: crossbeam_channel::Sender<SourceFeedbackValue>,
+    ) {
+        self.normal_main_task_sender
+            .try_send(NormalMainTask::UseIntegrationTestFeedbackSender(sender))
+            .unwrap();
     }
 
     /// Notifies listeners async that something in a mapping list has changed.
@@ -1752,16 +2166,6 @@ impl Session {
 
     fn notify_parameter_settings_changed(&mut self, compartment: MappingCompartment) {
         AsyncNotifier::notify(&mut self.parameter_settings_changed_subject, &compartment);
-    }
-
-    /// Notifies listeners async a group in the group list has changed.
-    fn notify_group_changed(&mut self, compartment: MappingCompartment) {
-        AsyncNotifier::notify(&mut self.group_changed_subject, &compartment);
-    }
-
-    /// Notifies listeners async a mapping in a mapping list has changed.
-    fn notify_mapping_changed(&mut self, compartment: MappingCompartment) {
-        AsyncNotifier::notify(&mut self.mapping_changed_subject, &compartment);
     }
 
     fn sync_upper_floor_membership(&self) {
@@ -1797,6 +2201,8 @@ impl Session {
         let task = NormalMainTask::UpdateSettings {
             control_input: self.control_input(),
             feedback_output: self.feedback_output(),
+            input_logging_enabled: self.input_logging_enabled.get(),
+            output_logging_enabled: self.output_logging_enabled.get(),
         };
         self.normal_main_task_sender.try_send(task).unwrap();
         let task = NormalRealTimeTask::UpdateSettings {
@@ -1804,26 +2210,34 @@ impl Session {
             let_unmatched_events_through: self.let_unmatched_events_through.get(),
             midi_control_input: self.midi_control_input.get(),
             midi_feedback_output: self.midi_feedback_output.get(),
+            input_logging_enabled: self.input_logging_enabled.get(),
+            output_logging_enabled: self.output_logging_enabled.get(),
         };
         self.normal_real_time_task_sender.send(task).unwrap();
     }
 
-    fn sync_single_mapping_to_processors(&self, compartment: MappingCompartment, m: &MappingModel) {
+    fn sync_persistent_mapping_processing_state(&self, mapping: &MappingModel) {
+        self.normal_main_task_sender
+            .try_send(NormalMainTask::UpdatePersistentMappingProcessingState {
+                id: mapping.qualified_id(),
+                state: mapping.create_persistent_mapping_processing_state(),
+            })
+            .unwrap();
+    }
+
+    fn sync_single_mapping_to_processors(&self, m: &MappingModel) {
         let group_data = self
             .find_group_of_mapping(m)
             .map(|g| g.borrow().create_data())
             .unwrap_or_default();
         let main_mapping = m.create_main_mapping(group_data);
         self.normal_main_task_sender
-            .try_send(NormalMainTask::UpdateSingleMapping(
-                compartment,
-                Box::new(main_mapping),
-            ))
+            .try_send(NormalMainTask::UpdateSingleMapping(Box::new(main_mapping)))
             .unwrap();
     }
 
     fn find_group_of_mapping(&self, mapping: &MappingModel) -> Option<&SharedGroup> {
-        let group_id = mapping.group_id.get();
+        let group_id = mapping.group_id();
         if group_id.is_default() {
             let group = match mapping.compartment() {
                 MappingCompartment::ControllerMappings => &self.default_controller_group,
@@ -1853,10 +2267,6 @@ impl Session {
             None => true,
             Some(t) => t.is_available() && t.is_armed(false),
         }
-    }
-
-    pub fn parameters(&self) -> &ParameterArray {
-        &self.parameters
     }
 
     /// Just syncs whether control globally enabled or not.
@@ -1911,7 +2321,7 @@ impl Session {
             .map(|mapping| {
                 let mapping = mapping.borrow();
                 let group_data = group_map
-                    .get(mapping.group_id.get_ref())
+                    .get(&mapping.group_id())
                     .map(|g| g.create_data())
                     .unwrap_or_default();
                 mapping.create_main_mapping(group_data)
@@ -1923,14 +2333,21 @@ impl Session {
         format!("{}", self.mappings[compartment].len() + 1)
     }
 
-    fn party_is_over(&self) -> impl UnitEvent {
+    fn party_is_over(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.party_is_over_subject.clone()
     }
 
     /// Shouldn't be called on load (project load, undo, redo, preset change).
-    pub fn mark_project_as_dirty(&self) {
-        debug!(self.logger, "Marking project as dirty");
-        self.context.project_or_current_project().mark_as_dirty();
+    pub fn mark_compartment_dirty(&mut self, compartment: MappingCompartment) {
+        debug!(self.logger, "Marking compartment as dirty");
+        self.compartment_is_dirty[compartment].set(true);
+        self.mark_dirty();
+    }
+
+    /// Shouldn't be called on load (project load, undo, redo, preset change).
+    pub fn mark_dirty(&self) {
+        debug!(self.logger, "Marking session as dirty");
+        self.context.notify_dirty();
     }
 
     pub fn logger(&self) -> &slog::Logger {
@@ -1941,8 +2358,8 @@ impl Session {
     ///
     /// Explicitly doesn't mark the project as dirty - because this is also used when loading data
     /// (project load, undo, redo, preset change).
-    pub fn notify_everything_has_changed(&mut self, weak_session: WeakSession) {
-        self.full_sync(weak_session);
+    pub fn notify_everything_has_changed(&mut self) {
+        self.full_sync();
         // For UI
         AsyncNotifier::notify(&mut self.everything_changed_subject, &());
     }
@@ -1951,13 +2368,23 @@ impl Session {
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParameterSetting {
-    #[serde(rename = "name", default, skip_serializing_if = "is_default")]
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub key: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub name: String,
 }
 
 impl ParameterSetting {
     pub fn is_default(&self) -> bool {
         self.name.is_empty()
+    }
+
+    pub fn key_matches(&self, key: &str) -> bool {
+        if let Some(k) = self.key.as_ref() {
+            k == key
+        } else {
+            false
+        }
     }
 }
 
@@ -1973,23 +2400,29 @@ impl DomainEventHandler for WeakSession {
         let session = self.upgrade().expect("session not existing anymore");
         use DomainEvent::*;
         match event {
-            LearnedSource {
-                source,
-                allow_virtual_sources,
-            } => {
-                session
-                    .borrow_mut()
-                    .learn_source(source, allow_virtual_sources);
+            CapturedIncomingMessage(event) => {
+                session.borrow_mut().captured_incoming_message(event);
             }
             UpdatedOnMappings(on_mappings) => {
-                session.borrow_mut().on_mappings.set(on_mappings);
+                session
+                    .borrow()
+                    .instance_state
+                    .borrow_mut()
+                    .set_on_mappings(on_mappings);
+            }
+            UpdatedSingleMappingOnState(event) => {
+                session
+                    .borrow()
+                    .instance_state
+                    .borrow_mut()
+                    .set_mapping_on(event.id, event.is_on);
             }
             TargetValueChanged(e) => {
                 // If the session is borrowed already, just let it be. It happens only in a very
                 // particular case of reentrancy (because of a quirk in REAPER related to master
                 // tempo notification, https://github.com/helgoboss/realearn/issues/199). If the
                 // target value slider is not updated then ... so what.
-                if let Ok(s) = session.try_borrow_mut() {
+                if let Ok(s) = session.try_borrow() {
                     s.ui.target_value_changed(e);
                 }
             }
@@ -2004,11 +2437,26 @@ impl DomainEventHandler for WeakSession {
                 session.ui.parameters_changed(&session);
             }
             FullResyncRequested => {
-                session.borrow_mut().full_sync(self.clone());
+                session.borrow_mut().full_sync();
             }
             ProjectionFeedback(value) => {
                 if let Ok(s) = session.try_borrow() {
                     s.ui.send_projection_feedback(&s, value);
+                }
+            }
+            MappingMatched(event) => {
+                if let Ok(s) = session.try_borrow() {
+                    s.ui.mapping_matched(event);
+                }
+            }
+            MappingEnabledChangeRequested(event) => {
+                if let Ok(mut s) = session.try_borrow_mut() {
+                    let id = QualifiedMappingId::new(event.compartment, event.mapping_id);
+                    s.change_mapping_from_session(
+                        id,
+                        MappingCommand::SetIsEnabled(event.is_enabled),
+                        self.clone(),
+                    );
                 }
             }
         }
@@ -2064,16 +2512,48 @@ pub type SharedSession = Rc<RefCell<Session>>;
 /// sessions.
 pub type WeakSession = Weak<RefCell<Session>>;
 
-pub enum InputDescriptor {
-    Midi {
-        device_id: MidiInputDeviceId,
-        channel: Option<Channel>,
-    },
-    Osc {
-        device_id: OscDeviceId,
-    },
+fn mappings_have_project_references<'a>(
+    mut mappings: impl Iterator<Item = &'a SharedMapping>,
+) -> bool {
+    mappings.any(mapping_has_project_references)
 }
 
-pub fn empty_parameter_settings() -> Vec<ParameterSetting> {
-    vec![Default::default(); COMPARTMENT_PARAMETER_COUNT as usize]
+/// Checks if the given mapping has references to a project, e.g. refers to track or FX by ID.
+fn mapping_has_project_references(mapping: &SharedMapping) -> bool {
+    let mapping = mapping.borrow();
+    let target = &mapping.target_model;
+    match target.category() {
+        TargetCategory::Reaper => {
+            if target.target_type().supports_track() && target.track_type().refers_to_project() {
+                return true;
+            }
+            target.supports_fx() && target.fx_type().refers_to_project()
+        }
+        TargetCategory::Virtual => false,
+    }
+}
+
+pub fn reaper_supports_global_midi_filter() -> bool {
+    let v = Reaper::get().version().to_string();
+    let v_without_arch = v.split('/').next().unwrap();
+    v_without_arch >= "6.35+dev0831"
+}
+
+pub enum SessionCommand {
+    ChangeCompartment(MappingCompartment, CompartmentCommand),
+    AdjustMappingModeIfNecessary(QualifiedMappingId),
+}
+
+pub enum SessionProp {
+    InCompartment(MappingCompartment, Affected<CompartmentProp>),
+}
+
+pub struct CompartmentInSession<'a> {
+    pub session: &'a Session,
+    pub compartment: MappingCompartment,
+}
+
+pub struct MappingChangeContext<'a> {
+    pub mapping: &'a mut MappingModel,
+    pub extended_context: ExtendedProcessorContext<'a>,
 }

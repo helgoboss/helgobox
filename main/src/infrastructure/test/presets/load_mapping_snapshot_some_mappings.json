@@ -1,0 +1,99 @@
+{
+  "version": "2.11.0-pre.1",
+  "id": "I3iqzlfV",
+  "letMatchedEventsThrough": true,
+  "controlDeviceId": "62",
+  "feedbackDeviceId": "fx-output",
+  "defaultGroup": {},
+  "groups": [
+    {
+      "id": "c81ea0ea-c0fd-49ca-a6c2-abf4f3179da9",
+      "name": "Snapshotting"
+    },
+    {
+      "id": "c9b3e9f8-a794-4ccf-9b56-2a0ee88201b4",
+      "name": "Other"
+    }
+  ],
+  "defaultControllerGroup": {},
+  "mappings": [
+    {
+      "id": "134104a5-8eb1-4a07-b8a9-b65d0a8f74d3",
+      "name": "Vol",
+      "tags": [
+        "load"
+      ],
+      "groupId": "c81ea0ea-c0fd-49ca-a6c2-abf4f3179da9",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 64
+      },
+      "mode": {},
+      "target": {
+        "type": 2,
+        "fxAnchor": "id",
+        "soloBehavior": 1
+      }
+    },
+    {
+      "id": "6c5dbdc3-afdf-44b1-88ae-8155080c619d",
+      "name": "Pan",
+      "groupId": "c81ea0ea-c0fd-49ca-a6c2-abf4f3179da9",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 63
+      },
+      "mode": {},
+      "target": {
+        "type": 4,
+        "fxAnchor": "id",
+        "soloBehavior": 1
+      }
+    },
+    {
+      "id": "377ae3e2-a738-422a-b279-92269b1960e9",
+      "name": "Mute",
+      "tags": [
+        "load"
+      ],
+      "groupId": "c9b3e9f8-a794-4ccf-9b56-2a0ee88201b4",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 62
+      },
+      "mode": {},
+      "target": {
+        "type": 7,
+        "fxAnchor": "id",
+        "soloBehavior": 1
+      }
+    },
+    {
+      "id": "e7ac80b3-845e-49be-8998-b9a1d91ddd27",
+      "name": "Load snapshot",
+      "groupId": "c81ea0ea-c0fd-49ca-a6c2-abf4f3179da9",
+      "source": {
+        "type": 1,
+        "channel": 0,
+        "number": 65
+      },
+      "mode": {
+        "maxStepSize": 0.05
+      },
+      "target": {
+        "type": 35,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "oscArgIndex": 0,
+        "tags": [
+          "load"
+        ]
+      }
+    }
+  ]
+}

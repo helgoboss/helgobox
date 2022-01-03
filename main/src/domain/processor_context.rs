@@ -1,31 +1,49 @@
-use crate::domain::ParameterArray;
+use crate::domain::{ControlContext, ParameterArray};
+use derivative::Derivative;
 use reaper_high::{Fx, FxChain, FxChainContext, Project, Reaper, Track};
 use reaper_medium::TypeSpecificPluginContext;
 use std::ptr::NonNull;
+use vst::host::Host;
 use vst::plugin::HostCallback;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ExtendedProcessorContext<'a> {
-    context: &'a ProcessorContext,
-    params: &'a ParameterArray,
+    pub context: &'a ProcessorContext,
+    pub params: &'a ParameterArray,
+    pub control_context: ControlContext<'a>,
 }
 
 impl<'a> ExtendedProcessorContext<'a> {
-    pub fn new(context: &'a ProcessorContext, params: &'a ParameterArray) -> Self {
-        Self { context, params }
+    pub fn new(
+        context: &'a ProcessorContext,
+        params: &'a ParameterArray,
+        control_context: ControlContext<'a>,
+    ) -> Self {
+        Self {
+            context,
+            params,
+            control_context,
+        }
     }
 
     pub fn context(&self) -> &'a ProcessorContext {
-        &self.context
+        self.context
     }
 
     pub fn params(&self) -> &'a ParameterArray {
-        &self.params
+        self.params
+    }
+
+    pub fn control_context(&self) -> ControlContext {
+        self.control_context
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct ProcessorContext {
+    #[derivative(Debug = "ignore")]
+    host: HostCallback,
     containing_fx: Fx,
     project: Option<Project>,
 }
@@ -33,10 +51,11 @@ pub struct ProcessorContext {
 pub const WAITING_FOR_SESSION_PARAM_NAME: &str = "realearn/waiting-for-session";
 
 impl ProcessorContext {
-    pub fn from_host(host: &HostCallback) -> Result<ProcessorContext, &'static str> {
-        let fx = get_containing_fx(host)?;
+    pub fn from_host(host: HostCallback) -> Result<ProcessorContext, &'static str> {
+        let fx = get_containing_fx(&host)?;
         let project = fx.project();
         let context = ProcessorContext {
+            host,
             containing_fx: fx,
             project,
         };
@@ -66,6 +85,10 @@ impl ProcessorContext {
             self.containing_fx.chain().context(),
             FxChainContext::Monitoring
         )
+    }
+
+    pub fn notify_dirty(&self) {
+        self.host.automate(-1, 0.0);
     }
 }
 

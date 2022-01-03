@@ -1,4 +1,8 @@
+use crate::domain::Tag;
+use itertools::Itertools;
 use reaper_high::Reaper;
+use std::fmt::Display;
+use std::str::FromStr;
 use swell_ui::{DialogUnits, Dimensions, Window};
 
 /// The optimal size of the main panel in dialog units.
@@ -6,10 +10,33 @@ pub const MAIN_PANEL_DIMENSIONS: Dimensions<DialogUnits> =
     Dimensions::new(DialogUnits(470), DialogUnits(447));
 
 pub mod symbols {
+    pub fn indicator_symbol() -> &'static str {
+        #[cfg(target_os = "windows")]
+        {
+            if pretty_symbols_are_supported() {
+                "●"
+            } else {
+                "*"
+            }
+        }
+        #[cfg(target_os = "macos")]
+        {
+            "●"
+        }
+        #[cfg(target_os = "linux")]
+        {
+            "*"
+        }
+    }
+
     pub fn arrow_up_symbol() -> &'static str {
         #[cfg(target_os = "windows")]
         {
-            if arrows_are_supported() { "🡹" } else { "Up" }
+            if pretty_symbols_are_supported() {
+                "🡹"
+            } else {
+                "Up"
+            }
         }
         #[cfg(target_os = "macos")]
         {
@@ -24,7 +51,7 @@ pub mod symbols {
     pub fn arrow_down_symbol() -> &'static str {
         #[cfg(target_os = "windows")]
         {
-            if arrows_are_supported() {
+            if pretty_symbols_are_supported() {
                 "🡻"
             } else {
                 "Down"
@@ -43,7 +70,11 @@ pub mod symbols {
     pub fn arrow_left_symbol() -> &'static str {
         #[cfg(target_os = "windows")]
         {
-            if arrows_are_supported() { "🡸" } else { "<=" }
+            if pretty_symbols_are_supported() {
+                "🡸"
+            } else {
+                "<="
+            }
         }
         #[cfg(target_os = "macos")]
         {
@@ -58,7 +89,11 @@ pub mod symbols {
     pub fn arrow_right_symbol() -> &'static str {
         #[cfg(target_os = "windows")]
         {
-            if arrows_are_supported() { "🡺" } else { "=>" }
+            if pretty_symbols_are_supported() {
+                "🡺"
+            } else {
+                "=>"
+            }
         }
         #[cfg(target_os = "macos")]
         {
@@ -71,7 +106,7 @@ pub mod symbols {
     }
 
     #[cfg(target_os = "windows")]
-    fn arrows_are_supported() -> bool {
+    fn pretty_symbols_are_supported() -> bool {
         use once_cell::sync::Lazy;
         static SOMETHING_LIKE_WINDOWS_10: Lazy<bool> = Lazy::new(|| {
             let win_version = if let Ok(v) = sys_info::os_release() {
@@ -155,4 +190,18 @@ pub fn open_in_text_editor(
             .alert("ReaLearn", format!("Couldn't obtain text:\n\n{}", msg));
         "couldn't obtain text"
     })
+}
+
+pub fn parse_tags_from_csv(text: &str) -> Vec<Tag> {
+    text.split(',')
+        .filter_map(|item| Tag::from_str(item).ok())
+        .collect()
+}
+
+pub fn format_tags_as_csv<'a>(tags: impl IntoIterator<Item = &'a Tag>) -> String {
+    format_as_csv(tags)
+}
+
+fn format_as_csv(iter: impl IntoIterator<Item = impl Display>) -> String {
+    iter.into_iter().join(", ")
 }

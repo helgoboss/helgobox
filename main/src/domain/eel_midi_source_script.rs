@@ -1,5 +1,5 @@
-use crate::core::eel;
-use helgoboss_learn::{MidiSourceScript, RawMidiEvent, UnitValue};
+use crate::base::eel;
+use helgoboss_learn::{AbsoluteValue, MidiSourceScript, RawMidiEvent};
 
 use std::sync::Arc;
 
@@ -40,9 +40,13 @@ impl EelMidiSourceScript {
 }
 
 impl MidiSourceScript for EelMidiSourceScript {
-    fn execute(&self, input_value: UnitValue) -> Result<Box<RawMidiEvent>, &'static str> {
+    fn execute(&self, input_value: AbsoluteValue) -> Result<Vec<RawMidiEvent>, &'static str> {
+        let y_value = match input_value {
+            AbsoluteValue::Continuous(v) => v.get(),
+            AbsoluteValue::Discrete(f) => f.actual() as f64,
+        };
         let slice = unsafe {
-            self.eel_unit.y.set(input_value.get());
+            self.eel_unit.y.set(y_value);
             self.eel_unit.msg_size.set(0.0);
             self.eel_unit.program.execute();
             let msg_size = self.eel_unit.msg_size.get().round() as i32;
@@ -61,6 +65,6 @@ impl MidiSourceScript for EelMidiSourceScript {
             i += 1;
         }
         let raw_midi_event = RawMidiEvent::new(0, i, array);
-        Ok(Box::new(raw_midi_event))
+        Ok(vec![raw_midi_event])
     }
 }

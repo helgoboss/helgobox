@@ -1,4 +1,3 @@
-use crate::SharedEvent;
 use rxrust::prelude::*;
 use std::fmt;
 use std::marker::PhantomData;
@@ -42,8 +41,8 @@ where
     // what properties are all about!
     T: PartialEq + Clone,
     I: Copy,
-    S: Observer<Option<I>, ()> + Default,
-    S2: Observer<T, ()> + Default,
+    S: Observer<Item = Option<I>, Err = ()> + Default,
+    S2: Observer<Item = T, Err = ()> + Default,
     N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
@@ -56,7 +55,7 @@ where
 
 pub trait Notifier {
     type T;
-    type Subject: Observer<Self::T, ()>;
+    type Subject: Observer<Item = Self::T, Err = ()>;
 
     fn notify(subject: &mut Self::Subject, value: &Self::T);
 }
@@ -79,8 +78,8 @@ impl<T, I, S, S2, N, N2> Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone,
     I: Copy,
-    S: Observer<Option<I>, ()> + Default,
-    S2: Observer<T, ()> + Default,
+    S: Observer<Item = Option<I>, Err = ()> + Default,
+    S2: Observer<Item = T, Err = ()> + Default,
     N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
@@ -138,6 +137,10 @@ where
             return;
         }
         self.value = transformed_value;
+        self.notify(initiator);
+    }
+
+    fn notify(&mut self, initiator: Option<I>) {
         N::notify(&mut self.subject, &initiator);
         N2::notify(&mut self.value_subject, &self.value);
     }
@@ -153,6 +156,19 @@ where
     pub fn set_with_optional_notification(&mut self, value: T, with_notification: bool) {
         if with_notification {
             self.set(value);
+        } else {
+            self.set_without_notification(value);
+        }
+    }
+
+    pub fn set_with_optional_notification_and_initiator(
+        &mut self,
+        value: T,
+        with_notification: bool,
+        initiator: Option<I>,
+    ) {
+        if with_notification {
+            self.set_with_initiator(value, initiator);
         } else {
             self.set_without_notification(value);
         }
@@ -178,6 +194,12 @@ where
         self.set(value);
     }
 
+    /// Modifies the value in place and notifies listeners.
+    pub fn mut_in_place(&mut self, f: impl Fn(&mut T)) {
+        f(&mut self.value);
+        self.notify(None);
+    }
+
     pub fn set_with_with_initiator(&mut self, f: impl Fn(&T) -> T, initiator: Option<I>) {
         let value = f(&self.value);
         self.internal_set(value, initiator);
@@ -187,7 +209,7 @@ where
 impl<'a, T, I, N, N2> LocalProp<'a, T, I, N, N2>
 where
     T: PartialEq + Clone,
-    I: Copy,
+    I: Copy + 'a,
     N: Notifier<T = Option<I>, Subject = LocalPropSubject<'a, Option<I>>>,
     N2: Notifier<T = T, Subject = LocalPropSubject<'a, T>>,
 {
@@ -233,7 +255,10 @@ where
     N: Notifier<T = Option<I>, Subject = SharedPropSubject<Option<I>>>,
     N2: Notifier<T = T, Subject = SharedPropSubject<T>>,
 {
-    pub fn changed(&self) -> impl SharedEvent<()> {
+    pub fn changed(
+        &self,
+    ) -> impl SharedObservable<Unsub = SharedSubscription, Item = (), Err = ()> + 'static + Send + Sync
+    {
         self.subject.clone().map_to(())
     }
 }
@@ -242,8 +267,8 @@ impl<T, I, S, S2, N, N2> fmt::Debug for Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone + fmt::Debug,
     I: Copy,
-    S: Observer<Option<I>, ()> + Default,
-    S2: Observer<T, ()> + Default,
+    S: Observer<Item = Option<I>, Err = ()> + Default,
+    S2: Observer<Item = T, Err = ()> + Default,
     N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
@@ -258,8 +283,8 @@ impl<T, I, S, S2, N, N2> Clone for Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone,
     I: Copy,
-    S: Observer<Option<I>, ()> + Default,
-    S2: Observer<T, ()> + Default,
+    S: Observer<Item = Option<I>, Err = ()> + Default,
+    S2: Observer<Item = T, Err = ()> + Default,
     N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
@@ -278,8 +303,8 @@ impl<T, I, S, S2, N, N2> Default for Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone + Default,
     I: Copy,
-    S: Observer<Option<I>, ()> + Default,
-    S2: Observer<T, ()> + Default,
+    S: Observer<Item = Option<I>, Err = ()> + Default,
+    S2: Observer<Item = T, Err = ()> + Default,
     N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
@@ -298,8 +323,8 @@ impl<T, I, S, S2, N, N2> From<T> for Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone,
     I: Copy,
-    S: Observer<Option<I>, ()> + Default,
-    S2: Observer<T, ()> + Default,
+    S: Observer<Item = Option<I>, Err = ()> + Default,
+    S2: Observer<Item = T, Err = ()> + Default,
     N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {
@@ -312,8 +337,8 @@ impl<'a, T, I, S, S2, N, N2> PartialEq for Prop<T, I, S, S2, N, N2>
 where
     T: PartialEq + Clone,
     I: Copy,
-    S: Observer<Option<I>, ()> + Default,
-    S2: Observer<T, ()> + Default,
+    S: Observer<Item = Option<I>, Err = ()> + Default,
+    S2: Observer<Item = T, Err = ()> + Default,
     N: Notifier<T = Option<I>, Subject = S>,
     N2: Notifier<T = T, Subject = S2>,
 {

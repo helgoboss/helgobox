@@ -1,37 +1,41 @@
 [package]
 name = "realearn"
-version = "2.9.0-pre.6"
+version = "2.12.0-pre.4"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
 build = "build.rs"
 license = "GPL-3.0"
 
 [features]
-default = ["prometheus"]
+default = ["realearn-meter"]
 
 # Regenerate bindings (for dialog resource IDs and EEL functions)
 generate = []
 
-# Expose metrics endpoint in prometheus format (via projection server)
-prometheus = ["serde_prometheus"]
+# Measure performance and expose metrics endpoint in prometheus format (via projection server)
+realearn-meter = ["reaper-high/reaper-meter", "serde_prometheus"]
 
 [dependencies]
-#reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-#reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-#reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
-#reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
-reaper-rx = { path = "../../reaper-rs/main/rx" }
-reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
-reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
-reaper-low = { path = "../../reaper-rs/main/low" }
+reaper-rx = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+reaper-high = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+reaper-medium = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master", features = ["serde"] }
+reaper-low = { git = "https://github.com/helgoboss/reaper-rs.git", branch = "master" }
+# reaper-rx = { path = "../../reaper-rs/main/rx" }
+# reaper-high = { path = "../../reaper-rs/main/high", features = ["serde"] }
+# reaper-medium= { path = "../../reaper-rs/main/medium", features = ["serde"] }
+# reaper-low = { path = "../../reaper-rs/main/low" }
 swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
-helgoboss-midi = { version = "0.2", features = ["serde", "serde_repr"] }
+realearn-api = { path = "../api" }
+realearn-csi = { path = "../csi" }
+helgoboss-midi = { version = "0.3", features = ["serde", "serde_repr"] }
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency
-helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_repr", "reaper-low"] }
+helgoboss-learn = { path = "lib/helgoboss-learn", features = ["serde", "serde_repr", "serde_with", "reaper-low"] }
+# For being able to (de)serialize using FromStr and Display
+serde_with = "1.6.4"
 c_str_macro = "1.0.2"
 vst = "0.2.1"
-rxrust = { git = "https://github.com/helgoboss/rxRust", branch = "reaper-rs" }
+rxrust = { git = "https://github.com/rxRust/rxRust", rev = "349e50b3197e05926e2378ef8fc45cb67ad43b83" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
 serde_repr = "0.1.5"
@@ -42,15 +46,16 @@ lazycell = "1.2"
 enum-iterator = "0.6.0"
 num_enum = "0.5.0"
 scopeguard = "1.1.0"
-crossbeam-channel = "0.4"
+crossbeam-channel = "0.5"
 uuid = { version = "0.8.1", features = ["v4", "serde"] }
 slog = "2.5.2"
-clipboard = "0.5.0"
+# For interacting with the OS clipboard
+arboard = "2.0.0"
 once_cell = "1.4.0"
-# For deriving Debug even HostCallback doesn't implement it
-wrap-debug = "0.1.1"
+# For being able to exclude fields from the derived Debug implementation
+derivative = "2.2.0"
 chrono = "0.4.11"
-smallvec = "1.4.0"
+smallvec = "1.7.0"
 backtrace = "0.3"
 regex = "1"
 enum-map = "0.6.3"
@@ -58,14 +63,18 @@ enum-map = "0.6.3"
 slug = "0.1.4"
 # For generating random session IDs
 nanoid = "0.3.0"
-# For web server (e.g. for projection)
+# For ReaLearn's servers
 futures = { version = "0.3", default-features = false }
-# Locked to 0.2.22. Did "cargo update" once and a minor update caused server issues. Switching projects (causing removal
-# of last ReaLearn instance and immediate adding of a new one) made the server complain about occupied ports. I think
-# this only happened when "Allow complete unload of VST plug-ins" was NOT ticket in the REAPER preferences.
-# So maybe this can be fixed at our side by forcing a server stop even when just going to sleep (no unload).
-tokio = { version = "= 0.2.22", features = ["rt-core", "rt-threaded", "sync", "macros"] }
-warp = { version = "0.2", features = ["tls"] }
+tokio = { version = "1", features = ["rt", "sync", "macros"] }
+tokio-stream = { version = "0.1.8", features = ["sync"] }
+tower = "0.4"
+# For ReaLearn's http server (used for projection)
+axum = { version = "0.3", features = ["ws", "headers"] }
+axum-server = { version = "0.3", features = ["tls-rustls"] }
+tower-http = { version = "0.1", features = ["cors"] }
+# For ReaLearn's gRPC server
+tonic = "0.5"
+prost = "0.8"
 # For generating projection QR code
 qrcode = { version = "0.11" }
 # For rendering projection QR code to PNG
@@ -88,7 +97,7 @@ runas = "0.2.1"
 # For building URls, e.g. companion web app URL
 url = "2.1.1"
 # For grouping mappings by virtual control elements and grouping outgoing OSC messages by device
-itertools = "0.9"
+itertools = "0.10.1"
 # For being able to configure logging via environment variable RUST_LOG
 env_logger = "0.8.2"
 # We want to forward slog logging to standard logging
@@ -107,12 +116,8 @@ semver = { version = "0.9.0", features = ["serde"] }
 async-channel = "1.5.1"
 # For displaying snapshot sizes
 bytesize = "1.0.1"
-# For checking if an FX has loaded a specific chunk
-seahash = "4.1.0"
 # For OSC
 rosc = "0.5.1"
-# For being able to (de)serialize using FromStr
-serde_with = "1.6.4"
 # For letting the user edit advanced mapping settings
 edit = { git = "https://github.com/helgoboss/edit", branch = "realearn" }
 # For parsing/formatting advanced mapping settings
@@ -129,12 +134,25 @@ maplit = "1.0.2"
 ascii = "1.0"
 # For using bit flags in the reaper-rs API.
 enumflags2 = { version = "^0.6", features = ["not_literal"] }
-# For detecting undesired deallocation in real-time threads.
-assert_no_alloc = "1.1.0"
+# For detecting undesired (de)allocation in real-time threads.
+assert_no_alloc = { git = "https://github.com/Windfisch/rust-assert-no-alloc.git", branch = "master" }
 # For making the patch in the root Cargo.toml work also after running `cargo update`.
 webpki = "= 0.21.3"
 # For making the patch in the root Cargo.toml work also after running `cargo update`.
 hyper = "= 0.13.9"
+# For being able to cleanly implement targets in separate files without needing to resort to dynamic dispatch.
+enum_dispatch = "0.3.6"
+# For processing mappings in user-defined order
+indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/clion-workaround", features = ["std"] }
+# For comparing floating point numbers in tests
+approx = "0.3.2"
+# For the API
+mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize"] }
+# For checking if an FX has loaded a specific chunk and duplicate detection of non-primitive feedback messages
+twox-hash = "1.6.1"
+# For convenient converting prop key to prop enum variant
+strum = "0.23"
+strum_macros = "0.23"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
@@ -142,13 +160,17 @@ sys-info = "0.7"
 
 [build-dependencies]
 # For making Git commit hash available to code
-built = { git = "https://github.com/helgoboss/built", branch = "bugfix/issue-36-cfg-wrong", features = ["git2", "chrono"] }
+built = { version = "0.5.1", features = ["git2", "chrono"] }
 # For generating bindings (for dialog resource IDs and EEL functions)
 bindgen = "0.52.0"
 # For compiling EEL and SWELL dialog resources
 cc = "1.0.50"
 # For embedding ResEdit files on Windows
 embed-resource = "1.3"
+# For being able to read the UTF-16LE dialog resource file generated by MSVC
+encoding_rs = "0.8.28"
+# For generating Rust code from our Protocol Buffer schema
+tonic-build = "0.5"
 
 [lib]
 name = "realearn"

@@ -1,466 +1,104 @@
 use crate::application::BookmarkAnchorType;
-use crate::core::hash_util;
+use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    ActionInvocationType, BackboneState, ExtendedProcessorContext, FxDisplayType,
-    MappingCompartment, OscDeviceId, ParameterSlice, PlayPosFeedbackResolution, ReaperTarget,
-    SeekOptions, SendMidiDestination, SendMidiTarget, SlotPlayOptions, SoloBehavior,
-    TouchedParameterType, TrackExclusivity, TransportAction, COMPARTMENT_PARAMETER_COUNT,
+    ExtendedProcessorContext, FeedbackResolution, MappingCompartment, ParameterSlice, ReaperTarget,
+    UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
+    UnresolvedAutomationModeOverrideTarget, UnresolvedAutomationTouchStateTarget,
+    UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
+    UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget,
+    UnresolvedFxNavigateTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
+    UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget,
+    UnresolvedLoadFxSnapshotTarget, UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
+    UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
+    UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
+    UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget, UnresolvedRouteVolumeTarget,
+    UnresolvedSeekTarget, UnresolvedSelectedTrackTarget, UnresolvedTempoTarget,
+    UnresolvedTrackArmTarget, UnresolvedTrackAutomationModeTarget, UnresolvedTrackMuteTarget,
+    UnresolvedTrackPanTarget, UnresolvedTrackPeakTarget, UnresolvedTrackPhaseTarget,
+    UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget, UnresolvedTrackSoloTarget,
+    UnresolvedTrackToolTarget, UnresolvedTrackVolumeTarget, UnresolvedTrackWidthTarget,
+    UnresolvedTransportTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::{Display, Error};
+use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
-use helgoboss_learn::{OscArgDescriptor, RawMidiPattern};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::{
-    Action, BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
+    BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     SendPartnerType, Track, TrackRoute,
 };
-use reaper_medium::{
-    AutomationMode, BookmarkId, GlobalAutomationModeOverride, MasterTrackBehavior, TrackArea,
-    TrackLocation,
-};
+use reaper_medium::{BookmarkId, MasterTrackBehavior};
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
+use std::error::Error;
 use std::fmt;
-use std::num::NonZeroU32;
-use std::rc::Rc;
 use wildmatch::WildMatch;
 
 /// Maximum number of "allow multiple" resolves (e.g. affected <Selected> tracks).
 const MAX_MULTIPLE: usize = 1000;
 
+#[enum_dispatch]
 #[derive(Debug)]
 pub enum UnresolvedReaperTarget {
-    Action {
-        action: Action,
-        invocation_type: ActionInvocationType,
-    },
-    FxParameter {
-        fx_parameter_descriptor: FxParameterDescriptor,
-    },
-    TrackVolume {
-        track_descriptor: TrackDescriptor,
-    },
-    TrackSendVolume {
-        descriptor: TrackRouteDescriptor,
-    },
-    TrackPan {
-        track_descriptor: TrackDescriptor,
-    },
-    TrackWidth {
-        track_descriptor: TrackDescriptor,
-    },
-    TrackArm {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-    },
-    TrackSelection {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-        scroll_arrange_view: bool,
-        scroll_mixer: bool,
-    },
-    TrackMute {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-    },
-    TrackShow {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-        area: TrackArea,
-    },
-    TrackSolo {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-        behavior: SoloBehavior,
-    },
-    TrackAutomationMode {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-        mode: AutomationMode,
-    },
-    TrackSendPan {
-        descriptor: TrackRouteDescriptor,
-    },
-    TrackSendMute {
-        descriptor: TrackRouteDescriptor,
-    },
-    Tempo,
-    Playrate,
-    AutomationModeOverride {
-        mode_override: Option<GlobalAutomationModeOverride>,
-    },
-    FxEnable {
-        fx_descriptor: FxDescriptor,
-    },
-    FxOpen {
-        fx_descriptor: FxDescriptor,
-        display_type: FxDisplayType,
-    },
-    FxPreset {
-        fx_descriptor: FxDescriptor,
-    },
-    SelectedTrack {
-        scroll_arrange_view: bool,
-        scroll_mixer: bool,
-    },
-    FxNavigate {
-        track_descriptor: TrackDescriptor,
-        is_input_fx: bool,
-        display_type: FxDisplayType,
-    },
-    AllTrackFxEnable {
-        track_descriptor: TrackDescriptor,
-        exclusivity: TrackExclusivity,
-    },
-    Transport {
-        action: TransportAction,
-    },
-    LoadFxPreset {
-        fx_descriptor: FxDescriptor,
-        chunk: Rc<String>,
-    },
-    LastTouched,
-    AutomationTouchState {
-        track_descriptor: TrackDescriptor,
-        parameter_type: TouchedParameterType,
-        exclusivity: TrackExclusivity,
-    },
-    GoToBookmark {
-        bookmark_type: BookmarkType,
-        bookmark_anchor_type: BookmarkAnchorType,
-        bookmark_ref: u32,
-        set_time_selection: bool,
-        set_loop_points: bool,
-    },
-    Seek {
-        options: SeekOptions,
-    },
-    SendMidi {
-        pattern: RawMidiPattern,
-        destination: SendMidiDestination,
-    },
-    SendOsc {
-        address_pattern: String,
-        arg_descriptor: Option<OscArgDescriptor>,
-        device_id: Option<OscDeviceId>,
-    },
-    ClipTransport {
-        track_descriptor: Option<TrackDescriptor>,
-        slot_index: usize,
-        action: TransportAction,
-        play_options: SlotPlayOptions,
-    },
-    ClipSeek {
-        slot_index: usize,
-        feedback_resolution: PlayPosFeedbackResolution,
-    },
-    ClipVolume {
-        slot_index: usize,
-    },
+    Action(UnresolvedActionTarget),
+    FxParameter(UnresolvedFxParameterTarget),
+    TrackVolume(UnresolvedTrackVolumeTarget),
+    TrackTool(UnresolvedTrackToolTarget),
+    TrackPeak(UnresolvedTrackPeakTarget),
+    TrackSendVolume(UnresolvedRouteVolumeTarget),
+    TrackPan(UnresolvedTrackPanTarget),
+    TrackWidth(UnresolvedTrackWidthTarget),
+    TrackArm(UnresolvedTrackArmTarget),
+    TrackSelection(UnresolvedTrackSelectionTarget),
+    TrackMute(UnresolvedTrackMuteTarget),
+    TrackPhase(UnresolvedTrackPhaseTarget),
+    TrackShow(UnresolvedTrackShowTarget),
+    TrackSolo(UnresolvedTrackSoloTarget),
+    TrackAutomationMode(UnresolvedTrackAutomationModeTarget),
+    TrackSendPan(UnresolvedRoutePanTarget),
+    TrackSendMute(UnresolvedRouteMuteTarget),
+    TrackRoutePhase(UnresolvedRoutePhaseTarget),
+    TrackRouteMono(UnresolvedRouteMonoTarget),
+    TrackRouteAutomationMode(UnresolvedRouteAutomationModeTarget),
+    Tempo(UnresolvedTempoTarget),
+    Playrate(UnresolvedPlayrateTarget),
+    AutomationModeOverride(UnresolvedAutomationModeOverrideTarget),
+    FxEnable(UnresolvedFxEnableTarget),
+    FxOpen(UnresolvedFxOpenTarget),
+    FxPreset(UnresolvedFxPresetTarget),
+    SelectedTrack(UnresolvedSelectedTrackTarget),
+    FxNavigate(UnresolvedFxNavigateTarget),
+    AllTrackFxEnable(UnresolvedAllTrackFxEnableTarget),
+    Transport(UnresolvedTransportTarget),
+    LoadFxPreset(UnresolvedLoadFxSnapshotTarget),
+    AutomationTouchState(UnresolvedAutomationTouchStateTarget),
+    GoToBookmark(UnresolvedGoToBookmarkTarget),
+    Seek(UnresolvedSeekTarget),
+    SendMidi(UnresolvedMidiSendTarget),
+    SendOsc(UnresolvedOscSendTarget),
+    ClipTransport(UnresolvedClipTransportTarget),
+    ClipSeek(UnresolvedClipSeekTarget),
+    ClipVolume(UnresolvedClipVolumeTarget),
+    LoadMappingSnapshot(UnresolvedLoadMappingSnapshotTarget),
+    EnableMappings(UnresolvedEnableMappingsTarget),
+    NavigateWithinGroup(UnresolvedNavigateWithinGroupTarget),
+    EnableInstances(UnresolvedEnableInstancesTarget),
+    AnyOn(UnresolvedAnyOnTarget),
+    LastTouched(UnresolvedLastTouchedTarget),
 }
 
 impl UnresolvedReaperTarget {
     pub fn is_always_active(&self) -> bool {
-        matches!(self, Self::LastTouched)
-    }
-
-    pub fn resolve(
-        &self,
-        context: ExtendedProcessorContext,
-        compartment: MappingCompartment,
-    ) -> Result<Vec<ReaperTarget>, &'static str> {
-        use UnresolvedReaperTarget::*;
-        let resolved_targets = match self {
-            Action {
-                action,
-                invocation_type,
-            } => vec![ReaperTarget::Action {
-                action: action.clone(),
-                invocation_type: *invocation_type,
-                project: context.context().project_or_current_project(),
-            }],
-            FxParameter {
-                fx_parameter_descriptor,
-            } => vec![ReaperTarget::FxParameter {
-                param: get_fx_param(context, fx_parameter_descriptor, compartment)?,
-            }],
-            TrackVolume { track_descriptor } => {
-                get_effective_tracks(context, &track_descriptor.track, compartment)?
-                    .into_iter()
-                    .map(|track| ReaperTarget::TrackVolume { track })
-                    .collect()
-            }
-            TrackSendVolume { descriptor } => vec![ReaperTarget::TrackRouteVolume {
-                route: get_track_route(context, descriptor, compartment)?,
-            }],
-            TrackPan { track_descriptor } => {
-                get_effective_tracks(context, &track_descriptor.track, compartment)?
-                    .into_iter()
-                    .map(|track| ReaperTarget::TrackPan { track })
-                    .collect()
-            }
-            TrackWidth { track_descriptor } => {
-                get_effective_tracks(context, &track_descriptor.track, compartment)?
-                    .into_iter()
-                    .map(|track| ReaperTarget::TrackWidth { track })
-                    .collect()
-            }
-            TrackArm {
-                track_descriptor,
-                exclusivity,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| ReaperTarget::TrackArm {
-                    track,
-                    exclusivity: *exclusivity,
-                })
-                .collect(),
-            TrackSelection {
-                track_descriptor,
-                exclusivity,
-                scroll_arrange_view,
-                scroll_mixer,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| ReaperTarget::TrackSelection {
-                    track,
-                    exclusivity: *exclusivity,
-                    scroll_arrange_view: *scroll_arrange_view,
-                    scroll_mixer: *scroll_mixer,
-                })
-                .collect(),
-            TrackMute {
-                track_descriptor,
-                exclusivity,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| ReaperTarget::TrackMute {
-                    track,
-                    exclusivity: *exclusivity,
-                })
-                .collect(),
-            TrackShow {
-                track_descriptor,
-                exclusivity,
-                area,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| ReaperTarget::TrackShow {
-                    track,
-                    exclusivity: *exclusivity,
-                    area: *area,
-                })
-                .collect(),
-            TrackSolo {
-                track_descriptor,
-                exclusivity,
-                behavior,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| ReaperTarget::TrackSolo {
-                    track,
-                    exclusivity: *exclusivity,
-                    behavior: *behavior,
-                })
-                .collect(),
-            TrackAutomationMode {
-                track_descriptor,
-                exclusivity,
-                mode,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| ReaperTarget::TrackAutomationMode {
-                    track,
-                    exclusivity: *exclusivity,
-                    mode: *mode,
-                })
-                .collect(),
-            TrackSendPan { descriptor } => vec![ReaperTarget::TrackRoutePan {
-                route: get_track_route(context, descriptor, compartment)?,
-            }],
-            TrackSendMute { descriptor } => vec![ReaperTarget::TrackRouteMute {
-                route: get_track_route(context, descriptor, compartment)?,
-            }],
-            Tempo => vec![ReaperTarget::Tempo {
-                project: context.context().project_or_current_project(),
-            }],
-            Playrate => vec![ReaperTarget::Playrate {
-                project: context.context().project_or_current_project(),
-            }],
-            AutomationModeOverride { mode_override } => {
-                vec![ReaperTarget::AutomationModeOverride {
-                    mode_override: *mode_override,
-                }]
-            }
-            FxEnable { fx_descriptor } => vec![ReaperTarget::FxEnable {
-                fx: get_fx(context, fx_descriptor, compartment)?,
-            }],
-            FxOpen {
-                fx_descriptor,
-                display_type,
-            } => vec![ReaperTarget::FxOpen {
-                fx: get_fx(context, fx_descriptor, compartment)?,
-                display_type: *display_type,
-            }],
-            FxPreset { fx_descriptor } => vec![ReaperTarget::FxPreset {
-                fx: get_fx(context, fx_descriptor, compartment)?,
-            }],
-            SelectedTrack {
-                scroll_arrange_view,
-                scroll_mixer,
-            } => vec![ReaperTarget::SelectedTrack {
-                project: context.context().project_or_current_project(),
-                scroll_arrange_view: *scroll_arrange_view,
-                scroll_mixer: *scroll_mixer,
-            }],
-            FxNavigate {
-                track_descriptor,
-                is_input_fx,
-                display_type,
-            } => vec![ReaperTarget::FxNavigate {
-                fx_chain: get_fx_chain(
-                    context,
-                    &track_descriptor.track,
-                    *is_input_fx,
-                    compartment,
-                )?,
-                display_type: *display_type,
-            }],
-            AllTrackFxEnable {
-                track_descriptor,
-                exclusivity,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| ReaperTarget::AllTrackFxEnable {
-                    track,
-                    exclusivity: *exclusivity,
-                })
-                .collect(),
-            Transport { action } => vec![ReaperTarget::Transport {
-                project: context.context().project_or_current_project(),
-                action: *action,
-            }],
-            LoadFxPreset {
-                fx_descriptor,
-                chunk,
-            } => vec![ReaperTarget::LoadFxSnapshot {
-                fx: get_fx(context, fx_descriptor, compartment)?,
-                chunk: chunk.clone(),
-                chunk_hash: hash_util::calculate_non_crypto_hash(chunk),
-            }],
-            LastTouched => {
-                let last_touched_target = BackboneState::get()
-                    .last_touched_target()
-                    .ok_or("no last touched target")?;
-                if !last_touched_target.is_available() {
-                    return Err("last touched target gone");
-                }
-                vec![last_touched_target]
-            }
-            AutomationTouchState {
-                track_descriptor,
-                parameter_type,
-                exclusivity,
-            } => get_effective_tracks(context, &track_descriptor.track, compartment)?
-                .into_iter()
-                .map(|track| ReaperTarget::AutomationTouchState {
-                    track,
-                    parameter_type: *parameter_type,
-                    exclusivity: *exclusivity,
-                })
-                .collect(),
-            GoToBookmark {
-                bookmark_type,
-                bookmark_anchor_type,
-                bookmark_ref,
-                set_time_selection,
-                set_loop_points,
-            } => {
-                let project = context.context().project_or_current_project();
-                let res = find_bookmark(
-                    project,
-                    *bookmark_type,
-                    *bookmark_anchor_type,
-                    *bookmark_ref,
-                )?;
-                vec![ReaperTarget::GoToBookmark {
-                    project,
-                    bookmark_type: *bookmark_type,
-                    index: res.index,
-                    position: NonZeroU32::new(res.index_within_type + 1).unwrap(),
-                    set_time_selection: *set_time_selection,
-                    set_loop_points: *set_loop_points,
-                }]
-            }
-            Seek { options } => {
-                let project = context.context().project_or_current_project();
-                vec![ReaperTarget::Seek {
-                    project,
-                    options: *options,
-                }]
-            }
-            SendMidi {
-                pattern,
-                destination,
-            } => vec![ReaperTarget::SendMidi(SendMidiTarget {
-                pattern: pattern.clone(),
-                destination: *destination,
-            })],
-            SendOsc {
-                address_pattern,
-                arg_descriptor,
-                device_id,
-            } => vec![ReaperTarget::SendOsc {
-                address_pattern: address_pattern.clone(),
-                arg_descriptor: *arg_descriptor,
-                device_id: *device_id,
-            }],
-            ClipTransport {
-                track_descriptor,
-                slot_index,
-                action,
-                play_options,
-            } => {
-                if let Some(desc) = track_descriptor.as_ref() {
-                    get_effective_tracks(context, &desc.track, compartment)?
-                        .into_iter()
-                        .map(|track| ReaperTarget::ClipTransport {
-                            track: Some(track),
-                            slot_index: *slot_index,
-                            action: *action,
-                            play_options: *play_options,
-                        })
-                        .collect()
-                } else {
-                    vec![ReaperTarget::ClipTransport {
-                        track: None,
-                        slot_index: *slot_index,
-                        action: *action,
-                        play_options: *play_options,
-                    }]
-                }
-            }
-            ClipSeek {
-                slot_index,
-                feedback_resolution,
-            } => vec![ReaperTarget::ClipSeek {
-                slot_index: *slot_index,
-                feedback_resolution: *feedback_resolution,
-            }],
-            ClipVolume { slot_index } => vec![ReaperTarget::ClipVolume {
-                slot_index: *slot_index,
-            }],
-        };
-        Ok(resolved_targets)
+        matches!(self, Self::LastTouched(_))
     }
 
     /// Returns whether all conditions for this target to be active are met.
     ///
     /// Targets conditions are for example "track selected" or "FX focused".
     pub fn conditions_are_met(&self, target: &ReaperTarget) -> bool {
-        let (track_descriptor, fx_descriptor) = self.descriptors();
-        if let Some(desc) = track_descriptor {
+        let descriptors = self.unpack_descriptors();
+        if let Some(desc) = descriptors.track {
             if desc.enable_only_if_track_selected {
                 if let Some(track) = target.track() {
                     if !track.is_selected() {
@@ -469,7 +107,7 @@ impl UnresolvedReaperTarget {
                 }
             }
         }
-        if let Some(desc) = fx_descriptor {
+        if let Some(desc) = descriptors.fx {
             if desc.enable_only_if_fx_has_focus {
                 if let Some(fx) = target.fx() {
                     if !fx.window_has_focus() {
@@ -481,120 +119,75 @@ impl UnresolvedReaperTarget {
         true
     }
 
+    /// Should return true if the target should be refreshed (reresolved) on parameter changes.
+    /// Usually true for all targets that use `<Dynamic>` selector.
     pub fn can_be_affected_by_parameters(&self) -> bool {
-        let descriptors = self.descriptors();
-        match descriptors.0 {
-            None => false,
-            Some(td) => matches!(&td.track, VirtualTrack::Dynamic(_)),
+        let descriptors = self.unpack_descriptors();
+        if let Some(desc) = descriptors.track {
+            if matches!(&desc.track, VirtualTrack::Dynamic(_)) {
+                return true;
+            }
         }
+        if let Some(desc) = descriptors.fx {
+            if matches!(
+                &desc.fx,
+                VirtualFx::ChainFx {
+                    chain_fx: VirtualChainFx::Dynamic(_),
+                    ..
+                }
+            ) {
+                return true;
+            }
+        }
+        if let Some(desc) = descriptors.route {
+            if matches!(
+                &desc.route,
+                VirtualTrackRoute {
+                    selector: TrackRouteSelector::Dynamic(_),
+                    ..
+                }
+            ) {
+                return true;
+            }
+        }
+        if let Some(desc) = descriptors.fx_param {
+            if matches!(&desc.fx_parameter, VirtualFxParameter::Dynamic(_)) {
+                return true;
+            }
+        }
+        false
     }
 
-    fn descriptors(&self) -> (Option<&TrackDescriptor>, Option<&FxDescriptor>) {
-        use UnresolvedReaperTarget::*;
-        match self {
-            Action { .. }
-            | Tempo
-            | Playrate
-            | SelectedTrack { .. }
-            | Transport { .. }
-            | LastTouched
-            | Seek { .. }
-            | ClipSeek { .. }
-            | ClipVolume { .. }
-            | AutomationModeOverride { .. }
-            | SendMidi { .. }
-            | SendOsc { .. }
-            | GoToBookmark { .. } => (None, None),
-            FxOpen { fx_descriptor, .. }
-            | FxEnable { fx_descriptor }
-            | FxPreset { fx_descriptor }
-            | LoadFxPreset { fx_descriptor, .. } => {
-                (Some(&fx_descriptor.track_descriptor), Some(fx_descriptor))
-            }
-            FxParameter {
-                fx_parameter_descriptor,
-            } => (
-                Some(&fx_parameter_descriptor.fx_descriptor.track_descriptor),
-                Some(&fx_parameter_descriptor.fx_descriptor),
-            ),
-            TrackVolume { track_descriptor }
-            | TrackPan { track_descriptor }
-            | TrackWidth { track_descriptor }
-            | TrackArm {
-                track_descriptor, ..
-            }
-            | TrackSelection {
-                track_descriptor, ..
-            }
-            | TrackMute {
-                track_descriptor, ..
-            }
-            | TrackShow {
-                track_descriptor, ..
-            }
-            | TrackAutomationMode {
-                track_descriptor, ..
-            }
-            | TrackSolo {
-                track_descriptor, ..
-            }
-            | FxNavigate {
-                track_descriptor, ..
-            }
-            | AllTrackFxEnable {
-                track_descriptor, ..
-            }
-            | AutomationTouchState {
-                track_descriptor, ..
-            } => (Some(track_descriptor), None),
-            TrackSendVolume { descriptor }
-            | TrackSendPan { descriptor }
-            | TrackSendMute { descriptor } => (Some(&descriptor.track_descriptor), None),
-            ClipTransport {
-                track_descriptor, ..
-            } => (track_descriptor.as_ref(), None),
+    fn unpack_descriptors(&self) -> Descriptors {
+        if let Some(d) = self.fx_parameter_descriptor() {
+            return Descriptors {
+                track: Some(&d.fx_descriptor.track_descriptor),
+                fx: Some(&d.fx_descriptor),
+                fx_param: Some(d),
+                ..Default::default()
+            };
         }
-    }
-
-    pub fn play_pos_feedback_resolution(&self) -> Option<PlayPosFeedbackResolution> {
-        use UnresolvedReaperTarget::*;
-        let res = match self {
-            Action { .. }
-            | FxParameter { .. }
-            | TrackVolume { .. }
-            | TrackSendVolume { .. }
-            | TrackPan { .. }
-            | TrackWidth { .. }
-            | TrackArm { .. }
-            | TrackSelection { .. }
-            | TrackMute { .. }
-            | TrackShow { .. }
-            | TrackAutomationMode { .. }
-            | FxOpen { .. }
-            | AutomationModeOverride { .. }
-            | FxNavigate { .. }
-            | TrackSolo { .. }
-            | TrackSendPan { .. }
-            | TrackSendMute { .. }
-            | Tempo
-            | Playrate
-            | FxEnable { .. }
-            | FxPreset { .. }
-            | SelectedTrack { .. }
-            | AllTrackFxEnable { .. }
-            | LoadFxPreset { .. }
-            | LastTouched
-            | SendMidi { .. }
-            | SendOsc { .. }
-            | ClipTransport { .. }
-            | ClipVolume { .. }
-            | AutomationTouchState { .. } => return None,
-            Transport { .. } | GoToBookmark { .. } | ClipSeek { .. } => {
-                PlayPosFeedbackResolution::Beat
-            }
-            Seek { options, .. } => options.feedback_resolution,
-        };
-        Some(res)
+        if let Some(d) = self.fx_descriptor() {
+            return Descriptors {
+                track: Some(&d.track_descriptor),
+                fx: Some(d),
+                ..Default::default()
+            };
+        }
+        if let Some(d) = self.route_descriptor() {
+            return Descriptors {
+                track: Some(&d.track_descriptor),
+                route: Some(d),
+                ..Default::default()
+            };
+        }
+        if let Some(d) = self.track_descriptor() {
+            return Descriptors {
+                track: Some(d),
+                ..Default::default()
+            };
+        }
+        Default::default()
     }
 }
 
@@ -650,6 +243,19 @@ pub struct TrackRouteDescriptor {
     pub route: VirtualTrackRoute,
 }
 
+impl TrackRouteDescriptor {
+    pub fn resolve_first(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<TrackRoute, Box<dyn Error>> {
+        let tracks = self.track_descriptor.track.resolve(context, compartment)?;
+        let track = tracks.first().ok_or("didn't resolve to any track")?;
+        let route = self.route.resolve(track, context, compartment)?;
+        Ok(route)
+    }
+}
+
 #[derive(Debug)]
 pub struct VirtualTrackRoute {
     pub r#type: TrackRouteType,
@@ -675,7 +281,7 @@ impl TrackRouteSelector {
         use TrackRouteSelector::*;
         let route = match self {
             Dynamic(evaluator) => {
-                let i = Self::evaluate_to_route_index(evaluator, context, compartment);
+                let i = Self::evaluate_to_route_index(evaluator, context, compartment)?;
                 resolve_track_route_by_index(track, route_type, i)?
             }
             ById(guid) => {
@@ -705,11 +311,7 @@ impl TrackRouteSelector {
         compartment: MappingCompartment,
     ) -> Option<u32> {
         if let TrackRouteSelector::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_route_index(
-                evaluator,
-                context,
-                compartment,
-            ))
+            Some(Self::evaluate_to_route_index(evaluator, context, compartment).ok()?)
         } else {
             None
         }
@@ -719,10 +321,16 @@ impl TrackRouteSelector {
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> u32 {
+    ) -> Result<u32, TrackRouteResolveError> {
         let sliced_params = compartment.slice_params(context.params());
-        let result = evaluator.evaluate(sliced_params);
-        result.round().max(0.0) as u32
+        let result = evaluator
+            .evaluate(sliced_params)
+            .map_err(|_| TrackRouteResolveError::ExpressionFailed)?
+            .round() as i32;
+        if result < 0 {
+            return Err(TrackRouteResolveError::OutOfRange);
+        }
+        Ok(result as u32)
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -757,7 +365,7 @@ impl fmt::Display for VirtualTrackRoute {
             Dynamic(_) => f.write_str("<Dynamic>"),
             ById(id) => write!(f, "{}", id.to_string_without_braces()),
             ByName(name) => write!(f, "\"{}\"", name),
-            ByIndex(i) => write!(f, "{}", i + 1),
+            ByIndex(i) => write!(f, "#{}", i + 1),
         }
     }
 }
@@ -831,7 +439,10 @@ pub enum VirtualTrack {
     /// Particular.
     ById(Guid),
     /// Particular.
-    ByName(WildMatch),
+    ByName {
+        wild_match: WildMatch,
+        allow_multiple: bool,
+    },
     /// Particular.
     ByIndex(u32),
     /// This is the old default for targeting a particular track and it exists solely for backward
@@ -843,6 +454,7 @@ pub enum VirtualTrack {
 pub enum VirtualFxParameter {
     Dynamic(Box<ExpressionEvaluator>),
     ByName(WildMatch),
+    ById(u32),
     ByIndex(u32),
 }
 
@@ -856,17 +468,18 @@ impl VirtualFxParameter {
         use VirtualFxParameter::*;
         match self {
             Dynamic(evaluator) => {
-                let i = Self::evaluate_to_fx_parameter_index(evaluator, context, compartment);
+                let i = Self::evaluate_to_fx_parameter_index(evaluator, context, compartment)?;
                 resolve_parameter_by_index(fx, i)
             }
             ByName(name) => fx
                 .parameters()
-                .find(|p| name.matches(p.name().to_str()))
+                // Parameter names are not reliably UTF-8-encoded (e.g. "JS: Stereo Width")
+                .find(|p| name.matches(&p.name().into_inner().to_string_lossy()))
                 .ok_or_else(|| FxParameterResolveError::FxParameterNotFound {
                     name: Some(name.clone()),
                     index: None,
                 }),
-            ByIndex(i) => resolve_parameter_by_index(fx, *i),
+            ByIndex(i) | ById(i) => resolve_parameter_by_index(fx, *i),
         }
     }
 
@@ -876,11 +489,7 @@ impl VirtualFxParameter {
         compartment: MappingCompartment,
     ) -> Option<u32> {
         if let VirtualFxParameter::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_fx_parameter_index(
-                evaluator,
-                context,
-                compartment,
-            ))
+            Some(Self::evaluate_to_fx_parameter_index(evaluator, context, compartment).ok()?)
         } else {
             None
         }
@@ -890,16 +499,22 @@ impl VirtualFxParameter {
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> u32 {
+    ) -> Result<u32, FxParameterResolveError> {
         let sliced_params = compartment.slice_params(context.params());
-        let result = evaluator.evaluate(sliced_params);
-        result.round().max(0.0) as u32
+        let result = evaluator
+            .evaluate(sliced_params)
+            .map_err(|_| FxParameterResolveError::ExpressionFailed)?
+            .round() as i32;
+        if result < 0 {
+            return Err(FxParameterResolveError::OutOfRange);
+        }
+        Ok(result as u32)
     }
 
     pub fn index(&self) -> Option<u32> {
         use VirtualFxParameter::*;
         match self {
-            ByIndex(i) => Some(*i),
+            ByIndex(i) | ById(i) => Some(*i),
             _ => None,
         }
     }
@@ -919,7 +534,7 @@ impl fmt::Display for VirtualFxParameter {
         match self {
             Dynamic(_) => f.write_str("<Dynamic>"),
             ByName(name) => write!(f, "\"{}\"", name),
-            ByIndex(i) => write!(f, "{}", i + 1),
+            ByIndex(i) | ById(i) => write!(f, "#{}", i + 1),
         }
     }
 }
@@ -942,44 +557,67 @@ impl ExpressionEvaluator {
         Ok(evaluator)
     }
 
-    pub fn evaluate(&self, params: &ParameterSlice) -> f64 {
-        self.evaluate_internal(params, |_| None).unwrap_or_default()
+    pub fn evaluate(&self, params: &ParameterSlice) -> Result<f64, fasteval::Error> {
+        self.evaluate_internal(params, |_, _| None)
     }
 
     pub fn evaluate_with_additional_vars(
         &self,
         params: &ParameterSlice,
-        additional_vars: impl Fn(&str) -> Option<f64>,
-    ) -> f64 {
+        additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
+    ) -> Result<f64, fasteval::Error> {
         self.evaluate_internal(params, additional_vars)
-            .unwrap_or_default()
     }
 
     fn evaluate_internal(
         &self,
         params: &ParameterSlice,
-        additional_vars: impl Fn(&str) -> Option<f64>,
+        additional_vars: impl Fn(&str, &[f64]) -> Option<f64>,
     ) -> Result<f64, fasteval::Error> {
         use fasteval::eval_compiled_ref;
-        let mut cb = |name: &str, _args: Vec<f64>| -> Option<f64> {
-            if let Some(value) = additional_vars(name) {
+        let mut cb = |name: &str, args: Vec<f64>| -> Option<f64> {
+            // Use-case specific variables
+            if let Some(value) = additional_vars(name, &args) {
                 return Some(value);
             }
-            if !name.starts_with('p') {
-                return None;
+            match name {
+                "none" => Some(EXPRESSION_NONE_VALUE),
+                // Parameter array
+                "p" => {
+                    if let [index] = args.as_slice() {
+                        if *index < 0.0 {
+                            return None;
+                        }
+                        let index = index.round() as u32;
+                        get_compartment_param_value(index, params)
+                    } else {
+                        None
+                    }
+                }
+                // Parameter variables (p1, p2, ...)
+                _ => {
+                    if !name.starts_with('p') {
+                        return None;
+                    }
+                    let one_based_position: u32 = name[1..].parse().ok()?;
+                    if one_based_position == 0 {
+                        return None;
+                    }
+                    let index = one_based_position - 1;
+                    get_compartment_param_value(index, params)
+                }
             }
-            let value: u32 = name[1..].parse().ok()?;
-            if !(1..=COMPARTMENT_PARAMETER_COUNT).contains(&value) {
-                return None;
-            }
-            let index = (value - 1) as usize;
-            let param_value = params[index];
-            Some(param_value as f64)
         };
         let val = eval_compiled_ref!(&self.instruction, &self.slab, &mut cb);
         Ok(val)
     }
 }
+
+/// If fasteval encounters usage of a non-existing variable, it fails. Good. But sometimes we need
+/// to express that the variable is there but the value is just "None". fasteval doesn't have a
+/// dedicated value for that, so we just define an exotic f64 to represent it! We need one that
+/// is equal to itself, so NAN and NEG_INFINITY are no options.
+pub const EXPRESSION_NONE_VALUE: f64 = f64::MIN;
 
 impl fmt::Display for VirtualTrack {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -995,8 +633,16 @@ impl fmt::Display for VirtualTrack {
             Dynamic(_) => f.write_str("<Dynamic>"),
             ByIdOrName(id, name) => write!(f, "{} or \"{}\"", id.to_string_without_braces(), name),
             ById(id) => write!(f, "{}", id.to_string_without_braces()),
-            ByName(name) => write!(f, "\"{}\"", name),
-            ByIndex(i) => write!(f, "{}", i + 1),
+            ByName {
+                wild_match,
+                allow_multiple,
+            } => write!(
+                f,
+                "\"{}\"{}",
+                wild_match,
+                if *allow_multiple { " (all)" } else { "" }
+            ),
+            ByIndex(i) => write!(f, "#{}", i + 1),
         }
     }
 }
@@ -1012,6 +658,26 @@ pub enum VirtualFx {
         is_input_fx: bool,
         chain_fx: VirtualChainFx,
     },
+}
+
+impl fmt::Display for VirtualFx {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use VirtualFx::*;
+        match self {
+            This => f.write_str("<This>"),
+            Focused => f.write_str("<Focused>"),
+            ChainFx {
+                chain_fx,
+                is_input_fx,
+            } => {
+                chain_fx.fmt(f)?;
+                if *is_input_fx {
+                    f.write_str(" (input FX)")?;
+                }
+                Ok(())
+            }
+        }
+    }
 }
 
 impl VirtualFx {
@@ -1075,7 +741,7 @@ impl VirtualTrack {
                 .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
                 .collect(),
             Dynamic(evaluator) => {
-                let index = Self::evaluate_to_track_index(evaluator, context, compartment);
+                let index = Self::evaluate_to_track_index(evaluator, context, compartment)?;
                 let single = resolve_track_by_index(project, index)?;
                 vec![single]
             }
@@ -1104,17 +770,14 @@ impl VirtualTrack {
                 }
                 vec![single]
             }
-            ByName(name) => {
-                let single =
-                    find_track_by_name(project, name).ok_or(TrackResolveError::TrackNotFound {
-                        guid: None,
-                        name: Some(name.clone()),
-                        index: None,
-                    })?;
-                vec![single]
-            }
+            ByName {
+                wild_match,
+                allow_multiple,
+            } => find_tracks_by_name(project, wild_match)
+                .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
+                .collect(),
             ByIndex(index) => {
-                let single = resolve_track_by_index(project, *index)?;
+                let single = resolve_track_by_index(project, *index as i32)?;
                 vec![single]
             }
         };
@@ -1125,13 +788,9 @@ impl VirtualTrack {
         &self,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> Option<u32> {
+    ) -> Option<i32> {
         if let VirtualTrack::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_track_index(
-                evaluator,
-                context,
-                compartment,
-            ))
+            Some(Self::evaluate_to_track_index(evaluator, context, compartment).ok()?)
         } else {
             None
         }
@@ -1141,28 +800,55 @@ impl VirtualTrack {
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> u32 {
+    ) -> Result<i32, TrackResolveError> {
         let sliced_params = compartment.slice_params(context.params());
-        let result = evaluator.evaluate_with_additional_vars(sliced_params, |name| match name {
-            "this_track_index" => {
-                let index = context.context().track()?.index()?;
-                Some(index as f64)
-            }
-            _ => None,
-        });
-        result.round().max(0.0) as u32
-    }
-
-    pub fn with_context<'a>(
-        &'a self,
-        context: ExtendedProcessorContext<'a>,
-        compartment: MappingCompartment,
-    ) -> VirtualTrackWithContext<'a> {
-        VirtualTrackWithContext {
-            virtual_track: self,
-            context,
-            compartment,
+        let result = evaluator
+            .evaluate_with_additional_vars(sliced_params, |name, args| match name {
+                "this_track_index" => {
+                    let track = context.context().track()?;
+                    Some(get_track_index_for_expression(track))
+                }
+                "selected_track_index" => {
+                    let index = context
+                        .context()
+                        .project_or_current_project()
+                        .first_selected_track(MasterTrackBehavior::IncludeMasterTrack)
+                        .as_ref()
+                        .map(get_track_index_for_expression);
+                    Some(index.unwrap_or(EXPRESSION_NONE_VALUE))
+                }
+                "selected_track_indexes" => {
+                    if let [i] = args {
+                        if *i < 0.0 {
+                            return None;
+                        }
+                        let i = i.round() as u32;
+                        let reaper = Reaper::get().medium_reaper();
+                        let project = context.context().project_or_current_project();
+                        let raw_track = reaper.get_selected_track_2(
+                            project.context(),
+                            i,
+                            MasterTrackBehavior::IncludeMasterTrack,
+                        );
+                        match raw_track {
+                            None => Some(EXPRESSION_NONE_VALUE),
+                            Some(raw_track) => {
+                                let t = Track::new(raw_track, Some(project.raw()));
+                                Some(get_track_index_for_expression(&t))
+                            }
+                        }
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            })
+            .map_err(|_| TrackResolveError::ExpressionFailed)?
+            .round() as i32;
+        if result < -1 {
+            return Err(TrackResolveError::OutOfRange);
         }
+        Ok(result as i32)
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -1184,7 +870,10 @@ impl VirtualTrack {
     pub fn name(&self) -> Option<String> {
         use VirtualTrack::*;
         match self {
-            ByName(name) | ByIdOrName(_, name) => Some(name.to_string()),
+            ByName {
+                wild_match: name, ..
+            }
+            | ByIdOrName(_, name) => Some(name.to_string()),
             _ => None,
         }
     }
@@ -1198,7 +887,10 @@ pub enum VirtualChainFx {
     ///
     /// The index is just used as performance hint, not as fallback.
     ById(Guid, Option<u32>),
-    ByName(WildMatch),
+    ByName {
+        wild_match: WildMatch,
+        allow_multiple: bool,
+    },
     ByIndex(u32),
     /// This is the old default.
     ///
@@ -1216,8 +908,16 @@ impl fmt::Display for VirtualChainFx {
             ById(guid, _) => {
                 write!(f, "{}", guid.to_string_without_braces())
             }
-            ByName(name) => write!(f, "\"{}\"", name),
-            ByIdOrIndex(None, i) | ByIndex(i) => write!(f, "{}", i + 1),
+            ByName {
+                wild_match,
+                allow_multiple,
+            } => write!(
+                f,
+                "\"{}\"{}",
+                wild_match,
+                if *allow_multiple { " (all)" } else { "" }
+            ),
+            ByIdOrIndex(None, i) | ByIndex(i) => write!(f, "#{}", i + 1),
             ByIdOrIndex(Some(guid), i) => {
                 write!(f, "{} ({})", guid.to_string_without_braces(), i + 1)
             }
@@ -1232,8 +932,19 @@ fn find_track_by_name(project: Project, name: &WildMatch) -> Option<Track> {
     })
 }
 
+fn find_tracks_by_name(project: Project, name: &WildMatch) -> impl Iterator<Item = Track> + '_ {
+    project.tracks().filter(move |t| match t.name() {
+        None => false,
+        Some(n) => name.matches(n.to_str()),
+    })
+}
+
 #[derive(Clone, Debug, Display, Error)]
 pub enum TrackResolveError {
+    #[display(fmt = "ExpressionFailed")]
+    ExpressionFailed,
+    #[display(fmt = "OutOfRange")]
+    OutOfRange,
     #[display(fmt = "TrackNotFound")]
     TrackNotFound {
         guid: Option<Guid>,
@@ -1245,6 +956,10 @@ pub enum TrackResolveError {
 
 #[derive(Clone, Debug, Display, Error)]
 pub enum FxParameterResolveError {
+    #[display(fmt = "ExpressionFailed")]
+    ExpressionFailed,
+    #[display(fmt = "OutOfRange")]
+    OutOfRange,
     #[display(fmt = "FxParameterNotFound")]
     FxParameterNotFound {
         name: Option<WildMatch>,
@@ -1254,6 +969,10 @@ pub enum FxParameterResolveError {
 
 #[derive(Clone, Debug, Display, Error)]
 pub enum TrackRouteResolveError {
+    #[display(fmt = "ExpressionFailed")]
+    ExpressionFailed,
+    #[display(fmt = "OutOfRange")]
+    OutOfRange,
     #[display(fmt = "InvalidRoute")]
     InvalidRoute,
     #[display(fmt = "TrackRouteNotFound")]
@@ -1270,56 +989,64 @@ impl VirtualChainFx {
         fx_chain: &FxChain,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> Result<Fx, FxResolveError> {
+    ) -> Result<Vec<Fx>, FxResolveError> {
         use VirtualChainFx::*;
-        let fx = match self {
+        let fxs = match self {
             Dynamic(evaluator) => {
-                let index = Self::evaluate_to_fx_index(evaluator, context, compartment);
-                get_index_based_fx_on_chain(fx_chain, index).map_err(|_| {
+                let index = Self::evaluate_to_fx_index(evaluator, context, compartment)?;
+                let single = get_index_based_fx_on_chain(fx_chain, index).map_err(|_| {
                     FxResolveError::FxNotFound {
                         guid: None,
                         name: None,
                         index: Some(index),
                     }
-                })?
+                })?;
+                vec![single]
             }
-            ById(guid, index) => get_guid_based_fx_by_guid_on_chain_with_index_hint(
-                fx_chain, guid, *index,
-            )
-            .map_err(|_| FxResolveError::FxNotFound {
-                guid: Some(*guid),
-                name: None,
-                index: None,
-            })?,
-            ByName(name) => {
-                find_fx_by_name(fx_chain, name).ok_or_else(|| FxResolveError::FxNotFound {
-                    guid: None,
-                    name: Some(name.clone()),
-                    index: None,
-                })?
+            ById(guid, index) => {
+                let single =
+                    get_guid_based_fx_by_guid_on_chain_with_index_hint(fx_chain, guid, *index)
+                        .map_err(|_| FxResolveError::FxNotFound {
+                            guid: Some(*guid),
+                            name: None,
+                            index: None,
+                        })?;
+                vec![single]
             }
+            ByName {
+                wild_match,
+                allow_multiple,
+            } => find_fxs_by_name(fx_chain, wild_match)
+                .take(if *allow_multiple { MAX_MULTIPLE } else { 1 })
+                .collect(),
             ByIndex(index) | ByIdOrIndex(None, index) => {
-                get_index_based_fx_on_chain(fx_chain, *index).map_err(|_| {
+                let single = get_index_based_fx_on_chain(fx_chain, *index).map_err(|_| {
                     FxResolveError::FxNotFound {
                         guid: None,
                         name: None,
                         index: Some(*index),
                     }
-                })?
+                })?;
+                vec![single]
             }
             ByIdOrIndex(Some(guid), index) => {
                 // Track by GUID because target relates to a very particular FX
-                get_guid_based_fx_by_guid_on_chain_with_index_hint(fx_chain, guid, Some(*index))
-                    // Fall back to index-based
-                    .or_else(|_| get_index_based_fx_on_chain(fx_chain, *index))
-                    .map_err(|_| FxResolveError::FxNotFound {
-                        guid: Some(*guid),
-                        name: None,
-                        index: Some(*index),
-                    })?
+                let single = get_guid_based_fx_by_guid_on_chain_with_index_hint(
+                    fx_chain,
+                    guid,
+                    Some(*index),
+                )
+                // Fall back to index-based
+                .or_else(|_| get_index_based_fx_on_chain(fx_chain, *index))
+                .map_err(|_| FxResolveError::FxNotFound {
+                    guid: Some(*guid),
+                    name: None,
+                    index: Some(*index),
+                })?;
+                vec![single]
             }
         };
-        Ok(fx)
+        Ok(fxs)
     }
 
     pub fn calculated_fx_index(
@@ -1328,7 +1055,7 @@ impl VirtualChainFx {
         compartment: MappingCompartment,
     ) -> Option<u32> {
         if let VirtualChainFx::Dynamic(evaluator) = self {
-            Some(Self::evaluate_to_fx_index(evaluator, context, compartment))
+            Some(Self::evaluate_to_fx_index(evaluator, context, compartment).ok()?)
         } else {
             None
         }
@@ -1338,10 +1065,16 @@ impl VirtualChainFx {
         evaluator: &ExpressionEvaluator,
         context: ExtendedProcessorContext,
         compartment: MappingCompartment,
-    ) -> u32 {
+    ) -> Result<u32, FxResolveError> {
         let sliced_params = compartment.slice_params(context.params());
-        let result = evaluator.evaluate(sliced_params);
-        result.round().max(0.0) as u32
+        let result = evaluator
+            .evaluate(sliced_params)
+            .map_err(|_| FxResolveError::ExpressionFailed)?
+            .round() as i32;
+        if result < 0 {
+            return Err(FxResolveError::OutOfRange);
+        }
+        Ok(result as u32)
     }
 
     pub fn id(&self) -> Option<Guid> {
@@ -1365,51 +1098,30 @@ impl VirtualChainFx {
     pub fn name(&self) -> Option<String> {
         use VirtualChainFx::*;
         match self {
-            ByName(name) => Some(name.to_string()),
+            ByName { wild_match, .. } => Some(wild_match.to_string()),
             _ => None,
         }
     }
 }
 
-fn find_fx_by_name(chain: &FxChain, name: &WildMatch) -> Option<Fx> {
-    chain.fxs().find(|fx| name.matches(fx.name().to_str()))
+fn find_fxs_by_name<'a>(chain: &'a FxChain, name: &'a WildMatch) -> impl Iterator<Item = Fx> + 'a {
+    chain
+        .fxs()
+        .filter(move |fx| name.matches(fx.name().to_str()))
 }
 
 #[derive(Clone, Debug, Display, Error)]
 pub enum FxResolveError {
+    #[display(fmt = "ExpressionFailed")]
+    ExpressionFailed,
+    #[display(fmt = "OutOfRange")]
+    OutOfRange,
     #[display(fmt = "FxNotFound")]
     FxNotFound {
         guid: Option<Guid>,
         name: Option<WildMatch>,
         index: Option<u32>,
     },
-}
-
-pub struct VirtualTrackWithContext<'a> {
-    virtual_track: &'a VirtualTrack,
-    context: ExtendedProcessorContext<'a>,
-    compartment: MappingCompartment,
-}
-
-impl<'a> fmt::Display for VirtualTrackWithContext<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use VirtualTrack::*;
-        match self.virtual_track {
-            This | Selected { .. } | Master | Dynamic(_) => write!(f, "{}", self.virtual_track),
-            _ => {
-                if let Some(t) = self
-                    .virtual_track
-                    .resolve(self.context, self.compartment)
-                    .ok()
-                    .and_then(|tracks| tracks.into_iter().next())
-                {
-                    f.write_str(&get_track_label(&t))
-                } else {
-                    f.write_str(&get_non_present_virtual_track_label(&self.virtual_track))
-                }
-            }
-        }
-    }
 }
 
 pub fn get_non_present_virtual_track_label(track: &VirtualTrack) -> String {
@@ -1420,53 +1132,44 @@ pub fn get_non_present_virtual_route_label(route: &VirtualTrackRoute) -> String 
     format!("<Not present> ({})", route)
 }
 
-fn get_track_label(track: &Track) -> String {
-    match track.location() {
-        TrackLocation::MasterTrack => "<Master track>".into(),
-        TrackLocation::NormalTrack(i) => {
-            let position = i + 1;
-            let name = track.name().expect("non-master track must have name");
-            let name = name.to_str();
-            if name.is_empty() {
-                position.to_string()
-            } else {
-                format!("{}. {}", position, name)
-            }
-        }
-    }
-}
-
 // Returns an error if that param (or FX) doesn't exist.
 pub fn get_fx_param(
     context: ExtendedProcessorContext,
     fx_parameter_descriptor: &FxParameterDescriptor,
     compartment: MappingCompartment,
 ) -> Result<FxParameter, &'static str> {
-    let fx = get_fx(context, &fx_parameter_descriptor.fx_descriptor, compartment)?;
+    let fx = get_fxs(context, &fx_parameter_descriptor.fx_descriptor, compartment)?
+        .into_iter()
+        .next()
+        .ok_or("no FX resolved")?;
     fx_parameter_descriptor
+        // TODO-low Support multiple FXs
         .fx_parameter
         .resolve(&fx, context, compartment)
         .map_err(|_| "parameter doesn't exist")
 }
 
 // Returns an error if the FX doesn't exist.
-pub fn get_fx(
+pub fn get_fxs(
     context: ExtendedProcessorContext,
     descriptor: &FxDescriptor,
     compartment: MappingCompartment,
-) -> Result<Fx, &'static str> {
+) -> Result<Vec<Fx>, &'static str> {
     match &descriptor.fx {
         VirtualFx::This => {
             let fx = context.context().containing_fx();
             if fx.is_available() {
-                Ok(fx.clone())
+                Ok(vec![fx.clone()])
             } else {
                 Err("this FX not available anymore")
             }
         }
-        VirtualFx::Focused => Reaper::get()
-            .focused_fx()
-            .ok_or("couldn't get (last) focused FX"),
+        VirtualFx::Focused => {
+            let single = Reaper::get()
+                .focused_fx()
+                .ok_or("couldn't get (last) focused FX")?;
+            Ok(vec![single])
+        }
         VirtualFx::ChainFx {
             is_input_fx,
             chain_fx,
@@ -1478,7 +1181,7 @@ pub fn get_fx(
             impl<'a, T> MaybeOwned<'a, T> {
                 fn get(&self) -> &T {
                     match self {
-                        MaybeOwned::Owned(o) => &o,
+                        MaybeOwned::Owned(o) => o,
                         MaybeOwned::Borrowed(b) => b,
                     }
                 }
@@ -1534,14 +1237,19 @@ fn resolve_parameter_by_index(fx: &Fx, index: u32) -> Result<FxParameter, FxPara
     Ok(param)
 }
 
-fn resolve_track_by_index(project: Project, index: u32) -> Result<Track, TrackResolveError> {
-    project
-        .track_by_index(index)
-        .ok_or(TrackResolveError::TrackNotFound {
-            guid: None,
-            name: None,
-            index: Some(index),
-        })
+fn resolve_track_by_index(project: Project, index: i32) -> Result<Track, TrackResolveError> {
+    if index >= 0 {
+        let i = index as u32;
+        project
+            .track_by_index(i)
+            .ok_or(TrackResolveError::TrackNotFound {
+                guid: None,
+                name: None,
+                index: Some(i),
+            })
+    } else {
+        Ok(project.master_track())
+    }
 }
 
 pub fn resolve_track_route_by_index(
@@ -1574,7 +1282,7 @@ pub fn get_fx_chain(
     compartment: MappingCompartment,
 ) -> Result<FxChain, &'static str> {
     let track = get_effective_tracks(context, track, compartment)?
-        // TODO-medium Support multiple tracks
+        // TODO-low Support multiple tracks
         .into_iter()
         .next()
         .ok_or("no track resolved")?;
@@ -1640,8 +1348,8 @@ fn find_route_by_related_track(
     route_type: TrackRouteType,
 ) -> Result<Option<TrackRoute>, TrackRouteResolveError> {
     let option = match route_type {
-        TrackRouteType::Send => main_track.find_send_by_destination_track(&related_track),
-        TrackRouteType::Receive => main_track.find_receive_by_source_track(&related_track),
+        TrackRouteType::Send => main_track.find_send_by_destination_track(related_track),
+        TrackRouteType::Receive => main_track.find_receive_by_source_track(related_track),
         TrackRouteType::HardwareOutput => {
             return Err(TrackRouteResolveError::InvalidRoute);
         }
@@ -1662,4 +1370,71 @@ fn find_route_by_name(
             .typed_sends(SendPartnerType::HardwareOutput)
             .find(matcher),
     }
+}
+
+#[derive(Default)]
+struct Descriptors<'a> {
+    track: Option<&'a TrackDescriptor>,
+    fx: Option<&'a FxDescriptor>,
+    route: Option<&'a TrackRouteDescriptor>,
+    fx_param: Option<&'a FxParameterDescriptor>,
+}
+
+#[enum_dispatch(UnresolvedReaperTarget)]
+pub trait UnresolvedReaperTargetDef {
+    fn is_always_active(&self) -> bool {
+        false
+    }
+
+    fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<Vec<ReaperTarget>, &'static str>;
+
+    /// `None` means that no polling is necessary for feedback because we are notified via events.
+    fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        None
+    }
+
+    /// Should return true if the target should be refreshed (reresolved) on changes such as track
+    /// selection etc. (see [`ReaperTarget::is_potential_change_event`]). If in doubt or too lazy to
+    /// make a distinction depending on the selector, better return true! This makes sure things
+    /// stay up-to-date. Doing an unnecessary refreshment can have the following effects:
+    /// - Slightly reduce performance: Not refreshing is of course cheaper (but resolving is
+    ///   generally fast so this shouldn't matter)
+    /// - Removes target state: If the resolved target contains state, it's going to be disappear
+    ///   when the target is resolved again. Matters for some targets (but usually not).
+    fn can_be_affected_by_change_events(&self) -> bool {
+        true
+    }
+
+    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
+        None
+    }
+
+    fn fx_descriptor(&self) -> Option<&FxDescriptor> {
+        None
+    }
+
+    fn route_descriptor(&self) -> Option<&TrackRouteDescriptor> {
+        None
+    }
+
+    fn fx_parameter_descriptor(&self) -> Option<&FxParameterDescriptor> {
+        None
+    }
+}
+
+fn get_compartment_param_value(index: u32, params: &ParameterSlice) -> Option<f64> {
+    if !(0..COMPARTMENT_PARAMETER_COUNT).contains(&index) {
+        return None;
+    }
+    let param_value = params[index as usize];
+    Some(param_value as f64)
+}
+
+/// Special: Index -1 means master track.
+fn get_track_index_for_expression(track: &Track) -> f64 {
+    track.index().map(|i| i as f64).unwrap_or(-1.0)
 }

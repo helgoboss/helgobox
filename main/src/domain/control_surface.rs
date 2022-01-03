@@ -1,16 +1,17 @@
-use crate::core::Global;
+use crate::base::Global;
 use crate::domain::{
-    ActivationChange, BackboneState, CompoundMappingSource, DeviceControlInput,
-    DeviceFeedbackOutput, DomainEventHandler, EelTransformation, FeedbackOutput, InstanceId,
-    LifecycleMidiData, MainProcessor, OscDeviceId, OscInputDevice, RealSource,
-    RealTimeCompoundMappingTarget, RealTimeMapping, ReaperTarget, SharedRealTimeProcessor,
-    SourceFeedbackValue, TouchedParameterType,
+    ActivationChange, BackboneState, CompoundMappingSource, DeviceChangeDetector,
+    DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, EelTransformation,
+    FeedbackOutput, FeedbackRealTimeTask, InstanceId, LifecycleMidiData, MainProcessor,
+    MidiCaptureSender, MidiDeviceChangePayload, NormalRealTimeTask, OscDeviceId, OscInputDevice,
+    OscScanResult, RealTimeCompoundMappingTarget, RealTimeMapping, ReaperMessage, ReaperTarget,
+    SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
-use helgoboss_learn::{OscSource, RawMidiEvent};
+use helgoboss_learn::{ModeGarbage, RawMidiEvent};
 use reaper_high::{
     ChangeDetectionMiddleware, ControlSurfaceEvent, ControlSurfaceMiddleware, FutureMiddleware, Fx,
-    FxParameter, MainTaskMiddleware, MeterMiddleware, Project, Reaper,
+    FxParameter, MainTaskMiddleware, Project, Reaper,
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
@@ -24,7 +25,7 @@ use slog::debug;
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
-type LearnSourceSender = async_channel::Sender<(OscDeviceId, OscSource)>;
+type OscCaptureSender = async_channel::Sender<OscScanResult>;
 
 const CONTROL_SURFACE_MAIN_TASK_BULK_SIZE: usize = 10;
 const CONTROL_SURFACE_SERVER_TASK_BULK_SIZE: usize = 10;
@@ -43,7 +44,8 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
     additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
     instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
-    meter_middleware: MeterMiddleware,
+    #[cfg(feature = "realearn-meter")]
+    meter_middleware: reaper_high::MeterMiddleware,
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
     counter: u64,
@@ -52,25 +54,28 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     state: State,
     osc_input_devices: Vec<OscInputDevice>,
     garbage_receiver: crossbeam_channel::Receiver<Garbage>,
+    device_change_detector: DeviceChangeDetector,
 }
 
-#[derive(Debug)]
 pub enum Garbage {
-    RawMidiEvent(Box<RawMidiEvent>),
+    RawMidiEvents(Vec<RawMidiEvent>),
     RealTimeProcessor(SharedRealTimeProcessor),
     LifecycleMidiData(LifecycleMidiData),
     ResolvedTarget(Option<RealTimeCompoundMappingTarget>),
-    EelTransformation(Option<EelTransformation>),
+    Mode(ModeGarbage<EelTransformation>),
     MappingSource(CompoundMappingSource),
     RealTimeMappings(Vec<RealTimeMapping>),
     BoxedRealTimeMapping(Box<Option<RealTimeMapping>>),
     ActivationChanges(Vec<ActivationChange>),
+    NormalRealTimeTask(NormalRealTimeTask),
+    FeedbackRealTimeTask(FeedbackRealTimeTask),
+    MidiCaptureSender(MidiCaptureSender),
 }
 
 #[derive(Debug)]
 enum State {
     Normal,
-    LearningSource(LearnSourceSender),
+    CapturingOsc(OscCaptureSender),
     LearningTarget(async_channel::Sender<ReaperTarget>),
 }
 
@@ -80,8 +85,8 @@ pub enum RealearnControlSurfaceMainTask<EH: DomainEventHandler> {
     AddMainProcessor(MainProcessor<EH>),
     LogDebugInfo,
     StartLearningTargets(async_channel::Sender<ReaperTarget>),
-    StartLearningSources(LearnSourceSender),
-    StopLearning,
+    StartCapturingOsc(OscCaptureSender),
+    StopCapturingOsc,
     SendAllFeedback,
 }
 
@@ -174,6 +179,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         metrics_enabled: bool,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
+        let mut device_change_detector = DeviceChangeDetector::new();
+        // Prevent change messages to be sent on load by polling one time and ignoring result.
+        device_change_detector.poll_for_midi_input_device_changes();
+        device_change_detector.poll_for_midi_output_device_changes();
         Self {
             logger: logger.clone(),
             change_detection_middleware: ChangeDetectionMiddleware::new(),
@@ -183,7 +192,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             server_task_receiver,
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
-            meter_middleware: MeterMiddleware::new(logger.clone()),
+            #[cfg(feature = "realearn-meter")]
+            meter_middleware: reaper_high::MeterMiddleware::new(logger.clone()),
             main_task_middleware: MainTaskMiddleware::new(
                 logger.clone(),
                 Global::get().task_sender(),
@@ -200,6 +210,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             state: State::Normal,
             osc_input_devices: vec![],
             garbage_receiver,
+            device_change_detector,
         }
     }
 
@@ -230,11 +241,31 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn run_internal(&mut self) {
-        // Run middlewares
         self.main_task_middleware.run();
         self.future_middleware.run();
         self.rx_middleware.run();
-        // Process main tasks
+        self.process_main_tasks();
+        self.process_server_tasks();
+        self.process_incoming_additional_feedback();
+        self.process_instance_orchestration_events();
+        self.emit_beats_as_feedback_events();
+        self.emit_device_changes_as_reaper_source_messages();
+        self.process_incoming_osc_messages();
+        self.run_main_processors();
+        // // TODO-high-grpc Just an experiment
+        // if let Some(t) = Reaper::get().current_project().first_track() {
+        //     let vol = t.volume();
+        //     let _ = BackboneState::server_event_sender().send(vol.soft_normalized_value());
+        // }
+        #[cfg(feature = "realearn-meter")]
+        if self.metrics_enabled {
+            self.process_metrics();
+        }
+        self.drop_garbage();
+        self.counter += 1;
+    }
+
+    fn process_main_tasks(&mut self) {
         for t in self
             .main_task_receiver
             .try_iter()
@@ -247,16 +278,17 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
                 LogDebugInfo => {
                     self.log_debug_info();
+                    #[cfg(feature = "realearn-meter")]
                     self.meter_middleware.log_metrics();
                 }
                 StartLearningTargets(sender) => {
                     self.state = State::LearningTarget(sender);
                 }
-                StopLearning => {
+                StopCapturingOsc => {
                     self.state = State::Normal;
                 }
-                StartLearningSources(sender) => {
-                    self.state = State::LearningSource(sender);
+                StartCapturingOsc(sender) => {
+                    self.state = State::CapturingOsc(sender);
                 }
                 SendAllFeedback => {
                     for m in &self.main_processors {
@@ -265,7 +297,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        // Process server tasks
+    }
+
+    fn process_server_tasks(&mut self) {
         for t in self
             .server_task_receiver
             .try_iter()
@@ -274,17 +308,51 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             use RealearnControlSurfaceServerTask::*;
             match t {
                 ProvidePrometheusMetrics(sender) => {
+                    #[cfg(feature = "realearn-meter")]
                     let text = serde_prometheus::to_string(
                         self.meter_middleware.metrics(),
                         Some("realearn"),
                         HashMap::new(),
                     )
                     .unwrap();
+                    #[cfg(not(feature = "realearn-meter"))]
+                    let text = String::new();
                     let _ = sender.send(text);
                 }
             }
         }
-        // Process incoming additional feedback
+    }
+
+    fn drop_garbage(&mut self) {
+        for garbage in self.garbage_receiver.try_iter().take(GARBAGE_BULK_SIZE) {
+            let _ = garbage;
+        }
+    }
+
+    #[cfg(feature = "realearn-meter")]
+    fn process_metrics(&mut self) {
+        // Roughly every 10 seconds
+        if self.counter % (30 * 10) == 0 {
+            self.meter_middleware.warn_about_critical_metrics();
+        }
+    }
+
+    fn run_main_processors(&mut self) {
+        match &self.state {
+            State::Normal => {
+                for p in &mut self.main_processors {
+                    p.run_all();
+                }
+            }
+            State::CapturingOsc(_) | State::LearningTarget(_) => {
+                for p in &mut self.main_processors {
+                    p.run_essential();
+                }
+            }
+        }
+    }
+
+    fn process_incoming_additional_feedback(&mut self) {
         for event in self
             .additional_feedback_event_receiver
             .try_iter()
@@ -303,7 +371,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 p.process_additional_feedback_event(&event)
             }
         }
-        // Process instance orchestration events
+    }
+
+    fn process_instance_orchestration_events(&mut self) {
         for event in self
             .instance_orchestration_event_receiver
             .try_iter()
@@ -313,18 +383,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             match event {
                 SourceReleased(e) => {
                     debug!(self.logger, "Source of instance {} released", e.instance_id);
-                    let other_instance_took_over =
-                        if let Some(source) = RealSource::from_feedback_value(&e.feedback_value) {
-                            // We also allow the instance to take over which released the source in
-                            // the first place! Simply because in the meanwhile, this instance
-                            // could have found a new usage for it! E.g. likely to happen with
-                            // preset changes.
-                            self.main_processors
-                                .iter()
-                                .any(|p| p.maybe_takeover_source(&source))
-                        } else {
-                            false
-                        };
+                    // We also allow the instance to take over which released the source in
+                    // the first place! Simply because in the meanwhile, this instance
+                    // could have found a new usage for it! E.g. likely to happen with
+                    // preset changes.
+                    let other_instance_took_over = self
+                        .main_processors
+                        .iter()
+                        .any(|p| p.maybe_takeover_source(&e));
                     if !other_instance_took_over {
                         if let Some(p) = self
                             .main_processors
@@ -377,7 +443,9 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        // Emit beats as feedback events
+    }
+
+    fn emit_beats_as_feedback_events(&mut self) {
         for project in Reaper::get().projects() {
             let reference_pos = if project.is_playing() {
                 project.play_position_latency_compensated()
@@ -394,34 +462,38 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
             }
         }
-        // OSC
-        self.process_incoming_osc_messages();
-        // Main processors
-        match &self.state {
-            State::Normal => {
-                for p in &mut self.main_processors {
-                    p.run_all();
+    }
+
+    fn emit_device_changes_as_reaper_source_messages(&mut self) {
+        // Check roughly every 2 seconds
+        if self.counter % (30 * 2) == 0 {
+            let midi_in_diff = self
+                .device_change_detector
+                .poll_for_midi_input_device_changes();
+            let midi_out_diff = self
+                .device_change_detector
+                .poll_for_midi_output_device_changes();
+            let mut msgs = Vec::with_capacity(2);
+            if !midi_in_diff.added_devices.is_empty() || !midi_out_diff.added_devices.is_empty() {
+                let payload = MidiDeviceChangePayload {
+                    input_devices: midi_in_diff.added_devices,
+                    output_devices: midi_out_diff.added_devices,
+                };
+                msgs.push(ReaperMessage::MidiDevicesConnected(payload));
+            }
+            if !midi_in_diff.removed_devices.is_empty() || !midi_out_diff.removed_devices.is_empty()
+            {
+                let payload = MidiDeviceChangePayload {
+                    input_devices: midi_in_diff.removed_devices,
+                    output_devices: midi_out_diff.removed_devices,
+                };
+                msgs.push(ReaperMessage::MidiDevicesDisconnected(payload));
+            }
+            for p in &mut self.main_processors {
+                for msg in &msgs {
+                    p.process_reaper_message(msg);
                 }
             }
-            State::LearningSource(_) | State::LearningTarget(_) => {
-                for p in &mut self.main_processors {
-                    p.run_essential();
-                }
-            }
-        }
-        // Metrics
-        if self.metrics_enabled {
-            // Roughly every 10 seconds
-            if self.counter == 30 * 10 {
-                self.meter_middleware.warn_about_critical_metrics();
-                self.counter = 0;
-            } else {
-                self.counter += 1;
-            }
-        }
-        // Garbage drop
-        for garbage in self.garbage_receiver.try_iter().take(GARBAGE_BULK_SIZE) {
-            let _ = garbage;
         }
     }
 
@@ -461,7 +533,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                         }
                     }
                 }
-                State::LearningSource(sender) => {
+                State::CapturingOsc(sender) => {
                     for packet in packets {
                         process_incoming_osc_packet_for_learning(dev_id, sender, packet)
                     }
@@ -501,7 +573,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                         let _ = sender.try_send(target);
                     }
                 }
-                State::LearningSource(_) => {}
+                State::CapturingOsc(_) => {}
             }
         })
     }
@@ -522,25 +594,33 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
     fn run(&mut self) {
+        #[cfg(feature = "realearn-meter")]
         if self.metrics_enabled {
-            let elapsed = MeterMiddleware::measure(|| {
+            let elapsed = reaper_high::MeterMiddleware::measure(|| {
                 self.run_internal();
             });
             self.meter_middleware.record_run(elapsed);
         } else {
             self.run_internal();
         }
+        #[cfg(not(feature = "realearn-meter"))]
+        {
+            self.run_internal();
+        }
     }
 
     fn handle_event(&self, event: ControlSurfaceEvent) -> bool {
+        #[cfg(feature = "realearn-meter")]
         if self.metrics_enabled {
-            let elapsed = MeterMiddleware::measure(|| {
+            let elapsed = reaper_high::MeterMiddleware::measure(|| {
                 self.handle_event_internal(event);
             });
             self.meter_middleware.record_event(event, elapsed)
         } else {
             self.handle_event_internal(event)
         }
+        #[cfg(not(feature = "realearn-meter"))]
+        self.handle_event_internal(event)
     }
 
     fn get_touch_state(&self, args: GetTouchStateArgs) -> bool {
@@ -560,7 +640,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
 
 fn process_incoming_osc_packet_for_learning(
     dev_id: OscDeviceId,
-    sender: &LearnSourceSender,
+    sender: &OscCaptureSender,
     packet: OscPacket,
 ) {
     match packet {
@@ -575,11 +655,14 @@ fn process_incoming_osc_packet_for_learning(
 
 fn process_incoming_osc_message_for_learning(
     dev_id: OscDeviceId,
-    sender: &LearnSourceSender,
-    msg: OscMessage,
+    sender: &OscCaptureSender,
+    message: OscMessage,
 ) {
-    let source = OscSource::from_source_value(msg, Some(0));
-    let _ = sender.try_send((dev_id, source));
+    let scan_result = OscScanResult {
+        message,
+        dev_id: Some(dev_id),
+    };
+    let _ = sender.try_send(scan_result);
 }
 
 impl<EH: DomainEventHandler> Drop for RealearnControlSurfaceMiddleware<EH> {
@@ -590,6 +673,7 @@ impl<EH: DomainEventHandler> Drop for RealearnControlSurfaceMiddleware<EH> {
     }
 }
 
+/// For pushing deallocation to main thread (vs. doing it in the audio thread).
 #[derive(Clone, Debug)]
 pub struct GarbageBin {
     sender: crossbeam_channel::Sender<Garbage>,
@@ -603,6 +687,7 @@ impl GarbageBin {
         Self { sender }
     }
 
+    /// Pushes deallocation to the main thread.
     pub fn dispose(&self, garbage: Garbage) {
         self.sender.try_send(garbage).unwrap();
     }
@@ -612,12 +697,8 @@ impl GarbageBin {
         // enum size get too large.
         self.dispose(Garbage::LifecycleMidiData(m.lifecycle_midi_data));
         self.dispose(Garbage::ResolvedTarget(m.resolved_target));
-        self.dispose(Garbage::EelTransformation(
-            m.core.mode.control_transformation,
-        ));
-        self.dispose(Garbage::EelTransformation(
-            m.core.mode.feedback_transformation,
-        ));
+        let mode_garbage = m.core.mode.recycle();
+        self.dispose(Garbage::Mode(mode_garbage));
         self.dispose(Garbage::MappingSource(m.core.source));
     }
 }

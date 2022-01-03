@@ -18,29 +18,50 @@ jobs:
             toolchain-suffix: x86_64-pc-windows-msvc
             lib-file-name: realearn.dll
             target: x86_64-pc-windows-msvc
+            use-cross: false
           - artifact: windows-i686
             os: windows-latest
             toolchain-suffix: i686-pc-windows-msvc
             lib-file-name: realearn.dll
             target: i686-pc-windows-msvc
+            use-cross: false
           - artifact: macos-x86_64
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
             lib-file-name: librealearn.dylib
             target: x86_64-apple-darwin
+            use-cross: false
           - artifact: macos-aarch64
             os: macos-latest
             toolchain-suffix: x86_64-apple-darwin
             lib-file-name: librealearn.dylib
             target: aarch64-apple-darwin
+            use-cross: false
           - artifact: linux-x86_64
             os: ubuntu-latest
             toolchain-suffix: x86_64-unknown-linux-gnu
             lib-file-name: librealearn.so
             target: x86_64-unknown-linux-gnu
+            use-cross: false
+            strip-cmd: strip
+          - artifact: linux-aarch64
+            os: ubuntu-latest
+            toolchain-suffix: x86_64-unknown-linux-gnu
+            lib-file-name: librealearn.so
+            target: aarch64-unknown-linux-gnu
+            use-cross: true
+            strip-cmd: aarch64-linux-gnu-strip
+          - artifact: linux-armv7
+            os: ubuntu-latest
+            toolchain-suffix: x86_64-unknown-linux-gnu
+            lib-file-name: librealearn.so
+            target: armv7-unknown-linux-gnueabihf
+            use-cross: true
+            strip-cmd: arm-linux-gnueabihf-strip
     env:
       MACOSX_DEPLOYMENT_TARGET: 10.7 # This is relevant for macOS builds only (and only if not overridden).
     steps:
+      # Prepare (all)
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -49,35 +70,47 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2020-12-10-${{ matrix.toolchain-suffix }}
+          toolchain: 1.55.0-${{ matrix.toolchain-suffix }}
           target: ${{ matrix.target }}
           override: true
+      - run: rustup component add rustfmt
+      # Install OS dependencies (Linux only)
       - name: Install native Linux dependencies
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install nasm xorg-dev libxcb-shape0-dev libxcb-render0-dev libxcb-xfixes0-dev libwebkit2gtk-4.0
+          sudo apt-get install nasm binutils-arm-linux-gnueabihf binutils-aarch64-linux-gnu
+      # Override SDK root and deployment target (macOS aarch64 only)
       - name: Set SDKROOT
         if: matrix.target == 'aarch64-apple-darwin'
         run: echo "SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path)" >> $GITHUB_ENV
       - name: Set MACOSX_DEPLOYMENT_TARGET
         if: matrix.target == 'aarch64-apple-darwin'
         run: echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version)" >> $GITHUB_ENV
+      # Build (all)
       - name: Build release
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --target ${{ matrix.target }}
+          use-cross: ${{ matrix.use-cross }}
+      # Strip debug symbols (Linux and macOS)
       - name: Strip debug symbols from Linux binary
         if: matrix.os == 'ubuntu-latest'
         run: |
-          cp target/${{ matrix.target }}/release/librealearn.so target/${{ matrix.target }}/release/librealearn-debug.so
-          strip target/${{ matrix.target }}/release/librealearn.so
+          cp target/${{ matrix.target }}/release/${{ matrix.lib-file-name }} target/${{ matrix.target }}/release/librealearn-debug.so
+          ${{ matrix.strip-cmd }} target/${{ matrix.target }}/release/${{ matrix.lib-file-name }}
+      - name: Strip debug symbols from macOS binary
+        if: matrix.os == 'macos-latest'
+        run: |
+          strip -u -r target/${{ matrix.target }}/release/${{ matrix.lib-file-name }}
+      # Upload plug-in (all)
       - name: Upload plug-in to artifact
         uses: actions/upload-artifact@v2
         with:
           name: ${{ matrix.artifact }}
           path: target/${{ matrix.target }}/release/${{ matrix.lib-file-name }}
+      # Upload debug symbols (all)
       - name: Upload Windows debug symbols to artifact
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v2
@@ -161,4 +194,22 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./linux-x86_64/librealearn.so
           asset_name: realearn-linux-x86_64.so
+          asset_content_type: application/octet-stream
+      - name: Upload linux-aarch64 release artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./linux-aarch64/librealearn.so
+          asset_name: realearn-linux-aarch64.so
+          asset_content_type: application/octet-stream
+      - name: Upload linux-armv7 release artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./linux-armv7/librealearn.so
+          asset_name: realearn-linux-armv7.so
           asset_content_type: application/octet-stream

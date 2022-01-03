@@ -1,9 +1,8 @@
-use crate::domain::MidiSource;
-use helgoboss_learn::{MidiSourceValue, SourceCharacter};
+use helgoboss_learn::{MidiSourceValue, RawMidiEvent, SourceCharacter};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessageScanner, ControllerNumber,
-    PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage, StructuredShortMessage,
-    U7,
+    PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage, ShortMessageFactory,
+    StructuredShortMessage, U7,
 };
 use reaper_medium::MidiInputDeviceId;
 use std::cmp::Ordering;
@@ -13,7 +12,7 @@ const MAX_CC_MSG_COUNT: usize = 10;
 const MAX_CC_WAITING_TIME: Duration = Duration::from_millis(250);
 
 #[derive(Debug)]
-pub struct MidiSourceScanner {
+pub struct MidiScanner {
     // Scanners for more complex MIDI message types
     nrpn_scanner: PollingParameterNumberMessageScanner,
     cc_14_bit_scanner: ControlChange14BitMessageScanner,
@@ -21,7 +20,7 @@ pub struct MidiSourceScanner {
     dev_id: Option<MidiInputDeviceId>,
 }
 
-impl Default for MidiSourceScanner {
+impl Default for MidiScanner {
     fn default() -> Self {
         Self {
             nrpn_scanner: PollingParameterNumberMessageScanner::new(Duration::from_millis(1)),
@@ -73,13 +72,54 @@ impl ControlChangeState {
     }
 }
 
-impl MidiSourceScanner {
+#[derive(Clone, PartialEq, Debug)]
+pub struct MidiScanResult {
+    pub value: MidiSourceValue<'static, RawShortMessage>,
+    pub dev_id: Option<MidiInputDeviceId>,
+    pub character: Option<SourceCharacter>,
+}
+
+impl MidiScanResult {
+    pub fn new(
+        value: MidiSourceValue<'static, RawShortMessage>,
+        dev_id: Option<MidiInputDeviceId>,
+        character: Option<SourceCharacter>,
+    ) -> Self {
+        Self {
+            value,
+            dev_id,
+            character,
+        }
+    }
+
+    /// Allocates!!!
+    pub fn try_from_bytes(
+        bytes: &[u8],
+        dev_id: Option<MidiInputDeviceId>,
+    ) -> Result<Self, &'static str> {
+        let raw_event = RawMidiEvent::try_from_slice(0, bytes)?;
+        // This allocates
+        let vec = vec![raw_event];
+        let res = MidiScanResult {
+            dev_id,
+            value: MidiSourceValue::Raw {
+                // We don't use this as feedback value.
+                feedback_address_info: None,
+                events: vec,
+            },
+            character: None,
+        };
+        Ok(res)
+    }
+}
+
+impl MidiScanner {
     pub fn feed_short(
         &mut self,
         msg: RawShortMessage,
         dev_id: Option<MidiInputDeviceId>,
-    ) -> Option<MidiSource> {
-        if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg) {
+    ) -> Option<MidiScanResult> {
+        if let Some(nrpn_msg) = self.nrpn_scanner.feed(&msg)[0] {
             let res = self.feed(
                 MidiSourceValue::<RawShortMessage>::ParameterNumber(nrpn_msg),
                 dev_id,
@@ -100,11 +140,11 @@ impl MidiSourceScanner {
         self.feed(MidiSourceValue::Plain(msg), dev_id)
     }
 
-    pub(crate) fn feed(
+    fn feed(
         &mut self,
         source_value: MidiSourceValue<RawShortMessage>,
         dev_id: Option<MidiInputDeviceId>,
-    ) -> Option<MidiSource> {
+    ) -> Option<MidiScanResult> {
         // First encountered device ID rules.
         if self.dev_id.is_none() {
             self.dev_id = dev_id;
@@ -123,10 +163,18 @@ impl MidiSourceScanner {
                         self.state = State::WaitingForMoreCcMsgs(cc_state);
                         None
                     } else {
-                        MidiSource::from_source_value(source_value)
+                        Some(MidiScanResult::new(
+                            source_value.try_into_owned().ok()?,
+                            dev_id,
+                            None,
+                        ))
                     }
                 } else {
-                    MidiSource::from_source_value(source_value)
+                    Some(MidiScanResult::new(
+                        source_value.try_into_owned().ok()?,
+                        dev_id,
+                        None,
+                    ))
                 }
             }
             State::WaitingForMoreCcMsgs(cc_state) => {
@@ -141,27 +189,27 @@ impl MidiSourceScanner {
                             cc_state.add_value(control_value);
                         }
                     }
-                    Some(self.guess_or_not()?.0)
+                    self.guess_or_not()
                 } else {
                     // Looks like in the meantime, the composite scanners ((N)RPN or
                     // 14-bit CC) have figured out that the combination is a composite
                     // message. This fixes https://github.com/helgoboss/realearn/issues/95.
-                    let source = MidiSource::from_source_value(source_value);
-                    if source.is_some() {
-                        self.reset();
-                    }
-                    source
+                    let res =
+                        MidiScanResult::new(source_value.try_into_owned().ok()?, dev_id, None);
+                    self.reset();
+                    Some(res)
                 }
             }
         }
     }
 
-    pub fn poll(&mut self) -> Option<(MidiSource, Option<MidiInputDeviceId>)> {
+    pub fn poll(&mut self) -> Option<MidiScanResult> {
         for ch in 0..16 {
             if let Some(nrpn_msg) = self.nrpn_scanner.poll(Channel::new(ch)) {
                 let source_value = MidiSourceValue::<RawShortMessage>::ParameterNumber(nrpn_msg);
-                if let Some(source) = self.feed(source_value, None) {
-                    return Some((source, self.dev_id));
+                let res = self.feed(source_value, None);
+                if res.is_some() {
+                    return res;
                 }
             }
         }
@@ -174,12 +222,12 @@ impl MidiSourceScanner {
         self.state = State::Initial;
     }
 
-    fn guess_or_not(&mut self) -> Option<(MidiSource, Option<MidiInputDeviceId>)> {
+    fn guess_or_not(&mut self) -> Option<MidiScanResult> {
         if let State::WaitingForMoreCcMsgs(cc_state) = &self.state {
             if cc_state.time_to_guess() {
-                let guessed_source = guess_source(cc_state);
+                let guessed_result = guess(cc_state, self.dev_id);
                 self.reset();
-                Some((guessed_source, self.dev_id))
+                Some(guessed_result)
             } else {
                 None
             }
@@ -189,11 +237,18 @@ impl MidiSourceScanner {
     }
 }
 
-fn guess_source(cc_state: &ControlChangeState) -> MidiSource {
-    MidiSource::ControlChangeValue {
-        channel: Some(cc_state.channel),
-        controller_number: Some(cc_state.controller_number),
-        custom_character: guess_custom_character(&cc_state.values[0..cc_state.msg_count - 1]),
+fn guess(cc_state: &ControlChangeState, dev_id: Option<MidiInputDeviceId>) -> MidiScanResult {
+    let first_cc_msg = RawShortMessage::control_change(
+        cc_state.channel,
+        cc_state.controller_number,
+        cc_state.values[0],
+    );
+    MidiScanResult {
+        value: MidiSourceValue::Plain(first_cc_msg),
+        dev_id,
+        character: Some(guess_custom_character(
+            &cc_state.values[0..cc_state.msg_count - 1],
+        )),
     }
 }
 
@@ -299,13 +354,13 @@ mod tests {
 
     mod scanning {
         use super::*;
-        use helgoboss_midi::test_util::{channel, control_change, u14};
+        use helgoboss_midi::test_util::{channel, control_change, nrpn_14_bit, u14};
         use helgoboss_midi::{ParameterNumberMessage, ParameterNumberMessageScanner};
 
         #[test]
         fn scan_nrpn() {
             // Given
-            let mut source_scanner = MidiSourceScanner::default();
+            let mut source_scanner = MidiScanner::default();
             let mut nrpn_scanner = ParameterNumberMessageScanner::new();
             // When
             use MidiSourceValue::{ParameterNumber, Plain};
@@ -345,12 +400,10 @@ mod tests {
             assert_eq!(source_3, None);
             assert_eq!(
                 source_4_nrpn.unwrap(),
-                MidiSource::ParameterNumberValue {
-                    channel: Some(channel(1)),
-                    number: Some(u14(99)),
-                    is_14_bit: Some(true),
-                    is_registered: Some(false),
-                    custom_character: SourceCharacter::RangeElement
+                MidiScanResult {
+                    value: MidiSourceValue::ParameterNumber(nrpn_14_bit(1, 99, 259)),
+                    dev_id: None,
+                    character: None
                 }
             );
             assert_eq!(source_4_short, None);
@@ -514,7 +567,7 @@ mod tests {
         }
 
         fn guess(values: &[u8]) -> SourceCharacter {
-            let u7_values: Vec<_> = values.into_iter().map(|v| u7(*v)).collect();
+            let u7_values: Vec<_> = values.iter().map(|v| u7(*v)).collect();
             guess_custom_character(&u7_values)
         }
     }

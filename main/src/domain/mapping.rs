@@ -1,26 +1,42 @@
 use crate::domain::{
-    ActivationChange, ActivationCondition, ControlContext, ControlOptions,
-    ExtendedProcessorContext, MappingActivationEffect, MidiSource, Mode, ParameterArray,
-    ParameterSlice, PlayPosFeedbackResolution, RealSource, RealTimeReaperTarget, RealearnTarget,
-    ReaperTarget, TargetCharacter, UnresolvedReaperTarget, VirtualControlElement, VirtualSource,
-    VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    get_prop_value, prop_feedback_resolution, prop_is_affected_by, ActivationChange,
+    ActivationCondition, CompoundChangeEvent, ControlContext, ControlOptions,
+    ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
+    MappingActivationEffect, MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent,
+    MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult, ParameterArray, ParameterSlice,
+    PersistentMappingProcessingState, RealTimeReaperTarget, RealearnTarget, ReaperMessage,
+    ReaperSource, ReaperTarget, ReaperTargetType, Tag, TargetCharacter, TrackExclusivity,
+    UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue, VirtualSource,
+    VirtualSourceAddress, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
 use enum_map::Enum;
 use helgoboss_learn::{
-    ControlType, ControlValue, MidiSourceValue, ModeControlOptions, OscSource, RawMidiEvent,
-    SourceCharacter, Target, UnitValue,
+    format_percentage_without_unit, parse_percentage_without_unit, AbsoluteValue, ControlType,
+    ControlValue, FeedbackValue, GroupInteraction, MidiSourceAddress, MidiSourceValue,
+    ModeControlOptions, ModeControlResult, ModeFeedbackOptions, NumericFeedbackValue, NumericValue,
+    OscSource, OscSourceAddress, PropValue, RawMidiEvent, SourceCharacter, Target, UnitValue,
+    ValueFormatter, ValueParser,
 };
-use helgoboss_midi::{RawShortMessage, ShortMessage};
+use helgoboss_midi::{Channel, RawShortMessage, ShortMessage};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use std::borrow::Cow;
+use std::cell::Cell;
 
+use crate::domain::unresolved_reaper_target::UnresolvedReaperTargetDef;
+use indexmap::map::IndexMap;
+use indexmap::set::IndexSet;
+use reaper_high::{Fx, Project, Track, TrackRoute};
+use reaper_medium::MidiInputDeviceId;
 use rosc::OscMessage;
 use serde::{Deserialize, Serialize};
 use smallvec::alloc::fmt::Formatter;
+use std::collections::HashSet;
+use std::convert::TryInto;
 use std::fmt;
-use std::fmt::Display;
 use std::ops::Range;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
@@ -30,29 +46,94 @@ pub struct ProcessorMappingOptions {
     /// is_always_active() result. The real-time processor always gets the effective result of the
     /// main processor mapping.
     pub target_is_active: bool,
+    pub persistent_processing_state: PersistentMappingProcessingState,
     pub control_is_enabled: bool,
     pub feedback_is_enabled: bool,
-    pub prevent_echo_feedback: bool,
-    pub send_feedback_after_control: bool,
+    pub feedback_send_behavior: FeedbackSendBehavior,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct MappingId {
-    uuid: Uuid,
-}
+impl ProcessorMappingOptions {
+    pub fn control_is_effectively_enabled(&self) -> bool {
+        self.persistent_processing_state.is_enabled && self.control_is_enabled
+    }
 
-impl MappingId {
-    pub fn random() -> MappingId {
-        MappingId {
-            uuid: Uuid::new_v4(),
-        }
+    pub fn feedback_is_effectively_enabled(&self) -> bool {
+        self.persistent_processing_state.is_enabled && self.feedback_is_enabled
     }
 }
 
-impl Display for MappingId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.uuid)
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Hash,
+    Debug,
+    Enum,
+    IntoEnumIterator,
+    TryFromPrimitive,
+    IntoPrimitive,
+    Display,
+)]
+#[repr(usize)]
+pub enum FeedbackSendBehavior {
+    #[display(fmt = "Normal")]
+    Normal,
+    #[display(fmt = "Send feedback after control")]
+    SendFeedbackAfterControl,
+    #[display(fmt = "Prevent echo feedback")]
+    PreventEchoFeedback,
+}
+
+impl Default for FeedbackSendBehavior {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
+/// Internal technical mapping identifier, not persistent.
+///
+/// Goals: Quick lookup, guaranteed uniqueness, cheap copy
+#[derive(
+    Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Serialize, Deserialize,
+)]
+#[serde(transparent)]
+pub struct MappingId(Uuid);
+
+impl MappingId {
+    pub fn random() -> MappingId {
+        Self(Uuid::new_v4())
+    }
+}
+
+/// A potentially user-defined mapping identifier, persistent
+///
+/// Goals: For external references (e.g. from API or in projection)
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Display, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct MappingKey(String);
+
+impl MappingKey {
+    pub fn random() -> Self {
+        Self(nanoid::nanoid!())
+    }
+}
+
+impl AsRef<str> for MappingKey {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<String> for MappingKey {
+    fn from(v: String) -> Self {
+        Self(v)
+    }
+}
+
+impl From<MappingKey> for String {
+    fn from(v: MappingKey) -> Self {
+        v.0
     }
 }
 
@@ -90,15 +171,35 @@ impl MappingExtension {
 #[derive(Debug)]
 pub struct MainMapping {
     core: MappingCore,
+    // We need to clone this when producing feedback, pretty often ... so wrapping it in a Rc
+    // saves us from doing too much copying and allocation that potentially slows down things
+    // (albeit only marginally).
+    key: Rc<str>,
+    name: Option<String>,
+    tags: Vec<Tag>,
     /// Is `Some` if the user-provided target data is complete.
     unresolved_target: Option<UnresolvedCompoundMappingTarget>,
     /// Is non-empty if the target resolved successfully.
     targets: Vec<CompoundMappingTarget>,
     activation_condition_1: ActivationCondition,
     activation_condition_2: ActivationCondition,
+    activation_state: ActivationState,
+    extension: MappingExtension,
+    initial_target_value: Option<AbsoluteValue>,
+    /// Called "y_last" in the control transformation formula.
+    last_non_performance_target_value: Cell<Option<AbsoluteValue>>,
+}
+
+#[derive(Default, Debug)]
+struct ActivationState {
     is_active_1: bool,
     is_active_2: bool,
-    extension: MappingExtension,
+}
+
+impl ActivationState {
+    pub fn is_active(&self) -> bool {
+        self.is_active_1 && self.is_active_2
+    }
 }
 
 impl MainMapping {
@@ -106,8 +207,13 @@ impl MainMapping {
     pub fn new(
         compartment: MappingCompartment,
         id: MappingId,
+        key: &MappingKey,
+        group_id: GroupId,
+        name: String,
+        tags: Vec<Tag>,
         source: CompoundMappingSource,
         mode: Mode,
+        group_interaction: GroupInteraction,
         unresolved_target: Option<UnresolvedCompoundMappingTarget>,
         activation_condition_1: ActivationCondition,
         activation_condition_2: ActivationCondition,
@@ -118,31 +224,139 @@ impl MainMapping {
             core: MappingCore {
                 compartment,
                 id,
+                group_id,
                 source,
                 mode,
+                group_interaction,
                 options,
                 time_of_last_control: None,
             },
+            key: {
+                let key_str: &str = key.as_ref();
+                key_str.into()
+            },
+            name: Some(name),
+            tags,
             unresolved_target,
             targets: vec![],
             activation_condition_1,
             activation_condition_2,
-            is_active_1: false,
-            is_active_2: false,
+            activation_state: Default::default(),
             extension,
+            initial_target_value: None,
+            last_non_performance_target_value: Cell::new(None),
         }
+    }
+
+    /// This is for:
+    ///
+    /// 1. Determining whether to send feedback and optionally, what feedback value to send.
+    /// 2. Updating y_last (for performance mappings)
+    ///
+    /// This method is not required to already return the new target value. If not, the consumer
+    /// must query the target for the current value.
+    pub fn process_change_event(
+        &self,
+        target: &ReaperTarget,
+        evt: CompoundChangeEvent,
+        context: ControlContext,
+    ) -> (bool, Option<AbsoluteValue>) {
+        // Textual feedback relates to whatever properties are mentioned in the text expression.
+        // But even numeric feedback can use properties - as part of the feedback style
+        // (color etc.). That means we need to check for each of these mentioned properties if
+        // they might be affected by the incoming event.
+        let props_are_affected = self
+            .core
+            .mode
+            .feedback_props_in_use()
+            .iter()
+            .any(|p| prop_is_affected_by(p, evt, self, target, context));
+        let (is_affected, new_value, handle_performance_mapping) =
+            if self.core.mode.wants_textual_feedback() {
+                // For textual feedback only those props matter. Updating y_last is not relevant because
+                // textual feedback is feedback-only.
+                (props_are_affected, None, false)
+            } else {
+                // Numeric feedback implicitly always relates to the main target value, so we always
+                // ask the target directly.
+                let (main_target_value_is_affected, value) =
+                    target.process_change_event(evt, context);
+                (
+                    main_target_value_is_affected || props_are_affected,
+                    value,
+                    true,
+                )
+            };
+        if is_affected {
+            let new_value = new_value.or_else(|| target.current_value(context));
+            if handle_performance_mapping {
+                self.update_last_non_performance_target_value_if_appropriate(new_value);
+            }
+            (true, new_value)
+        } else {
+            (false, None)
+        }
+    }
+
+    pub fn update_last_non_performance_target_value_if_appropriate(
+        &self,
+        value: Option<AbsoluteValue>,
+    ) {
+        if let Some(v) = value {
+            if self.control_is_enabled() && !self.is_echo() {
+                self.last_non_performance_target_value.set(Some(v));
+            }
+        }
+    }
+
+    pub fn is_echo(&self) -> bool {
+        self.core.is_echo()
+    }
+
+    pub fn update_last_non_performance_target_value(&self, value: AbsoluteValue) {
+        self.last_non_performance_target_value.set(Some(value));
+    }
+
+    pub fn take_mapping_info(&mut self) -> MappingInfo {
+        MappingInfo {
+            name: self.name.take().unwrap_or_default(),
+        }
+    }
+
+    pub fn initial_target_value(&self) -> Option<AbsoluteValue> {
+        self.initial_target_value
+    }
+
+    pub fn update_persistent_processing_state(&mut self, state: PersistentMappingProcessingState) {
+        self.core.options.persistent_processing_state = state;
+    }
+
+    pub fn tags(&self) -> &[Tag] {
+        &self.tags
+    }
+
+    pub fn has_any_tag(&self, tags: &HashSet<Tag>) -> bool {
+        self.tags.iter().any(|t| tags.contains(t))
     }
 
     pub fn qualified_source(&self) -> QualifiedSource {
         QualifiedSource {
             compartment: self.core.compartment,
-            id: self.id(),
+            mapping_key: self.key.clone(),
             source: self.source().clone(),
         }
     }
 
+    pub fn compartment(&self) -> MappingCompartment {
+        self.core.compartment
+    }
+
     pub fn id(&self) -> MappingId {
         self.core.id
+    }
+
+    pub fn qualified_id(&self) -> QualifiedMappingId {
+        QualifiedMappingId::new(self.core.compartment, self.core.id)
     }
 
     pub fn options(&self) -> &ProcessorMappingOptions {
@@ -162,7 +376,7 @@ impl MainMapping {
                 },
                 ..self.core.clone()
             },
-            is_active: self.is_active(),
+            is_active: self.is_active_in_terms_of_activation_state(),
             target_category: self.unresolved_target.as_ref().map(|t| match t {
                 UnresolvedCompoundMappingTarget::Reaper(_) => UnresolvedTargetCategory::Reaper,
                 UnresolvedCompoundMappingTarget::Virtual(_) => UnresolvedTargetCategory::Virtual,
@@ -193,19 +407,14 @@ impl MainMapping {
     }
 
     pub fn has_reaper_target(&self) -> bool {
-        self.unresolved_reaper_target().is_some()
+        matches!(
+            self.unresolved_target,
+            Some(UnresolvedCompoundMappingTarget::Reaper(_))
+        )
     }
 
     pub fn has_resolved_successfully(&self) -> bool {
         !self.targets.is_empty()
-    }
-
-    pub fn unresolved_reaper_target(&self) -> Option<&UnresolvedReaperTarget> {
-        if let Some(UnresolvedCompoundMappingTarget::Reaper(t)) = self.unresolved_target.as_ref() {
-            Some(t)
-        } else {
-            None
-        }
     }
 
     /// Returns `Some` if this affects the mapping's activation state in any way.
@@ -251,14 +460,14 @@ impl MainMapping {
         &mut self,
         activation_effect: MappingActivationEffect,
     ) -> Option<ActivationChange> {
-        let was_active_before = self.is_active();
-        self.is_active_1 = activation_effect
+        let was_active_before = self.is_active_in_terms_of_activation_state();
+        self.activation_state.is_active_1 = activation_effect
             .active_1_effect
-            .unwrap_or(self.is_active_1);
-        self.is_active_2 = activation_effect
+            .unwrap_or(self.activation_state.is_active_1);
+        self.activation_state.is_active_2 = activation_effect
             .active_2_effect
-            .unwrap_or(self.is_active_2);
-        let now_is_active = self.is_active();
+            .unwrap_or(self.activation_state.is_active_2);
+        let now_is_active = self.is_active_in_terms_of_activation_state();
         if now_is_active == was_active_before {
             return None;
         }
@@ -269,46 +478,98 @@ impl MainMapping {
         Some(update)
     }
 
-    pub fn refresh_all(&mut self, context: ExtendedProcessorContext) {
-        self.refresh_target(context);
-        self.update_activation(&context.params());
+    pub fn init_target_and_activation(
+        &mut self,
+        context: ExtendedProcessorContext,
+        control_context: ControlContext,
+    ) {
+        let (targets, is_active) = self.resolve_target(context, control_context);
+        self.targets = targets;
+        self.core.options.target_is_active = is_active;
+        self.update_activation(context.params());
+        let target_value = self.current_aggregated_target_value(control_context);
+        self.initial_target_value = target_value;
+        self.last_non_performance_target_value = Cell::new(target_value);
+    }
+
+    fn resolve_target(
+        &mut self,
+        context: ExtendedProcessorContext,
+        control_context: ControlContext,
+    ) -> (Vec<CompoundMappingTarget>, bool) {
+        match self.unresolved_target.as_ref() {
+            None => (vec![], false),
+            Some(ut) => match ut.resolve(context, self.core.compartment).ok() {
+                None => (vec![], false),
+                Some(resolved_targets) => {
+                    // Successfully resolved.
+                    if let Some(t) = resolved_targets.first() {
+                        // We have at least one target, great!
+                        self.core.mode.update_from_target(t, control_context);
+                        let met = ut.conditions_are_met(&resolved_targets);
+                        (resolved_targets, met)
+                    } else {
+                        // Resolved to zero targets. Consider as inactive.
+                        (vec![], false)
+                    }
+                }
+            },
+        }
     }
 
     pub fn needs_refresh_when_target_touched(&self) -> bool {
         matches!(
             self.unresolved_target,
             Some(UnresolvedCompoundMappingTarget::Reaper(
-                UnresolvedReaperTarget::LastTouched
+                UnresolvedReaperTarget::LastTouched(_)
             ))
         )
     }
 
-    pub fn play_pos_feedback_resolution(&self) -> Option<PlayPosFeedbackResolution> {
+    /// `None` means that no polling is necessary for feedback because we are notified via events.
+    pub fn feedback_resolution(&self) -> Option<FeedbackResolution> {
         let t = self.unresolved_target.as_ref()?;
-        t.play_pos_feedback_resolution()
+        let max_resolution_required_by_props = self
+            .core
+            .mode
+            .feedback_props_in_use()
+            .iter()
+            .filter_map(|p| prop_feedback_resolution(p, self, t))
+            .max();
+        if self.mode().wants_textual_feedback() {
+            // For textual feedback, we just need to look at the props.
+            max_resolution_required_by_props
+        } else {
+            // Numeric feedback always implicitly relates to the main target value, therefore
+            // we also need to ask the target directly.
+            t.feedback_resolution()
+                .into_iter()
+                .chain(max_resolution_required_by_props)
+                .max()
+        }
     }
 
     pub fn wants_to_be_polled_for_control(&self) -> bool {
         self.core.mode.wants_to_be_polled()
     }
 
-    /// The boolean tells if the resolved target changed in some way, the activation change says if
-    /// activation changed from off to on or on to off.
+    /// The boolean return value tells if the resolved target changed in some way, the activation
+    /// change says if activation changed from off to on or on to off.
     pub fn refresh_target(
         &mut self,
         context: ExtendedProcessorContext,
+        control_context: ControlContext,
     ) -> (bool, Option<ActivationChange>) {
-        let was_effectively_active_before = self.target_is_effectively_active();
-        let (targets, is_active) = match self.unresolved_target.as_ref() {
-            None => (vec![], false),
-            Some(t) => match t.resolve(context, self.core.compartment).ok() {
-                None => (vec![], false),
-                Some(resolved_targets) => {
-                    let met = t.conditions_are_met(&resolved_targets);
-                    (resolved_targets, met)
+        match self.unresolved_target.as_ref() {
+            None => return (false, None),
+            Some(t) => {
+                if !t.can_be_affected_by_change_events() {
+                    return (false, None);
                 }
-            },
-        };
+            }
+        }
+        let was_effectively_active_before = self.target_is_effectively_active();
+        let (targets, is_active) = self.resolve_target(context, control_context);
         let target_changed = targets != self.targets;
         self.targets = targets;
         self.core.options.target_is_active = is_active;
@@ -324,10 +585,10 @@ impl MainMapping {
 
     pub fn update_activation(&mut self, params: &ParameterArray) -> Option<ActivationChange> {
         let sliced_params = self.core.compartment.slice_params(params);
-        let was_active_before = self.is_active();
-        self.is_active_1 = self.activation_condition_1.is_fulfilled(sliced_params);
-        self.is_active_2 = self.activation_condition_2.is_fulfilled(sliced_params);
-        let now_is_active = self.is_active();
+        let was_active_before = self.is_active_in_terms_of_activation_state();
+        self.activation_state.is_active_1 = self.activation_condition_1.is_fulfilled(sliced_params);
+        self.activation_state.is_active_2 = self.activation_condition_2.is_fulfilled(sliced_params);
+        let now_is_active = self.is_active_in_terms_of_activation_state();
         if now_is_active == was_active_before {
             return None;
         }
@@ -338,169 +599,318 @@ impl MainMapping {
         Some(update)
     }
 
-    pub fn is_active(&self) -> bool {
-        self.is_active_1 && self.is_active_2
+    /// Doesn't check if explicitly enabled or disabled.
+    pub fn is_active_in_terms_of_activation_state(&self) -> bool {
+        self.activation_state.is_active()
     }
 
+    /// Returns `true` if the mapping itself and the target is active.
+    ///
+    /// Doesn't check if explicitly enabled or disabled.
     fn is_effectively_active(&self) -> bool {
-        self.is_active() && self.target_is_effectively_active()
+        is_effectively_active(
+            &self.core.options,
+            &self.activation_state,
+            self.unresolved_target.as_ref(),
+        )
     }
 
     fn target_is_effectively_active(&self) -> bool {
-        if self.core.options.target_is_active {
-            return true;
-        }
-        if let Some(t) = self.unresolved_reaper_target() {
-            t.is_always_active()
-        } else {
-            false
-        }
+        target_is_effectively_active(&self.core.options, self.unresolved_target.as_ref())
     }
 
+    /// Returns `true` if mapping & target is active and control or feedback is enabled.
     pub fn is_effectively_on(&self) -> bool {
         self.is_effectively_active()
-            && (self.core.options.control_is_enabled || self.core.options.feedback_is_enabled)
+            && (self.control_is_enabled() || self.core.options.feedback_is_effectively_enabled())
     }
 
     pub fn control_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.core.options.control_is_enabled
+        self.is_effectively_active() && self.control_is_enabled()
+    }
+
+    pub fn control_is_enabled(&self) -> bool {
+        self.core.options.control_is_effectively_enabled()
+    }
+
+    pub fn feedback_is_enabled(&self) -> bool {
+        self.core.options.feedback_is_effectively_enabled()
     }
 
     pub fn feedback_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.core.options.feedback_is_enabled
+        feedback_is_effectively_on(
+            &self.core.options,
+            &self.activation_state,
+            self.unresolved_target.as_ref(),
+        )
     }
 
     pub fn source(&self) -> &CompoundMappingSource {
         &self.core.source
     }
 
-    pub fn has_this_real_source(&self, source: &RealSource) -> bool {
-        match &self.core.source {
-            CompoundMappingSource::Midi(self_source) => {
-                matches!(source, RealSource::Midi(s) if s == self_source)
-            }
-            CompoundMappingSource::Osc(self_source) => {
-                matches!(source, RealSource::Osc(s) if s == self_source)
-            }
-            CompoundMappingSource::Virtual(_) => false,
-        }
-    }
-
     pub fn targets(&self) -> &[CompoundMappingTarget] {
         &self.targets
     }
 
-    /// This is for timer-triggered control and works like `control_if_enabled`.
-    pub fn poll_if_control_enabled(&mut self, context: ControlContext) -> Option<FeedbackValue> {
-        if !self.control_is_effectively_on() {
-            return None;
-        }
-        let mut should_send_feedback = false;
-        for target in &self.targets {
-            let target = if let CompoundMappingTarget::Reaper(t) = target {
-                t
-            } else {
-                continue;
-            };
-            let final_value = if let Some(v) = self.core.mode.poll(target, Some(context)) {
-                v
-            } else {
-                continue;
-            };
-            // Echo feedback, send feedback after control ... all of that is not important when
-            // firing triggered by a timer.
-            // Be graceful here. Don't debug-log errors for now because this is polled.
-            let _ = target.control(final_value, context);
-            if self.should_send_non_auto_feedback_after_control(target) {
-                should_send_feedback = true;
-            }
-        }
-        if should_send_feedback {
-            self.feedback(true, context)
-        } else {
-            None
-        }
+    /// This is for timer-triggered control (e.g. "Fire after delay").
+    #[must_use]
+    pub fn poll_control(
+        &mut self,
+        context: ControlContext,
+        logger: &slog::Logger,
+        processor_context: ExtendedProcessorContext,
+    ) -> MappingControlResult {
+        self.control_internal(
+            ControlOptions::default(),
+            context,
+            logger,
+            processor_context,
+            true,
+            |_, context, mode, target| mode.poll(target, context),
+        )
+    }
+
+    pub fn group_interaction(&self) -> GroupInteraction {
+        self.core.group_interaction
     }
 
     /// Controls mode => target.
     ///
     /// Don't execute in real-time processor because this executes REAPER main-thread-only
     /// functions. If `send_feedback_after_control` is on, this might return feedback.
-    pub fn control_if_enabled(
+    #[must_use]
+    pub fn control_from_mode(
         &mut self,
-        value: ControlValue,
+        source_value: ControlValue,
         options: ControlOptions,
         context: ControlContext,
         logger: &slog::Logger,
-    ) -> Option<FeedbackValue> {
-        if !self.control_is_effectively_on() {
-            return None;
+        processor_context: ExtendedProcessorContext,
+    ) -> MappingControlResult {
+        self.control_internal(
+            options,
+            context,
+            logger,
+            processor_context,
+            false,
+            |options, context, mode, target| {
+                mode.control_with_options(
+                    source_value,
+                    target,
+                    context,
+                    options.mode_control_options,
+                )
+            },
+        )
+    }
+
+    /// Controls target directly without using mode.
+    ///
+    /// Don't execute in real-time processor because this executes REAPER main-thread-only
+    /// functions. If `send_feedback_after_control` is on, this might return feedback.
+    #[must_use]
+    pub fn control_from_target_via_group_interaction(
+        &mut self,
+        value: AbsoluteValue,
+        options: ControlOptions,
+        context: ControlContext,
+        logger: &slog::Logger,
+        inverse: bool,
+        processor_context: ExtendedProcessorContext,
+    ) -> MappingControlResult {
+        self.control_internal(
+            options,
+            context,
+            logger,
+            processor_context,
+            false,
+            |_, _, mode, target| {
+                let mut v = value;
+                let control_type = target.control_type(context);
+                // This is very similar to the mode logic, but just a small subset.
+                if inverse {
+                    let normalized_max = control_type.discrete_max().map(|m| {
+                        mode.settings()
+                            .discrete_target_value_interval
+                            .normalize_to_min(m)
+                    });
+                    v = v.inverse(normalized_max);
+                }
+                v = v.denormalize(
+                    &mode.settings().target_value_interval,
+                    &mode.settings().discrete_target_value_interval,
+                    mode.settings().use_discrete_processing,
+                    control_type.discrete_max(),
+                );
+                Some(ModeControlResult::hit_target(ControlValue::from_absolute(
+                    v,
+                )))
+            },
+        )
+    }
+
+    fn data(&self) -> MappingData {
+        MappingData {
+            mapping_id: self.core.id,
+            group_id: self.core.group_id,
+            last_non_performance_target_value: self.last_non_performance_target_value.get(),
         }
-        let mut send_feedback = false;
-        let mut at_least_one_target_val_was_changed = false;
-        for target in &self.targets {
+    }
+
+    #[must_use]
+    pub fn control_from_target_directly(
+        &mut self,
+        context: ControlContext,
+        logger: &slog::Logger,
+        // TODO-low Strictly spoken, this is not necessary, because control_internal uses this only
+        //  if target refresh is enforced, which is not the case here.
+        processor_context: ExtendedProcessorContext,
+        value: AbsoluteValue,
+    ) -> MappingControlResult {
+        self.control_internal(
+            ControlOptions::default(),
+            context,
+            logger,
+            processor_context,
+            false,
+            |_, _, _, _| {
+                Some(ModeControlResult::hit_target(ControlValue::from_absolute(
+                    value,
+                )))
+            },
+        )
+    }
+
+    #[must_use]
+    fn control_internal(
+        &mut self,
+        options: ControlOptions,
+        context: ControlContext,
+        logger: &slog::Logger,
+        processor_context: ExtendedProcessorContext,
+        is_polling: bool,
+        get_mode_control_result: impl Fn(
+            ControlOptions,
+            MappingControlContext,
+            &mut Mode,
+            &ReaperTarget,
+        ) -> Option<ModeControlResult<ControlValue>>,
+    ) -> MappingControlResult {
+        let mut send_manual_feedback_because_of_target = false;
+        let mut at_least_one_relevant_target_exists = false;
+        let mut at_least_one_target_was_reached = false;
+        let mut hit_instruction = None;
+        use ModeControlResult::*;
+        let mut fresh_targets = if options.enforce_target_refresh {
+            let (targets, conditions_are_met) = self.resolve_target(processor_context, context);
+            if !conditions_are_met {
+                return MappingControlResult::default();
+            }
+            targets
+        } else {
+            vec![]
+        };
+        let ctx = MappingControlContext {
+            control_context: context,
+            mapping_data: self.data(),
+        };
+        let actual_targets = if options.enforce_target_refresh {
+            &mut fresh_targets
+        } else {
+            &mut self.targets
+        };
+        for target in actual_targets {
             let target = if let CompoundMappingTarget::Reaper(t) = target {
                 t
             } else {
                 continue;
             };
-            let final_value = self.core.mode.control_with_options(
-                value,
-                target,
-                Some(context),
-                options.mode_control_options,
-            );
-            if let Some(v) = final_value {
-                at_least_one_target_val_was_changed = true;
-                // Be graceful here.
-                if let Err(msg) = target.control(v, context) {
-                    slog::debug!(logger, "Control failed: {}", msg);
+            at_least_one_relevant_target_exists = true;
+            match get_mode_control_result(options, ctx, &mut self.core.mode, target) {
+                None => {
+                    // The incoming source value doesn't reach the target because the source value
+                    // was filtered out. If `send_feedback_after_control` is enabled, we
+                    // still send feedback - this can be useful with controllers which insist on
+                    // controlling the LED on their own. The feedback sent by ReaLearn
+                    // will fix this self-controlled LED state.
                 }
-                if self.should_send_non_auto_feedback_after_control(target) {
-                    send_feedback = true;
+                Some(HitTarget { value }) => {
+                    at_least_one_target_was_reached = true;
+                    if !is_polling {
+                        self.core.time_of_last_control = Some(Instant::now());
+                    }
+                    // Be graceful here.
+                    match target.hit(value, ctx) {
+                        // TODO-low For now, the first hit instruction wins (at the moment we don't
+                        // have multi-targets in which multiple targets send hit instructions
+                        // anyway).
+                        Ok(hi) => {
+                            if hit_instruction.is_none() {
+                                hit_instruction = hi;
+                            }
+                        }
+                        Err(msg) => slog::debug!(logger, "Control failed: {}", msg),
+                    }
+                    if should_send_manual_feedback_due_to_target(
+                        target,
+                        &self.core.options,
+                        &self.activation_state,
+                        self.unresolved_target.as_ref(),
+                    ) {
+                        send_manual_feedback_because_of_target = true;
+                    }
                 }
-            } else {
-                // The target value was not changed. If `send_feedback_after_control` is enabled, we
-                // still send feedback - this can be useful with controllers which insist
-                // controlling the LED on their own. The feedback sent by ReaLearn
-                // will fix this self-controlled LED state.
-                send_feedback = true;
+                Some(LeaveTargetUntouched(_)) => {
+                    // The target already has the desired value.
+                    // If `send_feedback_after_control` is enabled, we still send feedback - this
+                    // can be useful with controllers which insist on controlling the LED on their
+                    // own. The feedback sent by ReaLearn will fix this self-controlled LED state.
+                    at_least_one_target_was_reached = true;
+                }
             }
         }
-        if at_least_one_target_val_was_changed {
-            if self.core.options.prevent_echo_feedback {
-                self.core.time_of_last_control = Some(Instant::now());
+        if send_manual_feedback_because_of_target {
+            let new_target_value = self.current_aggregated_target_value(context);
+            MappingControlResult {
+                successful: at_least_one_target_was_reached,
+                new_target_value,
+                feedback_value: self.manual_feedback_because_of_target(new_target_value, context),
+                hit_instruction,
             }
-            if send_feedback {
-                self.feedback(true, context)
-            } else {
-                None
+        } else {
+            MappingControlResult {
+                successful: at_least_one_target_was_reached,
+                new_target_value: None,
+                feedback_value: if !is_polling && at_least_one_relevant_target_exists {
+                    // Before #396, we only sent "feedback after control" if the target was not hit at all.
+                    // Reasoning was that if the target was hit, there must have been a value change
+                    // (because we usually don't hit a target if it already has the desired value)
+                    // and this value change would cause automatic feedback anyway. Then it wouldn't
+                    // be necessary to send additional manual feedback.
+                    //
+                    // But this conclusion is wrong in some cases:
+                    // 1. The target value might be very, very close to the desired value but not
+                    //    the same. The target would be hit then (for being safe) but no feedback
+                    //    might be generated because the difference might be insignificant regarding
+                    //    our FEEDBACK_EPSILON (checked when polling feedback). This also depends a
+                    //    bit on how the target interprets super-tiny value changes.
+                    // 2. If we have a retriggerable target, we would always hit it, even if its
+                    //    value wouldn't change.
+                    //
+                    // The new strategy is: Better redundant feedback messages than omitting
+                    // important ones. This is just a workaround for weird controllers anyway!
+                    // At the very least they should be able to cope with a few more feedback
+                    // messages.
+                    // TODO-bkl-medium we could optimize this in future by checking
+                    //  significance of the difference within the mapping (should be easy now that
+                    //  we have mutable access to self here).
+                    self.manual_feedback_after_control_if_enabled(options, context)
+                } else {
+                    None
+                },
+                hit_instruction,
             }
-        } else if send_feedback {
-            self.feedback_after_control_if_enabled(options, context)
-        } else {
-            None
-        }
-    }
-
-    /// Not usable for mappings with virtual targets.
-    fn should_send_non_auto_feedback_after_control(&self, target: &ReaperTarget) -> bool {
-        if target.supports_automatic_feedback() {
-            // The target value was changed and that triggered feedback. Therefore we don't
-            // need to send it here a second time (even if `send_feedback_after_control` is
-            // enabled). This happens in the majority of cases.
-            false
-        } else {
-            // The target value was changed but the target doesn't support feedback. If
-            // `send_feedback_after_control` is enabled, we at least send feedback after we
-            // know it has been changed. What a virtual control mapping says shouldn't be relevant
-            // here because this is about the target supporting feedback, not about the controller
-            // needing the "Send feedback after control" workaround. Therefore we don't forward
-            // any "enforce" options.
-            // TODO-low Wouldn't it be better to always send feedback in this situation? But that
-            //  could the user let believe that it actually works while in reality it's not "true"
-            //  feedback that is independent from control. So an opt-in is maybe the right thing.
-            self.core.options.send_feedback_after_control && self.feedback_is_effectively_on()
         }
     }
 
@@ -518,83 +928,172 @@ impl MainMapping {
         }
     }
 
+    fn manual_feedback_because_of_target(
+        &self,
+        new_target_value: Option<AbsoluteValue>,
+        context: ControlContext,
+    ) -> Option<CompoundFeedbackValue> {
+        self.feedback_entry_point(true, true, new_target_value?, context)
+            .map(CompoundFeedbackValue::normal)
+    }
+
     /// Returns `None` when used on mappings with virtual targets.
     pub fn feedback(
         &self,
         with_projection_feedback: bool,
         context: ControlContext,
-    ) -> Option<FeedbackValue> {
-        let combined_target_value = self
-            .targets
-            .iter()
-            .filter_map(|target| match target {
-                CompoundMappingTarget::Reaper(t) => t.current_value(Some(context)),
-                _ => None,
-            })
-            .max()?;
-        self.feedback_given_target_value(
-            combined_target_value,
+    ) -> Option<CompoundFeedbackValue> {
+        self.feedback_entry_point(
             with_projection_feedback,
-            !self.core.is_echo(),
+            true,
+            self.current_aggregated_target_value(context)?,
+            context,
+        )
+        .map(CompoundFeedbackValue::normal)
+    }
+
+    /// This is the primary entry point to feedback!
+    ///
+    /// Returns `None` when used on mappings with virtual targets.
+    pub fn feedback_entry_point(
+        &self,
+        with_projection_feedback: bool,
+        with_source_feedback: bool,
+        combined_target_value: AbsoluteValue,
+        control_context: ControlContext,
+    ) -> Option<SpecificCompoundFeedbackValue> {
+        // - We shouldn't ask the source if it wants the given numerical feedback value or a textual
+        //   value because a virtual source wouldn't know! Even asking a real source wouldn't make
+        //   much sense because real sources could be capable of processing both numerical and
+        //   textual feedback (and indeed that makes sense for an LCD source!).
+        // - Neither should we ask the target because the target is not supposed to dictate which
+        //   form of feedback it sends, it just provides us with options and we can choose.
+        // - This leaves us with asking the mode. That means the user needs to explicitly choose
+        //   whether it wants numerical or textual feedback.
+        let feedback_value = if self.core.mode.wants_textual_feedback() {
+            let v = self
+                .core
+                .mode
+                .query_textual_feedback(&|key| get_prop_value(key, self, control_context));
+            FeedbackValue::Textual(v)
+        } else {
+            let style = self
+                .core
+                .mode
+                .feedback_style(&|key| get_prop_value(key, self, control_context));
+            FeedbackValue::Numeric(NumericFeedbackValue::new(style, combined_target_value))
+        };
+        let source_feedback_is_okay = if self.core.options.feedback_send_behavior
+            == FeedbackSendBehavior::PreventEchoFeedback
+        {
+            !self.core.is_echo()
+        } else {
+            true
+        };
+        self.feedback_given_target_value(
+            Cow::Owned(feedback_value),
+            FeedbackDestinations {
+                with_projection_feedback,
+                with_source_feedback: with_source_feedback && source_feedback_is_okay,
+            },
         )
     }
 
-    pub fn is_echo(&self) -> bool {
-        self.core.is_echo()
-    }
-
-    pub fn given_or_current_value(
+    pub fn current_aggregated_target_value(
         &self,
-        target_value: Option<UnitValue>,
-        target: &ReaperTarget,
         context: ControlContext,
-    ) -> Option<UnitValue> {
-        target_value.or_else(|| target.current_value(Some(context)))
+    ) -> Option<AbsoluteValue> {
+        let values = self.targets.iter().map(|t| t.current_value(context));
+        aggregate_target_values(values)
     }
 
+    pub fn mode(&self) -> &Mode {
+        &self.core.mode
+    }
+
+    pub fn group_id(&self) -> GroupId {
+        self.core.group_id
+    }
+
+    /// Taking the feedback value as a Cow is better than taking a reference because with a
+    /// reference we would for sure have to clone a textual feedback value, even if the consumer
+    /// can give us ownership of the feedback value. It's also better than taking an owned value
+    /// because it's possible that we don't produce a feedback value at all! In which a consumer
+    /// that can't give up ownership would need to make a clone in advance - for nothing!
     pub fn feedback_given_target_value(
         &self,
-        target_value: UnitValue,
-        with_projection_feedback: bool,
-        with_source_feedback: bool,
-    ) -> Option<FeedbackValue> {
-        let mode_value = self.core.mode.feedback(target_value)?;
-        self.feedback_given_mode_value(mode_value, with_projection_feedback, with_source_feedback)
+        feedback_value: Cow<FeedbackValue>,
+        destinations: FeedbackDestinations,
+    ) -> Option<SpecificCompoundFeedbackValue> {
+        use FeedbackValue::*;
+        let mode_value = match feedback_value.as_ref() {
+            // Process numeric value via mode
+            Numeric(v) => {
+                let options = ModeFeedbackOptions {
+                    source_is_virtual: self.core.source.is_virtual(),
+                    max_discrete_source_value: self.core.source.max_discrete_value(),
+                };
+                let mode_value = self.core.mode.feedback_with_options_detail(
+                    v.value,
+                    options,
+                    Default::default(),
+                )?;
+                Cow::Owned(Numeric(NumericFeedbackValue::new(v.style, mode_value)))
+            }
+            // Textual feedback is not processed (created by the mode in the first place).
+            _ => feedback_value,
+        };
+        self.feedback_given_mode_value(mode_value, destinations)
     }
 
-    pub fn feedback_given_mode_value(
+    fn feedback_given_mode_value(
         &self,
-        mode_value: UnitValue,
-        with_projection_feedback: bool,
-        with_source_feedback: bool,
-    ) -> Option<FeedbackValue> {
-        FeedbackValue::from_mode_value(
+        mode_value: Cow<FeedbackValue>,
+        destinations: FeedbackDestinations,
+    ) -> Option<SpecificCompoundFeedbackValue> {
+        SpecificCompoundFeedbackValue::from_mode_value(
             self.core.compartment,
-            self.id(),
+            self.key.clone(),
             &self.core.source,
             mode_value,
-            with_projection_feedback,
-            with_source_feedback,
+            destinations,
         )
     }
 
-    pub fn zero_feedback(&self) -> Option<FeedbackValue> {
+    /// This returns a "lights off" feedback.
+    ///
+    /// Used when mappings get inactive.
+    pub fn off_feedback(&self) -> Option<CompoundFeedbackValue> {
         // TODO-medium  "Unused" and "zero" could be a difference for projection so we should
         //  have different values for that (at the moment it's not though).
-        self.feedback_given_mode_value(UnitValue::MIN, true, true)
+        self.feedback_given_mode_value(
+            Cow::Owned(FeedbackValue::Off),
+            FeedbackDestinations {
+                with_projection_feedback: true,
+                with_source_feedback: true,
+            },
+        )
+        .map(CompoundFeedbackValue::normal)
     }
 
-    fn feedback_after_control_if_enabled(
+    fn manual_feedback_after_control_if_enabled(
         &self,
         options: ControlOptions,
         context: ControlContext,
-    ) -> Option<FeedbackValue> {
-        if self.core.options.send_feedback_after_control
+    ) -> Option<CompoundFeedbackValue> {
+        if self.core.options.feedback_send_behavior
+            == FeedbackSendBehavior::SendFeedbackAfterControl
             || options.enforce_send_feedback_after_control
         {
             if self.feedback_is_effectively_on() {
                 // No projection feedback in this case! Just the source controller needs this hack.
-                self.feedback(false, context)
+                self.feedback_entry_point(
+                    false,
+                    true,
+                    self.current_aggregated_target_value(context)?,
+                    context,
+                )
+                .map(CompoundFeedbackValue::feedback_after_control)
             } else {
                 None
             }
@@ -603,23 +1102,31 @@ impl MainMapping {
         }
     }
 
-    pub fn control_osc_virtualizing(&mut self, msg: &OscMessage) -> Option<PartialControlMatch> {
+    pub fn control(&mut self, msg: MainSourceMessage) -> Option<ControlValue> {
+        match (msg, &self.core.source) {
+            (MainSourceMessage::Osc(m), CompoundMappingSource::Osc(s)) => s.control(m),
+            (MainSourceMessage::Reaper(m), CompoundMappingSource::Reaper(s)) => s.control(m),
+            _ => None,
+        }
+    }
+
+    pub fn control_virtualizing(&mut self, msg: MainSourceMessage) -> Option<VirtualSourceValue> {
         if self.targets.is_empty() {
             return None;
         }
-        let control_value = if let CompoundMappingSource::Osc(s) = &self.core.source {
-            s.control(msg)?
-        } else {
-            return None;
-        };
+        let control_value = self.control(msg)?;
         // First target is enough because this does nothing yet.
         match self.targets.first()? {
-            CompoundMappingTarget::Reaper(_) => {
-                Some(PartialControlMatch::ProcessDirect(control_value))
-            }
             CompoundMappingTarget::Virtual(t) => match_partially(&mut self.core, t, control_value),
+            CompoundMappingTarget::Reaper(_) => None,
         }
     }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum MainSourceMessage<'a> {
+    Osc(&'a OscMessage),
+    Reaper(&'a ReaperMessage),
 }
 
 #[derive(Debug)]
@@ -629,7 +1136,7 @@ pub struct RealTimeMapping {
     /// Is `Some` if user-provided target data is complete.
     target_category: Option<UnresolvedTargetCategory>,
     target_is_resolved: bool,
-    /// Is `Some` if this target needs to be processed in real-time.
+    /// Is `Some` if virtual or this target needs to be processed in real-time.
     pub resolved_target: Option<RealTimeCompoundMappingTarget>,
     pub lifecycle_midi_data: LifecycleMidiData,
 }
@@ -649,7 +1156,11 @@ pub enum LifecyclePhase {
 impl From<bool> for LifecyclePhase {
     fn from(v: bool) -> Self {
         use LifecyclePhase::*;
-        if v { Activation } else { Deactivation }
+        if v {
+            Activation
+        } else {
+            Deactivation
+        }
     }
 }
 
@@ -658,6 +1169,9 @@ impl RealTimeMapping {
         self.core.id
     }
 
+    pub fn compartment(&self) -> MappingCompartment {
+        self.core.compartment
+    }
     pub fn lifecycle_midi_messages(&self, phase: LifecyclePhase) -> &[LifecycleMidiMessage] {
         use LifecyclePhase::*;
         match phase {
@@ -667,21 +1181,25 @@ impl RealTimeMapping {
     }
 
     pub fn control_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.core.options.control_is_enabled
+        self.is_effectively_active() && self.control_is_enabled()
+    }
+
+    pub fn control_is_enabled(&self) -> bool {
+        self.core.options.control_is_effectively_enabled()
     }
 
     pub fn feedback_is_effectively_on(&self) -> bool {
-        self.is_effectively_active() && self.core.options.feedback_is_enabled
+        self.is_effectively_active() && self.core.options.feedback_is_effectively_enabled()
     }
 
     pub fn feedback_is_effectively_on_ignoring_mapping_activation(&self) -> bool {
         self.is_effectively_active_ignoring_mapping_activation()
-            && self.core.options.feedback_is_enabled
+            && self.core.options.feedback_is_effectively_enabled()
     }
 
     pub fn feedback_is_effectively_on_ignoring_target_activation(&self) -> bool {
         self.is_effectively_active_ignoring_target_activation()
-            && self.core.options.feedback_is_enabled
+            && self.core.options.feedback_is_effectively_enabled()
     }
 
     fn is_effectively_active(&self) -> bool {
@@ -694,6 +1212,10 @@ impl RealTimeMapping {
 
     fn is_effectively_active_ignoring_mapping_activation(&self) -> bool {
         self.core.options.target_is_active
+    }
+
+    pub fn update_persistent_processing_state(&mut self, state: PersistentMappingProcessingState) {
+        self.core.options.persistent_processing_state = state;
     }
 
     pub fn update_target_activation(&mut self, is_active: bool) {
@@ -732,17 +1254,15 @@ impl RealTimeMapping {
             return None;
         }
         let control_value = if let CompoundMappingSource::Midi(s) = &self.core.source {
-            s.control(&source_value)?
+            s.control(source_value)?
         } else {
             return None;
         };
-        match self.resolved_target.as_ref()? {
-            RealTimeCompoundMappingTarget::Reaper(_) => {
-                Some(PartialControlMatch::ProcessDirect(control_value))
-            }
-            RealTimeCompoundMappingTarget::Virtual(t) => {
-                match_partially(&mut self.core, t, control_value)
-            }
+        if let Some(RealTimeCompoundMappingTarget::Virtual(t)) = self.resolved_target.as_ref() {
+            match_partially(&mut self.core, t, control_value)
+                .map(PartialControlMatch::ProcessVirtual)
+        } else {
+            Some(PartialControlMatch::ProcessDirect(control_value))
         }
     }
 }
@@ -756,8 +1276,10 @@ pub enum PartialControlMatch {
 pub struct MappingCore {
     compartment: MappingCompartment,
     id: MappingId,
+    group_id: GroupId,
     pub source: CompoundMappingSource,
     pub mode: Mode,
+    group_interaction: GroupInteraction,
     options: ProcessorMappingOptions,
     time_of_last_control: Option<Instant>,
 }
@@ -773,45 +1295,145 @@ impl MappingCore {
 
     fn mode_control_options(&self) -> ModeControlOptions {
         ModeControlOptions {
-            enforce_rotate: self.mode.rotate,
+            enforce_rotate: self.mode.settings().rotate,
         }
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+// PartialEq because we want to put it into a Prop.
+#[derive(Clone, PartialEq, Debug)]
 pub enum CompoundMappingSource {
+    Never,
     Midi(MidiSource),
     Osc(OscSource),
     Virtual(VirtualSource),
+    Reaper(ReaperSource),
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub enum CompoundMappingSourceAddress {
+    Midi(MidiSourceAddress),
+    Osc(OscSourceAddress),
+    Virtual(VirtualSourceAddress),
+}
+
+#[derive(Clone, Debug)]
 pub struct QualifiedSource {
     pub compartment: MappingCompartment,
-    pub id: MappingId,
+    pub mapping_key: Rc<str>,
     pub source: CompoundMappingSource,
 }
 
 impl QualifiedSource {
-    pub fn zero_feedback(&self) -> Option<FeedbackValue> {
-        FeedbackValue::from_mode_value(
+    pub fn off_feedback(self) -> Option<CompoundFeedbackValue> {
+        SpecificCompoundFeedbackValue::from_mode_value(
             self.compartment,
-            self.id,
+            self.mapping_key,
             &self.source,
-            UnitValue::MIN,
-            true,
-            true,
+            Cow::Owned(FeedbackValue::Off),
+            FeedbackDestinations {
+                with_projection_feedback: true,
+                with_source_feedback: true,
+            },
         )
+        .map(CompoundFeedbackValue::normal)
     }
 }
 
 impl CompoundMappingSource {
+    /// Extracts the address of the source control element for feedback purposes.
+    ///
+    /// Use this if you really need an owned representation of the source address. If you just want
+    /// to compare addresses, use [`Self::has_same_feedback_address_as_value`]
+    /// or [`Self::has_same_feedback_address_as_source`] instead. It can avoid the cloning.
+    // TODO-medium There are quite some places in which we are fine with a borrowed version but
+    //  the problem is the MIDI source can't simply give us a borrowed one. Maybe we should
+    //  create one at MIDI source creation time! But for this we need to make MidiSource a struct.
+    pub fn extract_feedback_address(&self) -> Option<CompoundMappingSourceAddress> {
+        use CompoundMappingSource::*;
+        match self {
+            Midi(s) => Some(CompoundMappingSourceAddress::Midi(
+                s.extract_feedback_address()?,
+            )),
+            Osc(s) => Some(CompoundMappingSourceAddress::Osc(
+                s.feedback_address().clone(),
+            )),
+            Virtual(s) => Some(CompoundMappingSourceAddress::Virtual(*s.feedback_address())),
+            _ => None,
+        }
+    }
+
+    /// Checks if the given message is directed to the same address as the one of this source.
+    ///
+    /// Used for:
+    ///
+    /// -  Source takeover (feedback)
+    ///
+    pub fn has_same_feedback_address_as_value(&self, value: &SourceFeedbackValue) -> bool {
+        use CompoundMappingSource::*;
+        match (self, value) {
+            (Osc(s), SourceFeedbackValue::Osc(v)) => s.has_same_feedback_address_as_value(v),
+            (Midi(s), SourceFeedbackValue::Midi(v)) => s.has_same_feedback_address_as_value(v),
+            _ => false,
+        }
+    }
+
+    /// Checks if this and the given source share the same address.
+    ///
+    /// Used for:
+    ///
+    /// - Feedback diffing
+    pub fn has_same_feedback_address_as_source(&self, other: &Self) -> bool {
+        use CompoundMappingSource::*;
+        match (self, other) {
+            (Osc(s1), Osc(s2)) => s1.has_same_feedback_address_as_source(s2),
+            (Midi(s1), Midi(s2)) => s1.has_same_feedback_address_as_source(s2),
+            (Virtual(s1), Virtual(s2)) => s1.has_same_feedback_address_as_source(s2),
+            _ => false,
+        }
+    }
+
+    /// Can also be used to check if this mapping would react to the given message.
+    ///
+    /// Used for:
+    ///
+    /// - Source learning (including source virtualization)
+    /// - Source filtering/finding (including source virtualization)
+    pub fn control(&self, value: IncomingCompoundSourceValue) -> Option<ControlValue> {
+        use CompoundMappingSource::*;
+        match (self, value) {
+            (Midi(s), IncomingCompoundSourceValue::Midi(v)) => s.control(v),
+            (Osc(s), IncomingCompoundSourceValue::Osc(m)) => s.control(m),
+            (Virtual(s), IncomingCompoundSourceValue::Virtual(m)) => s.control(m),
+            _ => None,
+        }
+    }
+
+    pub fn from_message_capture_event(event: MessageCaptureEvent) -> Option<Self> {
+        use MessageCaptureResult::*;
+        let res = match event.result {
+            Midi(scan_result) => {
+                let midi_source =
+                    MidiSource::from_source_value(scan_result.value, scan_result.character)?;
+                Self::Midi(midi_source)
+            }
+            Osc(msg) => {
+                let osc_source =
+                    OscSource::from_source_value(msg.message, event.osc_arg_index_hint);
+                Self::Osc(osc_source)
+            }
+        };
+        Some(res)
+    }
+
     pub fn format_control_value(&self, value: ControlValue) -> Result<String, &'static str> {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.format_control_value(value),
             Virtual(s) => s.format_control_value(value),
             Osc(s) => s.format_control_value(value),
+            Reaper(s) => s.format_control_value(value),
+            Never => Ok(format_percentage_without_unit(value.to_unit_value()?.get())),
         }
     }
 
@@ -821,6 +1443,8 @@ impl CompoundMappingSource {
             Midi(s) => s.parse_control_value(text),
             Virtual(s) => s.parse_control_value(text),
             Osc(s) => s.parse_control_value(text),
+            Reaper(s) => s.parse_control_value(text),
+            Never => parse_percentage_without_unit(text)?.try_into(),
         }
     }
 
@@ -830,16 +1454,24 @@ impl CompoundMappingSource {
             Midi(s) => ExtendedSourceCharacter::Normal(s.character()),
             Virtual(s) => s.character(),
             Osc(s) => ExtendedSourceCharacter::Normal(s.character()),
+            Reaper(s) => ExtendedSourceCharacter::Normal(s.character()),
+            Never => ExtendedSourceCharacter::VirtualContinuous,
         }
     }
 
-    pub fn feedback(&self, feedback_value: UnitValue) -> Option<SourceFeedbackValue> {
+    pub fn feedback(&self, feedback_value: Cow<FeedbackValue>) -> Option<SourceFeedbackValue> {
         use CompoundMappingSource::*;
         match self {
-            Midi(s) => s.feedback(feedback_value).map(SourceFeedbackValue::Midi),
-            Osc(s) => s.feedback(feedback_value).map(SourceFeedbackValue::Osc),
+            Midi(s) => s
+                .feedback(feedback_value.into_owned())
+                .map(SourceFeedbackValue::Midi),
+            Osc(s) => s
+                .feedback(feedback_value.into_owned())
+                .map(SourceFeedbackValue::Osc),
             // This is handled in a special way by consumers.
             Virtual(_) => None,
+            // No feedback for never source.
+            Reaper(_) | Never => None,
         }
     }
 
@@ -847,53 +1479,105 @@ impl CompoundMappingSource {
         use CompoundMappingSource::*;
         match self {
             Midi(s) => s.consumes(msg),
-            Virtual(_) | Osc(_) => false,
+            Reaper(_) | Virtual(_) | Osc(_) | Never => false,
+        }
+    }
+
+    pub fn is_virtual(&self) -> bool {
+        matches!(self, CompoundMappingSource::Virtual(_))
+    }
+
+    pub fn max_discrete_value(&self) -> Option<u32> {
+        use CompoundMappingSource::*;
+        match self {
+            Midi(s) => s.max_discrete_value(),
+            // TODO-medium OSC will also support discrete values as soon as we allow integers and
+            //  configuring max values
+            Reaper(_) | Virtual(_) | Osc(_) | Never => None,
         }
     }
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum FeedbackValue {
+pub struct CompoundFeedbackValue {
+    pub value: SpecificCompoundFeedbackValue,
+    pub is_feedback_after_control: bool,
+}
+
+impl CompoundFeedbackValue {
+    pub fn normal(value: SpecificCompoundFeedbackValue) -> Self {
+        Self {
+            value,
+            is_feedback_after_control: false,
+        }
+    }
+
+    pub fn feedback_after_control(value: SpecificCompoundFeedbackValue) -> Self {
+        Self {
+            value,
+            is_feedback_after_control: true,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum SpecificCompoundFeedbackValue {
     Virtual {
-        with_projection_feedback: bool,
-        with_source_feedback: bool,
-        value: VirtualSourceValue,
+        value: VirtualFeedbackValue,
+        destinations: FeedbackDestinations,
     },
     Real(RealFeedbackValue),
 }
 
-impl FeedbackValue {
+#[derive(Clone, PartialEq, Debug)]
+pub struct FeedbackDestinations {
+    /// Feedback to projection clients.
+    pub with_projection_feedback: bool,
+    /// Feedback to controller itself.
+    pub with_source_feedback: bool,
+}
+
+impl FeedbackDestinations {
+    pub fn is_all_off(&self) -> bool {
+        !self.with_source_feedback && !self.with_projection_feedback
+    }
+}
+
+impl SpecificCompoundFeedbackValue {
     pub fn from_mode_value(
         compartment: MappingCompartment,
-        id: MappingId,
+        mapping_key: Rc<str>,
         source: &CompoundMappingSource,
-        mode_value: UnitValue,
-        with_projection_feedback: bool,
-        with_source_feedback: bool,
-    ) -> Option<FeedbackValue> {
-        if !with_projection_feedback && !with_source_feedback {
+        mode_value: Cow<FeedbackValue>,
+        destinations: FeedbackDestinations,
+    ) -> Option<SpecificCompoundFeedbackValue> {
+        if destinations.is_all_off() {
             return None;
         }
         let val = if let CompoundMappingSource::Virtual(vs) = &source {
-            FeedbackValue::Virtual {
-                with_projection_feedback,
-                with_source_feedback,
-                value: vs.feedback(mode_value),
+            // Virtual source
+            SpecificCompoundFeedbackValue::Virtual {
+                destinations,
+                value: vs.feedback(mode_value.into_owned()),
             }
         } else {
-            let projection = if with_projection_feedback
+            // Real source
+            let projection = if destinations.with_projection_feedback
                 && compartment == MappingCompartment::ControllerMappings
             {
-                Some(ProjectionFeedbackValue::new(id, mode_value))
+                // TODO-medium Support textual projection feedback
+                mode_value.to_numeric().map(|v| {
+                    ProjectionFeedbackValue::new(compartment, mapping_key, v.value.to_unit_value())
+                })
             } else {
                 None
             };
-            let source = if with_source_feedback {
+            let source = if destinations.with_source_feedback {
                 source.feedback(mode_value)
             } else {
                 None
             };
-            FeedbackValue::Real(RealFeedbackValue::new(projection, source)?)
+            SpecificCompoundFeedbackValue::Real(RealFeedbackValue::new(projection, source)?)
         };
         Some(val)
     }
@@ -928,20 +1612,37 @@ impl RealFeedbackValue {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct ProjectionFeedbackValue {
-    pub mapping_id: MappingId,
+    pub compartment: MappingCompartment,
+    pub mapping_key: Rc<str>,
     pub value: UnitValue,
 }
 
 impl ProjectionFeedbackValue {
-    pub fn new(mapping_id: MappingId, value: UnitValue) -> Self {
-        Self { mapping_id, value }
+    pub fn new(compartment: MappingCompartment, mapping_key: Rc<str>, value: UnitValue) -> Self {
+        Self {
+            compartment,
+            mapping_key,
+            value,
+        }
     }
 }
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum SourceFeedbackValue {
-    Midi(MidiSourceValue<RawShortMessage>),
+    Midi(MidiSourceValue<'static, RawShortMessage>),
     Osc(OscMessage),
+}
+
+impl SourceFeedbackValue {
+    pub fn extract_address(&self) -> Option<CompoundMappingSourceAddress> {
+        use SourceFeedbackValue::*;
+        match self {
+            Midi(v) => v
+                .extract_feedback_address()
+                .map(CompoundMappingSourceAddress::Midi),
+            Osc(v) => Some(CompoundMappingSourceAddress::Osc(v.addr.clone())),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -979,10 +1680,19 @@ impl UnresolvedCompoundMappingTarget {
         })
     }
 
-    pub fn play_pos_feedback_resolution(&self) -> Option<PlayPosFeedbackResolution> {
+    pub fn can_be_affected_by_change_events(&self) -> bool {
         use UnresolvedCompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.play_pos_feedback_resolution(),
+            Reaper(t) => t.can_be_affected_by_change_events(),
+            Virtual(_) => false,
+        }
+    }
+
+    /// `None` means that no polling is necessary for feedback because we are notified via events.
+    pub fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        use UnresolvedCompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.feedback_resolution(),
             Virtual(_) => None,
         }
     }
@@ -1003,6 +1713,10 @@ impl CompoundMappingTarget {
             CompoundMappingTarget::Virtual(t) => Some(RealTimeCompoundMappingTarget::Virtual(*t)),
         }
     }
+
+    pub fn is_virtual(&self) -> bool {
+        matches!(self, CompoundMappingTarget::Virtual(_))
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -1011,107 +1725,196 @@ pub enum RealTimeCompoundMappingTarget {
     Virtual(VirtualTarget),
 }
 
+pub struct WithControlContext<'a, T> {
+    control_context: ControlContext<'a>,
+    value: &'a T,
+}
+
+impl<'a, T> WithControlContext<'a, T> {
+    pub fn new(control_context: ControlContext<'a>, value: &'a T) -> Self {
+        Self {
+            control_context,
+            value,
+        }
+    }
+}
+
+impl<'a> ValueFormatter for WithControlContext<'a, CompoundMappingTarget> {
+    fn format_value(&self, value: UnitValue, f: &mut Formatter) -> fmt::Result {
+        f.write_str(
+            &self
+                .value
+                .format_value_without_unit(value, self.control_context),
+        )
+    }
+
+    fn format_step(&self, value: UnitValue, f: &mut Formatter) -> fmt::Result {
+        f.write_str(
+            &self
+                .value
+                .format_step_size_without_unit(value, self.control_context),
+        )
+    }
+}
+
+impl<'a> ValueParser for WithControlContext<'a, CompoundMappingTarget> {
+    fn parse_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+        self.value.parse_as_value(text, self.control_context)
+    }
+
+    fn parse_step(&self, text: &str) -> Result<UnitValue, &'static str> {
+        self.value.parse_as_step_size(text, self.control_context)
+    }
+}
+
 impl RealearnTarget for CompoundMappingTarget {
-    fn character(&self) -> TargetCharacter {
+    fn character(&self, context: ControlContext) -> TargetCharacter {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.character(),
+            Reaper(t) => t.character(context),
             Virtual(t) => t.character(),
         }
     }
 
-    fn open(&self) {
+    fn text_value(&self, context: ControlContext) -> Option<String> {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.open(),
+            Reaper(t) => t.text_value(context),
+            Virtual(_) => None,
+        }
+    }
+
+    fn numeric_value(&self, context: ControlContext) -> Option<NumericValue> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.numeric_value(context),
+            Virtual(_) => None,
+        }
+    }
+
+    fn control_type_and_character(
+        &self,
+        context: ControlContext,
+    ) -> (ControlType, TargetCharacter) {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.control_type_and_character(context),
+            Virtual(t) => (t.control_type(()), t.character()),
+        }
+    }
+
+    fn open(&self, context: ControlContext) {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.open(context),
             Virtual(_) => {}
         };
     }
-    fn parse_as_value(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_value(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.parse_as_value(text),
+            Reaper(t) => t.parse_as_value(text, context),
             Virtual(_) => Err("not supported for virtual targets"),
         }
     }
 
     /// Parses the given text as a target step size and returns it as unit value.
-    fn parse_as_step_size(&self, text: &str) -> Result<UnitValue, &'static str> {
+    fn parse_as_step_size(
+        &self,
+        text: &str,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.parse_as_step_size(text),
+            Reaper(t) => t.parse_as_step_size(text, context),
             Virtual(_) => Err("not supported for virtual targets"),
         }
     }
 
-    fn convert_unit_value_to_discrete_value(&self, input: UnitValue) -> Result<u32, &'static str> {
+    fn convert_unit_value_to_discrete_value(
+        &self,
+        input: UnitValue,
+        context: ControlContext,
+    ) -> Result<u32, &'static str> {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.convert_unit_value_to_discrete_value(input),
+            Reaper(t) => t.convert_unit_value_to_discrete_value(input, context),
             Virtual(_) => Err("not supported for virtual targets"),
         }
     }
 
-    fn format_value_without_unit(&self, value: UnitValue) -> String {
+    fn format_value_without_unit(&self, value: UnitValue, context: ControlContext) -> String {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.format_value_without_unit(value),
+            Reaper(t) => t.format_value_without_unit(value, context),
             Virtual(_) => String::new(),
         }
     }
 
-    fn format_step_size_without_unit(&self, step_size: UnitValue) -> String {
+    fn format_step_size_without_unit(
+        &self,
+        step_size: UnitValue,
+        context: ControlContext,
+    ) -> String {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.format_step_size_without_unit(step_size),
+            Reaper(t) => t.format_step_size_without_unit(step_size, context),
             Virtual(_) => String::new(),
         }
     }
 
-    fn hide_formatted_value(&self) -> bool {
+    fn hide_formatted_value(&self, context: ControlContext) -> bool {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.hide_formatted_value(),
+            Reaper(t) => t.hide_formatted_value(context),
             Virtual(_) => false,
         }
     }
 
-    fn hide_formatted_step_size(&self) -> bool {
+    fn hide_formatted_step_size(&self, context: ControlContext) -> bool {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.hide_formatted_step_size(),
+            Reaper(t) => t.hide_formatted_step_size(context),
             Virtual(_) => false,
         }
     }
 
-    fn value_unit(&self) -> &'static str {
+    fn value_unit(&self, context: ControlContext) -> &'static str {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.value_unit(),
+            Reaper(t) => t.value_unit(context),
             Virtual(_) => "",
         }
     }
 
-    fn step_size_unit(&self) -> &'static str {
+    fn step_size_unit(&self, context: ControlContext) -> &'static str {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.step_size_unit(),
+            Reaper(t) => t.step_size_unit(context),
             Virtual(_) => "",
         }
     }
 
-    fn format_value(&self, value: UnitValue) -> String {
+    fn format_value(&self, value: UnitValue, context: ControlContext) -> String {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.format_value(value),
+            Reaper(t) => t.format_value(value, context),
             Virtual(_) => String::new(),
         }
     }
 
-    fn control(&self, value: ControlValue, context: ControlContext) -> Result<(), &'static str> {
+    fn hit(
+        &mut self,
+        value: ControlValue,
+        context: MappingControlContext,
+    ) -> Result<HitInstructionReturnValue, &'static str> {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.control(value, context),
+            Reaper(t) => t.hit(value, context),
             Virtual(_) => Err("not supported for virtual targets"),
         }
     }
@@ -1123,12 +1926,125 @@ impl RealearnTarget for CompoundMappingTarget {
             Virtual(_) => false,
         }
     }
+
+    fn is_available(&self, context: ControlContext) -> bool {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.is_available(context),
+            Virtual(_) => true,
+        }
+    }
+
+    fn project(&self) -> Option<Project> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.project(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn track(&self) -> Option<&Track> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.track(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn fx(&self) -> Option<&Fx> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.fx(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn route(&self) -> Option<&TrackRoute> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.route(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn track_exclusivity(&self) -> Option<TrackExclusivity> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.track_exclusivity(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn supports_automatic_feedback(&self) -> bool {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.supports_automatic_feedback(),
+            Virtual(_) => false,
+        }
+    }
+
+    fn process_change_event(
+        &self,
+        evt: CompoundChangeEvent,
+        control_context: ControlContext,
+    ) -> (bool, Option<AbsoluteValue>) {
+        // TODO-medium I think this abstraction is not in use
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.process_change_event(evt, control_context),
+            Virtual(_) => (false, None),
+        }
+    }
+
+    fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.splinter_real_time_target(),
+            Virtual(_) => None,
+        }
+    }
+
+    fn convert_discrete_value_to_unit_value(
+        &self,
+        value: u32,
+        context: ControlContext,
+    ) -> Result<UnitValue, &'static str> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.convert_discrete_value_to_unit_value(value, context),
+            Virtual(_) => Err("not supported for virtual targets"),
+        }
+    }
+
+    fn prop_value(&self, key: &str, context: ControlContext) -> Option<PropValue> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.prop_value(key, context),
+            Virtual(_) => None,
+        }
+    }
+
+    fn numeric_value_unit(&self, context: ControlContext) -> &'static str {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.numeric_value_unit(context),
+            Virtual(_) => "",
+        }
+    }
+
+    fn reaper_target_type(&self) -> Option<ReaperTargetType> {
+        use CompoundMappingTarget::*;
+        match self {
+            Reaper(t) => t.reaper_target_type(),
+            Virtual(_) => None,
+        }
+    }
 }
 
 impl<'a> Target<'a> for CompoundMappingTarget {
-    type Context = Option<ControlContext<'a>>;
+    type Context = ControlContext<'a>;
 
-    fn current_value(&self, context: Option<ControlContext>) -> Option<UnitValue> {
+    fn current_value(&self, context: ControlContext) -> Option<AbsoluteValue> {
         use CompoundMappingTarget::*;
         match self {
             Reaper(t) => t.current_value(context),
@@ -1136,11 +2052,11 @@ impl<'a> Target<'a> for CompoundMappingTarget {
         }
     }
 
-    fn control_type(&self) -> ControlType {
+    fn control_type(&self, context: ControlContext) -> ControlType {
         use CompoundMappingTarget::*;
         match self {
-            Reaper(t) => t.control_type(),
-            Virtual(t) => t.control_type(),
+            Reaper(t) => t.control_type(context),
+            Virtual(t) => t.control_type(()),
         }
     }
 }
@@ -1169,14 +2085,17 @@ impl QualifiedMappingId {
     TryFromPrimitive,
     IntoPrimitive,
     Display,
+    Serialize,
+    Deserialize,
 )]
 #[repr(usize)]
+// TODO-medium Rename to just Compartment
 pub enum MappingCompartment {
     // It's important for `RealTimeProcessor` logic that this is the first element! We use array
     // destructuring.
-    #[display(fmt = "Controller mappings")]
+    #[display(fmt = "controller compartment")]
     ControllerMappings,
-    #[display(fmt = "Main mappings")]
+    #[display(fmt = "main compartment")]
     MainMappings,
 }
 
@@ -1222,7 +2141,7 @@ fn match_partially(
     core: &mut MappingCore,
     target: &VirtualTarget,
     control_value: ControlValue,
-) -> Option<PartialControlMatch> {
+) -> Option<VirtualSourceValue> {
     // Determine resulting virtual control value in real-time processor.
     // It's important to do that here. We need to know the result in order to
     // return if there was actually a match of *real* non-virtual mappings.
@@ -1230,14 +2149,13 @@ fn match_partially(
     // TODO-medium If we want to support fire after timeout and turbo for mappings with
     //  virtual targets one day, we need to poll this in real-time processor and OSC
     //  processing, too!
-    let transformed_control_value = core.mode.control(control_value, target, ())?;
-    if core.options.prevent_echo_feedback {
-        core.time_of_last_control = Some(Instant::now());
-    }
-    let res = PartialControlMatch::ProcessVirtual(VirtualSourceValue::new(
-        target.control_element(),
-        transformed_control_value,
-    ));
+    let res =
+        core.mode
+            .control_with_options(control_value, target, (), ModeControlOptions::default())?;
+    let transformed_control_value: Option<ControlValue> = res.into();
+    let transformed_control_value = transformed_control_value?;
+    core.time_of_last_control = Some(Instant::now());
+    let res = VirtualSourceValue::new(target.control_element(), transformed_control_value);
     Some(res)
 }
 
@@ -1246,7 +2164,136 @@ pub(crate) enum ControlMode {
     Disabled,
     Controlling,
     LearningSource {
+        /// Just passed through
         allow_virtual_sources: bool,
         osc_arg_index_hint: Option<u32>,
+    },
+}
+
+/// Supposed to be used to aggregate values of all resolved targets of one mapping into one single
+/// value. At the moment we just take the maximum.
+pub fn aggregate_target_values(
+    values: impl Iterator<Item = Option<AbsoluteValue>>,
+) -> Option<AbsoluteValue> {
+    values.flatten().max()
+}
+
+#[derive(Default)]
+pub struct MappingControlResult {
+    /// `true` if target hit or almost hit but left untouched because it already has desired value.
+    /// `false` e.g. if source message filtered out (e.g. because of button filter) or no target.
+    pub successful: bool,
+    /// In case the target doesn't support automatic feedback (even polling not enabled for it),
+    /// this should contain the target value determined at the occasion of hitting the target.
+    pub new_target_value: Option<AbsoluteValue>,
+    /// Even if not hit, this can contain a feedback value (if "Send feedback after control" on)!
+    pub feedback_value: Option<CompoundFeedbackValue>,
+    pub hit_instruction: HitInstructionReturnValue,
+}
+
+/// Not usable for mappings with virtual targets.
+fn should_send_manual_feedback_due_to_target(
+    target: &ReaperTarget,
+    options: &ProcessorMappingOptions,
+    activation_state: &ActivationState,
+    unresolved_target: Option<&UnresolvedCompoundMappingTarget>,
+) -> bool {
+    if target.supports_automatic_feedback() {
+        // The target value was changed and that triggered feedback. Therefore we don't
+        // need to send it here a second time (even if `send_feedback_after_control` is
+        // enabled). This happens in the majority of cases.
+        false
+    } else {
+        // The target value was changed but the target doesn't support feedback. What a virtual
+        // control mapping says shouldn't be relevant here because this is about the target
+        // supporting feedback, not about the controller needing the "Send feedback after control"
+        // workaround. Therefore we don't forward any "enforce" options.
+        feedback_is_effectively_on(options, activation_state, unresolved_target)
+    }
+}
+
+fn feedback_is_effectively_on(
+    options: &ProcessorMappingOptions,
+    activation_state: &ActivationState,
+    unresolved_target: Option<&UnresolvedCompoundMappingTarget>,
+) -> bool {
+    is_effectively_active(options, activation_state, unresolved_target)
+        && options.feedback_is_effectively_enabled()
+}
+
+/// Returns `true` if the mapping itself and the target is active.
+fn is_effectively_active(
+    options: &ProcessorMappingOptions,
+    activation_state: &ActivationState,
+    unresolved_target: Option<&UnresolvedCompoundMappingTarget>,
+) -> bool {
+    activation_state.is_active() && target_is_effectively_active(options, unresolved_target)
+}
+
+fn target_is_effectively_active(
+    options: &ProcessorMappingOptions,
+    unresolved_target: Option<&UnresolvedCompoundMappingTarget>,
+) -> bool {
+    if options.target_is_active {
+        return true;
+    }
+    if let Some(UnresolvedCompoundMappingTarget::Reaper(t)) = unresolved_target {
+        t.is_always_active()
+    } else {
+        false
+    }
+}
+
+pub type OrderedMappingMap<T> = IndexMap<MappingId, T>;
+pub type OrderedMappingIdSet = IndexSet<MappingId>;
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum MessageCaptureResult {
+    Midi(MidiScanResult),
+    Osc(OscScanResult),
+}
+
+impl MessageCaptureResult {
+    pub fn message(&self) -> IncomingCompoundSourceValue {
+        use MessageCaptureResult::*;
+        match self {
+            Midi(res) => IncomingCompoundSourceValue::Midi(&res.value),
+            Osc(res) => IncomingCompoundSourceValue::Osc(&res.message),
+        }
+    }
+
+    pub fn to_input_descriptor(&self, ignore_midi_channel: bool) -> Option<InputDescriptor> {
+        use MessageCaptureResult::*;
+        let res = match self {
+            Midi(r) => InputDescriptor::Midi {
+                device_id: r.dev_id?,
+                channel: if ignore_midi_channel {
+                    None
+                } else {
+                    r.value.channel()
+                },
+            },
+            Osc(r) => InputDescriptor::Osc {
+                device_id: r.dev_id?,
+            },
+        };
+        Some(res)
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum IncomingCompoundSourceValue<'a> {
+    Midi(&'a MidiSourceValue<'a, RawShortMessage>),
+    Osc(&'a OscMessage),
+    Virtual(&'a VirtualSourceValue),
+}
+
+pub enum InputDescriptor {
+    Midi {
+        device_id: MidiInputDeviceId,
+        channel: Option<Channel>,
+    },
+    Osc {
+        device_id: OscDeviceId,
     },
 }

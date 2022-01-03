@@ -1,4 +1,3 @@
-#![feature(trait_alias)]
 mod view_manager;
 use view_manager::*;
 

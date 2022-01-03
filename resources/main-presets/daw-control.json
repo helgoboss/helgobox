@@ -1,50 +1,50 @@
 {
-  "version": "2.8.0-rc.2",
+  "version": "2.11.0-pre.14",
   "name": "DAW control",
   "defaultGroup": {},
   "groups": [
     {
-      "id": "460c8164-ebf6-45b0-b221-a2fe74e88887",
-      "name": "Conditional switches"
+      "id": "switching",
+      "name": "Switching"
     },
     {
-      "id": "be727fdc-b4f9-4f71-9944-022fe4dbadac",
+      "id": "volume",
       "name": "Volume"
     },
     {
-      "id": "9b54cf44-d214-4db7-ab07-684eb4814570",
+      "id": "pan",
       "name": "Pan"
     },
     {
-      "id": "f3dd4eb9-1f6e-4b76-89f6-6c417873d0d4",
+      "id": "pan-reset",
       "name": "Pan reset"
     },
     {
-      "id": "b64ee546-66c9-47c0-8276-30af2ac58a51",
+      "id": "selection",
       "name": "Selection"
     },
     {
-      "id": "a022a854-3c8c-4b57-ba4d-6f4c422cffdf",
+      "id": "mute",
       "name": "Mute"
     },
     {
-      "id": "513b71fb-7286-48b4-9447-f4fec4537f4a",
+      "id": "solo",
       "name": "Solo"
     },
     {
-      "id": "d2b69d6e-999f-4777-ae39-4b0a108a3f04",
+      "id": "arm",
       "name": "Arm"
     },
     {
-      "id": "4cb67b4d-f395-42ec-b1b7-bb14ec3c3848",
+      "id": "touch",
       "name": "Touch"
     },
     {
-      "id": "3688ae73-b39e-4836-bc02-d09b26b92e3d",
+      "id": "transport",
       "name": "Transport"
     },
     {
-      "id": "d6ab5a7e-f1ad-48f4-8f51-3d63e26f0096",
+      "id": "zoom",
       "name": "Zoom",
       "activationType": "modifiers",
       "modifierCondition1": {
@@ -53,11 +53,11 @@
       }
     },
     {
-      "id": "7cac2066-f09e-4c69-bbc3-8ea86bd38036",
+      "id": "master",
       "name": "Master"
     },
     {
-      "id": "d0d88952-ca70-499e-8c6e-3b94eaefbb2a",
+      "id": "scroll",
       "name": "Scroll",
       "activationType": "modifiers",
       "modifierCondition1": {
@@ -66,20 +66,25 @@
       }
     },
     {
-      "id": "b52ff3e8-7cb8-4ebd-b276-3e9b490e0138",
+      "id": "lcd",
       "name": "LCD"
+    },
+    {
+      "id": "meter",
+      "name": "Meter"
+    },
+    {
+      "id": "time-modes",
+      "name": "Time modes"
     }
   ],
   "mappings": [
     {
       "id": "5cfd2ff0-85ce-4e70-98e8-eb53e5e94bb1",
       "name": "Bank -",
-      "groupId": "460c8164-ebf6-45b0-b221-a2fe74e88887",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "bank-left"
       },
@@ -87,25 +92,21 @@
         "type": 1,
         "minStepSize": 0.0008,
         "maxStepSize": 0.0008,
-        "reverseIsEnabled": true
+        "reverseIsEnabled": true,
+        "feedbackColor": null
       },
       "target": {
         "fxAnchor": "this",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "07b0202f-b8b8-48e4-a530-f228450864f0",
       "name": "Bank - faster",
-      "groupId": "460c8164-ebf6-45b0-b221-a2fe74e88887",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "bank-left"
       },
@@ -117,49 +118,42 @@
         "maxPressMillis": 300,
         "turboRate": 100,
         "reverseIsEnabled": true,
+        "feedbackColor": null,
         "fireMode": "turbo"
       },
       "target": {
         "fxAnchor": "this",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "0baab91f-2c4e-43ae-8cac-dca727963b46",
       "name": "Bank +",
-      "groupId": "460c8164-ebf6-45b0-b221-a2fe74e88887",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "bank-right"
       },
       "mode": {
         "type": 1,
         "minStepSize": 0.0008,
-        "maxStepSize": 0.0008
+        "maxStepSize": 0.0008,
+        "feedbackColor": null
       },
       "target": {
         "fxAnchor": "this",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
     },
     {
       "id": "0a7e122c-3eda-4355-906a-a057eefa515b",
       "name": "Bank + faster",
-      "groupId": "460c8164-ebf6-45b0-b221-a2fe74e88887",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "bank-right"
       },
@@ -170,24 +164,21 @@
         "minPressMillis": 300,
         "maxPressMillis": 300,
         "turboRate": 100,
+        "feedbackColor": null,
         "fireMode": "turbo"
       },
       "target": {
         "fxAnchor": "this",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
     },
     {
       "id": "cf45689a-5537-465d-ad44-460dbebf4802",
       "name": "Track -",
-      "groupId": "460c8164-ebf6-45b0-b221-a2fe74e88887",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "ch-left"
       },
@@ -195,25 +186,21 @@
         "type": 1,
         "minStepSize": 0.0001,
         "maxStepSize": 0.0001,
-        "reverseIsEnabled": true
+        "reverseIsEnabled": true,
+        "feedbackColor": null
       },
       "target": {
         "fxAnchor": "this",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "76465b5f-c9b3-4aa6-ba77-b891021cf38e",
       "name": "Track - faster",
-      "groupId": "460c8164-ebf6-45b0-b221-a2fe74e88887",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "ch-left"
       },
@@ -225,49 +212,42 @@
         "maxPressMillis": 300,
         "turboRate": 60,
         "reverseIsEnabled": true,
+        "feedbackColor": null,
         "fireMode": "turbo"
       },
       "target": {
         "fxAnchor": "this",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "d40ffa44-a446-4499-b9d6-787c5ff8e188",
       "name": "Track +",
-      "groupId": "460c8164-ebf6-45b0-b221-a2fe74e88887",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "ch-right"
       },
       "mode": {
         "type": 1,
         "minStepSize": 0.0001,
-        "maxStepSize": 0.0001
+        "maxStepSize": 0.0001,
+        "feedbackColor": null
       },
       "target": {
         "fxAnchor": "this",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
     },
     {
       "id": "97db991c-a15b-4c27-aeb2-04b2ae3242c2",
       "name": "Track + faster",
-      "groupId": "460c8164-ebf6-45b0-b221-a2fe74e88887",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "ch-right"
       },
@@ -278,1655 +258,115 @@
         "minPressMillis": 300,
         "maxPressMillis": 300,
         "turboRate": 60,
+        "feedbackColor": null,
         "fireMode": "turbo"
       },
       "target": {
         "fxAnchor": "this",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
-    },
-    {
-      "id": "49d8b030-f2b7-46c6-8772-268ae41af403",
-      "name": "Tr1 Vol",
-      "groupId": "be727fdc-b4f9-4f71-9944-022fe4dbadac",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch1/fader"
-      },
-      "mode": {},
-      "target": {
-        "type": 2,
-        "trackExpression": "p1 * 10000 + 0",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "b6ec3fbf-9aeb-488d-9c72-0bec3030b0b1",
-      "name": "Tr2 Vol",
-      "groupId": "be727fdc-b4f9-4f71-9944-022fe4dbadac",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch2/fader"
-      },
-      "mode": {},
-      "target": {
-        "type": 2,
-        "trackExpression": "p1 * 10000 + 1",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "dd58c134-4214-4f24-9ccc-15c8a3561c01",
-      "name": "Tr3 Vol",
-      "groupId": "be727fdc-b4f9-4f71-9944-022fe4dbadac",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch3/fader"
-      },
-      "mode": {},
-      "target": {
-        "type": 2,
-        "trackExpression": "p1 * 10000 + 2",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "63dfd256-1705-4941-9d35-3e4476ba3ee2",
-      "name": "Tr4 Vol",
-      "groupId": "be727fdc-b4f9-4f71-9944-022fe4dbadac",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch4/fader"
-      },
-      "mode": {},
-      "target": {
-        "type": 2,
-        "trackExpression": "p1 * 10000 + 3",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "538a3408-7d43-45c5-94bf-020d7382c94f",
-      "name": "Tr5 Vol",
-      "groupId": "be727fdc-b4f9-4f71-9944-022fe4dbadac",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch5/fader"
-      },
-      "mode": {},
-      "target": {
-        "type": 2,
-        "trackExpression": "p1 * 10000 + 4",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "f0049e01-db5e-4331-9c2d-8c1c19816891",
-      "name": "Tr6 Vol",
-      "groupId": "be727fdc-b4f9-4f71-9944-022fe4dbadac",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch6/fader"
-      },
-      "mode": {},
-      "target": {
-        "type": 2,
-        "trackExpression": "p1 * 10000 + 5",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "a980ed65-2cbc-4ed4-80fa-a2468ff8aefe",
-      "name": "Tr7 Vol",
-      "groupId": "be727fdc-b4f9-4f71-9944-022fe4dbadac",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch7/fader"
-      },
-      "mode": {},
-      "target": {
-        "type": 2,
-        "trackExpression": "p1 * 10000 + 6",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "549a0f3a-9be4-4cb8-969f-511b5da830c7",
-      "name": "Tr8 Vol",
-      "groupId": "be727fdc-b4f9-4f71-9944-022fe4dbadac",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch8/fader"
-      },
-      "mode": {},
-      "target": {
-        "type": 2,
-        "trackExpression": "p1 * 10000 + 7",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "bf66f7d5-74be-4098-bd33-75f5363715b7",
-      "name": "Tr1 Pan",
-      "groupId": "9b54cf44-d214-4db7-ab07-684eb4814570",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch1/v-pot"
-      },
-      "mode": {
-        "minStepSize": 0.05,
-        "maxStepSize": 0.05
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 0",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "4e7b9f9e-28c5-46d8-ae8e-791ba6745b64",
-      "name": "Tr2 Pan",
-      "groupId": "9b54cf44-d214-4db7-ab07-684eb4814570",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch2/v-pot"
-      },
-      "mode": {
-        "minStepSize": 0.05,
-        "maxStepSize": 0.05
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 1",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "e9a0aef0-33f1-4e85-ae6d-fad9ef820ec9",
-      "name": "Tr3 Pan",
-      "groupId": "9b54cf44-d214-4db7-ab07-684eb4814570",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch3/v-pot"
-      },
-      "mode": {
-        "minStepSize": 0.05,
-        "maxStepSize": 0.05
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 2",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "f9a61c47-583c-4094-8ab0-3b055540733d",
-      "name": "Tr4 Pan",
-      "groupId": "9b54cf44-d214-4db7-ab07-684eb4814570",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch4/v-pot"
-      },
-      "mode": {
-        "minStepSize": 0.05,
-        "maxStepSize": 0.05
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 3",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "8a57cefe-0fb9-41eb-be4f-4dc3b53a103f",
-      "name": "Tr5 Pan",
-      "groupId": "9b54cf44-d214-4db7-ab07-684eb4814570",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch5/v-pot"
-      },
-      "mode": {
-        "minStepSize": 0.05,
-        "maxStepSize": 0.05
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 4",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "0b33a1c0-a554-46d5-915a-2830916f65fd",
-      "name": "Tr6 Pan",
-      "groupId": "9b54cf44-d214-4db7-ab07-684eb4814570",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch6/v-pot"
-      },
-      "mode": {
-        "minStepSize": 0.05,
-        "maxStepSize": 0.05
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 5",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "7dc3129c-c647-4fb8-b24a-f3602cd48572",
-      "name": "Tr7 Pan",
-      "groupId": "9b54cf44-d214-4db7-ab07-684eb4814570",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch7/v-pot"
-      },
-      "mode": {
-        "minStepSize": 0.05,
-        "maxStepSize": 0.05
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 6",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "e6fc040f-ef82-4818-bb2e-70586605ae8a",
-      "name": "Tr8 Pan",
-      "groupId": "9b54cf44-d214-4db7-ab07-684eb4814570",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementIndex": "ch8/v-pot"
-      },
-      "mode": {
-        "minStepSize": 0.05,
-        "maxStepSize": 0.05
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 7",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "355dfff7-fda3-407d-8f40-4fbae5511dc5",
-      "name": "Tr1 Pan Reset",
-      "groupId": "f3dd4eb9-1f6e-4b76-89f6-6c417873d0d4",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch1/v-select"
-      },
-      "mode": {
-        "minTargetValue": 0.5,
-        "maxTargetValue": 0.5
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 0",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "62936d89-e52b-4f1f-ae3a-535e4de6bf87",
-      "name": "Tr2 Pan Reset",
-      "groupId": "f3dd4eb9-1f6e-4b76-89f6-6c417873d0d4",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch2/v-select"
-      },
-      "mode": {
-        "minTargetValue": 0.5,
-        "maxTargetValue": 0.5
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 1",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "dcf62c6f-d148-4122-83ca-c16f78816cdd",
-      "name": "Tr3 Pan Reset",
-      "groupId": "f3dd4eb9-1f6e-4b76-89f6-6c417873d0d4",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch3/v-select"
-      },
-      "mode": {
-        "minTargetValue": 0.5,
-        "maxTargetValue": 0.5
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 2",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "95dc5794-e171-4b61-8533-3a331073bcbd",
-      "name": "Tr4 Pan Reset",
-      "groupId": "f3dd4eb9-1f6e-4b76-89f6-6c417873d0d4",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch4/v-select"
-      },
-      "mode": {
-        "minTargetValue": 0.5,
-        "maxTargetValue": 0.5
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 3",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "a8b6dbf1-adf5-48d4-a599-98f01400b3cf",
-      "name": "Tr5 Pan Reset",
-      "groupId": "f3dd4eb9-1f6e-4b76-89f6-6c417873d0d4",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch5/v-select"
-      },
-      "mode": {
-        "minTargetValue": 0.5,
-        "maxTargetValue": 0.5
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 4",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "78a0d5e0-c69d-45b4-aa72-f0c6a3566f80",
-      "name": "Tr6 Pan Reset",
-      "groupId": "f3dd4eb9-1f6e-4b76-89f6-6c417873d0d4",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch6/v-select"
-      },
-      "mode": {
-        "minTargetValue": 0.5,
-        "maxTargetValue": 0.5
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 5",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "37b778a2-c243-4776-9a3c-93730927ed33",
-      "name": "Tr7 Pan Reset",
-      "groupId": "f3dd4eb9-1f6e-4b76-89f6-6c417873d0d4",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch7/v-select"
-      },
-      "mode": {
-        "minTargetValue": 0.5,
-        "maxTargetValue": 0.5
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 6",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "bef46264-a49a-4678-88f2-a7369115e6e4",
-      "name": "Tr8 Pan Reset",
-      "groupId": "f3dd4eb9-1f6e-4b76-89f6-6c417873d0d4",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch8/v-select"
-      },
-      "mode": {
-        "minTargetValue": 0.5,
-        "maxTargetValue": 0.5
-      },
-      "target": {
-        "type": 4,
-        "trackExpression": "p1 * 10000 + 7",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      },
-      "feedbackIsEnabled": false
-    },
-    {
-      "id": "0f004c0f-43fb-477a-ba6b-dc6637931ba5",
-      "name": "Tr1 Selection",
-      "groupId": "b64ee546-66c9-47c0-8276-30af2ac58a51",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch1/select"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 6,
-        "trackExpression": "p1 * 10000 + 0",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true,
-        "scrollMixer": true
-      }
-    },
-    {
-      "id": "d059d32e-cc73-4bb3-9e99-020a109dd0c1",
-      "name": "Tr2 Selection",
-      "groupId": "b64ee546-66c9-47c0-8276-30af2ac58a51",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch2/select"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 6,
-        "trackExpression": "p1 * 10000 + 1",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true,
-        "scrollMixer": true
-      }
-    },
-    {
-      "id": "e61401ff-866e-4e8a-b498-c3e15e7145c5",
-      "name": "Tr3 Selection",
-      "groupId": "b64ee546-66c9-47c0-8276-30af2ac58a51",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch3/select"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 6,
-        "trackExpression": "p1 * 10000 + 2",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true,
-        "scrollMixer": true
-      }
-    },
-    {
-      "id": "4c4c5b94-a852-49c6-9a9b-9a0260b24f18",
-      "name": "Tr4 Selection",
-      "groupId": "b64ee546-66c9-47c0-8276-30af2ac58a51",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch4/select"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 6,
-        "trackExpression": "p1 * 10000 + 3",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true,
-        "scrollMixer": true
-      }
-    },
-    {
-      "id": "0704c50d-9a29-4e88-ae48-b956e3c2e662",
-      "name": "Tr5 Selection",
-      "groupId": "b64ee546-66c9-47c0-8276-30af2ac58a51",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch5/select"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 6,
-        "trackExpression": "p1 * 10000 + 4",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true,
-        "scrollMixer": true
-      }
-    },
-    {
-      "id": "ac62d5e6-9998-4fa2-8d3b-acc482c79819",
-      "name": "Tr6 Selection",
-      "groupId": "b64ee546-66c9-47c0-8276-30af2ac58a51",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch6/select"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 6,
-        "trackExpression": "p1 * 10000 + 5",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true,
-        "scrollMixer": true
-      }
-    },
-    {
-      "id": "7440f393-c0ec-43cc-8c05-2d220477c3cd",
-      "name": "Tr7 Selection",
-      "groupId": "b64ee546-66c9-47c0-8276-30af2ac58a51",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch7/select"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 6,
-        "trackExpression": "p1 * 10000 + 6",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true,
-        "scrollMixer": true
-      }
-    },
-    {
-      "id": "72470853-cd6d-4c38-a3c6-46619ff54f77",
-      "name": "Tr8 Selection",
-      "groupId": "b64ee546-66c9-47c0-8276-30af2ac58a51",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch8/select"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 6,
-        "trackExpression": "p1 * 10000 + 7",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true,
-        "scrollMixer": true
-      }
-    },
-    {
-      "id": "d0ee19d9-1468-4474-90be-c0603e09e48e",
-      "name": "Tr1 Mute",
-      "groupId": "a022a854-3c8c-4b57-ba4d-6f4c422cffdf",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch1/mute"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 7,
-        "trackExpression": "p1 * 10000 + 0",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "a2248eff-2d0c-4af6-9d09-53cb2f01bac9",
-      "name": "Tr2 Mute",
-      "groupId": "a022a854-3c8c-4b57-ba4d-6f4c422cffdf",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch2/mute"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 7,
-        "trackExpression": "p1 * 10000 + 1",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "65413cdc-b042-43b0-9fb8-48c81d1565ae",
-      "name": "Tr3 Mute",
-      "groupId": "a022a854-3c8c-4b57-ba4d-6f4c422cffdf",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch3/mute"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 7,
-        "trackExpression": "p1 * 10000 + 2",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "3047d5ab-d825-4dea-9ece-2e1b0d571f0a",
-      "name": "Tr4 Mute",
-      "groupId": "a022a854-3c8c-4b57-ba4d-6f4c422cffdf",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch4/mute"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 7,
-        "trackExpression": "p1 * 10000 + 3",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "d170968b-107e-42c5-915d-31405fc651d7",
-      "name": "Tr5 Mute",
-      "groupId": "a022a854-3c8c-4b57-ba4d-6f4c422cffdf",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch5/mute"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 7,
-        "trackExpression": "p1 * 10000 + 4",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "454a35e5-fbda-4e13-8ecd-af5d2248cff4",
-      "name": "Tr6 Mute",
-      "groupId": "a022a854-3c8c-4b57-ba4d-6f4c422cffdf",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch6/mute"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 7,
-        "trackExpression": "p1 * 10000 + 5",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "3ab4d37d-5410-4040-b557-de3d5c998d3f",
-      "name": "Tr7 Mute",
-      "groupId": "a022a854-3c8c-4b57-ba4d-6f4c422cffdf",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch7/mute"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 7,
-        "trackExpression": "p1 * 10000 + 6",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "9c82c2d2-4ea4-43d9-b91c-9047d1a4752f",
-      "name": "Tr8 Mute",
-      "groupId": "a022a854-3c8c-4b57-ba4d-6f4c422cffdf",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch8/mute"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 7,
-        "trackExpression": "p1 * 10000 + 7",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "d36eccd4-f5e8-44fb-b1ea-5398b22cfd75",
-      "name": "Tr1 Solo",
-      "groupId": "513b71fb-7286-48b4-9447-f4fec4537f4a",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch1/solo"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 8,
-        "trackExpression": "p1 * 10000 + 0",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "a5cd6a82-b966-4c3d-83bc-271fcbb06c4b",
-      "name": "Tr2 Solo",
-      "groupId": "513b71fb-7286-48b4-9447-f4fec4537f4a",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch2/solo"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 8,
-        "trackExpression": "p1 * 10000 + 1",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "989a42e3-1a87-4423-b512-8c6d428cd93c",
-      "name": "Tr3 Solo",
-      "groupId": "513b71fb-7286-48b4-9447-f4fec4537f4a",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch3/solo"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 8,
-        "trackExpression": "p1 * 10000 + 2",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "d8685c9c-5415-4cae-bf1b-7cb0c32a198d",
-      "name": "Tr4 Solo",
-      "groupId": "513b71fb-7286-48b4-9447-f4fec4537f4a",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch4/solo"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 8,
-        "trackExpression": "p1 * 10000 + 3",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "32b97a3e-4e71-4fd1-8c80-e64b655b6693",
-      "name": "Tr5 Solo",
-      "groupId": "513b71fb-7286-48b4-9447-f4fec4537f4a",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch5/solo"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 8,
-        "trackExpression": "p1 * 10000 + 4",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "84a7855f-d1e4-4b26-8c33-7628f51027df",
-      "name": "Tr6 Solo",
-      "groupId": "513b71fb-7286-48b4-9447-f4fec4537f4a",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch6/solo"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 8,
-        "trackExpression": "p1 * 10000 + 5",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "3892b3ae-8e26-4cec-a88b-f053f779fcf0",
-      "name": "Tr7 Solo",
-      "groupId": "513b71fb-7286-48b4-9447-f4fec4537f4a",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch7/solo"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 8,
-        "trackExpression": "p1 * 10000 + 6",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "bc7e0ba2-3eac-49bc-9606-c59d3165fef0",
-      "name": "Tr8 Solo",
-      "groupId": "513b71fb-7286-48b4-9447-f4fec4537f4a",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch8/solo"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 8,
-        "trackExpression": "p1 * 10000 + 7",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "8d7c9303-a848-4cbe-958a-7e9119b64b60",
-      "name": "Tr1 Arm",
-      "groupId": "d2b69d6e-999f-4777-ae39-4b0a108a3f04",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch1/record-ready"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 5,
-        "trackExpression": "p1 * 10000 + 0",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "3ea52d57-f899-4e11-a6a5-21665cada774",
-      "name": "Tr2 Arm",
-      "groupId": "d2b69d6e-999f-4777-ae39-4b0a108a3f04",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch2/record-ready"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 5,
-        "trackExpression": "p1 * 10000 + 1",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "a810ba92-52e2-45b6-a075-5c8c64ad98ca",
-      "name": "Tr3 Arm",
-      "groupId": "d2b69d6e-999f-4777-ae39-4b0a108a3f04",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch3/record-ready"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 5,
-        "trackExpression": "p1 * 10000 + 2",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "de36b51a-cd80-49cd-8f1b-2feba0b011c5",
-      "name": "Tr4 Arm",
-      "groupId": "d2b69d6e-999f-4777-ae39-4b0a108a3f04",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch4/record-ready"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 5,
-        "trackExpression": "p1 * 10000 + 3",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "f99a2bb7-3c99-4d09-9222-78cd67fbf454",
-      "name": "Tr5 Arm",
-      "groupId": "d2b69d6e-999f-4777-ae39-4b0a108a3f04",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch5/record-ready"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 5,
-        "trackExpression": "p1 * 10000 + 4",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "611ac3d4-e513-4822-b88a-89d7a631bf6f",
-      "name": "Tr6 Arm",
-      "groupId": "d2b69d6e-999f-4777-ae39-4b0a108a3f04",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch6/record-ready"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 5,
-        "trackExpression": "p1 * 10000 + 5",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "4fa1113b-31e7-429c-ae84-8e4bf29d21e5",
-      "name": "Tr7 Arm",
-      "groupId": "d2b69d6e-999f-4777-ae39-4b0a108a3f04",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch7/record-ready"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 5,
-        "trackExpression": "p1 * 10000 + 6",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "9a6a9ff0-d8f3-4a87-ae79-528d07fee666",
-      "name": "Tr8 Arm",
-      "groupId": "d2b69d6e-999f-4777-ae39-4b0a108a3f04",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch8/record-ready"
-      },
-      "mode": {
-        "type": 2
-      },
-      "target": {
-        "type": 5,
-        "trackExpression": "p1 * 10000 + 7",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "99cabe54-2ac3-4144-9268-d52efebd0595",
-      "name": "Tr1 Touch",
-      "groupId": "4cb67b4d-f395-42ec-b1b7-bb14ec3c3848",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch1/fader/touch"
-      },
-      "mode": {},
-      "target": {
-        "type": 21,
-        "trackExpression": "p1 * 10000 + 0",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "6a196d4b-5ff0-434a-8cbe-b1e66d675366",
-      "name": "Tr2 Touch",
-      "groupId": "4cb67b4d-f395-42ec-b1b7-bb14ec3c3848",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch2/fader/touch"
-      },
-      "mode": {},
-      "target": {
-        "type": 21,
-        "trackExpression": "p1 * 10000 + 1",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "b811d4e7-7cbc-4052-9adb-bdb5e8564905",
-      "name": "Tr3 Touch",
-      "groupId": "4cb67b4d-f395-42ec-b1b7-bb14ec3c3848",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch3/fader/touch"
-      },
-      "mode": {},
-      "target": {
-        "type": 21,
-        "trackExpression": "p1 * 10000 + 2",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "6ef5438a-d2ef-4d76-b199-dc28db3fd53a",
-      "name": "Tr4 Touch",
-      "groupId": "4cb67b4d-f395-42ec-b1b7-bb14ec3c3848",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch4/fader/touch"
-      },
-      "mode": {},
-      "target": {
-        "type": 21,
-        "trackExpression": "p1 * 10000 + 3",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "ffa12632-fdbf-4d19-8220-bed006252bda",
-      "name": "Tr5 Touch",
-      "groupId": "4cb67b4d-f395-42ec-b1b7-bb14ec3c3848",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch5/fader/touch"
-      },
-      "mode": {},
-      "target": {
-        "type": 21,
-        "trackExpression": "p1 * 10000 + 4",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "3bf283d6-6362-4fa2-a1e5-a87794f62cf0",
-      "name": "Tr6 Touch",
-      "groupId": "4cb67b4d-f395-42ec-b1b7-bb14ec3c3848",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch6/fader/touch"
-      },
-      "mode": {},
-      "target": {
-        "type": 21,
-        "trackExpression": "p1 * 10000 + 5",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "93ffca01-b8d4-416c-a763-928837fac2c1",
-      "name": "Tr7 Touch",
-      "groupId": "4cb67b4d-f395-42ec-b1b7-bb14ec3c3848",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch7/fader/touch"
-      },
-      "mode": {},
-      "target": {
-        "type": 21,
-        "trackExpression": "p1 * 10000 + 6",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
-    },
-    {
-      "id": "cdf06238-fe8d-483b-b2c1-0c30ad7f853e",
-      "name": "Tr8 Touch",
-      "groupId": "4cb67b4d-f395-42ec-b1b7-bb14ec3c3848",
-      "source": {
-        "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
-        "controlElementType": "button",
-        "controlElementIndex": "ch8/fader/touch"
-      },
-      "mode": {},
-      "target": {
-        "type": 21,
-        "trackExpression": "p1 * 10000 + 7",
-        "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      }
     },
     {
       "id": "afa35458-3160-4f49-bb90-279aae51779f",
       "name": "Play/pause",
-      "groupId": "3688ae73-b39e-4836-bc02-d09b26b92e3d",
+      "groupId": "transport",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "play"
       },
       "mode": {
-        "type": 2
+        "type": 2,
+        "feedbackColor": null
       },
       "target": {
         "type": 16,
         "fxAnchor": "id",
         "transportAction": "playPause",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
       "id": "67b3a516-246f-43a6-b850-050eb415520a",
       "name": "Stop",
-      "groupId": "3688ae73-b39e-4836-bc02-d09b26b92e3d",
+      "groupId": "transport",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "stop"
       },
       "mode": {
         "type": 2,
+        "feedbackColor": null,
         "outOfRangeBehavior": "min"
       },
       "target": {
         "type": 16,
         "fxAnchor": "id",
         "transportAction": "stop",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
       "id": "f14ebd63-0127-496d-9acb-281b5a7bb3db",
       "name": "Repeat",
-      "groupId": "3688ae73-b39e-4836-bc02-d09b26b92e3d",
+      "groupId": "transport",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "cycle"
       },
       "mode": {
         "type": 2,
+        "feedbackColor": null,
         "outOfRangeBehavior": "min"
       },
       "target": {
         "type": 16,
         "fxAnchor": "id",
         "transportAction": "repeat",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
       "id": "00626498-80a6-41d4-bc9f-f273098e3dcf",
       "name": "Record",
-      "groupId": "3688ae73-b39e-4836-bc02-d09b26b92e3d",
+      "groupId": "transport",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "record"
       },
       "mode": {
         "type": 2,
+        "feedbackColor": null,
         "outOfRangeBehavior": "min"
       },
       "target": {
         "type": 16,
         "fxAnchor": "id",
         "transportAction": "record",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
       "id": "1f827b7b-db04-478a-a05b-36e898f6b245",
       "name": "Scrub coarse",
-      "groupId": "3688ae73-b39e-4836-bc02-d09b26b92e3d",
+      "groupId": "transport",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementIndex": "jog"
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "type": 0,
         "commandName": "992",
         "invocationType": 2,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false,
       "activationType": "modifiers",
@@ -1938,26 +378,22 @@
     {
       "id": "a259062e-dfde-4e6c-8e0a-014a078fc1be",
       "name": "Scrub fine",
-      "groupId": "3688ae73-b39e-4836-bc02-d09b26b92e3d",
+      "groupId": "transport",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementIndex": "jog"
       },
       "mode": {
-        "minStepSize": 0.001,
-        "maxStepSize": 0.001
+        "minStepSize": 0.0,
+        "maxStepSize": 0.0,
+        "feedbackColor": null
       },
       "target": {
         "type": 0,
         "commandName": "974",
         "invocationType": 2,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false,
       "activationType": "modifiers",
@@ -1969,116 +405,146 @@
     {
       "id": "1e5c604f-9040-47c0-ab37-a05383e7be00",
       "name": "Seek coarse/fine",
-      "groupId": "460c8164-ebf6-45b0-b221-a2fe74e88887",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "scrub"
       },
       "mode": {
         "type": 2,
-        "maxPressMillis": 250
+        "maxPressMillis": 250,
+        "feedbackColor": null
       },
       "target": {
         "fxAnchor": "this",
         "paramIndex": 1,
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
       "id": "ee81c405-d355-45e0-80b4-913633295193",
       "name": "Zoom on/off",
-      "groupId": "460c8164-ebf6-45b0-b221-a2fe74e88887",
+      "groupId": "switching",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "zoom"
       },
       "mode": {
         "type": 2,
-        "maxPressMillis": 250
+        "maxPressMillis": 250,
+        "feedbackColor": null
       },
       "target": {
         "fxAnchor": "this",
         "paramIndex": 2,
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       }
     },
     {
       "id": "f13678b1-da81-46a5-b318-861a813d7183",
       "name": "Previous",
-      "groupId": "3688ae73-b39e-4836-bc02-d09b26b92e3d",
+      "groupId": "transport",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "rewind"
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "type": 0,
         "commandName": "40172",
         "invocationType": 0,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
-      "id": "7f0d2cbb-0346-4229-89dd-db58cac3a460",
-      "name": "Next",
-      "groupId": "3688ae73-b39e-4836-bc02-d09b26b92e3d",
+      "id": "previous-led",
+      "name": "Previous LED",
+      "groupId": "transport",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": "rewind"
+      },
+      "mode": {
+        "maxTargetValue": 0.00001,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 23,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "7f0d2cbb-0346-4229-89dd-db58cac3a460",
+      "name": "Next",
+      "groupId": "transport",
+      "source": {
+        "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": "fast-fwd"
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "type": 0,
         "commandName": "40173",
         "invocationType": 0,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
-      "id": "8b0ce5db-a371-4b4c-9fe8-ca086bc706bf",
-      "name": "Zoom out horizontally",
-      "groupId": "d6ab5a7e-f1ad-48f4-8f51-3d63e26f0096",
+      "id": "next-led",
+      "name": "Next LED",
+      "groupId": "transport",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
+        "controlElementType": "button",
+        "controlElementIndex": "fast-fwd"
+      },
+      "mode": {
+        "minTargetValue": 0.99999,
+        "reverseIsEnabled": true,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 23,
+        "fxAnchor": "id",
+        "useProject": true,
+        "moveView": true,
+        "seekPlay": true,
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "8b0ce5db-a371-4b4c-9fe8-ca086bc706bf",
+      "name": "Zoom out horizontally",
+      "groupId": "zoom",
+      "source": {
+        "category": "virtual",
         "controlElementType": "button",
         "controlElementIndex": "cursor-left"
       },
       "mode": {
         "type": 1,
-        "maxPressMillis": 800,
         "turboRate": 100,
         "reverseIsEnabled": true,
+        "feedbackColor": null,
         "fireMode": "turbo"
       },
       "target": {
@@ -2086,28 +552,23 @@
         "commandName": "998",
         "invocationType": 2,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "9b6fe0b8-d5f3-438b-9830-6bb782121c2d",
       "name": "Zoom in horizontally",
-      "groupId": "d6ab5a7e-f1ad-48f4-8f51-3d63e26f0096",
+      "groupId": "zoom",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "cursor-right"
       },
       "mode": {
         "type": 1,
-        "maxPressMillis": 350,
         "turboRate": 100,
+        "feedbackColor": null,
         "fireMode": "turbo"
       },
       "target": {
@@ -2115,27 +576,22 @@
         "commandName": "998",
         "invocationType": 2,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "c3c34680-0396-4b24-8714-e210062f46cd",
       "name": "Zoom out vertically",
-      "groupId": "d6ab5a7e-f1ad-48f4-8f51-3d63e26f0096",
+      "groupId": "zoom",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "cursor-down"
       },
       "mode": {
-        "maxPressMillis": 350,
         "turboRate": 100,
+        "feedbackColor": null,
         "fireMode": "turbo"
       },
       "target": {
@@ -2143,27 +599,22 @@
         "commandName": "40112",
         "invocationType": 0,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "e93e8981-8127-446f-b5d9-34bb576fbc2b",
       "name": "Zoom in vertically",
-      "groupId": "d6ab5a7e-f1ad-48f4-8f51-3d63e26f0096",
+      "groupId": "zoom",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "cursor-up"
       },
       "mode": {
-        "maxPressMillis": 350,
         "turboRate": 100,
+        "feedbackColor": null,
         "fireMode": "turbo"
       },
       "target": {
@@ -2171,30 +622,26 @@
         "commandName": "40111",
         "invocationType": 0,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "8b6d4cf5-d4f2-4701-af71-90d839da2318",
       "name": "Scroll down",
-      "groupId": "d0d88952-ca70-499e-8c6e-3b94eaefbb2a",
+      "groupId": "scroll",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "cursor-down"
       },
       "mode": {
         "type": 1,
-        "minStepSize": 0.08000000000000007,
-        "maxStepSize": 0.08000000000000007,
+        "minStepSize": 0.08,
+        "maxStepSize": 0.08,
         "turboRate": 100,
         "reverseIsEnabled": true,
+        "feedbackColor": null,
         "fireMode": "turbo"
       },
       "target": {
@@ -2202,21 +649,16 @@
         "commandName": "989",
         "invocationType": 2,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "b633c2d1-c283-4021-a1fc-76b6abd407b9",
       "name": "Scroll up",
-      "groupId": "d0d88952-ca70-499e-8c6e-3b94eaefbb2a",
+      "groupId": "scroll",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "cursor-up"
       },
@@ -2225,6 +667,7 @@
         "minStepSize": 0.08,
         "maxStepSize": 0.08,
         "turboRate": 100,
+        "feedbackColor": null,
         "fireMode": "turbo"
       },
       "target": {
@@ -2232,30 +675,26 @@
         "commandName": "989",
         "invocationType": 2,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "b9fa3db6-8bed-4c8a-82fa-580d3d0da92c",
       "name": "Scroll left",
-      "groupId": "d0d88952-ca70-499e-8c6e-3b94eaefbb2a",
+      "groupId": "scroll",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "cursor-left"
       },
       "mode": {
         "type": 1,
-        "minStepSize": 0.08000000000000007,
-        "maxStepSize": 0.08000000000000007,
+        "minStepSize": 0.08,
+        "maxStepSize": 0.08,
         "turboRate": 100,
         "reverseIsEnabled": true,
+        "feedbackColor": null,
         "fireMode": "turbo"
       },
       "target": {
@@ -2263,30 +702,26 @@
         "commandName": "40140",
         "invocationType": 2,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "344405d5-b50d-47d4-a22e-aa99a7454a25",
       "name": "Scroll right",
-      "groupId": "d0d88952-ca70-499e-8c6e-3b94eaefbb2a",
+      "groupId": "scroll",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "cursor-right"
       },
       "mode": {
         "type": 1,
-        "minStepSize": 0.08000000000000007,
-        "maxStepSize": 0.08000000000000007,
+        "minStepSize": 0.08,
+        "maxStepSize": 0.08,
         "turboRate": 100,
         "reverseIsEnabled": true,
+        "feedbackColor": null,
         "fireMode": "turbo"
       },
       "target": {
@@ -2294,73 +729,58 @@
         "commandName": "40141",
         "invocationType": 2,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "261067ef-c2f0-41de-b10f-418cc718cf1c",
       "name": "Master touch",
-      "groupId": "7cac2066-f09e-4c69-bbc3-8ea86bd38036",
+      "groupId": "master",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "main/fader/touch"
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "type": 21,
         "trackGUID": "master",
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      },
-      "feedbackIsEnabled": false
+        "pollForFeedback": false
+      }
     },
     {
       "id": "2f45cdf6-bac9-4a97-8a3e-c296d2cc7e0f",
       "name": "Master volume",
-      "groupId": "7cac2066-f09e-4c69-bbc3-8ea86bd38036",
+      "groupId": "master",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementIndex": "main/fader"
       },
-      "mode": {},
+      "mode": {
+        "feedbackColor": null
+      },
       "target": {
         "type": 2,
         "trackGUID": "master",
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
-      },
-      "modifierCondition1": {
-        "paramIndex": 3,
-        "isOn": false
+        "pollForFeedback": false
       }
     },
     {
       "id": "970e04c9-e262-478e-85ce-9e84875fb5f5",
       "name": "Marker",
-      "groupId": "7cac2066-f09e-4c69-bbc3-8ea86bd38036",
+      "groupId": "master",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "marker"
       },
       "mode": {
+        "feedbackColor": null,
         "outOfRangeBehavior": "min",
         "buttonUsage": "press-only"
       },
@@ -2369,118 +789,2211 @@
         "commandName": "40157",
         "invocationType": 0,
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true,
-        "automationModeOverrideType": "none"
+        "pollForFeedback": false
       },
       "feedbackIsEnabled": false
     },
     {
       "id": "c49238b9-189e-42d3-984a-955fe63c46e8",
       "name": "Global read",
-      "groupId": "7cac2066-f09e-4c69-bbc3-8ea86bd38036",
+      "groupId": "master",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "read"
       },
       "mode": {
-        "minTargetValue": 1.0
+        "type": 2,
+        "minTargetValue": 1.0,
+        "feedbackColor": null
       },
       "target": {
         "type": 26,
-        "commandName": "40879",
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true,
         "trackAutomationMode": 1,
-        "automationModeOverrideType": "override"
+        "automationModeOverrideType": "override",
+        "pollForFeedback": false
       }
     },
     {
       "id": "b805f628-16e1-42ca-ac36-3bb95133815f",
-      "name": "Global touch",
-      "groupId": "7cac2066-f09e-4c69-bbc3-8ea86bd38036",
+      "name": "Global write",
+      "groupId": "master",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "write"
       },
       "mode": {
-        "minTargetValue": 1.0
+        "type": 2,
+        "minTargetValue": 1.0,
+        "feedbackColor": null
       },
       "target": {
         "type": 26,
-        "commandName": "40879",
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true,
         "trackAutomationMode": 2,
-        "automationModeOverrideType": "override"
+        "automationModeOverrideType": "override",
+        "pollForFeedback": false
       }
     },
     {
       "id": "13d79d42-4d59-4930-a976-b4374e0a69b6",
       "name": "Click",
-      "groupId": "7cac2066-f09e-4c69-bbc3-8ea86bd38036",
+      "groupId": "master",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementType": "button",
         "controlElementIndex": "click"
       },
       "mode": {
-        "type": 2
+        "type": 2,
+        "feedbackColor": null
       },
       "target": {
         "type": 0,
         "commandName": "40364",
         "fxAnchor": "id",
-        "useProject": true,
-        "moveView": true,
-        "seekPlay": true
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "any-solo",
+      "name": "Any solo",
+      "groupId": "master",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "solo"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 43,
+        "fxAnchor": "id",
+        "pollForFeedback": false
       }
     },
     {
       "id": "7b90c136-f89c-477e-b812-525b4a7da5ed",
-      "name": "Track LCD",
-      "groupId": "b52ff3e8-7cb8-4ebd-b276-3e9b490e0138",
+      "name": "Assignment",
+      "groupId": "lcd",
       "source": {
         "category": "virtual",
-        "isRegistered": false,
-        "is14Bit": false,
-        "oscArgIndex": 0,
         "controlElementIndex": "lcd/assignment"
       },
       "mode": {
-        "minSourceValue": 0.02,
-        "maxTargetValue": 0.0098
+        "maxTargetValue": 0.01,
+        "eelFeedbackTransformation": "x = y + 0.01",
+        "feedbackColor": null
       },
       "target": {
         "fxAnchor": "this",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "7GFNQfZp9uqovhV5zWtvh",
+      "name": "Timecode",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "lcd/timecode"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.position.project_default.mcu }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 23,
+        "fxAnchor": "id",
         "useProject": true,
         "moveView": true,
-        "seekPlay": true
+        "seekPlay": true,
+        "feedbackResolution": "high",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "time-mode-measures-beats",
+      "name": "Measures.Beats",
+      "groupId": "time-modes",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "smpte-beats"
+      },
+      "mode": {
+        "maxSourceValue": 0.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 0,
+        "commandName": "40411",
+        "invocationType": 0,
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "time-mode-seconds",
+      "name": "Seconds",
+      "groupId": "time-modes",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "smpte-beats"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 0,
+        "commandName": "40412",
+        "invocationType": 0,
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "time-mode-samples",
+      "name": "Samples",
+      "groupId": "time-modes",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "smpte-beats"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 0,
+        "commandName": "40413",
+        "invocationType": 0,
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "time-mode-hmsf",
+      "name": "Hours:Minutes:Seconds:Frames",
+      "groupId": "time-modes",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "smpte-beats"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 0,
+        "commandName": "40414",
+        "invocationType": 0,
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "time-mode-absolute-frames",
+      "name": "Absolute Frames",
+      "groupId": "time-modes",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "smpte-beats"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 0,
+        "commandName": "41972",
+        "invocationType": 0,
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "time-mode-minutes-seconds",
+      "name": "Minutes:Seconds",
+      "groupId": "time-modes",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "smpte-beats"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 0,
+        "commandName": "40410",
+        "invocationType": 0,
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "cycle-time-modes",
+      "name": "Cycle time modes",
+      "groupId": "master",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "smpte-beats"
+      },
+      "mode": {
+        "type": 1,
+        "feedbackColor": null,
+        "rotateIsEnabled": true
+      },
+      "target": {
+        "type": 37,
+        "fxAnchor": "id",
+        "pollForFeedback": false,
+        "groupId": "time-modes"
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch1/vol",
+      "name": "Tr1 Vol",
+      "groupId": "volume",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch1/fader"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 2,
+        "trackExpression": "p[0] * 10000 + 0",
+        "fxAnchor": "id",
+        "pollForFeedback": false
       }
+    },
+    {
+      "id": "ch1/pan",
+      "name": "Tr1 Pan",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch1/v-pot"
+      },
+      "mode": {
+        "minStepSize": 0.005,
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 0",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch1/pan/feedback",
+      "name": "Tr1 Pan Feedback",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch1/v-pot/boost-cut"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 0",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch1/pan/reset",
+      "name": "Tr1 Pan Reset",
+      "groupId": "pan-reset",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch1/v-select"
+      },
+      "mode": {
+        "minTargetValue": 0.5,
+        "maxTargetValue": 0.5,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 0",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch1/selection",
+      "name": "Tr1 Selection",
+      "groupId": "selection",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch1/select"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 6,
+        "trackExpression": "p[0] * 10000 + 0",
+        "fxAnchor": "id",
+        "scrollMixer": true,
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch1/mute",
+      "name": "Tr1 Mute",
+      "groupId": "mute",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch1/mute"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 7,
+        "trackExpression": "p[0] * 10000 + 0",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch1/solo",
+      "name": "Tr1 Solo",
+      "groupId": "solo",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch1/solo"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 8,
+        "trackExpression": "p[0] * 10000 + 0",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch1/arm",
+      "name": "Tr1 Arm",
+      "groupId": "arm",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch1/record-ready"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 5,
+        "trackExpression": "p[0] * 10000 + 0",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch1/touch",
+      "name": "Tr1 Touch",
+      "groupId": "touch",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch1/fader/touch"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 21,
+        "trackExpression": "p[0] * 10000 + 0",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch1/name",
+      "name": "Tr1 Name",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch1/lcd/line1"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.track.name }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 44,
+        "trackExpression": "p[0] * 10000 + 0",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch1/pan/lcd",
+      "name": "Tr1 Pan LCD",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch1/lcd/line2"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.pan.mcu }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 0",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch1/peak",
+      "name": "Tr1 Peaks",
+      "groupId": "meter",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch1/meter/peak"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 34,
+        "trackExpression": "p[0] * 10000 + 0",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch2/vol",
+      "name": "Tr2 Vol",
+      "groupId": "volume",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch2/fader"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 2,
+        "trackExpression": "p[0] * 10000 + 1",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch2/pan",
+      "name": "Tr2 Pan",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch2/v-pot"
+      },
+      "mode": {
+        "minStepSize": 0.005,
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 1",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch2/pan/feedback",
+      "name": "Tr2 Pan Feedback",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch2/v-pot/boost-cut"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 1",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch2/pan/reset",
+      "name": "Tr2 Pan Reset",
+      "groupId": "pan-reset",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch2/v-select"
+      },
+      "mode": {
+        "minTargetValue": 0.5,
+        "maxTargetValue": 0.5,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 1",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch2/selection",
+      "name": "Tr2 Selection",
+      "groupId": "selection",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch2/select"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 6,
+        "trackExpression": "p[0] * 10000 + 1",
+        "fxAnchor": "id",
+        "scrollMixer": true,
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch2/mute",
+      "name": "Tr2 Mute",
+      "groupId": "mute",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch2/mute"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 7,
+        "trackExpression": "p[0] * 10000 + 1",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch2/solo",
+      "name": "Tr2 Solo",
+      "groupId": "solo",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch2/solo"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 8,
+        "trackExpression": "p[0] * 10000 + 1",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch2/arm",
+      "name": "Tr2 Arm",
+      "groupId": "arm",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch2/record-ready"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 5,
+        "trackExpression": "p[0] * 10000 + 1",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch2/touch",
+      "name": "Tr2 Touch",
+      "groupId": "touch",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch2/fader/touch"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 21,
+        "trackExpression": "p[0] * 10000 + 1",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch2/name",
+      "name": "Tr2 Name",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch2/lcd/line1"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.track.name }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 44,
+        "trackExpression": "p[0] * 10000 + 1",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch2/pan/lcd",
+      "name": "Tr2 Pan LCD",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch2/lcd/line2"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.pan.mcu }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 1",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch2/peak",
+      "name": "Tr2 Peaks",
+      "groupId": "meter",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch2/meter/peak"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 34,
+        "trackExpression": "p[0] * 10000 + 1",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch3/vol",
+      "name": "Tr3 Vol",
+      "groupId": "volume",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch3/fader"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 2,
+        "trackExpression": "p[0] * 10000 + 2",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch3/pan",
+      "name": "Tr3 Pan",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch3/v-pot"
+      },
+      "mode": {
+        "minStepSize": 0.005,
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 2",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch3/pan/feedback",
+      "name": "Tr3 Pan Feedback",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch3/v-pot/boost-cut"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 2",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch3/pan/reset",
+      "name": "Tr3 Pan Reset",
+      "groupId": "pan-reset",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch3/v-select"
+      },
+      "mode": {
+        "minTargetValue": 0.5,
+        "maxTargetValue": 0.5,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 2",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch3/selection",
+      "name": "Tr3 Selection",
+      "groupId": "selection",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch3/select"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 6,
+        "trackExpression": "p[0] * 10000 + 2",
+        "fxAnchor": "id",
+        "scrollMixer": true,
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch3/mute",
+      "name": "Tr3 Mute",
+      "groupId": "mute",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch3/mute"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 7,
+        "trackExpression": "p[0] * 10000 + 2",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch3/solo",
+      "name": "Tr3 Solo",
+      "groupId": "solo",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch3/solo"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 8,
+        "trackExpression": "p[0] * 10000 + 2",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch3/arm",
+      "name": "Tr3 Arm",
+      "groupId": "arm",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch3/record-ready"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 5,
+        "trackExpression": "p[0] * 10000 + 2",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch3/touch",
+      "name": "Tr3 Touch",
+      "groupId": "touch",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch3/fader/touch"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 21,
+        "trackExpression": "p[0] * 10000 + 2",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch3/name",
+      "name": "Tr3 Name",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch3/lcd/line1"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.track.name }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 44,
+        "trackExpression": "p[0] * 10000 + 2",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch3/pan/lcd",
+      "name": "Tr3 Pan LCD",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch3/lcd/line2"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.pan.mcu }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 2",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch3/peak",
+      "name": "Tr3 Peaks",
+      "groupId": "meter",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch3/meter/peak"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 34,
+        "trackExpression": "p[0] * 10000 + 2",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch4/vol",
+      "name": "Tr4 Vol",
+      "groupId": "volume",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch4/fader"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 2,
+        "trackExpression": "p[0] * 10000 + 3",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch4/pan",
+      "name": "Tr4 Pan",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch4/v-pot"
+      },
+      "mode": {
+        "minStepSize": 0.005,
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 3",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch4/pan/feedback",
+      "name": "Tr4 Pan Feedback",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch4/v-pot/boost-cut"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 3",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch4/pan/reset",
+      "name": "Tr4 Pan Reset",
+      "groupId": "pan-reset",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch4/v-select"
+      },
+      "mode": {
+        "minTargetValue": 0.5,
+        "maxTargetValue": 0.5,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 3",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch4/selection",
+      "name": "Tr4 Selection",
+      "groupId": "selection",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch4/select"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 6,
+        "trackExpression": "p[0] * 10000 + 3",
+        "fxAnchor": "id",
+        "scrollMixer": true,
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch4/mute",
+      "name": "Tr4 Mute",
+      "groupId": "mute",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch4/mute"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 7,
+        "trackExpression": "p[0] * 10000 + 3",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch4/solo",
+      "name": "Tr4 Solo",
+      "groupId": "solo",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch4/solo"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 8,
+        "trackExpression": "p[0] * 10000 + 3",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch4/arm",
+      "name": "Tr4 Arm",
+      "groupId": "arm",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch4/record-ready"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 5,
+        "trackExpression": "p[0] * 10000 + 3",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch4/touch",
+      "name": "Tr4 Touch",
+      "groupId": "touch",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch4/fader/touch"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 21,
+        "trackExpression": "p[0] * 10000 + 3",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch4/name",
+      "name": "Tr4 Name",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch4/lcd/line1"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.track.name }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 44,
+        "trackExpression": "p[0] * 10000 + 3",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch4/pan/lcd",
+      "name": "Tr4 Pan LCD",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch4/lcd/line2"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.pan.mcu }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 3",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch4/peak",
+      "name": "Tr4 Peaks",
+      "groupId": "meter",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch4/meter/peak"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 34,
+        "trackExpression": "p[0] * 10000 + 3",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch5/vol",
+      "name": "Tr5 Vol",
+      "groupId": "volume",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch5/fader"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 2,
+        "trackExpression": "p[0] * 10000 + 4",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch5/pan",
+      "name": "Tr5 Pan",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch5/v-pot"
+      },
+      "mode": {
+        "minStepSize": 0.005,
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 4",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch5/pan/feedback",
+      "name": "Tr5 Pan Feedback",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch5/v-pot/boost-cut"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 4",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch5/pan/reset",
+      "name": "Tr5 Pan Reset",
+      "groupId": "pan-reset",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch5/v-select"
+      },
+      "mode": {
+        "minTargetValue": 0.5,
+        "maxTargetValue": 0.5,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 4",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch5/selection",
+      "name": "Tr5 Selection",
+      "groupId": "selection",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch5/select"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 6,
+        "trackExpression": "p[0] * 10000 + 4",
+        "fxAnchor": "id",
+        "scrollMixer": true,
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch5/mute",
+      "name": "Tr5 Mute",
+      "groupId": "mute",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch5/mute"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 7,
+        "trackExpression": "p[0] * 10000 + 4",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch5/solo",
+      "name": "Tr5 Solo",
+      "groupId": "solo",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch5/solo"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 8,
+        "trackExpression": "p[0] * 10000 + 4",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch5/arm",
+      "name": "Tr5 Arm",
+      "groupId": "arm",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch5/record-ready"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 5,
+        "trackExpression": "p[0] * 10000 + 4",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch5/touch",
+      "name": "Tr5 Touch",
+      "groupId": "touch",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch5/fader/touch"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 21,
+        "trackExpression": "p[0] * 10000 + 4",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch5/name",
+      "name": "Tr5 Name",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch5/lcd/line1"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.track.name }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 44,
+        "trackExpression": "p[0] * 10000 + 4",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch5/pan/lcd",
+      "name": "Tr5 Pan LCD",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch5/lcd/line2"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.pan.mcu }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 4",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch5/peak",
+      "name": "Tr5 Peaks",
+      "groupId": "meter",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch5/meter/peak"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 34,
+        "trackExpression": "p[0] * 10000 + 4",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch6/vol",
+      "name": "Tr6 Vol",
+      "groupId": "volume",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch6/fader"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 2,
+        "trackExpression": "p[0] * 10000 + 5",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch6/pan",
+      "name": "Tr6 Pan",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch6/v-pot"
+      },
+      "mode": {
+        "minStepSize": 0.005,
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 5",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch6/pan/feedback",
+      "name": "Tr6 Pan Feedback",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch6/v-pot/boost-cut"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 5",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch6/pan/reset",
+      "name": "Tr6 Pan Reset",
+      "groupId": "pan-reset",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch6/v-select"
+      },
+      "mode": {
+        "minTargetValue": 0.5,
+        "maxTargetValue": 0.5,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 5",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch6/selection",
+      "name": "Tr6 Selection",
+      "groupId": "selection",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch6/select"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 6,
+        "trackExpression": "p[0] * 10000 + 5",
+        "fxAnchor": "id",
+        "scrollMixer": true,
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch6/mute",
+      "name": "Tr6 Mute",
+      "groupId": "mute",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch6/mute"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 7,
+        "trackExpression": "p[0] * 10000 + 5",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch6/solo",
+      "name": "Tr6 Solo",
+      "groupId": "solo",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch6/solo"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 8,
+        "trackExpression": "p[0] * 10000 + 5",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch6/arm",
+      "name": "Tr6 Arm",
+      "groupId": "arm",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch6/record-ready"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 5,
+        "trackExpression": "p[0] * 10000 + 5",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch6/touch",
+      "name": "Tr6 Touch",
+      "groupId": "touch",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch6/fader/touch"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 21,
+        "trackExpression": "p[0] * 10000 + 5",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch6/name",
+      "name": "Tr6 Name",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch6/lcd/line1"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.track.name }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 44,
+        "trackExpression": "p[0] * 10000 + 5",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch6/pan/lcd",
+      "name": "Tr6 Pan LCD",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch6/lcd/line2"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.pan.mcu }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 5",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch6/peak",
+      "name": "Tr6 Peaks",
+      "groupId": "meter",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch6/meter/peak"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 34,
+        "trackExpression": "p[0] * 10000 + 5",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch7/vol",
+      "name": "Tr7 Vol",
+      "groupId": "volume",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch7/fader"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 2,
+        "trackExpression": "p[0] * 10000 + 6",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch7/pan",
+      "name": "Tr7 Pan",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch7/v-pot"
+      },
+      "mode": {
+        "minStepSize": 0.005,
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 6",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch7/pan/feedback",
+      "name": "Tr7 Pan Feedback",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch7/v-pot/boost-cut"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 6",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch7/pan/reset",
+      "name": "Tr7 Pan Reset",
+      "groupId": "pan-reset",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch7/v-select"
+      },
+      "mode": {
+        "minTargetValue": 0.5,
+        "maxTargetValue": 0.5,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 6",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch7/selection",
+      "name": "Tr7 Selection",
+      "groupId": "selection",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch7/select"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 6,
+        "trackExpression": "p[0] * 10000 + 6",
+        "fxAnchor": "id",
+        "scrollMixer": true,
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch7/mute",
+      "name": "Tr7 Mute",
+      "groupId": "mute",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch7/mute"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 7,
+        "trackExpression": "p[0] * 10000 + 6",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch7/solo",
+      "name": "Tr7 Solo",
+      "groupId": "solo",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch7/solo"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 8,
+        "trackExpression": "p[0] * 10000 + 6",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch7/arm",
+      "name": "Tr7 Arm",
+      "groupId": "arm",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch7/record-ready"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 5,
+        "trackExpression": "p[0] * 10000 + 6",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch7/touch",
+      "name": "Tr7 Touch",
+      "groupId": "touch",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch7/fader/touch"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 21,
+        "trackExpression": "p[0] * 10000 + 6",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch7/name",
+      "name": "Tr7 Name",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch7/lcd/line1"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.track.name }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 44,
+        "trackExpression": "p[0] * 10000 + 6",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch7/pan/lcd",
+      "name": "Tr7 Pan LCD",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch7/lcd/line2"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.pan.mcu }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 6",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch7/peak",
+      "name": "Tr7 Peaks",
+      "groupId": "meter",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch7/meter/peak"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 34,
+        "trackExpression": "p[0] * 10000 + 6",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch8/vol",
+      "name": "Tr8 Vol",
+      "groupId": "volume",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch8/fader"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 2,
+        "trackExpression": "p[0] * 10000 + 7",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch8/pan",
+      "name": "Tr8 Pan",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch8/v-pot"
+      },
+      "mode": {
+        "minStepSize": 0.005,
+        "maxStepSize": 1.0,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 7",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch8/pan/feedback",
+      "name": "Tr8 Pan Feedback",
+      "groupId": "pan",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch8/v-pot/boost-cut"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 7",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch8/pan/reset",
+      "name": "Tr8 Pan Reset",
+      "groupId": "pan-reset",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch8/v-select"
+      },
+      "mode": {
+        "minTargetValue": 0.5,
+        "maxTargetValue": 0.5,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 7",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "feedbackIsEnabled": false
+    },
+    {
+      "id": "ch8/selection",
+      "name": "Tr8 Selection",
+      "groupId": "selection",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch8/select"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 6,
+        "trackExpression": "p[0] * 10000 + 7",
+        "fxAnchor": "id",
+        "scrollMixer": true,
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch8/mute",
+      "name": "Tr8 Mute",
+      "groupId": "mute",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch8/mute"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 7,
+        "trackExpression": "p[0] * 10000 + 7",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch8/solo",
+      "name": "Tr8 Solo",
+      "groupId": "solo",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch8/solo"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 8,
+        "trackExpression": "p[0] * 10000 + 7",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch8/arm",
+      "name": "Tr8 Arm",
+      "groupId": "arm",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch8/record-ready"
+      },
+      "mode": {
+        "type": 2,
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 5,
+        "trackExpression": "p[0] * 10000 + 7",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch8/touch",
+      "name": "Tr8 Touch",
+      "groupId": "touch",
+      "source": {
+        "category": "virtual",
+        "controlElementType": "button",
+        "controlElementIndex": "ch8/fader/touch"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 21,
+        "trackExpression": "p[0] * 10000 + 7",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      }
+    },
+    {
+      "id": "ch8/name",
+      "name": "Tr8 Name",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch8/lcd/line1"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.track.name }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 44,
+        "trackExpression": "p[0] * 10000 + 7",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch8/pan/lcd",
+      "name": "Tr8 Pan LCD",
+      "groupId": "lcd",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch8/lcd/line2"
+      },
+      "mode": {
+        "eelFeedbackTransformation": "{{ target.pan.mcu }}",
+        "feedbackColor": null,
+        "feedbackType": 1
+      },
+      "target": {
+        "type": 4,
+        "trackExpression": "p[0] * 10000 + 7",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
+    },
+    {
+      "id": "ch8/peak",
+      "name": "Tr8 Peaks",
+      "groupId": "meter",
+      "source": {
+        "category": "virtual",
+        "controlElementIndex": "ch8/meter/peak"
+      },
+      "mode": {
+        "feedbackColor": null
+      },
+      "target": {
+        "type": 34,
+        "trackExpression": "p[0] * 10000 + 7",
+        "fxAnchor": "id",
+        "pollForFeedback": false
+      },
+      "controlIsEnabled": false
     }
   ],
   "parameters": {
-    "1": {
-      "name": "Seek coarse/fine"
-    },
     "2": {
       "name": "Zoom on/off"
+    },
+    "1": {
+      "name": "Seek coarse/fine"
     },
     "0": {
       "name": "Track"

@@ -1,0 +1,142 @@
+= Architecture
+:toc:
+:sectnums:
+:sectnumlevels: 2
+
+This document describes the software architecture of ReaLearn. It's a work in progress.
+
+== Basics
+
+Technically, ReaLearn is a *third-party native VST plug-in for REAPER which makes heavy use of the REAPER extension API*.
+
+… Woah! That is a lot to take in! Let’s see what this means in detail:
+
+* First and foremost, ReaLearn is a *plug-in for REAPER*. That means ReaLearn is a software module which is loaded by REAPER dynamically (at runtime). It comes in the form of a link:https://en.m.wikipedia.org/wiki/Dynamic-link_library[DLL] on Windows, a link:https://stackoverflow.com/questions/2339679/what-are-the-differences-between-so-and-dylib-on-macos[DYLIB] on macOS and a link:https://superuser.com/questions/71404/what-is-an-so-file[SO] on Linux. Communication goes both ways: ReaLearn calls REAPER functions and REAPER calls ReaLearn functions ("callbacks").
+* It makes heavy use of the *REAPER extension API*. That means ReaLearn uses functions and data structures of REAPER which are _specific to REAPER_, so they are _not_ part of a DAW-agnostic plug-in standard. In theory, other DAWs could implement this API as well, but in practice only REAPER itself does it. The reason is that this API is huge and that many parts of it only make sense for REAPER. As a consequence, ReaLearn runs in REAPER only!
+* At the same time, it is a *VST plug-in*. That means …
+** … it's not loaded immediately at REAPER startup time. It gets loaded as soon as the user adds the first ReaLearn plug-in instance (in the form of a REAPER FX) or loads a project or FX chain containing a ReaLearn instance.
+** … once loaded, there can be arbitrary many instances of ReaLearn (a big difference to REAPER extensions, which can "exist" only once). Adding more instances is rather cheap because the dynamic library is already loaded at that time.
+** … plug-in data is saved per instance (as a VST chunk). As a consequence, plug-in data is typically saved along with a specific project (but it doesn't have to because you can put ReaLearn on the monitoring FX chain as well).
+** … it can _receive_ MIDI and audio data from the FX input pins (using functions and data structures defined by the VST plug-in standard).
+** … it can _send_ MIDI and audio data to the FX output pins (using functions and data structures defined by the VST plug-in standard).
+* It's a *native plug-in*. That means ReaLearn *is not a script*! It's full-blown native machine code that operates on eye level with REAPER. Once ReaLearn is loaded, it essentially becomes a part of REAPER itself. It runs in the same process, can open its own threads and is not sandboxed or restrained by a virtual machine (unlike Lua/EEL-based ReaScript or JSFX). That's great because it means ReaLearn is a "first-class citizen" and doesn't have any inherent disadvantage in terms of speed and possibilities. Also, it's written in a language that can leverage all of the power and performance potential that comes with running on "bare metal": link:https://www.rust-lang.org[Rust]. Rust is a non-garbage-collected system programming language, just like C or C++ but more modern.
+* It's a *third-party product*. That mean's it's not made by Cockos, the developer of REAPER. It's made by link:https://www.helgoboss.org/projects/[Helgoboss] and must be installed separately.
+
+== Modules
+
+ReaLearn is built in a modular fashion. The following diagram shows ReaLearn's most important modules (excluding 3rd-party modules):
+
+[.text-center]
+image:doc/images/modules.svg[ReaLearn modules]
+
+* *main:* The main module of ReaLearn which contains most of its code. We will learn more about it in the following sections.
+* *api:* This contains the data structures for ReaLearn presets. Its main use case is _ReaLearn Script_, a way to build mappings with the Lua scripting language.
+* *swell-ui:* A tiny custom-written GUI framework based on the Win32 API (Windows) and Cockos SWELL (macOS, Linux) respectively. SWELL makes it possible to write the GUI code only once, using a subset of the Windows-specific Win32 API, but making it work on macOS and Linux as well. Basically by translating the Win32 API calls to OS-native GUI framework calls (Cocoa on macOS, GTK on Linux).
+* *reaper-rs:* Rust bindings to the REAPER API (which itself is based on C and partially C++).
+* *helgoboss-learn:* A library which contains reusable and DAW-agnostic code related to MIDI/OSC-learn functionality. Some of ReaLearn's basic notions such as _Source_, _Glue_ (still called _Mode_ in most parts of the codebase) and _Target_ are defined in this DAW-neutral module.
+* *helgoboss-midi:* A general-purpose and carefully designed library for dealing with MIDI messages according to the MIDI 1.0 specification.
+
+== Layers
+
+The _main_ module of ReaLearn is roughly built around an architectural pattern sometimes called link:https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html[Onion Architecture]. This means it's divided into multiple "onion" layers:
+
+[.text-center]
+image:doc/images/onion-layers.svg[ReaLearn onion layers]
+
+These layers follow a simple but strict rule:
+
+____
+
+Outer layers use its own code and code of inner layers, *but inner layers are not allowed to use code of outer layers!*
+
+____
+
+This rule prevents "Spaghetti code" between the different layers and makes sure there's a clean separation between different responsibilities. 
+
+IMPORTANT: This rule doesn't restrict control and data flow! Both control and data can still flow in both directions. In practice they also do because e.g. data from the processing layer needs to be "sent up" to the user interface in order to be displayed! The rule is concerned with the visibility of code symbols only.
+
+The contents and responsibilities of each layer are described in the following.
+
+=== Base layer
+
+* Contains very generic and reusable utility code that is not specific to ReaLearn and at the same time not substantial enough to put it into a dedicated library module.
+* Also, this layer can be considered as the layer that contains the Rust standard library and other Rust crates that provide utility code (although those are obviously not part of ReaLearn's own codebase).
+* In addition, it makes very much sense to think of the base layer as the layer that contains REAPER itself. ReaLearn is built _around_ REAPER, it's not designed to be usable without it.
+** As a direct consequence, all layers within ReaLearn are allowed to use the REAPER API!
+** This doesn't mean that ReaLearn couldn't be ported to other DAWs. It could, provided the other DAW is substantially extensible via native modules. On ReaLearn's side, some effort in this direction has already been done: As mentioned before, the module _helgoboss-learn_ is designed to contain those parts of ReaLearn's logic that are DAW-agnostic.
+
+=== Processing layer
+
+* This layer contains the essence of ReaLearn: Its processing logic. This includes the complete control and feedback logic.
+* If you would take away ReaLearn's graphical user interface, its projection feature, its plug-in nature, its capability to memorize its settings (= persistence) … in short, all the stuff that is more "facade" than "central", then what's left is the processing layer. The processing layer alone would still be capable of doing ReaLearn's main job: Routing incoming MIDI or OSC messages through the mapping list and controlling the targets accordingly as well as handling feedback.
+* Because the processing layer is very independent and doesn't dictate things like user interface and persistence, It would be quite easy to factor it out into a separate module and use it in other ways, e.g. in order to build a totally different user interface on top of it!
+* All the data structures in this layer are custom-tailored and optimized with one primary goal in mind: Performance. ReaLearn should do its main job very fast and efficiently!
+
+=== Management layer
+
+* This layer contains everything related to _managing_ ReaLearn's objects: Mappings, groups, parameters and all that stuff.
+* All the data structures in this layer (usually called _models_) are tailored to this purpose. If you think that there's a lot of duplication between this layer and the processing layer, look twice. Yes, the data structures look similar at times, but often they are completely different. That's because they are designed for different purposes. This strict separation of concerns ensures that no compromises need to be made between performance (processing layer) and managing/GUI (management/infrastructure layers).
+* Even though this layer _still_ doesn't dictate a particular user interface, it is user-interface-aware and provides functions and data structures that are typically used by user interfaces. It also allows user interfaces to register hooks in order to be notified whenever the state of ReaLearn's objects change. The management layer is built with a _reactive_ GUI in mind which reflects all changes immediately.
+
+=== Infrastructure layer
+
+* This layer is basically responsible for connecting ReaLearn to the outside world: The user (*user interface*), the storage (*data*), the DAW (*plug-in*), the scripting feature (*api*) and the Projection server (*server*).
+
+==== Plug-in
+
+* Contains the VST plug-in implementation of ReaLearn.
+* This is the main entry point, the place where ReaLearn's global initialization happens as well as the initialization per instance.
+
+==== User interface (UI)
+
+* Contains the implementation of ReaLearn's main graphical user interface.
+* It's based on the _swell-ui_ module. That means it uses platform-native user interface widgets - which gives ReaLearn the somewhat old-school but extremely professional look ;)
+
+==== Data
+
+* Contains data structures for the serialization/deserialization of all ReaLearn objects (mappings, groups, etc.).
+* The data structures in this layer are similar to the corresponding data structures in the management layer but they serve a quite different purpose: Serialization and deserialization of ReaLearn's state. This is necessary for persistence and features such as copy&paste.
+* One could wonder about the code duplication here, but again: The data structures in this layer serve different purposes than the ones in the management layer. Serialization/deserialization for persistence purposes absolutely needs to be concerned with backward compatibility, which makes these data structures very hard to change. Keeping things separate ensures that the management data structures can develop freely, without being constrained by backward compatibility considerations. Again: No compromises.
+
+==== API
+
+* Contains the data structures that make up ReaLearn Script.
+* The focus of these data structures is to provide an expressive API with a wording that's straight to the point.
+* These data structures are complete in that they can represent and express all valid ReaLearn object states, much like the structures in _data_.
+* They were written much later (end of 2021) than the data structures in _data_ (2016) and therefore reflect ReaLearn's current wording and structure much better.
+* In future, the API data structures might actually be used for persistence and copy&paste as well, eventually replacing _data_.
+
+==== Server
+
+* Contains HTTP/WebSocket server code for enabling ReaLearn's Projection feature.
+* Will also soon contain gRPC server code for enabling full-blown apps built on top of ReaLearn, such as Playtime 2.
+
+== Components
+
+* ReaLearn is made up by a plethora of data structures that resemble components, which can be considered as ReaLearn's main pillars.
+* Some of these components are part of each instance, others exist globally only once.
+
+=== Overview
+
+[.text-center]
+image:doc/images/components.svg[ReaLearn components]
+
+=== Focus: Management communication
+
+[.text-center]
+image:doc/images/components-management.svg[ReaLearn components]
+
+=== Focus: Real-time MIDI communication (from/to FX input/output)
+
+[.text-center]
+image:doc/images/components-midi-fx.svg[ReaLearn components]
+
+=== Focus: Real-time MIDI communication (from/to hardware device)
+
+[.text-center]
+image:doc/images/components-midi-device.svg[ReaLearn components]
+
+=== Focus: Real-time OSC communication
+
+[.text-center]
+image:doc/images/components-osc.svg[ReaLearn components]

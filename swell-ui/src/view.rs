@@ -1,6 +1,5 @@
 use crate::{create_window, Pixels, Point, SharedView, Window};
 use reaper_low::raw;
-use rx_util::UnitEvent;
 use rxrust::prelude::*;
 
 use std::cell::{Cell, RefCell};
@@ -88,10 +87,14 @@ pub trait View {
     fn closed(self: SharedView<Self>, _window: Window) {}
 
     /// WM_COMMAND, HIWORD(wparam) == 0.
-    fn button_clicked(self: SharedView<Self>, _resource_id: u32) {}
+    fn button_clicked(self: SharedView<Self>, resource_id: u32) {
+        let _ = resource_id;
+    }
 
     /// WM_COMMAND, HIWORD(wparam) == CBN_SELCHANGE
-    fn option_selected(self: SharedView<Self>, _resource_id: u32) {}
+    fn option_selected(self: SharedView<Self>, resource_id: u32) {
+        let _ = resource_id;
+    }
 
     /// WM_VSCROLL, LOWORD(wparam).
     ///
@@ -166,12 +169,9 @@ pub trait View {
     /// WM_CTLCOLORSTATIC
     ///
     /// Can return a custom background brush for painting that control.
-    fn control_color_static(
-        self: SharedView<Self>,
-        hdc: raw::HDC,
-        _hwnd: raw::HWND,
-    ) -> raw::HBRUSH {
+    fn control_color_static(self: SharedView<Self>, hdc: raw::HDC, window: Window) -> raw::HBRUSH {
         let _ = hdc;
+        let _ = window;
         null_mut()
     }
 
@@ -187,6 +187,14 @@ pub trait View {
         null_mut()
     }
 
+    /// Timer with the given ID fires.
+    ///
+    /// Should return `true` if processed.
+    fn timer(&self, id: usize) -> bool {
+        let _ = id;
+        false
+    }
+
     /// Called whenever the DialogProc (not WindowProc!!!) is called, before any other callback
     /// method.
     ///
@@ -194,11 +202,15 @@ pub trait View {
     /// methods should be called accordingly.
     fn process_raw(
         &self,
-        _window: Window,
-        _msg: raw::UINT,
-        _wparam: raw::WPARAM,
-        _lparam: raw::LPARAM,
+        window: Window,
+        msg: raw::UINT,
+        wparam: raw::WPARAM,
+        lparam: raw::LPARAM,
     ) -> Option<raw::INT_PTR> {
+        let _ = window;
+        let _ = msg;
+        let _ = wparam;
+        let _ = lparam;
         None
     }
 
@@ -270,7 +282,7 @@ impl ViewContext {
     }
 
     /// Fires when the window is closed.
-    pub fn closed(&self) -> impl UnitEvent {
+    pub fn closed(&self) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
         self.closed_subject.borrow().clone()
     }
 }

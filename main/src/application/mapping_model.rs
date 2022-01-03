@@ -1,39 +1,102 @@
+use crate::application::{
+    convert_factor_to_unit_value, merge_affected, ActivationConditionCommand,
+    ActivationConditionModel, ActivationConditionProp, Affected, Change, ChangeResult,
+    GetProcessingRelevance, MappingExtensionModel, ModeCommand, ModeModel, ModeProp,
+    ProcessingRelevance, SourceCommand, SourceModel, SourceProp, TargetCategory, TargetCommand,
+    TargetModel, TargetModelFormatVeryShort, TargetModelWithContext, TargetProp,
+};
+use crate::domain::{
+    ActivationCondition, CompoundMappingSource, CompoundMappingTarget, ExtendedProcessorContext,
+    ExtendedSourceCharacter, FeedbackSendBehavior, GroupId, MainMapping, MappingCompartment,
+    MappingId, MappingKey, Mode, PersistentMappingProcessingState, ProcessorMappingOptions,
+    QualifiedMappingId, RealearnTarget, ReaperTarget, Tag, TargetCharacter,
+    UnresolvedCompoundMappingTarget, VirtualFx, VirtualTrack,
+};
 use helgoboss_learn::{
     AbsoluteMode, ControlType, DetailedSourceCharacter, Interval, ModeApplicabilityCheckInput,
     ModeParameter, SoftSymmetricUnitValue, SourceCharacter, Target, UnitValue,
 };
-use rx_util::UnitEvent;
-
-use crate::application::{
-    convert_factor_to_unit_value, ActivationConditionModel, GroupId, MappingExtensionModel,
-    ModeModel, SourceModel, TargetCategory, TargetModel, TargetModelWithContext,
-};
-use crate::core::{prop, Prop};
-use crate::domain::{
-    ActivationCondition, CompoundMappingTarget, ExtendedProcessorContext, ExtendedSourceCharacter,
-    MainMapping, MappingCompartment, MappingId, ProcessorMappingOptions, QualifiedMappingId,
-    RealearnTarget, ReaperTarget, TargetCharacter,
-};
 
 use std::cell::RefCell;
+use std::error::Error;
 use std::rc::Rc;
+
+pub enum MappingCommand {
+    SetName(String),
+    SetTags(Vec<Tag>),
+    SetGroupId(GroupId),
+    SetIsEnabled(bool),
+    SetControlIsEnabled(bool),
+    SetFeedbackIsEnabled(bool),
+    SetFeedbackSendBehavior(FeedbackSendBehavior),
+    SetVisibleInProjection(bool),
+    ChangeActivationCondition(ActivationConditionCommand),
+    ChangeSource(SourceCommand),
+    ChangeMode(ModeCommand),
+    ChangeTarget(TargetCommand),
+    ClearName,
+}
+
+#[derive(PartialEq)]
+pub enum MappingProp {
+    Name,
+    Tags,
+    GroupId,
+    IsEnabled,
+    ControlIsEnabled,
+    FeedbackIsEnabled,
+    FeedbackSendBehavior,
+    VisibleInProjection,
+    AdvancedSettings,
+    InActivationCondition(Affected<ActivationConditionProp>),
+    InSource(Affected<SourceProp>),
+    InMode(Affected<ModeProp>),
+    InTarget(Affected<TargetProp>),
+}
+
+impl GetProcessingRelevance for MappingProp {
+    fn processing_relevance(&self) -> Option<ProcessingRelevance> {
+        use MappingProp as P;
+        match self {
+            P::Name
+            | P::Tags
+            | P::ControlIsEnabled
+            | P::FeedbackIsEnabled
+            | P::FeedbackSendBehavior
+            | P::VisibleInProjection
+            | P::AdvancedSettings => Some(ProcessingRelevance::ProcessingRelevant),
+            P::InActivationCondition(p) => p.processing_relevance(),
+            P::InMode(p) => p.processing_relevance(),
+            P::InSource(p) => p.processing_relevance(),
+            P::InTarget(p) => p.processing_relevance(),
+            P::IsEnabled => Some(ProcessingRelevance::PersistentProcessingRelevant),
+            MappingProp::GroupId => {
+                // This is handled in different ways.
+                None
+            }
+        }
+    }
+}
 
 /// A model for creating mappings (a combination of source, mode and target).
 #[derive(Clone, Debug)]
 pub struct MappingModel {
     id: MappingId,
+    key: MappingKey,
     compartment: MappingCompartment,
-    pub name: Prop<String>,
-    pub group_id: Prop<GroupId>,
-    pub control_is_enabled: Prop<bool>,
-    pub feedback_is_enabled: Prop<bool>,
-    pub prevent_echo_feedback: Prop<bool>,
-    pub send_feedback_after_control: Prop<bool>,
+    name: String,
+    tags: Vec<Tag>,
+    group_id: GroupId,
+    is_enabled: bool,
+    control_is_enabled: bool,
+    feedback_is_enabled: bool,
+    feedback_send_behavior: FeedbackSendBehavior,
     pub activation_condition_model: ActivationConditionModel,
+    visible_in_projection: bool,
     pub source_model: SourceModel,
     pub mode_model: ModeModel,
     pub target_model: TargetModel,
-    advanced_settings: Prop<Option<serde_yaml::mapping::Mapping>>,
+    advanced_settings: Option<serde_yaml::mapping::Mapping>,
     extension_model: MappingExtensionModel,
 }
 
@@ -58,33 +121,100 @@ impl PartialEq for MappingModel {
     }
 }
 
-fn get_default_target_category_for_compartment(compartment: MappingCompartment) -> TargetCategory {
-    use MappingCompartment::*;
-    match compartment {
-        ControllerMappings => TargetCategory::Virtual,
-        MainMappings => TargetCategory::Reaper,
+impl<'a> Change<'a> for MappingModel {
+    type Command = MappingCommand;
+    type Prop = MappingProp;
+
+    fn change(&mut self, cmd: MappingCommand) -> Option<Affected<MappingProp>> {
+        use Affected::*;
+        use MappingCommand as C;
+        use MappingProp as P;
+        let affected = match cmd {
+            C::SetName(v) => {
+                self.name = v;
+                One(P::Name)
+            }
+            C::SetTags(v) => {
+                self.tags = v;
+                One(P::Tags)
+            }
+            C::SetGroupId(v) => {
+                self.group_id = v;
+                One(P::GroupId)
+            }
+            C::SetIsEnabled(v) => {
+                self.is_enabled = v;
+                One(P::IsEnabled)
+            }
+            C::SetControlIsEnabled(v) => {
+                self.control_is_enabled = v;
+                One(P::ControlIsEnabled)
+            }
+            C::SetFeedbackIsEnabled(v) => {
+                self.feedback_is_enabled = v;
+                One(P::FeedbackIsEnabled)
+            }
+            C::SetFeedbackSendBehavior(v) => {
+                self.feedback_send_behavior = v;
+                One(P::FeedbackSendBehavior)
+            }
+            C::SetVisibleInProjection(v) => {
+                self.visible_in_projection = v;
+                One(P::VisibleInProjection)
+            }
+            C::ChangeActivationCondition(cmd) => {
+                return self
+                    .activation_condition_model
+                    .change(cmd)
+                    .map(|affected| One(P::InActivationCondition(affected)));
+            }
+            C::ChangeSource(cmd) => {
+                return self
+                    .source_model
+                    .change(cmd)
+                    .map(|affected| One(P::InSource(affected)));
+            }
+            C::ChangeMode(cmd) => {
+                return self
+                    .mode_model
+                    .change(cmd)
+                    .map(|affected| One(P::InMode(affected)));
+            }
+            C::ChangeTarget(cmd) => {
+                return self
+                    .target_model
+                    .change(cmd)
+                    .map(|affected| One(P::InTarget(affected)));
+            }
+            C::ClearName => return self.change(MappingCommand::SetName(String::new())),
+        };
+        Some(affected)
     }
 }
 
 impl MappingModel {
-    pub fn new(compartment: MappingCompartment, initial_group_id: GroupId) -> Self {
+    pub fn new(
+        compartment: MappingCompartment,
+        initial_group_id: GroupId,
+        key: MappingKey,
+    ) -> Self {
         Self {
             id: MappingId::random(),
+            key,
             compartment,
             name: Default::default(),
-            group_id: prop(initial_group_id),
-            control_is_enabled: prop(true),
-            feedback_is_enabled: prop(true),
-            prevent_echo_feedback: prop(false),
-            send_feedback_after_control: prop(false),
+            tags: Default::default(),
+            group_id: initial_group_id,
+            is_enabled: true,
+            control_is_enabled: true,
+            feedback_is_enabled: true,
+            feedback_send_behavior: Default::default(),
             activation_condition_model: Default::default(),
+            visible_in_projection: true,
             source_model: Default::default(),
             mode_model: Default::default(),
-            target_model: TargetModel {
-                category: prop(get_default_target_category_for_compartment(compartment)),
-                ..Default::default()
-            },
-            advanced_settings: prop(None),
+            target_model: TargetModel::default_for_compartment(compartment),
+            advanced_settings: None,
             extension_model: Default::default(),
         }
     }
@@ -93,40 +223,143 @@ impl MappingModel {
         self.id
     }
 
+    pub fn key(&self) -> &MappingKey {
+        &self.key
+    }
+
+    pub fn group_id(&self) -> GroupId {
+        self.group_id
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.is_enabled
+    }
+
+    pub fn control_is_enabled(&self) -> bool {
+        self.control_is_enabled
+    }
+
+    pub fn feedback_is_enabled(&self) -> bool {
+        self.feedback_is_enabled
+    }
+
+    pub fn feedback_send_behavior(&self) -> FeedbackSendBehavior {
+        self.feedback_send_behavior
+    }
+
+    pub fn visible_in_projection(&self) -> bool {
+        self.visible_in_projection
+    }
+
+    pub fn activation_condition_model(&self) -> &ActivationConditionModel {
+        &self.activation_condition_model
+    }
+
+    pub fn reset_key(&mut self) {
+        self.key = MappingKey::random();
+    }
+
     pub fn qualified_id(&self) -> QualifiedMappingId {
         QualifiedMappingId::new(self.compartment, self.id)
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn tags(&self) -> &[Tag] {
+        &self.tags
+    }
+
     pub fn effective_name(&self) -> String {
-        if self.name.get_ref().is_empty() {
-            self.target_model.to_string()
+        if self.name.is_empty() {
+            TargetModelFormatVeryShort(&self.target_model).to_string()
         } else {
-            self.name.get_ref().clone()
+            self.name.clone()
         }
     }
 
-    pub fn clear_name(&mut self) {
-        self.name.set(Default::default());
+    #[must_use]
+    pub fn make_project_independent(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Option<Affected<MappingProp>> {
+        let compartment = self.compartment();
+        let target = &mut self.target_model;
+        match target.category() {
+            TargetCategory::Reaper => {
+                let changed_to_track_ignore_fx = if target.supports_fx() {
+                    let refers_to_project = target.fx_type().refers_to_project();
+                    if refers_to_project {
+                        let target_with_context = target.with_context(context, compartment);
+                        let virtual_fx = if target_with_context.first_fx().ok().as_ref()
+                            == Some(context.context().containing_fx())
+                        {
+                            // This is ourselves!
+                            VirtualFx::This
+                        } else {
+                            VirtualFx::Focused
+                        };
+                        let _ = target.set_virtual_fx(virtual_fx, context, compartment);
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                };
+                if target.target_type().supports_track() && target.track_type().refers_to_project()
+                {
+                    let new_virtual_track = if changed_to_track_ignore_fx {
+                        // Track doesn't matter at all. We change it to <This>. Looks nice.
+                        Some(VirtualTrack::This)
+                    } else if let Ok(t) = target
+                        .with_context(context, compartment)
+                        .first_effective_track()
+                    {
+                        t.index().map(VirtualTrack::ByIndex)
+                    } else {
+                        None
+                    };
+                    if let Some(t) = new_virtual_track {
+                        let _ = target.set_virtual_track(t, Some(context.context()));
+                    }
+                }
+                Some(Affected::Multiple)
+            }
+            TargetCategory::Virtual => None,
+        }
+    }
+
+    pub fn make_target_sticky(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Result<Option<Affected<MappingProp>>, Box<dyn Error>> {
+        let target = &mut self.target_model;
+        match target.category() {
+            TargetCategory::Reaper => {
+                if target.supports_track() {
+                    target.make_track_sticky(self.compartment, context)?;
+                }
+                if target.supports_fx() {
+                    target.make_fx_sticky(self.compartment, context)?;
+                }
+                if target.supports_route() {
+                    target.make_route_sticky(self.compartment, context)?;
+                }
+            }
+            TargetCategory::Virtual => {}
+        }
+        Ok(Some(Affected::Multiple))
     }
 
     pub fn advanced_settings(&self) -> Option<&serde_yaml::Mapping> {
-        self.advanced_settings.get_ref().as_ref()
-    }
-
-    pub fn set_advanced_settings(
-        &mut self,
-        value: Option<serde_yaml::Mapping>,
-        with_notification: bool,
-    ) -> Result<(), String> {
-        self.advanced_settings
-            .set_with_optional_notification(value, with_notification);
-        self.update_extension_model_from_advanced_settings()?;
-        Ok(())
+        self.advanced_settings.as_ref()
     }
 
     fn update_extension_model_from_advanced_settings(&mut self) -> Result<(), String> {
         // Immediately update extension model
-        let extension_model = if let Some(yaml_mapping) = self.advanced_settings.get_ref() {
+        let extension_model = if let Some(yaml_mapping) = self.advanced_settings() {
             serde_yaml::from_value(serde_yaml::Value::Mapping(yaml_mapping.clone()))
                 .map_err(|e| e.to_string())?
         } else {
@@ -136,19 +369,12 @@ impl MappingModel {
         Ok(())
     }
 
-    pub fn advanced_settings_changed(&self) -> impl UnitEvent {
-        self.advanced_settings.changed()
-    }
-
     pub fn duplicate(&self) -> MappingModel {
         MappingModel {
             id: MappingId::random(),
+            key: MappingKey::random(),
             ..self.clone()
         }
-    }
-
-    pub fn set_id_without_notification(&mut self, id: MappingId) {
-        self.id = id;
     }
 
     pub fn compartment(&self) -> MappingCompartment {
@@ -165,72 +391,95 @@ impl MappingModel {
         }
     }
 
-    pub fn adjust_mode_if_necessary(&mut self, context: ExtendedProcessorContext) {
+    #[must_use]
+    pub fn adjust_mode_if_necessary(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Option<Affected<MappingProp>> {
         let with_context = self.with_context(context);
-        if with_context.mode_makes_sense().contains(&false) {
+        if with_context.mode_makes_sense() == Ok(false) {
             if let Ok(preferred_mode_type) = with_context.preferred_mode_type() {
-                self.mode_model.r#type.set(preferred_mode_type);
-                self.set_preferred_mode_values(context);
+                self.mode_model
+                    .change(ModeCommand::SetAbsoluteMode(preferred_mode_type));
+                self.set_preferred_mode_values(context)
+            } else {
+                None
             }
+        } else {
+            None
         }
     }
 
-    pub fn reset_mode(&mut self, context: ExtendedProcessorContext) {
-        self.mode_model.reset_within_type();
-        self.set_preferred_mode_values(context);
+    #[must_use]
+    pub fn reset_mode(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Option<Affected<MappingProp>> {
+        self.mode_model.change(ModeCommand::ResetWithinType);
+        let _ = self.set_preferred_mode_values(context);
+        Some(Affected::Multiple)
+    }
+
+    pub fn set_advanced_settings(
+        &mut self,
+        yaml: Option<serde_yaml::mapping::Mapping>,
+    ) -> ChangeResult<MappingProp> {
+        self.advanced_settings = yaml;
+        self.update_extension_model_from_advanced_settings()?;
+        Ok(Some(Affected::One(MappingProp::AdvancedSettings)))
+    }
+
+    #[must_use]
+    pub fn set_absolute_mode_and_preferred_values(
+        &mut self,
+        context: ExtendedProcessorContext,
+        mode: AbsoluteMode,
+    ) -> Option<Affected<MappingProp>> {
+        let affected_1 = self.change(MappingCommand::ChangeMode(ModeCommand::SetAbsoluteMode(
+            mode,
+        )));
+        let affected_2 = self.set_preferred_mode_values(context);
+        merge_affected(affected_1, affected_2)
     }
 
     // Changes mode settings if there are some preferred ones for a certain source or target.
-    pub fn set_preferred_mode_values(&mut self, context: ExtendedProcessorContext) {
+    #[must_use]
+    fn set_preferred_mode_values(
+        &mut self,
+        context: ExtendedProcessorContext,
+    ) -> Option<Affected<MappingProp>> {
         self.mode_model
-            .step_interval
-            .set(self.with_context(context).preferred_step_interval())
-    }
-
-    /// Fires whenever a property has changed that doesn't have an effect on control/feedback
-    /// processing.
-    pub fn changed_non_processing_relevant(&self) -> impl UnitEvent {
-        self.name.changed()
-    }
-
-    /// Fires whenever a property has changed that has an effect on control/feedback processing.
-    pub fn changed_processing_relevant(&self) -> impl UnitEvent {
-        self.source_model
-            .changed()
-            .merge(self.mode_model.changed())
-            .merge(self.target_model.changed())
-            .merge(self.control_is_enabled.changed())
-            .merge(self.feedback_is_enabled.changed())
-            .merge(self.prevent_echo_feedback.changed())
-            .merge(self.send_feedback_after_control.changed())
-            .merge(
-                self.activation_condition_model
-                    .changed_processing_relevant(),
-            )
-            .merge(self.advanced_settings.changed())
+            .change(ModeCommand::SetStepInterval(
+                self.with_context(context).preferred_step_interval(),
+            ))
+            .map(|affected| Affected::One(MappingProp::InMode(affected)))
     }
 
     pub fn base_mode_applicability_check_input(&self) -> ModeApplicabilityCheckInput {
         ModeApplicabilityCheckInput {
             target_is_virtual: self.target_model.is_virtual(),
+            // TODO-high-discrete Enable (also taking source into consideration!)
+            target_supports_discrete_values: false,
             is_feedback: false,
-            make_absolute: self.mode_model.make_absolute.get(),
+            make_absolute: self.mode_model.make_absolute(),
+            use_textual_feedback: self.mode_model.feedback_type().is_textual(),
             // Any is okay, will be overwritten.
             source_character: DetailedSourceCharacter::RangeControl,
-            absolute_mode: self.mode_model.r#type.get(),
+            absolute_mode: self.mode_model.absolute_mode(),
             // Any is okay, will be overwritten.
             mode_parameter: ModeParameter::TargetMinMax,
+            target_value_sequence_is_set: !self.mode_model.target_value_sequence().is_empty(),
         }
     }
 
     pub fn control_is_enabled_and_supported(&self) -> bool {
-        self.control_is_enabled.get()
+        self.control_is_enabled()
             && self.source_model.supports_control()
             && self.target_model.supports_control()
     }
 
     pub fn feedback_is_enabled_and_supported(&self) -> bool {
-        self.feedback_is_enabled.get()
+        self.feedback_is_enabled()
             && self.source_model.supports_feedback()
             && self.target_model.supports_feedback()
     }
@@ -250,33 +499,58 @@ impl MappingModel {
         )
     }
 
+    fn create_source(&self) -> CompoundMappingSource {
+        self.source_model.create_source()
+    }
+
+    fn create_mode(&self) -> Mode {
+        let possible_source_characters = self.source_model.possible_detailed_characters();
+        self.mode_model.create_mode(
+            self.base_mode_applicability_check_input(),
+            &possible_source_characters,
+        )
+    }
+
+    fn create_target(&self) -> Option<UnresolvedCompoundMappingTarget> {
+        self.target_model.create_target(self.compartment).ok()
+    }
+
+    pub fn create_persistent_mapping_processing_state(&self) -> PersistentMappingProcessingState {
+        PersistentMappingProcessingState {
+            is_enabled: self.is_enabled(),
+        }
+    }
+
     /// Creates an intermediate mapping for splintering into very dedicated mapping types that are
     /// then going to be distributed to real-time and main processor.
     pub fn create_main_mapping(&self, group_data: GroupData) -> MainMapping {
         let id = self.id;
-        let source = self.source_model.create_source();
-        let possible_source_characters = self.source_model.possible_detailed_characters();
-        let mode = self.mode_model.create_mode(
-            self.base_mode_applicability_check_input(),
-            &possible_source_characters,
-        );
-        let unresolved_target = self.target_model.create_target().ok();
+        let source = self.create_source();
+        let mode = self.create_mode();
+        let unresolved_target = self.create_target();
         let activation_condition = self
             .activation_condition_model
             .create_activation_condition();
         let options = ProcessorMappingOptions {
             // TODO-medium Encapsulate, don't set here
             target_is_active: false,
-            control_is_enabled: group_data.control_is_enabled && self.control_is_enabled.get(),
-            feedback_is_enabled: group_data.feedback_is_enabled && self.feedback_is_enabled.get(),
-            prevent_echo_feedback: self.prevent_echo_feedback.get(),
-            send_feedback_after_control: self.send_feedback_after_control.get(),
+            persistent_processing_state: self.create_persistent_mapping_processing_state(),
+            control_is_enabled: group_data.control_is_enabled && self.control_is_enabled(),
+            feedback_is_enabled: group_data.feedback_is_enabled && self.feedback_is_enabled(),
+            feedback_send_behavior: self.feedback_send_behavior(),
         };
+        let mut merged_tags = group_data.tags;
+        merged_tags.extend_from_slice(&self.tags);
         MainMapping::new(
             self.compartment,
             id,
+            &self.key,
+            self.group_id(),
+            self.name.clone(),
+            merged_tags,
             source,
             mode,
+            self.mode_model.group_interaction(),
             unresolved_target,
             group_data.activation_condition,
             activation_condition,
@@ -292,6 +566,7 @@ pub struct GroupData {
     pub control_is_enabled: bool,
     pub feedback_is_enabled: bool,
     pub activation_condition: ActivationCondition,
+    pub tags: Vec<Tag>,
 }
 
 impl Default for GroupData {
@@ -300,6 +575,7 @@ impl Default for GroupData {
             control_is_enabled: true,
             feedback_is_enabled: true,
             activation_condition: ActivationCondition::Always,
+            tags: vec![],
         }
     }
 }
@@ -313,20 +589,23 @@ impl<'a> MappingModelWithContext<'a> {
     pub fn mode_makes_sense(&self) -> Result<bool, &'static str> {
         use ExtendedSourceCharacter::*;
         use SourceCharacter::*;
-        let mode_type = self.mapping.mode_model.r#type.get();
+        let mode_type = self.mapping.mode_model.absolute_mode();
         let result = match self.mapping.source_model.character() {
             Normal(RangeElement) => mode_type == AbsoluteMode::Normal,
             Normal(MomentaryButton) | Normal(ToggleButton) => {
                 let target = self.target_with_context().resolve_first()?;
                 match mode_type {
-                    AbsoluteMode::Normal | AbsoluteMode::ToggleButtons => {
-                        !target.control_type().is_relative()
-                    }
-                    AbsoluteMode::IncrementalButtons => {
-                        if target.control_type().is_relative() {
+                    AbsoluteMode::Normal | AbsoluteMode::ToggleButton => !target
+                        .control_type(self.context.control_context())
+                        .is_relative(),
+                    AbsoluteMode::IncrementalButton => {
+                        if target
+                            .control_type(self.context.control_context())
+                            .is_relative()
+                        {
                             true
                         } else {
-                            match target.character() {
+                            match target.character(self.context.control_context()) {
                                 TargetCharacter::Discrete
                                 | TargetCharacter::Continuous
                                 | TargetCharacter::VirtualMulti => true,
@@ -362,17 +641,20 @@ impl<'a> MappingModelWithContext<'a> {
             Normal(RangeElement) | VirtualContinuous => AbsoluteMode::Normal,
             Normal(MomentaryButton) | Normal(ToggleButton) => {
                 let target = self.target_with_context().resolve_first()?;
-                if target.control_type().is_relative() {
-                    AbsoluteMode::IncrementalButtons
+                if target
+                    .control_type(self.context.control_context())
+                    .is_relative()
+                {
+                    AbsoluteMode::IncrementalButton
                 } else {
-                    match target.character() {
+                    match target.character(self.context.control_context()) {
                         TargetCharacter::Trigger
                         | TargetCharacter::Continuous
                         | TargetCharacter::VirtualMulti => AbsoluteMode::Normal,
                         TargetCharacter::Switch | TargetCharacter::VirtualButton => {
-                            AbsoluteMode::ToggleButtons
+                            AbsoluteMode::ToggleButton
                         }
-                        TargetCharacter::Discrete => AbsoluteMode::IncrementalButtons,
+                        TargetCharacter::Discrete => AbsoluteMode::IncrementalButton,
                     }
                 }
             }
@@ -382,15 +664,20 @@ impl<'a> MappingModelWithContext<'a> {
     }
 
     pub fn uses_step_counts(&self) -> bool {
-        if self.mapping.mode_model.make_absolute.get() {
+        let mode = self.mapping.create_mode();
+        if mode.settings().convert_relative_to_absolute {
             // If we convert increments to absolute values, we want step sizes of course.
             return false;
+        }
+        if !mode.settings().target_value_sequence.is_empty() {
+            // If we have a target value sequence, we are discrete all the way!
+            return true;
         }
         let target = match self.target_with_context().resolve_first().ok() {
             None => return false,
             Some(t) => t,
         };
-        match target.control_type() {
+        match target.control_type(self.context.control_context()) {
             ControlType::AbsoluteContinuousRetriggerable => false,
             ControlType::AbsoluteContinuous => false,
             ControlType::AbsoluteContinuousRoundable { .. } => false,
@@ -417,7 +704,9 @@ impl<'a> MappingModelWithContext<'a> {
 
     fn target_step_size(&self) -> Option<UnitValue> {
         let target = self.target_with_context().resolve_first().ok()?;
-        target.control_type().step_size()
+        target
+            .control_type(self.context.control_context())
+            .step_size()
     }
 
     fn target_with_context(&self) -> TargetModelWithContext<'_> {

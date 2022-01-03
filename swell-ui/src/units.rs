@@ -73,7 +73,7 @@ impl Point<DialogUnits> {
 }
 
 impl<T: Copy> Point<T> {
-    pub fn to_dimensions(&self) -> Dimensions<T> {
+    pub fn to_dimensions(self) -> Dimensions<T> {
         Dimensions::new(self.x, self.y)
     }
 }
@@ -98,13 +98,13 @@ impl<T> Dimensions<T> {
 }
 
 impl<T: Copy> Dimensions<T> {
-    pub fn to_point(&self) -> Point<T> {
+    pub fn to_point(self) -> Point<T> {
         Point::new(self.width, self.height)
     }
 }
 
 impl Dimensions<Pixels> {
-    pub fn to_vst(&self) -> (i32, i32) {
+    pub fn to_vst(self) -> (i32, i32) {
         (self.width.get() as _, self.height.get() as _)
     }
 }

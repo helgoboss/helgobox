@@ -3,9 +3,9 @@ use vst::plugin;
 use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters};
 
 use super::RealearnEditor;
-use crate::core::Global;
+use crate::base::Global;
 use crate::domain::{
-    ControlMainTask, FeedbackRealTimeTask, InstanceId, InstanceState, MainProcessor,
+    ControlMainTask, Event, FeedbackRealTimeTask, InstanceId, InstanceState, MainProcessor,
     NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask, ProcessorContext,
     RealTimeProcessorLocker, RealTimeSender, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
 };
@@ -14,15 +14,13 @@ use crate::infrastructure::plugin::realearn_plugin_parameters::RealearnPluginPar
 use crate::infrastructure::plugin::SET_STATE_PARAM_NAME;
 use crate::infrastructure::ui::MainPanel;
 use assert_no_alloc::*;
-use helgoboss_midi::{RawShortMessage, ShortMessage, ShortMessageFactory, ShortMessageType};
 use lazycell::LazyCell;
 use reaper_high::{Reaper, ReaperGuard};
 use reaper_low::{reaper_vst_plugin, static_vst_plugin_context, PluginContext};
-use reaper_medium::{Hz, MidiFrameOffset};
+use reaper_medium::Hz;
 
 use slog::{debug, o};
 use std::cell::RefCell;
-use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_void};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -31,15 +29,15 @@ use std::rc::Rc;
 
 use std::sync::{Arc, Mutex};
 
-use crate::application::{Session, SharedSession};
+use crate::application::{Session, SharedSession, SharedSessionState};
 use crate::infrastructure::plugin::app::App;
-use crate::infrastructure::server;
 
-use crate::core::notification;
+use crate::base::notification;
+use crate::infrastructure::server::http::keep_informing_clients_about_session_events;
+use std::convert::TryInto;
 use swell_ui::SharedView;
 use vst::api::{Events, Supported};
 use vst::buffer::AudioBuffer;
-use vst::event::Event;
 use vst::host::Host;
 
 const NORMAL_REAL_TIME_TASK_QUEUE_SIZE: usize = 1000;
@@ -89,6 +87,7 @@ pub struct RealearnPlugin {
     // audio hook that also drives processing (because in some cases the VST processing is
     // stopped). That's why we need an Rc/RefCell.
     real_time_processor: SharedRealTimeProcessor,
+    session_state: SharedSessionState,
     // For detecting play state changes
     was_playing_in_last_cycle: bool,
 }
@@ -98,6 +97,8 @@ impl Default for RealearnPlugin {
         RealearnPlugin::new(Default::default())
     }
 }
+
+unsafe impl Send for RealearnPlugin {}
 
 impl Plugin for RealearnPlugin {
     fn new(host: HostCallback) -> Self {
@@ -116,8 +117,11 @@ impl Plugin for RealearnPlugin {
                 crossbeam_channel::bounded(PARAMETER_MAIN_TASK_QUEUE_SIZE);
             let instance_id = InstanceId::random();
             let logger = App::logger().new(o!("instance" => instance_id.to_string()));
-            let plugin_parameters =
-                Arc::new(RealearnPluginParameters::new(parameter_main_task_sender));
+            let session_state: SharedSessionState = Default::default();
+            let plugin_parameters = Arc::new(RealearnPluginParameters::new(
+                parameter_main_task_sender,
+                session_state.clone(),
+            ));
             let real_time_processor = RealTimeProcessor::new(
                 instance_id,
                 &logger,
@@ -144,6 +148,7 @@ impl Plugin for RealearnPlugin {
                 control_main_task_receiver,
                 normal_rt_to_main_task_receiver,
                 was_playing_in_last_cycle: false,
+                session_state,
             }
         })
         .unwrap_or_default()
@@ -209,7 +214,10 @@ impl Plugin for RealearnPlugin {
 
     fn vendor_specific(&mut self, index: i32, value: isize, ptr: *mut c_void, opt: f32) -> isize {
         firewall(|| {
-            let opcode = plugin::OpCode::from(index);
+            let opcode: plugin::OpCode = match index.try_into() {
+                Ok(c) => c,
+                Err(_) => return 0,
+            };
             if self.handle_vendor_specific(opcode, value, ptr, opt).is_ok() {
                 0xf00d
             } else {
@@ -222,50 +230,21 @@ impl Plugin for RealearnPlugin {
     fn process_events(&mut self, events: &Events) {
         firewall(|| {
             assert_no_alloc(|| {
-                let transport_is_starting =
-                    !self.was_playing_in_last_cycle && self.is_now_playing();
+                let is_transport_start = !self.was_playing_in_last_cycle && self.is_now_playing();
                 for e in events.events() {
-                    if let Event::Midi(me) = e {
-                        fn to_short(me: vst::event::MidiEvent) -> Option<RawShortMessage> {
-                            use std::convert::TryInto;
-                            RawShortMessage::from_bytes((
-                                me.data[0],
-                                me.data[1].try_into().ok()?,
-                                me.data[2].try_into().ok()?,
-                            ))
-                            .ok()
-                        }
-                        let msg = if let Some(m) = to_short(me) {
-                            m
-                        } else {
+                    let our_event = match Event::from_vst(e) {
+                        Err(_) => {
                             // Just ignore if not a valid MIDI message. Invalid MIDI message was
                             // observed in the wild: https://github.com/helgoboss/realearn/issues/82.
                             continue;
-                        };
-                        // This is called in real-time audio thread, so we can just call the
-                        // real-time processor.
-                        // Negative offset was observed in the wild, see
-                        // https://github.com/helgoboss/realearn/issues/54. Don't know what that's
-                        // supposed to mean but falling back to zero is totally okay in our case
-                        // because we use the frame offset for MIDI clock calculation only and
-                        // that's just an experimental feature.
-                        let offset =
-                            MidiFrameOffset::new(u32::try_from(me.delta_frames).unwrap_or(0));
-                        // NoteOff Messages which are a result of starting the transport are
-                        // generated by REAPER in order to stop instruments from sounding. But
-                        // ReaLearn is not an instrument in the classical sense. We don't want to
-                        // reset target values just because play has been pressed!
-                        let is_reaper_generated =
-                            transport_is_starting && msg.r#type() == ShortMessageType::NoteOff;
-                        self.real_time_processor
-                            .lock_recover()
-                            .process_incoming_midi_from_vst(
-                                offset,
-                                msg,
-                                is_reaper_generated,
-                                &self.host,
-                            );
-                    }
+                        }
+                        Ok(e) => e,
+                    };
+                    // This is called in real-time audio thread, so we can just call the
+                    // real-time processor.
+                    self.real_time_processor
+                        .lock_recover()
+                        .process_incoming_midi_from_vst(our_event, is_transport_start, &self.host);
                 }
             });
         });
@@ -291,17 +270,6 @@ impl Plugin for RealearnPlugin {
             let _ = self
                 .normal_real_time_task_sender
                 .send(NormalRealTimeTask::UpdateSampleRate(Hz::new(rate as _)));
-        });
-    }
-
-    fn resume(&mut self) {
-        firewall(|| {
-            // REAPER usually suspends and resumes whenever starting to play.
-            // If task queue is full, don't spam user with error messages.
-            let _ = self
-                .normal_main_task_channel
-                .0
-                .try_send(NormalMainTask::SendAllFeedback);
         });
     }
 }
@@ -360,9 +328,10 @@ impl RealearnPlugin {
         let normal_rt_to_main_task_receiver = self.normal_rt_to_main_task_receiver.clone();
         let logger = self.logger.clone();
         let instance_id = self.instance_id;
+        let session_state = self.session_state.clone();
         Global::task_support()
             .do_later_in_main_thread_from_main_thread_asap(move || {
-                let processor_context = match ProcessorContext::from_host(&host) {
+                let processor_context = match ProcessorContext::from_host(host) {
                     Ok(c) => c,
                     Err(msg) => {
                         notification::alert(msg);
@@ -388,14 +357,18 @@ impl RealearnPlugin {
                     // being dropped when the plug-in is removed. It
                     // doesn't result in a crash, but there's no cleanup.
                     Rc::downgrade(&main_panel),
+                    App::get(),
                     App::get().controller_preset_manager(),
                     App::get().main_preset_manager(),
                     App::get().preset_link_manager(),
                     instance_state.clone(),
+                    session_state,
+                    App::get().feedback_audio_hook_task_sender(),
+                    App::get().osc_feedback_task_sender(),
                 );
                 let shared_session = Rc::new(RefCell::new(session));
                 let weak_session = Rc::downgrade(&shared_session);
-                server::keep_informing_clients_about_session_events(&shared_session);
+                keep_informing_clients_about_session_events(&shared_session);
                 App::get().register_session(weak_session.clone());
                 // Main processor - (domain, owned by REAPER control surface)
                 // Register the main processor with the global ReaLearn control surface. We let it
@@ -420,6 +393,7 @@ impl RealearnPlugin {
                     weak_session.clone(),
                     processor_context,
                     instance_state,
+                    App::get(),
                 );
                 App::get().register_processor_couple(
                     instance_id,
@@ -429,6 +403,7 @@ impl RealearnPlugin {
                 shared_session.borrow_mut().activate(weak_session.clone());
                 main_panel.notify_session_is_available(weak_session.clone());
                 plugin_parameters.notify_session_is_available(weak_session);
+                shared_session.borrow().notify_realearn_instance_started();
                 // RealearnPlugin is the main owner of the session. Everywhere else the session is
                 // just temporarily upgraded, never stored as Rc, only as Weak.
                 session_container.fill(shared_session).unwrap();

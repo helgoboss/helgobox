@@ -1,5 +1,5 @@
 use crate::infrastructure::ui::{
-    bindings::root, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
+    bindings::root, dialog_util, util, HeaderPanel, IndependentPanelManager, MappingRowsPanel,
     SharedIndependentPanelManager, SharedMainState,
 };
 
@@ -9,14 +9,19 @@ use reaper_high::Reaper;
 use slog::debug;
 use std::cell::{Cell, RefCell};
 
-use crate::application::{Session, SessionUi, WeakSession};
-use crate::core::when;
+use crate::application::{Affected, CompartmentProp, Session, SessionProp, SessionUi, WeakSession};
+use crate::base::when;
 use crate::domain::{
-    MappingCompartment, MappingId, ProjectionFeedbackValue, TargetValueChangedEvent,
+    MappingCompartment, MappingId, MappingMatchedEvent, ProjectionFeedbackValue,
+    TargetValueChangedEvent,
 };
 use crate::infrastructure::plugin::{App, RealearnPluginParameters};
-use crate::infrastructure::server::send_projection_feedback_to_subscribed_clients;
-use rx_util::UnitEvent;
+use crate::infrastructure::server::http::{
+    send_projection_feedback_to_subscribed_clients, send_updated_controller_routing,
+};
+use crate::infrastructure::ui::util::{format_tags_as_csv, parse_tags_from_csv};
+use rxrust::prelude::*;
+use std::borrow::Cow;
 use std::rc::{Rc, Weak};
 use std::sync;
 use swell_ui::{DialogUnits, Dimensions, Pixels, Point, SharedView, View, ViewContext, Window};
@@ -77,6 +82,8 @@ impl MainPanel {
         // If the plug-in window is currently open, open the sub panels as well. Now we are talking!
         if let Some(window) = self.view.window() {
             self.open_sub_panels(window);
+            self.invalidate_all_controls();
+            self.register_session_listeners();
         }
     }
 
@@ -120,10 +127,41 @@ impl MainPanel {
     }
 
     fn invalidate_status_text(&self) {
-        let state = self.state.borrow();
-        self.view
-            .require_control(root::ID_MAIN_PANEL_STATUS_TEXT)
-            .set_text(state.status_msg.get_ref().as_str());
+        self.do_with_session(|session| {
+            let state = self.state.borrow();
+            let status_msg = state.status_msg.get_ref();
+            let tags = session.tags.get_ref();
+            let text = if tags.is_empty() {
+                Cow::Borrowed(status_msg)
+            } else {
+                Cow::Owned(format!(
+                    "{} | Tags: {}",
+                    status_msg,
+                    format_tags_as_csv(tags)
+                ))
+            };
+            self.view
+                .require_control(root::ID_MAIN_PANEL_STATUS_TEXT)
+                .set_text(text.as_str());
+        });
+    }
+
+    fn do_with_session<R>(&self, f: impl FnOnce(&Session) -> R) -> Option<R> {
+        if let Some(data) = self.active_data.borrow() {
+            if let Some(session) = data.session.upgrade() {
+                return Some(f(&session.borrow()));
+            }
+        }
+        None
+    }
+
+    fn do_with_session_mut<R>(&self, f: impl FnOnce(&mut Session) -> R) -> Option<R> {
+        if let Some(data) = self.active_data.borrow() {
+            if let Some(session) = data.session.upgrade() {
+                return Some(f(&mut session.borrow_mut()));
+            }
+        }
+        None
     }
 
     fn invalidate_version_text(&self) {
@@ -142,6 +180,18 @@ impl MainPanel {
         self.when(state.status_msg.changed(), |view| {
             view.invalidate_status_text();
         });
+        self.register_session_listeners();
+    }
+
+    fn register_session_listeners(self: &SharedView<Self>) {
+        self.do_with_session(|session| {
+            self.when(session.everything_changed(), |view| {
+                view.invalidate_all_controls();
+            });
+            self.when(session.tags.changed(), |view| {
+                view.invalidate_status_text();
+            });
+        });
     }
 
     fn handle_changed_target_value(&self, event: TargetValueChangedEvent) {
@@ -149,6 +199,30 @@ impl MainPanel {
             data.panel_manager
                 .borrow()
                 .handle_changed_target_value(event);
+        }
+    }
+
+    fn handle_matched_mapping(&self, event: MappingMatchedEvent) {
+        if let Some(data) = self.active_data.borrow() {
+            data.panel_manager.borrow().handle_matched_mapping(event);
+            if self.is_open() {
+                data.mapping_rows_panel.handle_matched_mapping(event);
+            }
+        }
+    }
+
+    fn handle_affected(
+        self: SharedView<Self>,
+        affected: Affected<SessionProp>,
+        initiator: Option<u32>,
+    ) {
+        if let Some(data) = self.active_data.borrow() {
+            data.panel_manager
+                .borrow()
+                .handle_affected(&affected, initiator);
+            data.mapping_rows_panel
+                .handle_affected(&affected, initiator);
+            data.header_panel.handle_affected(&affected, initiator);
         }
     }
 
@@ -160,9 +234,23 @@ impl MainPanel {
         }
     }
 
+    fn edit_tags(&self) {
+        let initial_csv = self
+            .do_with_session(|session| format_tags_as_csv(session.tags.get_ref()))
+            .unwrap_or_default();
+        let new_tag_string = match dialog_util::prompt_for("Tags", &initial_csv) {
+            None => return,
+            Some(s) => s,
+        };
+        let tags = parse_tags_from_csv(&new_tag_string);
+        self.do_with_session_mut(|session| {
+            session.tags.set(tags);
+        });
+    }
+
     fn when(
         self: &SharedView<Self>,
-        event: impl UnitEvent,
+        event: impl LocalObservable<'static, Item = (), Err = ()> + 'static,
         reaction: impl Fn(SharedView<Self>) + 'static + Copy,
     ) {
         when(event.take_until(self.view.closed()))
@@ -200,6 +288,14 @@ impl View for MainPanel {
         self.register_listeners();
         true
     }
+
+    #[allow(clippy::single_match)]
+    fn button_clicked(self: SharedView<Self>, resource_id: u32) {
+        match resource_id {
+            root::IDC_EDIT_TAGS_BUTTON => self.edit_tags(),
+            _ => {}
+        }
+    }
 }
 
 impl SessionUi for Weak<MainPanel> {
@@ -217,6 +313,31 @@ impl SessionUi for Weak<MainPanel> {
 
     fn send_projection_feedback(&self, session: &Session, value: ProjectionFeedbackValue) {
         let _ = send_projection_feedback_to_subscribed_clients(session.id(), value);
+    }
+
+    fn mapping_matched(&self, event: MappingMatchedEvent) {
+        upgrade_panel(self).handle_matched_mapping(event);
+    }
+
+    #[allow(clippy::single_match)]
+    fn handle_affected(
+        &self,
+        session: &Session,
+        affected: Affected<SessionProp>,
+        initiator: Option<u32>,
+    ) {
+        // Update secondary GUIs (e.g. Projection)
+        use Affected::*;
+        use CompartmentProp::*;
+        use SessionProp::*;
+        match &affected {
+            One(InCompartment(_, One(InMapping(_, _)))) => {
+                let _ = send_updated_controller_routing(session);
+            }
+            _ => {}
+        }
+        // Update primary GUI
+        upgrade_panel(self).handle_affected(affected, initiator);
     }
 }
 

@@ -1,9 +1,11 @@
 use crate::{DialogUnits, Menu, Pixels, Point, SwellStringArg};
+use reaper_low::raw::RECT;
 use reaper_low::{raw, Swell};
 use std::ffi::CString;
 use std::fmt::Display;
 use std::os::raw::c_char;
 use std::ptr::{null, null_mut, NonNull};
+use std::time::Duration;
 
 /// Represents a window.
 ///
@@ -58,6 +60,10 @@ impl Window {
 
     pub fn raw(self) -> raw::HWND {
         self.raw
+    }
+
+    pub fn raw_non_null(self) -> NonNull<raw::HWND__> {
+        unsafe { NonNull::new_unchecked(self.raw) }
     }
 
     pub fn find_control(self, control_id: u32) -> Option<Window> {
@@ -332,6 +338,28 @@ impl Window {
     pub fn close(self) {
         unsafe {
             Swell::get().SendMessage(self.raw, raw::WM_CLOSE, 0, 0);
+        }
+    }
+
+    pub fn set_timer(self, id: usize, duration: Duration) {
+        unsafe {
+            Swell::get().SetTimer(self.raw, id, duration.as_millis() as _, None);
+        }
+    }
+
+    pub fn kill_timer(self, id: usize) {
+        unsafe {
+            Swell::get().KillTimer(self.raw, id);
+        }
+    }
+
+    pub fn redraw(self) {
+        let swell = Swell::get();
+        unsafe {
+            let mut rect = RECT::default();
+            swell.GetClientRect(self.raw, &mut rect as _);
+            swell.InvalidateRect(self.raw, &rect as _, 0);
+            swell.UpdateWindow(self.raw);
         }
     }
 
