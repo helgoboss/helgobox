@@ -1,19 +1,20 @@
-use crate::base::{AsyncNotifier, Prop};
-use crate::domain::{
-    ClipPlayState, ClipSlot, GroupId, MappingCompartment, MappingId, QualifiedMappingId,
-    SlotContent, SlotDescriptor, SlotPlayOptions, Tag,
-};
-use enum_map::EnumMap;
-use helgoboss_learn::UnitValue;
-use reaper_high::{Item, Project, Track};
-use reaper_medium::{PlayState, ReaperVolumeValue};
-use rx_util::Notifier;
-use rxrust::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::rc::Rc;
+
+use enum_map::EnumMap;
+use reaper_high::{Item, Project, Track};
+use reaper_medium::{PlayState, ReaperVolumeValue};
+use rxrust::prelude::*;
+use serde::{Deserialize, Serialize};
+
+use helgoboss_learn::UnitValue;
+use rx_util::Notifier;
+
+use crate::base::{AsyncNotifier, Prop};
+use crate::domain::clip::{ClipPlayState, ClipSlot, SlotContent, SlotDescriptor, SlotPlayOptions};
+use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, Tag};
 
 pub const CLIP_SLOT_COUNT: usize = 8;
 

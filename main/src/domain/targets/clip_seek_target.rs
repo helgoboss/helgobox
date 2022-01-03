@@ -1,11 +1,14 @@
+use reaper_medium::PositionInSeconds;
+
+use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+
+use crate::domain::clip::ClipPlayState;
 use crate::domain::{
-    AdditionalFeedbackEvent, ClipChangedEvent, ClipPlayState, CompoundChangeEvent, ControlContext,
+    AdditionalFeedbackEvent, ClipChangedEvent, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, InstanceStateChanged,
     MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
     TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
-use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use reaper_medium::PositionInSeconds;
 
 #[derive(Debug)]
 pub struct UnresolvedClipSeekTarget {

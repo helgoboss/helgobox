@@ -1,11 +1,22 @@
-use crate::base::{notification, when, Prop};
-use crate::infrastructure::ui::bindings::root;
-use crate::infrastructure::ui::{
-    EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
-};
-use derive_more::Display;
+use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
+use std::convert::TryInto;
+use std::iter;
+use std::ptr::null;
+use std::rc::Rc;
+use std::time::Duration;
 
+use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
+use helgoboss_midi::{Channel, ShortMessageType, U7};
+use itertools::Itertools;
+use reaper_high::{
+    BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
+};
+use reaper_low::raw;
+use reaper_medium::{InitialAction, PromptForActionResult, SectionId, WindowContext};
+use rxrust::prelude::*;
+
 use helgoboss_learn::{
     check_mode_applicability, format_percentage_without_unit, AbsoluteMode, AbsoluteValue,
     ButtonUsage, ControlValue, DetailedSourceCharacter, DisplayType, EncoderUsage, FeedbackType,
@@ -14,20 +25,9 @@ use helgoboss_learn::{
     RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
     ValueSequence, VirtualColor,
 };
-use helgoboss_midi::{Channel, ShortMessageType, U7};
-use reaper_high::{
-    BookmarkType, Fx, FxChain, Project, Reaper, SendPartnerType, Track, TrackRoutePartner,
+use swell_ui::{
+    DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
-use reaper_low::raw;
-use reaper_medium::{InitialAction, PromptForActionResult, SectionId, WindowContext};
-use rxrust::prelude::*;
-use std::cell::{Cell, RefCell};
-use std::convert::TryInto;
-
-use std::iter;
-
-use std::ptr::null;
-use std::rc::Rc;
 
 use crate::application::{
     convert_factor_to_unit_value, convert_unit_value_to_factor, format_osc_feedback_args,
@@ -43,10 +43,12 @@ use crate::application::{
     WeakSession,
 };
 use crate::base::Global;
+use crate::base::{notification, when, Prop};
+use crate::domain::clip::{ClipInfo, SlotContent};
+use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
-    control_element_domains, AnyOnParameter, ClipInfo, ControlContext, Exclusivity,
-    FeedbackSendBehavior, ReaperTargetType, SendMidiDestination, SimpleExclusivity, SlotContent,
-    WithControlContext, CLIP_SLOT_COUNT,
+    control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
+    ReaperTargetType, SendMidiDestination, SimpleExclusivity, WithControlContext, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -56,17 +58,13 @@ use crate::domain::{
     TouchedParameterType, TrackExclusivity, TrackRouteType, TransportAction, VirtualControlElement,
     VirtualControlElementId, VirtualFx,
 };
-use itertools::Itertools;
-
-use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::infrastructure::plugin::App;
+use crate::infrastructure::ui::bindings::root;
 use crate::infrastructure::ui::util::{
     format_tags_as_csv, open_in_browser, parse_tags_from_csv, symbols,
 };
-use std::collections::HashMap;
-use std::time::Duration;
-use swell_ui::{
-    DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
+use crate::infrastructure::ui::{
+    EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
 };
 
 #[derive(Debug)]

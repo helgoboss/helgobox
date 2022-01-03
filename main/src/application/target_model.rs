@@ -18,8 +18,8 @@ use crate::domain::{
     CompoundMappingTarget, Exclusivity, ExpressionEvaluator, ExtendedProcessorContext,
     FeedbackResolution, FxDescriptor, FxDisplayType, FxParameterDescriptor, GroupId,
     MappingCompartment, OscDeviceId, ProcessorContext, RealearnTarget, ReaperTarget,
-    ReaperTargetType, SeekOptions, SendMidiDestination, SlotPlayOptions, SoloBehavior, Tag,
-    TagScope, TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
+    ReaperTargetType, SeekOptions, SendMidiDestination, SoloBehavior, Tag, TagScope,
+    TouchedParameterType, TrackDescriptor, TrackExclusivity, TrackRouteDescriptor,
     TrackRouteSelector, TrackRouteType, TransportAction, UnresolvedActionTarget,
     UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
     UnresolvedAutomationModeOverrideTarget, UnresolvedAutomationTouchStateTarget,
@@ -45,6 +45,7 @@ use serde_repr::*;
 use std::borrow::Cow;
 use std::error::Error;
 
+use crate::domain::clip::SlotPlayOptions;
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackArea, TrackLocation,
     TrackSendDirection,

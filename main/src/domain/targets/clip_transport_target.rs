@@ -1,10 +1,10 @@
+use crate::domain::clip::SlotPlayOptions;
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, get_effective_tracks,
     transport_is_enabled_unit_value, ClipChangedEvent, CompoundChangeEvent, ControlContext,
     ExtendedProcessorContext, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, SlotPlayOptions,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, TransportAction, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, TrackDescriptor, TransportAction, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use reaper_high::{ChangeEvent, Project, Track};
