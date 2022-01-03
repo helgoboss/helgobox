@@ -2,12 +2,12 @@ use reaper_medium::PositionInSeconds;
 
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 
-use crate::domain::clip::ClipPlayState;
+use crate::domain::clip::{ClipChangedEvent, ClipPlayState};
 use crate::domain::{
-    AdditionalFeedbackEvent, ClipChangedEvent, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, InstanceStateChanged,
-    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    FeedbackResolution, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,
+    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 
 #[derive(Debug)]

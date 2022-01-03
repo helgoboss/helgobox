@@ -1,12 +1,12 @@
+use crate::domain::clip::ClipChangedEvent;
 use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db,
     reaper_volume_unit_value, volume_unit_value,
 };
 use crate::domain::{
-    ClipChangedEvent, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, InstanceStateChanged, MappingCompartment, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
+    InstanceStateChanged, MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget,
+    ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use reaper_high::Volume;

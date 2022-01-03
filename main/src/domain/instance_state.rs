@@ -13,7 +13,7 @@ use helgoboss_learn::UnitValue;
 use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
-use crate::domain::clip::{Clip, ClipContent, ClipPlayState, ClipSlot, SlotPlayOptions};
+use crate::domain::clip::{Clip, ClipChangedEvent, ClipContent, ClipSlot, SlotPlayOptions};
 use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, Tag};
 
 pub const CLIP_SLOT_COUNT: usize = 8;
@@ -353,7 +353,7 @@ impl InstanceState {
         slot_index: usize,
         item: Item,
     ) -> Result<(), Box<dyn Error>> {
-        let mut slot = self.get_slot_mut(slot_index)?;
+        let slot = self.get_slot_mut(slot_index)?;
         let content = ClipContent::from_item(item)?;
         slot.fill_by_user(content, item.project())?;
         self.notify_slot_contents_changed();
@@ -454,12 +454,4 @@ pub enum InstanceStateChanged {
         compartment: MappingCompartment,
     },
     ActiveInstanceTags,
-}
-
-#[derive(Debug)]
-pub enum ClipChangedEvent {
-    PlayState(ClipPlayState),
-    ClipVolume(ReaperVolumeValue),
-    ClipRepeat(bool),
-    ClipPosition(UnitValue),
 }

@@ -133,3 +133,11 @@ impl ClipPlayState {
         }
     }
 }
+
+#[derive(Debug)]
+pub enum ClipChangedEvent {
+    PlayState(ClipPlayState),
+    ClipVolume(ReaperVolumeValue),
+    ClipRepeat(bool),
+    ClipPosition(UnitValue),
+}

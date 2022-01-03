@@ -1,6 +1,7 @@
+use crate::domain::clip::ClipChangedEvent;
 use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
-    ClipChangedEvent, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
+    CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlInput, ControlMode,
     DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
     FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
