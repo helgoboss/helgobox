@@ -9,19 +9,17 @@ use crate::base::default_util::is_default;
 use helgoboss_learn::UnitValue;
 
 /// Describes settings and contents of one clip slot.
-// TODO-high This data is more about the clip than about the slot, so we should call it
-//  Clip. And SlotContent should be ClipContent.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct SlotDescriptor {
+pub struct Clip {
     #[serde(rename = "volume", default, skip_serializing_if = "is_default")]
     pub volume: ReaperVolumeValue,
     #[serde(rename = "repeat", default, skip_serializing_if = "is_default")]
     pub repeat: bool,
     #[serde(rename = "content", default, skip_serializing_if = "is_default")]
-    pub content: Option<SlotContent>,
+    pub content: Option<ClipContent>,
 }
 
-impl Default for SlotDescriptor {
+impl Default for Clip {
     fn default() -> Self {
         Self {
             volume: ReaperVolumeValue::ZERO_DB,
@@ -31,7 +29,7 @@ impl Default for SlotDescriptor {
     }
 }
 
-impl SlotDescriptor {
+impl Clip {
     pub fn is_filled(&self) -> bool {
         self.content.is_some()
     }
@@ -40,14 +38,14 @@ impl SlotDescriptor {
 /// Describes the content of a clip slot.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
-pub enum SlotContent {
+pub enum ClipContent {
     File {
         #[serde(rename = "file")]
         file: PathBuf,
     },
 }
 
-impl SlotContent {
+impl ClipContent {
     /// Creates slot content based on the audio/MIDI file used by the given item.
     ///
     /// If the item uses pooled MIDI instead of a file, this method exports the MIDI data to a new
@@ -78,7 +76,7 @@ impl SlotContent {
         } else {
             return Err(format!("item source incompatible (type {})", source_type).into());
         };
-        let content = SlotContent::File {
+        let content = ClipContent::File {
             file: item_project
                 .and_then(|p| p.make_path_relative_if_in_project_directory(&file))
                 .unwrap_or(file),
@@ -88,7 +86,7 @@ impl SlotContent {
 
     /// Returns the path to the file, if the clip slot content is file-based.
     pub fn file(&self) -> Option<&Path> {
-        use SlotContent::*;
+        use ClipContent::*;
         match self {
             File { file } => Some(file),
         }
@@ -97,7 +95,7 @@ impl SlotContent {
     /// Creates a REAPER PCM source from this content.
     pub fn create_source(&self, project: Option<Project>) -> Result<OwnedSource, &'static str> {
         match self {
-            SlotContent::File { file } => {
+            ClipContent::File { file } => {
                 let absolute_file = if file.is_relative() {
                     project
                         .ok_or("slot source given as relative file but without project")?

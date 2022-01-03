@@ -44,7 +44,7 @@ use crate::application::{
 };
 use crate::base::Global;
 use crate::base::{notification, when, Prop};
-use crate::domain::clip::{ClipInfo, SlotContent};
+use crate::domain::clip::{ClipContent, ClipInfo};
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
@@ -4194,7 +4194,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let (label, enabled) = if let Some(slot) = slot {
                         if let Some(content) = &slot.descriptor().content {
                             match content {
-                                SlotContent::File { file } => (
+                                ClipContent::File { file } => (
                                     file.to_string_lossy().to_string(),
                                     slot.clip_info().is_some(),
                                 ),

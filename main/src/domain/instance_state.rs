@@ -13,7 +13,7 @@ use helgoboss_learn::UnitValue;
 use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
-use crate::domain::clip::{ClipPlayState, ClipSlot, SlotContent, SlotDescriptor, SlotPlayOptions};
+use crate::domain::clip::{Clip, ClipContent, ClipPlayState, ClipSlot, SlotPlayOptions};
 use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, Tag};
 
 pub const CLIP_SLOT_COUNT: usize = 8;
@@ -339,7 +339,7 @@ impl InstanceState {
     pub fn fill_slot_by_user(
         &mut self,
         slot_index: usize,
-        content: SlotContent,
+        content: ClipContent,
         project: Option<Project>,
     ) -> Result<(), &'static str> {
         self.get_slot_mut(slot_index)?
@@ -354,7 +354,7 @@ impl InstanceState {
         item: Item,
     ) -> Result<(), Box<dyn Error>> {
         let mut slot = self.get_slot_mut(slot_index)?;
-        let content = SlotContent::from_item(item)?;
+        let content = ClipContent::from_item(item)?;
         slot.fill_by_user(content, item.project())?;
         self.notify_slot_contents_changed();
         Ok(())
@@ -436,7 +436,7 @@ pub struct QualifiedSlotDescriptor {
     #[serde(rename = "index")]
     pub index: usize,
     #[serde(flatten)]
-    pub descriptor: SlotDescriptor,
+    pub descriptor: Clip,
 }
 
 #[derive(Debug)]

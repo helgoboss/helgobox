@@ -34,8 +34,7 @@ pub use clip::*;
 /// One clip slot corresponds to one REAPER preview register.
 #[derive(Debug)]
 pub struct ClipSlot {
-    // TODO-high Rename to clip
-    descriptor: SlotDescriptor,
+    clip: Clip,
     register: SharedRegister,
     state: State,
 }
@@ -44,10 +43,10 @@ type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
 impl Default for ClipSlot {
     fn default() -> Self {
-        let descriptor = SlotDescriptor::default();
+        let descriptor = Clip::default();
         let register = create_shared_register(&descriptor);
         Self {
-            descriptor,
+            clip: descriptor,
             register,
             state: State::Empty,
         }
@@ -55,7 +54,7 @@ impl Default for ClipSlot {
 }
 
 /// Creates a REAPER preview register with its initial settings taken from the given descriptor.
-fn create_shared_register(descriptor: &SlotDescriptor) -> SharedRegister {
+fn create_shared_register(descriptor: &Clip) -> SharedRegister {
     let mut register = OwnedPreviewRegister::default();
     register.set_volume(descriptor.volume);
     register.set_out_chan(-1);
@@ -64,8 +63,8 @@ fn create_shared_register(descriptor: &SlotDescriptor) -> SharedRegister {
 
 impl ClipSlot {
     /// Returns the slot descriptor.
-    pub fn descriptor(&self) -> &SlotDescriptor {
-        &self.descriptor
+    pub fn descriptor(&self) -> &Clip {
+        &self.clip
     }
 
     /// Empties the slot and resets all settings to the defaults (including volume, repeat etc.).
@@ -80,13 +79,13 @@ impl ClipSlot {
     /// Stops playback if necessary.
     pub fn load(
         &mut self,
-        descriptor: SlotDescriptor,
+        descriptor: Clip,
         project: Option<Project>,
     ) -> Result<Vec<ClipChangedEvent>, &'static str> {
         self.clear()?;
         // Using a completely new register saves us from cleaning up.
         self.register = create_shared_register(&descriptor);
-        self.descriptor = descriptor;
+        self.clip = descriptor;
         // If we can't load now, don't complain. Maybe media is missing just temporarily. Don't
         // mess up persistent data.
         let _ = self.load_content_from_descriptor(project);
@@ -102,7 +101,7 @@ impl ClipSlot {
         &mut self,
         project: Option<Project>,
     ) -> Result<(), &'static str> {
-        let source = if let Some(content) = self.descriptor.content.as_ref() {
+        let source = if let Some(content) = self.clip.content.as_ref() {
             content.create_source(project)?
         } else {
             // Nothing to load
@@ -115,13 +114,13 @@ impl ClipSlot {
     /// Fills this slot with the given content, triggered by a user interaction.
     pub fn fill_by_user(
         &mut self,
-        content: SlotContent,
+        content: ClipContent,
         project: Option<Project>,
     ) -> Result<(), &'static str> {
         let source = content.create_source(project)?;
         self.fill_with_source(source)?;
         // Here it's important to not set the descriptor (change things) unless load was successful.
-        self.descriptor.content = Some(content);
+        self.clip.content = Some(content);
         Ok(())
     }
 
@@ -178,7 +177,7 @@ impl ClipSlot {
 
     /// Returns whether there's anything at all in this slot.
     pub fn is_filled(&self) -> bool {
-        self.descriptor.is_filled()
+        self.clip.is_filled()
     }
 
     /// A slot can be filled but the source might not be loaded.
@@ -209,7 +208,7 @@ impl ClipSlot {
             ClipPlayArgs {
                 options,
                 track,
-                repeat: self.descriptor.repeat,
+                repeat: self.clip.repeat,
             },
         );
         self.finish_transition(result)?;
@@ -229,7 +228,7 @@ impl ClipSlot {
         &mut self,
         new_play_state: PlayState,
     ) -> Result<Option<ClipChangedEvent>, &'static str> {
-        if !self.descriptor.repeat {
+        if !self.clip.repeat {
             // One-shots should not be synchronized with main timeline.
             return Ok(None);
         }
@@ -258,17 +257,17 @@ impl ClipSlot {
 
     /// Returns whether repeat is enabled for this clip.
     pub fn repeat_is_enabled(&self) -> bool {
-        self.descriptor.repeat
+        self.clip.repeat
     }
 
     fn repeat_changed_event(&self) -> ClipChangedEvent {
-        ClipChangedEvent::ClipRepeat(self.descriptor.repeat)
+        ClipChangedEvent::ClipRepeat(self.clip.repeat)
     }
 
     /// Toggles repeat for the slot clip.
     pub fn toggle_repeat(&mut self) -> ClipChangedEvent {
-        let new_value = !self.descriptor.repeat;
-        self.descriptor.repeat = new_value;
+        let new_value = !self.clip.repeat;
+        self.clip.repeat = new_value;
         let mut guard = lock(&self.register);
         if let Some(src) = guard.src_mut() {
             src.as_mut().set_repeated(new_value);
@@ -278,16 +277,16 @@ impl ClipSlot {
 
     /// Returns the volume of the slot clip.
     pub fn volume(&self) -> ReaperVolumeValue {
-        self.descriptor.volume
+        self.clip.volume
     }
 
     fn volume_changed_event(&self) -> ClipChangedEvent {
-        ClipChangedEvent::ClipVolume(self.descriptor.volume)
+        ClipChangedEvent::ClipVolume(self.clip.volume)
     }
 
     /// Sets volume of the slot clip.
     pub fn set_volume(&mut self, volume: ReaperVolumeValue) -> ClipChangedEvent {
-        self.descriptor.volume = volume;
+        self.clip.volume = volume;
         lock(&self.register).set_volume(volume);
         self.volume_changed_event()
     }
@@ -339,7 +338,6 @@ impl ClipSlot {
 
 type TransitionResult = Result<State, (State, &'static str)>;
 
-// TODO-high Rename to SlotState.
 /// The internal state of a slot.
 ///
 /// This enum is essentially a state machine and the methods are functional transitions.  
