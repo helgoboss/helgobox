@@ -352,8 +352,9 @@ impl InstanceState {
         slot_index: usize,
         item: Item,
     ) -> Result<(), Box<dyn Error>> {
-        self.get_slot_mut(slot_index)?
-            .fill_with_source_from_item(item)?;
+        let mut slot = self.get_slot_mut(slot_index)?;
+        let content = SlotContent::from_item(item)?;
+        slot.fill_by_user(content, item.project())?;
         self.notify_slot_contents_changed();
         Ok(())
     }

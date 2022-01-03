@@ -129,7 +129,7 @@ impl<'a> Target<'a> for ClipSeekTarget {
         let val = instance_state
             .get_slot(self.slot_index)
             .ok()?
-            .position()
+            .proportional_position()
             .ok()?;
         Some(AbsoluteValue::Continuous(val))
     }

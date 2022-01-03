@@ -23,8 +23,9 @@ use std::ptr::{null_mut, NonNull};
 use std::sync::Arc;
 use std::time::Duration;
 
-type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
-
+/// Describes settings and contents of one clip slot.
+// TODO-high This data is more about the clip than about the slot, so we should call it
+//  Clip. And SlotContent should be ClipContent.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct SlotDescriptor {
     #[serde(rename = "volume", default, skip_serializing_if = "is_default")]
@@ -51,6 +52,7 @@ impl SlotDescriptor {
     }
 }
 
+/// Describes the content of a clip slot.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum SlotContent {
@@ -61,6 +63,45 @@ pub enum SlotContent {
 }
 
 impl SlotContent {
+    /// Creates slot content based on the audio/MIDI file used by the given item.
+    ///
+    /// If the item uses pooled MIDI instead of a file, this method exports the MIDI data to a new
+    /// file in the recording directory and uses that one.   
+    pub fn from_item(item: Item) -> Result<Self, Box<dyn Error>> {
+        let active_take = item.active_take().ok_or("item has no active take")?;
+        let root_source = active_take
+            .source()
+            .ok_or("take has no source")?
+            .root_source();
+        let root_source = ReaperSource::new(root_source);
+        let source_type = root_source.r#type();
+        let item_project = item.project();
+        let file = if let Some(source_file) = root_source.file_name() {
+            source_file
+        } else if source_type == "MIDI" {
+            let project = item_project.unwrap_or_else(|| Reaper::get().current_project());
+            let recording_path = project.recording_path();
+            let take_name = active_take.name();
+            let take_name_slug = slug::slugify(take_name);
+            let unique_id = nanoid::nanoid!(8);
+            let file_name = format!("{}-{}.mid", take_name_slug, unique_id);
+            let source_file = recording_path.join(file_name);
+            root_source
+                .export_to_file(&source_file)
+                .map_err(|_| "couldn't export MIDI source to file")?;
+            source_file
+        } else {
+            return Err(format!("item source incompatible (type {})", source_type).into());
+        };
+        let content = SlotContent::File {
+            file: item_project
+                .and_then(|p| p.make_path_relative_if_in_project_directory(&file))
+                .unwrap_or(file),
+        };
+        Ok(content)
+    }
+
+    /// Returns the path to the file, if the clip slot content is file-based.
     pub fn file(&self) -> Option<&Path> {
         use SlotContent::*;
         match self {
@@ -68,6 +109,7 @@ impl SlotContent {
         }
     }
 
+    /// Creates a REAPER PCM source from this content.
     pub fn create_source(&self, project: Option<Project>) -> Result<OwnedSource, &'static str> {
         match self {
             SlotContent::File { file } => {
@@ -85,12 +127,18 @@ impl SlotContent {
     }
 }
 
+/// Represents an actually playable clip slot.
+///
+/// One clip slot corresponds to one REAPER preview register.
 #[derive(Debug)]
 pub struct ClipSlot {
+    // TODO-high Rename to clip
     descriptor: SlotDescriptor,
     register: SharedRegister,
     state: State,
 }
+
+type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
 impl Default for ClipSlot {
     fn default() -> Self {
@@ -104,6 +152,7 @@ impl Default for ClipSlot {
     }
 }
 
+/// Creates a REAPER preview register with its initial settings taken from the given descriptor.
 fn create_shared_register(descriptor: &SlotDescriptor) -> SharedRegister {
     let mut register = OwnedPreviewRegister::default();
     register.set_volume(descriptor.volume);
@@ -112,17 +161,21 @@ fn create_shared_register(descriptor: &SlotDescriptor) -> SharedRegister {
 }
 
 impl ClipSlot {
+    /// Returns the slot descriptor.
     pub fn descriptor(&self) -> &SlotDescriptor {
         &self.descriptor
     }
 
-    /// Resets all slot data to the defaults (including volume, repeat etc.).
+    /// Empties the slot and resets all settings to the defaults (including volume, repeat etc.).
+    ///
+    /// Stops playback if necessary.
     pub fn reset(&mut self) -> Result<Vec<ClipChangedEvent>, &'static str> {
         self.load(Default::default(), None)
     }
 
-    /// Stops playback if necessary and loads all slot settings including the contained clip from
-    /// the given descriptor.
+    /// Loads all slot settings from the given descriptor (including the contained clip).
+    ///
+    /// Stops playback if necessary.
     pub fn load(
         &mut self,
         descriptor: SlotDescriptor,
@@ -157,41 +210,7 @@ impl ClipSlot {
         Ok(())
     }
 
-    pub fn fill_with_source_from_item(&mut self, item: Item) -> Result<(), Box<dyn Error>> {
-        let active_take = item.active_take().ok_or("item has no active take")?;
-        let root_source = active_take
-            .source()
-            .ok_or("take has no source")?
-            .root_source();
-        let root_source = ReaperSource::new(root_source);
-        let source_type = root_source.r#type();
-        let item_project = item.project();
-        let file = if let Some(source_file) = root_source.file_name() {
-            source_file
-        } else if source_type == "MIDI" {
-            let project = item_project.unwrap_or_else(|| Reaper::get().current_project());
-            let recording_path = project.recording_path();
-            let take_name = active_take.name();
-            let take_name_slug = slug::slugify(take_name);
-            let unique_id = nanoid::nanoid!(8);
-            let file_name = format!("{}-{}.mid", take_name_slug, unique_id);
-            let source_file = recording_path.join(file_name);
-            root_source
-                .export_to_file(&source_file)
-                .map_err(|_| "couldn't export MIDI source to file")?;
-            source_file
-        } else {
-            return Err(format!("item source incompatible (type {})", source_type).into());
-        };
-        let content = SlotContent::File {
-            file: item_project
-                .and_then(|p| p.make_path_relative_if_in_project_directory(&file))
-                .unwrap_or(file),
-        };
-        self.fill_by_user(content, item_project)?;
-        Ok(())
-    }
-
+    /// Fills this slot with the given content, triggered by a user interaction.
     pub fn fill_by_user(
         &mut self,
         content: SlotContent,
@@ -204,6 +223,14 @@ impl ClipSlot {
         Ok(())
     }
 
+    fn fill_with_source(&mut self, source: OwnedSource) -> Result<(), &'static str> {
+        let result = self
+            .start_transition()
+            .fill_with_source(source, &self.register);
+        self.finish_transition(result)
+    }
+
+    /// Returns static information about the clip contained in this slot.
     pub fn clip_info(&self) -> Option<ClipInfo> {
         let guard = self.register.lock().ok()?;
         let source = guard.src()?;
@@ -223,14 +250,31 @@ impl ClipSlot {
         Some(info)
     }
 
-    /// Should be called regularly to detect stops.
+    /// This method should be called regularly. It does the following:
+    ///
+    /// - Detects when the clip actually starts playing, has finished playing, and so on.
+    /// - Changes the internal state accordingly.
+    /// - Returns change events that inform about these state changes.
+    /// - Returns a position change event if the state remained unchanged.
+    ///
+    /// No matter if the consumer needs the returned value or not, it *should* call this method
+    /// regularly, because the clip start/stop mechanism relies on polling. This is not something to
+    /// worry about because in practice, consumers always need to be informed about position changes.
+    /// Performance-wise there's no need to implement change-event-based mechanism to detect
+    /// clip start/stop (e.g. with channels). Because even if we would implement this, we would
+    /// still want to keep getting informed about fine-grained position changes for UI/feedback
+    /// updates. That means we would query slot information anyway every few milliseconds.
+    /// Having the change-event-based mechanisms *in addition* to that would make performance even
+    /// worse. The poll-based solution ensures that we can do all of the important
+    /// stuff in one go and even summarize many changes easily into one batch before sending it
+    /// to UI/controllers/clients.
     pub fn poll(&mut self) -> Option<ClipChangedEvent> {
         let (result, change_events) = self.start_transition().poll(&self.register);
         self.finish_transition(result).ok()?;
         change_events
     }
 
-    /// Is there anything at all in this slot?
+    /// Returns whether there's anything at all in this slot.
     pub fn is_filled(&self) -> bool {
         self.descriptor.is_filled()
     }
@@ -240,37 +284,19 @@ impl ClipSlot {
         !matches!(self.state, State::Empty)
     }
 
+    /// Returns the play state of this slot, derived from the slot state.  
     pub fn play_state(&self) -> ClipPlayState {
-        use State::*;
-        match &self.state {
-            Empty => ClipPlayState::Stopped,
-            Suspended(s) => {
-                if s.is_paused {
-                    ClipPlayState::Paused
-                } else {
-                    ClipPlayState::Stopped
-                }
-            }
-            Playing(s) => match s.scheduled_for {
-                None => ClipPlayState::Playing,
-                Some(ScheduledFor::Play) => ClipPlayState::ScheduledForPlay,
-                Some(ScheduledFor::Stop) => ClipPlayState::ScheduledForStop,
-            },
-            Transitioning => unreachable!(),
-        }
+        self.state.play_state()
     }
 
-    pub fn play_state_changed_event(&self) -> ClipChangedEvent {
+    /// Generates a change event from the current play state of this slot.
+    fn play_state_changed_event(&self) -> ClipChangedEvent {
         ClipChangedEvent::PlayState(self.play_state())
     }
 
-    fn fill_with_source(&mut self, source: OwnedSource) -> Result<(), &'static str> {
-        let result = self
-            .start_transition()
-            .fill_with_source(source, &self.register);
-        self.finish_transition(result)
-    }
-
+    /// Instructs this slot to play the contained clip.
+    ///
+    /// The clip might start immediately or on the next bar, depending on the play options.  
     pub fn play(
         &mut self,
         track: Option<Track>,
@@ -295,6 +321,8 @@ impl ClipSlot {
         self.finish_transition(result)
     }
 
+    /// This method should be called whenever REAPER's play state changes. It will make the clip
+    /// start/stop synchronized with REAPER's transport.
     pub fn process_transport_change(
         &mut self,
         new_play_state: PlayState,
@@ -310,26 +338,32 @@ impl ClipSlot {
         Ok(Some(self.play_state_changed_event()))
     }
 
+    /// Instructs this slot to stop the contained clip.
+    ///
+    /// Either immediately or when it has finished playing.
     pub fn stop(&mut self, immediately: bool) -> Result<ClipChangedEvent, &'static str> {
         let result = self.start_transition().stop(&self.register, immediately);
         self.finish_transition(result)?;
         Ok(self.play_state_changed_event())
     }
 
+    /// Pauses clip playing.
     pub fn pause(&mut self) -> Result<ClipChangedEvent, &'static str> {
         let result = self.start_transition().pause(&self.register);
         self.finish_transition(result)?;
         Ok(self.play_state_changed_event())
     }
 
+    /// Returns whether repeat is enabled for this clip.
     pub fn repeat_is_enabled(&self) -> bool {
         self.descriptor.repeat
     }
 
-    pub fn repeat_changed_event(&self) -> ClipChangedEvent {
+    fn repeat_changed_event(&self) -> ClipChangedEvent {
         ClipChangedEvent::ClipRepeat(self.descriptor.repeat)
     }
 
+    /// Toggles repeat for the slot clip.
     pub fn toggle_repeat(&mut self) -> ClipChangedEvent {
         let new_value = !self.descriptor.repeat;
         self.descriptor.repeat = new_value;
@@ -340,21 +374,24 @@ impl ClipSlot {
         self.repeat_changed_event()
     }
 
+    /// Returns the volume of the slot clip.
     pub fn volume(&self) -> ReaperVolumeValue {
         self.descriptor.volume
     }
 
-    pub fn volume_changed_event(&self) -> ClipChangedEvent {
+    fn volume_changed_event(&self) -> ClipChangedEvent {
         ClipChangedEvent::ClipVolume(self.descriptor.volume)
     }
 
+    /// Sets volume of the slot clip.
     pub fn set_volume(&mut self, volume: ReaperVolumeValue) -> ClipChangedEvent {
         self.descriptor.volume = volume;
         lock(&self.register).set_volume(volume);
         self.volume_changed_event()
     }
 
-    pub fn position(&self) -> Result<UnitValue, &'static str> {
+    /// Returns the current position within the slot clip on a percentage basis.
+    pub fn proportional_position(&self) -> Result<UnitValue, &'static str> {
         let guard = lock(&self.register);
         let src = guard.src().ok_or("no source loaded")?;
         if !matches!(self.state, State::Playing(_)) {
@@ -368,10 +405,12 @@ impl ClipSlot {
         Ok(percentage_pos)
     }
 
+    /// Returns the current clip position in seconds.
     pub fn position_in_seconds(&self) -> PositionInSeconds {
         lock(&self.register).cur_pos()
     }
 
+    /// Changes the clip position on a percentage basis.
     pub fn set_position(&mut self, position: UnitValue) -> Result<ClipChangedEvent, &'static str> {
         let mut guard = lock(&self.register);
         let mut source = guard.src_mut().ok_or("no source loaded")?;
@@ -396,6 +435,7 @@ impl ClipSlot {
     }
 }
 
+/// Play state of a clip.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ClipPlayState {
     Stopped,
@@ -406,6 +446,7 @@ pub enum ClipPlayState {
 }
 
 impl ClipPlayState {
+    /// Translates this play state into a feedback value.
     pub fn feedback_value(self) -> UnitValue {
         use ClipPlayState::*;
         match self {
@@ -420,6 +461,10 @@ impl ClipPlayState {
 
 type TransitionResult = Result<State, (State, &'static str)>;
 
+// TODO-high Rename to SlotState.
+/// The internal state of a slot.
+///
+/// This enum is essentially a state machine and the methods are functional transitions.  
 #[derive(Debug)]
 enum State {
     Empty,
@@ -429,6 +474,27 @@ enum State {
 }
 
 impl State {
+    /// Derives the corresponding clip play state.
+    pub fn play_state(&self) -> ClipPlayState {
+        use State::*;
+        match self {
+            Empty => ClipPlayState::Stopped,
+            Suspended(s) => {
+                if s.is_paused {
+                    ClipPlayState::Paused
+                } else {
+                    ClipPlayState::Stopped
+                }
+            }
+            Playing(s) => match s.scheduled_for {
+                None => ClipPlayState::Playing,
+                Some(ScheduledFor::Play) => ClipPlayState::ScheduledForPlay,
+                Some(ScheduledFor::Stop) => ClipPlayState::ScheduledForStop,
+            },
+            Transitioning => unreachable!(),
+        }
+    }
+
     pub fn process_transport_change(
         self,
         reg: &SharedRegister,
@@ -842,12 +908,14 @@ impl PlayingState {
     }
 }
 
+/// Contains static information about a clip.
 pub struct ClipInfo {
     pub r#type: String,
     pub file_name: Option<PathBuf>,
     pub length: Option<DurationInSeconds>,
 }
 
+/// Contains instructions how to play a clip.
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct SlotPlayOptions {
     /// Syncs with timeline.
@@ -889,6 +957,7 @@ const EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED: i32 = 2359775;
 const EXT_SCHEDULE_STOP: i32 = 2359776;
 const EXT_BACKPEDAL_FROM_SCHEDULED_STOP: i32 = 2359777;
 
+/// Represents a state of the clip wrapper PCM source.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, TryFromPrimitive, IntoPrimitive)]
 #[repr(i32)]
 enum WrapperPcmSourceState {
@@ -897,6 +966,10 @@ enum WrapperPcmSourceState {
     AllNotesOffSent = 12,
 }
 
+/// A PCM source which wraps a native REAPER PCM source and applies all kinds of clip
+/// functionality to it.
+///
+/// For example, it makes sure it starts at the right position.
 struct WrapperPcmSource {
     inner: OwnedPcmSource,
     state: WrapperPcmSourceState,
@@ -908,6 +981,7 @@ struct WrapperPcmSource {
 }
 
 impl WrapperPcmSource {
+    /// Wraps the given native REAPER PCM source.
     pub fn new(inner: OwnedPcmSource) -> Self {
         let is_midi = pcm_source_is_midi(&inner);
         Self {
