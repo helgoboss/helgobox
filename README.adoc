@@ -12,7 +12,7 @@ image:https://github.com/helgoboss/realearn/actions/workflows/linux-armv7.yml/ba
 image:https://img.shields.io/badge/license-GPL-blue.svg[GitHub license,link=https://raw.githubusercontent.com/helgoboss/realearn/master/LICENSE]
 image:https://img.shields.io/badge/Donate-PayPal-orange.svg[Donate,link=https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=9CTAK2KKA8Z2S&source=url]
 
-Sophisticated https://www.reaper.fm/[REAPER] MIDI/OSC-learn VST instrument plug-in for controlling REAPER with feedback.
+Sophisticated https://www.reaper.fm/[REAPER] MIDI/MCU/OSC-learn VST instrument plug-in for controlling REAPER with feedback.
 
 == Installation
 
