@@ -63,6 +63,13 @@ pub enum ClipStopPosition {
     AtEndOfClip,
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+enum InternalClipStopPosition {
+    At(PositionInSeconds),
+    /// The first play is called repetition 0.
+    AtEndOfClipRepetition(i32),
+}
+
 /// A PCM source which wraps a native REAPER PCM source and applies all kinds of clip
 /// functionality to it.
 ///
@@ -79,7 +86,7 @@ pub struct ClipPcmSource {
     /// If set, the clip is playing or about to play. If not set, the clip is stopped.
     start_pos: Option<PositionInSeconds>,
     /// If set, the clip is about to stop. If not set, the clip is either stopped or playing.
-    stop_pos: Option<ClipStopPosition>,
+    stop_pos: Option<InternalClipStopPosition>,
     /// Used for seeking (a negative offset forwards, a positive offset rewinds).
     temporary_offset: PositionInSeconds,
     repeated: bool,
@@ -119,9 +126,9 @@ impl ClipPcmSource {
         // Return `None` if scheduled stop position is reached.
         if let Some(stop_pos) = self.stop_pos {
             let resolved_stop_pos = match stop_pos {
-                ClipStopPosition::At(pos) => pos,
-                ClipStopPosition::AtEndOfClip => {
-                    let raw_pos = start_pos.get() + self.query_inner_length().get();
+                InternalClipStopPosition::At(pos) => pos,
+                InternalClipStopPosition::AtEndOfClipRepetition(n) => {
+                    let raw_pos = start_pos.get() + self.inner_length().get() * (n + 1) as f64;
                     PositionInSeconds::new(raw_pos)
                 }
             };
@@ -151,10 +158,24 @@ impl ClipPcmSource {
             Some(pos_from_start)
         } else if self.repeated {
             // Playing and repeating. Report repeated position.
-            pos_from_start % self.query_inner_length()
-        } else if pos_from_start.get() < self.query_inner_length().get() {
+            pos_from_start % self.inner_length()
+        } else if pos_from_start.get() < self.inner_length().get() {
             // Not repeating and still within clip bounds. Just report position.
             Some(pos_from_start)
+        } else {
+            // Not repeating and clip length exceeded.
+            None
+        }
+    }
+
+    /// Calculates in which repetition we are (starting with 0).
+    fn calculate_repetition(&self, pos_from_start: PositionInSeconds) -> Option<i32> {
+        if self.repeated {
+            // Repeating.
+            Some((pos_from_start.get() / self.inner_length().get()) as i32)
+        } else if pos_from_start.get() < self.inner_length().get() {
+            // Not repeating and still within clip bounds.
+            Some(0)
         } else {
             // Not repeating and clip length exceeded.
             None
@@ -411,7 +432,7 @@ impl CustomPcmSource for ClipPcmSource {
                 1
             }
             EXT_QUERY_INNER_LENGTH => {
-                *(args.parm_1 as *mut f64) = self.query_inner_length().get();
+                *(args.parm_1 as *mut f64) = self.inner_length().get();
                 1
             }
             EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED => {
@@ -474,6 +495,8 @@ pub trait ClipPcmSourceSkills {
     fn retrigger(&mut self);
 
     /// Schedules clip stop.
+    ///
+    /// This only has an effect if the clip is not stopped.
     fn schedule_stop(&mut self, pos: ClipStopPosition);
 
     /// Stops playback immediately.
@@ -493,7 +516,7 @@ pub trait ClipPcmSourceSkills {
     ///
     /// The clip length is different from the clip source length. The clip source length is infinite
     /// because it just acts as a sort of virtual track).
-    fn query_inner_length(&self) -> DurationInSeconds;
+    fn inner_length(&self) -> DurationInSeconds;
 
     /// Changes whether to repeat or not repeat the clip.
     fn set_repeated(&mut self, repeated: bool);
@@ -526,7 +549,21 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn schedule_stop(&mut self, pos: ClipStopPosition) {
-        self.stop_pos = Some(pos);
+        let internal_pos = match pos {
+            ClipStopPosition::At(p) => InternalClipStopPosition::At(p),
+            ClipStopPosition::AtEndOfClip => {
+                let pos_from_start = match self.pos_from_start() {
+                    None => return,
+                    Some(p) => p,
+                };
+                let current_repetition = match self.calculate_repetition(pos_from_start) {
+                    None => return,
+                    Some(r) => r,
+                };
+                InternalClipStopPosition::AtEndOfClipRepetition(current_repetition)
+            }
+        };
+        self.stop_pos = Some(internal_pos)
     }
 
     fn stop_immediately(&mut self) {
@@ -544,7 +581,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         self.temporary_offset = self.temporary_offset + amount;
     }
 
-    fn query_inner_length(&self) -> DurationInSeconds {
+    fn inner_length(&self) -> DurationInSeconds {
         self.inner.get_length().unwrap_or_default()
     }
 
@@ -626,7 +663,7 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         }
     }
 
-    fn query_inner_length(&self) -> DurationInSeconds {
+    fn inner_length(&self) -> DurationInSeconds {
         let mut l = 0.0;
         unsafe {
             self.extended(

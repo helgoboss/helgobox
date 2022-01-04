@@ -128,7 +128,7 @@ impl ClipSlot {
             file_name: source.get_file_name(|p| Some(p?.to_owned())),
             length: {
                 // TODO-low Doesn't need to be optional
-                Some(source.query_inner_length())
+                Some(source.inner_length())
             },
         };
         // TODO-medium This is probably necessary to make sure the mutex is not unlocked before the
@@ -295,7 +295,7 @@ impl ClipSlot {
         }
         let src = src.as_ref();
         let pos_within_clip = src.pos_within_clip();
-        let length = src.query_inner_length();
+        let length = src.inner_length();
         let percentage_pos = calculate_proportional_position(pos_within_clip, length);
         Ok(percentage_pos)
     }
@@ -318,7 +318,7 @@ impl ClipSlot {
         let mut guard = lock(&self.register);
         let source = guard.src_mut().ok_or(NO_SOURCE_LOADED)?;
         let source = source.as_mut();
-        let length = source.query_inner_length();
+        let length = source.inner_length();
         let desired_pos_in_secs =
             PositionInSeconds::new(desired_proportional_pos.get() * length.get());
         source.seek_to(desired_pos_in_secs);
@@ -773,7 +773,7 @@ impl PlayingState {
             };
             let src = src.as_ref();
             let pos_within_clip = src.pos_within_clip();
-            let length = src.query_inner_length();
+            let length = src.inner_length();
             (pos_within_clip, length)
         };
         let (next_state, event) = match self.scheduled_for {
