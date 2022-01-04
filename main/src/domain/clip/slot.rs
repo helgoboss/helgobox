@@ -503,18 +503,19 @@ impl SuspendedState {
             let mut guard = lock(reg);
             guard.set_preview_track(args.track.as_ref().map(|t| t.raw()));
             if let Some(src) = guard.src_mut() {
-                let scheduled_pos = if args.options.next_bar {
+                if args.options.next_bar {
                     let scheduled_pos = get_next_bar_pos(args.project);
-                    Some(scheduled_pos)
+                    src.as_mut().schedule_start(scheduled_pos, args.repeat);
                 } else {
-                    None
+                    src.as_mut().start_immediately(args.repeat);
                 };
-                src.as_mut().schedule_start(scheduled_pos, args.repeat);
             }
         }
         let buffering_behavior = BitFlags::empty();
         let measure_alignment = MeasureAlignment::PlayImmediately;
         let result = if let Some(track) = args.track.as_ref() {
+            // TODO-high If we play immediately, this takes too much time. We should start playing
+            //  as soon as the slot is filled.
             Reaper::get().medium_session().play_track_preview_2_ex(
                 track.project().context(),
                 reg.clone(),
@@ -715,11 +716,8 @@ impl PlayingState {
     }
 
     pub fn pause(self, reg: &SharedRegister, caused_by_transport_change: bool) -> TransitionResult {
-        Ok(State::Suspended(self.suspend(
-            reg,
-            true,
-            caused_by_transport_change,
-        )))
+        let next_state = self.suspend(reg, true, caused_by_transport_change);
+        Ok(State::Suspended(next_state))
     }
 
     pub fn poll(self, reg: &SharedRegister) -> (TransitionResult, Option<ClipChangedEvent>) {
@@ -792,11 +790,10 @@ impl PlayingState {
         pause: bool,
         caused_by_transport_change: bool,
     ) -> SuspendedState {
-        // TODO-high Now that we control the source itself, we could do this differently!
-        // wait_until_all_notes_off_sent(reg, false);
         {
             let mut guard = lock(reg);
             if let Some(src) = guard.src_mut() {
+                // TODO-high Respect pause!
                 src.as_mut().stop_immediately();
             }
         }
@@ -804,9 +801,8 @@ impl PlayingState {
             // Check prevents error message on project close.
             let project = track.project();
             if project.is_available() {
-                // TODO-high This is only temporarily disabled to make sure we implement all logic
-                //  in the clip source while leaving the preview continuously running. Later we can
-                //  activate it again for performance savings.
+                // TODO-high We need to stop the preview when polling and detecting that finally
+                //  stopped.
                 // let _ = Reaper::get()
                 //     .medium_session()
                 //     .stop_track_preview_2(project.context(), self.handle);

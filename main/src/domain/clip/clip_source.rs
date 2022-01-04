@@ -46,6 +46,7 @@ const EXT_BACKPEDAL_FROM_SCHEDULED_STOP: i32 = 2359777;
 const EXT_SEEK_TO: i32 = 2359778;
 const EXT_STOP_IMMEDIATELY: i32 = 2359779;
 const EXT_RETRIGGER: i32 = 2359780;
+const EXT_START_IMMEDIATELY: i32 = 2359781;
 
 /// Represents a state of the clip wrapper PCM source.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, TryFromPrimitive, IntoPrimitive)]
@@ -151,6 +152,14 @@ impl ClipPcmSource {
             // Not repeating and clip length exceeded.
             None
         }
+    }
+
+    fn start_internal(&mut self, pos: PositionInSeconds, repeated: bool) {
+        self.temporary_offset = PositionInSeconds::ZERO;
+        self.start_pos = Some(pos);
+        self.stop_pos = None;
+        self.repeated = repeated;
+        self.state = ClipPcmSourceState::Playing;
     }
 }
 
@@ -363,9 +372,13 @@ impl CustomPcmSource for ClipPcmSource {
             EXT_QUERY_STATE => self.query_state().into(),
             EXT_SCHEDULE_START => {
                 let pos: PositionInSeconds = *(args.parm_1 as *mut _);
-                let pos = if pos.get() < 0.0 { None } else { Some(pos) };
                 let repeated: bool = *(args.parm_2 as *mut _);
                 self.schedule_start(pos, repeated);
+                1
+            }
+            EXT_START_IMMEDIATELY => {
+                let repeated: bool = *(args.parm_1 as *mut _);
+                self.start_immediately(repeated);
                 1
             }
             EXT_RETRIGGER => {
@@ -444,12 +457,11 @@ pub trait ClipPcmSourceSkills {
     /// Returns the state of this clip source.
     fn query_state(&self) -> ClipPcmSourceState;
 
-    /// Starts or at schedules playing of the clip.
-    ///
-    /// If position is set, this method schedules playing of the clip. If not, it starts playing it
-    /// immediately.
-    // TODO-high Also distinguish between schedule and play immediately.
-    fn schedule_start(&mut self, pos: Option<PositionInSeconds>, repeated: bool);
+    /// Schedules clip playing.
+    fn schedule_start(&mut self, pos: PositionInSeconds, repeated: bool);
+
+    /// Starts playback immediately.
+    fn start_immediately(&mut self, repeated: bool);
 
     /// Retriggers the clip (if currently playing).
     fn retrigger(&mut self);
@@ -493,13 +505,12 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         self.state
     }
 
-    fn schedule_start(&mut self, pos: Option<PositionInSeconds>, repeated: bool) {
-        let resolved_pos = pos.unwrap_or_else(|| self.timeline_cursor_pos());
-        self.temporary_offset = PositionInSeconds::ZERO;
-        self.start_pos = Some(resolved_pos);
-        self.stop_pos = None;
-        self.repeated = repeated;
-        self.state = ClipPcmSourceState::Playing;
+    fn schedule_start(&mut self, pos: PositionInSeconds, repeated: bool) {
+        self.start_internal(pos, repeated);
+    }
+
+    fn start_immediately(&mut self, repeated: bool) {
+        self.start_internal(self.timeline_cursor_pos(), repeated);
     }
 
     fn retrigger(&mut self) {
@@ -557,13 +568,23 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         state.try_into().expect("invalid state")
     }
 
-    fn schedule_start(&mut self, pos: Option<PositionInSeconds>, mut repeated: bool) {
-        let mut raw_pos = if let Some(p) = pos { p.get() } else { -1.0 };
+    fn schedule_start(&mut self, mut pos: PositionInSeconds, mut repeated: bool) {
         unsafe {
             self.extended(
                 EXT_SCHEDULE_START,
-                &mut raw_pos as *mut _ as _,
+                &mut pos as *mut _ as _,
                 &mut repeated as *mut _ as _,
+                null_mut(),
+            );
+        }
+    }
+
+    fn start_immediately(&mut self, mut repeated: bool) {
+        unsafe {
+            self.extended(
+                EXT_START_IMMEDIATELY,
+                &mut repeated as *mut _ as _,
+                null_mut(),
                 null_mut(),
             );
         }
