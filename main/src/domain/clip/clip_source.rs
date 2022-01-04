@@ -43,17 +43,17 @@ const EXT_DISABLE_REPEAT: i32 = 2359774;
 const EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED: i32 = 2359775;
 const EXT_SCHEDULE_STOP: i32 = 2359776;
 const EXT_BACKPEDAL_FROM_SCHEDULED_STOP: i32 = 2359777;
-const EXT_ADJUST_START_POS_BY: i32 = 2359778;
-const EXT_SUSPEND: i32 = 2359779;
+const EXT_ADJUST_TEMPORARY_OFFSET_BY: i32 = 2359778;
+const EXT_STOP_IMMEDIATELY: i32 = 2359779;
 const EXT_RETRIGGER: i32 = 2359780;
 
 /// Represents a state of the clip wrapper PCM source.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, TryFromPrimitive, IntoPrimitive)]
 #[repr(i32)]
 pub enum ClipPcmSourceState {
-    Suspended = 9,
+    Stopped = 9,
     Playing = 10,
-    PrepareSuspension = 11,
+    FinishingStopping = 11,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -79,8 +79,8 @@ pub struct ClipPcmSource {
     start_pos: Option<PositionInSeconds>,
     /// If set, the clip is about to stop. If not set, the clip is either stopped or playing.
     stop_pos: Option<PositionInSeconds>,
-    /// Unused at the moment but intended for persistently setting the start offset.
-    offset: PositionInSeconds,
+    /// Used for seeking (a negative offset forwards, a positive offset rewinds).
+    temporary_offset: PositionInSeconds,
     repeated: bool,
     is_midi: bool,
 }
@@ -91,11 +91,11 @@ impl ClipPcmSource {
         let is_midi = pcm_source_is_midi(&inner);
         Self {
             inner,
-            state: ClipPcmSourceState::Suspended,
+            state: ClipPcmSourceState::Stopped,
             counter: 0,
             start_pos: None,
             stop_pos: None,
-            offset: PositionInSeconds::ZERO,
+            temporary_offset: PositionInSeconds::ZERO,
             repeated: false,
             is_midi,
         }
@@ -113,7 +113,7 @@ impl ClipPcmSource {
     /// Returns `None` if not scheduled or if beyond scheduled stop. Returns negative position if
     /// clip not yet playing.
     fn pos_from_start(&self) -> Option<PositionInSeconds> {
-        let scheduled_start_pos = self.start_pos?;
+        let start_pos = self.effective_start_pos()?;
         let current_pos = self.timeline_cursor_pos();
         // Return `None` if scheduled stop position is reached.
         if let Some(scheduled_stop_pos) = self.stop_pos {
@@ -121,7 +121,14 @@ impl ClipPcmSource {
                 return None;
             }
         }
-        Some(current_pos - scheduled_start_pos + self.offset)
+        Some(current_pos - start_pos)
+    }
+
+    /// Returns the start position set off by the temporary offset (thus, taking seeking into
+    /// account).
+    fn effective_start_pos(&self) -> Option<PositionInSeconds> {
+        let start_pos = self.start_pos?;
+        Some(start_pos + self.temporary_offset)
     }
 
     /// Calculates the current position within the clip considering the *repeated* setting.
@@ -221,7 +228,7 @@ impl CustomPcmSource for ClipPcmSource {
         // Actual stuff
         use ClipPcmSourceState::*;
         match self.state {
-            Suspended => {}
+            Stopped => {}
             Playing => unsafe {
                 if let Some(pos) = self.pos_within_clip() {
                     // This means the clip is playing or about o play. At least not stopped.
@@ -310,11 +317,11 @@ impl CustomPcmSource for ClipPcmSource {
                     }
                 }
             },
-            PrepareSuspension => {
+            FinishingStopping => {
                 if self.is_midi {
                     send_all_notes_off(&args);
                 }
-                self.state = Suspended;
+                self.state = Stopped;
             }
         }
     }
@@ -370,17 +377,17 @@ impl CustomPcmSource for ClipPcmSource {
                 self.schedule_stop(pos);
                 1
             }
-            EXT_SUSPEND => {
-                self.suspend();
+            EXT_STOP_IMMEDIATELY => {
+                self.stop_immediately();
                 1
             }
             EXT_BACKPEDAL_FROM_SCHEDULED_STOP => {
                 self.backpedal_from_scheduled_stop();
                 1
             }
-            EXT_ADJUST_START_POS_BY => {
+            EXT_ADJUST_TEMPORARY_OFFSET_BY => {
                 let delta: PositionInSeconds = *(args.parm_1 as *mut _);
-                self.adjust_start_pos_by(delta);
+                self.adjust_temporary_offset_by(delta);
                 1
             }
             EXT_QUERY_INNER_LENGTH => {
@@ -450,19 +457,21 @@ pub trait ClipPcmSourceSkills {
     /// Schedules clip stop.
     fn schedule_stop(&mut self, pos: ClipStopPosition);
 
-    /// Suspends playback, immediately but sending note/sound off before in case of MIDI.
-    fn suspend(&mut self);
+    /// Stops playback immediately.
+    ///
+    /// In case of MIDI, first sends all-notes/sound off.
+    fn stop_immediately(&mut self);
 
     /// "Undoes" a scheduled stop if user changes their mind.
     fn backpedal_from_scheduled_stop(&mut self);
 
-    /// Nudges the (scheduled) start position by the given amount.
+    /// Nudges the (scheduled) effective start position by the given amount.
     ///
     /// Setting negative values is equivalent to moving the play cursor in the right direction.
     /// Setting positive values is equivalent to moving the play cursor in the left direction.
     ///
     /// This only has an effect if the clip is not stopped.
-    fn adjust_start_pos_by(&mut self, delta: PositionInSeconds);
+    fn adjust_temporary_offset_by(&mut self, amount: PositionInSeconds);
 
     /// Returns the clip length.
     ///
@@ -489,6 +498,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
 
     fn schedule_start(&mut self, pos: Option<PositionInSeconds>, repeated: bool) {
         let resolved_pos = pos.unwrap_or_else(|| self.timeline_cursor_pos());
+        self.temporary_offset = PositionInSeconds::ZERO;
         self.start_pos = Some(resolved_pos);
         self.stop_pos = None;
         self.repeated = repeated;
@@ -496,18 +506,18 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn retrigger(&mut self) {
+        self.temporary_offset = PositionInSeconds::ZERO;
         self.start_pos = Some(self.timeline_cursor_pos());
     }
 
     fn schedule_stop(&mut self, pos: ClipStopPosition) {
         let resolved_stop_pos = match pos {
             ClipStopPosition::At(pos) => pos,
-            ClipStopPosition::AtEndOfClip => match self.start_pos {
+            ClipStopPosition::AtEndOfClip => match self.effective_start_pos() {
                 None => return,
-                Some(scheduled_start_pos) => {
-                    let pos = scheduled_start_pos.get()
-                        + self.offset.get()
-                        + self.query_inner_length().get();
+                Some(start_pos) => {
+                    // TODO-high This doesn't work as expected if we seek after scheduled stop.
+                    let pos = start_pos.get() + self.query_inner_length().get();
                     PositionInSeconds::new(pos)
                 }
             },
@@ -515,20 +525,18 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         self.stop_pos = Some(resolved_stop_pos);
     }
 
-    fn suspend(&mut self) {
-        self.state = ClipPcmSourceState::PrepareSuspension;
+    fn stop_immediately(&mut self) {
+        self.temporary_offset = PositionInSeconds::ZERO;
+        self.start_pos = Some(PositionInSeconds::ZERO);
+        self.state = ClipPcmSourceState::FinishingStopping;
     }
 
     fn backpedal_from_scheduled_stop(&mut self) {
         self.stop_pos = None;
     }
 
-    fn adjust_start_pos_by(&mut self, delta: PositionInSeconds) {
-        let current_start_pos = match self.start_pos {
-            None => return,
-            Some(p) => p,
-        };
-        self.start_pos = Some(current_start_pos + delta);
+    fn adjust_temporary_offset_by(&mut self, amount: PositionInSeconds) {
+        self.temporary_offset = self.temporary_offset + amount;
     }
 
     fn query_inner_length(&self) -> DurationInSeconds {
@@ -580,9 +588,9 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         }
     }
 
-    fn suspend(&mut self) {
+    fn stop_immediately(&mut self) {
         unsafe {
-            self.extended(EXT_SUSPEND, null_mut(), null_mut(), null_mut());
+            self.extended(EXT_STOP_IMMEDIATELY, null_mut(), null_mut(), null_mut());
         }
     }
 
@@ -597,11 +605,11 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         }
     }
 
-    fn adjust_start_pos_by(&mut self, mut delta: PositionInSeconds) {
+    fn adjust_temporary_offset_by(&mut self, mut amount: PositionInSeconds) {
         unsafe {
             self.extended(
-                EXT_ADJUST_START_POS_BY,
-                &mut delta as *mut _ as _,
+                EXT_ADJUST_TEMPORARY_OFFSET_BY,
+                &mut amount as *mut _ as _,
                 null_mut(),
                 null_mut(),
             );

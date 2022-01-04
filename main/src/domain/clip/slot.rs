@@ -322,7 +322,7 @@ impl ClipSlot {
         let desired_pos_in_secs =
             PositionInSeconds::new(desired_proportional_pos.get() * length.get());
         let start_pos_delta = source.pos_within_clip().unwrap_or_default() - desired_pos_in_secs;
-        source.adjust_start_pos_by(start_pos_delta);
+        source.adjust_temporary_offset_by(start_pos_delta);
         Ok(ClipChangedEvent::ClipPosition(desired_proportional_pos))
     }
 
@@ -798,7 +798,7 @@ impl PlayingState {
         {
             let mut guard = lock(reg);
             if let Some(src) = guard.src_mut() {
-                src.as_mut().suspend();
+                src.as_mut().stop_immediately();
             }
         }
         if let Some(track) = self.args.track.as_ref() {
