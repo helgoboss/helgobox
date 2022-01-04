@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::ptr::NonNull;
 use std::sync::Arc;
-use std::time::Duration;
 
 use enumflags2::BitFlags;
 use reaper_high::{OwnedSource, Project, Reaper, Track};
@@ -14,10 +13,7 @@ use reaper_medium::{
 
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
-use crate::domain::clip::clip_source::{
-    ClipPcmSource, ClipPcmSourceSkills, ClipPcmSourceState, ClipStopPosition,
-};
-use crate::domain::clip::source_util::pcm_source_is_midi;
+use crate::domain::clip::clip_source::{ClipPcmSource, ClipPcmSourceSkills, ClipStopPosition};
 use crate::domain::clip::{Clip, ClipChangedEvent, ClipContent, ClipPlayState};
 
 /// Represents an actually playable clip slot.
@@ -475,9 +471,6 @@ impl State {
             Empty | Suspended(_) => {
                 let mut g = lock(reg);
                 g.set_src(Some(source));
-                // This only has an effect if "Next bar" disabled.
-                // TODO-high Remove
-                g.set_cur_pos(PositionInSeconds::new(0.0));
                 Ok(Suspended(SuspendedState {
                     is_paused: false,
                     last_play_args: None,
@@ -558,17 +551,15 @@ impl SuspendedState {
         let next_state = State::Suspended(self);
         let mut g = lock(reg);
         // Reset position. Only has an effect if "Next bar" disabled.
-        // TODO-high Remove
-        g.set_cur_pos(PositionInSeconds::new(0.0));
+        // TODO-high This is if we are paused and want to reset the position. We need to inform
+        //  the source about this!
+        // g.set_cur_pos(PositionInSeconds::new(0.0));
         Ok(next_state)
     }
 
     pub fn clear(self, reg: &SharedRegister) -> TransitionResult {
         let mut g = lock(reg);
         g.set_src(None);
-        // Reset position. Only has an effect if "Next bar" disabled.
-        // TODO-high Remove
-        g.set_cur_pos(PositionInSeconds::new(0.0));
         Ok(State::Empty)
     }
 }
@@ -598,11 +589,12 @@ impl PlayingState {
             let next_state = match self.scheduled_for {
                 None => {
                     // Retrigger!
-                    // Previously we simply enqueued an "All notes off" sequence here and
-                    // reset the position to zero. But with "Next bar" this would send "All notes
-                    // off" not before starting playing again - causing some hanging notes in the
-                    // meantime.
-                    wait_until_all_notes_off_sent(reg, true);
+                    let mut guard = lock(reg);
+                    guard
+                        .src_mut()
+                        .expect(NO_SOURCE_LOADED)
+                        .as_mut()
+                        .retrigger();
                     let playing = PlayingState {
                         scheduled_for: if self.args.options.next_bar {
                             // REAPER won't start playing until the next bar starts.
@@ -716,14 +708,7 @@ impl PlayingState {
         reg: &SharedRegister,
         caused_by_transport_change: bool,
     ) -> SuspendedState {
-        let suspended = self.suspend(reg, false, caused_by_transport_change);
-        let mut g = lock(reg);
-        // Reset position! Only has an effect if "Next bar" disabled.
-        // TODO-medium I think setting the cursor position of the preview register is not even
-        //  necessary anymore because we don't use it, or do we?
-        // TODO-high Remove
-        g.set_cur_pos(PositionInSeconds::new(0.0));
-        suspended
+        self.suspend(reg, false, caused_by_transport_change)
     }
 
     pub fn clear(self, reg: &SharedRegister) -> TransitionResult {
@@ -809,14 +794,23 @@ impl PlayingState {
         caused_by_transport_change: bool,
     ) -> SuspendedState {
         // TODO-high Now that we control the source itself, we could do this differently!
-        wait_until_all_notes_off_sent(reg, false);
+        // wait_until_all_notes_off_sent(reg, false);
+        {
+            let mut guard = lock(reg);
+            if let Some(src) = guard.src_mut() {
+                src.as_mut().suspend();
+            }
+        }
         if let Some(track) = self.args.track.as_ref() {
             // Check prevents error message on project close.
             let project = track.project();
             if project.is_available() {
-                let _ = Reaper::get()
-                    .medium_session()
-                    .stop_track_preview_2(project.context(), self.handle);
+                // TODO-high This is only temporarily disabled to make sure we implement all logic
+                //  in the clip source while leaving the preview continuously running. Later we can
+                //  activate it again for performance savings.
+                // let _ = Reaper::get()
+                //     .medium_session()
+                //     .stop_track_preview_2(project.context(), self.handle);
             }
         } else {
             // If not successful this probably means it was stopped already, so okay.
@@ -874,74 +868,6 @@ fn calculate_proportional_position(
     position
         .map(|p| UnitValue::new_clamped(p.get() / length.get()))
         .unwrap_or_default()
-}
-
-/// Waits until "all-notes-off" is sent for MIDI clips, e.g. as preparation for a suspension
-/// request.
-fn wait_until_all_notes_off_sent(reg: &SharedRegister, reset_position: bool) {
-    // Try 10 times
-    for _ in 0..10 {
-        if attempt_to_send_all_notes_off(reg, reset_position) {
-            // Preparation finished.
-            return;
-        }
-        // Wait a tiny bit until the next try
-        std::thread::sleep(Duration::from_millis(5));
-    }
-    // If we make it until here, we tried multiple times without success.
-    // Make sure source gets reset to normal.
-    let mut guard = lock(reg);
-    if reset_position {
-        // TODO-high Remove
-        guard.set_cur_pos(PositionInSeconds::new(0.0));
-    }
-    let src = match guard.src_mut() {
-        None => return,
-        Some(s) => s.as_mut(),
-    };
-    src.reset();
-}
-
-/// Returns `true` as soon as "All notes off" sent.
-// TODO-high reset_position is obsolete, I think
-fn attempt_to_send_all_notes_off(reg: &SharedRegister, reset_position: bool) -> bool {
-    let mut guard = lock(reg);
-    let successfully_sent = attempt_to_send_all_notes_off_with_guard(&mut guard);
-    if successfully_sent && reset_position {
-        // TODO-high Remove
-        guard.set_cur_pos(PositionInSeconds::new(0.0));
-    };
-    successfully_sent
-}
-
-/// Returns `true` as soon as "All notes off" sent.
-fn attempt_to_send_all_notes_off_with_guard(
-    guard: &mut ReaperMutexGuard<OwnedPreviewRegister>,
-) -> bool {
-    let src = match guard.src_mut() {
-        None => return true,
-        Some(s) => s,
-    };
-    let src = src.as_mut();
-    if !pcm_source_is_midi(src) {
-        return true;
-    }
-    // Don't just stop MIDI! Send all-notes-off first to prevent hanging notes.
-    use ClipPcmSourceState::*;
-    match src.query_state() {
-        Normal => {
-            src.request_all_notes_off();
-            false
-        }
-        AllNotesOffRequested => {
-            // Wait
-            false
-        }
-        AllNotesOffSent => {
-            src.reset();
-            true
-        }
-    }
 }
 
 fn get_next_bar_pos(project: Project) -> PositionInSeconds {

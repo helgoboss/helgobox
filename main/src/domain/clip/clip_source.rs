@@ -16,9 +16,26 @@ use reaper_medium::{
 
 use crate::domain::clip::source_util::pcm_source_is_midi;
 
-const EXT_REQUEST_ALL_NOTES_OFF: i32 = 2359767;
+// TODO-medium Using this extended() mechanism is not very Rusty. The reason why we do it at the
+//  moment is that we acquire access to the source by accessing the `source` attribute of the
+//  preview register data structure. First, this can be *any* source in general, it's not
+//  necessarily a PCM source for clips. Okay, this is not the primary issue. In practice we make
+//  sure that it's only ever a PCM source for clips, so we could just do some explicit casting,
+//  right? No. The thing which we get back there is not a reference to our ClipPcmSource struct.
+//  It's the reaper-rs C++ PCM source, the one that delegates to our Rust struct. This C++ PCM
+//  source implements the C++ virtual base class that REAPER API requires and it owns our Rust
+//  struct. So if we really want to get rid of the extended() mechanism, we would have to access the
+//  ClipPcmSource directly, without taking the C++ detour. And how is this possible in a safe Rusty
+//  way that guarantees us that no one else is mutably accessing the source at the same time? By
+//  wrapping the source in a mutex. However, this would mean that all calls to that source, even
+//  the ones from REAPER would have to unlock the mutex first. For each source operation. That
+//  sounds like a bad idea (or is it not because happy path is fast)? Well, but the point is, we
+//  already have a mutex. The one around the preview register. This one is strictly necessary,
+//  even the REAPER API requires it. As long as we have that outer mutex locked, we should in theory
+//  be able to safely interact with our source directly from Rust. So in order to get rid of the
+//  extended() mechanism, we would have to provide a way to get a correctly typed reference to our
+//  original Rust struct. This itself is maybe possible by using some unsafe code, not sure.
 const EXT_QUERY_STATE: i32 = 2359769;
-const EXT_RESET: i32 = 2359770;
 const EXT_SCHEDULE_START: i32 = 2359771;
 const EXT_QUERY_INNER_LENGTH: i32 = 2359772;
 const EXT_ENABLE_REPEAT: i32 = 2359773;
@@ -26,15 +43,17 @@ const EXT_DISABLE_REPEAT: i32 = 2359774;
 const EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED: i32 = 2359775;
 const EXT_SCHEDULE_STOP: i32 = 2359776;
 const EXT_BACKPEDAL_FROM_SCHEDULED_STOP: i32 = 2359777;
-const EXT_SET_ADJUST_START_POS_BY: i32 = 2359778;
+const EXT_ADJUST_START_POS_BY: i32 = 2359778;
+const EXT_SUSPEND: i32 = 2359779;
+const EXT_RETRIGGER: i32 = 2359780;
 
 /// Represents a state of the clip wrapper PCM source.
 #[derive(Copy, Clone, Eq, PartialEq, Debug, TryFromPrimitive, IntoPrimitive)]
 #[repr(i32)]
 pub enum ClipPcmSourceState {
-    Normal = 10,
-    AllNotesOffRequested = 11,
-    AllNotesOffSent = 12,
+    Suspended = 9,
+    Playing = 10,
+    PrepareSuspension = 11,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -46,7 +65,10 @@ pub enum ClipStopPosition {
 /// A PCM source which wraps a native REAPER PCM source and applies all kinds of clip
 /// functionality to it.
 ///
-/// For example, it makes sure it starts at the right position.
+/// For example, it makes sure it starts at the right position on the timeline.
+///
+/// It's intended to be continuously played by a preview register (immediately, unbuffered,
+/// infinitely).
 pub struct ClipPcmSource {
     /// This source contains the actual audio/MIDI data.
     inner: OwnedPcmSource,
@@ -54,9 +76,9 @@ pub struct ClipPcmSource {
     /// An ever-increasing counter which is used just for debugging purposes at the moment.
     counter: u64,
     /// If set, the clip is playing or about to play. If not set, the clip is stopped.
-    scheduled_start_pos: Option<PositionInSeconds>,
+    start_pos: Option<PositionInSeconds>,
     /// If set, the clip is about to stop. If not set, the clip is either stopped or playing.
-    scheduled_stop_pos: Option<PositionInSeconds>,
+    stop_pos: Option<PositionInSeconds>,
     /// Unused at the moment but intended for persistently setting the start offset.
     offset: PositionInSeconds,
     repeated: bool,
@@ -69,10 +91,10 @@ impl ClipPcmSource {
         let is_midi = pcm_source_is_midi(&inner);
         Self {
             inner,
-            state: ClipPcmSourceState::Normal,
+            state: ClipPcmSourceState::Suspended,
             counter: 0,
-            scheduled_start_pos: None,
-            scheduled_stop_pos: None,
+            start_pos: None,
+            stop_pos: None,
             offset: PositionInSeconds::ZERO,
             repeated: false,
             is_midi,
@@ -91,10 +113,10 @@ impl ClipPcmSource {
     /// Returns `None` if not scheduled or if beyond scheduled stop. Returns negative position if
     /// clip not yet playing.
     fn pos_from_start(&self) -> Option<PositionInSeconds> {
-        let scheduled_start_pos = self.scheduled_start_pos?;
+        let scheduled_start_pos = self.start_pos?;
         let current_pos = self.timeline_cursor_pos();
         // Return `None` if scheduled stop position is reached.
-        if let Some(scheduled_stop_pos) = self.scheduled_stop_pos {
+        if let Some(scheduled_stop_pos) = self.stop_pos {
             if current_pos.has_reached(scheduled_stop_pos) {
                 return None;
             }
@@ -199,7 +221,8 @@ impl CustomPcmSource for ClipPcmSource {
         // Actual stuff
         use ClipPcmSourceState::*;
         match self.state {
-            Normal => unsafe {
+            Suspended => {}
+            Playing => unsafe {
                 if let Some(pos) = self.pos_within_clip() {
                     // This means the clip is playing or about o play. At least not stopped.
                     // We want to start playing as soon as we reach the scheduled start position,
@@ -287,11 +310,12 @@ impl CustomPcmSource for ClipPcmSource {
                     }
                 }
             },
-            AllNotesOffRequested => {
-                send_all_notes_off(&args);
-                self.state = AllNotesOffSent;
+            PrepareSuspension => {
+                if self.is_midi {
+                    send_all_notes_off(&args);
+                }
+                self.state = Suspended;
             }
-            AllNotesOffSent => {}
         }
     }
 
@@ -329,15 +353,7 @@ impl CustomPcmSource for ClipPcmSource {
 
     unsafe fn extended(&mut self, args: ExtendedArgs) -> i32 {
         match args.call {
-            EXT_REQUEST_ALL_NOTES_OFF => {
-                self.request_all_notes_off();
-                1
-            }
             EXT_QUERY_STATE => self.query_state().into(),
-            EXT_RESET => {
-                self.reset();
-                1
-            }
             EXT_SCHEDULE_START => {
                 let pos: PositionInSeconds = *(args.parm_1 as *mut _);
                 let pos = if pos.get() < 0.0 { None } else { Some(pos) };
@@ -345,16 +361,24 @@ impl CustomPcmSource for ClipPcmSource {
                 self.schedule_start(pos, repeated);
                 1
             }
+            EXT_RETRIGGER => {
+                self.retrigger();
+                1
+            }
             EXT_SCHEDULE_STOP => {
                 let pos: ClipStopPosition = *(args.parm_1 as *mut _);
                 self.schedule_stop(pos);
+                1
+            }
+            EXT_SUSPEND => {
+                self.suspend();
                 1
             }
             EXT_BACKPEDAL_FROM_SCHEDULED_STOP => {
                 self.backpedal_from_scheduled_stop();
                 1
             }
-            EXT_SET_ADJUST_START_POS_BY => {
+            EXT_ADJUST_START_POS_BY => {
                 let delta: PositionInSeconds = *(args.parm_1 as *mut _);
                 self.adjust_start_pos_by(delta);
                 1
@@ -388,38 +412,46 @@ impl CustomPcmSource for ClipPcmSource {
 
 fn send_all_notes_off(args: &GetSamplesArgs) {
     for ch in 0..16 {
-        let msg = RawShortMessage::control_change(
+        let all_notes_off = RawShortMessage::control_change(
             Channel::new(ch),
             controller_numbers::ALL_NOTES_OFF,
             U7::MIN,
         );
-        let mut event = MidiEvent::default();
-        event.set_message(msg);
-        args.block.midi_event_list().add_item(&event);
+        let all_sound_off = RawShortMessage::control_change(
+            Channel::new(ch),
+            controller_numbers::ALL_SOUND_OFF,
+            U7::MIN,
+        );
+        add_midi_event(args, all_notes_off);
+        add_midi_event(args, all_sound_off);
     }
 }
 
-pub trait ClipPcmSourceSkills {
-    /// Makes the clip source return all-notes-off messages at the next opportunity.
-    fn request_all_notes_off(&mut self);
+fn add_midi_event(args: &GetSamplesArgs, msg: RawShortMessage) {
+    let mut event = MidiEvent::default();
+    event.set_message(msg);
+    args.block.midi_event_list().add_item(&event);
+}
 
+pub trait ClipPcmSourceSkills {
     /// Returns the state of this clip source.
     fn query_state(&self) -> ClipPcmSourceState;
-
-    fn reset(&mut self);
 
     /// Starts or at schedules playing of the clip.
     ///
     /// If position is set, this method schedules playing of the clip. If not, it starts playing it
     /// immediately.
+    // TODO-high Also distinguish between schedule and play immediately.
     fn schedule_start(&mut self, pos: Option<PositionInSeconds>, repeated: bool);
 
+    /// Retriggers the clip (if currently playing).
+    fn retrigger(&mut self);
+
     /// Schedules clip stop.
-    ///
-    // TODO-high This function is - at least at the moment - not used for immediate stopping. However, that
-    //  might change. Because even immediate stopping shouldn't stop immediately in case of MIDI (by
-    //  simply stopping the preview register) but send NOTE OFF stuff first.
     fn schedule_stop(&mut self, pos: ClipStopPosition);
+
+    /// Suspends playback, immediately but sending note/sound off before in case of MIDI.
+    fn suspend(&mut self);
 
     /// "Undoes" a scheduled stop if user changes their mind.
     fn backpedal_from_scheduled_stop(&mut self);
@@ -451,29 +483,26 @@ pub trait ClipPcmSourceSkills {
 }
 
 impl ClipPcmSourceSkills for ClipPcmSource {
-    fn request_all_notes_off(&mut self) {
-        self.state = ClipPcmSourceState::AllNotesOffRequested;
-    }
-
     fn query_state(&self) -> ClipPcmSourceState {
         self.state
     }
 
-    fn reset(&mut self) {
-        self.state = ClipPcmSourceState::Normal;
-    }
-
     fn schedule_start(&mut self, pos: Option<PositionInSeconds>, repeated: bool) {
         let resolved_pos = pos.unwrap_or_else(|| self.timeline_cursor_pos());
-        self.scheduled_start_pos = Some(resolved_pos);
-        self.scheduled_stop_pos = None;
+        self.start_pos = Some(resolved_pos);
+        self.stop_pos = None;
         self.repeated = repeated;
+        self.state = ClipPcmSourceState::Playing;
+    }
+
+    fn retrigger(&mut self) {
+        self.start_pos = Some(self.timeline_cursor_pos());
     }
 
     fn schedule_stop(&mut self, pos: ClipStopPosition) {
         let resolved_stop_pos = match pos {
             ClipStopPosition::At(pos) => pos,
-            ClipStopPosition::AtEndOfClip => match self.scheduled_start_pos {
+            ClipStopPosition::AtEndOfClip => match self.start_pos {
                 None => return,
                 Some(scheduled_start_pos) => {
                     let pos = scheduled_start_pos.get()
@@ -483,19 +512,23 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                 }
             },
         };
-        self.scheduled_stop_pos = Some(resolved_stop_pos);
+        self.stop_pos = Some(resolved_stop_pos);
+    }
+
+    fn suspend(&mut self) {
+        self.state = ClipPcmSourceState::PrepareSuspension;
     }
 
     fn backpedal_from_scheduled_stop(&mut self) {
-        self.scheduled_stop_pos = None;
+        self.stop_pos = None;
     }
 
     fn adjust_start_pos_by(&mut self, delta: PositionInSeconds) {
-        let current_start_pos = match self.scheduled_start_pos {
+        let current_start_pos = match self.start_pos {
             None => return,
             Some(p) => p,
         };
-        self.scheduled_start_pos = Some(current_start_pos + delta);
+        self.start_pos = Some(current_start_pos + delta);
     }
 
     fn query_inner_length(&self) -> DurationInSeconds {
@@ -513,26 +546,9 @@ impl ClipPcmSourceSkills for ClipPcmSource {
 }
 
 impl ClipPcmSourceSkills for BorrowedPcmSource {
-    fn request_all_notes_off(&mut self) {
-        unsafe {
-            self.extended(
-                EXT_REQUEST_ALL_NOTES_OFF,
-                null_mut(),
-                null_mut(),
-                null_mut(),
-            );
-        }
-    }
-
     fn query_state(&self) -> ClipPcmSourceState {
         let state = unsafe { self.extended(EXT_QUERY_STATE, null_mut(), null_mut(), null_mut()) };
         state.try_into().expect("invalid state")
-    }
-
-    fn reset(&mut self) {
-        unsafe {
-            self.extended(EXT_RESET, null_mut(), null_mut(), null_mut());
-        }
     }
 
     fn schedule_start(&mut self, pos: Option<PositionInSeconds>, mut repeated: bool) {
@@ -547,6 +563,12 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         }
     }
 
+    fn retrigger(&mut self) {
+        unsafe {
+            self.extended(EXT_RETRIGGER, null_mut(), null_mut(), null_mut());
+        }
+    }
+
     fn schedule_stop(&mut self, mut pos: ClipStopPosition) {
         unsafe {
             self.extended(
@@ -555,6 +577,12 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
                 null_mut(),
                 null_mut(),
             );
+        }
+    }
+
+    fn suspend(&mut self) {
+        unsafe {
+            self.extended(EXT_SUSPEND, null_mut(), null_mut(), null_mut());
         }
     }
 
@@ -572,7 +600,7 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
     fn adjust_start_pos_by(&mut self, mut delta: PositionInSeconds) {
         unsafe {
             self.extended(
-                EXT_SET_ADJUST_START_POS_BY,
+                EXT_ADJUST_START_POS_BY,
                 &mut delta as *mut _ as _,
                 null_mut(),
                 null_mut(),
