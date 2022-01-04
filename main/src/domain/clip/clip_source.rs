@@ -79,7 +79,7 @@ pub struct ClipPcmSource {
     /// If set, the clip is playing or about to play. If not set, the clip is stopped.
     start_pos: Option<PositionInSeconds>,
     /// If set, the clip is about to stop. If not set, the clip is either stopped or playing.
-    stop_pos: Option<PositionInSeconds>,
+    stop_pos: Option<ClipStopPosition>,
     /// Used for seeking (a negative offset forwards, a positive offset rewinds).
     temporary_offset: PositionInSeconds,
     repeated: bool,
@@ -117,8 +117,15 @@ impl ClipPcmSource {
         let start_pos = self.effective_start_pos()?;
         let current_pos = self.timeline_cursor_pos();
         // Return `None` if scheduled stop position is reached.
-        if let Some(scheduled_stop_pos) = self.stop_pos {
-            if current_pos.has_reached(scheduled_stop_pos) {
+        if let Some(stop_pos) = self.stop_pos {
+            let resolved_stop_pos = match stop_pos {
+                ClipStopPosition::At(pos) => pos,
+                ClipStopPosition::AtEndOfClip => {
+                    let raw_pos = start_pos.get() + self.query_inner_length().get();
+                    PositionInSeconds::new(raw_pos)
+                }
+            };
+            if current_pos.has_reached(resolved_stop_pos) {
                 return None;
             }
         }
@@ -519,18 +526,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn schedule_stop(&mut self, pos: ClipStopPosition) {
-        let resolved_stop_pos = match pos {
-            ClipStopPosition::At(pos) => pos,
-            ClipStopPosition::AtEndOfClip => match self.effective_start_pos() {
-                None => return,
-                Some(start_pos) => {
-                    // TODO-high This doesn't work as expected if we seek after scheduled stop.
-                    let pos = start_pos.get() + self.query_inner_length().get();
-                    PositionInSeconds::new(pos)
-                }
-            },
-        };
-        self.stop_pos = Some(resolved_stop_pos);
+        self.stop_pos = Some(pos);
     }
 
     fn stop_immediately(&mut self) {
