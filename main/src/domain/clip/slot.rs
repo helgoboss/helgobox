@@ -467,19 +467,57 @@ impl State {
         let source = FlexibleOwnedPcmSource::Custom(source);
         use State::*;
         match self {
-            Empty | Suspended(_) => {
-                let mut g = lock(reg);
-                g.set_src(Some(source));
-                Ok(Suspended(SuspendedState {
-                    is_paused: false,
-                    last_play_args: None,
-                    was_caused_by_transport_change: false,
-                }))
+            Empty => {
+                let next_state = fill_with_source_if_empty_or_suspended(source, reg);
+                Ok(next_state)
             }
+            Suspended(s) => s.fill_with_source(source, reg),
             Playing(s) => s.fill_with_source(source, reg),
             Transitioning => unreachable!(),
         }
     }
+}
+
+fn start_playing_preview(
+    track: Option<&Track>,
+    reg: &SharedRegister,
+) -> Result<NonNull<raw::preview_register_t>, &'static str> {
+    // TODO-high We might want to buffer.
+    let buffering_behavior = BitFlags::empty();
+    let measure_alignment = MeasureAlignment::PlayImmediately;
+    let result = if let Some(track) = track {
+        Reaper::get().medium_session().play_track_preview_2_ex(
+            track.project().context(),
+            reg.clone(),
+            buffering_behavior,
+            measure_alignment,
+        )
+    } else {
+        Reaper::get().medium_session().play_preview_ex(
+            reg.clone(),
+            buffering_behavior,
+            measure_alignment,
+        )
+    };
+    result.map_err(|_| "couldn't play preview")
+}
+
+fn stop_playing_preview(track: Option<&Track>, handle: NonNull<raw::preview_register_t>) {
+    if let Some(track) = track.as_ref() {
+        // Check prevents error message on project close.
+        let project = track.project();
+        if project.is_available() {
+            // TODO-high We need to stop the preview when polling and detecting that finally
+            //  stopped.
+            // If not successful this probably means it was stopped already, so okay.
+            let _ = Reaper::get()
+                .medium_session()
+                .stop_track_preview_2(project.context(), handle);
+        }
+    } else {
+        // If not successful this probably means it was stopped already, so okay.
+        let _ = Reaper::get().medium_session().stop_preview(handle);
+    };
 }
 
 #[derive(Debug)]
@@ -497,7 +535,30 @@ struct ClipPlayArgs {
     repeat: bool,
 }
 
+fn fill_with_source_if_empty_or_suspended(
+    source: FlexibleOwnedPcmSource,
+    reg: &SharedRegister,
+) -> State {
+    let mut g = lock(reg);
+    g.set_src(Some(source));
+    let new_state = SuspendedState {
+        is_paused: false,
+        last_play_args: None,
+        was_caused_by_transport_change: false,
+    };
+    State::Suspended(new_state)
+}
+
 impl SuspendedState {
+    pub fn fill_with_source(
+        self,
+        source: FlexibleOwnedPcmSource,
+        reg: &SharedRegister,
+    ) -> TransitionResult {
+        let next_state = fill_with_source_if_empty_or_suspended(source, reg);
+        Ok(next_state)
+    }
+
     pub fn play(self, reg: &SharedRegister, args: ClipPlayArgs) -> TransitionResult {
         {
             let mut guard = lock(reg);
@@ -511,40 +572,19 @@ impl SuspendedState {
                 };
             }
         }
-        let buffering_behavior = BitFlags::empty();
-        let measure_alignment = MeasureAlignment::PlayImmediately;
-        let result = if let Some(track) = args.track.as_ref() {
-            // TODO-high If we play immediately, this takes too much time. We should start playing
-            //  as soon as the slot is filled.
-            Reaper::get().medium_session().play_track_preview_2_ex(
-                track.project().context(),
-                reg.clone(),
-                buffering_behavior,
-                measure_alignment,
-            )
+        let handle = start_playing_preview(args.track.as_ref(), reg)
+            .map_err(|text| (State::Suspended(self), text))?;
+        let scheduling_state = if args.options.next_bar {
+            Some(ScheduledFor::Play)
         } else {
-            Reaper::get().medium_session().play_preview_ex(
-                reg.clone(),
-                buffering_behavior,
-                measure_alignment,
-            )
+            None
         };
-        match result {
-            Ok(handle) => {
-                let scheduling_state = if args.options.next_bar {
-                    Some(ScheduledFor::Play)
-                } else {
-                    None
-                };
-                let next_state = PlayingState {
-                    handle,
-                    args,
-                    scheduled_for: scheduling_state,
-                };
-                Ok(State::Playing(next_state))
-            }
-            Err(_) => Err((State::Suspended(self), "couldn't play preview")),
-        }
+        let next_state = PlayingState {
+            handle,
+            args,
+            scheduled_for: scheduling_state,
+        };
+        Ok(State::Playing(next_state))
     }
 
     pub fn stop(self, reg: &SharedRegister) -> TransitionResult {
@@ -790,27 +830,11 @@ impl PlayingState {
         pause: bool,
         caused_by_transport_change: bool,
     ) -> SuspendedState {
-        {
-            let mut guard = lock(reg);
-            if let Some(src) = guard.src_mut() {
-                // TODO-high Respect pause!
-                src.as_mut().stop_immediately();
-            }
+        let mut guard = lock(reg);
+        if let Some(src) = guard.src_mut() {
+            // TODO-high Respect pause!
+            src.as_mut().stop_immediately();
         }
-        if let Some(track) = self.args.track.as_ref() {
-            // Check prevents error message on project close.
-            let project = track.project();
-            if project.is_available() {
-                // TODO-high We need to stop the preview when polling and detecting that finally
-                //  stopped.
-                // let _ = Reaper::get()
-                //     .medium_session()
-                //     .stop_track_preview_2(project.context(), self.handle);
-            }
-        } else {
-            // If not successful this probably means it was stopped already, so okay.
-            let _ = Reaper::get().medium_session().stop_preview(self.handle);
-        };
         SuspendedState {
             is_paused: pause,
             last_play_args: Some(self.args),
