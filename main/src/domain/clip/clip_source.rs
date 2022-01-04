@@ -43,7 +43,7 @@ const EXT_DISABLE_REPEAT: i32 = 2359774;
 const EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED: i32 = 2359775;
 const EXT_SCHEDULE_STOP: i32 = 2359776;
 const EXT_BACKPEDAL_FROM_SCHEDULED_STOP: i32 = 2359777;
-const EXT_ADJUST_TEMPORARY_OFFSET_BY: i32 = 2359778;
+const EXT_SEEK_TO: i32 = 2359778;
 const EXT_STOP_IMMEDIATELY: i32 = 2359779;
 const EXT_RETRIGGER: i32 = 2359780;
 
@@ -385,9 +385,9 @@ impl CustomPcmSource for ClipPcmSource {
                 self.backpedal_from_scheduled_stop();
                 1
             }
-            EXT_ADJUST_TEMPORARY_OFFSET_BY => {
+            EXT_SEEK_TO => {
                 let delta: PositionInSeconds = *(args.parm_1 as *mut _);
-                self.adjust_temporary_offset_by(delta);
+                self.seek_to(delta);
                 1
             }
             EXT_QUERY_INNER_LENGTH => {
@@ -465,13 +465,10 @@ pub trait ClipPcmSourceSkills {
     /// "Undoes" a scheduled stop if user changes their mind.
     fn backpedal_from_scheduled_stop(&mut self);
 
-    /// Nudges the (scheduled) effective start position by the given amount.
-    ///
-    /// Setting negative values is equivalent to moving the play cursor in the right direction.
-    /// Setting positive values is equivalent to moving the play cursor in the left direction.
+    /// Seeks to the given position within the clip.
     ///
     /// This only has an effect if the clip is not stopped.
-    fn adjust_temporary_offset_by(&mut self, amount: PositionInSeconds);
+    fn seek_to(&mut self, pos: PositionInSeconds);
 
     /// Returns the clip length.
     ///
@@ -535,7 +532,8 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         self.stop_pos = None;
     }
 
-    fn adjust_temporary_offset_by(&mut self, amount: PositionInSeconds) {
+    fn seek_to(&mut self, pos: PositionInSeconds) {
+        let amount = self.pos_within_clip().unwrap_or_default() - pos;
         self.temporary_offset = self.temporary_offset + amount;
     }
 
@@ -605,14 +603,9 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         }
     }
 
-    fn adjust_temporary_offset_by(&mut self, mut amount: PositionInSeconds) {
+    fn seek_to(&mut self, mut pos: PositionInSeconds) {
         unsafe {
-            self.extended(
-                EXT_ADJUST_TEMPORARY_OFFSET_BY,
-                &mut amount as *mut _ as _,
-                null_mut(),
-                null_mut(),
-            );
+            self.extended(EXT_SEEK_TO, &mut pos as *mut _ as _, null_mut(), null_mut());
         }
     }
 
