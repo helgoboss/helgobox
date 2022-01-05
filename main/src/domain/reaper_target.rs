@@ -197,7 +197,8 @@ pub enum FeedbackResolution {
     #[serde(rename = "beat")]
     #[display(fmt = "Beat")]
     Beat = 0,
-    /// Query for feedback as frequently as possible (main loop).
+    /// Query for feedback as frequently as possible (results in brute-force polling once per
+    /// main loop cycle).
     #[serde(rename = "high")]
     #[display(fmt = "Fast")]
     High = 1,

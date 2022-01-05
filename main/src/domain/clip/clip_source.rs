@@ -1,10 +1,8 @@
-use std::convert::TryInto;
 use std::error::Error;
 use std::ptr::null_mut;
 
 use helgoboss_learn::BASE_EPSILON;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
-use num_enum::{IntoPrimitive, TryFromPrimitive};
 use reaper_high::Reaper;
 use reaper_medium::{
     BorrowedPcmSource, BorrowedPcmSourceTransfer, CustomPcmSource, DurationInBeats,
@@ -16,45 +14,92 @@ use reaper_medium::{
 
 use crate::domain::clip::source_util::pcm_source_is_midi;
 
-// TODO-medium Using this extended() mechanism is not very Rusty. The reason why we do it at the
-//  moment is that we acquire access to the source by accessing the `source` attribute of the
-//  preview register data structure. First, this can be *any* source in general, it's not
-//  necessarily a PCM source for clips. Okay, this is not the primary issue. In practice we make
-//  sure that it's only ever a PCM source for clips, so we could just do some explicit casting,
-//  right? No. The thing which we get back there is not a reference to our ClipPcmSource struct.
-//  It's the reaper-rs C++ PCM source, the one that delegates to our Rust struct. This C++ PCM
-//  source implements the C++ virtual base class that REAPER API requires and it owns our Rust
-//  struct. So if we really want to get rid of the extended() mechanism, we would have to access the
-//  ClipPcmSource directly, without taking the C++ detour. And how is this possible in a safe Rusty
-//  way that guarantees us that no one else is mutably accessing the source at the same time? By
-//  wrapping the source in a mutex. However, this would mean that all calls to that source, even
-//  the ones from REAPER would have to unlock the mutex first. For each source operation. That
-//  sounds like a bad idea (or is it not because happy path is fast)? Well, but the point is, we
-//  already have a mutex. The one around the preview register. This one is strictly necessary,
-//  even the REAPER API requires it. As long as we have that outer mutex locked, we should in theory
-//  be able to safely interact with our source directly from Rust. So in order to get rid of the
-//  extended() mechanism, we would have to provide a way to get a correctly typed reference to our
-//  original Rust struct. This itself is maybe possible by using some unsafe code, not sure.
-const EXT_QUERY_STATE: i32 = 2359769;
-const EXT_SCHEDULE_START: i32 = 2359771;
-const EXT_QUERY_INNER_LENGTH: i32 = 2359772;
-const EXT_ENABLE_REPEAT: i32 = 2359773;
-const EXT_DISABLE_REPEAT: i32 = 2359774;
-const EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED: i32 = 2359775;
-const EXT_SCHEDULE_STOP: i32 = 2359776;
-const EXT_BACKPEDAL_FROM_SCHEDULED_STOP: i32 = 2359777;
-const EXT_SEEK_TO: i32 = 2359778;
-const EXT_STOP_IMMEDIATELY: i32 = 2359779;
-const EXT_RETRIGGER: i32 = 2359780;
-const EXT_START_IMMEDIATELY: i32 = 2359781;
+/// A PCM source which wraps a native REAPER PCM source and applies all kinds of clip
+/// functionality to it.
+///
+/// For example, it makes sure it starts at the right position on the timeline.
+///
+/// It's intended to be continuously played by a preview register (immediately, unbuffered,
+/// infinitely).
+pub struct ClipPcmSource {
+    /// This source contains the actual audio/MIDI data.
+    ///
+    /// It doesn't change throughout the lifetime of this clip source, although I think it could.
+    inner: OwnedPcmSource,
+    /// Caches the information if the inner clip source contains MIDI or audio material.
+    // TODO-high Put this into one struct together with `inner`.
+    is_midi: bool,
+    /// Whether the clip is repeated.
+    ///
+    /// This can change during the lifetime of this clip.
+    repeated: bool,
+    /// An ever-increasing counter which is used just for debugging purposes at the moment.
+    counter: u64,
+    /// The current state of this clip, containing only state which is non-derivable.
+    state: ClipState,
+}
 
 /// Represents a state of the clip wrapper PCM source.
-#[derive(Copy, Clone, Eq, PartialEq, Debug, TryFromPrimitive, IntoPrimitive)]
-#[repr(i32)]
-pub enum ClipPcmSourceState {
-    Stopped = 9,
-    Playing = 10,
-    FinishingStopping = 11,
+#[derive(Copy, Clone, Debug)]
+pub enum ClipState {
+    Stopped,
+    Running(RunningClipState),
+}
+
+impl ClipState {
+    fn running_state(&self) -> Option<&RunningClipState> {
+        use ClipState::*;
+        match self {
+            Stopped => None,
+            Running(s) => Some(s),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct RunningClipState {
+    pub start_pos: PositionInSeconds,
+    pub temporary_offset: PositionInSeconds,
+    pub phase: RunPhase,
+}
+
+impl RunningClipState {
+    /// Returns the absolute start position on the timeline adjusted by the temporary offset which
+    /// is used as offset for play-cursor seeking and continue-after-pause.
+    pub fn effective_start_pos(&self) -> PositionInSeconds {
+        self.start_pos + self.temporary_offset
+    }
+
+    pub fn with_phase(self, phase: RunPhase) -> Self {
+        Self { phase, ..self }
+    }
+
+    pub fn with_temporary_offset(self, temporary_offset: PositionInSeconds) -> Self {
+        Self {
+            temporary_offset,
+            ..self
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum RunPhase {
+    /// These phases are summarized because this distinction can be derived from the start
+    /// position and the cursor position on the time line.
+    ScheduledOrPlaying,
+    /// Very short transition phase.
+    Retriggering,
+    /// Very short transition phase.
+    TransitioningToPause,
+    Paused,
+    ScheduledForStop(ScheduledForStopPhase),
+    /// Very short transition phase.
+    TransitioningToStop,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct ScheduledForStopPhase {
+    stop_pos: InternalClipStopPosition,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -67,30 +112,7 @@ pub enum ClipStopPosition {
 enum InternalClipStopPosition {
     At(PositionInSeconds),
     /// The first play is called repetition 0.
-    AtEndOfClipRepetition(i32),
-}
-
-/// A PCM source which wraps a native REAPER PCM source and applies all kinds of clip
-/// functionality to it.
-///
-/// For example, it makes sure it starts at the right position on the timeline.
-///
-/// It's intended to be continuously played by a preview register (immediately, unbuffered,
-/// infinitely).
-pub struct ClipPcmSource {
-    /// This source contains the actual audio/MIDI data.
-    inner: OwnedPcmSource,
-    state: ClipPcmSourceState,
-    /// An ever-increasing counter which is used just for debugging purposes at the moment.
-    counter: u64,
-    /// If set, the clip is playing or about to play. If not set, the clip is stopped.
-    start_pos: Option<PositionInSeconds>,
-    /// If set, the clip is about to stop. If not set, the clip is either stopped or playing.
-    stop_pos: Option<InternalClipStopPosition>,
-    /// Used for seeking (a negative offset forwards, a positive offset rewinds).
-    temporary_offset: PositionInSeconds,
-    repeated: bool,
-    is_midi: bool,
+    AtEndOfClipRepetition(u32),
 }
 
 impl ClipPcmSource {
@@ -99,95 +121,205 @@ impl ClipPcmSource {
         let is_midi = pcm_source_is_midi(&inner);
         Self {
             inner,
-            state: ClipPcmSourceState::Stopped,
             counter: 0,
-            start_pos: None,
-            stop_pos: None,
-            temporary_offset: PositionInSeconds::ZERO,
             repeated: false,
             is_midi,
+            state: ClipState::Stopped,
         }
     }
 
-    fn timeline_cursor_pos(&self) -> PositionInSeconds {
+    fn start_internal(&mut self, start_pos: PositionInSeconds, repeated: bool) {
+        if let Some(info) = self.cursor_info() {
+            // Already running.
+            use RunPhase::*;
+            match info.running_state.phase {
+                ScheduledOrPlaying => {
+                    if info.is_playing_already() {
+                        let new_state = info.running_state.with_phase(RunPhase::Retriggering);
+                        self.state = ClipState::Running(new_state);
+                    } else {
+                        // Not yet playing. Reschedule!
+                        self.schedule_start_internal(start_pos, repeated);
+                    }
+                }
+                Paused => {
+                    // Resume
+                    // TODO-high Resume at correct position.
+                    let new_state = info.running_state.with_phase(RunPhase::ScheduledOrPlaying);
+                    self.state = ClipState::Running(new_state);
+                }
+                ScheduledForStop(_) => {
+                    // Backpedal
+                    let new_state = info.running_state.with_phase(RunPhase::ScheduledOrPlaying);
+                    self.state = ClipState::Running(new_state);
+                }
+                Retriggering | TransitioningToPause | TransitioningToStop => {}
+            }
+        } else {
+            // Not yet running.
+            self.schedule_start_internal(start_pos, repeated);
+        }
+    }
+
+    fn schedule_start_internal(&mut self, start_pos: PositionInSeconds, repeated: bool) {
+        self.repeated = repeated;
+        let new_state = RunningClipState {
+            start_pos,
+            temporary_offset: PositionInSeconds::ZERO,
+            phase: RunPhase::ScheduledOrPlaying,
+        };
+        self.state = ClipState::Running(new_state);
+    }
+
+    fn cursor_pos_on_timeline(&self) -> PositionInSeconds {
         // TODO-high Save and use actual project in source.
         Reaper::get()
             .medium_reaper()
             .get_play_position_2_ex(ProjectContext::CurrentProject)
     }
 
-    /// Returns the position starting from the time that this source was scheduled for start.
+    /// Returns running state and the current cursor position on the timeline.
     ///
-    /// Returns `None` if not scheduled or if beyond scheduled stop. Returns negative position if
-    /// clip not yet playing.
-    fn pos_from_start(&self) -> Option<PositionInSeconds> {
-        let start_pos = self.effective_start_pos()?;
-        let current_pos = self.timeline_cursor_pos();
-        // Return `None` if scheduled stop position is reached.
-        if let Some(stop_pos) = self.stop_pos {
-            let resolved_stop_pos = match stop_pos {
-                InternalClipStopPosition::At(pos) => pos,
-                InternalClipStopPosition::AtEndOfClipRepetition(n) => {
-                    let raw_pos = start_pos.get() + self.inner_length().get() * (n + 1) as f64;
-                    PositionInSeconds::new(raw_pos)
-                }
-            };
-            if current_pos.has_reached(resolved_stop_pos) {
-                return None;
+    /// Returns `None` if not running.
+    fn cursor_info(&self) -> Option<CursorInfo> {
+        let running_state = self.state.running_state()?;
+        let info = CursorInfo {
+            running_state,
+            cursor_pos: self.cursor_pos_on_timeline(),
+        };
+        Some(info)
+    }
+
+    /// Returns cursor info and length of the clip.
+    ///
+    /// Returns `None` if stopped.
+    fn cursor_and_length_info(&self) -> Option<CursorAndLengthInfo> {
+        Some(self.create_cursor_and_length_info(self.cursor_info()?))
+    }
+
+    fn create_cursor_and_length_info<'a>(
+        &self,
+        cursor_info: CursorInfo<'a>,
+    ) -> CursorAndLengthInfo<'a> {
+        CursorAndLengthInfo {
+            cursor_info,
+            clip_length: self.inner_length(),
+            repeated: self.repeated,
+        }
+    }
+
+    fn shut_up_if_midi(&self, args: &GetSamplesArgs) {
+        if self.is_midi {
+            send_all_notes_off(args);
+        }
+    }
+
+    fn fill_samples(&self, pos_within_clip: PositionInSeconds, args: &mut GetSamplesArgs) {
+        // This means the clip is playing or about o play.
+        // We want to start playing as soon as we reach the scheduled start position,
+        // that means pos == 0.0. In order to do that, we need to take into account that
+        // the audio buffer start point is not necessarily equal to the measure start
+        // point. If we would naively start playing as soon as pos >= 0.0, we might skip
+        // the first samples/messages! We need to start playing as soon as the end of
+        // the audio block is located on or right to the scheduled start point
+        // (end_pos >= 0.0).
+        let desired_sample_count = args.block.length();
+        let sample_rate = args.block.sample_rate().get();
+        let block_duration = desired_sample_count as f64 / sample_rate;
+        let end_pos =
+            unsafe { PositionInSeconds::new_unchecked(pos_within_clip.get() + block_duration) };
+        if end_pos < PositionInSeconds::ZERO {
+            // Block is before start position
+            return;
+        }
+        unsafe {
+            if self.is_midi {
+                self.fill_samples_midi(pos_within_clip, args);
+            } else {
+                self.fill_samples_audio(pos_within_clip, args);
             }
         }
-        Some(current_pos - start_pos)
     }
 
-    /// Returns the start position set off by the temporary offset (thus, taking seeking into
-    /// account).
-    fn effective_start_pos(&self) -> Option<PositionInSeconds> {
-        let start_pos = self.start_pos?;
-        Some(start_pos + self.temporary_offset)
-    }
-
-    /// Calculates the current position within the clip considering the *repeated* setting.
-    ///
-    /// Returns negative position if clip not yet playing. Returns `None` if clip length is zero.
-    fn calculate_pos_within_clip(
+    unsafe fn fill_samples_audio(
         &self,
-        pos_from_start: PositionInSeconds,
-    ) -> Option<PositionInSeconds> {
-        if pos_from_start < PositionInSeconds::ZERO {
-            // Count-in phase. Report negative position.
-            Some(pos_from_start)
-        } else if self.repeated {
-            // Playing and repeating. Report repeated position.
-            pos_from_start % self.inner_length()
-        } else if pos_from_start.get() < self.inner_length().get() {
-            // Not repeating and still within clip bounds. Just report position.
-            Some(pos_from_start)
+        pos_within_clip: PositionInSeconds,
+        args: &mut GetSamplesArgs,
+    ) {
+        let desired_sample_count = args.block.length();
+        let sample_rate = args.block.sample_rate().get();
+        if pos_within_clip < PositionInSeconds::ZERO {
+            // For audio, starting at a negative position leads to weird sounds.
+            // That's why we need to query from 0.0 and
+            // offset the provided sample buffer by that
+            // amount.
+            let sample_offset = (-pos_within_clip.get() * sample_rate) as i32;
+            args.block.set_time_s(PositionInSeconds::ZERO);
+            with_shifted_samples(args.block, sample_offset, |b| {
+                self.inner.get_samples(b);
+            });
         } else {
-            // Not repeating and clip length exceeded.
-            None
+            args.block.set_time_s(pos_within_clip);
+            self.inner.get_samples(args.block);
+        }
+        let written_sample_count = args.block.samples_out();
+        if written_sample_count < desired_sample_count {
+            // We have reached the end of the clip and it doesn't fill the
+            // complete block.
+            if self.repeated {
+                // Repeat. Because we assume that the user cuts sources
+                // sample-perfect, we must immediately fill the rest of the
+                // buffer with the very
+                // beginning of the source.
+                // Audio. Start from zero and write just remaining samples.
+                args.block.set_time_s(PositionInSeconds::ZERO);
+                with_shifted_samples(args.block, written_sample_count, |b| {
+                    self.inner.get_samples(b);
+                });
+                // Let preview register know that complete buffer has been filled.
+                args.block.set_samples_out(desired_sample_count);
+            } else {
+                // Let preview register know that complete buffer has been
+                // filled as desired in order to prevent retry (?) queries.
+                args.block.set_samples_out(desired_sample_count);
+            }
         }
     }
 
-    /// Calculates in which repetition we are (starting with 0).
-    fn calculate_repetition(&self, pos_from_start: PositionInSeconds) -> Option<i32> {
-        if self.repeated {
-            // Repeating.
-            Some((pos_from_start.get() / self.inner_length().get()) as i32)
-        } else if pos_from_start.get() < self.inner_length().get() {
-            // Not repeating and still within clip bounds.
-            Some(0)
-        } else {
-            // Not repeating and clip length exceeded.
-            None
+    unsafe fn fill_samples_midi(
+        &self,
+        pos_within_clip: PositionInSeconds,
+        args: &mut GetSamplesArgs,
+    ) {
+        let desired_sample_count = args.block.length();
+        let sample_rate = args.block.sample_rate().get();
+        // For MIDI it seems to be okay to start at a negative position. The source
+        // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
+        // offset.
+        args.block.set_time_s(pos_within_clip);
+        self.inner.get_samples(args.block);
+        let written_sample_count = args.block.samples_out();
+        if written_sample_count < desired_sample_count {
+            // We have reached the end of the clip and it doesn't fill the
+            // complete block.
+            if self.repeated {
+                // Repeat. Fill rest of buffer with beginning of source.
+                // We need to start from negative position so the frame
+                // offset of the *added* MIDI events is correctly written.
+                // The negative position should be as long as the duration of
+                // samples already written.
+                let written_duration = written_sample_count as f64 / sample_rate;
+                let negative_pos = PositionInSeconds::new_unchecked(-written_duration);
+                args.block.set_time_s(negative_pos);
+                args.block.set_length(desired_sample_count);
+                self.inner.get_samples(args.block);
+            } else {
+                // Let preview register know that complete buffer has been
+                // filled as desired in order to prevent retry (?) queries that
+                // lead to double events.
+                args.block.set_samples_out(desired_sample_count);
+            }
         }
-    }
-
-    fn start_internal(&mut self, pos: PositionInSeconds, repeated: bool) {
-        self.temporary_offset = PositionInSeconds::ZERO;
-        self.start_pos = Some(pos);
-        self.stop_pos = None;
-        self.repeated = repeated;
-        self.state = ClipPcmSourceState::Playing;
     }
 }
 
@@ -234,6 +366,7 @@ impl CustomPcmSource for ClipPcmSource {
     }
 
     fn get_length(&mut self) -> DurationInSeconds {
+        // The clip source itself can be considered to represent an infinite-length "track".
         DurationInSeconds::MAX
     }
 
@@ -254,7 +387,7 @@ impl CustomPcmSource for ClipPcmSource {
         unsafe { self.inner.properties_window(args.parent_window) }
     }
 
-    fn get_samples(&mut self, args: GetSamplesArgs) {
+    fn get_samples(&mut self, mut args: GetSamplesArgs) {
         // Debugging
         // if self.counter % 500 == 0 {
         //     let ptr = args.block.as_ptr();
@@ -263,102 +396,45 @@ impl CustomPcmSource for ClipPcmSource {
         // }
         self.counter += 1;
         // Actual stuff
-        use ClipPcmSourceState::*;
-        match self.state {
-            Stopped => {}
-            Playing => unsafe {
-                if let Some(pos) = self.pos_within_clip() {
-                    // This means the clip is playing or about o play. At least not stopped.
-                    // We want to start playing as soon as we reach the scheduled start position,
-                    // that means pos == 0.0. In order to do that, we need to take into account that
-                    // the audio buffer start point is not necessarily equal to the measure start
-                    // point. If we would naively start playing as soon as pos >= 0.0, we might skip
-                    // the first samples/messages! We need to start playing as soon as the end of
-                    // the audio block is located on or right to the scheduled start point
-                    // (end_pos >= 0.0).
-                    let desired_sample_count = args.block.length();
-                    let sample_rate = args.block.sample_rate().get();
-                    let block_duration = desired_sample_count as f64 / sample_rate;
-                    let end_pos = PositionInSeconds::new_unchecked(pos.get() + block_duration);
-                    if end_pos < PositionInSeconds::ZERO {
-                        return;
-                    }
-                    if self.is_midi {
-                        // MIDI.
-                        // For MIDI it seems to be okay to start at a negative position. The source
-                        // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
-                        // offset.
-                        args.block.set_time_s(pos);
-                        self.inner.get_samples(args.block);
-                        let written_sample_count = args.block.samples_out();
-                        if written_sample_count < desired_sample_count {
-                            // We have reached the end of the clip and it doesn't fill the
-                            // complete block.
-                            if self.repeated {
-                                // Repeat. Fill rest of buffer with beginning of source.
-                                // We need to start from negative position so the frame
-                                // offset of the *added* MIDI events is correctly written.
-                                // The negative position should be as long as the duration of
-                                // samples already written.
-                                let written_duration = written_sample_count as f64 / sample_rate;
-                                let negative_pos =
-                                    PositionInSeconds::new_unchecked(-written_duration);
-                                args.block.set_time_s(negative_pos);
-                                args.block.set_length(desired_sample_count);
-                                self.inner.get_samples(args.block);
-                            } else {
-                                // Let preview register know that complete buffer has been
-                                // filled as desired in order to prevent retry (?) queries that
-                                // lead to double events.
-                                args.block.set_samples_out(desired_sample_count);
-                            }
-                        }
-                    } else {
-                        // Audio.
-                        if pos < PositionInSeconds::ZERO {
-                            // For audio, starting at a negative position leads to weird sounds.
-                            // That's why we need to query from 0.0 and
-                            // offset the provided sample buffer by that
-                            // amount.
-                            let sample_offset = (-pos.get() * sample_rate) as i32;
-                            args.block.set_time_s(PositionInSeconds::ZERO);
-                            with_shifted_samples(args.block, sample_offset, |b| {
-                                self.inner.get_samples(b);
-                            });
-                        } else {
-                            args.block.set_time_s(pos);
-                            self.inner.get_samples(args.block);
-                        }
-                        let written_sample_count = args.block.samples_out();
-                        if written_sample_count < desired_sample_count {
-                            // We have reached the end of the clip and it doesn't fill the
-                            // complete block.
-                            if self.repeated {
-                                // Repeat. Because we assume that the user cuts sources
-                                // sample-perfect, we must immediately fill the rest of the
-                                // buffer with the very
-                                // beginning of the source.
-                                // Audio. Start from zero and write just remaining samples.
-                                args.block.set_time_s(PositionInSeconds::ZERO);
-                                with_shifted_samples(args.block, written_sample_count, |b| {
-                                    self.inner.get_samples(b);
-                                });
-                                // Let preview register know that complete buffer has been filled.
-                                args.block.set_samples_out(desired_sample_count);
-                            } else {
-                                // Let preview register know that complete buffer has been
-                                // filled as desired in order to prevent retry (?) queries.
-                                args.block.set_samples_out(desired_sample_count);
-                            }
-                        }
-                    }
+        let info = match self.cursor_and_length_info() {
+            // Stopped
+            None => return,
+            // Running
+            Some(i) => i,
+        };
+        let running_state = info.cursor_info.running_state;
+        use RunPhase::*;
+        match running_state.phase {
+            Paused => {}
+            Retriggering => {
+                self.shut_up_if_midi(&args);
+                let new_state = RunningClipState {
+                    start_pos: info.cursor_info.cursor_pos,
+                    temporary_offset: PositionInSeconds::ZERO,
+                    phase: RunPhase::ScheduledOrPlaying,
+                };
+                self.state = ClipState::Running(new_state);
+                self.fill_samples(PositionInSeconds::ZERO, &mut args);
+            }
+            TransitioningToPause => {
+                self.shut_up_if_midi(&args);
+                let new_state = running_state.with_phase(RunPhase::Paused);
+                self.state = ClipState::Running(new_state);
+            }
+            TransitioningToStop => {
+                self.shut_up_if_midi(&args);
+                self.state = ClipState::Stopped;
+            }
+            ScheduledOrPlaying | ScheduledForStop(_) => {
+                if let Some(pos) = info.pos_within_clip() {
+                    self.fill_samples(pos, &mut args);
+                } else {
+                    let new_state = info
+                        .cursor_info
+                        .running_state
+                        .with_phase(RunPhase::TransitioningToStop);
+                    self.state = ClipState::Running(new_state);
                 }
-            },
-            FinishingStopping => {
-                if self.is_midi {
-                    send_all_notes_off(&args);
-                }
-                self.state = Stopped;
             }
         }
     }
@@ -397,7 +473,10 @@ impl CustomPcmSource for ClipPcmSource {
 
     unsafe fn extended(&mut self, args: ExtendedArgs) -> i32 {
         match args.call {
-            EXT_QUERY_STATE => self.query_state().into(),
+            EXT_QUERY_STATE => {
+                *(args.parm_1 as *mut ClipState) = self.query_state();
+                1
+            }
             EXT_SCHEDULE_START => {
                 let pos: PositionInSeconds = *(args.parm_1 as *mut _);
                 let repeated: bool = *(args.parm_2 as *mut _);
@@ -409,8 +488,8 @@ impl CustomPcmSource for ClipPcmSource {
                 self.start_immediately(repeated);
                 1
             }
-            EXT_RETRIGGER => {
-                self.retrigger();
+            EXT_PAUSE => {
+                self.pause();
                 1
             }
             EXT_SCHEDULE_STOP => {
@@ -420,10 +499,6 @@ impl CustomPcmSource for ClipPcmSource {
             }
             EXT_STOP_IMMEDIATELY => {
                 self.stop_immediately();
-                1
-            }
-            EXT_BACKPEDAL_FROM_SCHEDULED_STOP => {
-                self.backpedal_from_scheduled_stop();
                 1
             }
             EXT_SEEK_TO => {
@@ -436,11 +511,11 @@ impl CustomPcmSource for ClipPcmSource {
                 1
             }
             EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED => {
-                *(args.parm_1 as *mut f64) = if let Some(pos) = self.pos_within_clip() {
-                    pos.get()
-                } else {
-                    f64::NAN
-                };
+                *(args.parm_1 as *mut Option<PositionInSeconds>) = self.pos_within_clip();
+                1
+            }
+            EXT_QUERY_POS_FROM_START => {
+                *(args.parm_1 as *mut Option<PositionInSeconds>) = self.pos_from_start();
                 1
             }
             EXT_ENABLE_REPEAT => {
@@ -483,33 +558,40 @@ fn add_midi_event(args: &GetSamplesArgs, msg: RawShortMessage) {
 
 pub trait ClipPcmSourceSkills {
     /// Returns the state of this clip source.
-    fn query_state(&self) -> ClipPcmSourceState;
+    fn query_state(&self) -> ClipState;
 
     /// Schedules clip playing.
+    ///
+    /// - Reschedules if not yet playing.
+    /// - Retriggers if already playing and not scheduled for stop.
+    /// - Resumes immediately if paused.
+    /// - Backpedals if already playing and scheduled for stop.
     fn schedule_start(&mut self, pos: PositionInSeconds, repeated: bool);
 
     /// Starts playback immediately.
+    ///
+    /// - Retriggers if already playing and not scheduled for stop.
+    /// - Resumes immediately if paused.
+    /// - Backpedals if already playing and scheduled for stop.
     fn start_immediately(&mut self, repeated: bool);
 
-    /// Retriggers the clip (if currently playing).
-    fn retrigger(&mut self);
+    /// Pauses playback.
+    fn pause(&mut self);
 
     /// Schedules clip stop.
     ///
-    /// This only has an effect if the clip is not stopped.
+    /// - Backpedals from scheduled start if not yet playing.
+    /// - Stops immediately if paused.
     fn schedule_stop(&mut self, pos: ClipStopPosition);
 
     /// Stops playback immediately.
     ///
-    /// In case of MIDI, first sends all-notes/sound off.
+    /// - Backpedals from scheduled start if not yet playing.
     fn stop_immediately(&mut self);
-
-    /// "Undoes" a scheduled stop if user changes their mind.
-    fn backpedal_from_scheduled_stop(&mut self);
 
     /// Seeks to the given position within the clip.
     ///
-    /// This only has an effect if the clip is not stopped.
+    /// This only has an effect if the clip is already and still playing.
     fn seek_to(&mut self, pos: PositionInSeconds);
 
     /// Returns the clip length.
@@ -523,15 +605,24 @@ pub trait ClipPcmSourceSkills {
 
     /// Returns the position within the clip.
     ///
+    /// - Considers clip length.
     /// - Considers repeat.
     /// - Returns negative position if clip not yet playing.
-    /// - Returns `None` if not scheduled, if beyond scheduled stop or if clip length is zero.
-    /// - Returns (hypothetical) position even if not playing!
+    /// - Returns `None` if not scheduled, if single shot and reached end or if beyond scheduled
+    /// stop or if clip length is zero.
     fn pos_within_clip(&self) -> Option<PositionInSeconds>;
+
+    /// Returns the current position relative to the position at which the clip was scheduled for
+    /// playing, taking the temporary offset into account (for seeking and continue-after-pause).
+    ///
+    /// - Returns a negative position if scheduled for play but not yet playing.
+    /// - Neither the stop position nor the `repeated` field nor the clip length are considered
+    ///   in this method! So it's just a hypothetical position that's intended for further analysis.
+    fn pos_from_start(&self) -> Option<PositionInSeconds>;
 }
 
 impl ClipPcmSourceSkills for ClipPcmSource {
-    fn query_state(&self) -> ClipPcmSourceState {
+    fn query_state(&self) -> ClipState {
         self.state
     }
 
@@ -540,45 +631,89 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn start_immediately(&mut self, repeated: bool) {
-        self.start_internal(self.timeline_cursor_pos(), repeated);
+        self.start_internal(self.cursor_pos_on_timeline(), repeated);
     }
 
-    fn retrigger(&mut self) {
-        self.temporary_offset = PositionInSeconds::ZERO;
-        self.start_pos = Some(self.timeline_cursor_pos());
+    fn pause(&mut self) {
+        // TODO-high Implement pause
     }
 
     fn schedule_stop(&mut self, pos: ClipStopPosition) {
-        let internal_pos = match pos {
-            ClipStopPosition::At(p) => InternalClipStopPosition::At(p),
-            ClipStopPosition::AtEndOfClip => {
-                let pos_from_start = match self.pos_from_start() {
-                    None => return,
-                    Some(p) => p,
-                };
-                let current_repetition = match self.calculate_repetition(pos_from_start) {
-                    None => return,
-                    Some(r) => r,
-                };
-                InternalClipStopPosition::AtEndOfClipRepetition(current_repetition)
+        if let Some(info) = self.cursor_info() {
+            // Running.
+            use RunPhase::*;
+            match info.running_state.phase {
+                ScheduledOrPlaying => {
+                    if info.is_playing_already() {
+                        // Playing. Schedule stop.
+                        let info = self.create_cursor_and_length_info(info);
+                        self.state = if let Some(stop_pos) = info.determine_internal_stop_pos(pos) {
+                            let new_phase = ScheduledForStopPhase { stop_pos };
+                            let new_state = info
+                                .cursor_info
+                                .running_state
+                                .with_phase(RunPhase::ScheduledForStop(new_phase));
+                            ClipState::Running(new_state)
+                        } else {
+                            // Looks like we were actually not playing after all.
+                            ClipState::Stopped
+                        };
+                    } else {
+                        // Not yet playing. Backpedal.
+                        self.state = ClipState::Stopped;
+                    }
+                }
+                Paused => {
+                    self.state = ClipState::Stopped;
+                }
+                ScheduledForStop(_) | Retriggering | TransitioningToPause | TransitioningToStop => {
+                }
             }
-        };
-        self.stop_pos = Some(internal_pos)
+        }
     }
 
     fn stop_immediately(&mut self) {
-        self.temporary_offset = PositionInSeconds::ZERO;
-        self.start_pos = Some(PositionInSeconds::ZERO);
-        self.state = ClipPcmSourceState::FinishingStopping;
-    }
-
-    fn backpedal_from_scheduled_stop(&mut self) {
-        self.stop_pos = None;
+        if let Some(info) = self.cursor_info() {
+            // Running.
+            use RunPhase::*;
+            match info.running_state.phase {
+                ScheduledOrPlaying => {
+                    if info.is_playing_already() {
+                        // Playing. Transition to stop.
+                        self.state = ClipState::Running(
+                            info.running_state.with_phase(RunPhase::TransitioningToStop),
+                        );
+                    } else {
+                        // Not yet playing. Backpedal.
+                        self.state = ClipState::Stopped;
+                    }
+                }
+                Paused => {
+                    self.state = ClipState::Stopped;
+                }
+                ScheduledForStop(_) => {
+                    // Playing. Transition to stop.
+                    self.state = ClipState::Running(
+                        info.running_state.with_phase(RunPhase::TransitioningToStop),
+                    );
+                }
+                Retriggering | TransitioningToPause | TransitioningToStop => {}
+            }
+        }
     }
 
     fn seek_to(&mut self, pos: PositionInSeconds) {
-        let amount = self.pos_within_clip().unwrap_or_default() - pos;
-        self.temporary_offset = self.temporary_offset + amount;
+        if let Some(info) = self.cursor_and_length_info() {
+            if let Some(pos_within_clip) = info.pos_within_clip() {
+                let temporary_offset =
+                    info.cursor_info.running_state.temporary_offset + pos_within_clip - pos;
+                let new_state = info
+                    .cursor_info
+                    .running_state
+                    .with_temporary_offset(temporary_offset);
+                self.state = ClipState::Running(new_state);
+            }
+        }
     }
 
     fn inner_length(&self) -> DurationInSeconds {
@@ -590,15 +725,26 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn pos_within_clip(&self) -> Option<PositionInSeconds> {
-        let pos_from_start = self.pos_from_start()?;
-        self.calculate_pos_within_clip(pos_from_start)
+        self.cursor_and_length_info()?.pos_within_clip()
+    }
+
+    fn pos_from_start(&self) -> Option<PositionInSeconds> {
+        Some(self.cursor_info()?.pos_from_start())
     }
 }
 
 impl ClipPcmSourceSkills for BorrowedPcmSource {
-    fn query_state(&self) -> ClipPcmSourceState {
-        let state = unsafe { self.extended(EXT_QUERY_STATE, null_mut(), null_mut(), null_mut()) };
-        state.try_into().expect("invalid state")
+    fn query_state(&self) -> ClipState {
+        let mut state = ClipState::Stopped;
+        unsafe {
+            self.extended(
+                EXT_QUERY_STATE,
+                &mut state as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            )
+        };
+        state
     }
 
     fn schedule_start(&mut self, mut pos: PositionInSeconds, mut repeated: bool) {
@@ -623,12 +769,6 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         }
     }
 
-    fn retrigger(&mut self) {
-        unsafe {
-            self.extended(EXT_RETRIGGER, null_mut(), null_mut(), null_mut());
-        }
-    }
-
     fn schedule_stop(&mut self, mut pos: ClipStopPosition) {
         unsafe {
             self.extended(
@@ -640,20 +780,15 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         }
     }
 
-    fn stop_immediately(&mut self) {
+    fn pause(&mut self) {
         unsafe {
-            self.extended(EXT_STOP_IMMEDIATELY, null_mut(), null_mut(), null_mut());
+            self.extended(EXT_PAUSE, null_mut(), null_mut(), null_mut());
         }
     }
 
-    fn backpedal_from_scheduled_stop(&mut self) {
+    fn stop_immediately(&mut self) {
         unsafe {
-            self.extended(
-                EXT_BACKPEDAL_FROM_SCHEDULED_STOP,
-                null_mut(),
-                null_mut(),
-                null_mut(),
-            );
+            self.extended(EXT_STOP_IMMEDIATELY, null_mut(), null_mut(), null_mut());
         }
     }
 
@@ -688,7 +823,7 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
     }
 
     fn pos_within_clip(&self) -> Option<PositionInSeconds> {
-        let mut p = f64::NAN;
+        let mut p: Option<PositionInSeconds> = None;
         unsafe {
             self.extended(
                 EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED,
@@ -697,10 +832,20 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
                 null_mut(),
             );
         }
-        if p.is_nan() {
-            return None;
+        p
+    }
+
+    fn pos_from_start(&self) -> Option<PositionInSeconds> {
+        let mut p: Option<PositionInSeconds> = None;
+        unsafe {
+            self.extended(
+                EXT_QUERY_POS_FROM_START,
+                &mut p as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
         }
-        Some(PositionInSeconds::new(p))
+        p
     }
 }
 
@@ -709,6 +854,8 @@ trait PositionInSecondsExt {
 }
 
 impl PositionInSecondsExt for PositionInSeconds {
+    // TODO-high Check if this is the right thing to use in general and if yes, maybe also use it
+    //  in pos_from_start_considering_repeat_and_stop.
     fn has_reached(self, stop_pos: PositionInSeconds) -> bool {
         self > stop_pos || (stop_pos - self).get() < BASE_EPSILON
     }
@@ -731,3 +878,151 @@ unsafe fn with_shifted_samples(
     block.set_length(original_length);
     block.set_samples(original_samples);
 }
+
+struct CursorInfo<'a> {
+    running_state: &'a RunningClipState,
+    cursor_pos: PositionInSeconds,
+}
+
+impl<'a> CursorInfo<'a> {
+    fn is_playing_already(&self) -> bool {
+        self.pos_from_start() >= PositionInSeconds::ZERO
+    }
+
+    /// Returns the current position relative to the position at which the clip was scheduled for
+    /// playing, taking the temporary offset into account (for seeking and continue-after-pause).
+    ///
+    /// - Returns a negative position if scheduled for play but not yet playing.
+    /// - Neither the stop position nor the `repeated` field nor the clip length are considered
+    ///   in this method! So it's just a hypothetical position that's intended for further analysis.
+    fn pos_from_start(&self) -> PositionInSeconds {
+        self.cursor_pos - self.running_state.effective_start_pos()
+    }
+}
+
+struct CursorAndLengthInfo<'a> {
+    cursor_info: CursorInfo<'a>,
+    clip_length: DurationInSeconds,
+    repeated: bool,
+}
+
+impl<'a> CursorAndLengthInfo<'a> {
+    /// Returns the position within the clip.
+    ///
+    /// - Considers clip length.
+    /// - Considers repeat.
+    /// - Returns negative position if clip not yet playing.
+    /// - Returns `None` if not scheduled, if single shot and reached end or if beyond scheduled
+    /// stop or if clip length is zero.
+    pub fn pos_within_clip(&self) -> Option<PositionInSeconds> {
+        if !self.is_within_play_bounds() {
+            return None;
+        }
+        let pos_from_start = self.cursor_info.pos_from_start();
+        if pos_from_start < PositionInSeconds::ZERO {
+            // Count-in phase. Report negative position.
+            Some(pos_from_start)
+        } else {
+            // Playing.
+            pos_from_start % self.clip_length
+        }
+    }
+
+    pub fn determine_internal_stop_pos(
+        &self,
+        pos: ClipStopPosition,
+    ) -> Option<InternalClipStopPosition> {
+        let internal_pos = match pos {
+            ClipStopPosition::At(p) => InternalClipStopPosition::At(p),
+            ClipStopPosition::AtEndOfClip => {
+                if !self.is_within_play_bounds() {
+                    return None;
+                }
+                let current_repetition = self.current_repetition()?;
+                InternalClipStopPosition::AtEndOfClipRepetition(current_repetition)
+            }
+        };
+        Some(internal_pos)
+    }
+
+    /// Calculates in which repetition we are (starting with 0).
+    ///
+    /// Returns `None` if not yet playing or not repeated and clip length exceeded.
+    fn current_repetition(&self) -> Option<u32> {
+        let pos_from_start = self.cursor_info.pos_from_start();
+        if pos_from_start < PositionInSeconds::ZERO {
+            // Not playing yet.
+            None
+        } else if self.repeated {
+            // Playing and repeating.
+            Some((pos_from_start / self.clip_length).get() as u32)
+        } else if pos_from_start < self.clip_length {
+            // Not repeated and still within clip bounds.
+            Some(0)
+        } else {
+            // Not repeated and clip length exceeded.
+            None
+        }
+    }
+
+    pub fn is_within_play_bounds(&self) -> bool {
+        use RunPhase::*;
+        match &self.cursor_info.running_state.phase {
+            Retriggering | TransitioningToPause | Paused => true,
+            ScheduledOrPlaying => self.is_within_repeat_play_bounds(),
+            ScheduledForStop(s) => {
+                if !self.is_within_repeat_play_bounds() {
+                    return false;
+                }
+                let resolved_stop_pos = self.resolve_internal_stop_pos(s.stop_pos);
+                !self.cursor_info.cursor_pos.has_reached(resolved_stop_pos)
+            }
+            TransitioningToStop => return false,
+        }
+    }
+
+    fn is_within_repeat_play_bounds(&self) -> bool {
+        self.repeated || self.cursor_info.pos_from_start() <= self.clip_length
+    }
+
+    fn resolve_internal_stop_pos(&self, stop_pos: InternalClipStopPosition) -> PositionInSeconds {
+        match stop_pos {
+            InternalClipStopPosition::At(pos) => pos,
+            InternalClipStopPosition::AtEndOfClipRepetition(n) => {
+                self.cursor_info.running_state.effective_start_pos() + self.clip_length * (n + 1)
+            }
+        }
+    }
+}
+
+// TODO-medium Using this extended() mechanism is not very Rusty. The reason why we do it at the
+//  moment is that we acquire access to the source by accessing the `source` attribute of the
+//  preview register data structure. First, this can be *any* source in general, it's not
+//  necessarily a PCM source for clips. Okay, this is not the primary issue. In practice we make
+//  sure that it's only ever a PCM source for clips, so we could just do some explicit casting,
+//  right? No. The thing which we get back there is not a reference to our ClipPcmSource struct.
+//  It's the reaper-rs C++ PCM source, the one that delegates to our Rust struct. This C++ PCM
+//  source implements the C++ virtual base class that REAPER API requires and it owns our Rust
+//  struct. So if we really want to get rid of the extended() mechanism, we would have to access the
+//  ClipPcmSource directly, without taking the C++ detour. And how is this possible in a safe Rusty
+//  way that guarantees us that no one else is mutably accessing the source at the same time? By
+//  wrapping the source in a mutex. However, this would mean that all calls to that source, even
+//  the ones from REAPER would have to unlock the mutex first. For each source operation. That
+//  sounds like a bad idea (or is it not because happy path is fast)? Well, but the point is, we
+//  already have a mutex. The one around the preview register. This one is strictly necessary,
+//  even the REAPER API requires it. As long as we have that outer mutex locked, we should in theory
+//  be able to safely interact with our source directly from Rust. So in order to get rid of the
+//  extended() mechanism, we would have to provide a way to get a correctly typed reference to our
+//  original Rust struct. This itself is maybe possible by using some unsafe code, not sure.
+const EXT_QUERY_STATE: i32 = 2359769;
+const EXT_SCHEDULE_START: i32 = 2359771;
+const EXT_QUERY_INNER_LENGTH: i32 = 2359772;
+const EXT_ENABLE_REPEAT: i32 = 2359773;
+const EXT_DISABLE_REPEAT: i32 = 2359774;
+const EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED: i32 = 2359775;
+const EXT_SCHEDULE_STOP: i32 = 2359776;
+const EXT_SEEK_TO: i32 = 2359778;
+const EXT_STOP_IMMEDIATELY: i32 = 2359779;
+const EXT_START_IMMEDIATELY: i32 = 2359781;
+const EXT_QUERY_POS_FROM_START: i32 = 2359782;
+const EXT_PAUSE: i32 = 2359783;

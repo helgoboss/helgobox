@@ -29,6 +29,14 @@ impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
     }
 
     fn feedback_resolution(&self) -> Option<FeedbackResolution> {
+        // We always report beat resolution, even if feedback resolution is "high", in order to NOT
+        // be continuously queried on each main loop iteration as part of ReaLearn's generic main
+        // loop polling. There's a special clip polling logic in the main processor which detects
+        // if there were any position changes. If there were, process_change_event() will be
+        // called on the clip seek target. We need to do that special clip polling in any case.
+        // If we would doing it a second time in ReaLearn's generic main loop polling, that would be
+        // wasteful, in particular we would have to lock the clip preview register mutex twice
+        // per main loop.
         Some(FeedbackResolution::Beat)
     }
 }

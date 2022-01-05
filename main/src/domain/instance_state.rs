@@ -280,9 +280,9 @@ impl InstanceState {
             .filter(move |id| self.mapping_is_on(QualifiedMappingId::new(compartment, *id)))
     }
 
-    pub fn process_transport_change(&mut self, new_play_state: PlayState) {
+    pub fn process_transport_change(&mut self, project: Project, new_play_state: PlayState) {
         for (slot_index, slot) in self.clip_slots.iter_mut().enumerate() {
-            if let Ok(Some(event)) = slot.process_transport_change(new_play_state) {
+            if let Ok(Some(event)) = slot.process_transport_change(project, new_play_state) {
                 let instance_event = InstanceStateChanged::Clip { slot_index, event };
                 self.instance_feedback_event_sender
                     .try_send(instance_event)

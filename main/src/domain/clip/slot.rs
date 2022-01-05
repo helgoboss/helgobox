@@ -6,14 +6,16 @@ use enumflags2::BitFlags;
 use reaper_high::{OwnedSource, Project, Reaper, Track};
 use reaper_low::raw;
 use reaper_medium::{
-    create_custom_owned_pcm_source, DurationInSeconds, FlexibleOwnedPcmSource, MeasureAlignment,
-    MeasureMode, OwnedPreviewRegister, PlayState, PositionInBeats, PositionInSeconds, ReaperMutex,
-    ReaperMutexGuard, ReaperVolumeValue,
+    create_custom_owned_pcm_source, BorrowedPcmSource, DurationInSeconds, FlexibleOwnedPcmSource,
+    MeasureAlignment, MeasureMode, OwnedPreviewRegister, PlayState, PositionInBeats,
+    PositionInSeconds, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
 };
 
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
-use crate::domain::clip::clip_source::{ClipPcmSource, ClipPcmSourceSkills, ClipStopPosition};
+use crate::domain::clip::clip_source::{
+    ClipPcmSource, ClipPcmSourceSkills, ClipState, ClipStopPosition, RunPhase,
+};
 use crate::domain::clip::{Clip, ClipChangedEvent, ClipContent, ClipPlayState};
 
 /// Represents an actually playable clip slot.
@@ -174,7 +176,7 @@ impl ClipSlot {
 
     /// Returns the play state of this slot, derived from the slot state.  
     pub fn play_state(&self) -> ClipPlayState {
-        self.state.play_state()
+        self.state.play_state(&self.register)
     }
 
     /// Generates a change event from the current play state of this slot.
@@ -215,15 +217,18 @@ impl ClipSlot {
     /// start/stop synchronized with REAPER's transport.
     pub fn process_transport_change(
         &mut self,
+        project: Project,
         new_play_state: PlayState,
     ) -> Result<Option<ClipChangedEvent>, &'static str> {
         if !self.clip.repeat {
             // One-shots should not be synchronized with main timeline.
             return Ok(None);
         }
-        let result = self
-            .start_transition()
-            .process_transport_change(&self.register, new_play_state);
+        let result = self.start_transition().process_transport_change(
+            &self.register,
+            new_play_state,
+            project,
+        );
         self.finish_transition(result)?;
         Ok(Some(self.play_state_changed_event()))
     }
@@ -290,7 +295,7 @@ impl ClipSlot {
     pub fn proportional_position(&self) -> Result<UnitValue, &'static str> {
         let guard = lock(&self.register);
         let src = guard.src().ok_or(NO_SOURCE_LOADED)?;
-        if !matches!(self.state, State::Playing(_)) {
+        if matches!(self.state, State::Empty) {
             return Ok(UnitValue::MIN);
         }
         let src = src.as_ref();
@@ -304,7 +309,7 @@ impl ClipSlot {
     pub fn position_in_seconds(&self) -> Result<PositionInSeconds, &'static str> {
         let guard = lock(&self.register);
         let src = guard.src().ok_or(NO_SOURCE_LOADED)?;
-        if !matches!(self.state, State::Playing(_)) {
+        if matches!(self.state, State::Empty) {
             return Ok(PositionInSeconds::ZERO);
         }
         Ok(src.as_ref().pos_within_clip().unwrap_or_default())
@@ -342,34 +347,20 @@ impl ClipSlot {
 type TransitionResult = Result<State, (State, &'static str)>;
 
 /// The internal state of a slot.
-///
-/// This enum is essentially a state machine and the methods are functional transitions.  
 #[derive(Debug)]
 enum State {
     Empty,
-    Suspended(SuspendedState),
-    Playing(PlayingState),
+    Filled(FilledState),
     Transitioning,
 }
 
 impl State {
     /// Derives the corresponding clip play state.
-    pub fn play_state(&self) -> ClipPlayState {
+    pub fn play_state(&self, reg: &SharedRegister) -> ClipPlayState {
         use State::*;
         match self {
             Empty => ClipPlayState::Stopped,
-            Suspended(s) => {
-                if s.is_paused {
-                    ClipPlayState::Paused
-                } else {
-                    ClipPlayState::Stopped
-                }
-            }
-            Playing(s) => match s.scheduled_for {
-                None => ClipPlayState::Playing,
-                Some(ScheduledFor::Play) => ClipPlayState::ScheduledForPlay,
-                Some(ScheduledFor::Stop) => ClipPlayState::ScheduledForStop,
-            },
+            Filled(s) => s.play_state(reg),
             Transitioning => unreachable!(),
         }
     }
@@ -378,34 +369,50 @@ impl State {
         self,
         reg: &SharedRegister,
         new_play_state: PlayState,
+        project: Project,
     ) -> TransitionResult {
-        use State::*;
         match self {
-            Suspended(s) if s.was_caused_by_transport_change => {
-                if new_play_state.is_playing && !new_play_state.is_paused {
-                    if let Some(play_args) = s.last_play_args.clone() {
-                        if play_args.options.next_bar {
-                            s.play(reg, play_args)
-                        } else {
-                            Ok(Suspended(s))
+            State::Empty => Ok(State::Empty),
+            State::Filled(s) => {
+                if let Some(play_args) = s.last_play_args.clone() {
+                    // Clip was started once already.
+                    if play_args.options.next_bar {
+                        // Clip was started in sync with project.
+                        // TODO-high The reactions here are sometimes not what we want.
+                        //  Define for each initial clip state what we would expect first!
+                        use ClipPlayState::*;
+                        match s.play_state(reg) {
+                            Stopped | Paused
+                                if s.was_caused_by_transport_change
+                                    && new_play_state.is_playing
+                                    && !new_play_state.is_paused =>
+                            {
+                                // Clip is stopped/paused due to previous transport change.
+                                // REAPER transport was started from stop or paused state.
+                                // Play the clip (synchronized to the next bar).
+                                s.play(reg, play_args)
+                            }
+                            ScheduledForPlay | Playing | ScheduledForStop => {
+                                // Clip is playing
+                                if new_play_state.is_playing && !new_play_state.is_paused {
+                                    // REAPER transport was started from stop or paused state.
+                                    Ok(State::Filled(s))
+                                } else if new_play_state.is_paused {
+                                    s.pause(reg, true)
+                                } else {
+                                    s.stop(reg, SlotStopBehavior::Immediately, true, project)
+                                }
+                            }
+                            _ => Ok(State::Filled(s)),
                         }
                     } else {
-                        Ok(Suspended(s))
+                        Ok(State::Filled(s))
                     }
                 } else {
-                    Ok(Suspended(s))
+                    Ok(State::Filled(s))
                 }
             }
-            Playing(s) if s.args.options.next_bar => {
-                if new_play_state.is_playing {
-                    Ok(Playing(s))
-                } else if new_play_state.is_paused {
-                    s.pause(reg, true)
-                } else {
-                    s.stop_immediately(reg, true)
-                }
-            }
-            s => Ok(s),
+            State::Transitioning => unreachable!(),
         }
     }
 
@@ -413,8 +420,7 @@ impl State {
         use State::*;
         match self {
             Empty => Err((Empty, "slot is empty")),
-            Suspended(s) => s.play(reg, args),
-            Playing(s) => s.play(reg, args),
+            Filled(s) => s.play(reg, args),
             Transitioning => unreachable!(),
         }
     }
@@ -428,8 +434,7 @@ impl State {
         use State::*;
         match self {
             Empty => Ok(Empty),
-            Suspended(s) => s.stop(reg),
-            Playing(s) => s.stop(reg, stop_behavior, false, project),
+            Filled(s) => s.stop(reg, stop_behavior, false, project),
             Transitioning => unreachable!(),
         }
     }
@@ -437,8 +442,8 @@ impl State {
     pub fn pause(self, reg: &SharedRegister) -> TransitionResult {
         use State::*;
         match self {
-            s @ Empty | s @ Suspended(_) => Ok(s),
-            Playing(s) => s.pause(reg, false),
+            Empty => Ok(Empty),
+            Filled(s) => s.pause(reg, false),
             Transitioning => unreachable!(),
         }
     }
@@ -447,8 +452,7 @@ impl State {
         use State::*;
         match self {
             Empty => Ok(Empty),
-            Suspended(s) => s.clear(reg),
-            Playing(s) => s.clear(reg),
+            Filled(s) => s.clear(reg),
             Transitioning => unreachable!(),
         }
     }
@@ -456,8 +460,10 @@ impl State {
     pub fn poll(self, reg: &SharedRegister) -> (TransitionResult, Option<ClipChangedEvent>) {
         use State::*;
         match self {
-            Playing(s) => s.poll(reg),
-            _ => (Ok(self), None),
+            Filled(s) => s.poll(reg),
+            // When empty, change nothing and emit no change events.
+            Empty => (Ok(self), None),
+            Transitioning => unreachable!(),
         }
     }
 
@@ -468,11 +474,17 @@ impl State {
         use State::*;
         match self {
             Empty => {
-                let next_state = fill_with_source_if_empty_or_suspended(source, reg);
-                Ok(next_state)
+                let mut g = lock(reg);
+                g.set_src(Some(source));
+                let new_state = FilledState {
+                    last_play_state: ClipPlayState::Stopped,
+                    handle: None,
+                    last_play_args: None,
+                    was_caused_by_transport_change: false,
+                };
+                Ok(State::Filled(new_state))
             }
-            Suspended(s) => s.fill_with_source(source, reg),
-            Playing(s) => s.fill_with_source(source, reg),
+            Filled(s) => s.fill_with_source(source, reg),
             Transitioning => unreachable!(),
         }
     }
@@ -507,8 +519,6 @@ fn stop_playing_preview(track: Option<&Track>, handle: NonNull<raw::preview_regi
         // Check prevents error message on project close.
         let project = track.project();
         if project.is_available() {
-            // TODO-high We need to stop the preview when polling and detecting that finally
-            //  stopped.
             // If not successful this probably means it was stopped already, so okay.
             let _ = Reaper::get()
                 .medium_session()
@@ -521,8 +531,9 @@ fn stop_playing_preview(track: Option<&Track>, handle: NonNull<raw::preview_regi
 }
 
 #[derive(Debug)]
-struct SuspendedState {
-    is_paused: bool,
+struct FilledState {
+    last_play_state: ClipPlayState,
+    handle: Option<NonNull<raw::preview_register_t>>,
     last_play_args: Option<ClipPlayArgs>,
     was_caused_by_transport_change: bool,
 }
@@ -535,34 +546,36 @@ struct ClipPlayArgs {
     repeat: bool,
 }
 
-fn fill_with_source_if_empty_or_suspended(
-    source: FlexibleOwnedPcmSource,
-    reg: &SharedRegister,
-) -> State {
-    let mut g = lock(reg);
-    g.set_src(Some(source));
-    let new_state = SuspendedState {
-        is_paused: false,
-        last_play_args: None,
-        was_caused_by_transport_change: false,
-    };
-    State::Suspended(new_state)
-}
-
-impl SuspendedState {
+impl FilledState {
     pub fn fill_with_source(
         self,
         source: FlexibleOwnedPcmSource,
         reg: &SharedRegister,
     ) -> TransitionResult {
-        let next_state = fill_with_source_if_empty_or_suspended(source, reg);
-        Ok(next_state)
+        let mut g = lock(reg);
+        g.set_src(Some(source));
+        Ok(State::Filled(self))
     }
 
     pub fn play(self, reg: &SharedRegister, args: ClipPlayArgs) -> TransitionResult {
         {
             let mut guard = lock(reg);
-            guard.set_preview_track(args.track.as_ref().map(|t| t.raw()));
+            // Handle preview track.
+            if let Some(last_play_args) = &self.last_play_args {
+                // We played this clip before.
+                if last_play_args.track.as_ref() != args.track.as_ref() {
+                    // The of this play is different from the track of the last play.
+                    // TODO-high Handle track change decently. If we are currently playing, we can't
+                    //  just change the preview register track. We need to send all notes off before
+                    //  (TransitioningToTrackChange) and put the source into a ReadyForTrackChange
+                    //  state. We detect that by slot polling and can then change the preview register
+                    //  track and call the source with ContinueAfterTrackChange.
+                }
+            } else {
+                // We haven't played this clip already. Set preview track!
+                guard.set_preview_track(args.track.as_ref().map(|t| t.raw()));
+            }
+            // Start clip.
             if let Some(src) = guard.src_mut() {
                 if args.options.next_bar {
                     let scheduled_pos = get_next_bar_pos(args.project);
@@ -572,108 +585,35 @@ impl SuspendedState {
                 };
             }
         }
-        let handle = start_playing_preview(args.track.as_ref(), reg)
-            .map_err(|text| (State::Suspended(self), text))?;
-        let scheduling_state = if args.options.next_bar {
-            Some(ScheduledFor::Play)
+        let was_caused_by_transport_change = self.was_caused_by_transport_change;
+        let last_play_state = self.last_play_state;
+        let handle = if let Some(handle) = self.handle {
+            // Preview register playing already.
+            handle
         } else {
-            None
+            // Preview register not playing yet. Start playing!
+            start_playing_preview(args.track.as_ref(), reg)
+                .map_err(|text| (State::Filled(self), text))?
         };
-        let next_state = PlayingState {
-            handle,
-            args,
-            scheduled_for: scheduling_state,
+        let next_state = FilledState {
+            handle: Some(handle),
+            last_play_args: Some(args),
+            was_caused_by_transport_change,
+            last_play_state,
         };
-        Ok(State::Playing(next_state))
+        Ok(State::Filled(next_state))
     }
 
-    pub fn stop(self, reg: &SharedRegister) -> TransitionResult {
-        let next_state = State::Suspended(self);
-        let mut g = lock(reg);
-        // Reset position. Only has an effect if "Next bar" disabled.
-        // TODO-high This is if we are paused and want to reset the position. We need to inform
-        //  the source about this!
-        // g.set_cur_pos(PositionInSeconds::new(0.0));
-        Ok(next_state)
-    }
-
-    pub fn clear(self, reg: &SharedRegister) -> TransitionResult {
-        let mut g = lock(reg);
-        g.set_src(None);
-        Ok(State::Empty)
-    }
-}
-
-#[derive(Debug)]
-struct PlayingState {
-    handle: NonNull<raw::preview_register_t>,
-    args: ClipPlayArgs,
-    scheduled_for: Option<ScheduledFor>,
-}
-
-#[derive(Debug)]
-enum ScheduledFor {
-    /// Not yet playing but will soon. Final play detection done by polling.
-    Play,
-    /// Still playing but will stop soon. Final stop detection done by polling.
-    Stop,
-}
-
-impl PlayingState {
-    pub fn play(self, reg: &SharedRegister, args: ClipPlayArgs) -> TransitionResult {
-        if self.args.track.as_ref() != args.track.as_ref() {
-            // Track change!
-            self.suspend(reg, true, false).play(reg, args)
-        } else {
-            // No track change.
-            let next_state = match self.scheduled_for {
-                None => {
-                    // Retrigger!
-                    let mut guard = lock(reg);
-                    guard
-                        .src_mut()
-                        .expect(NO_SOURCE_LOADED)
-                        .as_mut()
-                        .retrigger();
-                    let playing = PlayingState {
-                        scheduled_for: if self.args.options.next_bar {
-                            // REAPER won't start playing until the next bar starts.
-                            Some(ScheduledFor::Play)
-                        } else {
-                            None
-                        },
-                        ..self
-                    };
-                    State::Playing(playing)
-                }
-                Some(ScheduledFor::Play) => {
-                    // Nothing to do.
-                    State::Playing(self)
-                }
-                Some(ScheduledFor::Stop) => {
-                    // Backpedal (undo schedule for stop)!
-                    let mut guard = lock(reg);
-                    if let Some(src) = guard.src_mut() {
-                        src.as_mut().backpedal_from_scheduled_stop();
-                    }
-                    State::Playing(PlayingState {
-                        scheduled_for: None,
-                        ..self
-                    })
-                }
-            };
-            Ok(next_state)
+    pub fn pause(self, reg: &SharedRegister, caused_by_transport_change: bool) -> TransitionResult {
+        let mut guard = lock(reg);
+        if let Some(src) = guard.src_mut() {
+            src.as_mut().pause();
         }
-    }
-
-    pub fn fill_with_source(
-        self,
-        source: FlexibleOwnedPcmSource,
-        reg: &SharedRegister,
-    ) -> TransitionResult {
-        let mut g = lock(reg);
-        g.set_src(Some(source));
-        Ok(State::Playing(self))
+        let next_state = FilledState {
+            was_caused_by_transport_change: caused_by_transport_change,
+            ..self
+        };
+        Ok(State::Filled(next_state))
     }
 
     pub fn stop(
@@ -683,163 +623,103 @@ impl PlayingState {
         caused_by_transport_change: bool,
         project: Project,
     ) -> TransitionResult {
-        use SlotStopBehavior::*;
-        match stop_behavior {
-            Immediately => self.stop_immediately(reg, caused_by_transport_change),
-            EndOfBar | EndOfClip => {
-                match self.scheduled_for {
-                    None => {
-                        // Schedule stop.
-                        let mut guard = lock(reg);
-                        if let Some(src) = guard.src_mut() {
-                            let scheduled_pos = self.get_clip_stop_position(stop_behavior, project);
-                            src.as_mut().schedule_stop(scheduled_pos)
-                        }
-                        let playing = PlayingState {
-                            scheduled_for: Some(ScheduledFor::Stop),
-                            ..self
-                        };
-                        Ok(State::Playing(playing))
-                    }
-                    Some(ScheduledFor::Play) => {
-                        // We haven't even started playing yet! Okay, let's backpedal.
-                        // This is currently not reachable in "Toggle button" mode because we consider
-                        // "Scheduled for play" as 25% which is from the perspective of toggle mode
-                        // still "off". So it will only send an "on" signal.
-                        let suspended = self.suspend(reg, false, caused_by_transport_change);
-                        Ok(State::Suspended(suspended))
-                    }
-                    Some(ScheduledFor::Stop) => {
-                        // We are scheduled for stop already. Take that as a request for immediate
-                        // stop.
-                        let suspended =
-                            self.stop_immediately_internal(reg, caused_by_transport_change);
-                        Ok(State::Suspended(suspended))
-                    }
+        let mut guard = lock(reg);
+        if let Some(src) = guard.src_mut() {
+            use SlotStopBehavior::*;
+            match stop_behavior {
+                Immediately => {
+                    src.as_mut().stop_immediately();
+                }
+                EndOfBar | EndOfClip => {
+                    src.as_mut()
+                        .schedule_stop(stop_behavior.get_clip_stop_position(project));
                 }
             }
         }
-    }
-
-    fn stop_immediately(
-        self,
-        reg: &SharedRegister,
-        caused_by_transport_change: bool,
-    ) -> TransitionResult {
-        let suspended = self.stop_immediately_internal(reg, caused_by_transport_change);
-        Ok(State::Suspended(suspended))
-    }
-
-    fn get_clip_stop_position(
-        &self,
-        stop_behavior: SlotStopBehavior,
-        project: Project,
-    ) -> ClipStopPosition {
-        use SlotStopBehavior::*;
-        match stop_behavior {
-            EndOfBar => ClipStopPosition::At(get_next_bar_pos(project)),
-            EndOfClip => ClipStopPosition::AtEndOfClip,
-            Immediately => unimplemented!("not used"),
-        }
-    }
-
-    fn stop_immediately_internal(
-        self,
-        reg: &SharedRegister,
-        caused_by_transport_change: bool,
-    ) -> SuspendedState {
-        self.suspend(reg, false, caused_by_transport_change)
+        let next_state = FilledState {
+            was_caused_by_transport_change: caused_by_transport_change,
+            ..self
+        };
+        Ok(State::Filled(next_state))
     }
 
     pub fn clear(self, reg: &SharedRegister) -> TransitionResult {
-        self.suspend(reg, false, false).clear(reg)
+        // TODO-high Handle this decently. If we are currently playing, we can't
+        //  just clear the source. We need to send all notes off before
+        //  (TransitioningToSourceChange) and put the source into a ReadyForSourceChange
+        //  state. We detect that by slot polling and can then clear the source.
+        let mut g = lock(reg);
+        g.set_src(None);
+        Ok(State::Empty)
     }
 
-    pub fn pause(self, reg: &SharedRegister, caused_by_transport_change: bool) -> TransitionResult {
-        let next_state = self.suspend(reg, true, caused_by_transport_change);
-        Ok(State::Suspended(next_state))
+    pub fn play_state(&self, reg: &SharedRegister) -> ClipPlayState {
+        let guard = lock(reg);
+        let src = guard.src().expect(NO_SOURCE_LOADED).as_ref();
+        get_play_state(src)
     }
 
     pub fn poll(self, reg: &SharedRegister) -> (TransitionResult, Option<ClipChangedEvent>) {
-        let (pos_within_clip, length) = {
+        // TODO-medium We can optimize this by getting everything at once.
+        let (play_state, pos_within_clip, length) = {
             // React gracefully even in weird situations (because we are in poll).
             let guard = match reg.lock() {
                 Ok(g) => g,
-                Err(_) => return (Ok(State::Playing(self)), None),
+                Err(_) => return (Ok(State::Filled(self)), None),
             };
             let src = match guard.src() {
                 Some(s) => s,
-                None => return (Ok(State::Playing(self)), None),
+                None => return (Ok(State::Filled(self)), None),
             };
             let src = src.as_ref();
             let pos_within_clip = src.pos_within_clip();
             let length = src.inner_length();
-            (pos_within_clip, length)
+            let play_state = get_play_state(src);
+            (play_state, pos_within_clip, length)
         };
-        let (next_state, event) = match self.scheduled_for {
-            None | Some(ScheduledFor::Stop) => {
-                // Playing normally or scheduled for stop.
-                if pos_within_clip.is_some() {
-                    // Still playing
-                    (Ok(State::Playing(self)), None)
-                } else {
-                    // Not playing anymore. Make it official! If we let the preview running,
-                    // nothing will happen because it's not looped but the preview will still be
-                    // active (e.g. respond to position changes) - which can't be good.
-                    (
-                        self.stop_immediately(reg, false),
-                        Some(ClipChangedEvent::PlayState(ClipPlayState::Stopped)),
-                    )
-                }
-            }
-            Some(ScheduledFor::Play) => {
-                if let Some(p) = pos_within_clip {
-                    if p < PositionInSeconds::ZERO {
-                        // Still counting in.
-                        (Ok(State::Playing(self)), None)
+        let (next_state, event) = if play_state == self.last_play_state {
+            (Ok(State::Filled(self)), None)
+        } else {
+            use ClipPlayState::*;
+            let remove_handle = match play_state {
+                // TODO-high Problem: We will probably emit obsolete pos change events if stopped and
+                //  paused.
+                Stopped | Paused => {
+                    if let Some(handle) = self.handle {
+                        stop_playing_preview(
+                            self.last_play_args.as_ref().and_then(|a| a.track.as_ref()),
+                            handle,
+                        );
+                        true
                     } else {
-                        // Actual play detected. Make it official.
-                        let next_playing_state = PlayingState {
-                            scheduled_for: None,
-                            ..self
-                        };
-                        (
-                            Ok(State::Playing(next_playing_state)),
-                            Some(ClipChangedEvent::PlayState(ClipPlayState::Playing)),
-                        )
+                        false
                     }
-                } else {
-                    // Probably length zero.
-                    (
-                        self.stop_immediately(reg, false),
-                        Some(ClipChangedEvent::PlayState(ClipPlayState::Stopped)),
-                    )
                 }
-            }
+                _ => false,
+            };
+            let new_state = if remove_handle {
+                FilledState {
+                    last_play_state: play_state,
+                    handle: None,
+                    ..self
+                }
+            } else {
+                FilledState {
+                    last_play_state: play_state,
+                    ..self
+                }
+            };
+            (
+                Ok(State::Filled(new_state)),
+                Some(ClipChangedEvent::PlayState(play_state)),
+            )
         };
+        // If no other change event is detected, we emit the position.
         let final_event = event.unwrap_or_else(|| {
             let position = calculate_proportional_position(pos_within_clip, length);
             ClipChangedEvent::ClipPosition(position)
         });
         (next_state, Some(final_event))
-    }
-
-    fn suspend(
-        self,
-        reg: &SharedRegister,
-        pause: bool,
-        caused_by_transport_change: bool,
-    ) -> SuspendedState {
-        let mut guard = lock(reg);
-        if let Some(src) = guard.src_mut() {
-            // TODO-high Respect pause!
-            src.as_mut().stop_immediately();
-        }
-        SuspendedState {
-            is_paused: pause,
-            last_play_args: Some(self.args),
-            was_caused_by_transport_change: caused_by_transport_change,
-        }
     }
 }
 
@@ -856,6 +736,17 @@ pub enum SlotStopBehavior {
     Immediately,
     EndOfBar,
     EndOfClip,
+}
+
+impl SlotStopBehavior {
+    fn get_clip_stop_position(&self, project: Project) -> ClipStopPosition {
+        use SlotStopBehavior::*;
+        match self {
+            EndOfBar => ClipStopPosition::At(get_next_bar_pos(project)),
+            EndOfClip => ClipStopPosition::AtEndOfClip,
+            Immediately => unimplemented!("not used"),
+        }
+    }
 }
 
 /// Contains instructions how to play a clip.
@@ -904,6 +795,34 @@ fn get_next_bar_pos(project: Project) -> PositionInSeconds {
         MeasureMode::FromMeasureAtIndex(next_measure_index),
         PositionInBeats::ZERO,
     )
+}
+
+fn get_play_state(src: &BorrowedPcmSource) -> ClipPlayState {
+    match src.query_state() {
+        ClipState::Stopped => ClipPlayState::Stopped,
+        ClipState::Running(s) => {
+            use RunPhase::*;
+            match s.phase {
+                ScheduledOrPlaying => {
+                    if let Some(pos_from_start) = src.pos_from_start() {
+                        if pos_from_start < PositionInSeconds::ZERO {
+                            ClipPlayState::ScheduledForPlay
+                        } else {
+                            ClipPlayState::Playing
+                        }
+                    } else {
+                        // TODO-high Improve
+                        // Not running after all
+                        ClipPlayState::Stopped
+                    }
+                }
+                Retriggering => ClipPlayState::Playing,
+                TransitioningToPause | Paused => ClipPlayState::Paused,
+                ScheduledForStop(_) => ClipPlayState::ScheduledForStop,
+                TransitioningToStop => ClipPlayState::Stopped,
+            }
+        }
+    }
 }
 
 const NO_SOURCE_LOADED: &str = "no source loaded";

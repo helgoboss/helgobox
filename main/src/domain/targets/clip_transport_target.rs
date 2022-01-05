@@ -167,7 +167,7 @@ impl RealearnTarget for ClipTransportTarget {
             CompoundChangeEvent::Reaper(ChangeEvent::PlayStateChanged(e)) => {
                 // Feedback handled from instance-scoped feedback events.
                 let mut instance_state = context.instance_state.borrow_mut();
-                instance_state.process_transport_change(e.new_value);
+                instance_state.process_transport_change(e.project, e.new_value);
                 (false, None)
             }
             CompoundChangeEvent::Instance(InstanceStateChanged::Clip {

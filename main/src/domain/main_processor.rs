@@ -547,7 +547,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.process_normal_tasks_from_session();
         self.process_parameter_tasks();
         self.process_feedback_tasks();
-        self.poll_slots();
+        self.poll_clip_slots();
         self.process_instance_feedback_events();
         self.poll_for_feedback()
     }
@@ -660,7 +660,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn poll_slots(&mut self) {
+    fn poll_clip_slots(&mut self) {
         // TODO-medium This is polled on each main loop cycle. As soon as we have more than 8 slots,
         //  We should introduce a set that contains the currently filled or playing slot numbers
         //  iterate over them only instead of all slots.
@@ -677,6 +677,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // Mappings with slot seek targets are in the beat-dependent feedback
                     // mapping set, not in the milli-dependent one (because we don't want to
                     // query their feedback value more than once in one main loop cycle).
+                    // So we don't want to iterate over all mappings but just the beat-dependent
+                    // ones.
                     for compartment in MappingCompartment::enum_iter() {
                         for mapping_id in
                             self.collections.beat_dependent_feedback_mappings[compartment].iter()
