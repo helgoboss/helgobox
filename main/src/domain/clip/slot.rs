@@ -96,7 +96,7 @@ impl ClipSlot {
             // Nothing to load
             return Ok(());
         };
-        self.fill_with_source(source)?;
+        self.fill_with_source(source, project)?;
         Ok(())
     }
 
@@ -107,16 +107,20 @@ impl ClipSlot {
         project: Option<Project>,
     ) -> Result<(), &'static str> {
         let source = content.create_source(project)?;
-        self.fill_with_source(source)?;
+        self.fill_with_source(source, project)?;
         // Here it's important to not set the descriptor (change things) unless load was successful.
         self.clip.content = Some(content);
         Ok(())
     }
 
-    fn fill_with_source(&mut self, source: OwnedSource) -> Result<(), &'static str> {
+    fn fill_with_source(
+        &mut self,
+        source: OwnedSource,
+        project: Option<Project>,
+    ) -> Result<(), &'static str> {
         let result = self
             .start_transition()
-            .fill_with_source(source, &self.register);
+            .fill_with_source(source, &self.register, project);
         self.finish_transition(result)
     }
 
@@ -467,8 +471,13 @@ impl State {
         }
     }
 
-    pub fn fill_with_source(self, source: OwnedSource, reg: &SharedRegister) -> TransitionResult {
-        let source = ClipPcmSource::new(source.into_raw());
+    pub fn fill_with_source(
+        self,
+        source: OwnedSource,
+        reg: &SharedRegister,
+        project: Option<Project>,
+    ) -> TransitionResult {
+        let source = ClipPcmSource::new(source.into_raw(), project);
         let source = create_custom_owned_pcm_source(source);
         let source = FlexibleOwnedPcmSource::Custom(source);
         use State::*;

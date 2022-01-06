@@ -4,11 +4,11 @@ use std::ptr::null_mut;
 
 use helgoboss_learn::BASE_EPSILON;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
-use reaper_high::Reaper;
+use reaper_high::{Project, Reaper};
 use reaper_medium::{
     BorrowedPcmSource, BorrowedPcmSourceTransfer, CustomPcmSource, DurationInBeats,
     DurationInSeconds, ExtendedArgs, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MidiEvent,
-    OwnedPcmSource, PcmSource, PeaksClearArgs, PositionInSeconds, ProjectContext,
+    OwnedPcmSource, PcmSource, PeaksClearArgs, PositionInSeconds,
     PropertiesWindowArgs, ReaperStr, SaveStateArgs, SetAvailableArgs, SetFileNameArgs,
     SetSourceArgs,
 };
@@ -28,8 +28,10 @@ pub struct ClipPcmSource {
     /// It doesn't change throughout the lifetime of this clip source, although I think it could.
     inner: OwnedPcmSource,
     /// Caches the information if the inner clip source contains MIDI or audio material.
-    // TODO-high Put this into one struct together with `inner`.
+    // TODO-medium Put this into one struct together with `inner`.
     is_midi: bool,
+    /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
+    project: Option<Project>,
     /// Whether the clip is repeated.
     ///
     /// This can change during the lifetime of this clip.
@@ -117,10 +119,11 @@ enum InternalClipStopPosition {
 
 impl ClipPcmSource {
     /// Wraps the given native REAPER PCM source.
-    pub fn new(inner: OwnedPcmSource) -> Self {
+    pub fn new(inner: OwnedPcmSource, project: Option<Project>) -> Self {
         let is_midi = pcm_source_is_midi(&inner);
         Self {
             inner,
+            project,
             counter: 0,
             repeated: false,
             is_midi,
@@ -178,9 +181,13 @@ impl ClipPcmSource {
         self.state = ClipState::Running(new_state);
     }
 
+    fn project(&self) -> Project {
+        self.project.unwrap_or_else(|| Reaper::get().current_project())
+    }
+
     /// Returns the position of the cursor on the parent timeline.
     fn timeline_cursor_pos(&self) -> PositionInSeconds {
-        // TODO-high Save and use actual project in source.
+        self.project().play_position_next_audio_block()
         Reaper::get()
             .medium_reaper()
             .get_play_position_2_ex(ProjectContext::CurrentProject)
