@@ -325,7 +325,7 @@ impl ClipSlot {
         let source = source.as_mut();
         let length = source.inner_length();
         let desired_pos_in_secs =
-            PositionInSeconds::new(desired_proportional_pos.get() * length.get());
+            DurationInSeconds::new(desired_proportional_pos.get() * length.get());
         source.seek_to(desired_pos_in_secs);
         Ok(ClipChangedEvent::ClipPosition(desired_proportional_pos))
     }

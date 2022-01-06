@@ -1,3 +1,4 @@
+use std::convert::TryInto;
 use std::error::Error;
 use std::ptr::null_mut;
 
@@ -59,26 +60,25 @@ impl ClipState {
 #[derive(Copy, Clone, Debug)]
 pub struct RunningClipState {
     pub start_pos: PositionInSeconds,
-    pub temporary_offset: PositionInSeconds,
+    /// The cursor within the clip will be adjusted by this value.
+    ///
+    /// When playing, this is used for (temporary) seeking within the clip. For example, seeking
+    /// forward is achieved by increasing the offset.
+    ///
+    /// When paused, this contains the position within the clip at the time the clip was paused.
+    pub clip_cursor_offset: DurationInSeconds,
     pub phase: RunPhase,
 }
 
 impl RunningClipState {
-    /// Returns the absolute start position on the timeline adjusted by the temporary offset which
-    /// is used as offset for play-cursor seeking and continue-after-pause.
+    /// Returns the absolute start position on the timeline adjusted by the clip cursor offset which
+    /// is used as offset for clip seeking and resume-after-pause.
     pub fn effective_start_pos(&self) -> PositionInSeconds {
-        self.start_pos + self.temporary_offset
+        self.start_pos - self.clip_cursor_offset
     }
 
     pub fn with_phase(self, phase: RunPhase) -> Self {
         Self { phase, ..self }
-    }
-
-    pub fn with_temporary_offset(self, temporary_offset: PositionInSeconds) -> Self {
-        Self {
-            temporary_offset,
-            ..self
-        }
     }
 }
 
@@ -144,16 +144,10 @@ impl ClipPcmSource {
                 }
                 Paused => {
                     // Resume
-                    // The memorized temporary offset represents the position within the clip from
-                    // which we should resume. But only if pos_within_clip == zero. Since we paused,
-                    // our hypothetical position in the clip changed because the timeline cursor
-                    // moved forward. Therefore we need to adjust the temporary offset by exactly
-                    // the amount.
-                    // TODO-medium We should introduce a virtual cursor abstraction to make this
-                    //  kind of calculations more straightforward.
+                    // TODO-high Calculate clip cursor offset at the current timeline cursor position
                     let info = self.create_cursor_and_length_info(info);
                     let new_state = RunningClipState {
-                        temporary_offset: seek_pos,
+                        clip_cursor_offset: todo!(),
                         phase: RunPhase::ScheduledOrPlaying,
                         ..*info.cursor_info.running_state
                     };
@@ -176,13 +170,14 @@ impl ClipPcmSource {
         self.repeated = repeated;
         let new_state = RunningClipState {
             start_pos,
-            temporary_offset: PositionInSeconds::ZERO,
+            clip_cursor_offset: DurationInSeconds::ZERO,
             phase: RunPhase::ScheduledOrPlaying,
         };
         self.state = ClipState::Running(new_state);
     }
 
-    fn cursor_pos_on_timeline(&self) -> PositionInSeconds {
+    /// Returns the position of the cursor on the parent timeline.
+    fn timeline_cursor_pos(&self) -> PositionInSeconds {
         // TODO-high Save and use actual project in source.
         Reaper::get()
             .medium_reaper()
@@ -196,7 +191,7 @@ impl ClipPcmSource {
         let running_state = self.state.running_state()?;
         let info = CursorInfo {
             running_state,
-            cursor_pos: self.cursor_pos_on_timeline(),
+            timeline_cursor_pos: self.timeline_cursor_pos(),
         };
         Some(info)
     }
@@ -420,8 +415,8 @@ impl CustomPcmSource for ClipPcmSource {
             Retriggering => {
                 self.shut_up_if_midi(&args);
                 let new_state = RunningClipState {
-                    start_pos: info.cursor_info.cursor_pos,
-                    temporary_offset: PositionInSeconds::ZERO,
+                    start_pos: info.cursor_info.timeline_cursor_pos,
+                    clip_cursor_offset: DurationInSeconds::ZERO,
                     phase: RunPhase::ScheduledOrPlaying,
                 };
                 self.state = ClipState::Running(new_state);
@@ -513,7 +508,7 @@ impl CustomPcmSource for ClipPcmSource {
                 1
             }
             EXT_SEEK_TO => {
-                let delta: PositionInSeconds = *(args.parm_1 as *mut _);
+                let delta: DurationInSeconds = *(args.parm_1 as *mut _);
                 self.seek_to(delta);
                 1
             }
@@ -603,7 +598,7 @@ pub trait ClipPcmSourceSkills {
     /// Seeks to the given position within the clip.
     ///
     /// This only has an effect if the clip is already and still playing.
-    fn seek_to(&mut self, pos: PositionInSeconds);
+    fn seek_to(&mut self, pos: DurationInSeconds);
 
     /// Returns the clip length.
     ///
@@ -642,7 +637,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn start_immediately(&mut self, repeated: bool) {
-        self.start_internal(self.cursor_pos_on_timeline(), repeated);
+        self.start_internal(self.timeline_cursor_pos(), repeated);
     }
 
     fn pause(&mut self) {
@@ -653,24 +648,23 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                 ScheduledOrPlaying | ScheduledForStop(_) => {
                     if info.has_started_already() {
                         // Playing.
-                        // If this clip is scheduled for stop already, we just backpedal from that.
+                        // If this clip is scheduled for stop already, a pause will backpedal from
+                        // that.
                         let info = self.create_cursor_and_length_info(info);
-                        if let Some(pos_within_clip) = info.pos_within_clip() {
+                        if let Some(clip_cursor_offset) =
+                            info.pos_within_clip().and_then(|pos| pos.try_into().ok())
+                        {
                             // Still in play bounds. Pause!
-                            let temporary_offset = info.cursor_info.running_state.temporary_offset
-                                + pos_within_clip
-                                - desired_pos;
                             let new_state = RunningClipState {
-                                // Move the clip "to the left" on the timeline so the effective zero
-                                // position is exactly at the current position.
-                                temporary_offset: pos_within_clip,
+                                clip_cursor_offset,
                                 phase: RunPhase::TransitioningToPause,
                                 ..*info.cursor_info.running_state
                             };
                             self.state = ClipState::Running(new_state);
                         } else {
-                            // Not within play bounds anymore. Don't change state because polling
-                            // will transition this clip to stopped state in a moment anyway.
+                            // Not within play bounds anymore. Don't change state
+                            // because polling will transition this clip to stopped state in a
+                            // moment anyway.
                         }
                     } else {
                         // Not yet playing. Don't do anything at the moment.
@@ -748,17 +742,14 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
-    fn seek_to(&mut self, desired_pos: PositionInSeconds) {
+    fn seek_to(&mut self, desired_pos: DurationInSeconds) {
         if let Some(info) = self.cursor_and_length_info() {
-            if let Some(pos_within_clip) = info.pos_within_clip() {
-                let temporary_offset =
-                    info.cursor_info.running_state.temporary_offset + pos_within_clip - desired_pos;
-                let new_state = info
-                    .cursor_info
-                    .running_state
-                    .with_temporary_offset(temporary_offset);
-                self.state = ClipState::Running(new_state);
-            }
+            let clip_cursor_offset = info.calculate_clip_cursor_offset(desired_pos);
+            let new_state = RunningClipState {
+                clip_cursor_offset,
+                ..*info.cursor_info.running_state
+            };
+            self.state = ClipState::Running(new_state);
         }
     }
 
@@ -838,7 +829,7 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         }
     }
 
-    fn seek_to(&mut self, mut pos: PositionInSeconds) {
+    fn seek_to(&mut self, mut pos: DurationInSeconds) {
         unsafe {
             self.extended(EXT_SEEK_TO, &mut pos as *mut _ as _, null_mut(), null_mut());
         }
@@ -927,7 +918,7 @@ unsafe fn with_shifted_samples(
 
 struct CursorInfo<'a> {
     running_state: &'a RunningClipState,
-    cursor_pos: PositionInSeconds,
+    timeline_cursor_pos: PositionInSeconds,
 }
 
 impl<'a> CursorInfo<'a> {
@@ -942,7 +933,7 @@ impl<'a> CursorInfo<'a> {
     /// - Neither the stop position nor the `repeated` field nor the clip length are considered
     ///   in this method! So it's just a hypothetical position that's intended for further analysis.
     fn pos_from_start(&self) -> PositionInSeconds {
-        self.cursor_pos - self.running_state.effective_start_pos()
+        self.timeline_cursor_pos - self.running_state.effective_start_pos()
     }
 }
 
@@ -1005,6 +996,19 @@ impl<'a> CursorAndLengthInfo<'a> {
         Some(internal_pos)
     }
 
+    /// Calculates the necessary clip cursor offset for making the clip play *NOW* at the given
+    /// position within the clip.
+    pub fn calculate_clip_cursor_offset(
+        &self,
+        desired_pos_within_clip: DurationInSeconds,
+    ) -> DurationInSeconds {
+        let timeline_cursor_pos = self.cursor_info.timeline_cursor_pos;
+        let timeline_start_pos = self.cursor_info.running_state.start_pos;
+        let timeline_target_pos =
+            timeline_start_pos + desired_pos_within_clip - timeline_cursor_pos;
+        timeline_target_pos.rem_euclid(self.clip_length)
+    }
+
     /// Calculates in which repetition we are (starting with 0).
     ///
     /// Returns `None` if not yet playing or not repeated and clip length exceeded.
@@ -1035,7 +1039,10 @@ impl<'a> CursorAndLengthInfo<'a> {
                     return false;
                 }
                 let resolved_stop_pos = self.resolve_internal_stop_pos(s.stop_pos);
-                !self.cursor_info.cursor_pos.has_reached(resolved_stop_pos)
+                !self
+                    .cursor_info
+                    .timeline_cursor_pos
+                    .has_reached(resolved_stop_pos)
             }
             TransitioningToStop => return false,
         }
