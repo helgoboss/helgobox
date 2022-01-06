@@ -203,6 +203,9 @@ impl ClipPcmSource {
     }
 
     /// Returns the position of the cursor on the parent timeline.
+    ///
+    /// When the project is not playing, it's a hypothetical position starting from the project
+    /// play cursor position.
     fn timeline_cursor_pos(&self) -> PositionInSeconds {
         self.project().play_position_next_audio_block()
     }
@@ -599,7 +602,7 @@ pub trait ClipPcmSourceSkills {
     ///
     /// - Reschedules if not yet playing.
     /// - Stops and reschedules if already playing and not scheduled for stop.
-    /// - Resumes immediately if paused (so the clip goes out of sync!).
+    /// - Resumes immediately if paused (so the clip might out of sync!).
     /// - Backpedals if already playing and scheduled for stop.
     fn schedule_start(&mut self, pos: PositionInSeconds, repeated: bool);
 

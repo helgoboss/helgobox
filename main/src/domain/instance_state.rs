@@ -26,7 +26,7 @@ pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 /// processing layer (otherwise it could reside in the main processor).
 #[derive(Debug)]
 pub struct InstanceState {
-    clip_slots: [ClipSlot; CLIP_SLOT_COUNT],
+    clip_slots: Vec<ClipSlot>,
     instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
     /// Which mappings are in which group.
@@ -75,7 +75,7 @@ impl InstanceState {
         instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
     ) -> Self {
         Self {
-            clip_slots: Default::default(),
+            clip_slots: (0..8).map(ClipSlot::new).collect(),
             instance_feedback_event_sender,
             slot_contents_changed_subject: Default::default(),
             mappings_by_group: Default::default(),
