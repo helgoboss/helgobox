@@ -447,11 +447,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     fn emit_beats_as_feedback_events(&mut self) {
         for project in Reaper::get().projects() {
-            let reference_pos = if project.is_playing() {
-                project.play_position_latency_compensated()
-            } else {
-                project.edit_cursor_position()
-            };
+            let reference_pos = project.play_position_next_audio_block();
             if self.record_possible_beat_change(project, reference_pos) {
                 let event = AdditionalFeedbackEvent::BeatChanged(BeatChangedEvent {
                     project,
