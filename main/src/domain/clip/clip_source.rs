@@ -2,15 +2,13 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::ptr::null_mut;
 
-use helgoboss_learn::BASE_EPSILON;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
     BorrowedPcmSource, BorrowedPcmSourceTransfer, CustomPcmSource, DurationInBeats,
     DurationInSeconds, ExtendedArgs, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MidiEvent,
-    OwnedPcmSource, PcmSource, PeaksClearArgs, PositionInSeconds,
-    PropertiesWindowArgs, ReaperStr, SaveStateArgs, SetAvailableArgs, SetFileNameArgs,
-    SetSourceArgs,
+    OwnedPcmSource, PcmSource, PeaksClearArgs, PositionInSeconds, PropertiesWindowArgs, ReaperStr,
+    SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
 };
 
 use crate::domain::clip::source_util::pcm_source_is_midi;
@@ -138,7 +136,11 @@ impl ClipPcmSource {
             match info.running_state.phase {
                 ScheduledOrPlaying => {
                     if info.has_started_already() {
-                        let new_state = info.running_state.with_phase(RunPhase::Retriggering);
+                        let new_state = RunningClipState {
+                            start_pos,
+                            clip_cursor_offset: DurationInSeconds::ZERO,
+                            phase: Retriggering,
+                        };
                         self.state = ClipState::Running(new_state);
                     } else {
                         // Not yet playing. Reschedule!
@@ -182,15 +184,13 @@ impl ClipPcmSource {
     }
 
     fn project(&self) -> Project {
-        self.project.unwrap_or_else(|| Reaper::get().current_project())
+        self.project
+            .unwrap_or_else(|| Reaper::get().current_project())
     }
 
     /// Returns the position of the cursor on the parent timeline.
     fn timeline_cursor_pos(&self) -> PositionInSeconds {
         self.project().play_position_next_audio_block()
-        Reaper::get()
-            .medium_reaper()
-            .get_play_position_2_ex(ProjectContext::CurrentProject)
     }
 
     /// Returns running state and the current cursor position on the timeline.
@@ -424,12 +424,10 @@ impl CustomPcmSource for ClipPcmSource {
             Retriggering => {
                 self.shut_up_if_midi(&args);
                 let new_state = RunningClipState {
-                    start_pos: info.cursor_info.timeline_cursor_pos,
-                    clip_cursor_offset: DurationInSeconds::ZERO,
                     phase: RunPhase::ScheduledOrPlaying,
+                    ..*info.cursor_info.running_state
                 };
                 self.state = ClipState::Running(new_state);
-                self.fill_samples(PositionInSeconds::ZERO, &mut args);
             }
             TransitioningToPause => {
                 self.shut_up_if_midi(&args);
@@ -578,14 +576,14 @@ pub trait ClipPcmSourceSkills {
     /// Schedules clip playing.
     ///
     /// - Reschedules if not yet playing.
-    /// - Retriggers if already playing and not scheduled for stop.
-    /// - Resumes immediately if paused.
+    /// - Stops and reschedules if already playing and not scheduled for stop.
+    /// - Resumes immediately if paused (so the clip goes out of sync!).
     /// - Backpedals if already playing and scheduled for stop.
     fn schedule_start(&mut self, pos: PositionInSeconds, repeated: bool);
 
     /// Starts playback immediately.
     ///
-    /// - Retriggers if already playing and not scheduled for stop.
+    /// - Retriggers immediately if already playing and not scheduled for stop.
     /// - Resumes immediately if paused.
     /// - Backpedals if already playing and scheduled for stop.
     fn start_immediately(&mut self, repeated: bool);
@@ -899,18 +897,6 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
     }
 }
 
-trait PositionInSecondsExt {
-    fn has_reached(self, stop_pos: PositionInSeconds) -> bool;
-}
-
-impl PositionInSecondsExt for PositionInSeconds {
-    // TODO-high Check if this is the right thing to use in general and if yes, maybe also use it
-    //  in pos_from_start_considering_repeat_and_stop.
-    fn has_reached(self, stop_pos: PositionInSeconds) -> bool {
-        self > stop_pos || (stop_pos - self).get() < BASE_EPSILON
-    }
-}
-
 unsafe fn with_shifted_samples(
     block: &mut BorrowedPcmSourceTransfer,
     offset: i32,
@@ -1058,10 +1044,7 @@ impl<'a> CursorAndLengthInfo<'a> {
                     return false;
                 }
                 let resolved_stop_pos = self.resolve_internal_stop_pos(s.stop_pos);
-                !self
-                    .cursor_info
-                    .timeline_cursor_pos
-                    .has_reached(resolved_stop_pos)
+                self.cursor_info.timeline_cursor_pos <= resolved_stop_pos
             }
             TransitioningToStop => return false,
         }
