@@ -196,7 +196,7 @@ impl ClipSlot {
         project: Project,
         track: Option<Track>,
         options: SlotPlayOptions,
-    ) -> Result<ClipChangedEvent, &'static str> {
+    ) -> Result<(), &'static str> {
         let result = self.start_transition().play(
             &self.register,
             ClipPlayArgs {
@@ -206,8 +206,7 @@ impl ClipSlot {
                 repeat: self.clip.repeat,
             },
         );
-        self.finish_transition(result)?;
-        Ok(self.play_state_changed_event())
+        self.finish_transition(result)
     }
 
     /// Stops playback if necessary, destroys the contained source and resets the playback position
@@ -244,19 +243,17 @@ impl ClipSlot {
         &mut self,
         stop_behavior: SlotStopBehavior,
         project: Project,
-    ) -> Result<ClipChangedEvent, &'static str> {
+    ) -> Result<(), &'static str> {
         let result = self
             .start_transition()
             .stop(&self.register, stop_behavior, project);
-        self.finish_transition(result)?;
-        Ok(self.play_state_changed_event())
+        self.finish_transition(result)
     }
 
     /// Pauses clip playing.
-    pub fn pause(&mut self) -> Result<ClipChangedEvent, &'static str> {
+    pub fn pause(&mut self) -> Result<(), &'static str> {
         let result = self.start_transition().pause(&self.register);
-        self.finish_transition(result)?;
-        Ok(self.play_state_changed_event())
+        self.finish_transition(result)
     }
 
     /// Returns whether repeat is enabled for this clip.
@@ -323,7 +320,7 @@ impl ClipSlot {
     pub fn set_proportional_position(
         &mut self,
         desired_proportional_pos: UnitValue,
-    ) -> Result<ClipChangedEvent, &'static str> {
+    ) -> Result<(), &'static str> {
         let mut guard = lock(&self.register);
         let source = guard.src_mut().ok_or(NO_SOURCE_LOADED)?;
         let source = source.as_mut();
@@ -331,7 +328,7 @@ impl ClipSlot {
         let desired_pos_in_secs =
             DurationInSeconds::new(desired_proportional_pos.get() * length.get());
         source.seek_to(desired_pos_in_secs);
-        Ok(ClipChangedEvent::ClipPosition(desired_proportional_pos))
+        Ok(())
     }
 
     fn start_transition(&mut self) -> State {

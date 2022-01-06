@@ -369,11 +369,7 @@ impl InstanceState {
         track: Option<Track>,
         options: SlotPlayOptions,
     ) -> Result<(), &'static str> {
-        let event = self
-            .get_slot_mut(slot_index)?
-            .play(project, track, options)?;
-        self.send_clip_changed_event(slot_index, event);
-        Ok(())
+        self.get_slot_mut(slot_index)?.play(project, track, options)
     }
 
     /// If repeat is not enabled and `immediately` is false, this has essentially no effect.
@@ -383,17 +379,11 @@ impl InstanceState {
         stop_behavior: SlotStopBehavior,
         project: Project,
     ) -> Result<(), &'static str> {
-        let event = self
-            .get_slot_mut(slot_index)?
-            .stop(stop_behavior, project)?;
-        self.send_clip_changed_event(slot_index, event);
-        Ok(())
+        self.get_slot_mut(slot_index)?.stop(stop_behavior, project)
     }
 
     pub fn pause(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.pause()?;
-        self.send_clip_changed_event(slot_index, event);
-        Ok(())
+        self.get_slot_mut(slot_index)?.pause()
     }
 
     pub fn toggle_repeat(&mut self, slot_index: usize) -> Result<(), &'static str> {
@@ -407,11 +397,8 @@ impl InstanceState {
         slot_index: usize,
         position: UnitValue,
     ) -> Result<(), &'static str> {
-        let event = self
-            .get_slot_mut(slot_index)?
-            .set_proportional_position(position)?;
-        self.send_clip_changed_event(slot_index, event);
-        Ok(())
+        self.get_slot_mut(slot_index)?
+            .set_proportional_position(position)
     }
 
     pub fn set_volume(
