@@ -675,26 +675,17 @@ impl ClipPcmSourceSkills for ClipPcmSource {
             use RunPhase::*;
             match info.running_state.phase {
                 ScheduledOrPlaying | ScheduledForStop(_) => {
-                    if info.has_started_already() {
-                        // Playing.
+                    let info = self.create_cursor_and_length_info(info);
+                    if let Ok(clip_cursor_offset) = info.hypothetical_pos_within_clip().try_into() {
+                        // Playing. Pause!
                         // If this clip is scheduled for stop already, a pause will backpedal from
                         // that.
-                        let info = self.create_cursor_and_length_info(info);
-                        if let Some(clip_cursor_offset) =
-                            info.pos_within_clip().and_then(|pos| pos.try_into().ok())
-                        {
-                            // Still in play bounds. Pause!
-                            let new_state = RunningClipState {
-                                clip_cursor_offset,
-                                phase: RunPhase::TransitioningToPause,
-                                ..*info.cursor_info.running_state
-                            };
-                            self.state = ClipState::Running(new_state);
-                        } else {
-                            // Not within play bounds anymore. Don't change state
-                            // because polling will transition this clip to stopped state in a
-                            // moment anyway.
-                        }
+                        let new_state = RunningClipState {
+                            clip_cursor_offset,
+                            phase: RunPhase::TransitioningToPause,
+                            ..*info.cursor_info.running_state
+                        };
+                        self.state = ClipState::Running(new_state);
                     } else {
                         // Not yet playing. Don't do anything at the moment.
                         // TODO-medium In future, we could take not an absolute start position but
@@ -1002,7 +993,6 @@ impl<'a> CursorAndLengthInfo<'a> {
     /// - Considers clip length.
     /// - Returns position even if paused.
     /// - Returns negative position if clip not yet playing.
-    // TODO-medium Use this in more in some internal code (instead of pos_within_clip).
     pub fn hypothetical_pos_within_clip(&self) -> PositionInSeconds {
         let pos_from_start = self.cursor_info.pos_from_start();
         if pos_from_start < PositionInSeconds::ZERO {
