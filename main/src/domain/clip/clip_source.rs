@@ -30,14 +30,18 @@ pub struct ClipPcmSource {
     is_midi: bool,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
-    /// Whether the clip is repeated.
-    ///
     /// This can change during the lifetime of this clip.
-    repeated: bool,
+    repetition: Repetition,
     /// An ever-increasing counter which is used just for debugging purposes at the moment.
     counter: u64,
     /// The current state of this clip, containing only state which is non-derivable.
     state: ClipState,
+}
+
+#[derive(Copy, Clone)]
+enum Repetition {
+    Infinitely,
+    Times(u32),
 }
 
 /// Represents a state of the clip wrapper PCM source.
@@ -111,8 +115,8 @@ pub enum ClipStopPosition {
 #[derive(Copy, Clone, PartialEq, Debug)]
 enum InternalClipStopPosition {
     At(PositionInSeconds),
-    /// The first play is called repetition 0.
-    AtEndOfClipRepetition(u32),
+    /// The first play is called cycle 0.
+    AtEndOfCycle(u32),
 }
 
 impl ClipPcmSource {
@@ -123,7 +127,7 @@ impl ClipPcmSource {
             inner,
             project,
             counter: 0,
-            repeated: false,
+            repetition: Repetition::Times(1),
             is_midi,
             state: ClipState::Stopped,
         }
@@ -174,7 +178,11 @@ impl ClipPcmSource {
     }
 
     fn schedule_start_internal(&mut self, start_pos: PositionInSeconds, repeated: bool) {
-        self.repeated = repeated;
+        self.repetition = if repeated {
+            Repetition::Infinitely
+        } else {
+            Repetition::Times(1)
+        };
         let new_state = RunningClipState {
             start_pos,
             clip_cursor_offset: DurationInSeconds::ZERO,
@@ -219,7 +227,7 @@ impl ClipPcmSource {
         CursorAndLengthInfo {
             cursor_info,
             clip_length: self.inner_length(),
-            repeated: self.repeated,
+            repetition: self.repetition,
         }
     }
 
@@ -229,7 +237,12 @@ impl ClipPcmSource {
         }
     }
 
-    fn fill_samples(&self, pos_within_clip: PositionInSeconds, args: &mut GetSamplesArgs) {
+    fn fill_samples(
+        &self,
+        pos_within_clip: PositionInSeconds,
+        args: &mut GetSamplesArgs,
+        info: CursorAndLengthInfo,
+    ) {
         // This means the clip is playing or about o play.
         // We want to start playing as soon as we reach the scheduled start position,
         // that means pos == 0.0. In order to do that, we need to take into account that
@@ -249,9 +262,9 @@ impl ClipPcmSource {
         }
         unsafe {
             if self.is_midi {
-                self.fill_samples_midi(pos_within_clip, args);
+                self.fill_samples_midi(pos_within_clip, args, info);
             } else {
-                self.fill_samples_audio(pos_within_clip, args);
+                self.fill_samples_audio(pos_within_clip, args, info);
             }
         }
     }
@@ -260,6 +273,7 @@ impl ClipPcmSource {
         &self,
         pos_within_clip: PositionInSeconds,
         args: &mut GetSamplesArgs,
+        info: CursorAndLengthInfo,
     ) {
         let desired_sample_count = args.block.length();
         let sample_rate = args.block.sample_rate().get();
@@ -281,7 +295,11 @@ impl ClipPcmSource {
         if written_sample_count < desired_sample_count {
             // We have reached the end of the clip and it doesn't fill the
             // complete block.
-            if self.repeated {
+            if info.is_last_cycle() {
+                // Let preview register know that complete buffer has been
+                // filled as desired in order to prevent retry (?) queries.
+                args.block.set_samples_out(desired_sample_count);
+            } else {
                 // Repeat. Because we assume that the user cuts sources
                 // sample-perfect, we must immediately fill the rest of the
                 // buffer with the very
@@ -293,10 +311,6 @@ impl ClipPcmSource {
                 });
                 // Let preview register know that complete buffer has been filled.
                 args.block.set_samples_out(desired_sample_count);
-            } else {
-                // Let preview register know that complete buffer has been
-                // filled as desired in order to prevent retry (?) queries.
-                args.block.set_samples_out(desired_sample_count);
             }
         }
     }
@@ -305,6 +319,7 @@ impl ClipPcmSource {
         &self,
         pos_within_clip: PositionInSeconds,
         args: &mut GetSamplesArgs,
+        info: CursorAndLengthInfo,
     ) {
         let desired_sample_count = args.block.length();
         let sample_rate = args.block.sample_rate().get();
@@ -317,7 +332,12 @@ impl ClipPcmSource {
         if written_sample_count < desired_sample_count {
             // We have reached the end of the clip and it doesn't fill the
             // complete block.
-            if self.repeated {
+            if info.is_last_cycle() {
+                // Let preview register know that complete buffer has been
+                // filled as desired in order to prevent retry (?) queries that
+                // lead to double events.
+                args.block.set_samples_out(desired_sample_count);
+            } else {
                 // Repeat. Fill rest of buffer with beginning of source.
                 // We need to start from negative position so the frame
                 // offset of the *added* MIDI events is correctly written.
@@ -328,11 +348,6 @@ impl ClipPcmSource {
                 args.block.set_time_s(negative_pos);
                 args.block.set_length(desired_sample_count);
                 self.inner.get_samples(args.block);
-            } else {
-                // Let preview register know that complete buffer has been
-                // filled as desired in order to prevent retry (?) queries that
-                // lead to double events.
-                args.block.set_samples_out(desired_sample_count);
             }
         }
     }
@@ -440,7 +455,7 @@ impl CustomPcmSource for ClipPcmSource {
             }
             ScheduledOrPlaying | ScheduledForStop(_) => {
                 if let Some(pos) = info.pos_within_clip() {
-                    self.fill_samples(pos, &mut args);
+                    self.fill_samples(pos, &mut args, info);
                 } else {
                     let new_state = info
                         .cursor_info
@@ -769,7 +784,18 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn set_repeated(&mut self, repeated: bool) {
-        self.repeated = repeated;
+        self.repetition = {
+            if repeated {
+                Repetition::Infinitely
+            } else {
+                let times = self
+                    .cursor_and_length_info()
+                    .and_then(|i| i.current_hypothetical_cycle_index())
+                    .map(|i| i + 1)
+                    .unwrap_or(1);
+                Repetition::Times(times)
+            }
+        };
     }
 
     fn pos_within_clip(&self) -> Option<PositionInSeconds> {
@@ -939,7 +965,7 @@ impl<'a> CursorInfo<'a> {
 struct CursorAndLengthInfo<'a> {
     cursor_info: CursorInfo<'a>,
     clip_length: DurationInSeconds,
-    repeated: bool,
+    repetition: Repetition,
 }
 
 impl<'a> CursorAndLengthInfo<'a> {
@@ -988,11 +1014,8 @@ impl<'a> CursorAndLengthInfo<'a> {
         let internal_pos = match pos {
             ClipStopPosition::At(p) => InternalClipStopPosition::At(p),
             ClipStopPosition::AtEndOfClip => {
-                if !self.is_within_play_bounds() {
-                    return None;
-                }
-                let current_repetition = self.current_repetition()?;
-                InternalClipStopPosition::AtEndOfClipRepetition(current_repetition)
+                let current_cycle = self.current_cycle_index()?;
+                InternalClipStopPosition::AtEndOfCycle(current_cycle)
             }
         };
         Some(internal_pos)
@@ -1014,23 +1037,60 @@ impl<'a> CursorAndLengthInfo<'a> {
         timeline_target_pos.rem_euclid(self.clip_length)
     }
 
-    /// Calculates in which repetition we are (starting with 0).
+    /// Calculates in which cycle we are (starting with 0).
     ///
     /// Returns `None` if not yet playing or not repeated and clip length exceeded.
-    fn current_repetition(&self) -> Option<u32> {
+    fn current_cycle_index(&self) -> Option<u32> {
+        let cycle_index = self.current_hypothetical_cycle_index()?;
+        match self.repetition {
+            Repetition::Infinitely => Some(cycle_index),
+            Repetition::Times(n) => {
+                if cycle_index < n {
+                    Some(cycle_index)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    /// Returns true also if not started yet.
+    fn is_within_repeat_play_bounds(&self) -> bool {
+        match self.repetition {
+            Repetition::Infinitely => true,
+            Repetition::Times(n) => {
+                if let Some(i) = self.current_hypothetical_cycle_index() {
+                    i < n
+                } else {
+                    true
+                }
+            }
+        }
+    }
+
+    fn is_last_cycle(&self) -> bool {
+        match self.repetition {
+            Repetition::Infinitely => false,
+            Repetition::Times(n) => {
+                if let Some(i) = self.current_hypothetical_cycle_index() {
+                    i >= n - 1
+                } else {
+                    true
+                }
+            }
+        }
+    }
+
+    /// Calculates in which cycle we are (starting with 0).
+    ///
+    /// Returns `None` if not yet playing.
+    fn current_hypothetical_cycle_index(&self) -> Option<u32> {
         let pos_from_start = self.cursor_info.pos_from_start();
         if pos_from_start < PositionInSeconds::ZERO {
             // Not playing yet.
             None
-        } else if self.repeated {
-            // Playing and repeating.
-            Some((pos_from_start / self.clip_length).get() as u32)
-        } else if pos_from_start < self.clip_length {
-            // Not repeated and still within clip bounds.
-            Some(0)
         } else {
-            // Not repeated and clip length exceeded.
-            None
+            Some((pos_from_start / self.clip_length).get() as u32)
         }
     }
 
@@ -1050,14 +1110,10 @@ impl<'a> CursorAndLengthInfo<'a> {
         }
     }
 
-    fn is_within_repeat_play_bounds(&self) -> bool {
-        self.repeated || self.cursor_info.pos_from_start() <= self.clip_length
-    }
-
     fn resolve_internal_stop_pos(&self, stop_pos: InternalClipStopPosition) -> PositionInSeconds {
         match stop_pos {
             InternalClipStopPosition::At(pos) => pos,
-            InternalClipStopPosition::AtEndOfClipRepetition(n) => {
+            InternalClipStopPosition::AtEndOfCycle(n) => {
                 self.cursor_info.running_state.effective_start_pos() + self.clip_length * (n + 1)
             }
         }
