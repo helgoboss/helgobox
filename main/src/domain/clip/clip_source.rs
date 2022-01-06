@@ -21,13 +21,8 @@ use crate::domain::clip::source_util::pcm_source_is_midi;
 /// It's intended to be continuously played by a preview register (immediately, unbuffered,
 /// infinitely).
 pub struct ClipPcmSource {
-    /// This source contains the actual audio/MIDI data.
-    ///
-    /// It doesn't change throughout the lifetime of this clip source, although I think it could.
-    inner: OwnedPcmSource,
-    /// Caches the information if the inner clip source contains MIDI or audio material.
-    // TODO-medium Put this into one struct together with `inner`.
-    is_midi: bool,
+    /// Information about the wrapped source.
+    inner: SourceInfo,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
     /// This can change during the lifetime of this clip.
@@ -36,6 +31,15 @@ pub struct ClipPcmSource {
     counter: u64,
     /// The current state of this clip, containing only state which is non-derivable.
     state: ClipState,
+}
+
+struct SourceInfo {
+    /// This source contains the actual audio/MIDI data.
+    ///
+    /// It doesn't change throughout the lifetime of this clip source, although I think it could.
+    source: OwnedPcmSource,
+    /// Caches the information if the inner clip source contains MIDI or audio material.
+    is_midi: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -124,11 +128,13 @@ impl ClipPcmSource {
     pub fn new(inner: OwnedPcmSource, project: Option<Project>) -> Self {
         let is_midi = pcm_source_is_midi(&inner);
         Self {
-            inner,
+            inner: SourceInfo {
+                source: inner,
+                is_midi,
+            },
             project,
             counter: 0,
             repetition: Repetition::Times(1),
-            is_midi,
             state: ClipState::Stopped,
         }
     }
@@ -232,7 +238,7 @@ impl ClipPcmSource {
     }
 
     fn shut_up_if_midi(&self, args: &GetSamplesArgs) {
-        if self.is_midi {
+        if self.inner.is_midi {
             send_all_notes_off(args);
         }
     }
@@ -261,7 +267,7 @@ impl ClipPcmSource {
             return;
         }
         unsafe {
-            if self.is_midi {
+            if self.inner.is_midi {
                 self.fill_samples_midi(pos_within_clip, args, info);
             } else {
                 self.fill_samples_audio(pos_within_clip, args, info);
@@ -285,11 +291,11 @@ impl ClipPcmSource {
             let sample_offset = (-pos_within_clip.get() * sample_rate) as i32;
             args.block.set_time_s(PositionInSeconds::ZERO);
             with_shifted_samples(args.block, sample_offset, |b| {
-                self.inner.get_samples(b);
+                self.inner.source.get_samples(b);
             });
         } else {
             args.block.set_time_s(pos_within_clip);
-            self.inner.get_samples(args.block);
+            self.inner.source.get_samples(args.block);
         }
         let written_sample_count = args.block.samples_out();
         if written_sample_count < desired_sample_count {
@@ -307,7 +313,7 @@ impl ClipPcmSource {
                 // Audio. Start from zero and write just remaining samples.
                 args.block.set_time_s(PositionInSeconds::ZERO);
                 with_shifted_samples(args.block, written_sample_count, |b| {
-                    self.inner.get_samples(b);
+                    self.inner.source.get_samples(b);
                 });
                 // Let preview register know that complete buffer has been filled.
                 args.block.set_samples_out(desired_sample_count);
@@ -327,7 +333,7 @@ impl ClipPcmSource {
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
         args.block.set_time_s(pos_within_clip);
-        self.inner.get_samples(args.block);
+        self.inner.source.get_samples(args.block);
         let written_sample_count = args.block.samples_out();
         if written_sample_count < desired_sample_count {
             // We have reached the end of the clip and it doesn't fill the
@@ -347,7 +353,7 @@ impl ClipPcmSource {
                 let negative_pos = PositionInSeconds::new_unchecked(-written_duration);
                 args.block.set_time_s(negative_pos);
                 args.block.set_length(desired_sample_count);
-                self.inner.get_samples(args.block);
+                self.inner.source.get_samples(args.block);
             }
         }
     }
@@ -356,43 +362,43 @@ impl ClipPcmSource {
 impl CustomPcmSource for ClipPcmSource {
     fn duplicate(&mut self) -> Option<OwnedPcmSource> {
         // Not correct but probably never used.
-        self.inner.duplicate()
+        self.inner.source.duplicate()
     }
 
     fn is_available(&mut self) -> bool {
-        self.inner.is_available()
+        self.inner.source.is_available()
     }
 
     fn set_available(&mut self, args: SetAvailableArgs) {
-        self.inner.set_available(args.is_available);
+        self.inner.source.set_available(args.is_available);
     }
 
     fn get_type(&mut self) -> &ReaperStr {
-        unsafe { self.inner.get_type_unchecked() }
+        unsafe { self.inner.source.get_type_unchecked() }
     }
 
     fn get_file_name(&mut self) -> Option<&ReaperStr> {
-        unsafe { self.inner.get_file_name_unchecked() }
+        unsafe { self.inner.source.get_file_name_unchecked() }
     }
 
     fn set_file_name(&mut self, args: SetFileNameArgs) -> bool {
-        self.inner.set_file_name(args.new_file_name)
+        self.inner.source.set_file_name(args.new_file_name)
     }
 
     fn get_source(&mut self) -> Option<PcmSource> {
-        self.inner.get_source()
+        self.inner.source.get_source()
     }
 
     fn set_source(&mut self, args: SetSourceArgs) {
-        self.inner.set_source(args.source);
+        self.inner.source.set_source(args.source);
     }
 
     fn get_num_channels(&mut self) -> Option<u32> {
-        self.inner.get_num_channels()
+        self.inner.source.get_num_channels()
     }
 
     fn get_sample_rate(&mut self) -> Option<Hz> {
-        self.inner.get_sample_rate()
+        self.inner.source.get_sample_rate()
     }
 
     fn get_length(&mut self) -> DurationInSeconds {
@@ -401,20 +407,20 @@ impl CustomPcmSource for ClipPcmSource {
     }
 
     fn get_length_beats(&mut self) -> Option<DurationInBeats> {
-        let _ = self.inner.get_length_beats()?;
+        let _ = self.inner.source.get_length_beats()?;
         Some(DurationInBeats::MAX)
     }
 
     fn get_bits_per_sample(&mut self) -> u32 {
-        self.inner.get_bits_per_sample()
+        self.inner.source.get_bits_per_sample()
     }
 
     fn get_preferred_position(&mut self) -> Option<PositionInSeconds> {
-        self.inner.get_preferred_position()
+        self.inner.source.get_preferred_position()
     }
 
     fn properties_window(&mut self, args: PropertiesWindowArgs) -> i32 {
-        unsafe { self.inner.properties_window(args.parent_window) }
+        unsafe { self.inner.source.properties_window(args.parent_window) }
     }
 
     fn get_samples(&mut self, mut args: GetSamplesArgs) {
@@ -469,34 +475,34 @@ impl CustomPcmSource for ClipPcmSource {
 
     fn get_peak_info(&mut self, args: GetPeakInfoArgs) {
         unsafe {
-            self.inner.get_peak_info(args.block);
+            self.inner.source.get_peak_info(args.block);
         }
     }
 
     fn save_state(&mut self, args: SaveStateArgs) {
         unsafe {
-            self.inner.save_state(args.context);
+            self.inner.source.save_state(args.context);
         }
     }
 
     fn load_state(&mut self, args: LoadStateArgs) -> Result<(), Box<dyn Error>> {
-        unsafe { self.inner.load_state(args.first_line, args.context) }
+        unsafe { self.inner.source.load_state(args.first_line, args.context) }
     }
 
     fn peaks_clear(&mut self, args: PeaksClearArgs) {
-        self.inner.peaks_clear(args.delete_file);
+        self.inner.source.peaks_clear(args.delete_file);
     }
 
     fn peaks_build_begin(&mut self) -> bool {
-        self.inner.peaks_build_begin()
+        self.inner.source.peaks_build_begin()
     }
 
     fn peaks_build_run(&mut self) -> bool {
-        self.inner.peaks_build_run()
+        self.inner.source.peaks_build_run()
     }
 
     fn peaks_build_finish(&mut self) {
-        self.inner.peaks_build_finish();
+        self.inner.source.peaks_build_finish();
     }
 
     unsafe fn extended(&mut self, args: ExtendedArgs) -> i32 {
@@ -556,6 +562,7 @@ impl CustomPcmSource for ClipPcmSource {
             }
             _ => self
                 .inner
+                .source
                 .extended(args.call, args.parm_1, args.parm_2, args.parm_3),
         }
     }
@@ -780,7 +787,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn inner_length(&self) -> DurationInSeconds {
-        self.inner.get_length().unwrap_or_default()
+        self.inner.source.get_length().unwrap_or_default()
     }
 
     fn set_repeated(&mut self, repeated: bool) {
@@ -1120,7 +1127,7 @@ impl<'a> CursorAndLengthInfo<'a> {
     }
 }
 
-// TODO-medium Using this extended() mechanism is not very Rusty. The reason why we do it at the
+// TODO-low Using this extended() mechanism is not very Rusty. The reason why we do it at the
 //  moment is that we acquire access to the source by accessing the `source` attribute of the
 //  preview register data structure. First, this can be *any* source in general, it's not
 //  necessarily a PCM source for clips. Okay, this is not the primary issue. In practice we make
