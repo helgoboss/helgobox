@@ -82,7 +82,7 @@ impl RunningClipState {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum RunPhase {
     /// These phases are summarized because this distinction can be derived from the start
     /// position and the cursor position on the time line.
@@ -97,7 +97,7 @@ pub enum RunPhase {
     TransitioningToStop,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct ScheduledForStopPhase {
     stop_pos: InternalClipStopPosition,
 }
@@ -144,10 +144,12 @@ impl ClipPcmSource {
                 }
                 Paused => {
                     // Resume
-                    // TODO-high Calculate clip cursor offset at the current timeline cursor position
                     let info = self.create_cursor_and_length_info(info);
+                    let clip_cursor_offset = info.calculate_clip_cursor_offset(
+                        info.cursor_info.running_state.clip_cursor_offset,
+                    );
                     let new_state = RunningClipState {
-                        clip_cursor_offset: todo!(),
+                        clip_cursor_offset,
                         phase: RunPhase::ScheduledOrPlaying,
                         ..*info.cursor_info.running_state
                     };
@@ -744,7 +746,11 @@ impl ClipPcmSourceSkills for ClipPcmSource {
 
     fn seek_to(&mut self, desired_pos: DurationInSeconds) {
         if let Some(info) = self.cursor_and_length_info() {
-            let clip_cursor_offset = info.calculate_clip_cursor_offset(desired_pos);
+            let clip_cursor_offset = if info.cursor_info.running_state.phase == RunPhase::Paused {
+                desired_pos
+            } else {
+                info.calculate_clip_cursor_offset(desired_pos)
+            };
             let new_state = RunningClipState {
                 clip_cursor_offset,
                 ..*info.cursor_info.running_state
@@ -948,8 +954,8 @@ impl<'a> CursorAndLengthInfo<'a> {
     ///
     /// - Considers clip length.
     /// - Considers repeat.
-    /// - Returns position even if paused.
     /// - Returns negative position if clip not yet playing.
+    /// - Returns pause position if paused.
     /// - Returns `None` if not scheduled, if single shot and reached end or if beyond scheduled
     /// stop or if clip length is zero.
     pub fn pos_within_clip(&self) -> Option<PositionInSeconds> {
@@ -958,6 +964,9 @@ impl<'a> CursorAndLengthInfo<'a> {
         }
         if self.clip_length == DurationInSeconds::ZERO {
             return None;
+        }
+        if self.cursor_info.running_state.phase == RunPhase::Paused {
+            return Some(self.cursor_info.running_state.clip_cursor_offset.into());
         }
         Some(self.hypothetical_pos_within_clip())
     }
@@ -998,6 +1007,9 @@ impl<'a> CursorAndLengthInfo<'a> {
 
     /// Calculates the necessary clip cursor offset for making the clip play *NOW* at the given
     /// position within the clip.
+    ///
+    /// Should not be called in paused state (in which the `clip_cursor_offset` really just
+    /// corresponds to the desired position within the clip).
     pub fn calculate_clip_cursor_offset(
         &self,
         desired_pos_within_clip: DurationInSeconds,
