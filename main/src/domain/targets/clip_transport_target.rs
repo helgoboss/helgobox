@@ -97,36 +97,44 @@ impl RealearnTarget for ClipTransportTarget {
         match self.action {
             PlayStop => {
                 if on {
-                    instance_state.play(
+                    instance_state.play_clip(
                         self.project,
                         self.slot_index,
                         self.track.clone(),
                         self.play_options,
                     )?;
                 } else {
-                    instance_state.stop(self.slot_index, self.stop_behavior(), self.project)?;
+                    instance_state.stop_clip(
+                        self.slot_index,
+                        self.stop_behavior(),
+                        self.project,
+                    )?;
                 }
             }
             PlayPause => {
                 if on {
-                    instance_state.play(
+                    instance_state.play_clip(
                         self.project,
                         self.slot_index,
                         self.track.clone(),
                         self.play_options,
                     )?;
                 } else {
-                    instance_state.pause(self.slot_index)?;
+                    instance_state.pause_clip(self.slot_index)?;
                 }
             }
             Stop => {
                 if on {
-                    instance_state.stop(self.slot_index, self.stop_behavior(), self.project)?;
+                    instance_state.stop_clip(
+                        self.slot_index,
+                        self.stop_behavior(),
+                        self.project,
+                    )?;
                 }
             }
             Pause => {
                 if on {
-                    instance_state.pause(self.slot_index)?;
+                    instance_state.pause_clip(self.slot_index)?;
                 }
             }
             Record => {

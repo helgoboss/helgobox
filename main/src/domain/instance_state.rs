@@ -14,10 +14,11 @@ use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
 use crate::domain::clip::{
-    Clip, ClipChangedEvent, ClipContent, ClipSlot, SlotPlayOptions, SlotStopBehavior,
-    TimelineMoment,
+    clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipSlot, SlotPlayOptions, SlotStopBehavior,
 };
-use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, Tag};
+use crate::domain::{
+    GroupId, MappingCompartment, MappingId, QualifiedMappingId, Tag, Timeline, TimelineMoment,
+};
 
 pub const CLIP_SLOT_COUNT: usize = 8;
 
@@ -281,10 +282,16 @@ impl InstanceState {
             .filter(move |id| self.mapping_is_on(QualifiedMappingId::new(compartment, *id)))
     }
 
-    pub fn process_transport_change(&mut self, new_play_state: PlayState, moment: TimelineMoment) {
+    pub fn process_transport_change(
+        &mut self,
+        new_play_state: PlayState,
+        project: Option<Project>,
+    ) {
+        let timeline = clip_timeline(project);
+        let moment = timeline.capture_moment();
         for (slot_index, slot) in self.clip_slots.iter_mut().enumerate() {
             if let Some(event) = slot
-                .process_transport_change(new_play_state, moment)
+                .process_transport_change(new_play_state, moment, &timeline)
                 .unwrap()
             {
                 let instance_event = InstanceStateChanged::Clip { slot_index, event };
@@ -370,29 +377,33 @@ impl InstanceState {
         Ok(())
     }
 
-    pub fn play(
+    pub fn play_clip(
         &mut self,
         project: Project,
         slot_index: usize,
         track: Option<Track>,
         options: SlotPlayOptions,
     ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?
-            .play(project, track, options, TimelineMoment::now(project))
+        self.get_slot_mut(slot_index)?.play(
+            project,
+            track,
+            options,
+            clip_timeline(Some(project)).capture_moment(),
+        )
     }
 
     /// If repeat is not enabled and `immediately` is false, this has essentially no effect.
-    pub fn stop(
+    pub fn stop_clip(
         &mut self,
         slot_index: usize,
         stop_behavior: SlotStopBehavior,
         project: Project,
     ) -> Result<(), &'static str> {
         self.get_slot_mut(slot_index)?
-            .stop(stop_behavior, TimelineMoment::now(project))
+            .stop(stop_behavior, clip_timeline(Some(project)).capture_moment())
     }
 
-    pub fn pause(&mut self, slot_index: usize) -> Result<(), &'static str> {
+    pub fn pause_clip(&mut self, slot_index: usize) -> Result<(), &'static str> {
         self.get_slot_mut(slot_index)?.pause()
     }
 

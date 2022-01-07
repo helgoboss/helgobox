@@ -1,4 +1,4 @@
-use crate::domain::clip::{clip_timeline_cursor_pos, ClipChangedEvent, TimelineMoment};
+use crate::domain::clip::{clip_timeline_cursor_pos, ClipChangedEvent};
 use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
     CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
@@ -1415,8 +1415,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if let ChangeEvent::PlayStateChanged(e) = event {
             // Feedback handled from instance-scoped feedback events.
             let mut instance_state = self.basics.instance_state.borrow_mut();
-            let moment = TimelineMoment::now(e.project);
-            instance_state.process_transport_change(e.new_value, moment);
+            instance_state.process_transport_change(e.new_value, self.basics.context.project());
         }
         self.process_feedback_related_reaper_event(|mapping, target| {
             mapping.process_change_event(

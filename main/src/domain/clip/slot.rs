@@ -1,4 +1,4 @@
-use crate::domain::Timeline;
+use crate::domain::{Timeline, TimelineMoment};
 use enumflags2::BitFlags;
 use reaper_high::{OwnedSource, Project, Reaper, Track};
 use reaper_low::raw;
@@ -229,11 +229,13 @@ impl ClipSlot {
         &mut self,
         new_play_state: PlayState,
         moment: TimelineMoment,
+        timeline: &impl Timeline,
     ) -> Result<Option<ClipChangedEvent>, &'static str> {
         let result = self.start_transition().process_transport_change(
             &self.register,
             new_play_state,
             moment,
+            timeline,
         );
         self.finish_transition(result)?;
         Ok(Some(self.play_state_changed_event()))
@@ -383,9 +385,9 @@ impl State {
         reg: &SharedRegister,
         new_play_state: PlayState,
         moment: TimelineMoment,
+        timeline: &impl Timeline,
     ) -> TransitionResult {
-        // TODO-high Get clip timeline as argument!
-        if !clip_timeline(None).follows_reaper_transport() {
+        if !timeline.follows_reaper_transport() {
             return Ok(self);
         }
         match self {
@@ -408,7 +410,7 @@ impl State {
                 // Clip was started once already.
                 let synced = play_args.options.next_bar;
                 // Clip was started in sync with project.
-                let state = s.play_state(reg, moment.cursor_pos);
+                let state = s.play_state(reg, moment.cursor_pos());
                 use ClipPlayState::*;
                 // Pausing the transport makes the complete timeline pause, so we don't need to
                 // do anything here.
@@ -695,11 +697,11 @@ impl FilledState {
             use SlotStopBehavior::*;
             match stop_behavior {
                 Immediately => {
-                    src.as_mut().stop_immediately(moment.cursor_pos);
+                    src.as_mut().stop_immediately(moment.cursor_pos());
                 }
                 EndOfBar | EndOfClip => {
                     src.as_mut().schedule_stop(
-                        moment.cursor_pos,
+                        moment.cursor_pos(),
                         stop_behavior.get_clip_stop_position(moment),
                     );
                 }
@@ -855,46 +857,6 @@ fn calculate_proportional_position(
     position
         .map(|p| UnitValue::new_clamped(p.get() / length.get()))
         .unwrap_or_default()
-}
-
-#[derive(Clone, Copy)]
-pub struct TimelineMoment {
-    cursor_pos: PositionInSeconds,
-    next_bar_pos: PositionInSeconds,
-}
-
-impl TimelineMoment {
-    pub fn now(project: Project) -> Self {
-        Self::from_cursor_pos(project, clip_timeline_cursor_pos(Some(project)))
-    }
-
-    pub fn from_cursor_pos(project: Project, cursor_pos: PositionInSeconds) -> Self {
-        Self {
-            cursor_pos,
-            next_bar_pos: {
-                let proj_context = project.context();
-                let reaper = Reaper::get().medium_reaper();
-                let res = reaper.time_map_2_time_to_beats(proj_context, cursor_pos);
-                let next_measure_index = if res.beats_since_measure.get() <= BASE_EPSILON {
-                    res.measure_index
-                } else {
-                    res.measure_index + 1
-                };
-                reaper.time_map_2_beats_to_time(
-                    proj_context,
-                    MeasureMode::FromMeasureAtIndex(next_measure_index),
-                    PositionInBeats::ZERO,
-                )
-            },
-        }
-    }
-
-    pub fn cursor_pos(&self) -> PositionInSeconds {
-        self.cursor_pos
-    }
-    pub fn next_bar_pos(&self) -> PositionInSeconds {
-        self.next_bar_pos
-    }
 }
 
 fn get_play_state(
