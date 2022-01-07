@@ -233,7 +233,6 @@ impl ClipSlot {
         let result = self.start_transition().process_transport_change(
             &self.register,
             new_play_state,
-            self.index,
             moment,
         );
         self.finish_transition(result)?;
@@ -383,7 +382,6 @@ impl State {
         self,
         reg: &SharedRegister,
         new_play_state: PlayState,
-        slot_index: u32,
         moment: TimelineMoment,
     ) -> TransitionResult {
         match self {
@@ -408,8 +406,10 @@ impl State {
                 // Clip was started in sync with project.
                 let state = s.play_state(reg, moment.cursor_pos);
                 use ClipPlayState::*;
+                // Pausing the transport makes the complete timeline pause, so we don't need to
+                // do anything here.
                 match change {
-                    RelevantTransportChange::Play => {
+                    RelevantTransportChange::PlayAfterStop => {
                         match state {
                             Stopped | Paused if s.was_caused_by_transport_change => {
                                 // REAPER transport was started, either from stopped or paused
@@ -417,7 +417,6 @@ impl State {
                                 // that state due to a previous transport stop or pause.
                                 // Play the clip! It should automatically do the right thing, that
                                 // is schedule or resume, depending in which state it was.
-                                println!("Started {}", slot_index);
                                 s.play(reg, play_args, moment)
                             }
                             _ => {
@@ -426,25 +425,13 @@ impl State {
                             }
                         }
                     }
-                    RelevantTransportChange::Pause => match state {
-                        Playing | ScheduledForStop if synced => {
-                            // Pause and memorize
-                            s.pause(reg, true, moment.cursor_pos)
-                        }
-                        _ => {
-                            // Stop and forget
-                            s.stop(reg, SlotStopBehavior::Immediately, false, moment)
-                        }
-                    },
                     RelevantTransportChange::StopAfterPlay => match state {
                         ScheduledForPlay | Playing | ScheduledForStop if synced => {
                             // Stop and memorize
-                            println!("Memorized {}", slot_index);
                             s.stop(reg, SlotStopBehavior::Immediately, true, moment)
                         }
                         _ => {
                             // Stop and forget
-                            println!("Lost {} with state {:?}", slot_index, state);
                             s.stop(reg, SlotStopBehavior::Immediately, false, moment)
                         }
                     },
@@ -941,8 +928,7 @@ const NO_SOURCE_LOADED: &str = "no source loaded";
 
 #[derive(Debug)]
 enum RelevantTransportChange {
-    Play,
-    Pause,
+    PlayAfterStop,
     StopAfterPlay,
     StopAfterPause,
 }
@@ -950,13 +936,11 @@ enum RelevantTransportChange {
 impl RelevantTransportChange {
     fn from_play_state_change(old: PlayState, new: PlayState) -> Option<Self> {
         use RelevantTransportChange::*;
-        let change = if !old.is_playing && new.is_playing {
-            Play
-        } else if new.is_paused {
-            Pause
-        } else if old.is_playing && !new.is_playing {
+        let change = if !old.is_paused && !old.is_playing && new.is_playing {
+            PlayAfterStop
+        } else if old.is_playing && !new.is_playing && !new.is_paused {
             StopAfterPlay
-        } else if old.is_paused && !new.is_playing {
+        } else if old.is_paused && !new.is_playing && !new.is_paused {
             StopAfterPause
         } else {
             return None;

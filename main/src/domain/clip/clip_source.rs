@@ -3,16 +3,15 @@ use std::error::Error;
 use std::ptr::null_mut;
 
 use crate::domain::clip::get_timeline_cursor_pos;
+use crate::domain::clip::source_util::pcm_source_is_midi;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
-use reaper_high::Project;
+use reaper_high::{Project, Reaper};
 use reaper_medium::{
     BorrowedPcmSource, BorrowedPcmSourceTransfer, CustomPcmSource, DurationInBeats,
     DurationInSeconds, ExtendedArgs, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MidiEvent,
     OwnedPcmSource, PcmSource, PeaksClearArgs, PositionInSeconds, PropertiesWindowArgs, ReaperStr,
     SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
 };
-
-use crate::domain::clip::source_util::pcm_source_is_midi;
 
 /// A PCM source which wraps a native REAPER PCM source and applies all kinds of clip
 /// functionality to it.
@@ -138,6 +137,11 @@ impl ClipPcmSource {
             repetition: Repetition::Times(1),
             state: ClipState::Stopped,
         }
+    }
+
+    fn project(&self) -> Project {
+        self.project
+            .unwrap_or_else(|| Reaper::get().current_project())
     }
 
     fn start_internal(
@@ -442,6 +446,9 @@ impl CustomPcmSource for ClipPcmSource {
         //     let raw = unsafe { ptr.as_ref() };
         //     dbg!(raw);
         // }
+        if self.project().play_state().is_paused {
+            return;
+        }
         self.counter += 1;
         // Actual stuff
         let info = match self.cursor_and_length_info_at(self.timeline_cursor_pos()) {
