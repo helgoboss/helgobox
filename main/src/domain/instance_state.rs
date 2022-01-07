@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use enum_map::EnumMap;
 use reaper_high::{Item, Project, Track};
-use reaper_medium::{PlayState, ReaperVolumeValue};
+use reaper_medium::{PlayState, PositionInSeconds, ReaperVolumeValue};
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -302,11 +302,15 @@ impl InstanceState {
     }
 
     /// Detects clips that are finished playing and invokes a stop feedback event if not looped.
-    pub fn poll_slot(&mut self, slot_index: usize) -> Option<ClipChangedEvent> {
+    pub fn poll_slot(
+        &mut self,
+        slot_index: usize,
+        timeline_cursor_pos: PositionInSeconds,
+    ) -> Option<ClipChangedEvent> {
         self.clip_slots
             .get_mut(slot_index)
             .expect("no such slot")
-            .poll()
+            .poll(timeline_cursor_pos)
     }
 
     pub fn filled_slot_descriptors(&self) -> Vec<QualifiedSlotDescriptor> {

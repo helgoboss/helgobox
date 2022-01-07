@@ -2,8 +2,9 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::ptr::null_mut;
 
+use crate::domain::clip::get_timeline_cursor_pos;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
-use reaper_high::{Project, Reaper};
+use reaper_high::Project;
 use reaper_medium::{
     BorrowedPcmSource, BorrowedPcmSourceTransfer, CustomPcmSource, DurationInBeats,
     DurationInSeconds, ExtendedArgs, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MidiEvent,
@@ -139,8 +140,13 @@ impl ClipPcmSource {
         }
     }
 
-    fn start_internal(&mut self, start_pos: PositionInSeconds, repeated: bool) {
-        if let Some(info) = self.cursor_info() {
+    fn start_internal(
+        &mut self,
+        timeline_cursor_pos: PositionInSeconds,
+        start_pos: PositionInSeconds,
+        repeated: bool,
+    ) {
+        if let Some(info) = self.cursor_info_at(timeline_cursor_pos) {
             // Already running.
             use RunPhase::*;
             match info.running_state.phase {
@@ -197,27 +203,22 @@ impl ClipPcmSource {
         self.state = ClipState::Running(new_state);
     }
 
-    fn project(&self) -> Project {
-        self.project
-            .unwrap_or_else(|| Reaper::get().current_project())
-    }
-
     /// Returns the position of the cursor on the parent timeline.
     ///
     /// When the project is not playing, it's a hypothetical position starting from the project
     /// play cursor position.
     fn timeline_cursor_pos(&self) -> PositionInSeconds {
-        self.project().play_position_next_audio_block()
+        get_timeline_cursor_pos(self.project)
     }
 
     /// Returns running state and the current cursor position on the timeline.
     ///
     /// Returns `None` if not running.
-    fn cursor_info(&self) -> Option<CursorInfo> {
+    fn cursor_info_at(&self, timeline_cursor_pos: PositionInSeconds) -> Option<CursorInfo> {
         let running_state = self.state.running_state()?;
         let info = CursorInfo {
             running_state,
-            timeline_cursor_pos: self.timeline_cursor_pos(),
+            timeline_cursor_pos,
         };
         Some(info)
     }
@@ -225,8 +226,11 @@ impl ClipPcmSource {
     /// Returns cursor info and length of the clip.
     ///
     /// Returns `None` if stopped.
-    fn cursor_and_length_info(&self) -> Option<CursorAndLengthInfo> {
-        Some(self.create_cursor_and_length_info(self.cursor_info()?))
+    fn cursor_and_length_info_at(
+        &self,
+        timeline_cursor_pos: PositionInSeconds,
+    ) -> Option<CursorAndLengthInfo> {
+        Some(self.create_cursor_and_length_info(self.cursor_info_at(timeline_cursor_pos)?))
     }
 
     fn create_cursor_and_length_info<'a>(
@@ -435,7 +439,7 @@ impl CustomPcmSource for ClipPcmSource {
         // }
         self.counter += 1;
         // Actual stuff
-        let info = match self.cursor_and_length_info() {
+        let info = match self.cursor_and_length_info_at(self.timeline_cursor_pos()) {
             // Stopped
             None => return,
             // Running
@@ -515,32 +519,38 @@ impl CustomPcmSource for ClipPcmSource {
                 1
             }
             EXT_SCHEDULE_START => {
-                let pos: PositionInSeconds = *(args.parm_1 as *mut _);
-                let repeated: bool = *(args.parm_2 as *mut _);
-                self.schedule_start(pos, repeated);
+                let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                let pos: PositionInSeconds = *(args.parm_2 as *mut _);
+                let repeated: bool = *(args.parm_3 as *mut _);
+                self.schedule_start(timeline_cursor_pos, pos, repeated);
                 1
             }
             EXT_START_IMMEDIATELY => {
-                let repeated: bool = *(args.parm_1 as *mut _);
-                self.start_immediately(repeated);
+                let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                let repeated: bool = *(args.parm_2 as *mut _);
+                self.start_immediately(timeline_cursor_pos, repeated);
                 1
             }
             EXT_PAUSE => {
-                self.pause();
+                let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                self.pause(timeline_cursor_pos);
                 1
             }
             EXT_SCHEDULE_STOP => {
-                let pos: ClipStopPosition = *(args.parm_1 as *mut _);
-                self.schedule_stop(pos);
+                let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                let pos: ClipStopPosition = *(args.parm_2 as *mut _);
+                self.schedule_stop(timeline_cursor_pos, pos);
                 1
             }
             EXT_STOP_IMMEDIATELY => {
-                self.stop_immediately();
+                let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                self.stop_immediately(timeline_cursor_pos);
                 1
             }
             EXT_SEEK_TO => {
-                let delta: DurationInSeconds = *(args.parm_1 as *mut _);
-                self.seek_to(delta);
+                let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                let pos: DurationInSeconds = *(args.parm_2 as *mut _);
+                self.seek_to(timeline_cursor_pos, pos);
                 1
             }
             EXT_QUERY_INNER_LENGTH => {
@@ -548,19 +558,25 @@ impl CustomPcmSource for ClipPcmSource {
                 1
             }
             EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED => {
-                *(args.parm_1 as *mut Option<PositionInSeconds>) = self.pos_within_clip();
+                let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                *(args.parm_2 as *mut Option<PositionInSeconds>) =
+                    self.pos_within_clip(timeline_cursor_pos);
                 1
             }
             EXT_QUERY_POS_FROM_START => {
-                *(args.parm_1 as *mut Option<PositionInSeconds>) = self.pos_from_start();
+                let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                *(args.parm_2 as *mut Option<PositionInSeconds>) =
+                    self.pos_from_start(timeline_cursor_pos);
                 1
             }
             EXT_ENABLE_REPEAT => {
-                self.set_repeated(true);
+                let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                self.set_repeated(timeline_cursor_pos, true);
                 1
             }
             EXT_DISABLE_REPEAT => {
-                self.set_repeated(false);
+                let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
+                self.set_repeated(timeline_cursor_pos, false);
                 1
             }
             _ => self
@@ -604,33 +620,38 @@ pub trait ClipPcmSourceSkills {
     /// - Stops and reschedules if already playing and not scheduled for stop.
     /// - Resumes immediately if paused (so the clip might out of sync!).
     /// - Backpedals if already playing and scheduled for stop.
-    fn schedule_start(&mut self, pos: PositionInSeconds, repeated: bool);
+    fn schedule_start(
+        &mut self,
+        timeline_cursor_pos: PositionInSeconds,
+        pos: PositionInSeconds,
+        repeated: bool,
+    );
 
     /// Starts playback immediately.
     ///
     /// - Retriggers immediately if already playing and not scheduled for stop.
     /// - Resumes immediately if paused.
     /// - Backpedals if already playing and scheduled for stop.
-    fn start_immediately(&mut self, repeated: bool);
+    fn start_immediately(&mut self, timeline_cursor_pos: PositionInSeconds, repeated: bool);
 
     /// Pauses playback.
-    fn pause(&mut self);
+    fn pause(&mut self, timeline_cursor_pos: PositionInSeconds);
 
     /// Schedules clip stop.
     ///
     /// - Backpedals from scheduled start if not yet playing.
     /// - Stops immediately if paused.
-    fn schedule_stop(&mut self, pos: ClipStopPosition);
+    fn schedule_stop(&mut self, timeline_cursor_pos: PositionInSeconds, pos: ClipStopPosition);
 
     /// Stops playback immediately.
     ///
     /// - Backpedals from scheduled start if not yet playing.
-    fn stop_immediately(&mut self);
+    fn stop_immediately(&mut self, timeline_cursor_pos: PositionInSeconds);
 
     /// Seeks to the given position within the clip.
     ///
     /// This only has an effect if the clip is already and still playing.
-    fn seek_to(&mut self, pos: DurationInSeconds);
+    fn seek_to(&mut self, timeline_cursor_pos: PositionInSeconds, pos: DurationInSeconds);
 
     /// Returns the clip length.
     ///
@@ -639,7 +660,7 @@ pub trait ClipPcmSourceSkills {
     fn inner_length(&self) -> DurationInSeconds;
 
     /// Changes whether to repeat or not repeat the clip.
-    fn set_repeated(&mut self, repeated: bool);
+    fn set_repeated(&mut self, timeline_cursor_pos: PositionInSeconds, repeated: bool);
 
     /// Returns the position within the clip.
     ///
@@ -648,7 +669,7 @@ pub trait ClipPcmSourceSkills {
     /// - Returns negative position if clip not yet playing.
     /// - Returns `None` if not scheduled, if single shot and reached end or if beyond scheduled
     /// stop or if clip length is zero.
-    fn pos_within_clip(&self) -> Option<PositionInSeconds>;
+    fn pos_within_clip(&self, timeline_cursor_pos: PositionInSeconds) -> Option<PositionInSeconds>;
 
     /// Returns the current position relative to the position at which the clip was scheduled for
     /// playing, taking the temporary offset into account (for seeking and continue-after-pause).
@@ -656,7 +677,7 @@ pub trait ClipPcmSourceSkills {
     /// - Returns a negative position if scheduled for play but not yet playing.
     /// - Neither the stop position nor the `repeated` field nor the clip length are considered
     ///   in this method! So it's just a hypothetical position that's intended for further analysis.
-    fn pos_from_start(&self) -> Option<PositionInSeconds>;
+    fn pos_from_start(&self, timeline_cursor_pos: PositionInSeconds) -> Option<PositionInSeconds>;
 }
 
 impl ClipPcmSourceSkills for ClipPcmSource {
@@ -664,16 +685,21 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         self.state
     }
 
-    fn schedule_start(&mut self, pos: PositionInSeconds, repeated: bool) {
-        self.start_internal(pos, repeated);
+    fn schedule_start(
+        &mut self,
+        timeline_cursor_pos: PositionInSeconds,
+        pos: PositionInSeconds,
+        repeated: bool,
+    ) {
+        self.start_internal(timeline_cursor_pos, pos, repeated);
     }
 
-    fn start_immediately(&mut self, repeated: bool) {
-        self.start_internal(self.timeline_cursor_pos(), repeated);
+    fn start_immediately(&mut self, timeline_cursor_pos: PositionInSeconds, repeated: bool) {
+        self.start_internal(timeline_cursor_pos, timeline_cursor_pos, repeated);
     }
 
-    fn pause(&mut self) {
-        if let Some(info) = self.cursor_info() {
+    fn pause(&mut self, timeline_cursor_pos: PositionInSeconds) {
+        if let Some(info) = self.cursor_info_at(timeline_cursor_pos) {
             // Running
             use RunPhase::*;
             match info.running_state.phase {
@@ -701,8 +727,8 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
-    fn schedule_stop(&mut self, pos: ClipStopPosition) {
-        if let Some(info) = self.cursor_info() {
+    fn schedule_stop(&mut self, timeline_cursor_pos: PositionInSeconds, pos: ClipStopPosition) {
+        if let Some(info) = self.cursor_info_at(timeline_cursor_pos) {
             // Running.
             use RunPhase::*;
             match info.running_state.phase {
@@ -735,8 +761,8 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
-    fn stop_immediately(&mut self) {
-        if let Some(info) = self.cursor_info() {
+    fn stop_immediately(&mut self, timeline_cursor_pos: PositionInSeconds) {
+        if let Some(info) = self.cursor_info_at(timeline_cursor_pos) {
             // Running.
             use RunPhase::*;
             match info.running_state.phase {
@@ -765,8 +791,8 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
-    fn seek_to(&mut self, desired_pos: DurationInSeconds) {
-        if let Some(info) = self.cursor_and_length_info() {
+    fn seek_to(&mut self, timeline_cursor_pos: PositionInSeconds, desired_pos: DurationInSeconds) {
+        if let Some(info) = self.cursor_and_length_info_at(timeline_cursor_pos) {
             let clip_cursor_offset = if info.cursor_info.running_state.phase == RunPhase::Paused {
                 desired_pos
             } else {
@@ -784,13 +810,13 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         self.inner.source.get_length().unwrap_or_default()
     }
 
-    fn set_repeated(&mut self, repeated: bool) {
+    fn set_repeated(&mut self, timeline_cursor_pos: PositionInSeconds, repeated: bool) {
         self.repetition = {
             if repeated {
                 Repetition::Infinitely
             } else {
                 let times = self
-                    .cursor_and_length_info()
+                    .cursor_and_length_info_at(timeline_cursor_pos)
                     .and_then(|i| i.current_hypothetical_cycle_index())
                     .map(|i| i + 1)
                     .unwrap_or(1);
@@ -799,12 +825,13 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         };
     }
 
-    fn pos_within_clip(&self) -> Option<PositionInSeconds> {
-        self.cursor_and_length_info()?.pos_within_clip()
+    fn pos_within_clip(&self, timeline_cursor_pos: PositionInSeconds) -> Option<PositionInSeconds> {
+        self.cursor_and_length_info_at(timeline_cursor_pos)?
+            .pos_within_clip()
     }
 
-    fn pos_from_start(&self) -> Option<PositionInSeconds> {
-        Some(self.cursor_info()?.pos_from_start())
+    fn pos_from_start(&self, timeline_cursor_pos: PositionInSeconds) -> Option<PositionInSeconds> {
+        Some(self.cursor_info_at(timeline_cursor_pos)?.pos_from_start())
     }
 }
 
@@ -822,54 +849,82 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         state
     }
 
-    fn schedule_start(&mut self, mut pos: PositionInSeconds, mut repeated: bool) {
+    fn schedule_start(
+        &mut self,
+        mut timeline_cursor_pos: PositionInSeconds,
+        mut pos: PositionInSeconds,
+        mut repeated: bool,
+    ) {
         unsafe {
             self.extended(
                 EXT_SCHEDULE_START,
+                &mut timeline_cursor_pos as *mut _ as _,
                 &mut pos as *mut _ as _,
                 &mut repeated as *mut _ as _,
-                null_mut(),
             );
         }
     }
 
-    fn start_immediately(&mut self, mut repeated: bool) {
+    fn start_immediately(
+        &mut self,
+        mut timeline_cursor_pos: PositionInSeconds,
+        mut repeated: bool,
+    ) {
         unsafe {
             self.extended(
                 EXT_START_IMMEDIATELY,
+                &mut timeline_cursor_pos as *mut _ as _,
                 &mut repeated as *mut _ as _,
-                null_mut(),
                 null_mut(),
             );
         }
     }
 
-    fn schedule_stop(&mut self, mut pos: ClipStopPosition) {
+    fn schedule_stop(
+        &mut self,
+        mut timeline_cursor_pos: PositionInSeconds,
+        mut pos: ClipStopPosition,
+    ) {
         unsafe {
             self.extended(
                 EXT_SCHEDULE_STOP,
+                &mut timeline_cursor_pos as *mut _ as _,
                 &mut pos as *mut _ as _,
+                null_mut(),
+            );
+        }
+    }
+
+    fn pause(&mut self, mut timeline_cursor_pos: PositionInSeconds) {
+        unsafe {
+            self.extended(
+                EXT_PAUSE,
+                &mut timeline_cursor_pos as *mut _ as _,
                 null_mut(),
                 null_mut(),
             );
         }
     }
 
-    fn pause(&mut self) {
+    fn stop_immediately(&mut self, mut timeline_cursor_pos: PositionInSeconds) {
         unsafe {
-            self.extended(EXT_PAUSE, null_mut(), null_mut(), null_mut());
+            self.extended(
+                EXT_STOP_IMMEDIATELY,
+                &mut timeline_cursor_pos as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
         }
     }
 
-    fn stop_immediately(&mut self) {
+    fn seek_to(&mut self, mut timeline_cursor_pos: PositionInSeconds, mut pos: DurationInSeconds) {
         unsafe {
-            self.extended(EXT_STOP_IMMEDIATELY, null_mut(), null_mut(), null_mut());
-        }
-    }
-
-    fn seek_to(&mut self, mut pos: DurationInSeconds) {
-        unsafe {
-            self.extended(EXT_SEEK_TO, &mut pos as *mut _ as _, null_mut(), null_mut());
+            self.extended(
+                EXT_SEEK_TO,
+                &mut timeline_cursor_pos as *mut _ as _,
+                &mut pos as *mut _ as _,
+                null_mut(),
+            );
         }
     }
 
@@ -886,37 +941,48 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         DurationInSeconds::new(l)
     }
 
-    fn set_repeated(&mut self, repeated: bool) {
+    fn set_repeated(&mut self, mut timeline_cursor_pos: PositionInSeconds, repeated: bool) {
         let request = if repeated {
             EXT_ENABLE_REPEAT
         } else {
             EXT_DISABLE_REPEAT
         };
         unsafe {
-            self.extended(request, null_mut(), null_mut(), null_mut());
+            self.extended(
+                request,
+                &mut timeline_cursor_pos as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
         }
     }
 
-    fn pos_within_clip(&self) -> Option<PositionInSeconds> {
+    fn pos_within_clip(
+        &self,
+        mut timeline_cursor_pos: PositionInSeconds,
+    ) -> Option<PositionInSeconds> {
         let mut p: Option<PositionInSeconds> = None;
         unsafe {
             self.extended(
                 EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED,
+                &mut timeline_cursor_pos as *mut _ as _,
                 &mut p as *mut _ as _,
-                null_mut(),
                 null_mut(),
             );
         }
         p
     }
 
-    fn pos_from_start(&self) -> Option<PositionInSeconds> {
+    fn pos_from_start(
+        &self,
+        mut timeline_cursor_pos: PositionInSeconds,
+    ) -> Option<PositionInSeconds> {
         let mut p: Option<PositionInSeconds> = None;
         unsafe {
             self.extended(
                 EXT_QUERY_POS_FROM_START,
+                &mut timeline_cursor_pos as *mut _ as _,
                 &mut p as *mut _ as _,
-                null_mut(),
                 null_mut(),
             );
         }

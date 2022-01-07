@@ -1,4 +1,4 @@
-use crate::domain::clip::{ClipChangedEvent, TimelineMoment};
+use crate::domain::clip::{get_timeline_cursor_pos, ClipChangedEvent, TimelineMoment};
 use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
     CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
@@ -665,8 +665,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         //  We should introduce a set that contains the currently filled or playing slot numbers
         //  iterate over them only instead of all slots.
         let mut instance_state = self.basics.instance_state.borrow_mut();
+        let timeline_cursor_pos = get_timeline_cursor_pos(self.basics.context.project());
         for i in 0..CLIP_SLOT_COUNT {
-            for event in instance_state.poll_slot(i).into_iter() {
+            for event in instance_state.poll_slot(i, timeline_cursor_pos).into_iter() {
                 let is_position_change = matches!(&event, ClipChangedEvent::ClipPosition(_));
                 let instance_event = InstanceStateChanged::Clip {
                     slot_index: i,

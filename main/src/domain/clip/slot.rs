@@ -16,7 +16,9 @@ use helgoboss_learn::{UnitValue, BASE_EPSILON};
 use crate::domain::clip::clip_source::{
     ClipPcmSource, ClipPcmSourceSkills, ClipState, ClipStopPosition, RunPhase,
 };
-use crate::domain::clip::{Clip, ClipChangedEvent, ClipContent, ClipPlayState};
+use crate::domain::clip::{
+    get_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
+};
 
 /// Represents an actually playable clip slot.
 ///
@@ -162,8 +164,10 @@ impl ClipSlot {
     /// worse. The poll-based solution ensures that we can do all of the important
     /// stuff in one go and even summarize many changes easily into one batch before sending it
     /// to UI/controllers/clients.
-    pub fn poll(&mut self) -> Option<ClipChangedEvent> {
-        let (result, change_events) = self.start_transition().poll(&self.register);
+    pub fn poll(&mut self, timeline_cursor_pos: PositionInSeconds) -> Option<ClipChangedEvent> {
+        let (result, change_events) = self
+            .start_transition()
+            .poll(&self.register, timeline_cursor_pos);
         self.finish_transition(result).ok()?;
         change_events
     }
@@ -180,7 +184,8 @@ impl ClipSlot {
 
     /// Returns the play state of this slot, derived from the slot state.  
     pub fn play_state(&self) -> ClipPlayState {
-        self.state.play_state(&self.register)
+        self.state
+            .play_state(&self.register, get_timeline_cursor_pos(None))
     }
 
     /// Generates a change event from the current play state of this slot.
@@ -270,7 +275,8 @@ impl ClipSlot {
         self.clip.repeat = new_value;
         let mut guard = lock(&self.register);
         if let Some(src) = guard.src_mut() {
-            src.as_mut().set_repeated(new_value);
+            src.as_mut()
+                .set_repeated(get_timeline_cursor_pos(None), new_value);
         }
         self.repeat_changed_event()
     }
@@ -299,7 +305,7 @@ impl ClipSlot {
             return Ok(UnitValue::MIN);
         }
         let src = src.as_ref();
-        let pos_within_clip = src.pos_within_clip();
+        let pos_within_clip = src.pos_within_clip(get_timeline_cursor_pos(None));
         let length = src.inner_length();
         let percentage_pos = calculate_proportional_position(pos_within_clip, length);
         Ok(percentage_pos)
@@ -312,7 +318,11 @@ impl ClipSlot {
         if matches!(self.state, State::Empty) {
             return Ok(PositionInSeconds::ZERO);
         }
-        Ok(src.as_ref().pos_within_clip().unwrap_or_default())
+        let pos = src
+            .as_ref()
+            .pos_within_clip(get_timeline_cursor_pos(None))
+            .unwrap_or_default();
+        Ok(pos)
     }
 
     /// Changes the clip position on a percentage basis.
@@ -326,7 +336,7 @@ impl ClipSlot {
         let length = source.inner_length();
         let desired_pos_in_secs =
             DurationInSeconds::new(desired_proportional_pos.get() * length.get());
-        source.seek_to(desired_pos_in_secs);
+        source.seek_to(get_timeline_cursor_pos(None), desired_pos_in_secs);
         Ok(())
     }
 
@@ -356,11 +366,15 @@ enum State {
 
 impl State {
     /// Derives the corresponding clip play state.
-    pub fn play_state(&self, reg: &SharedRegister) -> ClipPlayState {
+    pub fn play_state(
+        &self,
+        reg: &SharedRegister,
+        timeline_cursor_pos: PositionInSeconds,
+    ) -> ClipPlayState {
         use State::*;
         match self {
             Empty => ClipPlayState::Stopped,
-            Filled(s) => s.play_state(reg),
+            Filled(s) => s.play_state(reg, timeline_cursor_pos),
             Transitioning => unreachable!(),
         }
     }
@@ -392,7 +406,7 @@ impl State {
                 // Clip was started once already.
                 let synced = play_args.options.next_bar;
                 // Clip was started in sync with project.
-                let state = s.play_state(reg);
+                let state = s.play_state(reg, moment.cursor_pos);
                 use ClipPlayState::*;
                 match change {
                     RelevantTransportChange::Play => {
@@ -415,8 +429,7 @@ impl State {
                     RelevantTransportChange::Pause => match state {
                         Playing | ScheduledForStop if synced => {
                             // Pause and memorize
-                            // TODO-high maybe with sync pause time
-                            s.pause(reg, true)
+                            s.pause(reg, true, moment.cursor_pos)
                         }
                         _ => {
                             // Stop and forget
@@ -431,6 +444,7 @@ impl State {
                         }
                         _ => {
                             // Stop and forget
+                            println!("Lost {} with state {:?}", slot_index, state);
                             s.stop(reg, SlotStopBehavior::Immediately, false, moment)
                         }
                     },
@@ -475,7 +489,7 @@ impl State {
         use State::*;
         match self {
             Empty => Ok(Empty),
-            Filled(s) => s.pause(reg, false),
+            Filled(s) => s.pause(reg, false, get_timeline_cursor_pos(None)),
             Transitioning => unreachable!(),
         }
     }
@@ -489,10 +503,14 @@ impl State {
         }
     }
 
-    pub fn poll(self, reg: &SharedRegister) -> (TransitionResult, Option<ClipChangedEvent>) {
+    pub fn poll(
+        self,
+        reg: &SharedRegister,
+        timeline_cursor_pos: PositionInSeconds,
+    ) -> (TransitionResult, Option<ClipChangedEvent>) {
         use State::*;
         match self {
-            Filled(s) => s.poll(reg),
+            Filled(s) => s.poll(reg, timeline_cursor_pos),
             // When empty, change nothing and emit no change events.
             Empty => (Ok(self), None),
             Transitioning => unreachable!(),
@@ -625,12 +643,15 @@ impl FilledState {
                 guard.set_preview_track(args.track.as_ref().map(|t| t.raw()));
             }
             // Start clip.
+            let timeline_cursor_pos = get_timeline_cursor_pos(Some(args.project));
             if let Some(src) = guard.src_mut() {
                 if args.options.next_bar {
                     let scheduled_pos = moment.next_bar_pos();
-                    src.as_mut().schedule_start(scheduled_pos, args.repeat);
+                    src.as_mut()
+                        .schedule_start(timeline_cursor_pos, scheduled_pos, args.repeat);
                 } else {
-                    src.as_mut().start_immediately(args.repeat);
+                    src.as_mut()
+                        .start_immediately(timeline_cursor_pos, args.repeat);
                 };
             }
         }
@@ -658,10 +679,11 @@ impl FilledState {
         self,
         reg: &SharedRegister,
         was_caused_by_transport_change: bool,
+        timeline_cursor_pos: PositionInSeconds,
     ) -> TransitionResult {
         let mut guard = lock(reg);
         if let Some(src) = guard.src_mut() {
-            src.as_mut().pause();
+            src.as_mut().pause(timeline_cursor_pos);
         }
         let next_state = FilledState {
             was_caused_by_transport_change,
@@ -682,11 +704,13 @@ impl FilledState {
             use SlotStopBehavior::*;
             match stop_behavior {
                 Immediately => {
-                    src.as_mut().stop_immediately();
+                    src.as_mut().stop_immediately(moment.cursor_pos);
                 }
                 EndOfBar | EndOfClip => {
-                    src.as_mut()
-                        .schedule_stop(stop_behavior.get_clip_stop_position(moment));
+                    src.as_mut().schedule_stop(
+                        moment.cursor_pos,
+                        stop_behavior.get_clip_stop_position(moment),
+                    );
                 }
             }
         }
@@ -707,13 +731,21 @@ impl FilledState {
         Ok(State::Empty)
     }
 
-    pub fn play_state(&self, reg: &SharedRegister) -> ClipPlayState {
+    pub fn play_state(
+        &self,
+        reg: &SharedRegister,
+        timeline_cursor_pos: PositionInSeconds,
+    ) -> ClipPlayState {
         let guard = lock(reg);
         let src = guard.src().expect(NO_SOURCE_LOADED).as_ref();
-        get_play_state(src)
+        get_play_state(src, timeline_cursor_pos)
     }
 
-    pub fn poll(self, reg: &SharedRegister) -> (TransitionResult, Option<ClipChangedEvent>) {
+    pub fn poll(
+        self,
+        reg: &SharedRegister,
+        timeline_cursor_pos: PositionInSeconds,
+    ) -> (TransitionResult, Option<ClipChangedEvent>) {
         // TODO-medium We can optimize this by getting everything at once.
         let (play_state, pos_within_clip, length) = {
             // React gracefully even in weird situations (because we are in poll).
@@ -726,9 +758,9 @@ impl FilledState {
                 None => return (Ok(State::Filled(self)), None),
             };
             let src = src.as_ref();
-            let pos_within_clip = src.pos_within_clip();
+            let pos_within_clip = src.pos_within_clip(timeline_cursor_pos);
             let length = src.inner_length();
-            let play_state = get_play_state(src);
+            let play_state = get_play_state(src, timeline_cursor_pos);
             (play_state, pos_within_clip, length)
         };
         let (next_state, event) = if play_state == self.last_clip_play_state {
@@ -842,7 +874,7 @@ pub struct TimelineMoment {
 
 impl TimelineMoment {
     pub fn now(project: Project) -> Self {
-        Self::from_cursor_pos(project, project.play_position_next_audio_block())
+        Self::from_cursor_pos(project, get_timeline_cursor_pos(Some(project)))
     }
 
     pub fn from_cursor_pos(project: Project, cursor_pos: PositionInSeconds) -> Self {
@@ -874,14 +906,17 @@ impl TimelineMoment {
     }
 }
 
-fn get_play_state(src: &BorrowedPcmSource) -> ClipPlayState {
+fn get_play_state(
+    src: &BorrowedPcmSource,
+    timeline_cursor_pos: PositionInSeconds,
+) -> ClipPlayState {
     match src.query_state() {
         ClipState::Stopped => ClipPlayState::Stopped,
         ClipState::Running(s) => {
             use RunPhase::*;
             match s.phase {
                 ScheduledOrPlaying => {
-                    if let Some(pos_from_start) = src.pos_from_start() {
+                    if let Some(pos_from_start) = src.pos_from_start(timeline_cursor_pos) {
                         if pos_from_start < PositionInSeconds::ZERO {
                             ClipPlayState::ScheduledForPlay
                         } else {
