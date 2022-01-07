@@ -11,7 +11,7 @@ use crate::domain::{
     OscFeedbackTask, OscScanResult, RealTimeSender, RealearnAudioHook,
     RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetContext, ReaperTarget,
-    SharedRealTimeProcessor, Tag,
+    SharedMiddleware, SharedRealTimeProcessor, Tag,
 };
 use crate::infrastructure::data::{
     ExtendedPresetManager, FileBasedControllerPresetManager, FileBasedMainPresetManager,
@@ -64,8 +64,7 @@ const OSC_OUTGOING_QUEUE_SIZE: usize = 1000;
 
 make_available_globally_in_main_thread!(App);
 
-pub type RealearnControlSurface =
-    MiddlewareControlSurface<RealearnControlSurfaceMiddleware<WeakSession>>;
+pub type RealearnControlSurface = MiddlewareControlSurface<SharedMiddleware<WeakSession>>;
 
 pub type RealearnControlSurfaceMainTaskSender =
     crossbeam_channel::Sender<RealearnControlSurfaceMainTask<WeakSession>>;
@@ -95,6 +94,7 @@ pub struct App {
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
     osc_feedback_processor: Rc<RefCell<OscFeedbackProcessor>>,
+    middleware: RefCell<Option<SharedMiddleware<WeakSession>>>,
 }
 
 #[derive(Debug)]
@@ -248,6 +248,7 @@ impl App {
             osc_feedback_processor: Rc::new(RefCell::new(OscFeedbackProcessor::new(
                 osc_feedback_task_receiver,
             ))),
+            middleware: RefCell::new(None),
         }
     }
 
@@ -294,7 +295,7 @@ impl App {
             .subscribe(move |fx| {
                 list_of_recently_focused_fx.borrow_mut().feed(fx);
             });
-        let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
+        let shared_middleware = SharedMiddleware::new(RealearnControlSurfaceMiddleware::new(
             App::logger(),
             uninit_state.control_surface_main_task_receiver,
             uninit_state.control_surface_server_task_receiver,
@@ -303,6 +304,20 @@ impl App {
             Self::garbage_channel().1.clone(),
             std::env::var("REALEARN_METER").is_ok(),
         ));
+        *self.middleware.borrow_mut() = Some(shared_middleware.clone());
+
+        extern "C" fn timer() {
+            let cs = App::get().middleware.borrow();
+            if let Some(cs) = cs.as_ref() {
+                if let Ok(mut cs) = cs.get().try_borrow_mut() {
+                    cs.run_from_timer();
+                }
+            }
+        }
+        Reaper::get()
+            .medium_session()
+            .plugin_register_add_timer(timer);
+        let control_surface = MiddlewareControlSurface::new(shared_middleware);
         let audio_hook = RealearnAudioHook::new(
             uninit_state.normal_audio_hook_task_receiver,
             uninit_state.feedback_audio_hook_task_receiver,
@@ -320,13 +335,16 @@ impl App {
         self.temporarily_reclaim_control_surface_ownership(|control_surface| {
             let middleware = control_surface.middleware_mut();
             // Disconnect
-            middleware.clear_osc_input_devices();
+            middleware.get().borrow_mut().clear_osc_input_devices();
             // Reconnect
             let osc_input_devices = self
                 .osc_device_manager
                 .borrow_mut()
                 .connect_all_enabled_inputs();
-            middleware.set_osc_input_devices(osc_input_devices);
+            middleware
+                .get()
+                .borrow_mut()
+                .set_osc_input_devices(osc_input_devices);
         });
         // Feedback devices
         {
@@ -391,8 +409,16 @@ impl App {
             .start(osc_output_devices);
         // Control surface
         let middleware = sleeping_state.control_surface.middleware_mut();
-        middleware.set_osc_input_devices(osc_input_devices);
-        sleeping_state.control_surface.middleware().wake_up();
+        middleware
+            .get()
+            .borrow_mut()
+            .set_osc_input_devices(osc_input_devices);
+        sleeping_state
+            .control_surface
+            .middleware()
+            .get()
+            .borrow_mut()
+            .wake_up();
         let control_surface_handle = session
             .plugin_register_add_csurf_inst(sleeping_state.control_surface)
             .expect("couldn't register ReaLearn control surface");
@@ -428,7 +454,7 @@ impl App {
         };
         // Close OSC connections
         let middleware = control_surface.middleware_mut();
-        middleware.clear_osc_input_devices();
+        middleware.get().borrow_mut().clear_osc_input_devices();
         self.osc_feedback_processor.borrow_mut().stop();
         // Actions
         session.plugin_register_remove_hook_post_command_2::<Self>();
@@ -535,6 +561,8 @@ impl App {
             // Remove main processor.
             control_surface
                 .middleware_mut()
+                .get()
+                .borrow_mut()
                 .remove_main_processor(instance_id);
         });
     }

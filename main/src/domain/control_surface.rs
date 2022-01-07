@@ -15,6 +15,7 @@ use reaper_high::{
 };
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
+use std::cell::RefCell;
 
 use reaper_medium::{
     CommandId, ExtSupportsExtendedTouchArgs, GetTouchStateArgs, MediaTrack, PositionInSeconds,
@@ -24,6 +25,8 @@ use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
 use std::collections::HashMap;
+use std::ops::Deref;
+use std::rc::Rc;
 
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
 
@@ -224,6 +227,10 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
     pub fn clear_osc_input_devices(&mut self) {
         self.osc_input_devices.clear();
+    }
+
+    pub fn run_from_timer(&mut self) {
+        self.run_internal();
     }
 
     /// Called when waking up ReaLearn (first instance appears again or the first time).
@@ -588,35 +595,52 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 }
 
-impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
+#[derive(Clone, Debug)]
+pub struct SharedMiddleware<EH: DomainEventHandler>(
+    Rc<RefCell<RealearnControlSurfaceMiddleware<EH>>>,
+);
+
+impl<EH: DomainEventHandler> SharedMiddleware<EH> {
+    pub fn new(middleware: RealearnControlSurfaceMiddleware<EH>) -> Self {
+        Self(Rc::new(RefCell::new(middleware)))
+    }
+
+    pub fn get(&self) -> &Rc<RefCell<RealearnControlSurfaceMiddleware<EH>>> {
+        &self.0
+    }
+}
+
+impl<EH: DomainEventHandler> ControlSurfaceMiddleware for SharedMiddleware<EH> {
     fn run(&mut self) {
+        let mut m = self.0.borrow_mut();
         #[cfg(feature = "realearn-meter")]
-        if self.metrics_enabled {
+        if m.metrics_enabled {
             let elapsed = reaper_high::MeterMiddleware::measure(|| {
-                self.run_internal();
+                m.run_internal();
             });
-            self.meter_middleware.record_run(elapsed);
+            m.meter_middleware.record_run(elapsed);
         } else {
-            self.run_internal();
+            m.run_internal();
         }
         #[cfg(not(feature = "realearn-meter"))]
         {
-            self.run_internal();
+            m.run_internal();
         }
     }
 
     fn handle_event(&self, event: ControlSurfaceEvent) -> bool {
+        let mut m = self.0.borrow();
         #[cfg(feature = "realearn-meter")]
-        if self.metrics_enabled {
+        if m.metrics_enabled {
             let elapsed = reaper_high::MeterMiddleware::measure(|| {
-                self.handle_event_internal(event);
+                m.handle_event_internal(event);
             });
-            self.meter_middleware.record_event(event, elapsed)
+            m.meter_middleware.record_event(event, elapsed)
         } else {
-            self.handle_event_internal(event)
+            m.handle_event_internal(event)
         }
         #[cfg(not(feature = "realearn-meter"))]
-        self.handle_event_internal(event)
+        m.handle_event_internal(event)
     }
 
     fn get_touch_state(&self, args: GetTouchStateArgs) -> bool {
