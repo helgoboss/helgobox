@@ -163,6 +163,12 @@ impl ClipPcmSource {
                         self.schedule_start_internal(start_pos, repeated);
                     }
                 }
+                Retriggering | TransitioningToPause | TransitioningToStop => {
+                    // It's important to handle this, otherwise some play actions don't have
+                    // success, which is especially annoying when using transport sync.
+                    // TODO-high Line in note/sound-off stuff.
+                    self.schedule_start_internal(start_pos, repeated);
+                }
                 Paused => {
                     // Resume
                     let info = self.create_cursor_and_length_info(info);
@@ -181,7 +187,6 @@ impl ClipPcmSource {
                     let new_state = info.running_state.with_phase(RunPhase::ScheduledOrPlaying);
                     self.state = ClipState::Running(new_state);
                 }
-                Retriggering | TransitioningToPause | TransitioningToStop => {}
             }
         } else {
             // Not yet running.
@@ -703,7 +708,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
             // Running
             use RunPhase::*;
             match info.running_state.phase {
-                ScheduledOrPlaying | ScheduledForStop(_) => {
+                ScheduledOrPlaying | ScheduledForStop(_) | Retriggering | TransitioningToStop => {
                     let info = self.create_cursor_and_length_info(info);
                     if let Ok(clip_cursor_offset) = info.hypothetical_pos_within_clip().try_into() {
                         // Playing. Pause!
@@ -722,7 +727,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                         //  clip scheduling to the future. I think that would feel natural.
                     }
                 }
-                Paused | Retriggering | TransitioningToPause | TransitioningToStop => {}
+                Paused | TransitioningToPause => {}
             }
         }
     }
@@ -780,13 +785,13 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                 Paused => {
                     self.state = ClipState::Stopped;
                 }
-                ScheduledForStop(_) => {
-                    // Playing. Transition to stop.
+                ScheduledForStop(_) | Retriggering | TransitioningToPause => {
+                    // Transition to stop.
                     self.state = ClipState::Running(
                         info.running_state.with_phase(RunPhase::TransitioningToStop),
                     );
                 }
-                Retriggering | TransitioningToPause | TransitioningToStop => {}
+                TransitioningToStop => {}
             }
         }
     }

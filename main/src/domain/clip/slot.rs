@@ -644,19 +644,19 @@ impl FilledState {
             }
             // Start clip.
             let timeline_cursor_pos = get_timeline_cursor_pos(Some(args.project));
-            if let Some(src) = guard.src_mut() {
-                if args.options.next_bar {
-                    let scheduled_pos = moment.next_bar_pos();
-                    src.as_mut()
-                        .schedule_start(timeline_cursor_pos, scheduled_pos, args.repeat);
-                } else {
-                    src.as_mut()
-                        .start_immediately(timeline_cursor_pos, args.repeat);
-                };
-            }
+            let src = guard.src_mut().expect(NO_SOURCE_LOADED);
+            if args.options.next_bar {
+                let scheduled_pos = moment.next_bar_pos();
+                src.as_mut()
+                    .schedule_start(timeline_cursor_pos, scheduled_pos, args.repeat);
+            } else {
+                src.as_mut()
+                    .start_immediately(timeline_cursor_pos, args.repeat);
+            };
         }
         let was_caused_by_transport_change = self.was_caused_by_transport_change;
         let last_play_state = self.last_clip_play_state;
+        let last_project_play_state = self.last_project_play_state;
         let handle = if let Some(handle) = self.handle {
             // Preview register playing already.
             handle
@@ -666,7 +666,7 @@ impl FilledState {
                 .map_err(|text| (State::Filled(self), text))?
         };
         let next_state = FilledState {
-            last_project_play_state: args.project.play_state(),
+            last_project_play_state,
             handle: Some(handle),
             last_play_args: Some(args),
             was_caused_by_transport_change,
