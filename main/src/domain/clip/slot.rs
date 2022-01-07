@@ -1,7 +1,4 @@
-use std::path::PathBuf;
-use std::ptr::NonNull;
-use std::sync::Arc;
-
+use crate::domain::Timeline;
 use enumflags2::BitFlags;
 use reaper_high::{OwnedSource, Project, Reaper, Track};
 use reaper_low::raw;
@@ -10,6 +7,9 @@ use reaper_medium::{
     MeasureAlignment, MeasureMode, OwnedPreviewRegister, PlayState, PositionInBeats,
     PositionInSeconds, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
 };
+use std::path::PathBuf;
+use std::ptr::NonNull;
+use std::sync::Arc;
 
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
@@ -17,7 +17,7 @@ use crate::domain::clip::clip_source::{
     ClipPcmSource, ClipPcmSourceSkills, ClipState, ClipStopPosition, RunPhase,
 };
 use crate::domain::clip::{
-    get_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
+    clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
 };
 
 /// Represents an actually playable clip slot.
@@ -185,7 +185,7 @@ impl ClipSlot {
     /// Returns the play state of this slot, derived from the slot state.  
     pub fn play_state(&self) -> ClipPlayState {
         self.state
-            .play_state(&self.register, get_timeline_cursor_pos(None))
+            .play_state(&self.register, clip_timeline_cursor_pos(None))
     }
 
     /// Generates a change event from the current play state of this slot.
@@ -275,7 +275,7 @@ impl ClipSlot {
         let mut guard = lock(&self.register);
         if let Some(src) = guard.src_mut() {
             src.as_mut()
-                .set_repeated(get_timeline_cursor_pos(None), new_value);
+                .set_repeated(clip_timeline_cursor_pos(None), new_value);
         }
         self.repeat_changed_event()
     }
@@ -304,7 +304,7 @@ impl ClipSlot {
             return Ok(UnitValue::MIN);
         }
         let src = src.as_ref();
-        let pos_within_clip = src.pos_within_clip(get_timeline_cursor_pos(None));
+        let pos_within_clip = src.pos_within_clip(clip_timeline_cursor_pos(None));
         let length = src.inner_length();
         let percentage_pos = calculate_proportional_position(pos_within_clip, length);
         Ok(percentage_pos)
@@ -319,7 +319,7 @@ impl ClipSlot {
         }
         let pos = src
             .as_ref()
-            .pos_within_clip(get_timeline_cursor_pos(None))
+            .pos_within_clip(clip_timeline_cursor_pos(None))
             .unwrap_or_default();
         Ok(pos)
     }
@@ -335,7 +335,7 @@ impl ClipSlot {
         let length = source.inner_length();
         let desired_pos_in_secs =
             DurationInSeconds::new(desired_proportional_pos.get() * length.get());
-        source.seek_to(get_timeline_cursor_pos(None), desired_pos_in_secs);
+        source.seek_to(clip_timeline_cursor_pos(None), desired_pos_in_secs);
         Ok(())
     }
 
@@ -384,6 +384,10 @@ impl State {
         new_play_state: PlayState,
         moment: TimelineMoment,
     ) -> TransitionResult {
+        // TODO-high Get clip timeline as argument!
+        if !clip_timeline(None).follows_reaper_transport() {
+            return Ok(self);
+        }
         match self {
             State::Empty => Ok(State::Empty),
             State::Filled(mut s) => {
@@ -476,7 +480,7 @@ impl State {
         use State::*;
         match self {
             Empty => Ok(Empty),
-            Filled(s) => s.pause(reg, false, get_timeline_cursor_pos(None)),
+            Filled(s) => s.pause(reg, false, clip_timeline_cursor_pos(None)),
             Transitioning => unreachable!(),
         }
     }
@@ -630,7 +634,7 @@ impl FilledState {
                 guard.set_preview_track(args.track.as_ref().map(|t| t.raw()));
             }
             // Start clip.
-            let timeline_cursor_pos = get_timeline_cursor_pos(Some(args.project));
+            let timeline_cursor_pos = clip_timeline_cursor_pos(Some(args.project));
             let src = guard.src_mut().expect(NO_SOURCE_LOADED);
             if args.options.next_bar {
                 let scheduled_pos = moment.next_bar_pos();
@@ -861,7 +865,7 @@ pub struct TimelineMoment {
 
 impl TimelineMoment {
     pub fn now(project: Project) -> Self {
-        Self::from_cursor_pos(project, get_timeline_cursor_pos(Some(project)))
+        Self::from_cursor_pos(project, clip_timeline_cursor_pos(Some(project)))
     }
 
     pub fn from_cursor_pos(project: Project, cursor_pos: PositionInSeconds) -> Self {

@@ -1,9 +1,10 @@
+use crate::domain::Timeline;
 use std::convert::TryInto;
 use std::error::Error;
 use std::ptr::null_mut;
 
-use crate::domain::clip::get_timeline_cursor_pos;
 use crate::domain::clip::source_util::pcm_source_is_midi;
+use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos};
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
@@ -217,7 +218,7 @@ impl ClipPcmSource {
     /// When the project is not playing, it's a hypothetical position starting from the project
     /// play cursor position.
     fn timeline_cursor_pos(&self) -> PositionInSeconds {
-        get_timeline_cursor_pos(self.project)
+        clip_timeline_cursor_pos(self.project)
     }
 
     /// Returns running state and the current cursor position on the timeline.
@@ -446,7 +447,7 @@ impl CustomPcmSource for ClipPcmSource {
         //     let raw = unsafe { ptr.as_ref() };
         //     dbg!(raw);
         // }
-        if self.project().play_state().is_paused {
+        if !clip_timeline(self.project).is_running() {
             return;
         }
         self.counter += 1;

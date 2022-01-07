@@ -7,10 +7,11 @@ use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
-    MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
-    SendMidiTime,
+    Hz, MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
+    PositionInSeconds, SendMidiTime,
 };
 use smallvec::SmallVec;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -47,6 +48,80 @@ pub enum FeedbackAudioHookTask {
         MidiSourceValue<'static, RawShortMessage>,
     ),
     SendMidi(MidiOutputDeviceId, Vec<RawMidiEvent>),
+}
+
+pub trait Timeline: Send + Sync {
+    fn cursor_pos(&self) -> PositionInSeconds;
+
+    fn is_running(&self) -> bool;
+
+    fn follows_reaper_transport(&self) -> bool;
+}
+
+pub struct SteadyTimeline {
+    sample_counter: AtomicU64,
+    sample_rate: AtomicU32,
+}
+
+impl SteadyTimeline {
+    pub const fn new() -> Self {
+        Self {
+            sample_counter: AtomicU64::new(0),
+            sample_rate: AtomicU32::new(0),
+        }
+    }
+
+    pub fn sample_count(&self) -> u64 {
+        self.sample_counter.load(Ordering::Relaxed)
+    }
+
+    pub fn sample_rate(&self) -> Hz {
+        let discrete_sample_rate = self.sample_rate.load(Ordering::Relaxed) as f64;
+        Hz::new(discrete_sample_rate)
+    }
+
+    fn advance_by(&self, buffer_length: u64, sample_rate: Hz) {
+        self.sample_counter
+            .fetch_add(buffer_length, Ordering::Relaxed);
+        let discrete_sample_rate = sample_rate.get() as u32;
+        self.sample_rate
+            .store(discrete_sample_rate, Ordering::Relaxed);
+    }
+}
+
+impl Timeline for SteadyTimeline {
+    fn cursor_pos(&self) -> PositionInSeconds {
+        PositionInSeconds::new(self.sample_count() as f64 / self.sample_rate().get())
+    }
+
+    fn is_running(&self) -> bool {
+        true
+    }
+
+    fn follows_reaper_transport(&self) -> bool {
+        false
+    }
+}
+
+impl<T: Timeline> Timeline for &T {
+    fn cursor_pos(&self) -> PositionInSeconds {
+        (*self).cursor_pos()
+    }
+
+    fn is_running(&self) -> bool {
+        (*self).is_running()
+    }
+
+    fn follows_reaper_transport(&self) -> bool {
+        (*self).follows_reaper_transport()
+    }
+}
+
+static GLOBAL_STEADY_TIMELINE: SteadyTimeline = SteadyTimeline::new();
+
+/// Returns a global timeline that is ever-increasing and not influenced by REAPER's transport.
+pub fn global_steady_timeline() -> &'static SteadyTimeline {
+    &GLOBAL_STEADY_TIMELINE
 }
 
 #[derive(Debug)]
@@ -292,6 +367,7 @@ impl OnAudioBuffer for RealearnAudioHook {
             if args.is_post {
                 return;
             }
+            GLOBAL_STEADY_TIMELINE.advance_by(args.len as u64, args.srate);
             let current_time = Instant::now();
             let time_of_last_run = self.time_of_last_run.replace(current_time);
             let might_be_rebirth = if let Some(time) = time_of_last_run {
