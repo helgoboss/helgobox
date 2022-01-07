@@ -15,6 +15,7 @@ use rx_util::Notifier;
 use crate::base::{AsyncNotifier, Prop};
 use crate::domain::clip::{
     Clip, ClipChangedEvent, ClipContent, ClipSlot, SlotPlayOptions, SlotStopBehavior,
+    TimelineMoment,
 };
 use crate::domain::{GroupId, MappingCompartment, MappingId, QualifiedMappingId, Tag};
 
@@ -280,9 +281,12 @@ impl InstanceState {
             .filter(move |id| self.mapping_is_on(QualifiedMappingId::new(compartment, *id)))
     }
 
-    pub fn process_transport_change(&mut self, project: Project, new_play_state: PlayState) {
+    pub fn process_transport_change(&mut self, new_play_state: PlayState, moment: TimelineMoment) {
         for (slot_index, slot) in self.clip_slots.iter_mut().enumerate() {
-            if let Ok(Some(event)) = slot.process_transport_change(project, new_play_state) {
+            if let Some(event) = slot
+                .process_transport_change(new_play_state, moment)
+                .unwrap()
+            {
                 let instance_event = InstanceStateChanged::Clip { slot_index, event };
                 self.instance_feedback_event_sender
                     .try_send(instance_event)
@@ -369,7 +373,8 @@ impl InstanceState {
         track: Option<Track>,
         options: SlotPlayOptions,
     ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.play(project, track, options)
+        self.get_slot_mut(slot_index)?
+            .play(project, track, options, TimelineMoment::now(project))
     }
 
     /// If repeat is not enabled and `immediately` is false, this has essentially no effect.
@@ -379,7 +384,8 @@ impl InstanceState {
         stop_behavior: SlotStopBehavior,
         project: Project,
     ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.stop(stop_behavior, project)
+        self.get_slot_mut(slot_index)?
+            .stop(stop_behavior, TimelineMoment::now(project))
     }
 
     pub fn pause(&mut self, slot_index: usize) -> Result<(), &'static str> {

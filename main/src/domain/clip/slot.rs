@@ -196,6 +196,7 @@ impl ClipSlot {
         project: Project,
         track: Option<Track>,
         options: SlotPlayOptions,
+        moment: TimelineMoment,
     ) -> Result<(), &'static str> {
         let result = self.start_transition().play(
             &self.register,
@@ -205,6 +206,7 @@ impl ClipSlot {
                 track,
                 repeat: self.clip.repeat,
             },
+            moment,
         );
         self.finish_transition(result)
     }
@@ -220,14 +222,14 @@ impl ClipSlot {
     /// start/stop synchronized with REAPER's transport.
     pub fn process_transport_change(
         &mut self,
-        project: Project,
         new_play_state: PlayState,
+        moment: TimelineMoment,
     ) -> Result<Option<ClipChangedEvent>, &'static str> {
         let result = self.start_transition().process_transport_change(
             &self.register,
             new_play_state,
-            project,
             self.index,
+            moment,
         );
         self.finish_transition(result)?;
         Ok(Some(self.play_state_changed_event()))
@@ -239,11 +241,11 @@ impl ClipSlot {
     pub fn stop(
         &mut self,
         stop_behavior: SlotStopBehavior,
-        project: Project,
+        moment: TimelineMoment,
     ) -> Result<(), &'static str> {
         let result = self
             .start_transition()
-            .stop(&self.register, stop_behavior, project);
+            .stop(&self.register, stop_behavior, moment);
         self.finish_transition(result)
     }
 
@@ -367,8 +369,8 @@ impl State {
         self,
         reg: &SharedRegister,
         new_play_state: PlayState,
-        project: Project,
         slot_index: u32,
+        moment: TimelineMoment,
     ) -> TransitionResult {
         match self {
             State::Empty => Ok(State::Empty),
@@ -402,11 +404,11 @@ impl State {
                                 // Play the clip! It should automatically do the right thing, that
                                 // is schedule or resume, depending in which state it was.
                                 println!("Started {}", slot_index);
-                                s.play(reg, play_args)
+                                s.play(reg, play_args, moment)
                             }
                             _ => {
                                 // Stop and forget (because we have a timeline switch).
-                                s.stop(reg, SlotStopBehavior::Immediately, false, project)
+                                s.stop(reg, SlotStopBehavior::Immediately, false, moment)
                             }
                         }
                     }
@@ -418,22 +420,22 @@ impl State {
                         }
                         _ => {
                             // Stop and forget
-                            s.stop(reg, SlotStopBehavior::Immediately, false, project)
+                            s.stop(reg, SlotStopBehavior::Immediately, false, moment)
                         }
                     },
                     RelevantTransportChange::StopAfterPlay => match state {
                         ScheduledForPlay | Playing | ScheduledForStop if synced => {
                             // Stop and memorize
                             println!("Memorized {}", slot_index);
-                            s.stop(reg, SlotStopBehavior::Immediately, true, project)
+                            s.stop(reg, SlotStopBehavior::Immediately, true, moment)
                         }
                         _ => {
                             // Stop and forget
-                            s.stop(reg, SlotStopBehavior::Immediately, false, project)
+                            s.stop(reg, SlotStopBehavior::Immediately, false, moment)
                         }
                     },
                     RelevantTransportChange::StopAfterPause => {
-                        s.stop(reg, SlotStopBehavior::Immediately, false, project)
+                        s.stop(reg, SlotStopBehavior::Immediately, false, moment)
                     }
                 }
             }
@@ -441,11 +443,16 @@ impl State {
         }
     }
 
-    pub fn play(self, reg: &SharedRegister, args: ClipPlayArgs) -> TransitionResult {
+    pub fn play(
+        self,
+        reg: &SharedRegister,
+        args: ClipPlayArgs,
+        moment: TimelineMoment,
+    ) -> TransitionResult {
         use State::*;
         match self {
             Empty => Err((Empty, "slot is empty")),
-            Filled(s) => s.play(reg, args),
+            Filled(s) => s.play(reg, args, moment),
             Transitioning => unreachable!(),
         }
     }
@@ -454,12 +461,12 @@ impl State {
         self,
         reg: &SharedRegister,
         stop_behavior: SlotStopBehavior,
-        project: Project,
+        moment: TimelineMoment,
     ) -> TransitionResult {
         use State::*;
         match self {
             Empty => Ok(Empty),
-            Filled(s) => s.stop(reg, stop_behavior, false, project),
+            Filled(s) => s.stop(reg, stop_behavior, false, moment),
             Transitioning => unreachable!(),
         }
     }
@@ -594,7 +601,12 @@ impl FilledState {
         Ok(State::Filled(self))
     }
 
-    pub fn play(self, reg: &SharedRegister, args: ClipPlayArgs) -> TransitionResult {
+    pub fn play(
+        self,
+        reg: &SharedRegister,
+        args: ClipPlayArgs,
+        moment: TimelineMoment,
+    ) -> TransitionResult {
         {
             let mut guard = lock(reg);
             // Handle preview track.
@@ -615,7 +627,7 @@ impl FilledState {
             // Start clip.
             if let Some(src) = guard.src_mut() {
                 if args.options.next_bar {
-                    let scheduled_pos = get_next_bar_pos(args.project);
+                    let scheduled_pos = moment.next_bar_pos();
                     src.as_mut().schedule_start(scheduled_pos, args.repeat);
                 } else {
                     src.as_mut().start_immediately(args.repeat);
@@ -663,7 +675,7 @@ impl FilledState {
         reg: &SharedRegister,
         stop_behavior: SlotStopBehavior,
         was_caused_by_transport_change: bool,
-        project: Project,
+        moment: TimelineMoment,
     ) -> TransitionResult {
         let mut guard = lock(reg);
         if let Some(src) = guard.src_mut() {
@@ -674,7 +686,7 @@ impl FilledState {
                 }
                 EndOfBar | EndOfClip => {
                     src.as_mut()
-                        .schedule_stop(stop_behavior.get_clip_stop_position(project));
+                        .schedule_stop(stop_behavior.get_clip_stop_position(moment));
                 }
             }
         }
@@ -781,10 +793,10 @@ pub enum SlotStopBehavior {
 }
 
 impl SlotStopBehavior {
-    fn get_clip_stop_position(&self, project: Project) -> ClipStopPosition {
+    fn get_clip_stop_position(&self, moment: TimelineMoment) -> ClipStopPosition {
         use SlotStopBehavior::*;
         match self {
-            EndOfBar => ClipStopPosition::At(get_next_bar_pos(project)),
+            EndOfBar => ClipStopPosition::At(moment.next_bar_pos()),
             EndOfClip => ClipStopPosition::AtEndOfClip,
             Immediately => unimplemented!("not used"),
         }
@@ -822,21 +834,44 @@ fn calculate_proportional_position(
         .unwrap_or_default()
 }
 
-fn get_next_bar_pos(project: Project) -> PositionInSeconds {
-    let reaper = Reaper::get().medium_reaper();
-    let timeline_pos = project.play_position_next_audio_block();
-    let proj_context = project.context();
-    let res = reaper.time_map_2_time_to_beats(proj_context, timeline_pos);
-    let next_measure_index = if res.beats_since_measure.get() <= BASE_EPSILON {
-        res.measure_index
-    } else {
-        res.measure_index + 1
-    };
-    reaper.time_map_2_beats_to_time(
-        proj_context,
-        MeasureMode::FromMeasureAtIndex(next_measure_index),
-        PositionInBeats::ZERO,
-    )
+#[derive(Clone, Copy)]
+pub struct TimelineMoment {
+    cursor_pos: PositionInSeconds,
+    next_bar_pos: PositionInSeconds,
+}
+
+impl TimelineMoment {
+    pub fn now(project: Project) -> Self {
+        Self::from_cursor_pos(project, project.play_position_next_audio_block())
+    }
+
+    pub fn from_cursor_pos(project: Project, cursor_pos: PositionInSeconds) -> Self {
+        Self {
+            cursor_pos,
+            next_bar_pos: {
+                let proj_context = project.context();
+                let reaper = Reaper::get().medium_reaper();
+                let res = reaper.time_map_2_time_to_beats(proj_context, cursor_pos);
+                let next_measure_index = if res.beats_since_measure.get() <= BASE_EPSILON {
+                    res.measure_index
+                } else {
+                    res.measure_index + 1
+                };
+                reaper.time_map_2_beats_to_time(
+                    proj_context,
+                    MeasureMode::FromMeasureAtIndex(next_measure_index),
+                    PositionInBeats::ZERO,
+                )
+            },
+        }
+    }
+
+    pub fn cursor_pos(&self) -> PositionInSeconds {
+        self.cursor_pos
+    }
+    pub fn next_bar_pos(&self) -> PositionInSeconds {
+        self.next_bar_pos
+    }
 }
 
 fn get_play_state(src: &BorrowedPcmSource) -> ClipPlayState {
