@@ -902,7 +902,9 @@ fn get_play_state(
             }
         }
         Suspending { reason, .. } => match reason {
-            SuspensionReason::Retrigger => ClipPlayState::Playing,
+            SuspensionReason::Retrigger | SuspensionReason::PlayWhileSuspending { .. } => {
+                ClipPlayState::Playing
+            }
             SuspensionReason::Pause => ClipPlayState::Paused,
             SuspensionReason::Stop => ClipPlayState::Stopped,
         },

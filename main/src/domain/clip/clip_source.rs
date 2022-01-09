@@ -52,6 +52,14 @@ enum Repetition {
 }
 
 impl Repetition {
+    pub fn from_bool(repeated: bool) -> Self {
+        if repeated {
+            Repetition::Infinitely
+        } else {
+            Repetition::Times(1)
+        }
+    }
+
     pub fn to_stop_instruction(self) -> Option<StopInstruction> {
         use Repetition::*;
         match self {
@@ -72,13 +80,16 @@ pub enum ClipState {
         /// Only set if scheduled for stop.
         stop_pos: Option<StopInstruction>,
     },
-    /// Very short transition phase.
+    /// Very short transition state before entering another state.
     Suspending {
         reason: SuspensionReason,
+        /// We still need the play info for fade out.
         play_info: PlayInfo,
+        /// At which point on the timeline the transition started.
         transition_start_pos: PositionInSeconds,
     },
     Paused {
+        /// Position within the clip at which should be resumed later.
         pos_within_clip: DurationInSeconds,
     },
 }
@@ -95,9 +106,20 @@ impl ClipState {
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum SuspensionReason {
+    /// Play was suspended for initiating a retriggering, so the next state will be  
+    /// [`ClipState::ScheduledOrPlaying`] again.
     Retrigger,
+    /// Play was suspended for initiating a pause, so the next state will be [`ClipState::Paused`].
     Pause,
+    /// Play was suspended for initiating a stop, so the next state will be [`ClipState::Stopped`].
     Stop,
+    /// The clip might receive a play request when it's currently about to suspend due to pause,
+    /// stop or retrigger. In this case it's important not to ignore the request because it can be
+    /// annoying to have unfulfilled play requests. However, skipping the suspension and going
+    /// straight to a playing state is not a good idea. We might get hanging notes. So we
+    /// keep suspending but change the reason and thereby the next state (which will be
+    /// [`ClipState::ScheduledOrPlaying`]).
+    PlayWhileSuspending { start_pos: PositionInSeconds },
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -165,13 +187,21 @@ impl ClipPcmSource {
                     }
                 }
             }
-            Suspending { .. } => {
+            Suspending {
+                play_info,
+                transition_start_pos,
+                ..
+            } => {
                 // It's important to handle this, otherwise some play actions simply have no effect,
                 // which is especially annoying when using transport sync because then it's like
-                // "losing" that clip because the next time the transport is stopped and started,
-                // the clip won't play again.
-                // TODO-high Line in note/sound-off stuff.
-                self.schedule_start_internal(start_pos, repeated);
+                // forgetting that clip ... the next time the transport is stopped and started,
+                // that clip won't play again.
+                self.repetition = Repetition::from_bool(repeated);
+                self.state = ClipState::Suspending {
+                    reason: SuspensionReason::PlayWhileSuspending { start_pos },
+                    play_info,
+                    transition_start_pos,
+                };
             }
             Paused { pos_within_clip } => {
                 // Resume
@@ -187,11 +217,7 @@ impl ClipPcmSource {
     }
 
     fn schedule_start_internal(&mut self, start_pos: PositionInSeconds, repeated: bool) {
-        self.repetition = if repeated {
-            Repetition::Infinitely
-        } else {
-            Repetition::Times(1)
-        };
+        self.repetition = Repetition::from_bool(repeated);
         self.state = ClipState::ScheduledOrPlaying {
             play_info: PlayInfo {
                 timeline_start_pos: start_pos,
@@ -249,6 +275,13 @@ impl ClipPcmSource {
                 ClipState::Paused { pos_within_clip }
             }
             SuspensionReason::Stop => ClipState::Stopped,
+            SuspensionReason::PlayWhileSuspending { start_pos } => ClipState::ScheduledOrPlaying {
+                play_info: PlayInfo {
+                    timeline_start_pos: start_pos,
+                    clip_cursor_offset: DurationInSeconds::ZERO,
+                },
+                stop_pos: None,
+            },
         }
     }
 
