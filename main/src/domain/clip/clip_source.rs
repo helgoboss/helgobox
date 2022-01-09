@@ -342,19 +342,18 @@ impl ClipPcmSource {
         let end_pos = (end_pos * sample_rate) as i64;
         let fade_length = (fade_length * sample_rate) as u64;
         // Processing
-        let length = args.block.length();
-        let samples = args.block.samples();
-        let nch = args.block.nch();
-        for sample_index in 0..length {
-            let samples_at_index = samples.offset((sample_index * nch) as _);
+        let mut samples = args.block.samples_as_mut_slice();
+        let length = args.block.length() as usize;
+        let nch = args.block.nch() as usize;
+        for frame in 0..length {
             let fade_factor = calculate_fade_factor_with_samples(
                 start_pos,
-                current_pos + sample_index as i64,
+                current_pos + frame as i64,
                 end_pos,
                 fade_length,
             );
-            for i in 0..nch {
-                let sample = samples_at_index.offset(i as _);
+            for ch in 0..nch {
+                let sample = &mut samples[frame * nch + ch];
                 *sample = *sample * fade_factor.get();
             }
         }
