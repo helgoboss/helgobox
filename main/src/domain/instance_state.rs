@@ -418,8 +418,13 @@ impl InstanceState {
         slot_index: usize,
         position: UnitValue,
     ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?
-            .set_proportional_position(position)
+        let event = self
+            .get_slot_mut(slot_index)?
+            .set_proportional_position(position)?;
+        if let Some(event) = event {
+            self.send_clip_changed_event(slot_index, event);
+        }
+        Ok(())
     }
 
     pub fn set_volume(

@@ -2,6 +2,7 @@ use crate::domain::{Timeline, TimelineMoment};
 use enumflags2::BitFlags;
 use reaper_high::{OwnedSource, Project, Reaper, Track};
 use reaper_low::raw;
+use reaper_low::raw::preview_register_t;
 use reaper_medium::{
     create_custom_owned_pcm_source, BorrowedPcmSource, DurationInSeconds, FlexibleOwnedPcmSource,
     MeasureAlignment, MeasureMode, OwnedPreviewRegister, PlayState, PositionInBeats,
@@ -195,7 +196,10 @@ impl ClipSlot {
 
     /// Instructs this slot to play the contained clip.
     ///
-    /// The clip might start immediately or on the next bar, depending on the play options.  
+    /// The clip might start immediately or on the next bar, depending on the play options.
+    ///
+    /// It only returns a change event if the previous state was stopped or paused (because in these
+    /// states we don't poll).  
     pub fn play(
         &mut self,
         project: Project,
@@ -327,18 +331,29 @@ impl ClipSlot {
     }
 
     /// Changes the clip position on a percentage basis.
+    ///
+    /// Only fires a change event if this clip is paused (because then position changes can happen
+    /// only by using this method so we don't need and don't use polling to detect them).
     pub fn set_proportional_position(
         &mut self,
         desired_proportional_pos: UnitValue,
-    ) -> Result<(), &'static str> {
+    ) -> Result<Option<ClipChangedEvent>, &'static str> {
         let mut guard = lock(&self.register);
-        let source = guard.src_mut().ok_or(NO_SOURCE_LOADED)?;
-        let source = source.as_mut();
-        let length = source.inner_length();
+        let src = guard.src_mut().ok_or(NO_SOURCE_LOADED)?;
+        let src = src.as_mut();
+        let length = src.inner_length();
         let desired_pos_in_secs =
             DurationInSeconds::new(desired_proportional_pos.get() * length.get());
-        source.seek_to(clip_timeline_cursor_pos(None), desired_pos_in_secs);
-        Ok(())
+        let clip_state = src.clip_state();
+        src.seek_to(clip_timeline_cursor_pos(None), desired_pos_in_secs);
+        let event = if matches!(clip_state, ClipState::Paused { .. }) {
+            Some(ClipChangedEvent::ClipPosition(desired_proportional_pos))
+        } else {
+            // Either stopped (then we can't seek) or playing (then position changes are
+            // detected by polling).
+            None
+        };
+        Ok(event)
     }
 
     fn start_transition(&mut self) -> State {
@@ -731,7 +746,8 @@ impl FilledState {
     ) -> ClipPlayState {
         let guard = lock(reg);
         let src = guard.src().expect(NO_SOURCE_LOADED).as_ref();
-        get_play_state(src, timeline_cursor_pos)
+        let clip_state = src.clip_state();
+        get_play_state(src, timeline_cursor_pos, clip_state)
     }
 
     pub fn poll(
@@ -739,8 +755,17 @@ impl FilledState {
         reg: &SharedRegister,
         timeline_cursor_pos: PositionInSeconds,
     ) -> (TransitionResult, Option<ClipChangedEvent>) {
+        let handle = match self.handle {
+            None => {
+                // If we don't have a preview register handle, the clip is stopped or paused and we can
+                // return early. No polling necessary.
+                return (Ok(State::Filled(self)), None);
+            }
+            Some(h) => h,
+        };
+        // At first collect some up-to-date clip source state.
         // TODO-medium We can optimize this by getting everything at once.
-        let (play_state, pos_within_clip, length) = {
+        let (clip_state, play_state, pos_within_clip, length) = {
             // React gracefully even in weird situations (because we are in poll).
             let guard = match reg.lock() {
                 Ok(g) => g,
@@ -753,52 +778,46 @@ impl FilledState {
             let src = src.as_ref();
             let pos_within_clip = src.pos_within_clip(timeline_cursor_pos);
             let length = src.inner_length();
-            let play_state = get_play_state(src, timeline_cursor_pos);
-            (play_state, pos_within_clip, length)
+            let clip_state = src.clip_state();
+            let play_state = get_play_state(src, timeline_cursor_pos, clip_state);
+            (clip_state, play_state, pos_within_clip, length)
         };
-        let (next_state, event) = if play_state == self.last_clip_play_state {
-            (Ok(State::Filled(self)), None)
-        } else {
-            use ClipPlayState::*;
-            let remove_handle = match play_state {
-                // TODO-high Problem: We will probably emit obsolete pos change events if stopped and
-                //  paused.
-                Stopped | Paused => {
-                    if let Some(handle) = self.handle {
-                        stop_playing_preview(
-                            self.last_play_args.as_ref().and_then(|a| a.track.as_ref()),
-                            handle,
-                        );
-                        true
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            };
-            let new_state = if remove_handle {
-                FilledState {
-                    last_clip_play_state: play_state,
-                    handle: None,
-                    ..self
-                }
-            } else {
-                FilledState {
-                    last_clip_play_state: play_state,
-                    ..self
-                }
-            };
-            (
-                Ok(State::Filled(new_state)),
-                Some(ClipChangedEvent::PlayState(play_state)),
-            )
-        };
-        // If no other change event is detected, we emit the position.
-        let final_event = event.unwrap_or_else(|| {
+        // At first determine event to be emitted.
+        let next_event = if play_state == self.last_clip_play_state {
+            // Play state has not changed. If we are polling, it means the position is changing
+            // constantly. Emit it!
             let position = calculate_proportional_position(pos_within_clip, length);
-            ClipChangedEvent::ClipPosition(position)
-        });
-        (next_state, Some(final_event))
+            Some(ClipChangedEvent::ClipPosition(position))
+        } else {
+            // Play state has changed. Emit this instead of a position change.
+            Some(ClipChangedEvent::PlayState(play_state))
+        };
+        // Then determine next state.
+        let next_state = {
+            // At first check if it's time to stop the preview register (to save resources).
+            use ClipState::*;
+            let next_handle = match clip_state {
+                // We still have a playing preview register but the clip got stopped or paused.
+                // Stop it!
+                Stopped | Paused { .. } => {
+                    stop_playing_preview(
+                        self.last_play_args.as_ref().and_then(|a| a.track.as_ref()),
+                        handle,
+                    );
+                    None
+                }
+                // We are still playing and need the preview register to keep playing.
+                ScheduledOrPlaying { .. } | Suspending { .. } => Some(handle),
+            };
+            // Then build new state.
+            let filled_state = FilledState {
+                last_clip_play_state: play_state,
+                handle: next_handle,
+                ..self
+            };
+            State::Filled(filled_state)
+        };
+        (Ok(next_state), next_event)
     }
 }
 
@@ -862,9 +881,10 @@ fn calculate_proportional_position(
 fn get_play_state(
     src: &BorrowedPcmSource,
     timeline_cursor_pos: PositionInSeconds,
+    clip_state: ClipState,
 ) -> ClipPlayState {
     use ClipState::*;
-    match src.query_state() {
+    match clip_state {
         Stopped => ClipPlayState::Stopped,
         ScheduledOrPlaying { stop_pos, .. } => {
             if stop_pos.is_some() {

@@ -1,4 +1,5 @@
 use crate::domain::Timeline;
+use std::cmp;
 use std::convert::TryInto;
 use std::error::Error;
 use std::ptr::null_mut;
@@ -44,7 +45,7 @@ struct SourceInfo {
     is_midi: bool,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 enum Repetition {
     Infinitely,
     Times(u32),
@@ -55,7 +56,7 @@ impl Repetition {
         use Repetition::*;
         match self {
             Infinitely => None,
-            Times(n) => Some(StopInstruction::AtEndOfCycle(n.min(1) - 1)),
+            Times(n) => Some(StopInstruction::AtEndOfCycle(cmp::max(n, 1) - 1)),
         }
     }
 }
@@ -75,6 +76,7 @@ pub enum ClipState {
     Suspending {
         reason: SuspensionReason,
         play_info: PlayInfo,
+        transition_start_pos: PositionInSeconds,
     },
     Paused {
         pos_within_clip: DurationInSeconds,
@@ -155,6 +157,7 @@ impl ClipPcmSource {
                         self.state = ClipState::Suspending {
                             reason: SuspensionReason::Retrigger,
                             play_info,
+                            transition_start_pos: timeline_cursor_pos,
                         };
                     } else {
                         // Not yet playing. Reschedule!
@@ -163,8 +166,10 @@ impl ClipPcmSource {
                 }
             }
             Suspending { .. } => {
-                // It's important to handle this, otherwise some play actions don't have
-                // success, which is especially annoying when using transport sync.
+                // It's important to handle this, otherwise some play actions simply have no effect,
+                // which is especially annoying when using transport sync because then it's like
+                // "losing" that clip because the next time the transport is stopped and started,
+                // the clip won't play again.
                 // TODO-high Line in note/sound-off stuff.
                 self.schedule_start_internal(start_pos, repeated);
             }
@@ -196,24 +201,6 @@ impl ClipPcmSource {
         };
     }
 
-    fn pause_internal(&mut self, timeline_cursor_pos: PositionInSeconds, play_info: PlayInfo) {
-        let info = play_info.cursor_info_at(timeline_cursor_pos);
-        if info.has_started_already() {
-            // Playing. Pause!
-            // If this clip is scheduled for stop already, a pause will backpedal from
-            // that.
-            self.state = ClipState::Suspending {
-                reason: SuspensionReason::Pause,
-                play_info,
-            };
-        } else {
-            // Not yet playing. Don't do anything at the moment.
-            // TODO-medium In future, we could take not an absolute start position but
-            //  a dynamic one (next bar, next beat, etc.) and then actually defer the
-            //  clip scheduling to the future. I think that would feel natural.
-        }
-    }
-
     fn create_cursor_and_length_info_at(
         &self,
         play_info: PlayInfo,
@@ -239,18 +226,37 @@ impl ClipPcmSource {
         clip_timeline_cursor_pos(self.project)
     }
 
-    fn shut_up_if_midi(&self, args: &GetSamplesArgs) {
-        if self.inner.is_midi {
-            send_all_notes_off(args);
+    fn get_suspension_follow_up_state(
+        &self,
+        reason: SuspensionReason,
+        play_info: PlayInfo,
+        timeline_cursor_pos: PositionInSeconds,
+    ) -> ClipState {
+        match reason {
+            SuspensionReason::Retrigger => ClipState::ScheduledOrPlaying {
+                play_info: PlayInfo {
+                    timeline_start_pos: timeline_cursor_pos,
+                    clip_cursor_offset: DurationInSeconds::ZERO,
+                },
+                stop_pos: None,
+            },
+            SuspensionReason::Pause => {
+                let info = self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
+                let pos_within_clip = info
+                    .hypothetical_pos_within_clip()
+                    .try_into()
+                    .unwrap_or_default();
+                ClipState::Paused { pos_within_clip }
+            }
+            SuspensionReason::Stop => ClipState::Stopped,
         }
     }
 
     fn fill_samples(
         &self,
-        pos_within_clip: PositionInSeconds,
         args: &mut GetSamplesArgs,
         info: CursorAndLengthInfo,
-        end_of_play_timeline_pos: Option<PositionInSeconds>,
+        clip_end_timeline_pos: Option<PositionInSeconds>,
     ) {
         // This means the clip is playing or about o play.
         // We want to start playing as soon as we reach the scheduled start position,
@@ -263,18 +269,20 @@ impl ClipPcmSource {
         let desired_sample_count = args.block.length();
         let sample_rate = args.block.sample_rate().get();
         let block_duration = desired_sample_count as f64 / sample_rate;
-        let end_pos =
-            unsafe { PositionInSeconds::new_unchecked(pos_within_clip.get() + block_duration) };
-        if end_pos < PositionInSeconds::ZERO {
-            // Block is before start position
+        let start_pos_within_clip = info.hypothetical_pos_within_clip();
+        let end_pos_within_clip = unsafe {
+            PositionInSeconds::new_unchecked(start_pos_within_clip.get() + block_duration)
+        };
+        if end_pos_within_clip < PositionInSeconds::ZERO {
+            // Complete block is located before start position
             return;
         }
         unsafe {
             if self.inner.is_midi {
-                self.fill_samples_midi(pos_within_clip, args, &info);
+                self.fill_samples_midi(start_pos_within_clip, args, &info);
             } else {
-                self.fill_samples_audio(pos_within_clip, args, &info);
-                self.post_process_audio(args, &info, end_of_play_timeline_pos);
+                self.fill_samples_audio(start_pos_within_clip, args, &info);
+                self.post_process_audio(args, &info, clip_end_timeline_pos);
             }
         }
     }
@@ -288,14 +296,12 @@ impl ClipPcmSource {
         // Parameters
         let start_pos = info.cursor_info.play_info.timeline_start_pos.get();
         let current_pos = info.cursor_info.timeline_cursor_pos.get();
-        // TODO-high Made fade in work also for resume after clip pause.
-        // TODO-high Make fade out work also for immediate stop (!), retrigger, clip pause.
-        //  Probably better to make fade-in and fade-out apply two functions.
-        // TODO-high Implement crossfade at repetition.
+        // TODO-high Implement fade at repetition. In future maybe even a crossfade (if enough
+        //  audio material available at both sides).
         let end_pos = end_of_play_timeline_pos
             .map(|p| p.get())
             .unwrap_or(f64::MAX);
-        let fade_length = 1.0;
+        let fade_length = click_prevention_fade_length().get();
         // Conversion to samples
         let sample_rate = args.block.sample_rate().get();
         let start_pos = (start_pos * sample_rate) as i64;
@@ -485,29 +491,43 @@ impl CustomPcmSource for ClipPcmSource {
         match self.state {
             Stopped => {}
             Paused { .. } => {}
-            Suspending { reason, play_info } => {
-                self.shut_up_if_midi(&args);
+            Suspending {
+                reason,
+                play_info,
+                transition_start_pos,
+            } => {
                 let timeline_cursor_pos = timeline.cursor_pos();
-                // TODO-high Fade out and after that transition to next state
-                self.state = match reason {
-                    SuspensionReason::Retrigger => ClipState::ScheduledOrPlaying {
-                        play_info: PlayInfo {
-                            timeline_start_pos: timeline_cursor_pos,
-                            clip_cursor_offset: DurationInSeconds::ZERO,
-                        },
-                        stop_pos: None,
-                    },
-                    SuspensionReason::Pause => {
-                        let info =
-                            self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
-                        let pos_within_clip = info
-                            .hypothetical_pos_within_clip()
-                            .try_into()
-                            .unwrap_or_default();
-                        ClipState::Paused { pos_within_clip }
+                if self.inner.is_midi {
+                    // MIDI. Make everything get silent by sending the appropriate MIDI messages.
+                    silence_midi(&args);
+                    // Then immediately transition to the next state.
+                    self.state =
+                        self.get_suspension_follow_up_state(reason, play_info, timeline_cursor_pos);
+                } else {
+                    // Audio. Apply a small fadeout to prevent clicks.
+                    let transition_end_pos = transition_start_pos + click_prevention_fade_length();
+                    let info =
+                        self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
+                    let transition_end_pos =
+                        if let Some(eop_pos) = info.calc_end_of_play_timeline_pos(None) {
+                            // Clip is about to end anyway. It's very unlikely but it could be
+                            // that the natural end happens before the transition end. In this case,
+                            // just start or continue applying the natural end fadeout.
+                            cmp::min(transition_end_pos, eop_pos)
+                        } else {
+                            transition_end_pos
+                        };
+                    if timeline_cursor_pos < transition_end_pos {
+                        self.fill_samples(&mut args, info, Some(transition_end_pos));
+                    } else {
+                        // Transition finished. Go to next state.
+                        self.state = self.get_suspension_follow_up_state(
+                            reason,
+                            play_info,
+                            timeline_cursor_pos,
+                        );
                     }
-                    SuspensionReason::Stop => ClipState::Stopped,
-                };
+                }
             }
             ScheduledOrPlaying {
                 play_info,
@@ -515,21 +535,18 @@ impl CustomPcmSource for ClipPcmSource {
             } => {
                 let timeline_cursor_pos = timeline.cursor_pos();
                 let info = self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
-                if info.clip_length == DurationInSeconds::ZERO {
-                    return;
-                }
                 let end_of_play_timeline_pos = info.calc_end_of_play_timeline_pos(stop_pos);
                 let is_within_play_bounds = end_of_play_timeline_pos
-                    .map(|p| timeline_cursor_pos <= p)
+                    .map(|p| timeline_cursor_pos < p)
                     .unwrap_or(true);
                 if is_within_play_bounds {
-                    let pos = info.hypothetical_pos_within_clip();
-                    self.fill_samples(pos, &mut args, info, end_of_play_timeline_pos);
+                    // There's still stuff to be played.
+                    self.fill_samples(&mut args, info, end_of_play_timeline_pos);
                 } else {
-                    self.state = ClipState::Suspending {
-                        reason: SuspensionReason::Stop,
-                        play_info,
-                    };
+                    // We have reached the natural or scheduled end. Everything that needed to be
+                    // played has been played in previous blocks. Audio fade outs have been applied
+                    // as well, so no need to going to suspending state first. Go right to stop!
+                    self.state = ClipState::Stopped;
                 }
             }
         }
@@ -570,7 +587,7 @@ impl CustomPcmSource for ClipPcmSource {
     unsafe fn extended(&mut self, args: ExtendedArgs) -> i32 {
         match args.call {
             EXT_QUERY_STATE => {
-                *(args.parm_1 as *mut ClipState) = self.query_state();
+                *(args.parm_1 as *mut ClipState) = self.clip_state();
                 1
             }
             EXT_SCHEDULE_START => {
@@ -642,7 +659,7 @@ impl CustomPcmSource for ClipPcmSource {
     }
 }
 
-fn send_all_notes_off(args: &GetSamplesArgs) {
+fn silence_midi(args: &GetSamplesArgs) {
     for ch in 0..16 {
         let all_notes_off = RawShortMessage::control_change(
             Channel::new(ch),
@@ -667,7 +684,7 @@ fn add_midi_event(args: &GetSamplesArgs, msg: RawShortMessage) {
 
 pub trait ClipPcmSourceSkills {
     /// Returns the state of this clip source.
-    fn query_state(&self) -> ClipState;
+    fn clip_state(&self) -> ClipState;
 
     /// Schedules clip playing.
     ///
@@ -736,7 +753,7 @@ pub trait ClipPcmSourceSkills {
 }
 
 impl ClipPcmSourceSkills for ClipPcmSource {
-    fn query_state(&self) -> ClipState {
+    fn clip_state(&self) -> ClipState {
         self.state
     }
 
@@ -758,11 +775,35 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         match self.state {
             Stopped | Paused { .. } => {}
             ScheduledOrPlaying { play_info, .. } => {
-                self.pause_internal(timeline_cursor_pos, play_info);
+                let info = play_info.cursor_info_at(timeline_cursor_pos);
+                if info.has_started_already() {
+                    // Playing. Pause!
+                    // If this clip is scheduled for stop already, a pause will backpedal from
+                    // that.
+                    self.state = ClipState::Suspending {
+                        reason: SuspensionReason::Pause,
+                        play_info,
+                        transition_start_pos: timeline_cursor_pos,
+                    };
+                } else {
+                    // Not yet playing. Don't do anything at the moment.
+                    // TODO-medium In future, we could take not an absolute start position but
+                    //  a dynamic one (next bar, next beat, etc.) and then actually defer the
+                    //  clip scheduling to the future. I think that would feel natural.
+                }
             }
-            Suspending { reason, play_info } => {
+            Suspending {
+                reason,
+                play_info,
+                transition_start_pos,
+            } => {
                 if reason != SuspensionReason::Pause {
-                    self.pause_internal(timeline_cursor_pos, play_info);
+                    // We are in another transition already. Simply change it to pause.
+                    self.state = ClipState::Suspending {
+                        reason: SuspensionReason::Pause,
+                        play_info,
+                        transition_start_pos,
+                    };
                 }
             }
         }
@@ -818,6 +859,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                     self.state = Suspending {
                         reason: SuspensionReason::Stop,
                         play_info,
+                        transition_start_pos: timeline_cursor_pos,
                     };
                 } else {
                     let info = play_info.cursor_info_at(timeline_cursor_pos);
@@ -826,6 +868,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                         Suspending {
                             reason: SuspensionReason::Stop,
                             play_info,
+                            transition_start_pos: timeline_cursor_pos,
                         }
                     } else {
                         // Not yet playing. Backpedal.
@@ -833,11 +876,17 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                     };
                 }
             }
-            Suspending { reason, play_info } => {
+            Suspending {
+                reason,
+                play_info,
+                transition_start_pos,
+            } => {
                 if reason != SuspensionReason::Stop {
+                    // We are in another transition already. Simply change it to stop.
                     self.state = Suspending {
                         reason: SuspensionReason::Stop,
                         play_info,
+                        transition_start_pos,
                     };
                 }
             }
@@ -924,7 +973,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
 }
 
 impl ClipPcmSourceSkills for BorrowedPcmSource {
-    fn query_state(&self) -> ClipState {
+    fn clip_state(&self) -> ClipState {
         let mut state = ClipState::Stopped;
         unsafe {
             self.extended(
@@ -1098,7 +1147,7 @@ unsafe fn with_shifted_samples(
 
 #[derive(Copy, Clone, Debug)]
 pub struct PlayInfo {
-    /// The timeline position on which the clip should start or started playing.
+    /// The timeline position on which the clip should start or started continuously playing.
     timeline_start_pos: PositionInSeconds,
     /// The cursor within the clip will be adjusted by this value.
     ///
@@ -1326,4 +1375,8 @@ fn calculate_fade_factor_with_samples(
         }
     };
     UnitValue::new_clamped(vol)
+}
+
+fn click_prevention_fade_length() -> DurationInSeconds {
+    DurationInSeconds::new(1.0)
 }
