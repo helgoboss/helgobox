@@ -14,7 +14,7 @@ use std::sync::Arc;
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
 use crate::domain::clip::clip_source::{
-    ClipPcmSource, ClipPcmSourceSkills, ClipState, ClipStopPosition, RunPhase,
+    ClipPcmSource, ClipPcmSourceSkills, ClipState, ClipStopPosition, SuspensionReason,
 };
 use crate::domain::clip::{
     clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
@@ -863,30 +863,30 @@ fn get_play_state(
     src: &BorrowedPcmSource,
     timeline_cursor_pos: PositionInSeconds,
 ) -> ClipPlayState {
+    use ClipState::*;
     match src.query_state() {
-        ClipState::Stopped => ClipPlayState::Stopped,
-        ClipState::Running(s) => {
-            use RunPhase::*;
-            match s.phase {
-                ScheduledOrPlaying => {
-                    if let Some(pos_from_start) = src.pos_from_start(timeline_cursor_pos) {
-                        if pos_from_start < PositionInSeconds::ZERO {
-                            ClipPlayState::ScheduledForPlay
-                        } else {
-                            ClipPlayState::Playing
-                        }
-                    } else {
-                        // TODO-high Improve
-                        // Not running after all
-                        ClipPlayState::Stopped
-                    }
+        Stopped => ClipPlayState::Stopped,
+        ScheduledOrPlaying { stop_pos, .. } => {
+            if stop_pos.is_some() {
+                ClipPlayState::ScheduledForStop
+            } else if let Some(pos_from_start) = src.pos_from_start(timeline_cursor_pos) {
+                if pos_from_start < PositionInSeconds::ZERO {
+                    ClipPlayState::ScheduledForPlay
+                } else {
+                    ClipPlayState::Playing
                 }
-                Retriggering => ClipPlayState::Playing,
-                TransitioningToPause | Paused => ClipPlayState::Paused,
-                ScheduledForStop(_) => ClipPlayState::ScheduledForStop,
-                TransitioningToStop => ClipPlayState::Stopped,
+            } else {
+                // TODO-high Improve
+                // Not running after all
+                ClipPlayState::Stopped
             }
         }
+        Suspending { reason, .. } => match reason {
+            SuspensionReason::Retrigger => ClipPlayState::Playing,
+            SuspensionReason::Pause => ClipPlayState::Paused,
+            SuspensionReason::Stop => ClipPlayState::Stopped,
+        },
+        Paused { .. } => ClipPlayState::Paused,
     }
 }
 
