@@ -437,6 +437,16 @@ impl InstanceState {
         Ok(())
     }
 
+    pub fn set_clip_tempo_factor(
+        &mut self,
+        slot_index: usize,
+        tempo_factor: f64,
+    ) -> Result<(), &'static str> {
+        self.get_slot_mut(slot_index)?
+            .set_tempo_factor(tempo_factor);
+        Ok(())
+    }
+
     pub fn get_slot(&self, slot_index: usize) -> Result<&ClipSlot, &'static str> {
         self.clip_slots.get(slot_index).ok_or("no such slot")
     }

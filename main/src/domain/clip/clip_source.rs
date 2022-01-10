@@ -10,7 +10,7 @@ use helgoboss_learn::UnitValue;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
-    BorrowedPcmSource, BorrowedPcmSourceTransfer, CustomPcmSource, DurationInBeats,
+    BorrowedPcmSource, BorrowedPcmSourceTransfer, Bpm, CustomPcmSource, DurationInBeats,
     DurationInSeconds, ExtendedArgs, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MidiEvent,
     OwnedPcmSource, PcmSource, PeaksClearArgs, PositionInSeconds, PropertiesWindowArgs, ReaperStr,
     SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
@@ -25,18 +25,20 @@ use reaper_medium::{
 /// infinitely).
 pub struct ClipPcmSource {
     /// Information about the wrapped source.
-    inner: SourceInfo,
+    inner: InnerSource,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
     /// This can change during the lifetime of this clip.
     repetition: Repetition,
+    /// Changes the tempo of this clip.
+    tempo_factor: f64,
     /// An ever-increasing counter which is used just for debugging purposes at the moment.
-    counter: u64,
+    debug_counter: u64,
     /// The current state of this clip, containing only state which is non-derivable.
     state: ClipState,
 }
 
-struct SourceInfo {
+struct InnerSource {
     /// This source contains the actual audio/MIDI data.
     ///
     /// It doesn't change throughout the lifetime of this clip source, although I think it could.
@@ -140,14 +142,15 @@ impl ClipPcmSource {
     pub fn new(inner: OwnedPcmSource, project: Option<Project>) -> Self {
         let is_midi = pcm_source_is_midi(&inner);
         Self {
-            inner: SourceInfo {
+            inner: InnerSource {
                 source: inner,
                 is_midi,
             },
             project,
-            counter: 0,
+            debug_counter: 0,
             repetition: Repetition::Times(1),
             state: ClipState::Stopped,
+            tempo_factor: 1.0,
         }
     }
 
@@ -239,7 +242,7 @@ impl ClipPcmSource {
     fn create_cursor_and_length_info(&self, cursor_info: CursorInfo) -> CursorAndLengthInfo {
         CursorAndLengthInfo {
             cursor_info,
-            clip_length: self.inner_length(),
+            clip_length: self.clip_length(),
             repetition: self.repetition,
         }
     }
@@ -282,6 +285,74 @@ impl ClipPcmSource {
                 },
                 stop_pos: None,
             },
+        }
+    }
+
+    fn get_samples_internal(
+        &mut self,
+        args: &mut GetSamplesArgs,
+        timeline_cursor_pos: PositionInSeconds,
+    ) {
+        use ClipState::*;
+        match self.state {
+            Stopped => {}
+            Paused { .. } => {}
+            Suspending {
+                reason,
+                play_info,
+                transition_start_pos,
+            } => {
+                if self.inner.is_midi {
+                    // MIDI. Make everything get silent by sending the appropriate MIDI messages.
+                    silence_midi(&args);
+                    // Then immediately transition to the next state.
+                    self.state =
+                        self.get_suspension_follow_up_state(reason, play_info, timeline_cursor_pos);
+                } else {
+                    // Audio. Apply a small fadeout to prevent clicks.
+                    let transition_end_pos = transition_start_pos + start_end_fade_length();
+                    let info =
+                        self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
+                    let transition_end_pos =
+                        if let Some(eop_pos) = info.calc_end_of_play_timeline_pos(None) {
+                            // Clip is about to end anyway. It's very unlikely but it could be
+                            // that the natural end happens before the transition end. In this case,
+                            // just start or continue applying the natural end fadeout.
+                            cmp::min(transition_end_pos, eop_pos)
+                        } else {
+                            transition_end_pos
+                        };
+                    if timeline_cursor_pos < transition_end_pos {
+                        self.fill_samples(args, info, Some(transition_end_pos));
+                    } else {
+                        // Transition finished. Go to next state.
+                        self.state = self.get_suspension_follow_up_state(
+                            reason,
+                            play_info,
+                            timeline_cursor_pos,
+                        );
+                    }
+                }
+            }
+            ScheduledOrPlaying {
+                play_info,
+                stop_pos,
+            } => {
+                let info = self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
+                let end_of_play_timeline_pos = info.calc_end_of_play_timeline_pos(stop_pos);
+                let is_within_play_bounds = end_of_play_timeline_pos
+                    .map(|p| timeline_cursor_pos < p)
+                    .unwrap_or(true);
+                if is_within_play_bounds {
+                    // There's still stuff to be played.
+                    self.fill_samples(args, info, end_of_play_timeline_pos);
+                } else {
+                    // We have reached the natural or scheduled end. Everything that needed to be
+                    // played has been played in previous blocks. Audio fade outs have been applied
+                    // as well, so no need to going to suspending state first. Go right to stop!
+                    self.state = ClipState::Stopped;
+                }
+            }
         }
     }
 
@@ -372,10 +443,12 @@ impl ClipPcmSource {
             let sample_offset = (-pos_within_clip.get() * sample_rate) as i32;
             args.block.set_time_s(PositionInSeconds::ZERO);
             with_shifted_samples(args.block, sample_offset, |b| {
+                // TODO-high Buffering
                 self.inner.source.get_samples(b);
             });
         } else {
             args.block.set_time_s(pos_within_clip);
+            // TODO-high Buffering
             self.inner.source.get_samples(args.block);
         }
         let written_sample_count = args.block.samples_out();
@@ -394,6 +467,7 @@ impl ClipPcmSource {
                 // Audio. Start from zero and write just remaining samples.
                 args.block.set_time_s(PositionInSeconds::ZERO);
                 with_shifted_samples(args.block, written_sample_count, |b| {
+                    // TODO-high Buffering
                     self.inner.source.get_samples(b);
                 });
                 // Let preview register know that complete buffer has been filled.
@@ -505,79 +579,44 @@ impl CustomPcmSource for ClipPcmSource {
     }
 
     fn get_samples(&mut self, mut args: GetSamplesArgs) {
-        // Debugging
-        // if self.counter % 500 == 0 {
-        //     let ptr = args.block.as_ptr();
-        //     let raw = unsafe { ptr.as_ref() };
-        //     dbg!(raw);
-        // }
+        // Get main timeline info
         let timeline = clip_timeline(self.project);
         if !timeline.is_running() {
+            // Main timeline is paused. Don't play, we don't want to play the same buffer
+            // repeatedly!
             return;
         }
-        self.counter += 1;
-        use ClipState::*;
-        match self.state {
-            Stopped => {}
-            Paused { .. } => {}
-            Suspending {
-                reason,
-                play_info,
-                transition_start_pos,
-            } => {
-                let timeline_cursor_pos = timeline.cursor_pos();
-                if self.inner.is_midi {
-                    // MIDI. Make everything get silent by sending the appropriate MIDI messages.
-                    silence_midi(&args);
-                    // Then immediately transition to the next state.
-                    self.state =
-                        self.get_suspension_follow_up_state(reason, play_info, timeline_cursor_pos);
-                } else {
-                    // Audio. Apply a small fadeout to prevent clicks.
-                    let transition_end_pos = transition_start_pos + start_end_fade_length();
-                    let info =
-                        self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
-                    let transition_end_pos =
-                        if let Some(eop_pos) = info.calc_end_of_play_timeline_pos(None) {
-                            // Clip is about to end anyway. It's very unlikely but it could be
-                            // that the natural end happens before the transition end. In this case,
-                            // just start or continue applying the natural end fadeout.
-                            cmp::min(transition_end_pos, eop_pos)
-                        } else {
-                            transition_end_pos
-                        };
-                    if timeline_cursor_pos < transition_end_pos {
-                        self.fill_samples(&mut args, info, Some(transition_end_pos));
-                    } else {
-                        // Transition finished. Go to next state.
-                        self.state = self.get_suspension_follow_up_state(
-                            reason,
-                            play_info,
-                            timeline_cursor_pos,
-                        );
-                    }
-                }
-            }
-            ScheduledOrPlaying {
-                play_info,
-                stop_pos,
-            } => {
-                let timeline_cursor_pos = timeline.cursor_pos();
-                let info = self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
-                let end_of_play_timeline_pos = info.calc_end_of_play_timeline_pos(stop_pos);
-                let is_within_play_bounds = end_of_play_timeline_pos
-                    .map(|p| timeline_cursor_pos < p)
-                    .unwrap_or(true);
-                if is_within_play_bounds {
-                    // There's still stuff to be played.
-                    self.fill_samples(&mut args, info, end_of_play_timeline_pos);
-                } else {
-                    // We have reached the natural or scheduled end. Everything that needed to be
-                    // played has been played in previous blocks. Audio fade outs have been applied
-                    // as well, so no need to going to suspending state first. Go right to stop!
-                    self.state = ClipState::Stopped;
-                }
-            }
+        let timeline_cursor_pos = timeline.cursor_pos();
+        // Output pre-processing debug info
+        let debug = self.debug_counter % 500 == 0;
+        if debug {
+            let ptr = args.block.as_ptr();
+            let raw = unsafe { ptr.as_ref() };
+            dbg!(
+                raw,
+                timeline_cursor_pos,
+                self.inner.source.get_sample_rate()
+            );
+        }
+        self.debug_counter += 1;
+        // Make tempo play rate adjustments
+        let (effective_sample_rate, effective_timeline_cursor_pos) = if self.tempo_factor > 0.0 {
+            let effective_sample_rate = Hz::new(args.block.sample_rate().get() / self.tempo_factor);
+            (
+                effective_sample_rate,
+                timeline_cursor_pos * self.tempo_factor,
+            )
+        } else {
+            (args.block.sample_rate(), timeline_cursor_pos)
+        };
+        args.block.set_sample_rate(effective_sample_rate);
+        // Get samples
+        self.get_samples_internal(&mut args, effective_timeline_cursor_pos);
+        // Output post-processing debug info
+        if debug {
+            let ptr = args.block.as_ptr();
+            let raw = unsafe { ptr.as_ref() };
+            dbg!(raw);
         }
     }
 
@@ -655,7 +694,7 @@ impl CustomPcmSource for ClipPcmSource {
                 1
             }
             EXT_QUERY_INNER_LENGTH => {
-                *(args.parm_1 as *mut f64) = self.inner_length().get();
+                *(args.parm_1 as *mut f64) = self.clip_length().get();
                 1
             }
             EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED => {
@@ -668,6 +707,15 @@ impl CustomPcmSource for ClipPcmSource {
                 let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
                 *(args.parm_2 as *mut Option<PositionInSeconds>) =
                     self.pos_from_start(timeline_cursor_pos);
+                1
+            }
+            EXT_SET_TEMPO_FACTOR => {
+                let tempo_factor: f64 = *(args.parm_1 as *mut _);
+                self.set_tempo_factor(tempo_factor);
+                1
+            }
+            EXT_QUERY_TEMPO_FACTOR => {
+                *(args.parm_1 as *mut f64) = self.get_tempo_factor();
                 1
             }
             EXT_ENABLE_REPEAT => {
@@ -758,7 +806,13 @@ pub trait ClipPcmSourceSkills {
     ///
     /// The clip length is different from the clip source length. The clip source length is infinite
     /// because it just acts as a sort of virtual track).
-    fn inner_length(&self) -> DurationInSeconds;
+    fn clip_length(&self) -> DurationInSeconds;
+
+    /// Adjusts the play tempo by the given factor.
+    fn set_tempo_factor(&mut self, tempo_factor: f64);
+
+    /// Returns the tempo factor.
+    fn get_tempo_factor(&self) -> f64;
 
     /// Changes whether to repeat or not repeat the clip.
     fn set_repeated(&mut self, timeline_cursor_pos: PositionInSeconds, repeated: bool);
@@ -950,8 +1004,22 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
-    fn inner_length(&self) -> DurationInSeconds {
-        self.inner.source.get_length().unwrap_or_default()
+    fn clip_length(&self) -> DurationInSeconds {
+        let original_length = self.inner.source.get_length().unwrap_or_default();
+        if self.tempo_factor > 0.0 {
+            DurationInSeconds::new(original_length.get() / self.tempo_factor)
+        } else {
+            original_length
+        }
+    }
+
+    fn set_tempo_factor(&mut self, tempo_factor: f64) {
+        dbg!(tempo_factor);
+        self.tempo_factor = tempo_factor;
+    }
+
+    fn get_tempo_factor(&self) -> f64 {
+        self.tempo_factor
     }
 
     fn set_repeated(&mut self, timeline_cursor_pos: PositionInSeconds, repeated: bool) {
@@ -1094,7 +1162,7 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         }
     }
 
-    fn inner_length(&self) -> DurationInSeconds {
+    fn clip_length(&self) -> DurationInSeconds {
         let mut l = 0.0;
         unsafe {
             self.extended(
@@ -1105,6 +1173,17 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
             );
         }
         DurationInSeconds::new(l)
+    }
+
+    fn set_tempo_factor(&mut self, mut tempo_factor: f64) {
+        unsafe {
+            self.extended(
+                EXT_SET_TEMPO_FACTOR,
+                &mut tempo_factor as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
+        }
     }
 
     fn set_repeated(&mut self, mut timeline_cursor_pos: PositionInSeconds, repeated: bool) {
@@ -1153,6 +1232,19 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
             );
         }
         p
+    }
+
+    fn get_tempo_factor(&self) -> f64 {
+        let mut f: f64 = 1.0;
+        unsafe {
+            self.extended(
+                EXT_QUERY_TEMPO_FACTOR,
+                &mut f as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
+        }
+        f
     }
 }
 
@@ -1338,7 +1430,7 @@ impl CursorAndLengthInfo {
         match stop_instruction {
             StopInstruction::At(pos) => pos,
             StopInstruction::AtEndOfCycle(n) => {
-                self.cursor_info.play_info.effective_start_pos() + self.clip_length * (n + 1)
+                self.cursor_info.play_info.effective_start_pos() + self.clip_length * (n + 1) as f64
             }
         }
     }
@@ -1375,6 +1467,8 @@ const EXT_STOP_IMMEDIATELY: i32 = 2359779;
 const EXT_START_IMMEDIATELY: i32 = 2359781;
 const EXT_QUERY_POS_FROM_START: i32 = 2359782;
 const EXT_PAUSE: i32 = 2359783;
+const EXT_SET_TEMPO_FACTOR: i32 = 2359784;
+const EXT_QUERY_TEMPO_FACTOR: i32 = 2359785;
 
 struct FadeCalculator {
     /// End position, relative to start position.

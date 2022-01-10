@@ -137,7 +137,7 @@ impl ClipSlot {
             file_name: source.get_file_name(|p| Some(p?.to_owned())),
             length: {
                 // TODO-low Doesn't need to be optional
-                Some(source.inner_length())
+                Some(source.clip_length())
             },
         };
         // TODO-medium This is probably necessary to make sure the mutex is not unlocked before the
@@ -302,6 +302,24 @@ impl ClipSlot {
         self.volume_changed_event()
     }
 
+    /// Returns the tempo factor of the slot clip.
+    pub fn tempo_factor(&self) -> f64 {
+        let guard = lock(&self.register);
+        if let Some(src) = guard.src() {
+            src.as_ref().get_tempo_factor()
+        } else {
+            1.0
+        }
+    }
+
+    /// Sets tempo factor of the slot clip.
+    pub fn set_tempo_factor(&mut self, tempo_factor: f64) -> Result<(), &'static str> {
+        let mut guard = lock(&self.register);
+        let src = guard.src_mut().ok_or(NO_SOURCE_LOADED)?;
+        src.as_mut().set_tempo_factor(tempo_factor);
+        Ok(())
+    }
+
     /// Returns the current position within the slot clip on a percentage basis.
     pub fn proportional_position(&self) -> Result<UnitValue, &'static str> {
         let guard = lock(&self.register);
@@ -311,7 +329,7 @@ impl ClipSlot {
         }
         let src = src.as_ref();
         let pos_within_clip = src.pos_within_clip(clip_timeline_cursor_pos(None));
-        let length = src.inner_length();
+        let length = src.clip_length();
         let percentage_pos = calculate_proportional_position(pos_within_clip, length);
         Ok(percentage_pos)
     }
@@ -341,7 +359,7 @@ impl ClipSlot {
         let mut guard = lock(&self.register);
         let src = guard.src_mut().ok_or(NO_SOURCE_LOADED)?;
         let src = src.as_mut();
-        let length = src.inner_length();
+        let length = src.clip_length();
         let desired_pos_in_secs =
             DurationInSeconds::new(desired_proportional_pos.get() * length.get());
         let clip_state = src.clip_state();
@@ -777,7 +795,7 @@ impl FilledState {
             };
             let src = src.as_ref();
             let pos_within_clip = src.pos_within_clip(timeline_cursor_pos);
-            let length = src.inner_length();
+            let length = src.clip_length();
             let clip_state = src.clip_state();
             let play_state = get_play_state(src, timeline_cursor_pos, clip_state);
             (clip_state, play_state, pos_within_clip, length)
