@@ -303,10 +303,10 @@ impl ClipPcmSource {
         let sample_rate = args.block.sample_rate().get();
         let block_duration = desired_sample_count as f64 / sample_rate;
         let start_pos_within_clip = info.hypothetical_pos_within_clip();
-        let end_pos_within_clip = unsafe {
+        let end_of_block_pos = unsafe {
             PositionInSeconds::new_unchecked(start_pos_within_clip.get() + block_duration)
         };
-        if end_pos_within_clip < PositionInSeconds::ZERO {
+        if end_of_block_pos < PositionInSeconds::ZERO {
             // Complete block is located before start position
             return;
         }
@@ -326,35 +326,32 @@ impl ClipPcmSource {
         info: &CursorAndLengthInfo,
         end_of_play_timeline_pos: Option<PositionInSeconds>,
     ) {
-        // Parameters
-        let start_pos = info.cursor_info.play_info.timeline_start_pos.get();
-        let current_pos = info.cursor_info.timeline_cursor_pos.get();
-        // TODO-high Implement fade at repetition. In future maybe even a crossfade (if enough
-        //  audio material available at both sides).
+        // Parameters in seconds
+        let timeline_start_pos = info.cursor_info.play_info.timeline_start_pos.get();
+        let block_pos = info.cursor_info.timeline_cursor_pos.get() - timeline_start_pos;
         let end_pos = end_of_play_timeline_pos
-            .map(|p| p.get())
+            .map(|p| p.get() - timeline_start_pos)
             .unwrap_or(f64::MAX);
-        let fade_length = click_prevention_fade_length().get();
+        let clip_cursor_offset = info.cursor_info.play_info.clip_cursor_offset.get();
         // Conversion to samples
         let sample_rate = args.block.sample_rate().get();
-        let start_pos = (start_pos * sample_rate) as i64;
-        let current_pos = (current_pos * sample_rate) as i64;
-        let end_pos = (end_pos * sample_rate) as i64;
-        let fade_length = (fade_length * sample_rate) as u64;
+        let calc = FadeCalculator {
+            end_pos: (end_pos * sample_rate) as u64,
+            clip_cursor_offset: (clip_cursor_offset * sample_rate) as u64,
+            clip_length: (info.clip_length.get() * sample_rate) as u64,
+            start_end_fade_length: (start_end_fade_length().get() * sample_rate) as u64,
+            intermediate_fade_length: (repetition_fade_length().get() * sample_rate) as u64,
+        };
+        let block_pos = (block_pos * sample_rate) as i64;
         // Processing
         let mut samples = args.block.samples_as_mut_slice();
         let length = args.block.length() as usize;
         let nch = args.block.nch() as usize;
         for frame in 0..length {
-            let fade_factor = calculate_fade_factor_with_samples(
-                start_pos,
-                current_pos + frame as i64,
-                end_pos,
-                fade_length,
-            );
+            let fade_factor = calc.calculate_fade_factor(block_pos + frame as i64);
             for ch in 0..nch {
                 let sample = &mut samples[frame * nch + ch];
-                *sample = *sample * fade_factor.get();
+                *sample = *sample * fade_factor;
             }
         }
     }
@@ -537,7 +534,7 @@ impl CustomPcmSource for ClipPcmSource {
                         self.get_suspension_follow_up_state(reason, play_info, timeline_cursor_pos);
                 } else {
                     // Audio. Apply a small fadeout to prevent clicks.
-                    let transition_end_pos = transition_start_pos + click_prevention_fade_length();
+                    let transition_end_pos = transition_start_pos + start_end_fade_length();
                     let info =
                         self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
                     let transition_end_pos =
@@ -1379,36 +1376,75 @@ const EXT_START_IMMEDIATELY: i32 = 2359781;
 const EXT_QUERY_POS_FROM_START: i32 = 2359782;
 const EXT_PAUSE: i32 = 2359783;
 
-fn calculate_fade_factor_with_samples(
-    start_pos: i64,
-    current_pos: i64,
-    end_pos: i64,
-    fade_length: u64,
-) -> UnitValue {
-    let fade_length = fade_length as i64;
-    let distance_from_start = current_pos - start_pos;
-    let vol = if distance_from_start < 0 {
-        // Not yet playing
-        0.0
-    } else if distance_from_start < fade_length {
-        // Fade in
-        distance_from_start as f64 / fade_length as f64
-    } else {
-        let distance_to_end = end_pos - current_pos;
-        if distance_to_end > fade_length {
-            // Playing
-            1.0
-        } else if distance_to_end < fade_length && distance_to_end > 0 {
-            // Fade out
-            distance_to_end as f64 / fade_length as f64
-        } else {
-            // Not playing anymore
-            0.0
-        }
-    };
-    UnitValue::new_clamped(vol)
+struct FadeCalculator {
+    /// End position, relative to start position.
+    ///
+    /// This is where the fade out will take place.
+    pub end_pos: u64,
+    /// Clip length.
+    ///
+    /// Used to calculate where's the repetition.
+    pub clip_length: u64,
+    /// Clip cursor offset.
+    ///
+    /// Used to calculate where's the repetition.
+    pub clip_cursor_offset: u64,
+    /// Length of the start fade-in and end fade-out.
+    pub start_end_fade_length: u64,
+    /// Length of the repetition fade-ins and fade-outs.
+    pub intermediate_fade_length: u64,
 }
 
-fn click_prevention_fade_length() -> DurationInSeconds {
-    DurationInSeconds::new(1.0)
+impl FadeCalculator {
+    pub fn calculate_fade_factor(&self, current_pos: i64) -> f64 {
+        if current_pos < 0 {
+            // Not yet playing
+            return 0.0;
+        }
+        let current_pos = current_pos as u64;
+        if current_pos >= self.end_pos {
+            // Not playing anymore
+            return 0.0;
+        }
+        // First, apply start-end fades (they have priority over intermediate fades).
+        {
+            let fade_length = self.start_end_fade_length;
+            // Playing
+            if current_pos < fade_length {
+                // Playing the beginning: Fade in
+                return current_pos as f64 / fade_length as f64;
+            }
+            let distance_to_end = self.end_pos - current_pos;
+            if distance_to_end < fade_length {
+                // Playing the end: Fade out
+                return distance_to_end as f64 / fade_length as f64;
+            }
+        }
+        // Intermediate repetition fades
+        {
+            let fade_length = self.intermediate_fade_length;
+            let current_pos_within_clip = (current_pos as i64 + self.clip_cursor_offset as i64)
+                .rem_euclid(self.clip_length as i64)
+                as u64;
+            let distance_to_clip_end = self.clip_length - current_pos_within_clip;
+            if distance_to_clip_end < fade_length {
+                // Approaching loop end: Fade out
+                return distance_to_clip_end as f64 / fade_length as f64;
+            }
+            if current_pos_within_clip < fade_length {
+                // Continuing at loop start: Fade in
+                return current_pos_within_clip as f64 / fade_length as f64;
+            }
+        }
+        // Normal playing
+        1.0
+    }
+}
+
+fn start_end_fade_length() -> DurationInSeconds {
+    DurationInSeconds::new(0.01)
+}
+
+fn repetition_fade_length() -> DurationInSeconds {
+    DurationInSeconds::new(0.01)
 }
