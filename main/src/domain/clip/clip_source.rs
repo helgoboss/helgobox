@@ -654,7 +654,7 @@ impl CustomPcmSource for ClipPcmSource {
 
     unsafe fn extended(&mut self, args: ExtendedArgs) -> i32 {
         match args.call {
-            EXT_QUERY_STATE => {
+            EXT_CLIP_STATE => {
                 *(args.parm_1 as *mut ClipState) = self.clip_state();
                 1
             }
@@ -693,17 +693,17 @@ impl CustomPcmSource for ClipPcmSource {
                 self.seek_to(timeline_cursor_pos, pos);
                 1
             }
-            EXT_QUERY_INNER_LENGTH => {
+            EXT_CLIP_LENGTH => {
                 *(args.parm_1 as *mut f64) = self.clip_length().get();
                 1
             }
-            EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED => {
+            EXT_POS_WITHIN_CLIP => {
                 let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
                 *(args.parm_2 as *mut Option<PositionInSeconds>) =
                     self.pos_within_clip(timeline_cursor_pos);
                 1
             }
-            EXT_QUERY_POS_FROM_START => {
+            EXT_POS_FROM_START => {
                 let timeline_cursor_pos: PositionInSeconds = *(args.parm_1 as *mut _);
                 *(args.parm_2 as *mut Option<PositionInSeconds>) =
                     self.pos_from_start(timeline_cursor_pos);
@@ -714,7 +714,7 @@ impl CustomPcmSource for ClipPcmSource {
                 self.set_tempo_factor(tempo_factor);
                 1
             }
-            EXT_QUERY_TEMPO_FACTOR => {
+            EXT_TEMPO_FACTOR => {
                 *(args.parm_1 as *mut f64) = self.get_tempo_factor();
                 1
             }
@@ -1074,7 +1074,7 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         let mut state = ClipState::Stopped;
         unsafe {
             self.extended(
-                EXT_QUERY_STATE,
+                EXT_CLIP_STATE,
                 &mut state as *mut _ as _,
                 null_mut(),
                 null_mut(),
@@ -1166,7 +1166,7 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         let mut l = 0.0;
         unsafe {
             self.extended(
-                EXT_QUERY_INNER_LENGTH,
+                EXT_CLIP_LENGTH,
                 &mut l as *mut _ as _,
                 null_mut(),
                 null_mut(),
@@ -1209,7 +1209,7 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         let mut p: Option<PositionInSeconds> = None;
         unsafe {
             self.extended(
-                EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED,
+                EXT_POS_WITHIN_CLIP,
                 &mut timeline_cursor_pos as *mut _ as _,
                 &mut p as *mut _ as _,
                 null_mut(),
@@ -1225,7 +1225,7 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         let mut p: Option<PositionInSeconds> = None;
         unsafe {
             self.extended(
-                EXT_QUERY_POS_FROM_START,
+                EXT_POS_FROM_START,
                 &mut timeline_cursor_pos as *mut _ as _,
                 &mut p as *mut _ as _,
                 null_mut(),
@@ -1238,7 +1238,7 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         let mut f: f64 = 1.0;
         unsafe {
             self.extended(
-                EXT_QUERY_TEMPO_FACTOR,
+                EXT_TEMPO_FACTOR,
                 &mut f as *mut _ as _,
                 null_mut(),
                 null_mut(),
@@ -1455,20 +1455,20 @@ impl CursorAndLengthInfo {
 //  be able to safely interact with our source directly from Rust. So in order to get rid of the
 //  extended() mechanism, we would have to provide a way to get a correctly typed reference to our
 //  original Rust struct. This itself is maybe possible by using some unsafe code, not sure.
-const EXT_QUERY_STATE: i32 = 2359769;
+const EXT_CLIP_STATE: i32 = 2359769;
 const EXT_SCHEDULE_START: i32 = 2359771;
-const EXT_QUERY_INNER_LENGTH: i32 = 2359772;
+const EXT_CLIP_LENGTH: i32 = 2359772;
 const EXT_ENABLE_REPEAT: i32 = 2359773;
 const EXT_DISABLE_REPEAT: i32 = 2359774;
-const EXT_QUERY_POS_WITHIN_CLIP_SCHEDULED: i32 = 2359775;
+const EXT_POS_WITHIN_CLIP: i32 = 2359775;
 const EXT_SCHEDULE_STOP: i32 = 2359776;
 const EXT_SEEK_TO: i32 = 2359778;
 const EXT_STOP_IMMEDIATELY: i32 = 2359779;
 const EXT_START_IMMEDIATELY: i32 = 2359781;
-const EXT_QUERY_POS_FROM_START: i32 = 2359782;
+const EXT_POS_FROM_START: i32 = 2359782;
 const EXT_PAUSE: i32 = 2359783;
 const EXT_SET_TEMPO_FACTOR: i32 = 2359784;
-const EXT_QUERY_TEMPO_FACTOR: i32 = 2359785;
+const EXT_TEMPO_FACTOR: i32 = 2359785;
 
 struct FadeCalculator {
     /// End position, relative to start position.
