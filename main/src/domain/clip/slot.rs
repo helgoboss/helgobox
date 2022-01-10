@@ -904,8 +904,10 @@ fn get_play_state(
     use ClipState::*;
     match clip_state {
         Stopped => ClipPlayState::Stopped,
-        ScheduledOrPlaying { stop_pos, .. } => {
-            if stop_pos.is_some() {
+        ScheduledOrPlaying {
+            stop_instruction, ..
+        } => {
+            if stop_instruction.is_some() {
                 ClipPlayState::ScheduledForStop
             } else if let Some(pos_from_start) = src.pos_from_start(timeline_cursor_pos) {
                 if pos_from_start < PositionInSeconds::ZERO {

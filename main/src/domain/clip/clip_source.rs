@@ -80,7 +80,7 @@ pub enum ClipState {
     ScheduledOrPlaying {
         play_info: PlayInfo,
         /// Only set if scheduled for stop.
-        stop_pos: Option<StopInstruction>,
+        stop_instruction: Option<StopInstruction>,
     },
     /// Very short transition state before entering another state.
     Suspending {
@@ -165,14 +165,14 @@ impl ClipPcmSource {
             // Not yet running.
             Stopped => self.schedule_start_internal(start_pos, repeated),
             ScheduledOrPlaying {
-                stop_pos,
+                stop_instruction,
                 play_info,
             } => {
-                if stop_pos.is_some() {
+                if stop_instruction.is_some() {
                     // Playing already and scheduled for stop. Backpedal!
                     self.state = ClipState::ScheduledOrPlaying {
                         play_info,
-                        stop_pos: None,
+                        stop_instruction: None,
                     };
                 } else {
                     // Scheduled for play or playing already.
@@ -213,7 +213,7 @@ impl ClipPcmSource {
                         timeline_start_pos: timeline_cursor_pos,
                         clip_cursor_offset: pos_within_clip,
                     },
-                    stop_pos: None,
+                    stop_instruction: None,
                 };
             }
         }
@@ -226,7 +226,7 @@ impl ClipPcmSource {
                 timeline_start_pos: start_pos,
                 clip_cursor_offset: DurationInSeconds::ZERO,
             },
-            stop_pos: None,
+            stop_instruction: None,
         };
     }
 
@@ -267,7 +267,7 @@ impl ClipPcmSource {
                     timeline_start_pos: timeline_cursor_pos,
                     clip_cursor_offset: DurationInSeconds::ZERO,
                 },
-                stop_pos: None,
+                stop_instruction: None,
             },
             SuspensionReason::Pause => {
                 let info = self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
@@ -283,7 +283,7 @@ impl ClipPcmSource {
                     timeline_start_pos: start_pos,
                     clip_cursor_offset: DurationInSeconds::ZERO,
                 },
-                stop_pos: None,
+                stop_instruction: None,
             },
         }
     }
@@ -314,7 +314,7 @@ impl ClipPcmSource {
                     let info =
                         self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
                     let transition_end_pos =
-                        if let Some(eop_pos) = info.calc_end_of_play_timeline_pos(None) {
+                        if let Some(eop_pos) = info.calc_absolute_stop_pos(None) {
                             // Clip is about to end anyway. It's very unlikely but it could be
                             // that the natural end happens before the transition end. In this case,
                             // just start or continue applying the natural end fadeout.
@@ -336,16 +336,15 @@ impl ClipPcmSource {
             }
             ScheduledOrPlaying {
                 play_info,
-                stop_pos,
+                stop_instruction,
             } => {
                 let info = self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
-                let end_of_play_timeline_pos = info.calc_end_of_play_timeline_pos(stop_pos);
-                let is_within_play_bounds = end_of_play_timeline_pos
-                    .map(|p| timeline_cursor_pos < p)
-                    .unwrap_or(true);
+                let stop_pos = info.calc_absolute_stop_pos(stop_instruction);
+                let is_within_play_bounds =
+                    stop_pos.map(|p| timeline_cursor_pos < p).unwrap_or(true);
                 if is_within_play_bounds {
                     // There's still stuff to be played.
-                    self.fill_samples(args, info, end_of_play_timeline_pos);
+                    self.fill_samples(args, info, stop_pos);
                 } else {
                     // We have reached the natural or scheduled end. Everything that needed to be
                     // played has been played in previous blocks. Audio fade outs have been applied
@@ -360,7 +359,7 @@ impl ClipPcmSource {
         &self,
         args: &mut GetSamplesArgs,
         info: CursorAndLengthInfo,
-        clip_end_timeline_pos: Option<PositionInSeconds>,
+        stop_pos: Option<PositionInSeconds>,
     ) {
         // This means the clip is playing or about o play.
         // We want to start playing as soon as we reach the scheduled start position,
@@ -372,12 +371,12 @@ impl ClipPcmSource {
         // (end_pos >= 0.0).
         let desired_sample_count = args.block.length();
         let sample_rate = args.block.sample_rate().get();
-        let block_duration = desired_sample_count as f64 / sample_rate;
+        let block_duration = DurationInSeconds::new(desired_sample_count as f64 / sample_rate);
         let start_pos_within_clip = info.hypothetical_pos_within_clip();
-        let end_of_block_pos = unsafe {
-            PositionInSeconds::new_unchecked(start_pos_within_clip.get() + block_duration)
+        let rel_end_of_block_pos = unsafe {
+            PositionInSeconds::new_unchecked(start_pos_within_clip.get() + block_duration.get())
         };
-        if end_of_block_pos < PositionInSeconds::ZERO {
+        if rel_end_of_block_pos < PositionInSeconds::ZERO {
             // Complete block is located before start position
             return;
         }
@@ -385,46 +384,22 @@ impl ClipPcmSource {
         // start of the block might still be left of the start position (negative number).
         unsafe {
             if self.inner.is_midi {
-                self.fill_samples_midi(start_pos_within_clip, args, &info);
+                self.fill_samples_midi(
+                    start_pos_within_clip,
+                    args,
+                    &info,
+                    block_duration,
+                    stop_pos,
+                );
             } else {
-                self.fill_samples_audio(start_pos_within_clip, args, &info);
-                self.post_process_audio(args, &info, clip_end_timeline_pos);
-            }
-        }
-    }
-
-    unsafe fn post_process_audio(
-        &self,
-        args: &mut GetSamplesArgs,
-        info: &CursorAndLengthInfo,
-        end_of_play_timeline_pos: Option<PositionInSeconds>,
-    ) {
-        // Parameters in seconds
-        let timeline_start_pos = info.cursor_info.play_info.timeline_start_pos.get();
-        let block_pos = info.cursor_info.timeline_cursor_pos.get() - timeline_start_pos;
-        let end_pos = end_of_play_timeline_pos
-            .map(|p| p.get() - timeline_start_pos)
-            .unwrap_or(f64::MAX);
-        let clip_cursor_offset = info.cursor_info.play_info.clip_cursor_offset.get();
-        // Conversion to samples
-        let sample_rate = args.block.sample_rate().get();
-        let calc = FadeCalculator {
-            end_pos: (end_pos * sample_rate) as u64,
-            clip_cursor_offset: (clip_cursor_offset * sample_rate) as u64,
-            clip_length: (info.clip_length.get() * sample_rate) as u64,
-            start_end_fade_length: (start_end_fade_length().get() * sample_rate) as u64,
-            intermediate_fade_length: (repetition_fade_length().get() * sample_rate) as u64,
-        };
-        let block_pos = (block_pos * sample_rate) as i64;
-        // Processing
-        let mut samples = args.block.samples_as_mut_slice();
-        let length = args.block.length() as usize;
-        let nch = args.block.nch() as usize;
-        for frame in 0..length {
-            let fade_factor = calc.calculate_fade_factor(block_pos + frame as i64);
-            for ch in 0..nch {
-                let sample = &mut samples[frame * nch + ch];
-                *sample = *sample * fade_factor;
+                self.fill_samples_audio(
+                    start_pos_within_clip,
+                    args,
+                    &info,
+                    block_duration,
+                    stop_pos,
+                );
+                self.post_process_audio(args, &info, stop_pos);
             }
         }
     }
@@ -434,6 +409,8 @@ impl ClipPcmSource {
         pos_within_clip: PositionInSeconds,
         args: &mut GetSamplesArgs,
         info: &CursorAndLengthInfo,
+        block_duration: DurationInSeconds,
+        stop_pos: Option<PositionInSeconds>,
     ) {
         let requested_sample_count = args.block.length();
         let outer_sample_rate = args.block.sample_rate();
@@ -461,13 +438,14 @@ impl ClipPcmSource {
         }
         let written_sample_count = args.block.samples_out();
         if written_sample_count < requested_sample_count {
-            // We have reached the end of the clip and it doesn't fill the
-            // complete block.
-            if info.is_last_cycle() {
+            // We have reached the end of the clip and it doesn't fill the complete block.
+            if info.cursor_info.is_last_block(block_duration, stop_pos) {
+                dbg!("Audio end of last cycle");
                 // Let preview register know that complete buffer has been
                 // filled as desired in order to prevent retry (?) queries.
                 args.block.set_samples_out(requested_sample_count);
             } else {
+                dbg!("Audio repeat");
                 // Repeat. Because we assume that the user cuts sources
                 // sample-perfect, we must immediately fill the rest of the
                 // buffer with the very beginning of the source. Start from zero and write just
@@ -488,6 +466,8 @@ impl ClipPcmSource {
         pos_within_clip: PositionInSeconds,
         args: &mut GetSamplesArgs,
         info: &CursorAndLengthInfo,
+        block_duration: DurationInSeconds,
+        stop_pos: Option<PositionInSeconds>,
     ) {
         let requested_sample_count = args.block.length();
         let outer_sample_rate = args.block.sample_rate();
@@ -504,7 +484,7 @@ impl ClipPcmSource {
         if written_sample_count < requested_sample_count {
             // We have reached the end of the clip and it doesn't fill the
             // complete block.
-            if info.is_last_cycle() {
+            if info.cursor_info.is_last_block(block_duration, stop_pos) {
                 dbg!("MIDI end of last cycle");
                 // Let preview register know that complete buffer has been
                 // filled as desired in order to prevent retry (?) queries that
@@ -522,6 +502,42 @@ impl ClipPcmSource {
                 args.block.set_time_s(negative_pos);
                 args.block.set_length(requested_sample_count);
                 self.inner.source.get_samples(args.block);
+            }
+        }
+    }
+
+    unsafe fn post_process_audio(
+        &self,
+        args: &mut GetSamplesArgs,
+        info: &CursorAndLengthInfo,
+        stop_pos: Option<PositionInSeconds>,
+    ) {
+        // Parameters in seconds
+        let timeline_start_pos = info.cursor_info.play_info.timeline_start_pos.get();
+        let rel_block_start_pos = info.cursor_info.timeline_cursor_pos.get() - timeline_start_pos;
+        let rel_stop_pos = stop_pos
+            .map(|p| p.get() - timeline_start_pos)
+            .unwrap_or(f64::MAX);
+        let clip_cursor_offset = info.cursor_info.play_info.clip_cursor_offset.get();
+        // Conversion to samples
+        let sample_rate = args.block.sample_rate().get();
+        let calc = FadeCalculator {
+            end_pos: (rel_stop_pos * sample_rate) as u64,
+            clip_cursor_offset: (clip_cursor_offset * sample_rate) as u64,
+            clip_length: (info.clip_length.get() * sample_rate) as u64,
+            start_end_fade_length: (start_end_fade_length().get() * sample_rate) as u64,
+            intermediate_fade_length: (repetition_fade_length().get() * sample_rate) as u64,
+        };
+        let block_pos = (rel_block_start_pos * sample_rate) as i64;
+        // Processing
+        let mut samples = args.block.samples_as_mut_slice();
+        let length = args.block.length() as usize;
+        let nch = args.block.nch() as usize;
+        for frame in 0..length {
+            let fade_factor = calc.calculate_fade_factor(block_pos + frame as i64);
+            for ch in 0..nch {
+                let sample = &mut samples[frame * nch + ch];
+                *sample = *sample * fade_factor;
             }
         }
     }
@@ -900,10 +916,10 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         match self.state {
             Stopped => {}
             ScheduledOrPlaying {
-                stop_pos,
+                stop_instruction,
                 play_info,
             } => {
-                if stop_pos.is_some() {
+                if stop_instruction.is_some() {
                     // Already scheduled for stop.
                     return;
                 }
@@ -914,7 +930,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                     if let Some(stop_pos) = info.determine_internal_stop_pos(pos) {
                         ClipState::ScheduledOrPlaying {
                             play_info,
-                            stop_pos: Some(stop_pos),
+                            stop_instruction: Some(stop_pos),
                         }
                     } else {
                         // Looks like we were actually not playing after all.
@@ -937,10 +953,10 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         match self.state {
             Stopped => {}
             ScheduledOrPlaying {
-                stop_pos,
+                stop_instruction,
                 play_info,
             } => {
-                if stop_pos.is_some() {
+                if stop_instruction.is_some() {
                     // Scheduled for stop. Transition to stop now!
                     self.state = Suspending {
                         reason: SuspensionReason::Stop,
@@ -988,7 +1004,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
             Stopped | Suspending { .. } => {}
             ScheduledOrPlaying {
                 play_info,
-                stop_pos,
+                stop_instruction,
             } => {
                 let info = self.create_cursor_and_length_info_at(play_info, timeline_cursor_pos);
                 self.state = ClipState::ScheduledOrPlaying {
@@ -996,7 +1012,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                         timeline_start_pos: play_info.timeline_start_pos,
                         clip_cursor_offset: info.calculate_clip_cursor_offset(desired_pos),
                     },
-                    stop_pos,
+                    stop_instruction,
                 };
             }
             Paused { .. } => {
@@ -1319,6 +1335,19 @@ impl CursorInfo {
     fn pos_from_start(&self) -> PositionInSeconds {
         self.timeline_cursor_pos - self.play_info.effective_start_pos()
     }
+
+    fn is_last_block(
+        &self,
+        block_duration: DurationInSeconds,
+        stop_pos: Option<PositionInSeconds>,
+    ) -> bool {
+        if let Some(p) = stop_pos {
+            let end_of_block_pos = self.timeline_cursor_pos + block_duration;
+            end_of_block_pos >= p
+        } else {
+            false
+        }
+    }
 }
 
 struct CursorAndLengthInfo {
@@ -1388,19 +1417,6 @@ impl CursorAndLengthInfo {
         }
     }
 
-    fn is_last_cycle(&self) -> bool {
-        match self.repetition {
-            Repetition::Infinitely => false,
-            Repetition::Times(n) => {
-                if let Some(i) = self.current_hypothetical_cycle_index() {
-                    i >= n - 1
-                } else {
-                    true
-                }
-            }
-        }
-    }
-
     /// Calculates in which cycle we are (starting with 0).
     ///
     /// Returns `None` if not yet playing.
@@ -1414,7 +1430,8 @@ impl CursorAndLengthInfo {
         }
     }
 
-    fn calc_end_of_play_timeline_pos(
+    // TODO-medium Make naming consistent. Absolute = pos on timeline. Relative = pos within clip.
+    fn calc_absolute_stop_pos(
         &self,
         scheduled_stop: Option<StopInstruction>,
     ) -> Option<PositionInSeconds> {
@@ -1540,4 +1557,9 @@ fn start_end_fade_length() -> DurationInSeconds {
 
 fn repetition_fade_length() -> DurationInSeconds {
     DurationInSeconds::new(0.01)
+}
+
+struct BlockInfo {
+    length: u32,
+    sample_rate: Hz,
 }
