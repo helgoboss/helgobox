@@ -381,6 +381,8 @@ impl ClipPcmSource {
             // Complete block is located before start position
             return;
         }
+        // At this point we are sure that the end of the block is right of the start position. The
+        // start of the block might still be left of the start position (negative number).
         unsafe {
             if self.inner.is_midi {
                 self.fill_samples_midi(start_pos_within_clip, args, &info);
@@ -433,45 +435,50 @@ impl ClipPcmSource {
         args: &mut GetSamplesArgs,
         info: &CursorAndLengthInfo,
     ) {
-        let desired_sample_count = args.block.length();
-        let sample_rate = args.block.sample_rate().get();
+        let requested_sample_count = args.block.length();
+        let outer_sample_rate = args.block.sample_rate();
+        let inner_sample_rate = Hz::new(outer_sample_rate.get() / self.tempo_factor);
+        // TODO-medium We shouldn't modify the existing block but create a new one. Otherwise
+        //  it's hard to keep track which changes concern the inner source and which one this
+        //  source.
+        args.block.set_sample_rate(inner_sample_rate);
         if pos_within_clip < PositionInSeconds::ZERO {
             // For audio, starting at a negative position leads to weird sounds.
-            // That's why we need to query from 0.0 and
-            // offset the provided sample buffer by that
-            // amount.
-            let sample_offset = (-pos_within_clip.get() * sample_rate) as i32;
+            // That's why we need to query from 0.0 and offset the resulting sample buffer by that
+            // amount. We calculate the sample offset with the outer sample rate because this
+            // doesn't concern the inner source content.
+            let sample_offset = (-pos_within_clip.get() * outer_sample_rate.get()) as i32;
             args.block.set_time_s(PositionInSeconds::ZERO);
             with_shifted_samples(args.block, sample_offset, |b| {
                 // TODO-high Buffering
                 self.inner.source.get_samples(b);
             });
         } else {
-            args.block.set_time_s(pos_within_clip);
+            let inner_time_s = pos_within_clip * self.tempo_factor;
+            args.block.set_time_s(inner_time_s);
             // TODO-high Buffering
             self.inner.source.get_samples(args.block);
         }
         let written_sample_count = args.block.samples_out();
-        if written_sample_count < desired_sample_count {
+        if written_sample_count < requested_sample_count {
             // We have reached the end of the clip and it doesn't fill the
             // complete block.
             if info.is_last_cycle() {
                 // Let preview register know that complete buffer has been
                 // filled as desired in order to prevent retry (?) queries.
-                args.block.set_samples_out(desired_sample_count);
+                args.block.set_samples_out(requested_sample_count);
             } else {
                 // Repeat. Because we assume that the user cuts sources
                 // sample-perfect, we must immediately fill the rest of the
-                // buffer with the very
-                // beginning of the source.
-                // Audio. Start from zero and write just remaining samples.
+                // buffer with the very beginning of the source. Start from zero and write just
+                // remaining samples.
                 args.block.set_time_s(PositionInSeconds::ZERO);
                 with_shifted_samples(args.block, written_sample_count, |b| {
                     // TODO-high Buffering
                     self.inner.source.get_samples(b);
                 });
                 // Let preview register know that complete buffer has been filled.
-                args.block.set_samples_out(desired_sample_count);
+                args.block.set_samples_out(requested_sample_count);
             }
         }
     }
@@ -482,32 +489,38 @@ impl ClipPcmSource {
         args: &mut GetSamplesArgs,
         info: &CursorAndLengthInfo,
     ) {
-        let desired_sample_count = args.block.length();
-        let sample_rate = args.block.sample_rate().get();
+        let requested_sample_count = args.block.length();
+        let outer_sample_rate = args.block.sample_rate();
+        let inner_sample_rate = Hz::new(outer_sample_rate.get() / self.tempo_factor);
         // For MIDI it seems to be okay to start at a negative position. The source
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
-        args.block.set_time_s(pos_within_clip);
+        // TODO-high It might be necessary to not multiply the time if pos_within_clip is negative.
+        let inner_time_s = pos_within_clip * self.tempo_factor;
+        args.block.set_time_s(inner_time_s);
+        args.block.set_sample_rate(inner_sample_rate);
         self.inner.source.get_samples(args.block);
         let written_sample_count = args.block.samples_out();
-        if written_sample_count < desired_sample_count {
+        if written_sample_count < requested_sample_count {
             // We have reached the end of the clip and it doesn't fill the
             // complete block.
             if info.is_last_cycle() {
+                dbg!("MIDI end of last cycle");
                 // Let preview register know that complete buffer has been
                 // filled as desired in order to prevent retry (?) queries that
                 // lead to double events.
-                args.block.set_samples_out(desired_sample_count);
+                args.block.set_samples_out(requested_sample_count);
             } else {
+                dbg!("MIDI repeat");
                 // Repeat. Fill rest of buffer with beginning of source.
                 // We need to start from negative position so the frame
                 // offset of the *added* MIDI events is correctly written.
                 // The negative position should be as long as the duration of
                 // samples already written.
-                let written_duration = written_sample_count as f64 / sample_rate;
+                let written_duration = written_sample_count as f64 / outer_sample_rate.get();
                 let negative_pos = PositionInSeconds::new_unchecked(-written_duration);
                 args.block.set_time_s(negative_pos);
-                args.block.set_length(desired_sample_count);
+                args.block.set_length(requested_sample_count);
                 self.inner.source.get_samples(args.block);
             }
         }
@@ -579,6 +592,7 @@ impl CustomPcmSource for ClipPcmSource {
     }
 
     fn get_samples(&mut self, mut args: GetSamplesArgs) {
+        // TODO-medium assert_no_alloc when the time has come.
         // Get main timeline info
         let timeline = clip_timeline(self.project);
         if !timeline.is_running() {
@@ -599,19 +613,8 @@ impl CustomPcmSource for ClipPcmSource {
             );
         }
         self.debug_counter += 1;
-        // Make tempo play rate adjustments
-        let (effective_sample_rate, effective_timeline_cursor_pos) = if self.tempo_factor > 0.0 {
-            let effective_sample_rate = Hz::new(args.block.sample_rate().get() / self.tempo_factor);
-            (
-                effective_sample_rate,
-                timeline_cursor_pos * self.tempo_factor,
-            )
-        } else {
-            (args.block.sample_rate(), timeline_cursor_pos)
-        };
-        args.block.set_sample_rate(effective_sample_rate);
         // Get samples
-        self.get_samples_internal(&mut args, effective_timeline_cursor_pos);
+        self.get_samples_internal(&mut args, timeline_cursor_pos);
         // Output post-processing debug info
         if debug {
             let ptr = args.block.as_ptr();
@@ -1006,16 +1009,12 @@ impl ClipPcmSourceSkills for ClipPcmSource {
 
     fn clip_length(&self) -> DurationInSeconds {
         let original_length = self.inner.source.get_length().unwrap_or_default();
-        if self.tempo_factor > 0.0 {
-            DurationInSeconds::new(original_length.get() / self.tempo_factor)
-        } else {
-            original_length
-        }
+        DurationInSeconds::new(original_length.get() / self.tempo_factor)
     }
 
     fn set_tempo_factor(&mut self, tempo_factor: f64) {
         dbg!(tempo_factor);
-        self.tempo_factor = tempo_factor;
+        self.tempo_factor = tempo_factor.max(0.25);
     }
 
     fn get_tempo_factor(&self) -> f64 {
