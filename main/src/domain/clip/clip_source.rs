@@ -475,7 +475,6 @@ impl ClipPcmSource {
         // For MIDI it seems to be okay to start at a negative position. The source
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
-        // TODO-high It might be necessary to not multiply the time if pos_within_clip is negative.
         let inner_time_s = pos_within_clip * self.tempo_factor;
         args.block.set_time_s(inner_time_s);
         args.block.set_sample_rate(inner_sample_rate);
@@ -498,7 +497,8 @@ impl ClipPcmSource {
                 // The negative position should be as long as the duration of
                 // samples already written.
                 let written_duration = written_sample_count as f64 / outer_sample_rate.get();
-                let negative_pos = PositionInSeconds::new_unchecked(-written_duration);
+                let negative_pos =
+                    PositionInSeconds::new_unchecked(-written_duration) * self.tempo_factor;
                 args.block.set_time_s(negative_pos);
                 args.block.set_length(requested_sample_count);
                 self.inner.source.get_samples(args.block);
