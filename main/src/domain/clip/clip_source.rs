@@ -36,6 +36,8 @@ pub struct ClipPcmSource {
     debug_counter: u64,
     /// The current state of this clip, containing only state which is non-derivable.
     state: ClipState,
+    // TODO-high Make this clean. Just an experiment for now.
+    prev_rel_end_of_block_pos: Option<PositionInSeconds>,
 }
 
 struct InnerSource {
@@ -151,6 +153,7 @@ impl ClipPcmSource {
             repetition: Repetition::Times(1),
             state: ClipState::Stopped,
             tempo_factor: 1.0,
+            prev_rel_end_of_block_pos: None,
         }
     }
 
@@ -356,7 +359,7 @@ impl ClipPcmSource {
     }
 
     fn fill_samples(
-        &self,
+        &mut self,
         args: &mut GetSamplesArgs,
         info: CursorAndLengthInfo,
         stop_pos: Option<PositionInSeconds>,
@@ -372,10 +375,19 @@ impl ClipPcmSource {
         let desired_sample_count = args.block.length();
         let sample_rate = args.block.sample_rate().get();
         let block_duration = DurationInSeconds::new(desired_sample_count as f64 / sample_rate);
-        let start_pos_within_clip = info.hypothetical_pos_within_clip();
-        let rel_end_of_block_pos = unsafe {
-            PositionInSeconds::new_unchecked(start_pos_within_clip.get() + block_duration.get())
+        // TODO-high Experiment for smooth clip playing. Before we always used
+        //  hypothetical_pos_within_clip().
+        let start_pos_within_clip = if let Some(p) = self.prev_rel_end_of_block_pos {
+            info.hypothetical_pos_within_clip_at(p)
+        } else {
+            info.hypothetical_pos_within_clip() * self.tempo_factor
         };
+        let rel_end_of_block_pos = unsafe {
+            PositionInSeconds::new_unchecked(
+                start_pos_within_clip.get() + block_duration.get() * self.tempo_factor,
+            )
+        };
+        self.prev_rel_end_of_block_pos = Some(rel_end_of_block_pos);
         if rel_end_of_block_pos < PositionInSeconds::ZERO {
             // Complete block is located before start position
             return;
@@ -431,8 +443,7 @@ impl ClipPcmSource {
                 self.inner.source.get_samples(b);
             });
         } else {
-            let inner_time_s = pos_within_clip * self.tempo_factor;
-            args.block.set_time_s(inner_time_s);
+            args.block.set_time_s(pos_within_clip);
             // TODO-high Buffering
             self.inner.source.get_samples(args.block);
         }
@@ -469,13 +480,20 @@ impl ClipPcmSource {
         block_duration: DurationInSeconds,
         stop_pos: Option<PositionInSeconds>,
     ) {
+        // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while
+        // playing instead of REAPER letting use its generic mechanism that leads to duplicate
+        // notes, probably through internal position changes.
+        // TODO-high This only prevents duplicate notes when increasing tempo, not when decreasing
+        //  it. Not sure what's still interfering.
+        // TODO-high Set to real initial tempo.
+        args.block.set_force_bpm(96.0);
         let requested_sample_count = args.block.length();
         let outer_sample_rate = args.block.sample_rate();
         let inner_sample_rate = Hz::new(outer_sample_rate.get() / self.tempo_factor);
         // For MIDI it seems to be okay to start at a negative position. The source
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
-        let inner_time_s = pos_within_clip * self.tempo_factor;
+        let inner_time_s = pos_within_clip;
         args.block.set_time_s(inner_time_s);
         args.block.set_sample_rate(inner_sample_rate);
         self.inner.source.get_samples(args.block);
@@ -1364,6 +1382,13 @@ impl CursorAndLengthInfo {
     /// - Returns negative position if clip not yet playing.
     pub fn hypothetical_pos_within_clip(&self) -> PositionInSeconds {
         let pos_from_start = self.cursor_info.pos_from_start();
+        self.hypothetical_pos_within_clip_at(pos_from_start)
+    }
+
+    pub fn hypothetical_pos_within_clip_at(
+        &self,
+        pos_from_start: PositionInSeconds,
+    ) -> PositionInSeconds {
         if pos_from_start < PositionInSeconds::ZERO {
             // Count-in phase. Report negative position.
             pos_from_start
