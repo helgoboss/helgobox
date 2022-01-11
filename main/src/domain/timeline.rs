@@ -1,19 +1,21 @@
 use helgoboss_learn::BASE_EPSILON;
 use reaper_high::{Project, Reaper};
-use reaper_medium::{Hz, MeasureMode, PositionInBeats, PositionInSeconds};
+use reaper_medium::{Bpm, Hz, MeasureMode, PositionInBeats, PositionInSeconds, ProjectContext};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
 #[derive(Clone, Copy)]
 pub struct TimelineMoment {
     cursor_pos: PositionInSeconds,
     next_bar_pos: PositionInSeconds,
+    tempo: Bpm,
 }
 
 impl TimelineMoment {
-    pub fn new(cursor_pos: PositionInSeconds, next_bar_pos: PositionInSeconds) -> Self {
+    pub fn new(cursor_pos: PositionInSeconds, next_bar_pos: PositionInSeconds, tempo: Bpm) -> Self {
         Self {
             cursor_pos,
             next_bar_pos,
+            tempo,
         }
     }
 
@@ -23,49 +25,73 @@ impl TimelineMoment {
     pub fn next_bar_pos(&self) -> PositionInSeconds {
         self.next_bar_pos
     }
+    pub fn tempo(&self) -> Bpm {
+        self.tempo
+    }
 }
 
 pub struct ReaperProjectTimeline {
-    project: Option<Project>,
+    project_context: ProjectContext,
 }
 
 impl ReaperProjectTimeline {
     pub fn new(project: Option<Project>) -> Self {
-        Self { project }
-    }
-}
-
-impl ReaperProjectTimeline {
-    fn project(&self) -> Project {
-        self.project
-            .unwrap_or_else(|| Reaper::get().current_project())
+        Self {
+            project_context: project
+                .map(|p| p.context())
+                .unwrap_or(ProjectContext::CurrentProject),
+        }
     }
 }
 
 impl Timeline for ReaperProjectTimeline {
     fn capture_moment(&self) -> TimelineMoment {
         let cursor_pos = self.cursor_pos();
-        let next_bar_pos = get_next_bar_pos_from_project(cursor_pos, self.project());
-        TimelineMoment::new(cursor_pos, next_bar_pos)
+        let next_bar_pos = get_next_bar_pos_from_project(cursor_pos, self.project_context);
+        let tempo = self.tempo();
+        TimelineMoment::new(cursor_pos, next_bar_pos, tempo)
     }
 
     fn cursor_pos(&self) -> PositionInSeconds {
-        self.project().play_position_next_audio_block()
+        Reaper::get()
+            .medium_reaper()
+            .get_play_position_2_ex(self.project_context)
     }
 
     fn is_running(&self) -> bool {
         let play_state = Reaper::get()
             .medium_reaper()
-            .get_play_state_ex(self.project().context());
+            .get_play_state_ex(self.project_context);
         !play_state.is_paused
     }
 
     fn follows_reaper_transport(&self) -> bool {
         true
     }
+
+    fn tempo(&self) -> Bpm {
+        let play_state = Reaper::get()
+            .medium_reaper()
+            .get_play_state_ex(self.project_context);
+        // The idea is that we want to follow tempo envelopes while playing but not follow them
+        // while paused (because we don't even see where the hypothetical play cursor is on the
+        // timeline).
+        let tempo_ref_pos = if play_state.is_playing || play_state.is_paused {
+            self.cursor_pos()
+        } else {
+            PositionInSeconds::new(0.0)
+        };
+        self.tempo_at(tempo_ref_pos)
+    }
+
+    fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm {
+        Reaper::get()
+            .medium_reaper()
+            .time_map_2_get_divided_bpm_at_time(self.project_context, timeline_pos)
+    }
 }
 
-pub trait Timeline: Send + Sync {
+pub trait Timeline {
     fn capture_moment(&self) -> TimelineMoment;
 
     fn cursor_pos(&self) -> PositionInSeconds;
@@ -73,6 +99,12 @@ pub trait Timeline: Send + Sync {
     fn is_running(&self) -> bool;
 
     fn follows_reaper_transport(&self) -> bool;
+
+    fn tempo(&self) -> Bpm {
+        self.tempo_at(self.cursor_pos())
+    }
+
+    fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm;
 }
 
 pub struct SteadyTimeline {
@@ -111,9 +143,10 @@ impl Timeline for SteadyTimeline {
         let cursor_pos = self.cursor_pos();
         // I guess an independent timeline shouldn't get this information from a project.
         // But let's see how to deal with that as soon as we put it to use.
-        let project = Reaper::get().current_project();
-        let next_bar_pos = get_next_bar_pos_from_project(cursor_pos, project);
-        TimelineMoment::new(cursor_pos, next_bar_pos)
+        let next_bar_pos =
+            get_next_bar_pos_from_project(cursor_pos, ProjectContext::CurrentProject);
+        let tempo = self.tempo();
+        TimelineMoment::new(cursor_pos, next_bar_pos, tempo)
     }
 
     fn cursor_pos(&self) -> PositionInSeconds {
@@ -127,13 +160,16 @@ impl Timeline for SteadyTimeline {
     fn follows_reaper_transport(&self) -> bool {
         false
     }
+
+    fn tempo_at(&self, _timeline_pos: PositionInSeconds) -> Bpm {
+        Bpm::new(96.0)
+    }
 }
 
 pub fn get_next_bar_pos_from_project(
     cursor_pos: PositionInSeconds,
-    project: Project,
+    proj_context: ProjectContext,
 ) -> PositionInSeconds {
-    let proj_context = project.context();
     let reaper = Reaper::get().medium_reaper();
     let res = reaper.time_map_2_time_to_beats(proj_context, cursor_pos);
     let next_measure_index = if res.beats_since_measure.get() <= BASE_EPSILON {
@@ -163,6 +199,14 @@ impl<T: Timeline> Timeline for &T {
 
     fn follows_reaper_transport(&self) -> bool {
         (*self).follows_reaper_transport()
+    }
+
+    fn tempo(&self) -> Bpm {
+        (*self).tempo()
+    }
+
+    fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm {
+        (*self).tempo_at(timeline_pos)
     }
 }
 

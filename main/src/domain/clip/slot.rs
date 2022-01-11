@@ -4,9 +4,9 @@ use reaper_high::{OwnedSource, Project, Reaper, Track};
 use reaper_low::raw;
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
-    create_custom_owned_pcm_source, BorrowedPcmSource, DurationInSeconds, FlexibleOwnedPcmSource,
-    MeasureAlignment, MeasureMode, OwnedPreviewRegister, PlayState, PositionInBeats,
-    PositionInSeconds, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
+    create_custom_owned_pcm_source, BorrowedPcmSource, Bpm, DurationInSeconds,
+    FlexibleOwnedPcmSource, MeasureAlignment, MeasureMode, OwnedPreviewRegister, PlayState,
+    PositionInBeats, PositionInSeconds, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
 };
 use std::path::PathBuf;
 use std::ptr::NonNull;
@@ -15,7 +15,8 @@ use std::sync::Arc;
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
 use crate::domain::clip::clip_source::{
-    ClipPcmSource, ClipPcmSourceSkills, ClipState, ClipStopPosition, SuspensionReason,
+    ClipPcmSource, ClipPcmSourceSkills, ClipState, ClipStopPosition, PosWithinClipArgs,
+    ScheduleStopArgs, SeekToArgs, SetRepeatedArgs, SuspensionReason,
 };
 use crate::domain::clip::{
     clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
@@ -137,7 +138,7 @@ impl ClipSlot {
             file_name: source.get_file_name(|p| Some(p?.to_owned())),
             length: {
                 // TODO-low Doesn't need to be optional
-                Some(source.clip_length())
+                Some(source.native_clip_length())
             },
         };
         // TODO-medium This is probably necessary to make sure the mutex is not unlocked before the
@@ -165,10 +166,14 @@ impl ClipSlot {
     /// worse. The poll-based solution ensures that we can do all of the important
     /// stuff in one go and even summarize many changes easily into one batch before sending it
     /// to UI/controllers/clients.
-    pub fn poll(&mut self, timeline_cursor_pos: PositionInSeconds) -> Option<ClipChangedEvent> {
-        let (result, change_events) = self
-            .start_transition()
-            .poll(&self.register, timeline_cursor_pos);
+    pub fn poll(
+        &mut self,
+        timeline_cursor_pos: PositionInSeconds,
+        timeline_tempo: Bpm,
+    ) -> Option<ClipChangedEvent> {
+        let (result, change_events) =
+            self.start_transition()
+                .poll(&self.register, timeline_cursor_pos, timeline_tempo);
         self.finish_transition(result).ok()?;
         change_events
     }
@@ -278,10 +283,15 @@ impl ClipSlot {
     pub fn toggle_repeat(&mut self) -> ClipChangedEvent {
         let new_value = !self.clip.repeat;
         self.clip.repeat = new_value;
+        let timeline = clip_timeline(None);
+        let args = SetRepeatedArgs {
+            timeline_cursor_pos: timeline.cursor_pos(),
+            timeline_tempo: timeline.tempo(),
+            repeated: new_value,
+        };
         let mut guard = lock(&self.register);
         if let Some(src) = guard.src_mut() {
-            src.as_mut()
-                .set_repeated(clip_timeline_cursor_pos(None), new_value);
+            src.as_mut().set_repeated(args);
         }
         self.repeat_changed_event()
     }
@@ -322,29 +332,34 @@ impl ClipSlot {
 
     /// Returns the current position within the slot clip on a percentage basis.
     pub fn proportional_position(&self) -> Result<UnitValue, &'static str> {
+        let timeline = clip_timeline(None);
+        let args = PosWithinClipArgs {
+            timeline_cursor_pos: timeline.cursor_pos(),
+            timeline_tempo: timeline.tempo(),
+        };
         let guard = lock(&self.register);
         let src = guard.src().ok_or(NO_SOURCE_LOADED)?;
         if matches!(self.state, State::Empty) {
             return Ok(UnitValue::MIN);
         }
         let src = src.as_ref();
-        let pos_within_clip = src.pos_within_clip(clip_timeline_cursor_pos(None));
-        let length = src.clip_length();
-        let percentage_pos = calculate_proportional_position(pos_within_clip, length);
+        let percentage_pos = src.proportional_pos_within_clip(args).unwrap_or_default();
         Ok(percentage_pos)
     }
 
     /// Returns the current clip position in seconds.
     pub fn position_in_seconds(&self) -> Result<PositionInSeconds, &'static str> {
+        let timeline = clip_timeline(None);
+        let args = PosWithinClipArgs {
+            timeline_cursor_pos: timeline.cursor_pos(),
+            timeline_tempo: timeline.tempo(),
+        };
         let guard = lock(&self.register);
         let src = guard.src().ok_or(NO_SOURCE_LOADED)?;
         if matches!(self.state, State::Empty) {
             return Ok(PositionInSeconds::ZERO);
         }
-        let pos = src
-            .as_ref()
-            .pos_within_clip(clip_timeline_cursor_pos(None))
-            .unwrap_or_default();
+        let pos = src.as_ref().pos_within_clip(args).unwrap_or_default();
         Ok(pos)
     }
 
@@ -356,14 +371,17 @@ impl ClipSlot {
         &mut self,
         desired_proportional_pos: UnitValue,
     ) -> Result<Option<ClipChangedEvent>, &'static str> {
+        let timeline = clip_timeline(None);
+        let args = SeekToArgs {
+            timeline_cursor_pos: timeline.cursor_pos(),
+            timeline_tempo: timeline.tempo(),
+            desired_pos: desired_proportional_pos,
+        };
         let mut guard = lock(&self.register);
         let src = guard.src_mut().ok_or(NO_SOURCE_LOADED)?;
         let src = src.as_mut();
-        let length = src.clip_length();
-        let desired_pos_in_secs =
-            DurationInSeconds::new(desired_proportional_pos.get() * length.get());
         let clip_state = src.clip_state();
-        src.seek_to(clip_timeline_cursor_pos(None), desired_pos_in_secs);
+        src.seek_to(args);
         let event = if matches!(clip_state, ClipState::Paused { .. }) {
             Some(ClipChangedEvent::ClipPosition(desired_proportional_pos))
         } else {
@@ -533,10 +551,11 @@ impl State {
         self,
         reg: &SharedRegister,
         timeline_cursor_pos: PositionInSeconds,
+        timeline_tempo: Bpm,
     ) -> (TransitionResult, Option<ClipChangedEvent>) {
         use State::*;
         match self {
-            Filled(s) => s.poll(reg, timeline_cursor_pos),
+            Filled(s) => s.poll(reg, timeline_cursor_pos, timeline_tempo),
             // When empty, change nothing and emit no change events.
             Empty => (Ok(self), None),
             Transitioning => unreachable!(),
@@ -733,10 +752,12 @@ impl FilledState {
                     src.as_mut().stop_immediately(moment.cursor_pos());
                 }
                 EndOfBar | EndOfClip => {
-                    src.as_mut().schedule_stop(
-                        moment.cursor_pos(),
-                        stop_behavior.get_clip_stop_position(moment),
-                    );
+                    let args = ScheduleStopArgs {
+                        timeline_cursor_pos: moment.cursor_pos(),
+                        timeline_tempo: moment.tempo(),
+                        pos: stop_behavior.get_clip_stop_position(moment),
+                    };
+                    src.as_mut().schedule_stop(args);
                 }
             }
         }
@@ -772,6 +793,7 @@ impl FilledState {
         self,
         reg: &SharedRegister,
         timeline_cursor_pos: PositionInSeconds,
+        timeline_tempo: Bpm,
     ) -> (TransitionResult, Option<ClipChangedEvent>) {
         let handle = match self.handle {
             None => {
@@ -782,8 +804,12 @@ impl FilledState {
             Some(h) => h,
         };
         // At first collect some up-to-date clip source state.
-        // TODO-medium We can optimize this by getting everything at once.
-        let (clip_state, play_state, pos_within_clip, length) = {
+        // TODO-high We should optimize this by getting everything at once.
+        let (clip_state, play_state, pos_within_clip) = {
+            let args = PosWithinClipArgs {
+                timeline_cursor_pos,
+                timeline_tempo,
+            };
             // React gracefully even in weird situations (because we are in poll).
             let guard = match reg.lock() {
                 Ok(g) => g,
@@ -794,18 +820,18 @@ impl FilledState {
                 None => return (Ok(State::Filled(self)), None),
             };
             let src = src.as_ref();
-            let pos_within_clip = src.pos_within_clip(timeline_cursor_pos);
-            let length = src.clip_length();
+            let pos_within_clip = src.proportional_pos_within_clip(args);
             let clip_state = src.clip_state();
             let play_state = get_play_state(src, timeline_cursor_pos, clip_state);
-            (clip_state, play_state, pos_within_clip, length)
+            (clip_state, play_state, pos_within_clip)
         };
         // At first determine event to be emitted.
         let next_event = if play_state == self.last_clip_play_state {
             // Play state has not changed. If we are polling, it means the position is changing
             // constantly. Emit it!
-            let position = calculate_proportional_position(pos_within_clip, length);
-            Some(ClipChangedEvent::ClipPosition(position))
+            Some(ClipChangedEvent::ClipPosition(
+                pos_within_clip.unwrap_or_default(),
+            ))
         } else {
             // Play state has changed. Emit this instead of a position change.
             Some(ClipChangedEvent::PlayState(play_state))
@@ -882,18 +908,6 @@ impl SlotPlayOptions {
 
 fn lock(reg: &SharedRegister) -> ReaperMutexGuard<OwnedPreviewRegister> {
     reg.lock().expect("couldn't acquire lock")
-}
-
-fn calculate_proportional_position(
-    position: Option<PositionInSeconds>,
-    length: DurationInSeconds,
-) -> UnitValue {
-    if length.get() == 0.0 {
-        return UnitValue::MIN;
-    }
-    position
-        .map(|p| UnitValue::new_clamped(p.get() / length.get()))
-        .unwrap_or_default()
 }
 
 fn get_play_state(

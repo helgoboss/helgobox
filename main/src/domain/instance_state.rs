@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use enum_map::EnumMap;
 use reaper_high::{Item, Project, Track};
-use reaper_medium::{PlayState, PositionInSeconds, ReaperVolumeValue};
+use reaper_medium::{Bpm, PlayState, PositionInSeconds, ReaperVolumeValue};
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -313,11 +313,12 @@ impl InstanceState {
         &mut self,
         slot_index: usize,
         timeline_cursor_pos: PositionInSeconds,
+        timeline_tempo: Bpm,
     ) -> Option<ClipChangedEvent> {
         self.clip_slots
             .get_mut(slot_index)
             .expect("no such slot")
-            .poll(timeline_cursor_pos)
+            .poll(timeline_cursor_pos, timeline_tempo)
     }
 
     pub fn filled_slot_descriptors(&self) -> Vec<QualifiedSlotDescriptor> {
