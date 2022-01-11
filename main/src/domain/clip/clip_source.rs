@@ -1,3 +1,5 @@
+// TODO-medium Give this file a last overhaul as soon as things run as they should. There were many
+//  changes and things might not be implemeted/named optimally.
 use crate::domain::Timeline;
 use std::cmp;
 use std::convert::TryInto;
@@ -58,7 +60,7 @@ impl InnerSource {
 #[derive(Copy, Clone, Debug)]
 enum Repetition {
     Infinitely,
-    Times(u32),
+    Once,
 }
 
 impl Repetition {
@@ -66,7 +68,7 @@ impl Repetition {
         if repeated {
             Repetition::Infinitely
         } else {
-            Repetition::Times(1)
+            Repetition::Once
         }
     }
 
@@ -74,7 +76,7 @@ impl Repetition {
         use Repetition::*;
         match self {
             Infinitely => None,
-            Times(n) => Some(StopInstruction::AtEndOfCycle(cmp::max(n, 1) - 1)),
+            Once => Some(StopInstruction::AtEndOfClip),
         }
     }
 }
@@ -138,8 +140,7 @@ pub enum ClipStopPosition {
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum StopInstruction {
     In(DurationInSeconds),
-    /// The first cycle is called cycle 0.
-    AtEndOfCycle(u32),
+    AtEndOfClip,
 }
 
 impl StopInstruction {
@@ -154,7 +155,7 @@ impl StopInstruction {
                     In(DurationInSeconds::new(next_countdown))
                 }
             }
-            AtEndOfCycle(_) => *self,
+            AtEndOfClip => AtEndOfClip,
         }
     }
 }
@@ -170,7 +171,7 @@ impl ClipPcmSource {
             },
             project,
             debug_counter: 0,
-            repetition: Repetition::Times(1),
+            repetition: Repetition::Once,
             state: ClipState::Stopped,
             manual_tempo_factor: 1.0,
         }
@@ -330,7 +331,7 @@ impl ClipPcmSource {
                         Some(transition_countdown),
                     );
                     self.fill_samples(args, &block_info);
-                    // Decrease counter
+                    // We want the fade to always have the same length, no matter the tempo.
                     let next_transition_countdown =
                         transition_countdown.get() - block_info.duration().get();
                     self.state = if next_transition_countdown > 0.0 {
@@ -370,15 +371,22 @@ impl ClipPcmSource {
                 );
                 self.fill_samples(args, &block_info);
                 let next_play_info = PlayInfo {
-                    next_block_pos: block_info.block_end_pos(),
+                    next_block_pos: {
+                        let p = block_info.block_end_pos();
+                        // This is the point where we advance the block position, making sure that
+                        // we always stay within the borders of the inner source. We don't use
+                        // every-increasing positions because then tempo changes are not smooth
+                        // anymore in subsequent cycles.
+                        PositionInSeconds::new(p.get() % self.native_clip_length().get())
+                    },
                 };
                 self.state = if let Some(cd) = stop_countdown {
-                    let next_stop_countdown = cd.get() - block_info.duration().get();
+                    let next_stop_countdown = cd.get() - block_info.tempo_adjusted_duration().get();
                     if next_stop_countdown > 0.0 {
                         ScheduledOrPlaying {
                             play_info: next_play_info,
                             stop_instruction: stop_instruction
-                                .map(|si| si.count_down_by(block_info.duration())),
+                                .map(|si| si.count_down_by(block_info.tempo_adjusted_duration())),
                         }
                     } else {
                         // We have reached the natural or scheduled end. Everything that needed to be
@@ -454,12 +462,13 @@ impl ClipPcmSource {
 
     unsafe fn fill_samples_audio(&self, args: &mut GetSamplesArgs, info: &BlockInfo) {
         let outer_sample_rate = info.sample_rate();
-        let inner_sample_rate = Hz::new(outer_sample_rate.get() / info.final_tempo_factor());
         // TODO-medium We shouldn't modify the existing block but create a new one. Otherwise
         //  it's hard to keep track which changes concern the inner source and which one this
         //  source.
-        args.block.set_sample_rate(inner_sample_rate);
+        args.block
+            .set_sample_rate(info.tempo_adjusted_sample_rate());
         if info.block_start_pos() < PositionInSeconds::ZERO {
+            dbg!("Audio starting at negative position");
             // For audio, starting at a negative position leads to weird sounds.
             // That's why we need to query from 0.0 and offset the resulting sample buffer by that
             // amount. We calculate the sample offset with the outer sample rate because this
@@ -509,12 +518,12 @@ impl ClipPcmSource {
         // TODO-high Set to real initial tempo.
         args.block.set_force_bpm(self.inner.original_tempo());
         let outer_sample_rate = info.sample_rate();
-        let inner_sample_rate = Hz::new(outer_sample_rate.get() / info.final_tempo_factor());
         // For MIDI it seems to be okay to start at a negative position. The source
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
         args.block.set_time_s(info.block_start_pos());
-        args.block.set_sample_rate(inner_sample_rate);
+        args.block
+            .set_sample_rate(info.tempo_adjusted_sample_rate());
         self.inner.source.get_samples(args.block);
         let written_sample_count = args.block.samples_out();
         if written_sample_count < info.length() as _ {
@@ -655,7 +664,8 @@ impl CustomPcmSource for ClipPcmSource {
         }
         let timeline_cursor_pos = timeline.cursor_pos();
         // Output pre-processing debug info
-        let debug = self.debug_counter % 500 == 0;
+        // let debug = self.debug_counter % 500 == 0;
+        let debug = false;
         if debug {
             let ptr = args.block.as_ptr();
             let raw = unsafe { ptr.as_ref() };
@@ -901,6 +911,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         self.start_internal(timeline_cursor_pos, pos, repeated);
     }
 
+    // TODO-medium This can be combined with schedule_start() into play(), taking a StartPos enum.
     fn start_immediately(&mut self, timeline_cursor_pos: PositionInSeconds, repeated: bool) {
         self.start_internal(timeline_cursor_pos, timeline_cursor_pos, repeated);
     }
@@ -1032,14 +1043,14 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn seek_to(&mut self, args: SeekToArgs) {
-        let length = self.clip_length(args.timeline_tempo);
-        let desired_pos_in_secs = length * args.desired_pos.get();
+        let length = self.native_clip_length();
+        let desired_pos_in_secs =
+            (length * args.desired_pos.get()).expect("proportional position never negative");
         use ClipState::*;
         match self.state {
             Stopped | Suspending { .. } => {}
             ScheduledOrPlaying {
-                play_info,
-                stop_instruction,
+                stop_instruction, ..
             } => {
                 self.state = ClipState::ScheduledOrPlaying {
                     play_info: PlayInfo {
@@ -1079,39 +1090,22 @@ impl ClipPcmSourceSkills for ClipPcmSource {
             if args.repeated {
                 Repetition::Infinitely
             } else {
-                let times = if let Some(play_info) = self.state.play_info() {
-                    // Currently playing. Don't stop immediately but after current cycle!
-                    let current_cycle_index = self
-                        .create_cursor_and_length_info_at(
-                            play_info,
-                            args.timeline_cursor_pos,
-                            args.timeline_tempo,
-                        )
-                        .current_hypothetical_cycle_index();
-                    current_cycle_index + 1
-                } else {
-                    // If not playing, we want to stop after the 1st cycle in future.
-                    1
-                };
-                Repetition::Times(times)
+                Repetition::Once
             }
         };
     }
 
     fn pos_within_clip(&self, args: PosWithinClipArgs) -> Option<PositionInSeconds> {
         use ClipState::*;
-        match self.state {
-            Stopped => None,
+        let inner_source_pos = match self.state {
+            Stopped => return None,
             ScheduledOrPlaying { play_info, .. } | Suspending { play_info, .. } => {
-                let info = self.create_cursor_and_length_info_at(
-                    play_info,
-                    args.timeline_cursor_pos,
-                    args.timeline_tempo,
-                );
-                Some(info.cursor_info.play_info.next_block_pos)
+                play_info.next_block_pos
             }
-            Paused { next_block_pos } => Some(next_block_pos.into()),
-        }
+            Paused { next_block_pos } => next_block_pos.into(),
+        };
+        let pos = inner_source_pos.get() / self.calc_final_tempo_factor(args.timeline_tempo);
+        Some(PositionInSeconds::new(pos))
     }
 
     fn proportional_pos_within_clip(&self, args: PosWithinClipArgs) -> Option<UnitValue> {
@@ -1319,10 +1313,10 @@ unsafe fn with_shifted_samples(
 
 #[derive(Copy, Clone, Debug)]
 pub struct PlayInfo {
-    /// At the time `get_samples` is called, this contains the position of the block that should
-    /// be processed next.
+    /// At the time `get_samples` is called, this contains the position in the inner source that
+    /// should be played next.
     ///
-    /// - It's a position *within* the clip (modulo!).
+    /// - It's a position *within* the inner source (modulo!).
     /// - If this position is negative, we are in the count-in phase.
     pub next_block_pos: PositionInSeconds,
 }
@@ -1362,37 +1356,9 @@ impl CursorAndLengthInfo {
                 let countdown = (p - self.cursor_info.timeline_cursor_pos).try_into().ok()?;
                 StopInstruction::In(countdown)
             }
-            ClipStopPosition::AtEndOfClip => {
-                let current_cycle = self.current_cycle_index()?;
-                StopInstruction::AtEndOfCycle(current_cycle)
-            }
+            ClipStopPosition::AtEndOfClip => StopInstruction::AtEndOfClip,
         };
         Some(internal_pos)
-    }
-
-    /// Calculates in which cycle we are (starting with 0).
-    ///
-    /// Returns `None` if not yet playing or not repeated and clip length exceeded.
-    fn current_cycle_index(&self) -> Option<u32> {
-        let cycle_index = self.current_hypothetical_cycle_index();
-        match self.repetition {
-            Repetition::Infinitely => Some(cycle_index),
-            Repetition::Times(n) => {
-                if cycle_index < n {
-                    Some(cycle_index)
-                } else {
-                    None
-                }
-            }
-        }
-    }
-
-    /// Calculates in which cycle we are (starting with 0).
-    ///
-    /// Returns `None` if not yet playing.
-    fn current_hypothetical_cycle_index(&self) -> u32 {
-        // TODO-high Make this work, e.g. by maintaining a cycle index in PlayInfo.
-        (self.cursor_info.play_info.next_block_pos.get() / self.clip_length.get()) as u32
     }
 
     // TODO-medium Make naming consistent. Absolute = pos on timeline. Relative = pos within clip.
@@ -1410,11 +1376,9 @@ impl CursorAndLengthInfo {
     fn resolve_stop_instruction(&self, stop_instruction: StopInstruction) -> DurationInSeconds {
         match stop_instruction {
             StopInstruction::In(countdown) => countdown,
-            StopInstruction::AtEndOfCycle(n) => {
-                let requested_end_pos = self.clip_length * (n + 1) as f64;
-                // TODO-high Fix by keeping current cycle as play info
-                let duration =
-                    requested_end_pos.get() - self.cursor_info.play_info.next_block_pos.get();
+            StopInstruction::AtEndOfClip => {
+                let rel_pos = self.cursor_info.play_info.next_block_pos;
+                let duration = self.clip_length.get() - rel_pos.get();
                 if duration < 0.0 {
                     DurationInSeconds::ZERO
                 } else {
@@ -1575,7 +1539,6 @@ struct BlockInfo {
     length: u32,
     sample_rate: Hz,
     duration: DurationInSeconds,
-    block_end_pos: PositionInSeconds,
     cursor_and_lenght_info: CursorAndLengthInfo,
     final_tempo_factor: f64,
     stop_countdown: Option<DurationInSeconds>,
@@ -1591,19 +1554,10 @@ impl BlockInfo {
         let length = block.length() as u32;
         let sample_rate = block.sample_rate();
         let duration = DurationInSeconds::new(length as f64 / sample_rate.get());
-        let block_start_pos = cursor_and_length_info.cursor_info.play_info.next_block_pos;
         Self {
             length,
             sample_rate,
             duration,
-            block_end_pos: {
-                let p = block_start_pos + duration * final_tempo_factor;
-                if p < PositionInSeconds::ZERO {
-                    p
-                } else {
-                    PositionInSeconds::new(p.get() % cursor_and_length_info.clip_length.get())
-                }
-            },
             cursor_and_lenght_info: cursor_and_length_info,
             final_tempo_factor,
             stop_countdown,
@@ -1612,6 +1566,10 @@ impl BlockInfo {
 
     pub fn duration(&self) -> DurationInSeconds {
         self.duration
+    }
+
+    pub fn tempo_adjusted_duration(&self) -> DurationInSeconds {
+        (self.duration * self.final_tempo_factor).expect("final tempo factor never negative")
     }
 
     pub fn length(&self) -> u32 {
@@ -1631,8 +1589,10 @@ impl BlockInfo {
     }
 
     /// Position *within* clip.
+    ///
+    /// Always tempo-adjusted.
     pub fn block_end_pos(&self) -> PositionInSeconds {
-        self.block_end_pos
+        self.block_start_pos() + self.tempo_adjusted_duration()
     }
 
     pub fn cursor_and_lenght_info(&self) -> &CursorAndLengthInfo {
@@ -1649,9 +1609,13 @@ impl BlockInfo {
 
     pub fn is_last_block(&self) -> bool {
         if let Some(cd) = self.stop_countdown {
-            cd <= self.duration
+            cd <= self.tempo_adjusted_duration()
         } else {
             false
         }
+    }
+
+    pub fn tempo_adjusted_sample_rate(&self) -> Hz {
+        Hz::new(self.sample_rate.get() / self.final_tempo_factor)
     }
 }
