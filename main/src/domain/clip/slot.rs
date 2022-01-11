@@ -919,20 +919,15 @@ fn get_play_state(
     match clip_state {
         Stopped => ClipPlayState::Stopped,
         ScheduledOrPlaying {
-            stop_instruction, ..
+            play_info,
+            stop_instruction,
         } => {
             if stop_instruction.is_some() {
                 ClipPlayState::ScheduledForStop
-            } else if let Some(pos_from_start) = src.pos_from_start(timeline_cursor_pos) {
-                if pos_from_start < PositionInSeconds::ZERO {
-                    ClipPlayState::ScheduledForPlay
-                } else {
-                    ClipPlayState::Playing
-                }
+            } else if play_info.next_block_pos < PositionInSeconds::ZERO {
+                ClipPlayState::ScheduledForPlay
             } else {
-                // TODO-high Improve
-                // Not running after all
-                ClipPlayState::Stopped
+                ClipPlayState::Playing
             }
         }
         Suspending { reason, .. } => match reason {
