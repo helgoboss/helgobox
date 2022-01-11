@@ -167,7 +167,7 @@ impl ClipPcmSource {
 
     fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
         let timeline_tempo_factor = timeline_tempo.get() / self.inner.original_tempo().get();
-        (self.manual_tempo_factor * timeline_tempo_factor).min(MIN_TEMPO_FACTOR)
+        (self.manual_tempo_factor * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
     }
 
     fn start_internal(
