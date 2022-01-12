@@ -324,8 +324,19 @@ impl ClipPcmSource {
                 scheduled_for_stop,
             } => {
                 // Resolve play info if not yet resolved.
-                let play_info = play_info.unwrap_or_else(|| ResolvedPlayData {
-                    next_block_pos: timeline_cursor_pos - play_instruction.scheduled_play_pos,
+                let play_info = play_info.unwrap_or_else(|| {
+                    // TODO-high There's something not working with that if we start the
+                    //  transport, then increase the tempo very much and then schedule a
+                    //  clip for playing. Mmh, not everytime :/ Is it related to the
+                    //  preview register starting too late sometimes? Check if letting
+                    //  it play continuously improves the situation. It could also be the
+                    //  fact that the main timeline is not steady!? Yes, seems so.
+                    //  Sometimes it calculates an insanely long count-in phase.
+                    let data = ResolvedPlayData {
+                        next_block_pos: timeline_cursor_pos - play_instruction.scheduled_play_pos,
+                    };
+                    dbg!(data);
+                    data
                 });
                 let cursor_and_length_info = self.create_cursor_and_length_info_at(
                     play_info,
@@ -357,11 +368,8 @@ impl ClipPcmSource {
                             // initial countdown value was resolved, REAPER already took the current
                             // tempo into account. However, we must calculate a new tempo factor
                             //  based on possible tempo changes during the count-in phase!
-                            // TODO-high There's something not working with that if we start the
-                            //  transport, then increase the tempo very much and then schedule a
-                            //  clip for playing. Mmh, not everytime :/ Is it related to the
-                            //  preview register starting too late sometimes? Check if letting
-                            //  it play continuously improves the situation.
+                            // TODO-high When transport is not playing, this doesn't work as
+                            //  expected.
                             let tempo_factor =
                                 timeline_tempo.get() / play_instruction.initial_tempo.get();
                             let duration = (block_info.duration() * tempo_factor)
