@@ -241,7 +241,10 @@ impl ClipPcmSource {
 
     fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
         let timeline_tempo_factor = timeline_tempo.get() / self.inner.original_tempo().get();
-        (self.manual_tempo_factor * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
+        // (self.manual_tempo_factor * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
+        // TODO-high Enable manual tempo factor at some point when everything is working.
+        //  At the moment this introduces too many uncertainties and false positive bugs.
+        (1.0 * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
     }
 
     fn schedule_play_internal(&mut self, args: PlayArgs) {
@@ -551,6 +554,8 @@ impl ClipPcmSource {
     }
 
     unsafe fn fill_samples_midi(&self, args: &mut GetSamplesArgs, info: &BlockInfo) {
+        // TODO-high At the moment, triggering the first clip at other tempos results in a double
+        //  bass drum. Check why.
         // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while
         // playing instead of REAPER letting use its generic mechanism that leads to duplicate
         // notes, probably through internal position changes.
