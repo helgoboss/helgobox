@@ -1,6 +1,5 @@
 // TODO-medium Give this file a last overhaul as soon as things run as they should. There were many
 //  changes and things might not be implemeted/named optimally.
-use crate::domain::Timeline;
 use std::cmp;
 use std::convert::TryInto;
 use std::error::Error;
@@ -8,6 +7,7 @@ use std::ptr::null_mut;
 
 use crate::domain::clip::source_util::pcm_source_is_midi;
 use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos};
+use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use reaper_high::{Project, Reaper};
@@ -51,8 +51,8 @@ struct InnerSource {
 
 impl InnerSource {
     fn original_tempo(&self) -> Bpm {
-        // TODO-high Correctly determine (guess depending on length or read metadata or
-        //  let overwrite by user).
+        // TODO-high Correctly determine: For audio, guess depending on length or read metadata or
+        //  let overwrite by user. For MIDI, I think we just need a constant base value.
         Bpm::new(96.0)
     }
 }
@@ -84,19 +84,25 @@ impl Repetition {
 /// Represents a state of the clip wrapper PCM source.
 #[derive(Copy, Clone, Debug)]
 pub enum ClipState {
+    /// At this state, the clip is stopped. No fade-in, no fade-out ... nothing.
+    ///
+    /// The player can stop in this state.
     Stopped,
     ScheduledOrPlaying {
         play_info: PlayInfo,
         /// Only set if scheduled for stop.
         stop_instruction: Option<StopInstruction>,
     },
-    /// Very short transition state before entering another state.
+    /// Short transition for fade outs or sending all-notes-off before entering another state.
     Suspending {
         reason: SuspensionReason,
         /// We still need the play info for fade out.
         play_info: PlayInfo,
         transition_countdown: DurationInSeconds,
     },
+    /// At this state, the clip is paused. No fade-in, no fade-out ... nothing.
+    ///
+    /// The player can stop in this state.
     Paused {
         /// Position *within* the clip at which should be resumed later.
         next_block_pos: DurationInSeconds,
@@ -179,7 +185,8 @@ impl ClipPcmSource {
 
     fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
         let timeline_tempo_factor = timeline_tempo.get() / self.inner.original_tempo().get();
-        (self.manual_tempo_factor * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
+        // TODO-high Activate manual tempo factor again (instead of 1.0)
+        (1.0 * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
     }
 
     fn start_internal(
@@ -370,14 +377,22 @@ impl ClipPcmSource {
                     stop_countdown,
                 );
                 self.fill_samples(args, &block_info);
+                // This is the point where we advance the block position.
                 let next_play_info = PlayInfo {
                     next_block_pos: {
-                        let p = block_info.block_end_pos();
-                        // This is the point where we advance the block position, making sure that
-                        // we always stay within the borders of the inner source. We don't use
-                        // every-increasing positions because then tempo changes are not smooth
-                        // anymore in subsequent cycles.
-                        PositionInSeconds::new(p.get() % self.native_clip_length().get())
+                        let block_end_pos = block_info.block_end_pos();
+                        if block_info.block_start_pos() < PositionInSeconds::ZERO {
+                            // We are still counting in. No modulo logic yet.
+                            block_end_pos
+                        } else {
+                            // Playing already.
+                            // Here we make sure that we always stay within the borders of the inner
+                            // source. We don't use every-increasing positions because then tempo
+                            // changes are not smooth anymore in subsequent cycles.
+                            PositionInSeconds::new(
+                                block_end_pos.get() % self.native_clip_length().get(),
+                            )
+                        }
                     },
                 };
                 self.state = if let Some(cd) = stop_countdown {
@@ -655,6 +670,10 @@ impl CustomPcmSource for ClipPcmSource {
 
     fn get_samples(&mut self, mut args: GetSamplesArgs) {
         // TODO-medium assert_no_alloc when the time has come.
+        // Make sure that in any case, we are only queried once per time, without retries.
+        unsafe {
+            args.block.set_samples_out(args.block.length());
+        }
         // Get main timeline info
         let timeline = self.timeline();
         if !timeline.is_running() {
@@ -663,27 +682,9 @@ impl CustomPcmSource for ClipPcmSource {
             return;
         }
         let timeline_cursor_pos = timeline.cursor_pos();
-        // Output pre-processing debug info
-        // let debug = self.debug_counter % 500 == 0;
-        let debug = false;
-        if debug {
-            let ptr = args.block.as_ptr();
-            let raw = unsafe { ptr.as_ref() };
-            dbg!(
-                raw,
-                timeline_cursor_pos,
-                self.inner.source.get_sample_rate()
-            );
-        }
-        self.debug_counter += 1;
         // Get samples
         self.get_samples_internal(&mut args, timeline, timeline_cursor_pos);
-        // Output post-processing debug info
-        if debug {
-            let ptr = args.block.as_ptr();
-            let raw = unsafe { ptr.as_ref() };
-            dbg!(raw);
-        }
+        debug_assert_eq!(args.block.samples_out(), args.block.length());
     }
 
     fn get_peak_info(&mut self, args: GetPeakInfoArgs) {
@@ -1073,7 +1074,21 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn native_clip_length(&self) -> DurationInSeconds {
-        self.inner.source.get_length().unwrap_or_default()
+        if self.inner.is_midi {
+            // For MIDI, get_length() takes the current project tempo in account ... which is not
+            // what we want because we want to do all the tempo calculations ourselves and treat
+            // MIDI/audio the same wherever possible.
+            let beats = self
+                .inner
+                .source
+                .get_length_beats()
+                .expect("MIDI source must have length in beats");
+            let beats_per_minute = self.inner.original_tempo();
+            let beats_per_second = beats_per_minute.get() / 60.0;
+            DurationInSeconds::new(beats.get() / beats_per_second)
+        } else {
+            self.inner.source.get_length().unwrap_or_default()
+        }
     }
 
     fn set_tempo_factor(&mut self, tempo_factor: f64) {
@@ -1222,7 +1237,7 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         let mut l = DurationInSeconds::MIN;
         unsafe {
             self.extended(
-                EXT_CLIP_LENGTH,
+                EXT_NATIVE_CLIP_LENGTH,
                 &mut l as *mut _ as _,
                 null_mut(),
                 null_mut(),
@@ -1317,7 +1332,31 @@ pub struct PlayInfo {
     /// should be played next.
     ///
     /// - It's a position *within* the inner source (modulo!).
-    /// - If this position is negative, we are in the count-in phase.
+    /// - If this position is negative, we are in the count-in phase. The count-in phase isn't
+    ///   modulo.
+    /// - On each call of `get_samples()`, the position is advanced and set *exactly* to the end of
+    ///   the previous block, so that the source is played continuously under any circumstance,
+    ///   without skipping material - because skipping material sounds bad.
+    /// - Before introducing this field, we were instead memorizing the absolute timeline position
+    ///   at which the clip started playing. Then we always played the source at the position that
+    ///   corresponds to the current absolute timeline position - which is basically the analog to
+    ///   putting items in the arrange view. It works flawlessly ... until you interact with the
+    ///   timeline and/or make on-the-fly tempo changes. Read on!
+    /// - First issue: The REAPER project timeline is
+    ///   non-steady. It resets its position when we change the cursor position - even when the
+    ///   project is not playing and therefore no sync is desired from ReaLearn's perspective.
+    ///   The same happens when we change the tempo and the project is playing: The speed of the
+    ///   timeline doesn't change (which is fine) but its position resets!
+    /// - Second issue: While we could solve the first issue by consulting a steady timeline (e.g.
+    ///   the preview register timeline), there's a second one that is about on-the-fly tempo
+    ///   changes only. When increasing or decreasing the tempo, we really want the clip to play
+    ///   continuously, with every sample block continuing at the position where it left off in the
+    ///   previous block. That is the absolute basis for a smooth tempo changing experience. If we
+    ///   calculate the position that should be played based on some distance-to-start logic using
+    ///   a linear timeline, we will have a hard time achieving this. Because this logic assumes
+    ///   that the tempo was always the same since the clip started playing.
+    /// - For these reasons, we use this relative-to-previous-block logic. It guarantees that the
+    ///   clip is played continuously, no matter what. Simple and effective.
     pub next_block_pos: PositionInSeconds,
 }
 
@@ -1533,7 +1572,7 @@ fn calculate_proportional_position(
     position.map(|p| UnitValue::new_clamped(p.get() / length.get()))
 }
 
-const MIN_TEMPO_FACTOR: f64 = 0.25;
+const MIN_TEMPO_FACTOR: f64 = 0.0000000001;
 
 struct BlockInfo {
     length: u32,
