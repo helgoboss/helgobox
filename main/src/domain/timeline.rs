@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 #[derive(Clone, Copy)]
 pub struct TimelineMoment {
     cursor_pos: PositionInSeconds,
+    // TODO-high Remove as soon as stop behavior in clip source lazy
     next_bar_pos: PositionInSeconds,
     tempo: Bpm,
 }
@@ -45,17 +46,14 @@ impl ReaperProjectTimeline {
 }
 
 impl Timeline for ReaperProjectTimeline {
-    fn capture_moment(&self) -> TimelineMoment {
-        let cursor_pos = self.cursor_pos();
-        let next_bar_pos = get_next_bar_pos_from_project(cursor_pos, self.project_context);
-        let tempo = self.tempo();
-        TimelineMoment::new(cursor_pos, next_bar_pos, tempo)
-    }
-
     fn cursor_pos(&self) -> PositionInSeconds {
         Reaper::get()
             .medium_reaper()
             .get_play_position_2_ex(self.project_context)
+    }
+
+    fn next_bar_pos_at(&self, timeline_pos: PositionInSeconds) -> PositionInSeconds {
+        get_next_bar_pos_from_project(timeline_pos, self.project_context)
     }
 
     fn is_running(&self) -> bool {
@@ -92,9 +90,20 @@ impl Timeline for ReaperProjectTimeline {
 }
 
 pub trait Timeline {
-    fn capture_moment(&self) -> TimelineMoment;
+    fn capture_moment(&self) -> TimelineMoment {
+        let cursor_pos = self.cursor_pos();
+        let next_bar_pos = self.next_bar_pos();
+        let tempo = self.tempo();
+        TimelineMoment::new(cursor_pos, next_bar_pos, tempo)
+    }
 
     fn cursor_pos(&self) -> PositionInSeconds;
+
+    fn next_bar_pos(&self) -> PositionInSeconds {
+        self.next_bar_pos_at(self.cursor_pos())
+    }
+
+    fn next_bar_pos_at(&self, timeline_pos: PositionInSeconds) -> PositionInSeconds;
 
     fn is_running(&self) -> bool;
 
@@ -139,18 +148,14 @@ impl SteadyTimeline {
 }
 
 impl Timeline for SteadyTimeline {
-    fn capture_moment(&self) -> TimelineMoment {
-        let cursor_pos = self.cursor_pos();
-        // I guess an independent timeline shouldn't get this information from a project.
-        // But let's see how to deal with that as soon as we put it to use.
-        let next_bar_pos =
-            get_next_bar_pos_from_project(cursor_pos, ProjectContext::CurrentProject);
-        let tempo = self.tempo();
-        TimelineMoment::new(cursor_pos, next_bar_pos, tempo)
-    }
-
     fn cursor_pos(&self) -> PositionInSeconds {
         PositionInSeconds::new(self.sample_count() as f64 / self.sample_rate().get())
+    }
+
+    fn next_bar_pos_at(&self, timeline_pos: PositionInSeconds) -> PositionInSeconds {
+        // I guess an independent timeline shouldn't get this information from a project.
+        // But let's see how to deal with that as soon as we put it to use.
+        get_next_bar_pos_from_project(timeline_pos, ProjectContext::CurrentProject)
     }
 
     fn is_running(&self) -> bool {
@@ -191,6 +196,14 @@ impl<T: Timeline> Timeline for &T {
 
     fn cursor_pos(&self) -> PositionInSeconds {
         (*self).cursor_pos()
+    }
+
+    fn next_bar_pos(&self) -> PositionInSeconds {
+        (*self).next_bar_pos()
+    }
+
+    fn next_bar_pos_at(&self, timeline_pos: PositionInSeconds) -> PositionInSeconds {
+        (*self).next_bar_pos_at(timeline_pos)
     }
 
     fn is_running(&self) -> bool {

@@ -15,8 +15,8 @@ use std::sync::Arc;
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
 use crate::domain::clip::clip_source::{
-    ClipPcmSource, ClipPcmSourceSkills, ClipState, ClipStopPosition, PosWithinClipArgs,
-    ScheduleStopArgs, SeekToArgs, SetRepeatedArgs, SuspensionReason,
+    ClipPcmSource, ClipPcmSourceSkills, ClipPlayTime, ClipState, ClipStopTime, PlayArgs,
+    PosWithinClipArgs, Repetition, SeekToArgs, SetRepeatedArgs, StopArgs, SuspensionReason,
 };
 use crate::domain::clip::{
     clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
@@ -690,14 +690,16 @@ impl FilledState {
             // Start clip.
             let timeline_cursor_pos = clip_timeline_cursor_pos(Some(args.project));
             let src = guard.src_mut().expect(NO_SOURCE_LOADED);
-            if args.options.next_bar {
-                let scheduled_pos = moment.next_bar_pos();
-                src.as_mut()
-                    .schedule_start(timeline_cursor_pos, scheduled_pos, args.repeat);
-            } else {
-                src.as_mut()
-                    .start_immediately(timeline_cursor_pos, args.repeat);
+            let play_args = PlayArgs {
+                timeline_cursor_pos,
+                play_time: if args.options.next_bar {
+                    ClipPlayTime::NextBar
+                } else {
+                    ClipPlayTime::Immediately
+                },
+                repetition: Repetition::from_bool(args.repeat),
             };
+            src.as_mut().play(play_args);
         }
         let was_caused_by_transport_change = self.was_caused_by_transport_change;
         let last_play_state = self.last_clip_play_state;
@@ -747,19 +749,17 @@ impl FilledState {
         let mut guard = lock(reg);
         if let Some(src) = guard.src_mut() {
             use SlotStopBehavior::*;
-            match stop_behavior {
-                Immediately => {
-                    src.as_mut().stop_immediately(moment.cursor_pos());
-                }
-                EndOfBar | EndOfClip => {
-                    let args = ScheduleStopArgs {
-                        timeline_cursor_pos: moment.cursor_pos(),
-                        timeline_tempo: moment.tempo(),
-                        pos: stop_behavior.get_clip_stop_position(moment),
-                    };
-                    src.as_mut().schedule_stop(args);
-                }
-            }
+            let stop_args = StopArgs {
+                timeline_cursor_pos: moment.cursor_pos(),
+                timeline_tempo: moment.tempo(),
+                pos: {
+                    match stop_behavior {
+                        Immediately => ClipStopTime::Immediately,
+                        EndOfBar | EndOfClip => stop_behavior.get_clip_stop_position(moment),
+                    }
+                },
+            };
+            src.as_mut().stop(stop_args);
         }
         let next_state = FilledState {
             was_caused_by_transport_change,
@@ -881,11 +881,11 @@ pub enum SlotStopBehavior {
 }
 
 impl SlotStopBehavior {
-    fn get_clip_stop_position(&self, moment: TimelineMoment) -> ClipStopPosition {
+    fn get_clip_stop_position(&self, moment: TimelineMoment) -> ClipStopTime {
         use SlotStopBehavior::*;
         match self {
-            EndOfBar => ClipStopPosition::At(moment.next_bar_pos()),
-            EndOfClip => ClipStopPosition::AtEndOfClip,
+            EndOfBar => ClipStopTime::At(moment.next_bar_pos()),
+            EndOfClip => ClipStopTime::AtEndOfClip,
             Immediately => unimplemented!("not used"),
         }
     }
@@ -921,13 +921,18 @@ fn get_play_state(
         ScheduledOrPlaying {
             play_info,
             stop_instruction,
+            ..
         } => {
             if stop_instruction.is_some() {
                 ClipPlayState::ScheduledForStop
-            } else if play_info.next_block_pos < PositionInSeconds::ZERO {
-                ClipPlayState::ScheduledForPlay
+            } else if let Some(play_info) = play_info {
+                if play_info.next_block_pos < PositionInSeconds::ZERO {
+                    ClipPlayState::ScheduledForPlay
+                } else {
+                    ClipPlayState::Playing
+                }
             } else {
-                ClipPlayState::Playing
+                ClipPlayState::ScheduledForPlay
             }
         }
         Suspending { reason, .. } => match reason {
