@@ -91,6 +91,11 @@ pub enum ClipState {
     /// The player can stop in this state.
     Stopped,
     ScheduledOrPlaying {
+        // TODO-high Taking just the clip play time is actually not that good because batch info
+        //  is gone at that point. One can realize that when syncing to REAPER transport play
+        //  on start of bar. Some clips are started, some not. Because each clip calculates at
+        //  different points in time. Maybe we can combine things. Taking the calculated timeline
+        //  position based on the passed in one but late-resolving the initial countdown value.
         play_time: ClipPlayTime,
         /// Set as soon as the actual start has been resolved (from the play time field).
         play_info: Option<PlayInfo>,
@@ -161,6 +166,7 @@ pub enum ClipPlayTime {
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ClipStopTime {
     Immediately,
+    // TODO-high Untested
     NextBar,
     EndOfClip,
 }
@@ -338,11 +344,20 @@ impl ClipPcmSource {
                 // This is the point where we advance the block position.
                 let next_play_info = PlayInfo {
                     next_block_pos: {
-                        let block_end_pos = block_info.block_end_pos();
                         if block_info.block_start_pos() < PositionInSeconds::ZERO {
                             // We are still counting in. No modulo logic yet.
-                            block_end_pos
+                            // Also, we advance the countdown by the non-tempo-adjusted block
+                            // duration because at the time the initial countdown value was
+                            // resolved, REAPER already took the current tempo into account.
+                            // TODO-high However, we must calculate a new tempo factor based on
+                            //  possible tempo changes during the count-in phase! At the moment,
+                            //  tempo changes that happen during the count-in phase lead to wrong
+                            //  timing. So we must save the tempo at resolve time and dynamically
+                            //  calculate the tempo factor (without taking the manual factor into
+                            //  account).
+                            block_info.block_end_pos()
                         } else {
+                            let block_end_pos = block_info.tempo_adjusted_block_end_pos();
                             // Playing already.
                             // Here we make sure that we always stay within the borders of the inner
                             // source. We don't use every-increasing positions because then tempo
@@ -358,9 +373,11 @@ impl ClipPcmSource {
                     let next_stop_info = {
                         stop_info.map(|si| StopInfo {
                             stop_time: si.stop_time,
-                            stop_instruction: stop_instruction.map(|inst| {
-                                inst.count_down_by(block_info.tempo_adjusted_duration())
-                            }),
+                            // We advance the countdown by the non-tempo-adjusted block duration
+                            // because at the time the initial countdown value was resolved,
+                            // REAPER already took the current tempo into account.
+                            stop_instruction: stop_instruction
+                                .map(|inst| inst.count_down_by(block_info.duration())),
                         })
                     };
                     if next_stop_countdown > 0.0 {
@@ -421,7 +438,7 @@ impl ClipPcmSource {
         // the first samples/messages! We need to start playing as soon as the end of
         // the audio block is located on or right to the scheduled start point
         // (end_pos >= 0.0).
-        if info.block_end_pos() < PositionInSeconds::ZERO {
+        if info.tempo_adjusted_block_end_pos() < PositionInSeconds::ZERO {
             // Complete block is located before start position (pure count-in block).
             return;
         }
@@ -1572,10 +1589,11 @@ impl BlockInfo {
             .next_block_pos
     }
 
-    /// Position *within* clip.
-    ///
-    /// Always tempo-adjusted.
     pub fn block_end_pos(&self) -> PositionInSeconds {
+        self.block_start_pos() + self.duration
+    }
+
+    pub fn tempo_adjusted_block_end_pos(&self) -> PositionInSeconds {
         self.block_start_pos() + self.tempo_adjusted_duration()
     }
 
