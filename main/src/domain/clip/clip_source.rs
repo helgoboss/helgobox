@@ -389,6 +389,10 @@ impl ClipPcmSource {
                             //  change. I think because the project timeline resets whenever we
                             //  change the cursor position, which makes the next-bar calculation
                             //  using a different origin. Crap.
+                            // TODO-high Well, actually this happens also when the transport is
+                            //  running, with the only difference that we also hear and see
+                            //  the reset. Plus, when the transport is running, we want to
+                            //  interrupt the clips and reschedule them. Still to be implemented.
                             let tempo_factor =
                                 timeline_tempo.get() / play_instruction.initial_tempo.get();
                             let duration = (block_info.duration() * tempo_factor)
