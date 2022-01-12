@@ -15,8 +15,8 @@ use std::sync::Arc;
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
 use crate::domain::clip::clip_source::{
-    ClipPcmSource, ClipPcmSourceSkills, ClipPlayTime, ClipState, PlayArgs, PosWithinClipArgs,
-    Repetition, SeekToArgs, SetRepeatedArgs, StopArgs, StopInstruction, SuspensionReason,
+    ClipPcmSource, ClipPcmSourceSkills, ClipPlayTime, ClipState, ClipStopTime, PlayArgs,
+    PosWithinClipArgs, Repetition, SeekToArgs, SetRepeatedArgs, StopArgs, SuspensionReason,
 };
 use crate::domain::clip::{
     clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
@@ -754,8 +754,8 @@ impl FilledState {
                 timeline_tempo: moment.tempo(),
                 stop_time: {
                     match stop_behavior {
-                        Immediately => StopInstruction::Immediately,
-                        NextBar | EndOfClip => stop_behavior.get_clip_stop_position(moment),
+                        Immediately => ClipStopTime::Immediately,
+                        EndOfClip => stop_behavior.get_clip_stop_position(),
                     }
                 },
             };
@@ -877,16 +877,14 @@ pub struct ClipInfo {
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum SlotStopBehavior {
     Immediately,
-    NextBar,
     EndOfClip,
 }
 
 impl SlotStopBehavior {
-    fn get_clip_stop_position(&self, moment: TimelineMoment) -> StopInstruction {
+    fn get_clip_stop_position(&self) -> ClipStopTime {
         use SlotStopBehavior::*;
         match self {
-            NextBar => StopInstruction::NextBar,
-            EndOfClip => StopInstruction::EndOfClip,
+            EndOfClip => ClipStopTime::EndOfClip,
             Immediately => unimplemented!("not used"),
         }
     }
@@ -921,10 +919,10 @@ fn get_play_state(
         Stopped => ClipPlayState::Stopped,
         ScheduledOrPlaying {
             resolved_play_data: play_info,
-            stop_info,
+            stop_at_end_of_clip: stop_at_end_of_clip,
             ..
         } => {
-            if stop_info.is_some() {
+            if stop_at_end_of_clip {
                 ClipPlayState::ScheduledForStop
             } else if let Some(play_info) = play_info {
                 if play_info.next_block_pos < PositionInSeconds::ZERO {
