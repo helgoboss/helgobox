@@ -349,8 +349,9 @@ impl ClipPcmSource {
                 // This is the point where we advance the block position.
                 let next_play_info = ResolvedPlayData {
                     next_block_pos: {
-                        if block_info.block_start_pos() < PositionInSeconds::ZERO {
-                            // We are still counting in. No modulo logic yet.
+                        let block_end_pos = block_info.tempo_adjusted_block_end_pos();
+                        if block_end_pos < PositionInSeconds::ZERO {
+                            // This is still a *pure* count-in. No modulo logic yet.
                             // Also, we don't advance the position by a block duration that is
                             // adjusted using our normal tempo factor because at the time the
                             // initial countdown value was resolved, REAPER already took the current
@@ -367,7 +368,7 @@ impl ClipPcmSource {
                                 .expect("tempo factor never negative");
                             block_info.block_start_pos() + duration
                         } else {
-                            let block_end_pos = block_info.tempo_adjusted_block_end_pos();
+                            let block_end_pos = block_end_pos;
                             // Playing already.
                             // Here we make sure that we always stay within the borders of the inner
                             // source. We don't use every-increasing positions because then tempo
@@ -510,8 +511,6 @@ impl ClipPcmSource {
     }
 
     unsafe fn fill_samples_midi(&self, args: &mut GetSamplesArgs, info: &BlockInfo) {
-        // TODO-high At the moment, triggering the first clip at other tempos results in a double
-        //  bass drum. Check why.
         // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while
         // playing instead of REAPER letting use its generic mechanism that leads to duplicate
         // notes, probably through internal position changes.
