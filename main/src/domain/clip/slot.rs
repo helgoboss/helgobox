@@ -752,10 +752,10 @@ impl FilledState {
             let stop_args = StopArgs {
                 timeline_cursor_pos: moment.cursor_pos(),
                 timeline_tempo: moment.tempo(),
-                pos: {
+                stop_time: {
                     match stop_behavior {
                         Immediately => ClipStopTime::Immediately,
-                        EndOfBar | EndOfClip => stop_behavior.get_clip_stop_position(moment),
+                        NextBar | EndOfClip => stop_behavior.get_clip_stop_position(moment),
                     }
                 },
             };
@@ -872,11 +872,12 @@ pub struct ClipInfo {
     pub length: Option<DurationInSeconds>,
 }
 
+// TODO-medium Evolved into a perfect duplicate of ClipStopTime
 /// Defines how to stop the clip.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum SlotStopBehavior {
     Immediately,
-    EndOfBar,
+    NextBar,
     EndOfClip,
 }
 
@@ -884,8 +885,8 @@ impl SlotStopBehavior {
     fn get_clip_stop_position(&self, moment: TimelineMoment) -> ClipStopTime {
         use SlotStopBehavior::*;
         match self {
-            EndOfBar => ClipStopTime::At(moment.next_bar_pos()),
-            EndOfClip => ClipStopTime::AtEndOfClip,
+            NextBar => ClipStopTime::NextBar,
+            EndOfClip => ClipStopTime::EndOfClip,
             Immediately => unimplemented!("not used"),
         }
     }
@@ -920,10 +921,10 @@ fn get_play_state(
         Stopped => ClipPlayState::Stopped,
         ScheduledOrPlaying {
             play_info,
-            stop_instruction,
+            stop_info,
             ..
         } => {
-            if stop_instruction.is_some() {
+            if stop_info.is_some() {
                 ClipPlayState::ScheduledForStop
             } else if let Some(play_info) = play_info {
                 if play_info.next_block_pos < PositionInSeconds::ZERO {

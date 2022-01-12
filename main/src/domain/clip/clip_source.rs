@@ -1,5 +1,6 @@
 // TODO-medium Give this file a last overhaul as soon as things run as they should. There were many
-//  changes and things might not be implemeted/named optimally.
+//  changes and things might not be implemented/named optimally. Position naming is very
+//  inconsistent at the moment.
 use std::cmp;
 use std::convert::TryInto;
 use std::error::Error;
@@ -52,7 +53,8 @@ struct InnerSource {
 impl InnerSource {
     fn original_tempo(&self) -> Bpm {
         // TODO-high Correctly determine: For audio, guess depending on length or read metadata or
-        //  let overwrite by user. For MIDI, I think we just need a constant base value.
+        //  let overwrite by user.
+        // For MIDI, an arbitrary but constant value is enough!
         Bpm::new(96.0)
     }
 }
@@ -93,9 +95,9 @@ pub enum ClipState {
         /// Set as soon as the actual start has been resolved (from the play time field).
         play_info: Option<PlayInfo>,
         /// Only set if scheduled for stop.
-        stop_instruction: Option<StopInstruction>,
+        stop_info: Option<StopInfo>,
     },
-    /// Short transition for fade outs or sending all-notes-off before entering another state.
+    /// Very short transition for fade outs or sending all-notes-off before entering another state.
     Suspending {
         reason: SuspensionReason,
         /// We still need the play info for fade out.
@@ -159,8 +161,14 @@ pub enum ClipPlayTime {
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum ClipStopTime {
     Immediately,
-    At(PositionInSeconds),
-    AtEndOfClip,
+    NextBar,
+    EndOfClip,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct StopInfo {
+    stop_time: ClipStopTime,
+    stop_instruction: Option<StopInstruction>,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -205,8 +213,7 @@ impl ClipPcmSource {
 
     fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
         let timeline_tempo_factor = timeline_tempo.get() / self.inner.original_tempo().get();
-        // TODO-high Activate manual tempo factor again (instead of 1.0)
-        (1.0 * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
+        (self.manual_tempo_factor * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
     }
 
     fn schedule_start_internal(&mut self, args: PlayArgs) {
@@ -214,7 +221,7 @@ impl ClipPcmSource {
         self.state = ClipState::ScheduledOrPlaying {
             play_time: args.play_time,
             play_info: None,
-            stop_instruction: None,
+            stop_info: None,
         };
     }
 
@@ -300,22 +307,25 @@ impl ClipPcmSource {
             ScheduledOrPlaying {
                 play_time,
                 play_info,
-                stop_instruction,
+                stop_info,
             } => {
+                // Resolve play info if not yet resolved.
                 let play_info = play_info.unwrap_or_else(|| {
-                    let timeline_start_pos = match play_time {
-                        ClipPlayTime::Immediately => timeline_cursor_pos,
-                        ClipPlayTime::NextBar => timeline.next_bar_pos(),
-                    };
-                    PlayInfo {
-                        next_block_pos: timeline_cursor_pos - timeline_start_pos,
-                    }
+                    determine_play_info(timeline_cursor_pos, play_time, &timeline)
                 });
                 let cursor_and_length_info = self.create_cursor_and_length_info_at(
                     play_info,
                     timeline_cursor_pos,
                     timeline_tempo,
                 );
+                // Resolve possible stop instruction if not yet resolved.
+                let stop_instruction = stop_info.and_then(|si| {
+                    si.stop_instruction.or_else(|| {
+                        cursor_and_length_info
+                            .cursor_info
+                            .determine_stop_instruction(si.stop_time, &timeline)
+                    })
+                });
                 let stop_countdown =
                     cursor_and_length_info.effective_stop_countdown(stop_instruction);
                 let block_info = BlockInfo::new(
@@ -345,12 +355,19 @@ impl ClipPcmSource {
                 };
                 self.state = if let Some(cd) = stop_countdown {
                     let next_stop_countdown = cd.get() - block_info.tempo_adjusted_duration().get();
+                    let next_stop_info = {
+                        stop_info.map(|si| StopInfo {
+                            stop_time: si.stop_time,
+                            stop_instruction: stop_instruction.map(|inst| {
+                                inst.count_down_by(block_info.tempo_adjusted_duration())
+                            }),
+                        })
+                    };
                     if next_stop_countdown > 0.0 {
                         ScheduledOrPlaying {
                             play_time,
                             play_info: Some(next_play_info),
-                            stop_instruction: stop_instruction
-                                .map(|si| si.count_down_by(block_info.tempo_adjusted_duration())),
+                            stop_info: next_stop_info,
                         }
                     } else {
                         // We have reached the natural or scheduled end. Everything that needed to be
@@ -362,7 +379,7 @@ impl ClipPcmSource {
                     ScheduledOrPlaying {
                         play_time,
                         play_info: Some(next_play_info),
-                        stop_instruction: None,
+                        stop_info: None,
                     }
                 };
             }
@@ -378,7 +395,7 @@ impl ClipPcmSource {
             SuspensionReason::Retrigger => ClipState::ScheduledOrPlaying {
                 play_time: ClipPlayTime::Immediately,
                 play_info: None,
-                stop_instruction: None,
+                stop_info: None,
             },
             SuspensionReason::Pause => ClipState::Paused {
                 next_block_pos: play_info
@@ -390,7 +407,7 @@ impl ClipPcmSource {
             SuspensionReason::PlayWhileSuspending { play_time } => ClipState::ScheduledOrPlaying {
                 play_time,
                 play_info: None,
-                stop_instruction: None,
+                stop_info: None,
             },
         }
     }
@@ -476,7 +493,6 @@ impl ClipPcmSource {
         // notes, probably through internal position changes.
         // TODO-high This only prevents duplicate notes when increasing tempo, not when decreasing
         //  it. Not sure what's still interfering.
-        // TODO-high Set to real initial tempo.
         args.block.set_force_bpm(self.inner.original_tempo());
         let outer_sample_rate = info.sample_rate();
         // For MIDI it seems to be okay to start at a negative position. The source
@@ -826,15 +842,15 @@ impl ClipPcmSourceSkills for ClipPcmSource {
             Stopped => self.schedule_start_internal(args),
             ScheduledOrPlaying {
                 play_time,
-                stop_instruction,
+                stop_info,
                 play_info,
             } => {
-                if stop_instruction.is_some() {
+                if stop_info.is_some() {
                     // Scheduled for stop. Backpedal!
                     self.state = ClipState::ScheduledOrPlaying {
                         play_time,
                         play_info,
-                        stop_instruction: None,
+                        stop_info: None,
                     };
                 } else {
                     // Scheduled for play or playing already.
@@ -880,7 +896,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                 self.state = ClipState::ScheduledOrPlaying {
                     play_time: args.play_time,
                     play_info: None,
-                    stop_instruction: None,
+                    stop_info: None,
                 };
             }
         }
@@ -931,13 +947,13 @@ impl ClipPcmSourceSkills for ClipPcmSource {
             Stopped => {}
             ScheduledOrPlaying {
                 play_time,
-                stop_instruction,
                 play_info,
+                stop_info,
             } => {
                 if let Some(play_info) = play_info {
-                    if stop_instruction.is_some() {
+                    if stop_info.is_some() {
                         // Already scheduled for stop.
-                        if args.pos == ClipStopTime::Immediately {
+                        if args.stop_time == ClipStopTime::Immediately {
                             // Transition to stop now!
                             self.state = Suspending {
                                 reason: SuspensionReason::Stop,
@@ -950,23 +966,22 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                         let info = play_info.cursor_info_at(args.timeline_cursor_pos);
                         self.state = if info.has_started_already() {
                             // Playing
-                            let info =
-                                self.create_cursor_and_length_info(info, args.timeline_tempo);
-                            if let Some(next_stop_instruction) =
-                                info.determine_stop_instruction(args.pos)
-                            {
-                                // Schedule
-                                ClipState::ScheduledOrPlaying {
-                                    play_time,
-                                    play_info: Some(play_info),
-                                    stop_instruction: Some(next_stop_instruction),
-                                }
-                            } else {
+                            if args.stop_time == ClipStopTime::Immediately {
                                 // Immediately. Transition to stop.
                                 Suspending {
                                     reason: SuspensionReason::Stop,
                                     play_info,
                                     transition_countdown: start_end_fade_length(),
+                                }
+                            } else {
+                                // Schedule
+                                ClipState::ScheduledOrPlaying {
+                                    play_time,
+                                    play_info: Some(play_info),
+                                    stop_info: Some(StopInfo {
+                                        stop_time: args.stop_time,
+                                        stop_instruction: None,
+                                    }),
                                 }
                             }
                         } else {
@@ -987,7 +1002,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                 play_info,
                 transition_countdown,
             } => {
-                if args.pos == ClipStopTime::Immediately && reason != SuspensionReason::Stop {
+                if args.stop_time == ClipStopTime::Immediately && reason != SuspensionReason::Stop {
                     // We are in another transition already. Simply change it to stop.
                     self.state = Suspending {
                         reason: SuspensionReason::Stop,
@@ -1007,9 +1022,9 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         match self.state {
             Stopped | Suspending { .. } => {}
             ScheduledOrPlaying {
-                stop_instruction,
-                play_info,
                 play_time,
+                play_info,
+                stop_info,
             } => {
                 if let Some(play_info) = play_info {
                     let info = play_info.cursor_info_at(args.timeline_cursor_pos);
@@ -1019,7 +1034,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                             play_info: Some(PlayInfo {
                                 next_block_pos: desired_pos_in_secs.into(),
                             }),
-                            stop_instruction,
+                            stop_info,
                         };
                     }
                 }
@@ -1304,6 +1319,25 @@ impl CursorInfo {
     fn has_started_already(&self) -> bool {
         self.play_info.next_block_pos >= PositionInSeconds::ZERO
     }
+
+    /// Should return `None` to stop immediately.
+    pub fn determine_stop_instruction(
+        &self,
+        stop_time: ClipStopTime,
+        timeline: impl Timeline,
+    ) -> Option<StopInstruction> {
+        use ClipStopTime::*;
+        let inst = match stop_time {
+            Immediately => return None,
+            NextBar => {
+                let timeline_start_pos = timeline.next_bar_pos_at(self.timeline_cursor_pos);
+                let countdown = timeline_start_pos.try_into().ok()?;
+                StopInstruction::In(countdown)
+            }
+            EndOfClip => StopInstruction::AtEndOfClip,
+        };
+        Some(inst)
+    }
 }
 
 struct CursorAndLengthInfo {
@@ -1314,21 +1348,6 @@ struct CursorAndLengthInfo {
 }
 
 impl CursorAndLengthInfo {
-    /// Should return `None` to stop immediately.
-    pub fn determine_stop_instruction(&self, pos: ClipStopTime) -> Option<StopInstruction> {
-        use ClipStopTime::*;
-        let internal_pos = match pos {
-            At(p) => {
-                let countdown = (p - self.cursor_info.timeline_cursor_pos).try_into().ok()?;
-                StopInstruction::In(countdown)
-            }
-            AtEndOfClip => StopInstruction::AtEndOfClip,
-            Immediately => return None,
-        };
-        Some(internal_pos)
-    }
-
-    // TODO-medium Make naming consistent. Absolute = pos on timeline. Relative = pos within clip.
     fn effective_stop_countdown(
         &self,
         scheduled_stop: Option<StopInstruction>,
@@ -1465,7 +1484,7 @@ fn repetition_fade_length() -> DurationInSeconds {
 pub struct StopArgs {
     pub timeline_cursor_pos: PositionInSeconds,
     pub timeline_tempo: Bpm,
-    pub pos: ClipStopTime,
+    pub stop_time: ClipStopTime,
 }
 
 #[derive(Clone, Copy)]
@@ -1582,5 +1601,20 @@ impl BlockInfo {
 
     pub fn tempo_adjusted_sample_rate(&self) -> Hz {
         Hz::new(self.sample_rate.get() / self.final_tempo_factor)
+    }
+}
+
+fn determine_play_info(
+    timeline_cursor_pos: PositionInSeconds,
+    play_time: ClipPlayTime,
+    timeline: impl Timeline,
+) -> PlayInfo {
+    use ClipPlayTime::*;
+    let timeline_start_pos = match play_time {
+        Immediately => timeline_cursor_pos,
+        NextBar => timeline.next_bar_pos_at(timeline_cursor_pos),
+    };
+    PlayInfo {
+        next_block_pos: timeline_cursor_pos - timeline_start_pos,
     }
 }
