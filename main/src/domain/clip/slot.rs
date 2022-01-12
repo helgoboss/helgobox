@@ -15,8 +15,8 @@ use std::sync::Arc;
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
 use crate::domain::clip::clip_source::{
-    ClipPcmSource, ClipPcmSourceSkills, ClipPlayTime, ClipState, ClipStopTime, PlayArgs,
-    PosWithinClipArgs, Repetition, SeekToArgs, SetRepeatedArgs, StopArgs, SuspensionReason,
+    ClipPcmSource, ClipPcmSourceSkills, ClipPlayTime, ClipState, PlayArgs, PosWithinClipArgs,
+    Repetition, SeekToArgs, SetRepeatedArgs, StopArgs, StopInstruction, SuspensionReason,
 };
 use crate::domain::clip::{
     clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
@@ -754,7 +754,7 @@ impl FilledState {
                 timeline_tempo: moment.tempo(),
                 stop_time: {
                     match stop_behavior {
-                        Immediately => ClipStopTime::Immediately,
+                        Immediately => StopInstruction::Immediately,
                         NextBar | EndOfClip => stop_behavior.get_clip_stop_position(moment),
                     }
                 },
@@ -882,11 +882,11 @@ pub enum SlotStopBehavior {
 }
 
 impl SlotStopBehavior {
-    fn get_clip_stop_position(&self, moment: TimelineMoment) -> ClipStopTime {
+    fn get_clip_stop_position(&self, moment: TimelineMoment) -> StopInstruction {
         use SlotStopBehavior::*;
         match self {
-            NextBar => ClipStopTime::NextBar,
-            EndOfClip => ClipStopTime::EndOfClip,
+            NextBar => StopInstruction::NextBar,
+            EndOfClip => StopInstruction::EndOfClip,
             Immediately => unimplemented!("not used"),
         }
     }
@@ -920,7 +920,7 @@ fn get_play_state(
     match clip_state {
         Stopped => ClipPlayState::Stopped,
         ScheduledOrPlaying {
-            play_info,
+            resolved_play_data: play_info,
             stop_info,
             ..
         } => {

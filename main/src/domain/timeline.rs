@@ -6,7 +6,10 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 #[derive(Clone, Copy)]
 pub struct TimelineMoment {
     cursor_pos: PositionInSeconds,
-    // TODO-high Remove as soon as stop behavior in clip source lazy
+    // TODO-high Mmh, wanted to remove this, but it could be nice to keep it for performance
+    //  improvements. At the moment, each clip calculates the next bar pos itself from a common
+    //  timeline position (so the result should be the same) but ideally, we would just have one
+    //  timeline moment passing all of that data. Mmh.
     next_bar_pos: PositionInSeconds,
     tempo: Bpm,
 }
