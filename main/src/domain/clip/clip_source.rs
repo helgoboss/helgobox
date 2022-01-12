@@ -211,7 +211,7 @@ impl ClipPcmSource {
     fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
         let timeline_tempo_factor = timeline_tempo.get() / self.inner.original_tempo().get();
         // (self.manual_tempo_factor * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
-        // TODO-high Enable manual tempo factor at some point when everything is working.
+        // TODO-medium Enable manual tempo factor at some point when everything is working.
         //  At the moment this introduces too many uncertainties and false positive bugs.
         (1.0 * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
     }
@@ -325,13 +325,21 @@ impl ClipPcmSource {
             } => {
                 // Resolve play info if not yet resolved.
                 let play_info = play_info.unwrap_or_else(|| {
-                    // TODO-high There's something not working with that if we start the
-                    //  transport, then increase the tempo very much and then schedule a
-                    //  clip for playing. Mmh, not everytime :/ Is it related to the
-                    //  preview register starting too late sometimes? Check if letting
-                    //  it play continuously improves the situation. It could also be the
-                    //  fact that the main timeline is not steady!? Yes, seems so.
-                    //  Sometimes it calculates an insanely long count-in phase.
+                    // So, this is how we do play scheduling. Whenever the preview register
+                    // calls get_samples() and we are in a fresh ScheduledOrPlaying state, the
+                    // relative count-in time will be determined. Based on the given absolute
+                    // scheduled-play position. 1. We use a *relative* count-in (instead of just
+                    // using the absolute scheduled-play position and check if we reached it)
+                    // in order to respect arbitrary tempo changes during the count-in phase and
+                    // still end up starting on the correct point in time. 2. We resolve the
+                    // count-in length here in the real-time context, not before! In particular not
+                    // at the time the play is requested. At that time we just calculate the
+                    // absolute position. Reason: The timeline_cursor_pos at play-request time
+                    // is not necessarily the same as the timeline_cursor_pos at which the
+                    // preview register "picks up" our new play state in get_samples(). If it's not,
+                    // we would start advancing the count-in cursor from a wrong initial state
+                    // and therefore end up with the wrong point in time for starting the clip
+                    // (too late, to be accurate, because we would start advancing too late).
                     let data = ResolvedPlayData {
                         next_block_pos: timeline_cursor_pos - play_instruction.scheduled_play_pos,
                     };
@@ -360,6 +368,14 @@ impl ClipPcmSource {
                 // This is the point where we advance the block position.
                 let next_play_info = ResolvedPlayData {
                     next_block_pos: {
+                        // TODO-medium This mechanism of advancing the position on every call by
+                        //  the block duration relies on the fact that the preview
+                        //  register timeline calls us continuously and never twice per block.
+                        //  It would be better not to make that assumption and make this more
+                        //  stable by actually looking at the diff between the currently requested
+                        //  time_s and the previously requested time_s. If this diff is zero or
+                        //  doesn't correspond to the non-tempo-adjusted block duration, we know
+                        //  something is wrong.
                         let block_end_pos = block_info.tempo_adjusted_block_end_pos();
                         if block_end_pos < PositionInSeconds::ZERO {
                             // This is still a *pure* count-in. No modulo logic yet.
@@ -368,15 +384,17 @@ impl ClipPcmSource {
                             // initial countdown value was resolved, REAPER already took the current
                             // tempo into account. However, we must calculate a new tempo factor
                             //  based on possible tempo changes during the count-in phase!
-                            // TODO-high When transport is not playing, this doesn't work as
-                            //  expected.
+                            // TODO-high When transport is not playing and we change the cursor
+                            //  position, new count-ins in relation to the already playing clips
+                            //  change. I think because the project timeline resets whenever we
+                            //  change the cursor position, which makes the next-bar calculation
+                            //  using a different origin. Crap.
                             let tempo_factor =
                                 timeline_tempo.get() / play_instruction.initial_tempo.get();
                             let duration = (block_info.duration() * tempo_factor)
                                 .expect("tempo factor never negative");
                             block_info.block_start_pos() + duration
                         } else {
-                            let block_end_pos = block_end_pos;
                             // Playing already.
                             // Here we make sure that we always stay within the borders of the inner
                             // source. We don't use every-increasing positions because then tempo
@@ -672,6 +690,7 @@ impl CustomPcmSource for ClipPcmSource {
         if !timeline.is_running() {
             // Main timeline is paused. Don't play, we don't want to play the same buffer
             // repeatedly!
+            // TODO-high Pausing main transport and continuing has timing issues.
             return;
         }
         let timeline_cursor_pos = timeline.cursor_pos();
@@ -1109,7 +1128,6 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn set_tempo_factor(&mut self, tempo_factor: f64) {
-        dbg!(tempo_factor);
         self.manual_tempo_factor = tempo_factor.max(MIN_TEMPO_FACTOR);
     }
 

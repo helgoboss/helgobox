@@ -773,6 +773,9 @@ impl FilledState {
         //  just clear the source. We need to send all notes off before
         //  (TransitioningToSourceChange) and put the source into a ReadyForSourceChange
         //  state. We detect that by slot polling and can then clear the source.
+        if let Some(handle) = self.handle {
+            stop_playing_preview(self.last_play_args.unwrap().track.as_ref(), handle);
+        }
         let mut g = lock(reg);
         g.set_src(None);
         Ok(State::Empty)
@@ -840,19 +843,53 @@ impl FilledState {
         let next_state = {
             // At first check if it's time to stop the preview register (to save resources).
             use ClipState::*;
-            let next_handle = match clip_state {
-                // We still have a playing preview register but the clip got stopped or paused.
-                // Stop it!
-                Stopped | Paused { .. } => {
-                    stop_playing_preview(
-                        self.last_play_args.as_ref().and_then(|a| a.track.as_ref()),
-                        handle,
-                    );
-                    None
-                }
-                // We are still playing and need the preview register to keep playing.
-                ScheduledOrPlaying { .. } | Suspending { .. } => Some(handle),
-            };
+            // TODO-medium So ... it sometimes happens that starting the preview register takes
+            //  simply too long to quickly enter get_samples() and resolve the first play data
+            //  in time. When it happens too late, it can have multiple consequences:
+            //  - When increasing the tempo very quickly shortly after triggering the clip,
+            //    the count-in will be calculated very long - because the
+            //    main timeline is not steady and changes its position during a tempo change AND
+            //    the calculation will happen pretty late, after the position already changed.
+            //  - Analogously, when decreasing the tempo in the same manner, the count-in will be
+            //    virtually non-existent (positive).
+            //  - When syncing to REAPER transport shortly before or right on start of a bar, some
+            //    clips might wait for the next bar instead of on the first downbeat.
+            //  - Temporary solution at the moment is to not stop the preview registers once
+            //    started.
+            //  Ideas to fix that in a cleaner way:
+            //  a. Don't use a relative count-in and also not an absolute position on the timeline
+            //    at play-request time. Instead, just save in the clip source that it should start
+            //    to play at start of bar x. Then, in each clip source get_samples() call, in the
+            //    count-in phase, call the tempo map function to determine the position of bar x
+            //    relative to the current timeline cursor. That position can change dynamically
+            //    in case of tempo changes during count-in time.
+            //    Possible downside: Relocation of play cursor would lead to weird results because
+            //    of the fact that the count-in would not be relative anymore but based on absolute
+            //    locations.
+            //  b. Use a steady timeline to resolve the count-in duration. But how do we connect the
+            //    timeline of REAPER - on which the next-beat calculations happens - with the
+            //    steady timeline? Probably by calculating the difference between both timelines
+            //    at play-request time and offsetting the calculated absolute next-bar position
+            //    accordingly. Probably we can't use the preview register as
+            //    steady timeline (even it is steady and tempo-independent), simply because we can't
+            //    connect the both timelines at request time, we don't have access to it. So we
+            //    would need to use our own steady timeline instead.
+            // TODO-high For the temporary solution to be actually reliable, we would need to
+            //  start the preview register as soon as the slot is filled!
+            // let next_handle = match clip_state {
+            //     // We still have a playing preview register but the clip got stopped or paused.
+            //     // Stop it!
+            //     Stopped | Paused { .. } => {
+            //         stop_playing_preview(
+            //             self.last_play_args.as_ref().and_then(|a| a.track.as_ref()),
+            //             handle,
+            //         );
+            //         None
+            //     }
+            //     // We are still playing and need the preview register to keep playing.
+            //     ScheduledOrPlaying { .. } | Suspending { .. } => Some(handle),
+            // };
+            let next_handle = Some(handle);
             // Then build new state.
             let filled_state = FilledState {
                 last_clip_play_state: play_state,
