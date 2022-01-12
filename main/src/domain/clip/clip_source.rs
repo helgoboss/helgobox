@@ -199,6 +199,15 @@ impl ClipPcmSource {
         }
     }
 
+    fn countdown_to_end_of_clip(&self, pos_within_clip: PositionInSeconds) -> DurationInSeconds {
+        let duration = self.native_clip_length().get() - pos_within_clip.get();
+        if duration < 0.0 {
+            DurationInSeconds::ZERO
+        } else {
+            DurationInSeconds::new(duration)
+        }
+    }
+
     fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
         let timeline_tempo_factor = timeline_tempo.get() / self.inner.original_tempo().get();
         // (self.manual_tempo_factor * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
@@ -327,7 +336,7 @@ impl ClipPcmSource {
                 let stop_at_end_of_clip =
                     stop_at_end_of_clip || self.repetition == Repetition::Once;
                 let stop_countdown = if stop_at_end_of_clip {
-                    Some(cursor_and_length_info.countdown_to_end_of_clip())
+                    Some(self.countdown_to_end_of_clip(play_info.next_block_pos))
                 } else {
                     None
                 };
@@ -1349,18 +1358,6 @@ struct CursorAndLengthInfo {
     /// This is the effective clip length, not the native one.
     clip_length: DurationInSeconds,
     repetition: Repetition,
-}
-
-impl CursorAndLengthInfo {
-    fn countdown_to_end_of_clip(&self) -> DurationInSeconds {
-        let rel_pos = self.cursor_info.play_info.next_block_pos;
-        let duration = self.clip_length.get() - rel_pos.get();
-        if duration < 0.0 {
-            DurationInSeconds::ZERO
-        } else {
-            DurationInSeconds::new(duration)
-        }
-    }
 }
 
 // TODO-low Using this extended() mechanism is not very Rusty. The reason why we do it at the
