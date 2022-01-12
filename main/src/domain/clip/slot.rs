@@ -919,10 +919,10 @@ fn get_play_state(
         Stopped => ClipPlayState::Stopped,
         ScheduledOrPlaying {
             resolved_play_data: play_info,
-            stop_at_end_of_clip: stop_at_end_of_clip,
+            scheduled_for_stop,
             ..
         } => {
-            if stop_at_end_of_clip {
+            if scheduled_for_stop {
                 ClipPlayState::ScheduledForStop
             } else if let Some(play_info) = play_info {
                 if play_info.next_block_pos < PositionInSeconds::ZERO {
