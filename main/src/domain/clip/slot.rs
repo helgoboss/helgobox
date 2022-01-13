@@ -865,7 +865,9 @@ impl FilledState {
             //    in case of tempo changes during count-in time.
             //    Possible downside: Relocation of play cursor would lead to weird results because
             //    of the fact that the count-in would not be relative anymore but based on absolute
-            //    locations.
+            //    locations. But well, when the REAPER transport is playing, we *want* interruption.
+            //    And when not, we can use a steady timeline, also for determining location of the
+            //    next bar.
             //  b. Use a steady timeline to resolve the count-in duration. But how do we connect the
             //    timeline of REAPER - on which the next-beat calculations happens - with the
             //    steady timeline? Probably by calculating the difference between both timelines
@@ -874,6 +876,8 @@ impl FilledState {
             //    steady timeline (even it is steady and tempo-independent), simply because we can't
             //    connect the both timelines at request time, we don't have access to it. So we
             //    would need to use our own steady timeline instead.
+            //  c. Mmh, have we even tried that? Use absolute positions for count-in (not for play,
+            //     that for sure causes issues).
             // TODO-high For the temporary solution to be actually reliable, we would need to
             //  start the preview register as soon as the slot is filled!
             // let next_handle = match clip_state {
