@@ -324,28 +324,20 @@ impl ClipPcmSource {
                 scheduled_for_stop,
             } => {
                 // Resolve play info if not yet resolved.
-                let play_info = play_info.unwrap_or_else(|| {
-                    // So, this is how we do play scheduling. Whenever the preview register
-                    // calls get_samples() and we are in a fresh ScheduledOrPlaying state, the
-                    // relative count-in time will be determined. Based on the given absolute
-                    // scheduled-play position. 1. We use a *relative* count-in (instead of just
-                    // using the absolute scheduled-play position and check if we reached it)
-                    // in order to respect arbitrary tempo changes during the count-in phase and
-                    // still end up starting on the correct point in time. 2. We resolve the
-                    // count-in length here in the real-time context, not before! In particular not
-                    // at the time the play is requested. At that time we just calculate the
-                    // absolute position. Reason: The timeline_cursor_pos at play-request time
-                    // is not necessarily the same as the timeline_cursor_pos at which the
-                    // preview register "picks up" our new play state in get_samples(). If it's not,
-                    // we would start advancing the count-in cursor from a wrong initial state
-                    // and therefore end up with the wrong point in time for starting the clip
-                    // (too late, to be accurate, because we would start advancing too late).
-                    let data = ResolvedPlayData {
-                        next_block_pos: timeline_cursor_pos - play_instruction.scheduled_play_pos,
-                    };
-                    dbg!(data);
-                    data
-                });
+                let play_info = if let Some(play_info) = play_info {
+                    // After things started the first time.
+                    play_info
+                } else {
+                    // In the count-in time
+                    let abs_diff = timeline_cursor_pos - play_instruction.scheduled_play_pos;
+                    if abs_diff < PositionInSeconds::ZERO {
+                        // Nothing to play yet (quick experiment).
+                        return;
+                    }
+                    ResolvedPlayData {
+                        next_block_pos: abs_diff,
+                    }
+                };
                 let cursor_and_length_info = self.create_cursor_and_length_info_at(
                     play_info,
                     timeline_cursor_pos,
