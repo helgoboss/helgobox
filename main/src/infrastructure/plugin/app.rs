@@ -90,7 +90,7 @@ pub struct App {
     additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
     feedback_audio_hook_task_sender: RealTimeSender<FeedbackAudioHookTask>,
     instance_orchestration_event_sender: crossbeam_channel::Sender<InstanceOrchestrationEvent>,
-    audio_hook_task_sender: crossbeam_channel::Sender<NormalAudioHookTask>,
+    audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
     sessions: RefCell<Vec<WeakSession>>,
     sessions_changed_subject: RefCell<LocalSubject<'static, (), ()>>,
     message_panel: SharedView<MessagePanel>,
@@ -241,7 +241,7 @@ impl App {
             additional_feedback_event_sender,
             feedback_audio_hook_task_sender: RealTimeSender::new(feedback_audio_hook_task_sender),
             instance_orchestration_event_sender,
-            audio_hook_task_sender: audio_sender,
+            audio_hook_task_sender: RealTimeSender::new(audio_sender),
             sessions: Default::default(),
             sessions_changed_subject: Default::default(),
             message_panel: Default::default(),
@@ -451,7 +451,7 @@ impl App {
         main_processor: MainProcessor<WeakSession>,
     ) {
         self.audio_hook_task_sender
-            .try_send(NormalAudioHookTask::AddRealTimeProcessor(
+            .send(NormalAudioHookTask::AddRealTimeProcessor(
                 instance_id,
                 real_time_processor,
             ))
@@ -521,7 +521,7 @@ impl App {
     ///       output.
     fn unregister_real_time_processor(&self, instance_id: InstanceId) {
         self.audio_hook_task_sender
-            .try_send(NormalAudioHookTask::RemoveRealTimeProcessor(instance_id))
+            .send(NormalAudioHookTask::RemoveRealTimeProcessor(instance_id))
             .unwrap();
     }
 
@@ -541,6 +541,10 @@ impl App {
 
     pub fn feedback_audio_hook_task_sender(&self) -> &RealTimeSender<FeedbackAudioHookTask> {
         &self.feedback_audio_hook_task_sender
+    }
+
+    pub fn normal_audio_hook_task_sender(&self) -> &RealTimeSender<NormalAudioHookTask> {
+        &self.audio_hook_task_sender
     }
 
     pub fn additional_feedback_event_sender(
@@ -1081,7 +1085,7 @@ impl App {
     fn stop_learning_sources() {
         App::get()
             .audio_hook_task_sender
-            .try_send(NormalAudioHookTask::StopCapturingMidi)
+            .send(NormalAudioHookTask::StopCapturingMidi)
             .unwrap();
         App::get()
             .control_surface_main_task_sender
@@ -1092,7 +1096,7 @@ impl App {
     fn request_next_midi_messages(&self) -> async_channel::Receiver<MidiScanResult> {
         let (sender, receiver) = async_channel::bounded(500);
         self.audio_hook_task_sender
-            .try_send(NormalAudioHookTask::StartCapturingMidi(sender))
+            .send(NormalAudioHookTask::StartCapturingMidi(sender))
             .unwrap();
         receiver
     }

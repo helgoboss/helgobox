@@ -8,6 +8,7 @@ mod slot;
 use crate::domain::{
     get_next_bar_pos_from_project, global_steady_timeline, ReaperProjectTimeline, Timeline,
 };
+pub use clip_source::*;
 pub use slot::*;
 
 mod clip_source;

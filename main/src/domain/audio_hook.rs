@@ -1,17 +1,23 @@
+use crate::domain::clip::{
+    clip_timeline, ClipPcmSourceSkills, ClipRecordMode, ClipRecordTiming, PosWithinClipArgs,
+    SharedRegister,
+};
 use crate::domain::{
     classify_midi_message, global_steady_timeline, Event, Garbage, GarbageBin, IncomingMidiMessage,
     InstanceId, MidiControlInput, MidiMessageClassification, MidiScanResult, MidiScanner,
-    RealTimeProcessor,
+    RealTimeProcessor, Timeline,
 };
 use assert_no_alloc::*;
 use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Project, Reaper};
+use reaper_low::raw::midi_realtime_write_struct_t;
 use reaper_medium::{
-    Hz, MeasureMode, MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer,
+    Hz, MeasureMode, MidiEvent, MidiInput, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer,
     OnAudioBufferArgs, PositionInBeats, PositionInSeconds, SendMidiTime,
 };
 use smallvec::SmallVec;
+use std::ptr::null_mut;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
@@ -30,6 +36,7 @@ pub type MidiCaptureSender = async_channel::Sender<MidiScanResult>;
 // real-time processors from the control surface. In practice there's no danger that too many of
 // those infrequent tasks accumulate so it's not an issue. Therefore the convention for now is to
 // also send them when audio is not running.
+#[derive(Debug)]
 pub enum NormalAudioHookTask {
     /// First parameter is the ID.
     //
@@ -39,6 +46,8 @@ pub enum NormalAudioHookTask {
     RemoveRealTimeProcessor(InstanceId),
     StartCapturingMidi(MidiCaptureSender),
     StopCapturingMidi,
+    StartClipRecording(ClipRecordTask),
+    StopClipRecording,
 }
 
 /// A global feedback task (which is potentially sent very frequently).
@@ -59,6 +68,16 @@ pub struct RealearnAudioHook {
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
     time_of_last_run: Option<Instant>,
     garbage_bin: GarbageBin,
+    clip_record_task: Option<ClipRecordTask>,
+}
+
+#[derive(Debug)]
+pub struct ClipRecordTask {
+    pub abs_start_pos: PositionInSeconds,
+    pub register: SharedRegister,
+    pub timing: ClipRecordTiming,
+    pub mode: ClipRecordMode,
+    pub project: Project,
 }
 
 #[derive(Debug)]
@@ -85,6 +104,7 @@ impl RealearnAudioHook {
             feedback_task_receiver,
             time_of_last_run: None,
             garbage_bin,
+            clip_record_task: None,
         }
     }
 
@@ -211,6 +231,62 @@ impl RealearnAudioHook {
         }
     }
 
+    fn process_clip_record_tasks(&mut self, args: &OnAudioBufferArgs) {
+        let record_task = match &self.clip_record_task {
+            None => return,
+            Some(t) => t,
+        };
+        let timeline = clip_timeline(Some(record_task.project));
+        let timeline_cursor_pos = timeline.cursor_pos();
+        let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
+        let rel_start_pos = timeline_cursor_pos - record_task.abs_start_pos;
+        for dev_id in 0..MidiInputDeviceId::MAX_DEVICE_COUNT {
+            let dev_id = MidiInputDeviceId::new(dev_id);
+            MidiInputDevice::new(dev_id).with_midi_input(|mi| {
+                let mi = match mi {
+                    None => return,
+                    Some(m) => m,
+                };
+                let event_list = mi.get_read_buf();
+                if event_list.get_size() == 0 {
+                    return;
+                }
+                let mut guard = record_task.register.lock().expect("couldn't acquire lock");
+                let src = guard.src_mut().expect("no source to record on");
+                unsafe {
+                    let pos_within_clip = src
+                        .as_ref()
+                        .pos_within_clip(PosWithinClipArgs {
+                            timeline_cursor_pos,
+                            timeline_tempo,
+                        })
+                        .unwrap_or_default();
+                    let mut write_struct = midi_realtime_write_struct_t {
+                        // TODO-medium The following values work for arbitrary REAPER tempos, but
+                        //  not sure if they work for custom tempo factors.
+                        global_time: pos_within_clip.get(),
+                        srate: args.srate.get(),
+                        item_playrate: 1.0,
+                        global_item_time: 0.0,
+                        length: args.len as _,
+                        // Overdub
+                        overwritemode: 0,
+                        events: event_list.raw().as_mut(),
+                        latency: 0.0,
+                        // Not used
+                        overwrite_actives: null_mut(),
+                    };
+                    src.as_mut().extended(
+                        0x10005,
+                        &mut write_struct as *mut _ as _,
+                        null_mut(),
+                        null_mut(),
+                    );
+                }
+            });
+        }
+    }
+
     fn distribute_midi_events_to_processors(
         &mut self,
         args: &OnAudioBufferArgs,
@@ -283,6 +359,12 @@ impl RealearnAudioHook {
                         self.garbage_bin.dispose(Garbage::MidiCaptureSender(sender));
                     }
                 }
+                StartClipRecording(task) => {
+                    self.clip_record_task = Some(task);
+                }
+                StopClipRecording => {
+                    self.clip_record_task = None;
+                }
             }
         }
     }
@@ -304,6 +386,7 @@ impl OnAudioBuffer for RealearnAudioHook {
             };
             self.process_feedback_tasks();
             self.call_real_time_processors(&args, might_be_rebirth);
+            self.process_clip_record_tasks(&args);
             self.process_add_remove_tasks();
         });
     }

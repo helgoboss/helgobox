@@ -616,10 +616,12 @@ pub(crate) fn clip_play_state_unit_value(
 ) -> UnitValue {
     use TransportAction::*;
     match action {
-        PlayStop | PlayPause | Stop | Pause => match action {
+        PlayStop | PlayPause | Stop | Pause | Record => match action {
             PlayStop | PlayPause => play_state.feedback_value(),
             Stop => transport_is_enabled_unit_value(play_state == ClipPlayState::Stopped),
             Pause => transport_is_enabled_unit_value(play_state == ClipPlayState::Paused),
+            // TODO-high Would probably make sense to introduce a few more Record variants.
+            Record => play_state.feedback_value(),
             _ => unreachable!(),
         },
         _ => panic!("wrong argument"),

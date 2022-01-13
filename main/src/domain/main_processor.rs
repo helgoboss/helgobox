@@ -667,7 +667,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let mut instance_state = self.basics.instance_state.borrow_mut();
         let timeline = clip_timeline(self.basics.context.project());
         let timeline_cursor_pos = timeline.cursor_pos();
-        let timeline_tempo = timeline.tempo();
+        let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         for i in 0..CLIP_SLOT_COUNT {
             for event in instance_state
                 .poll_slot(i, timeline_cursor_pos, timeline_tempo)

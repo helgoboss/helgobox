@@ -70,7 +70,7 @@ impl Timeline for ReaperProjectTimeline {
         true
     }
 
-    fn tempo(&self) -> Bpm {
+    fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm {
         let play_state = Reaper::get()
             .medium_reaper()
             .get_play_state_ex(self.project_context);
@@ -78,43 +78,31 @@ impl Timeline for ReaperProjectTimeline {
         // while paused (because we don't even see where the hypothetical play cursor is on the
         // timeline).
         let tempo_ref_pos = if play_state.is_playing || play_state.is_paused {
-            self.cursor_pos()
+            timeline_pos
         } else {
             PositionInSeconds::new(0.0)
         };
-        self.tempo_at(tempo_ref_pos)
-    }
-
-    fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm {
         Reaper::get()
             .medium_reaper()
-            .time_map_2_get_divided_bpm_at_time(self.project_context, timeline_pos)
+            .time_map_2_get_divided_bpm_at_time(self.project_context, tempo_ref_pos)
     }
 }
 
 pub trait Timeline {
     fn capture_moment(&self) -> TimelineMoment {
         let cursor_pos = self.cursor_pos();
-        let next_bar_pos = self.next_bar_pos();
-        let tempo = self.tempo();
+        let next_bar_pos = self.next_bar_pos_at(cursor_pos);
+        let tempo = self.tempo_at(cursor_pos);
         TimelineMoment::new(cursor_pos, next_bar_pos, tempo)
     }
 
     fn cursor_pos(&self) -> PositionInSeconds;
-
-    fn next_bar_pos(&self) -> PositionInSeconds {
-        self.next_bar_pos_at(self.cursor_pos())
-    }
 
     fn next_bar_pos_at(&self, timeline_pos: PositionInSeconds) -> PositionInSeconds;
 
     fn is_running(&self) -> bool;
 
     fn follows_reaper_transport(&self) -> bool;
-
-    fn tempo(&self) -> Bpm {
-        self.tempo_at(self.cursor_pos())
-    }
 
     fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm;
 }
@@ -201,10 +189,6 @@ impl<T: Timeline> Timeline for &T {
         (*self).cursor_pos()
     }
 
-    fn next_bar_pos(&self) -> PositionInSeconds {
-        (*self).next_bar_pos()
-    }
-
     fn next_bar_pos_at(&self, timeline_pos: PositionInSeconds) -> PositionInSeconds {
         (*self).next_bar_pos_at(timeline_pos)
     }
@@ -215,10 +199,6 @@ impl<T: Timeline> Timeline for &T {
 
     fn follows_reaper_transport(&self) -> bool {
         (*self).follows_reaper_transport()
-    }
-
-    fn tempo(&self) -> Bpm {
-        (*self).tempo()
     }
 
     fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm {

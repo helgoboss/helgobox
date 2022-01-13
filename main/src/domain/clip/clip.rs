@@ -118,6 +118,7 @@ pub enum ClipPlayState {
     Playing,
     Paused,
     ScheduledForStop,
+    Recording,
 }
 
 impl ClipPlayState {
@@ -130,6 +131,7 @@ impl ClipPlayState {
             Playing => UnitValue::MAX,
             Paused => UnitValue::new(0.5),
             ScheduledForStop => UnitValue::new(0.25),
+            Recording => UnitValue::new(0.60),
         }
     }
 }

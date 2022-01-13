@@ -343,6 +343,7 @@ impl RealearnPlugin {
                     crossbeam_channel::bounded(INSTANCE_FEEDBACK_EVENT_QUEUE_SIZE);
                 let instance_state = Rc::new(RefCell::new(InstanceState::new(
                     instance_feedback_event_sender,
+                    App::get().normal_audio_hook_task_sender().clone(),
                 )));
                 // Session (application - shared)
                 let session = Session::new(

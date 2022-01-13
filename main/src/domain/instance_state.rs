@@ -14,10 +14,12 @@ use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
 use crate::domain::clip::{
-    clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipSlot, SlotPlayOptions, SlotStopBehavior,
+    clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipPlayState, ClipRecordMode,
+    ClipRecordTiming, ClipSlot, SlotPlayOptions, SlotStopBehavior,
 };
 use crate::domain::{
-    GroupId, MappingCompartment, MappingId, QualifiedMappingId, Tag, Timeline, TimelineMoment,
+    ClipRecordTask, GroupId, MappingCompartment, MappingId, NormalAudioHookTask,
+    QualifiedMappingId, RealTimeSender, Tag, Timeline, TimelineMoment,
 };
 
 pub const CLIP_SLOT_COUNT: usize = 8;
@@ -65,6 +67,7 @@ pub struct InstanceState {
     /// - Set by target "ReaLearn: Enable/disable instances".
     /// - Non-redundant state!
     active_instance_tags: HashSet<Tag>,
+    audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
 }
 
 #[derive(Debug)]
@@ -75,6 +78,7 @@ pub struct MappingInfo {
 impl InstanceState {
     pub fn new(
         instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
+        audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
     ) -> Self {
         Self {
             clip_slots: (0..8).map(ClipSlot::new).collect(),
@@ -86,6 +90,7 @@ impl InstanceState {
             on_mappings: Default::default(),
             active_mapping_tags: Default::default(),
             active_instance_tags: Default::default(),
+            audio_hook_task_sender,
         }
     }
 
@@ -400,8 +405,32 @@ impl InstanceState {
         stop_behavior: SlotStopBehavior,
         project: Project,
     ) -> Result<(), &'static str> {
+        if self.get_slot_mut(slot_index)?.play_state() == ClipPlayState::Recording {
+            let task = NormalAudioHookTask::StopClipRecording;
+            self.audio_hook_task_sender.send(task).unwrap();
+        }
         self.get_slot_mut(slot_index)?
             .stop(stop_behavior, clip_timeline(Some(project)).capture_moment())
+    }
+
+    pub fn record_clip(
+        &mut self,
+        slot_index: usize,
+        timing: ClipRecordTiming,
+        mode: ClipRecordMode,
+        project: Project,
+    ) -> Result<(), &'static str> {
+        let register = self.get_slot_mut(slot_index)?.record()?;
+        let task = ClipRecordTask {
+            abs_start_pos: clip_timeline(Some(project)).cursor_pos(),
+            register,
+            timing,
+            mode,
+            project,
+        };
+        self.audio_hook_task_sender
+            .send(NormalAudioHookTask::StartClipRecording(task))
+            .map_err(|_| "couldn't send record task")
     }
 
     pub fn pause_clip(&mut self, slot_index: usize) -> Result<(), &'static str> {

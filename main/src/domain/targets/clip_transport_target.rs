@@ -1,4 +1,6 @@
-use crate::domain::clip::{ClipChangedEvent, SlotPlayOptions, SlotStopBehavior};
+use crate::domain::clip::{
+    ClipChangedEvent, ClipRecordMode, ClipRecordTiming, SlotPlayOptions, SlotStopBehavior,
+};
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, get_effective_tracks,
     transport_is_enabled_unit_value, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
@@ -138,6 +140,20 @@ impl RealearnTarget for ClipTransportTarget {
                 }
             }
             Record => {
+                if on {
+                    instance_state.record_clip(
+                        self.slot_index,
+                        ClipRecordTiming::StartImmediatelyStopOnDemand,
+                        ClipRecordMode::MidiOverdub,
+                        self.project,
+                    );
+                } else {
+                    instance_state.stop_clip(
+                        self.slot_index,
+                        SlotStopBehavior::EndOfClip,
+                        self.project,
+                    );
+                }
                 return Err("not supported at the moment");
             }
             Repeat => {
@@ -218,7 +234,7 @@ impl<'a> Target<'a> for ClipTransportTarget {
         let instance_state = context.instance_state.borrow();
         use TransportAction::*;
         let val = match self.action {
-            PlayStop | PlayPause | Stop | Pause => {
+            PlayStop | PlayPause | Stop | Pause | Record => {
                 let play_state = instance_state.get_slot(self.slot_index).ok()?.play_state();
                 clip_play_state_unit_value(self.action, play_state)
             }
@@ -229,7 +245,6 @@ impl<'a> Target<'a> for ClipTransportTarget {
                     .repeat_is_enabled();
                 transport_is_enabled_unit_value(is_looped)
             }
-            Record => return None,
         };
         Some(AbsoluteValue::Continuous(val))
     }

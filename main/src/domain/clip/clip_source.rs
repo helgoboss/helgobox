@@ -7,7 +7,7 @@ use std::error::Error;
 use std::ptr::null_mut;
 
 use crate::domain::clip::source_util::pcm_source_is_midi;
-use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos};
+use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos, ClipRecordMode};
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
@@ -82,12 +82,7 @@ pub enum ClipState {
     ///
     /// The player can stop in this state.
     Stopped,
-    ScheduledOrPlaying {
-        play_instruction: PlayInstruction,
-        /// Set as soon as the actual start has been resolved (from the play time field).
-        resolved_play_data: Option<ResolvedPlayData>,
-        scheduled_for_stop: bool,
-    },
+    ScheduledOrPlaying(ScheduledOrPlayingState),
     /// Very short transition for fade outs or sending all-notes-off before entering another state.
     Suspending {
         reason: SuspensionReason,
@@ -104,14 +99,23 @@ pub enum ClipState {
     },
 }
 
+#[derive(Copy, Clone, Debug, Default)]
+pub struct ScheduledOrPlayingState {
+    pub play_instruction: PlayInstruction,
+    /// Set as soon as the actual start has been resolved (from the play time field).
+    pub resolved_play_data: Option<ResolvedPlayData>,
+    pub scheduled_for_stop: bool,
+    pub overdubbing: bool,
+}
+
 impl ClipState {
-    fn play_info(&self) -> Option<ResolvedPlayData> {
+    pub fn play_info(&self) -> Option<ResolvedPlayData> {
         use ClipState::*;
         match self {
-            ScheduledOrPlaying {
+            ScheduledOrPlaying(ScheduledOrPlayingState {
                 resolved_play_data: Some(play_info),
                 ..
-            }
+            })
             | Suspending { play_info, .. } => Some(*play_info),
             _ => None,
         }
@@ -133,17 +137,20 @@ pub enum SuspensionReason {
     /// straight to a playing state is not a good idea. We might get hanging notes. So we
     /// keep suspending but change the reason and thereby the next state (which will be
     /// [`ClipState::ScheduledOrPlaying`]).
-    PlayWhileSuspending { play_time: ClipPlayTime },
+    PlayWhileSuspending { play_time: ClipStartTime },
 }
 
 #[derive(Clone, Copy)]
 pub struct PlayArgs {
     pub timeline_cursor_pos: PositionInSeconds,
-    pub play_time: ClipPlayTime,
+    pub play_time: ClipStartTime,
     pub repetition: Repetition,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Clone, Copy)]
+pub struct RecordArgs {}
+
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct PlayInstruction {
     /// We consider the absolute scheduled play position as part of the instruction. It's important
     /// not to resolve it super-late because then each clip calculates its own positions, which
@@ -154,11 +161,11 @@ pub struct PlayInstruction {
 
 impl PlayInstruction {
     fn from_play_time(
-        play_time: ClipPlayTime,
+        play_time: ClipStartTime,
         timeline_cursor_pos: PositionInSeconds,
         timeline: impl Timeline,
     ) -> Self {
-        use ClipPlayTime::*;
+        use ClipStartTime::*;
         let scheduled_play_pos = match play_time {
             Immediately => timeline_cursor_pos,
             NextBar => timeline.next_bar_pos_at(timeline_cursor_pos),
@@ -171,7 +178,7 @@ impl PlayInstruction {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub enum ClipPlayTime {
+pub enum ClipStartTime {
     Immediately,
     NextBar,
 }
@@ -218,15 +225,14 @@ impl ClipPcmSource {
 
     fn schedule_play_internal(&mut self, args: PlayArgs) {
         self.repetition = args.repetition;
-        self.state = ClipState::ScheduledOrPlaying {
+        self.state = ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
             play_instruction: PlayInstruction::from_play_time(
                 args.play_time,
                 args.timeline_cursor_pos,
                 self.timeline(),
             ),
-            resolved_play_data: None,
-            scheduled_for_stop: false,
-        };
+            ..Default::default()
+        });
     }
 
     fn create_cursor_and_length_info_at(
@@ -262,7 +268,7 @@ impl ClipPcmSource {
         timeline: impl Timeline,
         timeline_cursor_pos: PositionInSeconds,
     ) {
-        let timeline_tempo = timeline.tempo();
+        let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo);
         use ClipState::*;
         match self.state {
@@ -318,13 +324,9 @@ impl ClipPcmSource {
                     };
                 }
             }
-            ScheduledOrPlaying {
-                play_instruction,
-                resolved_play_data: play_info,
-                scheduled_for_stop,
-            } => {
+            ScheduledOrPlaying(s) => {
                 // Resolve play info if not yet resolved.
-                let play_info = play_info.unwrap_or_else(|| {
+                let play_info = s.resolved_play_data.unwrap_or_else(|| {
                     // So, this is how we do play scheduling. Whenever the preview register
                     // calls get_samples() and we are in a fresh ScheduledOrPlaying state, the
                     // relative count-in time will be determined. Based on the given absolute
@@ -341,7 +343,7 @@ impl ClipPcmSource {
                     // and therefore end up with the wrong point in time for starting the clip
                     // (too late, to be accurate, because we would start advancing too late).
                     let data = ResolvedPlayData {
-                        next_block_pos: timeline_cursor_pos - play_instruction.scheduled_play_pos,
+                        next_block_pos: timeline_cursor_pos - s.play_instruction.scheduled_play_pos,
                     };
                     dbg!(data);
                     data
@@ -352,7 +354,8 @@ impl ClipPcmSource {
                     timeline_tempo,
                 );
                 // This will contain the remaining seconds to stop (always a positive number).
-                let stop_at_end_of_clip = scheduled_for_stop || self.repetition == Repetition::Once;
+                let stop_at_end_of_clip =
+                    s.scheduled_for_stop || self.repetition == Repetition::Once;
                 let stop_countdown = if stop_at_end_of_clip {
                     Some(self.countdown_to_end_of_clip(play_info.next_block_pos))
                 } else {
@@ -394,7 +397,7 @@ impl ClipPcmSource {
                             //  the reset. Plus, when the transport is running, we want to
                             //  interrupt the clips and reschedule them. Still to be implemented.
                             let tempo_factor =
-                                timeline_tempo.get() / play_instruction.initial_tempo.get();
+                                timeline_tempo.get() / s.play_instruction.initial_tempo.get();
                             let duration = (block_info.duration() * tempo_factor)
                                 .expect("tempo factor never negative");
                             block_info.block_start_pos() + duration
@@ -414,11 +417,10 @@ impl ClipPcmSource {
                     .unwrap_or(true)
                 {
                     // There's still something to play.
-                    ScheduledOrPlaying {
-                        play_instruction,
+                    ScheduledOrPlaying(ScheduledOrPlayingState {
                         resolved_play_data: Some(next_play_info),
-                        scheduled_for_stop,
-                    }
+                        ..s
+                    })
                 } else {
                     // We have reached the natural or scheduled end. Everything that needed to be
                     // played has been played in previous blocks. Audio fade outs have been applied
@@ -437,15 +439,14 @@ impl ClipPcmSource {
         timeline: impl Timeline,
     ) -> ClipState {
         match reason {
-            SuspensionReason::Retrigger => ClipState::ScheduledOrPlaying {
+            SuspensionReason::Retrigger => ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
                 play_instruction: PlayInstruction::from_play_time(
-                    ClipPlayTime::Immediately,
+                    ClipStartTime::Immediately,
                     timeline_cursor_pos,
                     timeline,
                 ),
-                resolved_play_data: None,
-                scheduled_for_stop: false,
-            },
+                ..Default::default()
+            }),
             SuspensionReason::Pause => ClipState::Paused {
                 next_block_pos: play_info
                     .next_block_pos
@@ -453,15 +454,16 @@ impl ClipPcmSource {
                     .unwrap_or(DurationInSeconds::ZERO),
             },
             SuspensionReason::Stop => ClipState::Stopped,
-            SuspensionReason::PlayWhileSuspending { play_time } => ClipState::ScheduledOrPlaying {
-                play_instruction: PlayInstruction::from_play_time(
-                    play_time,
-                    timeline_cursor_pos,
-                    timeline,
-                ),
-                resolved_play_data: None,
-                scheduled_for_stop: false,
-            },
+            SuspensionReason::PlayWhileSuspending { play_time } => {
+                ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
+                    play_instruction: PlayInstruction::from_play_time(
+                        play_time,
+                        timeline_cursor_pos,
+                        timeline,
+                    ),
+                    ..Default::default()
+                })
+            }
         }
     }
 
@@ -756,6 +758,11 @@ impl CustomPcmSource for ClipPcmSource {
                 self.stop(inner_args);
                 1
             }
+            EXT_RECORD => {
+                let inner_args = *(args.parm_1 as *mut _);
+                self.record(inner_args);
+                1
+            }
             EXT_SEEK_TO => {
                 let inner_args = *(args.parm_1 as *mut _);
                 self.seek_to(inner_args);
@@ -847,6 +854,9 @@ pub trait ClipPcmSourceSkills {
     /// - Stops immediately if paused.
     fn stop(&mut self, args: StopArgs);
 
+    /// Starts recording a clip.
+    fn record(&mut self, args: RecordArgs);
+
     /// Seeks to the given position within the clip.
     ///
     /// This only has an effect if the clip is already and still playing.
@@ -894,21 +904,16 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         match self.state {
             // Not yet running.
             Stopped => self.schedule_play_internal(args),
-            ScheduledOrPlaying {
-                play_instruction: play_time,
-                scheduled_for_stop,
-                resolved_play_data: play_info,
-            } => {
-                if scheduled_for_stop {
+            ScheduledOrPlaying(s) => {
+                if s.scheduled_for_stop {
                     // Scheduled for stop. Backpedal!
-                    self.state = ClipState::ScheduledOrPlaying {
-                        play_instruction: play_time,
-                        resolved_play_data: play_info,
+                    self.state = ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
                         scheduled_for_stop: false,
-                    };
+                        ..s
+                    });
                 } else {
                     // Scheduled for play or playing already.
-                    if let Some(play_info) = play_info {
+                    if let Some(play_info) = s.resolved_play_data {
                         let info = play_info.cursor_info_at(args.timeline_cursor_pos);
                         if info.has_started_already() {
                             // Already playing. Retrigger!
@@ -945,17 +950,17 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                     transition_countdown,
                 };
             }
+            // TODO-high Hey, looks like we forgot a proper resume.
             Paused { next_block_pos } => {
                 // Resume
-                self.state = ClipState::ScheduledOrPlaying {
+                self.state = ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
                     play_instruction: PlayInstruction::from_play_time(
                         args.play_time,
                         args.timeline_cursor_pos,
                         self.timeline(),
                     ),
-                    resolved_play_data: None,
-                    scheduled_for_stop: false,
-                };
+                    ..Default::default()
+                });
             }
         }
     }
@@ -964,10 +969,10 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         use ClipState::*;
         match self.state {
             Stopped | Paused { .. } => {}
-            ScheduledOrPlaying {
+            ScheduledOrPlaying(ScheduledOrPlayingState {
                 resolved_play_data: play_info,
                 ..
-            } => {
+            }) => {
                 if let Some(play_info) = play_info {
                     let info = play_info.cursor_info_at(timeline_cursor_pos);
                     if info.has_started_already() {
@@ -1002,17 +1007,28 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
+    fn record(&mut self, args: RecordArgs) {
+        use ClipState::*;
+        match self.state {
+            Stopped => {}
+            ScheduledOrPlaying(s) => {
+                self.state = ScheduledOrPlaying(ScheduledOrPlayingState {
+                    overdubbing: true,
+                    ..s
+                });
+            }
+            Suspending { .. } => {}
+            Paused { .. } => {}
+        }
+    }
+
     fn stop(&mut self, args: StopArgs) {
         use ClipState::*;
         match self.state {
             Stopped => {}
-            ScheduledOrPlaying {
-                play_instruction: play_time,
-                resolved_play_data: play_info,
-                scheduled_for_stop,
-            } => {
-                if let Some(play_info) = play_info {
-                    if scheduled_for_stop {
+            ScheduledOrPlaying(s) => {
+                if let Some(play_info) = s.resolved_play_data {
+                    if s.scheduled_for_stop {
                         // Already scheduled for stop.
                         if args.stop_time == ClipStopTime::Immediately {
                             // Transition to stop now!
@@ -1038,11 +1054,10 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                                 }
                                 ClipStopTime::EndOfClip => {
                                     // Schedule
-                                    ClipState::ScheduledOrPlaying {
-                                        play_instruction: play_time,
-                                        resolved_play_data: Some(play_info),
+                                    ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
                                         scheduled_for_stop: true,
-                                    }
+                                        ..s
+                                    })
                                 }
                             }
                         } else {
@@ -1082,21 +1097,16 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         use ClipState::*;
         match self.state {
             Stopped | Suspending { .. } => {}
-            ScheduledOrPlaying {
-                play_instruction: play_time,
-                resolved_play_data: play_info,
-                scheduled_for_stop,
-            } => {
-                if let Some(play_info) = play_info {
+            ScheduledOrPlaying(s) => {
+                if let Some(play_info) = s.resolved_play_data {
                     let info = play_info.cursor_info_at(args.timeline_cursor_pos);
                     if info.has_started_already() {
-                        self.state = ClipState::ScheduledOrPlaying {
-                            play_instruction: play_time,
+                        self.state = ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
                             resolved_play_data: Some(ResolvedPlayData {
                                 next_block_pos: desired_pos_in_secs.into(),
                             }),
-                            scheduled_for_stop,
-                        };
+                            ..s
+                        });
                     }
                 }
             }
@@ -1152,10 +1162,10 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     fn pos_within_clip(&self, args: PosWithinClipArgs) -> Option<PositionInSeconds> {
         use ClipState::*;
         let inner_source_pos = match self.state {
-            ScheduledOrPlaying {
+            ScheduledOrPlaying(ScheduledOrPlayingState {
                 resolved_play_data: Some(play_info),
                 ..
-            }
+            })
             | Suspending { play_info, .. } => play_info.next_block_pos,
             Paused { next_block_pos } => next_block_pos.into(),
             _ => return None,
@@ -1195,6 +1205,12 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
     fn stop(&mut self, mut args: StopArgs) {
         unsafe {
             self.extended(EXT_STOP, &mut args as *mut _ as _, null_mut(), null_mut());
+        }
+    }
+
+    fn record(&mut self, mut args: RecordArgs) {
+        unsafe {
+            self.extended(EXT_RECORD, &mut args as *mut _ as _, null_mut(), null_mut());
         }
     }
 
@@ -1419,6 +1435,7 @@ const EXT_SET_TEMPO_FACTOR: i32 = 2359784;
 const EXT_TEMPO_FACTOR: i32 = 2359785;
 const EXT_NATIVE_CLIP_LENGTH: i32 = 2359786;
 const EXT_PROPORTIONAL_POS_WITHIN_CLIP: i32 = 2359787;
+const EXT_RECORD: i32 = 2359788;
 
 struct FadeCalculator {
     /// End position, relative to start position zero.

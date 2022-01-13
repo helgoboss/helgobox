@@ -15,8 +15,9 @@ use std::sync::Arc;
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
 use crate::domain::clip::clip_source::{
-    ClipPcmSource, ClipPcmSourceSkills, ClipPlayTime, ClipState, ClipStopTime, PlayArgs,
-    PosWithinClipArgs, Repetition, SeekToArgs, SetRepeatedArgs, StopArgs, SuspensionReason,
+    ClipPcmSource, ClipPcmSourceSkills, ClipStartTime, ClipState, ClipStopTime, PlayArgs,
+    PosWithinClipArgs, RecordArgs, Repetition, ScheduledOrPlayingState, SeekToArgs,
+    SetRepeatedArgs, StopArgs, SuspensionReason,
 };
 use crate::domain::clip::{
     clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
@@ -33,7 +34,7 @@ pub struct ClipSlot {
     state: State,
 }
 
-type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
+pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
 /// Creates a REAPER preview register with its initial settings taken from the given descriptor.
 fn create_shared_register(descriptor: &Clip) -> SharedRegister {
@@ -264,6 +265,13 @@ impl ClipSlot {
         self.finish_transition(result)
     }
 
+    /// Instructs this slot to record a clip.
+    pub fn record(&mut self) -> Result<SharedRegister, &'static str> {
+        let result = self.start_transition().record(&self.register);
+        self.finish_transition(result)?;
+        Ok(self.register.clone())
+    }
+
     /// Pauses clip playing.
     pub fn pause(&mut self) -> Result<(), &'static str> {
         let result = self.start_transition().pause(&self.register);
@@ -284,9 +292,10 @@ impl ClipSlot {
         let new_value = !self.clip.repeat;
         self.clip.repeat = new_value;
         let timeline = clip_timeline(None);
+        let timeline_cursor_pos = timeline.cursor_pos();
         let args = SetRepeatedArgs {
-            timeline_cursor_pos: timeline.cursor_pos(),
-            timeline_tempo: timeline.tempo(),
+            timeline_cursor_pos,
+            timeline_tempo: timeline.tempo_at(timeline_cursor_pos),
             repeated: new_value,
         };
         let mut guard = lock(&self.register);
@@ -333,9 +342,10 @@ impl ClipSlot {
     /// Returns the current position within the slot clip on a percentage basis.
     pub fn proportional_position(&self) -> Result<UnitValue, &'static str> {
         let timeline = clip_timeline(None);
+        let timeline_cursor_pos = timeline.cursor_pos();
         let args = PosWithinClipArgs {
-            timeline_cursor_pos: timeline.cursor_pos(),
-            timeline_tempo: timeline.tempo(),
+            timeline_cursor_pos,
+            timeline_tempo: timeline.tempo_at(timeline_cursor_pos),
         };
         let guard = lock(&self.register);
         let src = guard.src().ok_or(NO_SOURCE_LOADED)?;
@@ -350,9 +360,10 @@ impl ClipSlot {
     /// Returns the current clip position in seconds.
     pub fn position_in_seconds(&self) -> Result<PositionInSeconds, &'static str> {
         let timeline = clip_timeline(None);
+        let timeline_cursor_pos = timeline.cursor_pos();
         let args = PosWithinClipArgs {
-            timeline_cursor_pos: timeline.cursor_pos(),
-            timeline_tempo: timeline.tempo(),
+            timeline_cursor_pos,
+            timeline_tempo: timeline.tempo_at(timeline_cursor_pos),
         };
         let guard = lock(&self.register);
         let src = guard.src().ok_or(NO_SOURCE_LOADED)?;
@@ -372,9 +383,10 @@ impl ClipSlot {
         desired_proportional_pos: UnitValue,
     ) -> Result<Option<ClipChangedEvent>, &'static str> {
         let timeline = clip_timeline(None);
+        let timeline_cursor_pos = timeline.cursor_pos();
         let args = SeekToArgs {
-            timeline_cursor_pos: timeline.cursor_pos(),
-            timeline_tempo: timeline.tempo(),
+            timeline_cursor_pos,
+            timeline_tempo: timeline.tempo_at(timeline_cursor_pos),
             desired_pos: desired_proportional_pos,
         };
         let mut guard = lock(&self.register);
@@ -538,6 +550,16 @@ impl State {
         }
     }
 
+    pub fn record(self, reg: &SharedRegister) -> TransitionResult {
+        use State::*;
+        match self {
+            // TODO-high Implement recording for empty slot
+            Empty => Ok(Empty),
+            Filled(s) => s.record(reg),
+            Transitioning => unreachable!(),
+        }
+    }
+
     pub fn clear(self, reg: &SharedRegister) -> TransitionResult {
         use State::*;
         match self {
@@ -693,9 +715,9 @@ impl FilledState {
             let play_args = PlayArgs {
                 timeline_cursor_pos,
                 play_time: if args.options.next_bar {
-                    ClipPlayTime::NextBar
+                    ClipStartTime::NextBar
                 } else {
-                    ClipPlayTime::Immediately
+                    ClipStartTime::Immediately
                 },
                 repetition: Repetition::from_bool(args.repeat),
             };
@@ -737,6 +759,13 @@ impl FilledState {
             ..self
         };
         Ok(State::Filled(next_state))
+    }
+
+    pub fn record(self, reg: &SharedRegister) -> TransitionResult {
+        let mut guard = lock(reg);
+        let src = guard.src_mut().expect(NO_SOURCE_LOADED);
+        src.as_mut().record(RecordArgs {});
+        Ok(State::Filled(self))
     }
 
     pub fn stop(
@@ -789,7 +818,7 @@ impl FilledState {
         let guard = lock(reg);
         let src = guard.src().expect(NO_SOURCE_LOADED).as_ref();
         let clip_state = src.clip_state();
-        get_play_state(src, timeline_cursor_pos, clip_state)
+        get_play_state(clip_state)
     }
 
     pub fn poll(
@@ -825,7 +854,7 @@ impl FilledState {
             let src = src.as_ref();
             let pos_within_clip = src.proportional_pos_within_clip(args);
             let clip_state = src.clip_state();
-            let play_state = get_play_state(src, timeline_cursor_pos, clip_state);
+            let play_state = get_play_state(clip_state);
             (clip_state, play_state, pos_within_clip)
         };
         // At first determine event to be emitted.
@@ -951,23 +980,17 @@ fn lock(reg: &SharedRegister) -> ReaperMutexGuard<OwnedPreviewRegister> {
     reg.lock().expect("couldn't acquire lock")
 }
 
-fn get_play_state(
-    src: &BorrowedPcmSource,
-    timeline_cursor_pos: PositionInSeconds,
-    clip_state: ClipState,
-) -> ClipPlayState {
+fn get_play_state(clip_state: ClipState) -> ClipPlayState {
     use ClipState::*;
     match clip_state {
         Stopped => ClipPlayState::Stopped,
-        ScheduledOrPlaying {
-            resolved_play_data: play_info,
-            scheduled_for_stop,
-            ..
-        } => {
-            if scheduled_for_stop {
+        ScheduledOrPlaying(s) => {
+            if s.overdubbing {
+                ClipPlayState::Recording
+            } else if s.scheduled_for_stop {
                 ClipPlayState::ScheduledForStop
-            } else if let Some(play_info) = play_info {
-                if play_info.next_block_pos < PositionInSeconds::ZERO {
+            } else if let Some(d) = s.resolved_play_data {
+                if d.next_block_pos < PositionInSeconds::ZERO {
                     ClipPlayState::ScheduledForPlay
                 } else {
                     ClipPlayState::Playing
@@ -1010,4 +1033,16 @@ impl RelevantTransportChange {
         };
         Some(change)
     }
+}
+
+#[derive(Debug)]
+pub enum ClipRecordTiming {
+    StartImmediatelyStopOnDemand,
+    StartOnNextBarStopOnDemand,
+    StartOnNextBarWithCycles(u32),
+}
+
+#[derive(Debug)]
+pub enum ClipRecordMode {
+    MidiOverdub,
 }
