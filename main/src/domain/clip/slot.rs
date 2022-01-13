@@ -877,7 +877,8 @@ impl FilledState {
             //    connect the both timelines at request time, we don't have access to it. So we
             //    would need to use our own steady timeline instead.
             //  c. Mmh, have we even tried that? Use absolute positions for count-in (not for play,
-            //     that for sure causes issues).
+            //     that for sure causes issues). DOESN'T WORK. Simple prove in branch
+            //     "experiment/non-working-absolute-count-in".
             // TODO-high For the temporary solution to be actually reliable, we would need to
             //  start the preview register as soon as the slot is filled!
             // let next_handle = match clip_state {
