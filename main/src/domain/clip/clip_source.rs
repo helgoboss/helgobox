@@ -8,7 +8,9 @@ use std::error::Error;
 use std::ptr::null_mut;
 
 use crate::domain::clip::source_util::pcm_source_is_midi;
-use crate::domain::clip::time_stretcher::{ReaperTimeStretcher, TimeStretchRequest, TimeStretcher};
+use crate::domain::clip::time_stretcher::{
+    AudioBuffer, PcmSourceSection, ReaperTimeStretcher, TimeStretchRequest, TimeStretcher,
+};
 use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos, ClipRecordMode};
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
@@ -558,14 +560,14 @@ impl ClipPcmSource {
             // This is the code executed for the majority of the clip.
             if let Some(TimeStretchMode::Serious(stretcher)) = time_stretch_mode {
                 let request = TimeStretchRequest {
-                    source: &self.inner.source,
-                    start_time: info.block_start_pos(),
+                    source: PcmSourceSection {
+                        pcm_source: &self.inner.source,
+                        start_time: info.block_start_pos(),
+                    },
                     tempo_factor: info.final_tempo_factor,
-                    destination_buffer: args.block.samples(),
-                    destination_frame_count: args.block.length() as _,
-                    destination_channel_count: args.block.nch() as _,
+                    dest_buffer: AudioBuffer::from_transfer(args.block),
                 };
-                stretcher.try_non_blocking_stretch(request);
+                stretcher.stretch(request);
             } else {
                 inner_transfer.set_time_s(info.block_start_pos());
                 self.inner.source.get_samples(&inner_transfer);
@@ -605,7 +607,7 @@ impl ClipPcmSource {
         // something very high prevents repeated notes when turning the tempo down (don't ask me
         // why).
         inner_transfer.set_force_bpm(self.inner.original_tempo());
-        inner_transfer.set_absolute_time_s(PositionInSeconds::new(f64::MAX));
+        inner_transfer.set_absolute_time_s(time_s);
         self.inner.source.get_samples(&inner_transfer);
         let written_sample_count = inner_transfer.samples_out();
         if written_sample_count < info.length() as _ {
