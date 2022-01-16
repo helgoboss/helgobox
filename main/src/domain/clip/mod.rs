@@ -17,6 +17,8 @@ mod source_util;
 
 mod time_stretcher;
 
+mod buffer;
+
 /// Delivers the timeline to be used for clips.
 pub fn clip_timeline(project: Option<Project>) -> impl Timeline {
     // global_steady_timeline()

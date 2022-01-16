@@ -7,9 +7,10 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::ptr::null_mut;
 
+use crate::domain::clip::buffer::AudioBuffer;
 use crate::domain::clip::source_util::pcm_source_is_midi;
 use crate::domain::clip::time_stretcher::{
-    AudioBuffer, PcmSourceSection, ReaperTimeStretcher, TimeStretchRequest, TimeStretcher,
+    PcmSourceSection, ReaperTimeStretcher, TimeStretchRequest, TimeStretcher,
 };
 use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos, ClipRecordMode};
 use crate::domain::Timeline;
