@@ -8,6 +8,7 @@ use std::error::Error;
 use std::ptr::null_mut;
 
 use crate::domain::clip::source_util::pcm_source_is_midi;
+use crate::domain::clip::time_stretcher::{ReaperTimeStretcher, TimeStretchRequest, TimeStretcher};
 use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos, ClipRecordMode};
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
@@ -42,8 +43,6 @@ pub struct ClipPcmSource {
     debug_counter: u64,
     /// The current state of this clip, containing only state which is non-derivable.
     state: ClipState,
-    /// If `None`, audio will always play in original tempo.
-    time_stretch_mode: Option<TimeStretchMode>,
 }
 
 struct InnerSource {
@@ -52,10 +51,22 @@ struct InnerSource {
     /// It doesn't change throughout the lifetime of this clip source, although I think it could.
     source: OwnedPcmSource,
     /// Caches the information if the inner clip source contains MIDI or audio material.
-    is_midi: bool,
+    kind: InnerSourceKind,
+}
+
+enum InnerSourceKind {
+    Audio {
+        /// If `None`, audio will always play in original tempo.
+        time_stretch_mode: Option<TimeStretchMode>,
+    },
+    Midi,
 }
 
 impl InnerSource {
+    fn is_midi(&self) -> bool {
+        matches!(self.kind, InnerSourceKind::Midi)
+    }
+
     fn original_tempo(&self) -> Bpm {
         // TODO-high Correctly determine: For audio, guess depending on length or read metadata or
         //  let overwrite by user.
@@ -70,14 +81,12 @@ pub enum Repetition {
     Once,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Debug)]
 pub enum TimeStretchMode {
     /// Changes time but also pitch.
     Resampling,
-    /// Uses REAPER's pitch shift API which provides a plethora of pitch shifting algorithms.
-    // TODO-high This is just temporary until we create an owned IReaperPitchShift struct in
-    //  reaper-medium.
-    PitchShiftApi(&'static IReaperPitchShift),
+    /// Uses serious time stretching, without influencing pitch.
+    Serious(ReaperTimeStretcher),
 }
 
 impl Repetition {
@@ -207,26 +216,27 @@ pub enum ClipStopTime {
 impl ClipPcmSource {
     /// Wraps the given native REAPER PCM source.
     pub fn new(inner: OwnedPcmSource, project: Option<Project>) -> Self {
-        let is_midi = pcm_source_is_midi(&inner);
+        let kind = if pcm_source_is_midi(&inner) {
+            InnerSourceKind::Midi
+        } else {
+            InnerSourceKind::Audio {
+                time_stretch_mode: {
+                    let stretcher = ReaperTimeStretcher::new(&inner).unwrap();
+                    Some(TimeStretchMode::Serious(stretcher))
+                },
+                // time_stretch_mode: Some(TimeStretchMode::Resampling),
+            }
+        };
         Self {
             inner: InnerSource {
                 source: inner,
-                is_midi,
+                kind,
             },
             project,
             debug_counter: 0,
             repetition: Repetition::Once,
             state: ClipState::Stopped,
             manual_tempo_factor: 1.0,
-            // time_stretch_mode: Some(TimeStretchMode::Resampling),
-            time_stretch_mode: {
-                let api = Reaper::get()
-                    .medium_reaper()
-                    .low()
-                    .ReaperGetPitchShiftAPI(REAPER_PITCHSHIFT_API_VER);
-                let api = unsafe { &*api };
-                Some(TimeStretchMode::PitchShiftApi(api))
-            },
         }
     }
 
@@ -304,7 +314,7 @@ impl ClipPcmSource {
                 play_info,
                 transition_countdown,
             } => {
-                if self.inner.is_midi {
+                if self.inner.is_midi() {
                     // MIDI. Make everything get silent by sending the appropriate MIDI messages.
                     silence_midi(&args);
                     // Then immediately transition to the next state.
@@ -507,21 +517,30 @@ impl ClipPcmSource {
         }
         // At this point we are sure that the end of the block is right of the start position. The
         // start of the block might still be left of the start position (negative number).
+        use InnerSourceKind::*;
         unsafe {
-            if self.inner.is_midi {
-                self.fill_samples_midi(args, &info);
-            } else {
-                self.fill_samples_audio(args, &info);
-                // TODO-high Reenable post-processing
-                // self.post_process_audio(args, &info, stop_countdown);
+            match &self.inner.kind {
+                Audio { time_stretch_mode } => {
+                    self.fill_samples_audio(args, &info, time_stretch_mode.as_ref());
+                    // TODO-high Reenable post-processing
+                    // self.post_process_audio(args, &info, stop_countdown);
+                }
+                Midi => {
+                    self.fill_samples_midi(args, &info);
+                }
             }
         }
     }
 
-    unsafe fn fill_samples_audio(&self, args: &mut GetSamplesArgs, info: &BlockInfo) {
+    unsafe fn fill_samples_audio(
+        &self,
+        args: &mut GetSamplesArgs,
+        info: &BlockInfo,
+        time_stretch_mode: Option<&TimeStretchMode>,
+    ) {
         let outer_sample_rate = info.sample_rate();
         let mut inner_transfer = *args.block;
-        if self.time_stretch_mode == Some(TimeStretchMode::Resampling) {
+        if matches!(time_stretch_mode, Some(TimeStretchMode::Resampling)) {
             inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
         }
         if info.block_start_pos() < PositionInSeconds::ZERO {
@@ -533,40 +552,22 @@ impl ClipPcmSource {
             let sample_offset = (-info.block_start_pos().get() * outer_sample_rate.get()) as i32;
             inner_transfer.set_time_s(PositionInSeconds::ZERO);
             with_shifted_samples(&mut inner_transfer, sample_offset, |b| {
-                // TODO-high Buffering
                 self.inner.source.get_samples(b);
             });
         } else {
             // This is the code executed for the majority of the clip.
-            inner_transfer.set_time_s(info.block_start_pos());
-            // TODO-high Buffering
-            if let Some(TimeStretchMode::PitchShiftApi(api)) = self.time_stretch_mode {
-                // Prepare time stretching
-                // TODO-high Not sure if this is supposed to be the requested sample rate or the one
-                //  of the inner source.
-                api.set_srate(info.sample_rate().get());
-                // TODO-high Not sure if it's better to call this only once in the beginning.
-                let nch = self.inner.source.get_num_channels().unwrap();
-                api.set_nch(nch as _);
-                api.set_tempo(info.final_tempo_factor);
-                let inner_block_length = info.tempo_adjusted_length();
-                // Fill buffer of pitch shift API with source data
-                // Acquire pitch shift buffer in which we are going to write the original samples.
-                let pitch_shift_buffer = api.GetBuffer(inner_block_length as _);
-                // Make the inner source write the samples directly into the pitch shift buffer.
-                let mut time_stretch_transfer = inner_transfer;
-                time_stretch_transfer.set_samples(pitch_shift_buffer);
-                time_stretch_transfer.set_length(inner_block_length as _);
-                self.inner.source.get_samples(&time_stretch_transfer);
-                // Tell the pitch shift API how much samples the source was able to provide.
-                api.BufferDone(time_stretch_transfer.samples_out());
-                // At this point, the pitch shift buffer is filled with the inner source
-                // samples. The requested buffer has nothing yet. Fill it with the result
-                // of the pitch shift engine.
-                let frames_written =
-                    api.GetSamples(inner_transfer.length(), inner_transfer.samples());
-                // TODO-high Might have to zero the remaining frames
+            if let Some(TimeStretchMode::Serious(stretcher)) = time_stretch_mode {
+                let request = TimeStretchRequest {
+                    source: &self.inner.source,
+                    start_time: info.block_start_pos(),
+                    tempo_factor: info.final_tempo_factor,
+                    destination_buffer: args.block.samples(),
+                    destination_frame_count: args.block.length() as _,
+                    destination_channel_count: args.block.nch() as _,
+                };
+                stretcher.try_non_blocking_stretch(request);
             } else {
+                inner_transfer.set_time_s(info.block_start_pos());
                 self.inner.source.get_samples(&inner_transfer);
             }
         }
@@ -583,7 +584,6 @@ impl ClipPcmSource {
                 // remaining samples.
                 inner_transfer.set_time_s(PositionInSeconds::ZERO);
                 with_shifted_samples(&mut inner_transfer, written_sample_count, |b| {
-                    // TODO-high Buffering
                     self.inner.source.get_samples(b);
                 });
             }
@@ -1172,7 +1172,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn native_clip_length(&self) -> DurationInSeconds {
-        if self.inner.is_midi {
+        if self.inner.is_midi() {
             // For MIDI, get_length() takes the current project tempo in account ... which is not
             // what we want because we want to do all the tempo calculations ourselves and treat
             // MIDI/audio the same wherever possible.
@@ -1372,22 +1372,23 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
     }
 }
 
+/// Temporarily shifts the given sample block by the given offset and executes the function on it.  
 unsafe fn with_shifted_samples(
-    tansfer: &mut PcmSourceTransfer,
+    transfer: &mut PcmSourceTransfer,
     offset: i32,
     f: impl FnOnce(&mut PcmSourceTransfer),
 ) {
     // Shift samples.
-    let original_length = tansfer.length();
-    let original_samples = tansfer.samples();
-    let shifted_samples = original_samples.offset((offset * tansfer.nch()) as _);
-    tansfer.set_length(tansfer.length() - offset);
-    tansfer.set_samples(shifted_samples);
+    let original_length = transfer.length();
+    let original_samples = transfer.samples();
+    let shifted_samples = original_samples.offset((offset * transfer.nch()) as _);
+    transfer.set_length(transfer.length() - offset);
+    transfer.set_samples(shifted_samples);
     // Query inner source.
-    f(tansfer);
+    f(transfer);
     // Unshift samples.
-    tansfer.set_length(original_length);
-    tansfer.set_samples(original_samples);
+    transfer.set_length(original_length);
+    transfer.set_samples(original_samples);
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1700,3 +1701,5 @@ impl BlockInfo {
         Hz::new(self.sample_rate.get() / self.final_tempo_factor)
     }
 }
+
+const TEST_TEMPO_FACTOR: f64 = 0.5;
