@@ -591,19 +591,21 @@ impl ClipPcmSource {
     }
 
     unsafe fn fill_samples_midi(&self, args: &mut GetSamplesArgs, info: &BlockInfo) {
-        // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while
-        // playing instead of REAPER letting use its generic mechanism that leads to duplicate
-        // notes, probably through internal position changes.
-        // TODO-high This only prevents duplicate notes when increasing tempo, not when decreasing
-        //  it. Not sure what's still interfering.
-        let mut inner_transfer = *args.block;
-        inner_transfer.set_force_bpm(self.inner.original_tempo());
         let outer_sample_rate = info.sample_rate();
         // For MIDI it seems to be okay to start at a negative position. The source
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
-        inner_transfer.set_time_s(info.block_start_pos());
+        let time_s = info.block_start_pos();
+        let mut inner_transfer = *args.block;
+        inner_transfer.set_time_s(time_s);
         inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
+        // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while
+        // playing instead of REAPER letting use its generic mechanism that leads to duplicate
+        // notes, probably through internal position changes. Setting the absolute time to
+        // something very high prevents repeated notes when turning the tempo down (don't ask me
+        // why).
+        inner_transfer.set_force_bpm(self.inner.original_tempo());
+        inner_transfer.set_absolute_time_s(PositionInSeconds::new(f64::MAX));
         self.inner.source.get_samples(&inner_transfer);
         let written_sample_count = inner_transfer.samples_out();
         if written_sample_count < info.length() as _ {
