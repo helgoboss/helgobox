@@ -34,7 +34,6 @@ pub struct ReaperTimeStretcher {
     //  reaper-medium.
     api: &'static IReaperPitchShift,
     source_sample_rate: Hz,
-    source_channel_count: u32,
 }
 
 impl ReaperTimeStretcher {
@@ -46,10 +45,6 @@ impl ReaperTimeStretcher {
             .low()
             .ReaperGetPitchShiftAPI(REAPER_PITCHSHIFT_API_VER);
         let api = unsafe { &*api };
-        let source_channel_count = source
-            .get_num_channels()
-            .ok_or("doesn't look like audio source")?;
-        api.set_nch(source_channel_count as _);
         let source_sample_rate = source
             .get_sample_rate()
             .ok_or("doesn't look like audio source")?;
@@ -57,7 +52,6 @@ impl ReaperTimeStretcher {
         let stretcher = Self {
             api,
             source_sample_rate,
-            source_channel_count,
         };
         Ok(stretcher)
     }
@@ -65,6 +59,9 @@ impl ReaperTimeStretcher {
 
 impl TimeStretcher for ReaperTimeStretcher {
     fn try_non_blocking_stretch(&self, req: TimeStretchRequest) -> Result<(), &'static str> {
+        // Set parameters that can always vary
+        self.api.set_nch(req.destination_channel_count as _);
+        self.api.set_tempo(req.tempo_factor);
         // Write original material into pitch shift buffer.
         let inner_block_length = (req.destination_frame_count as f64 * req.tempo_factor) as u32;
         let stretch_buffer = self.api.GetBuffer(inner_block_length as _);
@@ -72,18 +69,14 @@ impl TimeStretcher for ReaperTimeStretcher {
         transfer.set_time_s(req.start_time);
         transfer.set_sample_rate(self.source_sample_rate);
         unsafe {
-            transfer.set_nch(self.source_channel_count as _);
+            transfer.set_nch(req.destination_channel_count as _);
             transfer.set_length(inner_block_length as _);
             transfer.set_samples(stretch_buffer);
             req.source.get_samples(&transfer);
         }
         self.api.BufferDone(transfer.samples_out());
         // Let time stretcher write the stretched material into the destination buffer.
-        self.api.set_tempo(req.tempo_factor);
         unsafe {
-            // TODO-high Mmh, if we are playing the clip on a track that has more channels than the
-            //  source, this will mess everything up. If we play it on a track that has less, it
-            //  will probably crash.
             self.api
                 .GetSamples(req.destination_frame_count as _, req.destination_buffer);
         };
