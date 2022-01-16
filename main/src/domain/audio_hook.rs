@@ -272,7 +272,7 @@ impl RealearnAudioHook {
                         length: args.len as _,
                         // Overdub
                         overwritemode: 0,
-                        events: event_list.raw().as_mut(),
+                        events: event_list.as_ptr().as_mut(),
                         latency: 0.0,
                         // Not used
                         overwrite_actives: null_mut(),

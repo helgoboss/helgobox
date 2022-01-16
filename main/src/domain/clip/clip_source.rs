@@ -13,13 +13,13 @@ use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use reaper_high::{Project, Reaper};
-use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};
+use reaper_low::raw::{IReaperPitchShift, PCM_source_transfer_t, REAPER_PITCHSHIFT_API_VER};
 use reaper_medium::{
-    BorrowedPcmSource, BorrowedPcmSourceTransfer, Bpm, CustomPcmSource, DurationInBeats,
-    DurationInSeconds, ExtendedArgs, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MidiEvent,
-    OwnedPcmSource, PcmSource, PeaksClearArgs, PitchShiftMode, PitchShiftSubMode,
-    PositionInSeconds, PropertiesWindowArgs, ReaperStr, SaveStateArgs, SetAvailableArgs,
-    SetFileNameArgs, SetSourceArgs,
+    BorrowedPcmSource, Bpm, CustomPcmSource, DurationInBeats, DurationInSeconds, ExtendedArgs,
+    GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MidiEvent, OwnedPcmSource, PcmSource,
+    PcmSourceTransfer, PeaksClearArgs, PitchShiftMode, PitchShiftSubMode, PositionInSeconds,
+    PropertiesWindowArgs, ReaperStr, SaveStateArgs, SetAvailableArgs, SetFileNameArgs,
+    SetSourceArgs,
 };
 
 /// A PCM source which wraps a native REAPER PCM source and applies all kinds of clip
@@ -520,12 +520,9 @@ impl ClipPcmSource {
 
     unsafe fn fill_samples_audio(&self, args: &mut GetSamplesArgs, info: &BlockInfo) {
         let outer_sample_rate = info.sample_rate();
-        // TODO-medium We shouldn't modify the existing block but create a new one. Otherwise
-        //  it's hard to keep track which changes concern the inner source and which one this
-        //  source.
+        let mut inner_transfer = *args.block;
         if self.time_stretch_mode == Some(TimeStretchMode::Resampling) {
-            args.block
-                .set_sample_rate(info.tempo_adjusted_sample_rate());
+            inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
         }
         if info.block_start_pos() < PositionInSeconds::ZERO {
             // dbg!("Audio starting at negative position");
@@ -534,14 +531,14 @@ impl ClipPcmSource {
             // amount. We calculate the sample offset with the outer sample rate because this
             // doesn't concern the inner source content.
             let sample_offset = (-info.block_start_pos().get() * outer_sample_rate.get()) as i32;
-            args.block.set_time_s(PositionInSeconds::ZERO);
-            with_shifted_samples(args.block, sample_offset, |b| {
+            inner_transfer.set_time_s(PositionInSeconds::ZERO);
+            with_shifted_samples(&mut inner_transfer, sample_offset, |b| {
                 // TODO-high Buffering
                 self.inner.source.get_samples(b);
             });
         } else {
             // This is the code executed for the majority of the clip.
-            args.block.set_time_s(info.block_start_pos());
+            inner_transfer.set_time_s(info.block_start_pos());
             // TODO-high Buffering
             if let Some(TimeStretchMode::PitchShiftApi(api)) = self.time_stretch_mode {
                 // Prepare time stretching
@@ -554,71 +551,41 @@ impl ClipPcmSource {
                 api.set_tempo(info.final_tempo_factor);
                 let inner_block_length = info.tempo_adjusted_length();
                 // Fill buffer of pitch shift API with source data
-                {
-                    // measure_time::debug_time!("pitch shift total");
-                    // Save reference to requested buffer
-                    let originally_requested_buffer = args.block.samples();
-                    let originally_requested_length = args.block.length();
-                    // Acquire pitch shift buffer in which we are going to write the original samples.
-                    let pitch_shift_buffer = {
-                        // measure_time::debug_time!("get pitch shift buffer");
-                        api.GetBuffer(inner_block_length as _)
-                    };
-                    {
-                        // measure_time::debug_time!("until bufferdone");
-                        // Temporarily switch the block buffer and make the inner source write the
-                        // samples directly into the pitch shift buffer.
-                        // TODO-high This is super hacky. We should create new transfer value or see
-                        //  how things turn out when we cache the inner source.
-                        args.block.set_samples(pitch_shift_buffer);
-                        args.block.set_length(inner_block_length as _);
-                        self.inner.source.get_samples(args.block);
-                        // Switch back to original transfer values
-                        args.block.set_samples(originally_requested_buffer);
-                        args.block.set_length(originally_requested_length);
-                    }
-                    // Tell the pitch shift API how much samples the source was able to provide.
-                    {
-                        // measure_time::debug_time!("bufferdone");
-                        api.BufferDone(args.block.samples_out());
-                    }
-                    // At this point, the pitch shift buffer is filled with the inner source
-                    // samples. The requested buffer has nothing yet. Fill it with the result
-                    // of the pitch shift engine.
-                    {
-                        // measure_time::debug_time!("getsamples and set_samples_out");
-                        let frames_written =
-                            api.GetSamples(originally_requested_length, args.block.samples());
-                        // TODO-high Might have to zero the remaining frames
-                        // dbg!(inner_block_length, frames_written);
-                    };
-                    args.block.set_samples_out(originally_requested_length);
-                }
+                // Acquire pitch shift buffer in which we are going to write the original samples.
+                let pitch_shift_buffer = api.GetBuffer(inner_block_length as _);
+                // Make the inner source write the samples directly into the pitch shift buffer.
+                let mut time_stretch_transfer = inner_transfer;
+                time_stretch_transfer.set_samples(pitch_shift_buffer);
+                time_stretch_transfer.set_length(inner_block_length as _);
+                self.inner.source.get_samples(&time_stretch_transfer);
+                // Tell the pitch shift API how much samples the source was able to provide.
+                api.BufferDone(time_stretch_transfer.samples_out());
+                // At this point, the pitch shift buffer is filled with the inner source
+                // samples. The requested buffer has nothing yet. Fill it with the result
+                // of the pitch shift engine.
+                let frames_written =
+                    api.GetSamples(inner_transfer.length(), inner_transfer.samples());
+                // TODO-high Might have to zero the remaining frames
             } else {
-                self.inner.source.get_samples(args.block);
+                self.inner.source.get_samples(&inner_transfer);
             }
         }
-        let written_sample_count = args.block.samples_out();
+        let written_sample_count = inner_transfer.samples_out();
         if written_sample_count < info.length() as _ {
             // We have reached the end of the clip and it doesn't fill the complete block.
             if info.is_last_block() {
                 // dbg!("Audio end of last cycle");
-                // Let preview register know that complete buffer has been
-                // filled as desired in order to prevent retry (?) queries.
-                args.block.set_samples_out(info.length() as _);
             } else {
                 // dbg!("Audio repeat");
                 // Repeat. Because we assume that the user cuts sources
                 // sample-perfect, we must immediately fill the rest of the
                 // buffer with the very beginning of the source. Start from zero and write just
                 // remaining samples.
-                args.block.set_time_s(PositionInSeconds::ZERO);
-                with_shifted_samples(args.block, written_sample_count, |b| {
+                inner_transfer.set_time_s(PositionInSeconds::ZERO);
+                with_shifted_samples(&mut inner_transfer, written_sample_count, |b| {
                     // TODO-high Buffering
                     self.inner.source.get_samples(b);
                 });
-                // Let preview register know that complete buffer has been filled.
-                args.block.set_samples_out(info.length() as _);
             }
         }
     }
@@ -629,25 +596,21 @@ impl ClipPcmSource {
         // notes, probably through internal position changes.
         // TODO-high This only prevents duplicate notes when increasing tempo, not when decreasing
         //  it. Not sure what's still interfering.
-        args.block.set_force_bpm(self.inner.original_tempo());
+        let mut inner_transfer = *args.block;
+        inner_transfer.set_force_bpm(self.inner.original_tempo());
         let outer_sample_rate = info.sample_rate();
         // For MIDI it seems to be okay to start at a negative position. The source
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
-        args.block.set_time_s(info.block_start_pos());
-        args.block
-            .set_sample_rate(info.tempo_adjusted_sample_rate());
-        self.inner.source.get_samples(args.block);
-        let written_sample_count = args.block.samples_out();
+        inner_transfer.set_time_s(info.block_start_pos());
+        inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
+        self.inner.source.get_samples(&inner_transfer);
+        let written_sample_count = inner_transfer.samples_out();
         if written_sample_count < info.length() as _ {
             // We have reached the end of the clip and it doesn't fill the
             // complete block.
             if info.is_last_block() {
                 dbg!("MIDI end of last cycle");
-                // Let preview register know that complete buffer has been
-                // filled as desired in order to prevent retry (?) queries that
-                // lead to double events.
-                args.block.set_samples_out(info.length as _);
             } else {
                 dbg!("MIDI repeat");
                 // Repeat. Fill rest of buffer with beginning of source.
@@ -658,9 +621,9 @@ impl ClipPcmSource {
                 let written_duration = written_sample_count as f64 / outer_sample_rate.get();
                 let negative_pos =
                     PositionInSeconds::new_unchecked(-written_duration) * info.final_tempo_factor();
-                args.block.set_time_s(negative_pos);
-                args.block.set_length(info.length as _);
-                self.inner.source.get_samples(args.block);
+                inner_transfer.set_time_s(negative_pos);
+                inner_transfer.set_length(info.length as _);
+                self.inner.source.get_samples(&inner_transfer);
             }
         }
     }
@@ -1408,21 +1371,21 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
 }
 
 unsafe fn with_shifted_samples(
-    block: &mut BorrowedPcmSourceTransfer,
+    tansfer: &mut PcmSourceTransfer,
     offset: i32,
-    f: impl FnOnce(&mut BorrowedPcmSourceTransfer),
+    f: impl FnOnce(&mut PcmSourceTransfer),
 ) {
     // Shift samples.
-    let original_length = block.length();
-    let original_samples = block.samples();
-    let shifted_samples = original_samples.offset((offset * block.nch()) as _);
-    block.set_length(block.length() - offset);
-    block.set_samples(shifted_samples);
+    let original_length = tansfer.length();
+    let original_samples = tansfer.samples();
+    let shifted_samples = original_samples.offset((offset * tansfer.nch()) as _);
+    tansfer.set_length(tansfer.length() - offset);
+    tansfer.set_samples(shifted_samples);
     // Query inner source.
-    f(block);
+    f(tansfer);
     // Unshift samples.
-    block.set_length(original_length);
-    block.set_samples(original_samples);
+    tansfer.set_length(original_length);
+    tansfer.set_samples(original_samples);
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1643,7 +1606,7 @@ struct BlockInfo {
 
 impl BlockInfo {
     pub fn new(
-        block: &BorrowedPcmSourceTransfer,
+        block: &PcmSourceTransfer,
         cursor_and_length_info: CursorAndLengthInfo,
         final_tempo_factor: f64,
         stop_countdown: Option<DurationInSeconds>,
