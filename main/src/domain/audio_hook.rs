@@ -232,6 +232,7 @@ impl RealearnAudioHook {
     }
 
     fn process_clip_record_tasks(&mut self, args: &OnAudioBufferArgs) {
+        // TODO-high This still needs a lot of refinement but the proof of concept works nicely.
         let record_task = match &self.clip_record_task {
             None => return,
             Some(t) => t,

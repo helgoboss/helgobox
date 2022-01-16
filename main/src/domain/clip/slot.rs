@@ -34,6 +34,12 @@ pub struct ClipSlot {
     state: State,
 }
 
+impl Drop for ClipSlot {
+    fn drop(&mut self) {
+        self.reset();
+    }
+}
+
 pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
 /// Creates a REAPER preview register with its initial settings taken from the given descriptor.

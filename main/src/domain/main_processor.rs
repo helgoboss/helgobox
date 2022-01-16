@@ -1420,7 +1420,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         if let ChangeEvent::PlayStateChanged(e) = event {
             // Feedback handled from instance-scoped feedback events.
             let mut instance_state = self.basics.instance_state.borrow_mut();
-            instance_state.process_transport_change(e.new_value, self.basics.context.project());
+            let project = self.basics.context.project();
+            if let Some(p) = project {
+                if !p.is_available() {
+                    // When closing a project, a play state change event is sent although the
+                    // project could be gone.
+                    return;
+                }
+            }
+            instance_state.process_transport_change(e.new_value, project);
         }
         self.process_feedback_related_reaper_event(|mapping, target| {
             mapping.process_change_event(

@@ -1,6 +1,7 @@
 // TODO-medium Give this file a last overhaul as soon as things run as they should. There were many
 //  changes and things might not be implemented/named optimally. Position naming is very
 //  inconsistent at the moment.
+use assert_no_alloc::*;
 use std::cmp;
 use std::convert::TryInto;
 use std::error::Error;
@@ -12,11 +13,13 @@ use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use reaper_high::{Project, Reaper};
+use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};
 use reaper_medium::{
     BorrowedPcmSource, BorrowedPcmSourceTransfer, Bpm, CustomPcmSource, DurationInBeats,
     DurationInSeconds, ExtendedArgs, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MidiEvent,
-    OwnedPcmSource, PcmSource, PeaksClearArgs, PositionInSeconds, PropertiesWindowArgs, ReaperStr,
-    SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
+    OwnedPcmSource, PcmSource, PeaksClearArgs, PitchShiftMode, PitchShiftSubMode,
+    PositionInSeconds, PropertiesWindowArgs, ReaperStr, SaveStateArgs, SetAvailableArgs,
+    SetFileNameArgs, SetSourceArgs,
 };
 
 /// A PCM source which wraps a native REAPER PCM source and applies all kinds of clip
@@ -39,6 +42,8 @@ pub struct ClipPcmSource {
     debug_counter: u64,
     /// The current state of this clip, containing only state which is non-derivable.
     state: ClipState,
+    /// If `None`, audio will always play in original tempo.
+    time_stretch_mode: Option<TimeStretchMode>,
 }
 
 struct InnerSource {
@@ -63,6 +68,16 @@ impl InnerSource {
 pub enum Repetition {
     Infinitely,
     Once,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum TimeStretchMode {
+    /// Changes time but also pitch.
+    Resampling,
+    /// Uses REAPER's pitch shift API which provides a plethora of pitch shifting algorithms.
+    // TODO-high This is just temporary until we create an owned IReaperPitchShift struct in
+    //  reaper-medium.
+    PitchShiftApi(&'static IReaperPitchShift),
 }
 
 impl Repetition {
@@ -203,6 +218,15 @@ impl ClipPcmSource {
             repetition: Repetition::Once,
             state: ClipState::Stopped,
             manual_tempo_factor: 1.0,
+            // time_stretch_mode: Some(TimeStretchMode::Resampling),
+            time_stretch_mode: {
+                let api = Reaper::get()
+                    .medium_reaper()
+                    .low()
+                    .ReaperGetPitchShiftAPI(REAPER_PITCHSHIFT_API_VER);
+                let api = unsafe { &*api };
+                Some(TimeStretchMode::PitchShiftApi(api))
+            },
         }
     }
 
@@ -219,7 +243,8 @@ impl ClipPcmSource {
         let timeline_tempo_factor = timeline_tempo.get() / self.inner.original_tempo().get();
         // (self.manual_tempo_factor * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
         // TODO-medium Enable manual tempo factor at some point when everything is working.
-        //  At the moment this introduces too many uncertainties and false positive bugs.
+        //  At the moment this introduces too many uncertainties and false positive bugs because
+        //  our demo project makes it too easy to accidentally change the manual tempo.
         (1.0 * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
     }
 
@@ -498,10 +523,12 @@ impl ClipPcmSource {
         // TODO-medium We shouldn't modify the existing block but create a new one. Otherwise
         //  it's hard to keep track which changes concern the inner source and which one this
         //  source.
-        args.block
-            .set_sample_rate(info.tempo_adjusted_sample_rate());
+        if self.time_stretch_mode == Some(TimeStretchMode::Resampling) {
+            args.block
+                .set_sample_rate(info.tempo_adjusted_sample_rate());
+        }
         if info.block_start_pos() < PositionInSeconds::ZERO {
-            dbg!("Audio starting at negative position");
+            // dbg!("Audio starting at negative position");
             // For audio, starting at a negative position leads to weird sounds.
             // That's why we need to query from 0.0 and offset the resulting sample buffer by that
             // amount. We calculate the sample offset with the outer sample rate because this
@@ -513,20 +540,74 @@ impl ClipPcmSource {
                 self.inner.source.get_samples(b);
             });
         } else {
+            // This is the code executed for the majority of the clip.
             args.block.set_time_s(info.block_start_pos());
             // TODO-high Buffering
-            self.inner.source.get_samples(args.block);
+            if let Some(TimeStretchMode::PitchShiftApi(api)) = self.time_stretch_mode {
+                // Prepare time stretching
+                // TODO-high Not sure if this is supposed to be the requested sample rate or the one
+                //  of the inner source.
+                api.set_srate(info.sample_rate().get());
+                // TODO-high Not sure if it's better to call this only once in the beginning.
+                let nch = self.inner.source.get_num_channels().unwrap();
+                api.set_nch(nch as _);
+                api.set_tempo(info.final_tempo_factor);
+                let inner_block_length = info.tempo_adjusted_length();
+                // Fill buffer of pitch shift API with source data
+                {
+                    // measure_time::debug_time!("pitch shift total");
+                    // Save reference to requested buffer
+                    let originally_requested_buffer = args.block.samples();
+                    let originally_requested_length = args.block.length();
+                    // Acquire pitch shift buffer in which we are going to write the original samples.
+                    let pitch_shift_buffer = {
+                        // measure_time::debug_time!("get pitch shift buffer");
+                        api.GetBuffer(inner_block_length as _)
+                    };
+                    {
+                        // measure_time::debug_time!("until bufferdone");
+                        // Temporarily switch the block buffer and make the inner source write the
+                        // samples directly into the pitch shift buffer.
+                        // TODO-high This is super hacky. We should create new transfer value or see
+                        //  how things turn out when we cache the inner source.
+                        args.block.set_samples(pitch_shift_buffer);
+                        args.block.set_length(inner_block_length as _);
+                        self.inner.source.get_samples(args.block);
+                        // Switch back to original transfer values
+                        args.block.set_samples(originally_requested_buffer);
+                        args.block.set_length(originally_requested_length);
+                    }
+                    // Tell the pitch shift API how much samples the source was able to provide.
+                    {
+                        // measure_time::debug_time!("bufferdone");
+                        api.BufferDone(args.block.samples_out());
+                    }
+                    // At this point, the pitch shift buffer is filled with the inner source
+                    // samples. The requested buffer has nothing yet. Fill it with the result
+                    // of the pitch shift engine.
+                    {
+                        // measure_time::debug_time!("getsamples and set_samples_out");
+                        let frames_written =
+                            api.GetSamples(originally_requested_length, args.block.samples());
+                        // TODO-high Might have to zero the remaining frames
+                        // dbg!(inner_block_length, frames_written);
+                    };
+                    args.block.set_samples_out(originally_requested_length);
+                }
+            } else {
+                self.inner.source.get_samples(args.block);
+            }
         }
         let written_sample_count = args.block.samples_out();
         if written_sample_count < info.length() as _ {
             // We have reached the end of the clip and it doesn't fill the complete block.
             if info.is_last_block() {
-                dbg!("Audio end of last cycle");
+                // dbg!("Audio end of last cycle");
                 // Let preview register know that complete buffer has been
                 // filled as desired in order to prevent retry (?) queries.
                 args.block.set_samples_out(info.length() as _);
             } else {
-                dbg!("Audio repeat");
+                // dbg!("Audio repeat");
                 // Repeat. Because we assume that the user cuts sources
                 // sample-perfect, we must immediately fill the rest of the
                 // buffer with the very beginning of the source. Start from zero and write just
@@ -686,22 +767,24 @@ impl CustomPcmSource for ClipPcmSource {
     }
 
     fn get_samples(&mut self, mut args: GetSamplesArgs) {
-        // TODO-medium assert_no_alloc when the time has come.
-        // Make sure that in any case, we are only queried once per time, without retries.
-        unsafe {
-            args.block.set_samples_out(args.block.length());
-        }
-        // Get main timeline info
-        let timeline = self.timeline();
-        if !timeline.is_running() {
-            // Main timeline is paused. Don't play, we don't want to play the same buffer
-            // repeatedly!
-            // TODO-high Pausing main transport and continuing has timing issues.
-            return;
-        }
-        let timeline_cursor_pos = timeline.cursor_pos();
-        // Get samples
-        self.get_samples_internal(&mut args, timeline, timeline_cursor_pos);
+        assert_no_alloc(|| {
+            // TODO-medium assert_no_alloc when the time has come.
+            // Make sure that in any case, we are only queried once per time, without retries.
+            unsafe {
+                args.block.set_samples_out(args.block.length());
+            }
+            // Get main timeline info
+            let timeline = self.timeline();
+            if !timeline.is_running() {
+                // Main timeline is paused. Don't play, we don't want to play the same buffer
+                // repeatedly!
+                // TODO-high Pausing main transport and continuing has timing issues.
+                return;
+            }
+            let timeline_cursor_pos = timeline.cursor_pos();
+            // Get samples
+            self.get_samples_internal(&mut args, timeline, timeline_cursor_pos);
+        });
         debug_assert_eq!(args.block.samples_out(), args.block.length());
     }
 
@@ -1582,12 +1665,26 @@ impl BlockInfo {
         self.duration
     }
 
+    /// The duration of audio/MIDI material to be queried from the inner source.
+    ///
+    /// The higher the tempo, the more material we need to fetch from the inner source per block,
+    /// that's why the returned duration is higher in this case.
     pub fn tempo_adjusted_duration(&self) -> DurationInSeconds {
         (self.duration * self.final_tempo_factor).expect("final tempo factor never negative")
     }
 
     pub fn length(&self) -> u32 {
         self.length
+    }
+
+    /// The block length to be queried from the inner source.
+    ///
+    /// The higher the tempo, the more material we need to fetch from the inner source per block,
+    /// that's why the returned block length is higher in this case.
+    ///
+    /// This is used for doing real time stretching (not resampling).
+    pub fn tempo_adjusted_length(&self) -> u32 {
+        (self.length as f64 * self.final_tempo_factor) as u32
     }
 
     pub fn sample_rate(&self) -> Hz {
@@ -1630,6 +1727,10 @@ impl BlockInfo {
         }
     }
 
+    /// The sample rate to use when querying audio/MIDI material from the inner source.
+    ///
+    /// - The higher the tempo factor, the lower the sample rate.
+    /// - For audio, this is only used if the time stretch mode is resampling.
     pub fn tempo_adjusted_sample_rate(&self) -> Hz {
         Hz::new(self.sample_rate.get() / self.final_tempo_factor)
     }
