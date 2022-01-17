@@ -7,7 +7,7 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::ptr::null_mut;
 
-use crate::domain::clip::buffer::AudioBuffer;
+use crate::domain::clip::buffer::BorrowedAudioBuffer;
 use crate::domain::clip::source_util::pcm_source_is_midi;
 use crate::domain::clip::time_stretcher::{ReaperStretcher, Stretch, StretchRequest};
 use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos, ClipRecordMode};
@@ -87,7 +87,7 @@ pub enum TimeStretchMode {
     /// Changes time but also pitch.
     Resampling,
     /// Uses serious time stretching, without influencing pitch.
-    Serious(ReaperStretcher<'static>),
+    Serious(ReaperStretcher<BorrowedAudioBuffer<'static>>),
 }
 
 impl Repetition {
@@ -1674,7 +1674,7 @@ unsafe fn fill_samples_audio(
                 source: pcm_source,
                 start_time: info.block_start_pos(),
                 tempo_factor: info.final_tempo_factor,
-                dest_buffer: AudioBuffer::from_transfer(args.block),
+                dest_buffer: BorrowedAudioBuffer::from_transfer(args.block),
             };
             stretcher.stretch(request);
         } else {
