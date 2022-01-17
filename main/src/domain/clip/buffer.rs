@@ -2,6 +2,7 @@ use reaper_medium::PcmSourceTransfer;
 
 // TODO-medium Replace this with one of the audio buffer types in the Rust ecosystem
 //  (dasp_slice, audio, fon, ...)
+#[derive(Debug)]
 pub struct AudioBuffer<'a> {
     pub data: &'a mut [f64],
     pub frame_count: u32,
@@ -25,5 +26,9 @@ impl<'a> AudioBuffer<'a> {
             frame_count,
             channel_count,
         }
+    }
+
+    pub fn interleaved_length(&self) -> usize {
+        (self.channel_count * self.channel_count) as _
     }
 }

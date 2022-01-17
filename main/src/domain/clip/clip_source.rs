@@ -9,9 +9,7 @@ use std::ptr::null_mut;
 
 use crate::domain::clip::buffer::AudioBuffer;
 use crate::domain::clip::source_util::pcm_source_is_midi;
-use crate::domain::clip::time_stretcher::{
-    PcmSourceSection, ReaperTimeStretcher, TimeStretchRequest, TimeStretcher,
-};
+use crate::domain::clip::time_stretcher::{ReaperStretcher, Stretch, StretchRequest};
 use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos, ClipRecordMode};
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
@@ -89,7 +87,7 @@ pub enum TimeStretchMode {
     /// Changes time but also pitch.
     Resampling,
     /// Uses serious time stretching, without influencing pitch.
-    Serious(ReaperTimeStretcher),
+    Serious(ReaperStretcher<'static>),
 }
 
 impl Repetition {
@@ -224,7 +222,7 @@ impl ClipPcmSource {
         } else {
             InnerSourceKind::Audio {
                 time_stretch_mode: {
-                    let stretcher = ReaperTimeStretcher::new(&inner).unwrap();
+                    let stretcher = ReaperStretcher::new(&inner).unwrap();
                     Some(TimeStretchMode::Serious(stretcher))
                 },
                 // time_stretch_mode: Some(TimeStretchMode::Resampling),
@@ -522,73 +520,15 @@ impl ClipPcmSource {
         // start of the block might still be left of the start position (negative number).
         use InnerSourceKind::*;
         unsafe {
-            match &self.inner.kind {
+            match &mut self.inner.kind {
                 Audio { time_stretch_mode } => {
-                    self.fill_samples_audio(args, &info, time_stretch_mode.as_ref());
+                    fill_samples_audio(&self.inner.source, args, &info, time_stretch_mode.as_mut());
                     // TODO-high Reenable post-processing
                     // self.post_process_audio(args, &info, stop_countdown);
                 }
                 Midi => {
                     self.fill_samples_midi(args, &info);
                 }
-            }
-        }
-    }
-
-    unsafe fn fill_samples_audio(
-        &self,
-        args: &mut GetSamplesArgs,
-        info: &BlockInfo,
-        time_stretch_mode: Option<&TimeStretchMode>,
-    ) {
-        let outer_sample_rate = info.sample_rate();
-        let mut inner_transfer = *args.block;
-        if matches!(time_stretch_mode, Some(TimeStretchMode::Resampling)) {
-            inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
-        }
-        if info.block_start_pos() < PositionInSeconds::ZERO {
-            // dbg!("Audio starting at negative position");
-            // For audio, starting at a negative position leads to weird sounds.
-            // That's why we need to query from 0.0 and offset the resulting sample buffer by that
-            // amount. We calculate the sample offset with the outer sample rate because this
-            // doesn't concern the inner source content.
-            let sample_offset = (-info.block_start_pos().get() * outer_sample_rate.get()) as i32;
-            inner_transfer.set_time_s(PositionInSeconds::ZERO);
-            with_shifted_samples(&mut inner_transfer, sample_offset, |b| {
-                self.inner.source.get_samples(b);
-            });
-        } else {
-            // This is the code executed for the majority of the clip.
-            if let Some(TimeStretchMode::Serious(stretcher)) = time_stretch_mode {
-                let request = TimeStretchRequest {
-                    source: PcmSourceSection {
-                        pcm_source: &self.inner.source,
-                        start_time: info.block_start_pos(),
-                    },
-                    tempo_factor: info.final_tempo_factor,
-                    dest_buffer: AudioBuffer::from_transfer(args.block),
-                };
-                stretcher.stretch(request);
-            } else {
-                inner_transfer.set_time_s(info.block_start_pos());
-                self.inner.source.get_samples(&inner_transfer);
-            }
-        }
-        let written_sample_count = inner_transfer.samples_out();
-        if written_sample_count < info.length() as _ {
-            // We have reached the end of the clip and it doesn't fill the complete block.
-            if info.is_last_block() {
-                // dbg!("Audio end of last cycle");
-            } else {
-                // dbg!("Audio repeat");
-                // Repeat. Because we assume that the user cuts sources
-                // sample-perfect, we must immediately fill the rest of the
-                // buffer with the very beginning of the source. Start from zero and write just
-                // remaining samples.
-                inner_transfer.set_time_s(PositionInSeconds::ZERO);
-                with_shifted_samples(&mut inner_transfer, written_sample_count, |b| {
-                    self.inner.source.get_samples(b);
-                });
             }
         }
     }
@@ -605,10 +545,10 @@ impl ClipPcmSource {
         // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while
         // playing instead of REAPER letting use its generic mechanism that leads to duplicate
         // notes, probably through internal position changes. Setting the absolute time to
-        // something very high prevents repeated notes when turning the tempo down (don't ask me
-        // why).
+        // zero prevents repeated notes when turning the tempo down. According to Justin this
+        // prevents the "re-sync-on-project-change logic".
         inner_transfer.set_force_bpm(self.inner.original_tempo());
-        inner_transfer.set_absolute_time_s(time_s);
+        inner_transfer.set_absolute_time_s(PositionInSeconds::ZERO);
         self.inner.source.get_samples(&inner_transfer);
         let written_sample_count = inner_transfer.samples_out();
         if written_sample_count < info.length() as _ {
@@ -1705,4 +1645,58 @@ impl BlockInfo {
     }
 }
 
-const TEST_TEMPO_FACTOR: f64 = 0.5;
+unsafe fn fill_samples_audio(
+    pcm_source: &BorrowedPcmSource,
+    args: &mut GetSamplesArgs,
+    info: &BlockInfo,
+    time_stretch_mode: Option<&mut TimeStretchMode>,
+) {
+    let outer_sample_rate = info.sample_rate();
+    let mut inner_transfer = *args.block;
+    if matches!(time_stretch_mode, Some(TimeStretchMode::Resampling)) {
+        inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
+    }
+    if info.block_start_pos() < PositionInSeconds::ZERO {
+        // dbg!("Audio starting at negative position");
+        // For audio, starting at a negative position leads to weird sounds.
+        // That's why we need to query from 0.0 and offset the resulting sample buffer by that
+        // amount. We calculate the sample offset with the outer sample rate because this
+        // doesn't concern the inner source content.
+        let sample_offset = (-info.block_start_pos().get() * outer_sample_rate.get()) as i32;
+        inner_transfer.set_time_s(PositionInSeconds::ZERO);
+        with_shifted_samples(&mut inner_transfer, sample_offset, |b| {
+            pcm_source.get_samples(b);
+        });
+    } else {
+        // This is the code executed for the majority of the clip.
+        if let Some(TimeStretchMode::Serious(stretcher)) = time_stretch_mode {
+            let request = StretchRequest {
+                source: pcm_source,
+                start_time: info.block_start_pos(),
+                tempo_factor: info.final_tempo_factor,
+                dest_buffer: AudioBuffer::from_transfer(args.block),
+            };
+            stretcher.stretch(request);
+        } else {
+            inner_transfer.set_time_s(info.block_start_pos());
+            pcm_source.get_samples(&inner_transfer);
+        }
+    }
+    let written_sample_count = inner_transfer.samples_out();
+    if written_sample_count < info.length() as _ {
+        // We have reached the end of the clip and it doesn't fill the complete block.
+        if info.is_last_block() {
+            // dbg!("Audio end of last cycle");
+        } else {
+            // dbg!("Audio repeat");
+            // Repeat. Because we assume that the user cuts sources
+            // sample-perfect, we must immediately fill the rest of the
+            // buffer with the very beginning of the source. Start from zero and write just
+            // remaining samples.
+            inner_transfer.set_time_s(PositionInSeconds::ZERO);
+            with_shifted_samples(&mut inner_transfer, written_sample_count, |b| {
+                pcm_source.get_samples(b);
+            });
+        }
+    }
+}

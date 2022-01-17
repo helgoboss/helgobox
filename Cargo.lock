@@ -3293,7 +3293,6 @@ dependencies = [
  "reaper-rx",
  "regex",
  "rosc",
- "rtrb",
  "runas",
  "rx-util",
  "rxrust",
@@ -3522,15 +3521,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2ca359b640ca8ef191ad8a56dd897fc46a7c733ea7b360085891cc7a70effdc"
 dependencies = [
  "byteorder",
-]
-
-[[package]]
-name = "rtrb"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "041ed130bf0bc1ef82c1b0e326d23c4b799876968e3483421c8b9e59f55f3308"
-dependencies = [
- "cache-padded",
 ]
 
 [[package]]

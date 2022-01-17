@@ -155,8 +155,6 @@ strum = "0.23"
 strum_macros = "0.23"
 # For some quick and dirty profiling
 measure_time = "0.8.0"
-# For processing audio material ahead of time
-rtrb = "0.2.1"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)
