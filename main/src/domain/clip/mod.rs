@@ -15,7 +15,7 @@ mod clip_source;
 
 mod source_util;
 
-mod time_stretcher;
+pub mod time_stretcher;
 
 mod buffer;
 

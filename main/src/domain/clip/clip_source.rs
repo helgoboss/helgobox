@@ -2,6 +2,7 @@
 //  changes and things might not be implemented/named optimally. Position naming is very
 //  inconsistent at the moment.
 use assert_no_alloc::*;
+use crossbeam_channel::Sender;
 use std::cmp;
 use std::convert::TryInto;
 use std::error::Error;
@@ -9,7 +10,10 @@ use std::ptr::null_mut;
 
 use crate::domain::clip::buffer::BorrowedAudioBuffer;
 use crate::domain::clip::source_util::pcm_source_is_midi;
-use crate::domain::clip::time_stretcher::{ReaperStretcher, StretchRequest};
+use crate::domain::clip::time_stretcher::{
+    AsyncStretcher, EmptyReaperStretcher, ReaperStretcher, SourceInfo, StretchRequest,
+    StretchWorkerRequest,
+};
 use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos, ClipRecordMode};
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
@@ -87,7 +91,7 @@ pub enum TimeStretchMode {
     /// Changes time but also pitch.
     Resampling,
     /// Uses serious time stretching, without influencing pitch.
-    Serious(ReaperStretcher),
+    Serious(AsyncStretcher),
 }
 
 impl Repetition {
@@ -216,17 +220,25 @@ pub enum ClipStopTime {
 
 impl ClipPcmSource {
     /// Wraps the given native REAPER PCM source.
-    pub fn new(inner: OwnedPcmSource, project: Option<Project>) -> Self {
+    pub fn new(
+        inner: OwnedPcmSource,
+        project: Option<Project>,
+        stretch_worker_sender: &Sender<StretchWorkerRequest>,
+    ) -> Self {
         let kind = if pcm_source_is_midi(&inner) {
             InnerSourceKind::Midi
         } else {
             InnerSourceKind::Audio {
                 time_stretch_mode: {
-                    let sample_rate = inner
-                        .get_sample_rate()
-                        .expect("audio source without sample rate");
-                    let reaper_stretcher = ReaperStretcher::new(sample_rate);
-                    Some(TimeStretchMode::Serious(reaper_stretcher))
+                    let source_info = SourceInfo::from_source(&inner).unwrap();
+                    let reaper_stretcher = EmptyReaperStretcher::new(source_info.sample_rate());
+                    let async_stretcher = AsyncStretcher::new(
+                        reaper_stretcher,
+                        4,
+                        stretch_worker_sender.clone(),
+                        source_info,
+                    );
+                    Some(TimeStretchMode::Serious(async_stretcher))
                 },
                 // time_stretch_mode: Some(TimeStretchMode::Resampling),
             }
@@ -1679,7 +1691,8 @@ unsafe fn fill_samples_audio(
                 tempo_factor: info.final_tempo_factor,
                 dest_buffer: BorrowedAudioBuffer::from_transfer(args.block),
             };
-            stretcher.stretch(request);
+            let result = stretcher.try_stretch(request);
+            dbg!(result);
         } else {
             inner_transfer.set_time_s(info.block_start_pos());
             inner_source.get_samples(&inner_transfer);

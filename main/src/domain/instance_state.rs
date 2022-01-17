@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::rc::Rc;
 
+use crossbeam_channel::Sender;
 use enum_map::EnumMap;
 use reaper_high::{Item, Project, Track};
 use reaper_medium::{Bpm, PlayState, PositionInSeconds, ReaperVolumeValue};
@@ -13,6 +14,7 @@ use helgoboss_learn::UnitValue;
 use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
+use crate::domain::clip::time_stretcher::{keep_stretching, StretchWorkerRequest};
 use crate::domain::clip::{
     clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipPlayState, ClipRecordMode,
     ClipRecordTiming, ClipSlot, SlotPlayOptions, SlotStopBehavior,
@@ -68,6 +70,8 @@ pub struct InstanceState {
     /// - Non-redundant state!
     active_instance_tags: HashSet<Tag>,
     audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
+    /// To communicate with the time stretching worker.
+    stretch_worker_sender: Sender<StretchWorkerRequest>,
 }
 
 #[derive(Debug)]
@@ -80,6 +84,10 @@ impl InstanceState {
         instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
         audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
     ) -> Self {
+        let (stretch_worker_sender, stretch_worker_receiver) = crossbeam_channel::bounded(500);
+        std::thread::spawn(move || {
+            keep_stretching(stretch_worker_receiver);
+        });
         Self {
             clip_slots: (0..8).map(ClipSlot::new).collect(),
             instance_feedback_event_sender,
@@ -91,6 +99,7 @@ impl InstanceState {
             active_mapping_tags: Default::default(),
             active_instance_tags: Default::default(),
             audio_hook_task_sender,
+            stretch_worker_sender,
         }
     }
 
@@ -348,8 +357,8 @@ impl InstanceState {
         }
         for desc in descriptors {
             let events = {
-                let slot = self.get_slot_mut(desc.index)?;
-                slot.load(desc.descriptor, project)?
+                let slot = get_slot_mut(&mut self.clip_slots, desc.index)?;
+                slot.load(desc.descriptor, project, &self.stretch_worker_sender)?
             };
             for e in events {
                 self.send_clip_changed_event(desc.index, e);
@@ -365,8 +374,11 @@ impl InstanceState {
         content: ClipContent,
         project: Option<Project>,
     ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?
-            .fill_by_user(content, project)?;
+        get_slot_mut(&mut self.clip_slots, slot_index)?.fill_by_user(
+            content,
+            project,
+            &self.stretch_worker_sender,
+        )?;
         self.notify_slot_contents_changed();
         Ok(())
     }
@@ -376,9 +388,9 @@ impl InstanceState {
         slot_index: usize,
         item: Item,
     ) -> Result<(), Box<dyn Error>> {
-        let slot = self.get_slot_mut(slot_index)?;
+        let slot = get_slot_mut(&mut self.clip_slots, slot_index)?;
         let content = ClipContent::from_item(item)?;
-        slot.fill_by_user(content, item.project())?;
+        slot.fill_by_user(content, item.project(), &self.stretch_worker_sender)?;
         self.notify_slot_contents_changed();
         Ok(())
     }
@@ -496,6 +508,10 @@ impl InstanceState {
     fn notify_slot_contents_changed(&mut self) {
         AsyncNotifier::notify(&mut self.slot_contents_changed_subject, &());
     }
+}
+
+fn get_slot_mut(slots: &mut [ClipSlot], index: usize) -> Result<&mut ClipSlot, &'static str> {
+    slots.get_mut(index).ok_or("no such slot")
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

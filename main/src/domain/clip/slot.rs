@@ -1,4 +1,5 @@
 use crate::domain::{Timeline, TimelineMoment};
+use crossbeam_channel::Sender;
 use enumflags2::BitFlags;
 use reaper_high::{OwnedSource, Project, Reaper, Track};
 use reaper_low::raw;
@@ -19,6 +20,7 @@ use crate::domain::clip::clip_source::{
     PosWithinClipArgs, RecordArgs, Repetition, ScheduledOrPlayingState, SeekToArgs,
     SetRepeatedArgs, StopArgs, SuspensionReason,
 };
+use crate::domain::clip::time_stretcher::StretchWorkerRequest;
 use crate::domain::clip::{
     clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
 };
@@ -71,7 +73,8 @@ impl ClipSlot {
     ///
     /// Stops playback if necessary.
     pub fn reset(&mut self) -> Result<Vec<ClipChangedEvent>, &'static str> {
-        self.load(Default::default(), None)
+        self.start_load(Default::default())?;
+        self.load_events()
     }
 
     /// Loads all slot settings from the given descriptor (including the contained clip).
@@ -79,16 +82,26 @@ impl ClipSlot {
     /// Stops playback if necessary.
     pub fn load(
         &mut self,
-        descriptor: Clip,
+        clip: Clip,
         project: Option<Project>,
+        stretch_worker_sender: &Sender<StretchWorkerRequest>,
     ) -> Result<Vec<ClipChangedEvent>, &'static str> {
-        self.clear()?;
-        // Using a completely new register saves us from cleaning up.
-        self.register = create_shared_register(&descriptor);
-        self.clip = descriptor;
+        self.start_load(clip)?;
         // If we can't load now, don't complain. Maybe media is missing just temporarily. Don't
         // mess up persistent data.
-        let _ = self.load_content_from_descriptor(project);
+        let _ = self.load_content_from_descriptor(project, stretch_worker_sender);
+        self.load_events()
+    }
+
+    fn start_load(&mut self, clip: Clip) -> Result<(), &'static str> {
+        self.clear()?;
+        // Using a completely new register saves us from cleaning up.
+        self.register = create_shared_register(&clip);
+        self.clip = clip;
+        Ok(())
+    }
+
+    fn load_events(&self) -> Result<Vec<ClipChangedEvent>, &'static str> {
         let events = vec![
             self.play_state_changed_event(),
             self.volume_changed_event(),
@@ -100,6 +113,7 @@ impl ClipSlot {
     fn load_content_from_descriptor(
         &mut self,
         project: Option<Project>,
+        stretch_worker_sender: &Sender<StretchWorkerRequest>,
     ) -> Result<(), &'static str> {
         let source = if let Some(content) = self.clip.content.as_ref() {
             content.create_source(project)?
@@ -107,7 +121,7 @@ impl ClipSlot {
             // Nothing to load
             return Ok(());
         };
-        self.fill_with_source(source, project)?;
+        self.fill_with_source(source, project, stretch_worker_sender)?;
         Ok(())
     }
 
@@ -116,9 +130,10 @@ impl ClipSlot {
         &mut self,
         content: ClipContent,
         project: Option<Project>,
+        stretch_worker_sender: &Sender<StretchWorkerRequest>,
     ) -> Result<(), &'static str> {
         let source = content.create_source(project)?;
-        self.fill_with_source(source, project)?;
+        self.fill_with_source(source, project, stretch_worker_sender)?;
         // Here it's important to not set the descriptor (change things) unless load was successful.
         self.clip.content = Some(content);
         Ok(())
@@ -128,10 +143,14 @@ impl ClipSlot {
         &mut self,
         source: OwnedSource,
         project: Option<Project>,
+        stretch_worker_sender: &Sender<StretchWorkerRequest>,
     ) -> Result<(), &'static str> {
-        let result = self
-            .start_transition()
-            .fill_with_source(source, &self.register, project);
+        let result = self.start_transition().fill_with_source(
+            source,
+            &self.register,
+            project,
+            stretch_worker_sender,
+        );
         self.finish_transition(result)
     }
 
@@ -595,8 +614,9 @@ impl State {
         source: OwnedSource,
         reg: &SharedRegister,
         project: Option<Project>,
+        stretch_worker_sender: &Sender<StretchWorkerRequest>,
     ) -> TransitionResult {
-        let source = ClipPcmSource::new(source.into_raw(), project);
+        let source = ClipPcmSource::new(source.into_raw(), project, stretch_worker_sender);
         let source = create_custom_owned_pcm_source(source);
         let source = FlexibleOwnedPcmSource::Custom(source);
         use State::*;

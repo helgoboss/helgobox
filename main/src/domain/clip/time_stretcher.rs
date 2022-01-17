@@ -149,6 +149,8 @@ pub struct EmptyReaperStretcher {
     api: &'static IReaperPitchShift,
 }
 
+unsafe impl Send for EmptyReaperStretcher {}
+
 #[derive(Debug)]
 pub struct FillRequest<S: CopyToAudioBuffer> {
     /// Source material.
@@ -169,6 +171,8 @@ pub struct FilledReaperStretcher {
     //  reaper-medium.
     api: &'static IReaperPitchShift,
 }
+
+unsafe impl Send for FilledReaperStretcher {}
 
 impl EmptyReaperStretcher {
     /// Creates an empty time stretcher instance based on the constant properties of the given audio
@@ -230,7 +234,7 @@ impl FilledReaperStretcher {
 #[derive(Debug)]
 pub struct AsyncStretcher {
     lookahead_factor: usize,
-    worker_sender: Sender<WorkerRequest>,
+    worker_sender: Sender<StretchWorkerRequest>,
     // TODO-high We should use a one-shot channel.
     response_sender: Sender<AsyncStretchResponse>,
     response_receiver: Receiver<AsyncStretchResponse>,
@@ -259,6 +263,14 @@ impl SourceInfo {
             },
         };
         Ok(info)
+    }
+
+    pub fn sample_rate(&self) -> Hz {
+        self.sample_rate
+    }
+
+    pub fn length(&self) -> DurationInSeconds {
+        self.length
     }
 
     pub fn frame_count(&self) -> usize {
@@ -355,7 +367,7 @@ impl AsyncStretcher {
     pub fn new(
         stretcher: EmptyReaperStretcher,
         lookahead_factor: usize,
-        worker_sender: Sender<WorkerRequest>,
+        worker_sender: Sender<StretchWorkerRequest>,
         source_info: SourceInfo,
     ) -> Self {
         let (response_sender, response_receiver) =
@@ -683,7 +695,7 @@ impl AsyncStretcher {
             spare_buffer_1: obsolete_material_1.map(|m| m.buffer.into_inner()),
             spare_buffer_2: obsolete_material_2.map(|m| m.buffer.into_inner()),
         };
-        let worker_request = WorkerRequest::Stretch {
+        let worker_request = StretchWorkerRequest::Stretch {
             request: async_stretch_request,
             response_sender: self.response_sender.clone(),
         };
@@ -698,7 +710,7 @@ impl AsyncStretcher {
     }
 }
 
-pub enum WorkerRequest {
+pub enum StretchWorkerRequest {
     Stretch {
         request: AsyncStretchRequest,
         response_sender: Sender<AsyncStretchResponse>,
@@ -722,9 +734,11 @@ pub struct AsyncStretchResponse {
     material: StretchedMaterial,
 }
 
-fn keep_stretching(requests: Receiver<WorkerRequest>) {
+/// A function that keeps processing stretch worker requests until the channel of the given receiver
+/// is dropped.
+pub fn keep_stretching(requests: Receiver<StretchWorkerRequest>) {
     while let Ok(req) = requests.recv() {
-        use WorkerRequest::*;
+        use StretchWorkerRequest::*;
         match req {
             Stretch {
                 request,
