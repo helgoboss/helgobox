@@ -5,11 +5,15 @@ pub trait AudioBuffer {
 
     fn frame_count(&self) -> usize;
 
-    fn data_as_mut_ptr(&mut self) -> *mut f64;
-
     fn interleaved_length(&self) -> usize {
         self.channel_count() * self.channel_count()
     }
+
+    fn data_as_slice(&self) -> &[f64];
+
+    fn data_as_mut_slice(&mut self) -> &mut [f64];
+
+    fn data_as_mut_ptr(&mut self) -> *mut f64;
 }
 
 #[derive(Debug)]
@@ -67,6 +71,14 @@ impl AudioBuffer for OwnedAudioBuffer {
     fn data_as_mut_ptr(&mut self) -> *mut f64 {
         self.data.as_mut_ptr()
     }
+
+    fn data_as_mut_slice(&mut self) -> &mut [f64] {
+        self.data.as_mut_slice()
+    }
+
+    fn data_as_slice(&self) -> &[f64] {
+        self.data.as_slice()
+    }
 }
 
 impl AudioBuffer for &mut OwnedAudioBuffer {
@@ -76,6 +88,14 @@ impl AudioBuffer for &mut OwnedAudioBuffer {
 
     fn frame_count(&self) -> usize {
         self.frame_count
+    }
+
+    fn data_as_slice(&self) -> &[f64] {
+        self.data.as_slice()
+    }
+
+    fn data_as_mut_slice(&mut self) -> &mut [f64] {
+        (*self).data_as_mut_slice()
     }
 
     fn data_as_mut_ptr(&mut self) -> *mut f64 {
@@ -119,6 +139,14 @@ impl<'a> AudioBuffer for BorrowedAudioBuffer<'a> {
 
     fn frame_count(&self) -> usize {
         self.frame_count
+    }
+
+    fn data_as_slice(&self) -> &[f64] {
+        self.data
+    }
+
+    fn data_as_mut_slice(&mut self) -> &mut [f64] {
+        self.data
     }
 
     fn data_as_mut_ptr(&mut self) -> *mut f64 {

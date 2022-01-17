@@ -222,8 +222,11 @@ impl ClipPcmSource {
         } else {
             InnerSourceKind::Audio {
                 time_stretch_mode: {
-                    let stretcher = ReaperStretcher::new(&inner).unwrap();
-                    Some(TimeStretchMode::Serious(stretcher))
+                    let sample_rate = inner
+                        .get_sample_rate()
+                        .expect("audio source without sample rate");
+                    let reaper_stretcher = ReaperStretcher::new(sample_rate);
+                    Some(TimeStretchMode::Serious(reaper_stretcher))
                 },
                 // time_stretch_mode: Some(TimeStretchMode::Resampling),
             }
