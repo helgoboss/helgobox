@@ -9,7 +9,7 @@ use std::ptr::null_mut;
 
 use crate::domain::clip::buffer::BorrowedAudioBuffer;
 use crate::domain::clip::source_util::pcm_source_is_midi;
-use crate::domain::clip::time_stretcher::{ReaperStretcher, Stretch, StretchRequest};
+use crate::domain::clip::time_stretcher::{ReaperStretcher, StretchRequest};
 use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos, ClipRecordMode};
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
@@ -87,7 +87,7 @@ pub enum TimeStretchMode {
     /// Changes time but also pitch.
     Resampling,
     /// Uses serious time stretching, without influencing pitch.
-    Serious(ReaperStretcher<BorrowedAudioBuffer<'static>>),
+    Serious(ReaperStretcher),
 }
 
 impl Repetition {
@@ -1646,7 +1646,7 @@ impl BlockInfo {
 }
 
 unsafe fn fill_samples_audio(
-    pcm_source: &BorrowedPcmSource,
+    inner_source: &BorrowedPcmSource,
     args: &mut GetSamplesArgs,
     info: &BlockInfo,
     time_stretch_mode: Option<&mut TimeStretchMode>,
@@ -1665,13 +1665,13 @@ unsafe fn fill_samples_audio(
         let sample_offset = (-info.block_start_pos().get() * outer_sample_rate.get()) as i32;
         inner_transfer.set_time_s(PositionInSeconds::ZERO);
         with_shifted_samples(&mut inner_transfer, sample_offset, |b| {
-            pcm_source.get_samples(b);
+            inner_source.get_samples(b);
         });
     } else {
         // This is the code executed for the majority of the clip.
         if let Some(TimeStretchMode::Serious(stretcher)) = time_stretch_mode {
             let request = StretchRequest {
-                source: pcm_source,
+                source: inner_source,
                 start_time: info.block_start_pos(),
                 tempo_factor: info.final_tempo_factor,
                 dest_buffer: BorrowedAudioBuffer::from_transfer(args.block),
@@ -1679,7 +1679,7 @@ unsafe fn fill_samples_audio(
             stretcher.stretch(request);
         } else {
             inner_transfer.set_time_s(info.block_start_pos());
-            pcm_source.get_samples(&inner_transfer);
+            inner_source.get_samples(&inner_transfer);
         }
     }
     let written_sample_count = inner_transfer.samples_out();
@@ -1695,7 +1695,7 @@ unsafe fn fill_samples_audio(
             // remaining samples.
             inner_transfer.set_time_s(PositionInSeconds::ZERO);
             with_shifted_samples(&mut inner_transfer, written_sample_count, |b| {
-                pcm_source.get_samples(b);
+                inner_source.get_samples(b);
             });
         }
     }
