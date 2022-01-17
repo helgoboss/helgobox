@@ -281,10 +281,12 @@ impl AsyncStretcher {
     /// has been stretched already. If not, it will take this as a request to start stretching
     /// the *next* few blocks asynchronously, using the given parameters (so that consecutive calls
     /// will hopefully return successfully).
+    ///
+    /// Returns success/failure messages for debugging purposes.
     pub fn try_stretch(
         &mut self,
         req: StretchRequest<&BorrowedPcmSource, impl AudioBuffer>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<&'static str, &'static str> {
         use AsyncStretcherState::*;
         let outcome = match self.state.take().unwrap() {
             Empty { equipment } => {
@@ -328,7 +330,7 @@ impl AsyncStretcher {
                             )?;
                             Outcome {
                                 next_state,
-                                result: Ok(()),
+                                result: Ok("current material just arrived and it works"),
                             }
                         }
                         Err(_) => {
@@ -401,7 +403,7 @@ impl AsyncStretcher {
                         };
                         Outcome {
                             next_state,
-                            result: Ok(()),
+                            result: Ok("current material works while waiting for next one"),
                         }
                     }
                     Err(_) => {
@@ -427,7 +429,7 @@ impl AsyncStretcher {
                                         next_state: PreparingNextMaterial {
                                             current_material: response.material,
                                         },
-                                        result: Ok(()),
+                                        result: Ok("current material doesn't work but next one just arrived and works"),
                                     }
                                 }
                                 Err(_) => {
@@ -500,7 +502,7 @@ impl AsyncStretcher {
                         };
                         Outcome {
                             next_state,
-                            result: Ok(()),
+                            result: Ok("current material works while full"),
                         }
                     }
                     Err(s) => {
@@ -524,7 +526,7 @@ impl AsyncStretcher {
                                     next_state: PreparingNextMaterial {
                                         current_material: next_material,
                                     },
-                                    result: Ok(()),
+                                    result: Ok("next material works while full"),
                                 }
                             }
                             Err(_) => {
@@ -674,5 +676,5 @@ impl<B: AudioBuffer> StretchRequest<&BorrowedPcmSource, B> {
 
 struct Outcome {
     next_state: AsyncStretcherState,
-    result: Result<(), &'static str>,
+    result: Result<&'static str, &'static str>,
 }
