@@ -342,9 +342,11 @@ pub enum AsyncStretcherState {
 pub struct StretchedMaterial {
     /// Position within the source that was the origin of stretching.
     start_frame: usize,
-    /// Tempo factor.
+    /// Tempo factor for debugging purposes.
     tempo_factor: f64,
-    unstretched_frame_count: usize,
+    unstretched_frame_count_per_block: usize,
+    stretched_frame_count_per_block: usize,
+    block_count: usize,
     /// Audio buffer that contains the stretched material.
     buffer: OwnedAudioBuffer,
 }
@@ -362,9 +364,11 @@ impl StretchedMaterial {
         if req.dest_buffer.channel_count() != self.buffer.channel_count() {
             return Err("channel count mismatch");
         }
-        // TODO-high Compare req_info.unstretched_frame_count and material.unstretched_frame_count_per_block instead.
-        if req.tempo_factor() != self.tempo_factor {
-            return Err("tempo factor mismatch");
+        if req.unstretched_frame_count != self.unstretched_frame_count_per_block {
+            return Err("unstretched frame count (= tempo factor) mismatch");
+        }
+        if req.dest_buffer.frame_count() != self.stretched_frame_count_per_block {
+            return Err("stretched frame count (= tempo factor) mismatch");
         }
         let req_info = req.stretch_info(source_info);
         let material_info = self.stretch_info(source_info);
@@ -381,17 +385,14 @@ impl StretchedMaterial {
         // In order to be exact and avoid potential rounding errors, use integer arithmetics to
         // calculate the frame offset in the stretched material instead of dividing by the
         // tempo factor.
-        // This yields the index of the material block in which we are (up to lookahead_factor - 1).
-        // TODO-high Save the original block size (e.g. 517) and the lookahead factor as part of the material and calculate the unstretched
-        //  frame count on the fly by multiplying it with the block length. Then we can use
-        //  that original block size here instead of having to rely on req-info.unstretched_frame_count.
-        //  Then we can also compare this above.
-        let material_block_index = source_frame_offset / req_info.unstretched_frame_count;
-        // This yields the start frame of that block in the stretched material.
-        let material_block_start_frame = material_block_index * req_info.stretched_frame_count;
+        // This yields the index of the material block in which the requested material starts.
+        let material_block_index = source_frame_offset / self.unstretched_frame_count_per_block;
+        // This yields the start frame of that block.
+        let material_block_start_frame =
+            material_block_index * self.stretched_frame_count_per_block;
         // This finally yields the frame offset in the material.
-        let material_frame_offset =
-            material_block_start_frame + source_frame_offset % req_info.unstretched_frame_count;
+        let material_frame_offset = material_block_start_frame
+            + source_frame_offset % self.unstretched_frame_count_per_block;
         let dest_frame_count = req.dest_buffer.frame_count();
         self.buffer.copy_to(
             &mut req.dest_buffer,
@@ -412,10 +413,14 @@ impl StretchedMaterial {
             start_frame: self.start_frame,
             tempo_factor: self.tempo_factor,
             stretched_frame_count: self.buffer.frame_count(),
-            unstretched_frame_count: self.unstretched_frame_count,
+            unstretched_frame_count: self.unstretched_frame_count(),
             source_frame_count: source_info.frame_count(),
         };
         StretchInfo::new(input)
+    }
+
+    fn unstretched_frame_count(&self) -> usize {
+        self.unstretched_frame_count_per_block * self.block_count
     }
 
     /// Returns the end frame within the source (modulo).
@@ -767,11 +772,12 @@ impl AsyncStretcher {
                 .map_err(|msg| e(msg, ""))?,
             start_frame,
             tempo_factor: req.tempo_factor(),
-            unstretched_frame_count,
+            unstretched_frame_count_per_block: req.unstretched_frame_count,
+            stretched_frame_count_per_block: req.dest_buffer.frame_count(),
             dest_channel_count,
-            dest_frame_count,
             spare_buffer_1: obsolete_material_1.map(|m| m.buffer.into_inner()),
             spare_buffer_2: obsolete_material_2.map(|m| m.buffer.into_inner()),
+            block_count: self.lookahead_factor,
         };
         let worker_request = StretchWorkerRequest::Stretch {
             request: async_stretch_request,
@@ -806,11 +812,18 @@ pub struct AsyncStretchRequest {
     stretcher: FilledReaperStretcher,
     start_frame: usize,
     tempo_factor: f64,
-    unstretched_frame_count: usize,
+    unstretched_frame_count_per_block: usize,
+    stretched_frame_count_per_block: usize,
+    block_count: usize,
     dest_channel_count: usize,
-    dest_frame_count: usize,
     spare_buffer_1: Option<Vec<f64>>,
     spare_buffer_2: Option<Vec<f64>>,
+}
+
+impl AsyncStretchRequest {
+    fn dest_frame_count(&self) -> usize {
+        self.stretched_frame_count_per_block * self.block_count
+    }
 }
 
 #[derive(Debug)]
@@ -841,17 +854,19 @@ fn process_async_stretch_req(mut req: AsyncStretchRequest) -> AsyncStretchRespon
     let mut dest_buffer = IntoIterator::into_iter(spare_buffers)
         .flatten()
         .find_map(|b| {
-            OwnedAudioBuffer::try_recycle(b, req.dest_channel_count, req.dest_frame_count).ok()
+            OwnedAudioBuffer::try_recycle(b, req.dest_channel_count, req.dest_frame_count()).ok()
         })
-        .unwrap_or_else(|| OwnedAudioBuffer::new(req.dest_channel_count, req.dest_frame_count));
+        .unwrap_or_else(|| OwnedAudioBuffer::new(req.dest_channel_count, req.dest_frame_count()));
     let empty = req.stretcher.stretch(&mut dest_buffer);
     AsyncStretchResponse {
         equipment: StretchEquipment { stretcher: empty },
         material: StretchedMaterial {
             start_frame: req.start_frame,
             tempo_factor: req.tempo_factor,
-            unstretched_frame_count: req.unstretched_frame_count,
+            unstretched_frame_count_per_block: req.unstretched_frame_count_per_block,
+            stretched_frame_count_per_block: req.stretched_frame_count_per_block,
             buffer: dest_buffer,
+            block_count: req.block_count,
         },
     }
 }
