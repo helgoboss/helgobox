@@ -11,7 +11,7 @@ use std::fmt::{Display, Formatter};
 pub trait CopyToAudioBuffer {
     fn copy_to_audio_buffer(
         &self,
-        start_time: PositionInSeconds,
+        start_frame: usize,
         dest_buffer: impl AudioBuffer,
     ) -> Result<u32, &'static str>;
 }
@@ -19,12 +19,13 @@ pub trait CopyToAudioBuffer {
 impl<'a> CopyToAudioBuffer for &'a BorrowedPcmSource {
     fn copy_to_audio_buffer(
         &self,
-        start_time: PositionInSeconds,
+        start_frame: usize,
         mut dest_buffer: impl AudioBuffer,
     ) -> Result<u32, &'static str> {
         let mut transfer = PcmSourceTransfer::default();
-        transfer.set_time_s(start_time);
         let sample_rate = self.get_sample_rate().ok_or("source without sample rate")?;
+        let start_time = PositionInSeconds::new(start_frame as f64 / sample_rate.get());
+        transfer.set_time_s(start_time);
         transfer.set_sample_rate(sample_rate);
         // TODO-high Here we need to handle repeat/not-repeat
         unsafe {
@@ -43,7 +44,8 @@ pub struct StretchRequest<S: CopyToAudioBuffer, B: AudioBuffer> {
     /// Source material.
     pub source: S,
     /// Position within source from which to start stretching.
-    pub start_time: PositionInSeconds,
+    pub start_frame: usize,
+    /// The number of frames from the source to grab.
     pub unstretched_frame_count: usize,
     /// The final time stretched samples should end up here.
     pub dest_buffer: B,
@@ -52,10 +54,7 @@ pub struct StretchRequest<S: CopyToAudioBuffer, B: AudioBuffer> {
 impl<S: CopyToAudioBuffer, B: AudioBuffer> StretchRequest<S, B> {
     pub fn stretch_info(&self, source_info: &SourceInfo) -> StretchInfo {
         let input = StretchInfoInput {
-            start_frame: {
-                // TODO-medium What if we use frames everywhere and only convert to times when REAPER needs it?
-                (self.start_time.get() * source_info.sample_rate.get()) as usize
-            },
+            start_frame: self.start_frame,
             tempo_factor: self.tempo_factor(),
             stretched_frame_count: self.dest_buffer.frame_count(),
             unstretched_frame_count: self.unstretched_frame_count,
@@ -147,7 +146,7 @@ impl ReaperStretcher {
         };
         let fill_req = FillRequest {
             source: req.source,
-            start_time: req.start_time,
+            start_frame: req.start_frame,
             unstretched_frame_count: req.unstretched_frame_count,
             dest_channel_count: req.dest_buffer.channel_count(),
             dest_frame_count: req.dest_buffer.frame_count(),
@@ -178,10 +177,7 @@ pub struct FillRequest<S: CopyToAudioBuffer> {
     /// Source material.
     pub source: S,
     /// Position within source where to start stretching.
-    ///
-    /// This needs to be in seconds. REAPER's source API doesn't support querying by frames.
-    // TODO-high Pass in frames here and derive the start time.
-    pub start_time: PositionInSeconds,
+    pub start_frame: usize,
     /// The number of channels in the destination buffer.
     pub dest_channel_count: usize,
     /// The number of frames to be filled.
@@ -247,7 +243,7 @@ impl EmptyReaperStretcher {
         };
         let read_sample_count = req
             .source
-            .copy_to_audio_buffer(req.start_time, stretch_buffer)?;
+            .copy_to_audio_buffer(req.start_frame, stretch_buffer)?;
         self.api.BufferDone(read_sample_count as _);
         let filled = FilledReaperStretcher { api: self.api };
         Ok(filled)
@@ -362,22 +358,40 @@ impl StretchedMaterial {
         req: &mut StretchRequest<&BorrowedPcmSource, impl AudioBuffer>,
         source_info: &SourceInfo,
     ) -> Result<MaterialStatus, &'static str> {
+        // At first check if this material suits the given requests.
         if req.dest_buffer.channel_count() != self.buffer.channel_count() {
             return Err("channel count mismatch");
         }
+        // TODO-high Compare req_info.unstretched_frame_count and material.unstretched_frame_count_per_block instead.
         if req.tempo_factor() != self.tempo_factor {
             return Err("tempo factor mismatch");
         }
         let req_info = req.stretch_info(source_info);
         let material_info = self.stretch_info(source_info);
         if req_info.start_frame < material_info.start_frame {
-            return Err("requested portion starts before material portion");
+            return Err("requested source portion starts before material portion");
         }
         if req_info.hypothetical_end_frame > material_info.hypothetical_end_frame {
             dbg!(source_info, material_info);
-            return Err("requested portion ends after material portion");
+            return Err("requested source portion ends after material portion");
         }
-        let material_frame_offset = req_info.start_frame - material_info.start_frame;
+        // Now determine the right material portion to write to the destination block.
+        // This yields the frame offset in the source. But we need the one in the stretched material.
+        let source_frame_offset = req_info.start_frame - material_info.start_frame;
+        // In order to be exact and avoid potential rounding errors, use integer arithmetics to
+        // calculate the frame offset in the stretched material instead of dividing by the
+        // tempo factor.
+        // This yields the index of the material block in which we are (up to lookahead_factor - 1).
+        // TODO-high Save the original block size (e.g. 517) and the lookahead factor as part of the material and calculate the unstretched
+        //  frame count on the fly by multiplying it with the block length. Then we can use
+        //  that original block size here instead of having to rely on req-info.unstretched_frame_count.
+        //  Then we can also compare this above.
+        let material_block_index = source_frame_offset / req_info.unstretched_frame_count;
+        // This yields the start frame of that block in the stretched material.
+        let material_block_start_frame = material_block_index * req_info.stretched_frame_count;
+        // This finally yields the frame offset in the material.
+        let material_frame_offset =
+            material_block_start_frame + source_frame_offset % req_info.unstretched_frame_count;
         let dest_frame_count = req.dest_buffer.frame_count();
         self.buffer.copy_to(
             &mut req.dest_buffer,
@@ -738,11 +752,9 @@ impl AsyncStretcher {
         let dest_channel_count = req.dest_buffer.channel_count();
         let dest_frame_count = req.dest_buffer.frame_count() * self.lookahead_factor;
         let unstretched_frame_count = req.unstretched_frame_count * self.lookahead_factor;
-        let start_time =
-            PositionInSeconds::new(start_frame as f64 / self.source_info.sample_rate.get());
         let fill_request = FillRequest {
             source: req.source,
-            start_time,
+            start_frame,
             dest_channel_count,
             dest_frame_count,
             unstretched_frame_count,

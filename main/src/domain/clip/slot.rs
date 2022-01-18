@@ -1016,7 +1016,7 @@ fn get_play_state(clip_state: ClipState) -> ClipPlayState {
             } else if s.scheduled_for_stop {
                 ClipPlayState::ScheduledForStop
             } else if let Some(d) = s.resolved_play_data {
-                if d.next_block_pos < PositionInSeconds::ZERO {
+                if d.next_block_pos < 0 {
                     ClipPlayState::ScheduledForPlay
                 } else {
                     ClipPlayState::Playing

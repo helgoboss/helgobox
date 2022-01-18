@@ -48,6 +48,9 @@ pub struct ClipPcmSource {
     debug_counter: u64,
     /// The current state of this clip, containing only state which is non-derivable.
     state: ClipState,
+    /// When a preview register plays this source, this field gets constantly updated with the
+    /// sample rate used to play the source.
+    current_sample_rate: Option<Hz>,
 }
 
 struct InnerSource {
@@ -117,7 +120,7 @@ pub enum ClipState {
         reason: SuspensionReason,
         /// We still need the play info for fade out.
         play_info: ResolvedPlayData,
-        transition_countdown: DurationInSeconds,
+        transition_countdown: usize,
     },
     /// At this state, the clip is paused. No fade-in, no fade-out ... nothing.
     ///
@@ -185,6 +188,7 @@ pub struct PlayInstruction {
     /// not to resolve it super-late because then each clip calculates its own positions, which
     /// can be bad when starting multiple clips at once, e.g. synced to REAPER transport.
     pub scheduled_play_pos: PositionInSeconds,
+    pub start_pos_within_clip: DurationInSeconds,
     pub initial_tempo: Bpm,
 }
 
@@ -201,6 +205,7 @@ impl PlayInstruction {
         };
         Self {
             scheduled_play_pos,
+            start_pos_within_clip: DurationInSeconds::ZERO,
             initial_tempo: timeline.tempo_at(timeline_cursor_pos),
         }
     }
@@ -253,15 +258,22 @@ impl ClipPcmSource {
             repetition: Repetition::Once,
             state: ClipState::Stopped,
             manual_tempo_factor: 1.0,
+            current_sample_rate: None,
         }
     }
 
-    fn countdown_to_end_of_clip(&self, pos_within_clip: PositionInSeconds) -> DurationInSeconds {
-        let duration = self.native_clip_length().get() - pos_within_clip.get();
-        if duration < 0.0 {
-            DurationInSeconds::ZERO
+    fn native_clip_length_in_frames(&self, sample_rate: Hz) -> usize {
+        let duration = self.native_clip_length();
+        // TODO-high Do rounding for all such conversions.
+        (duration.get() * sample_rate.get()) as usize
+    }
+
+    fn countdown_to_end_of_clip(&self, sample_rate: Hz, frame_within_clip: isize) -> usize {
+        let countdown = self.native_clip_length_in_frames(sample_rate) as isize - frame_within_clip;
+        if countdown < 0 {
+            0
         } else {
-            DurationInSeconds::new(duration)
+            countdown as usize
         }
     }
 
@@ -319,8 +331,11 @@ impl ClipPcmSource {
         timeline: impl Timeline,
         timeline_cursor_pos: PositionInSeconds,
     ) {
+        let sample_rate = args.block.sample_rate();
+        let timeline_cursor_frame = (timeline_cursor_pos.get() * sample_rate.get()) as isize;
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo);
+        self.current_sample_rate = Some(sample_rate);
         use ClipState::*;
         match self.state {
             Stopped => {}
@@ -339,6 +354,7 @@ impl ClipPcmSource {
                         play_info,
                         timeline_cursor_pos,
                         &timeline,
+                        args.block,
                     );
                 } else {
                     // Audio. Apply a small fadeout to prevent clicks.
@@ -356,13 +372,13 @@ impl ClipPcmSource {
                     self.fill_samples(args, &block_info);
                     // We want the fade to always have the same length, no matter the tempo.
                     let next_transition_countdown =
-                        transition_countdown.get() - block_info.duration().get();
-                    self.state = if next_transition_countdown > 0.0 {
+                        transition_countdown as isize - block_info.frame_count() as isize;
+                    self.state = if next_transition_countdown > 0 {
                         // Transition ongoing
                         Suspending {
                             reason,
                             play_info,
-                            transition_countdown: DurationInSeconds::new(next_transition_countdown),
+                            transition_countdown: next_transition_countdown as usize,
                         }
                     } else {
                         // Transition finished. Go to next state.
@@ -371,6 +387,7 @@ impl ClipPcmSource {
                             play_info,
                             timeline_cursor_pos,
                             &timeline,
+                            args.block,
                         )
                     };
                 }
@@ -393,8 +410,10 @@ impl ClipPcmSource {
                     // we would start advancing the count-in cursor from a wrong initial state
                     // and therefore end up with the wrong point in time for starting the clip
                     // (too late, to be accurate, because we would start advancing too late).
+                    let scheduled_play_frame =
+                        (s.play_instruction.scheduled_play_pos.get() * sample_rate.get()) as isize;
                     let data = ResolvedPlayData {
-                        next_block_pos: timeline_cursor_pos - s.play_instruction.scheduled_play_pos,
+                        next_block_pos: timeline_cursor_frame - scheduled_play_frame,
                     };
                     dbg!(data);
                     data
@@ -408,7 +427,7 @@ impl ClipPcmSource {
                 let stop_at_end_of_clip =
                     s.scheduled_for_stop || self.repetition == Repetition::Once;
                 let stop_countdown = if stop_at_end_of_clip {
-                    Some(self.countdown_to_end_of_clip(play_info.next_block_pos))
+                    Some(self.countdown_to_end_of_clip(sample_rate, play_info.next_block_pos))
                 } else {
                     None
                 };
@@ -417,6 +436,11 @@ impl ClipPcmSource {
                     cursor_and_length_info,
                     final_tempo_factor,
                     stop_countdown,
+                );
+                println!(
+                    "{} => {}",
+                    block_info.start_frame(),
+                    block_info.tempo_adjusted_end_frame()
                 );
                 self.fill_samples(args, &block_info);
                 // This is the point where we advance the block position.
@@ -430,8 +454,9 @@ impl ClipPcmSource {
                         //  time_s and the previously requested time_s. If this diff is zero or
                         //  doesn't correspond to the non-tempo-adjusted block duration, we know
                         //  something is wrong.
-                        let block_end_pos = block_info.tempo_adjusted_block_end_pos();
-                        if block_end_pos < PositionInSeconds::ZERO {
+                        let end_frame = block_info.tempo_adjusted_end_frame();
+                        println!("calculated block_end_pos {}", end_frame);
+                        if end_frame < 0 {
                             // This is still a *pure* count-in. No modulo logic yet.
                             // Also, we don't advance the position by a block duration that is
                             // adjusted using our normal tempo factor because at the time the
@@ -449,22 +474,22 @@ impl ClipPcmSource {
                             //  interrupt the clips and reschedule them. Still to be implemented.
                             let tempo_factor =
                                 timeline_tempo.get() / s.play_instruction.initial_tempo.get();
-                            let duration = (block_info.duration() * tempo_factor)
-                                .expect("tempo factor never negative");
-                            block_info.block_start_pos() + duration
+                            let duration =
+                                (block_info.frame_count() as f64 * tempo_factor) as usize;
+                            block_info.start_frame() + duration as isize
                         } else {
                             // Playing already.
                             // Here we make sure that we always stay within the borders of the inner
                             // source. We don't use every-increasing positions because then tempo
                             // changes are not smooth anymore in subsequent cycles.
-                            PositionInSeconds::new(
-                                block_end_pos.get() % self.native_clip_length().get(),
-                            )
+                            end_frame
+                                % self.native_clip_length_in_frames(block_info.sample_rate())
+                                    as isize
                         }
                     },
                 };
                 self.state = if stop_countdown
-                    .map(|c| c > block_info.tempo_adjusted_duration())
+                    .map(|c| c > block_info.tempo_adjusted_frame_count())
                     .unwrap_or(true)
                 {
                     // There's still something to play.
@@ -488,6 +513,7 @@ impl ClipPcmSource {
         play_info: ResolvedPlayData,
         timeline_cursor_pos: PositionInSeconds,
         timeline: impl Timeline,
+        transfer: &PcmSourceTransfer,
     ) -> ClipState {
         match reason {
             SuspensionReason::Retrigger => ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
@@ -499,10 +525,15 @@ impl ClipPcmSource {
                 ..Default::default()
             }),
             SuspensionReason::Pause => ClipState::Paused {
-                next_block_pos: play_info
-                    .next_block_pos
-                    .try_into()
-                    .unwrap_or(DurationInSeconds::ZERO),
+                next_block_pos: {
+                    if play_info.next_block_pos < 0 {
+                        DurationInSeconds::ZERO
+                    } else {
+                        DurationInSeconds::new(
+                            play_info.next_block_pos as f64 / transfer.sample_rate().get(),
+                        )
+                    }
+                },
             },
             SuspensionReason::Stop => ClipState::Stopped,
             SuspensionReason::PlayWhileSuspending { play_time } => {
@@ -527,7 +558,7 @@ impl ClipPcmSource {
         // the first samples/messages! We need to start playing as soon as the end of
         // the audio block is located on or right to the scheduled start point
         // (end_pos >= 0.0).
-        if info.tempo_adjusted_block_end_pos() < PositionInSeconds::ZERO {
+        if info.tempo_adjusted_end_frame() < 0 {
             // Complete block is located before start position (pure count-in block).
             return;
         }
@@ -553,9 +584,8 @@ impl ClipPcmSource {
         // For MIDI it seems to be okay to start at a negative position. The source
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
-        let time_s = info.block_start_pos();
         let mut inner_transfer = *args.block;
-        inner_transfer.set_time_s(time_s);
+        // inner_transfer.set_time_s(info.start_pos());
         inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
         // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while
         // playing instead of REAPER letting use its generic mechanism that leads to duplicate
@@ -566,7 +596,7 @@ impl ClipPcmSource {
         inner_transfer.set_absolute_time_s(PositionInSeconds::ZERO);
         self.inner.source.get_samples(&inner_transfer);
         let written_sample_count = inner_transfer.samples_out();
-        if written_sample_count < info.length() as _ {
+        if written_sample_count < info.frame_count() as _ {
             // We have reached the end of the clip and it doesn't fill the
             // complete block.
             if info.is_last_block() {
@@ -582,7 +612,7 @@ impl ClipPcmSource {
                 let negative_pos =
                     PositionInSeconds::new_unchecked(-written_duration) * info.final_tempo_factor();
                 inner_transfer.set_time_s(negative_pos);
-                inner_transfer.set_length(info.length as _);
+                inner_transfer.set_length(info.frame_count as _);
                 self.inner.source.get_samples(&inner_transfer);
             }
         }
@@ -1108,9 +1138,11 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                     let info = play_info.cursor_info_at(args.timeline_cursor_pos);
                     if info.has_started_already() {
                         self.state = ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
-                            resolved_play_data: Some(ResolvedPlayData {
-                                next_block_pos: desired_pos_in_secs.into(),
-                            }),
+                            play_instruction: PlayInstruction {
+                                start_pos_within_clip: desired_pos_in_secs,
+                                ..s.play_instruction
+                            },
+                            resolved_play_data: None,
                             ..s
                         });
                     }
@@ -1172,11 +1204,14 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                 resolved_play_data: Some(play_info),
                 ..
             })
-            | Suspending { play_info, .. } => play_info.next_block_pos,
-            Paused { next_block_pos } => next_block_pos.into(),
+            | Suspending { play_info, .. } => {
+                let sr = self.current_sample_rate?;
+                play_info.next_block_pos as f64 / sr.get()
+            }
+            Paused { next_block_pos } => next_block_pos.get(),
             _ => return None,
         };
-        let pos = inner_source_pos.get() / self.calc_final_tempo_factor(args.timeline_tempo);
+        let pos = inner_source_pos / self.calc_final_tempo_factor(args.timeline_tempo);
         Some(PositionInSeconds::new(pos))
     }
 
@@ -1333,14 +1368,14 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
 /// Temporarily shifts the given sample block by the given offset and executes the function on it.  
 unsafe fn with_shifted_samples(
     transfer: &mut PcmSourceTransfer,
-    offset: i32,
+    offset: isize,
     f: impl FnOnce(&mut PcmSourceTransfer),
 ) {
     // Shift samples.
     let original_length = transfer.length();
     let original_samples = transfer.samples();
-    let shifted_samples = original_samples.offset((offset * transfer.nch()) as _);
-    transfer.set_length(transfer.length() - offset);
+    let shifted_samples = original_samples.offset(offset * transfer.nch() as isize);
+    transfer.set_length((transfer.length() as isize - offset) as i32);
     transfer.set_samples(shifted_samples);
     // Query inner source.
     f(transfer);
@@ -1380,7 +1415,7 @@ pub struct ResolvedPlayData {
     ///   that the tempo was always the same since the clip started playing.
     /// - For these reasons, we use this relative-to-previous-block logic. It guarantees that the
     ///   clip is played continuously, no matter what. Simple and effective.
-    pub next_block_pos: PositionInSeconds,
+    pub next_block_pos: isize,
 }
 
 impl ResolvedPlayData {
@@ -1400,7 +1435,7 @@ struct CursorInfo {
 
 impl CursorInfo {
     fn has_started_already(&self) -> bool {
-        self.play_info.next_block_pos >= PositionInSeconds::ZERO
+        self.play_info.next_block_pos >= 0
     }
 }
 
@@ -1509,12 +1544,13 @@ impl FadeCalculator {
     }
 }
 
-fn start_end_fade_length() -> DurationInSeconds {
-    DurationInSeconds::new(0.01)
+fn start_end_fade_length() -> usize {
+    // 0.01s = 10ms at 48 kHz
+    480
 }
 
-fn repetition_fade_length() -> DurationInSeconds {
-    DurationInSeconds::new(0.01)
+fn repetition_fade_length() -> usize {
+    480
 }
 
 #[derive(Clone, Copy)]
@@ -1557,12 +1593,12 @@ fn calculate_proportional_position(
 const MIN_TEMPO_FACTOR: f64 = 0.0000000001;
 
 struct BlockInfo {
-    length: u32,
+    frame_count: usize,
     sample_rate: Hz,
     duration: DurationInSeconds,
     cursor_and_lenght_info: CursorAndLengthInfo,
     final_tempo_factor: f64,
-    stop_countdown: Option<DurationInSeconds>,
+    stop_countdown: Option<usize>,
 }
 
 impl BlockInfo {
@@ -1570,13 +1606,13 @@ impl BlockInfo {
         block: &PcmSourceTransfer,
         cursor_and_length_info: CursorAndLengthInfo,
         final_tempo_factor: f64,
-        stop_countdown: Option<DurationInSeconds>,
+        stop_countdown: Option<usize>,
     ) -> Self {
-        let length = block.length() as u32;
+        let frame_count = block.length() as usize;
         let sample_rate = block.sample_rate();
-        let duration = DurationInSeconds::new(length as f64 / sample_rate.get());
+        let duration = DurationInSeconds::new(frame_count as f64 / sample_rate.get());
         Self {
-            length,
+            frame_count,
             sample_rate,
             duration,
             cursor_and_lenght_info: cursor_and_length_info,
@@ -1597,8 +1633,8 @@ impl BlockInfo {
         (self.duration * self.final_tempo_factor).expect("final tempo factor never negative")
     }
 
-    pub fn length(&self) -> u32 {
-        self.length
+    pub fn frame_count(&self) -> usize {
+        self.frame_count
     }
 
     /// The block length to be queried from the inner source.
@@ -1607,8 +1643,8 @@ impl BlockInfo {
     /// that's why the returned block length is higher in this case.
     ///
     /// This is used for doing real time stretching (not resampling).
-    pub fn tempo_adjusted_length(&self) -> u32 {
-        (self.length as f64 * self.final_tempo_factor) as u32
+    pub fn tempo_adjusted_frame_count(&self) -> usize {
+        (self.frame_count as f64 * self.final_tempo_factor) as usize
     }
 
     pub fn sample_rate(&self) -> Hz {
@@ -1616,26 +1652,31 @@ impl BlockInfo {
     }
 
     /// Negative position (count-in) or position *within* clip.
-    pub fn block_start_pos(&self) -> PositionInSeconds {
+    pub fn start_frame(&self) -> isize {
         self.cursor_and_lenght_info
             .cursor_info
             .play_info
             .next_block_pos
     }
 
-    pub fn block_end_pos(&self) -> PositionInSeconds {
-        self.block_start_pos() + self.duration
+    /// This should return the start position with regard to the source sample rate.
+    pub fn start_pos(&self, source_sample_rate: Hz) -> PositionInSeconds {
+        PositionInSeconds::new(self.start_frame() as f64 / source_sample_rate.get())
     }
 
-    pub fn tempo_adjusted_block_end_pos(&self) -> PositionInSeconds {
-        self.block_start_pos() + self.tempo_adjusted_duration()
+    pub fn end_frame(&self) -> isize {
+        self.start_frame() + self.frame_count as isize
+    }
+
+    pub fn tempo_adjusted_end_frame(&self) -> isize {
+        self.start_frame() + self.tempo_adjusted_frame_count() as isize
     }
 
     pub fn cursor_and_lenght_info(&self) -> &CursorAndLengthInfo {
         &self.cursor_and_lenght_info
     }
 
-    pub fn stop_countdown(&self) -> Option<DurationInSeconds> {
+    pub fn stop_countdown(&self) -> Option<usize> {
         self.stop_countdown
     }
 
@@ -1645,7 +1686,7 @@ impl BlockInfo {
 
     pub fn is_last_block(&self) -> bool {
         if let Some(cd) = self.stop_countdown {
-            cd <= self.tempo_adjusted_duration()
+            cd <= self.tempo_adjusted_frame_count()
         } else {
             false
         }
@@ -1666,37 +1707,36 @@ unsafe fn fill_samples_audio(
     info: &BlockInfo,
     time_stretch_mode: Option<&mut TimeStretchMode>,
 ) {
-    let outer_sample_rate = info.sample_rate();
     let mut inner_transfer = *args.block;
     if matches!(time_stretch_mode, Some(TimeStretchMode::Resampling)) {
         inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
     }
-    if info.block_start_pos() < PositionInSeconds::ZERO {
+    if info.start_frame() < 0 {
         dbg!("Audio starting at negative position");
         // For audio, starting at a negative position leads to weird sounds.
         // That's why we need to query from 0.0 and offset the resulting sample buffer by that
         // amount. We calculate the sample offset with the outer sample rate because this
         // doesn't concern the inner source content.
-        let sample_offset = (-info.block_start_pos().get() * outer_sample_rate.get()) as i32;
+        let sample_offset = -info.start_frame();
         inner_transfer.set_time_s(PositionInSeconds::ZERO);
         with_shifted_samples(&mut inner_transfer, sample_offset, |b| {
             inner_source.get_samples(b);
         });
     } else {
         // This is the code executed for the majority of the clip.
+        let source_info = SourceInfo::from_source(inner_source).unwrap();
         if let Some(TimeStretchMode::Serious(stretcher)) = time_stretch_mode {
             let request = StretchRequest {
                 source: inner_source,
-                start_time: info.block_start_pos(),
+                start_frame: info.start_frame() as usize,
                 dest_buffer: BorrowedAudioBuffer::from_transfer(args.block),
                 // This is the first and only position where we incorporate the tempo factor in
                 // our own code.
                 // TODO-high Also use this to determine the next block frame as soon
                 //  as we work with frame offsets.
-                unstretched_frame_count: (info.length as f64 * info.final_tempo_factor as f64)
+                unstretched_frame_count: (info.frame_count as f64 * info.final_tempo_factor as f64)
                     as usize,
             };
-            let source_info = SourceInfo::from_source(inner_source).unwrap();
             let stretch_info = request.stretch_info(&source_info);
             println!(
                 "{} => {} (tempo factor {})",
@@ -1706,12 +1746,12 @@ unsafe fn fill_samples_audio(
                 println!("{}", e);
             }
         } else {
-            inner_transfer.set_time_s(info.block_start_pos());
+            inner_transfer.set_time_s(info.start_pos(source_info.sample_rate()));
             inner_source.get_samples(&inner_transfer);
         }
     }
-    let written_sample_count = inner_transfer.samples_out();
-    if written_sample_count < info.length() as _ {
+    let written_sample_count = inner_transfer.samples_out() as usize;
+    if written_sample_count < info.frame_count() as _ {
         // We have reached the end of the clip and it doesn't fill the complete block.
         if info.is_last_block() {
             dbg!("Audio end of last cycle");
@@ -1722,7 +1762,7 @@ unsafe fn fill_samples_audio(
             // buffer with the very beginning of the source. Start from zero and write just
             // remaining samples.
             inner_transfer.set_time_s(PositionInSeconds::ZERO);
-            with_shifted_samples(&mut inner_transfer, written_sample_count, |b| {
+            with_shifted_samples(&mut inner_transfer, written_sample_count as isize, |b| {
                 inner_source.get_samples(b);
             });
         }
