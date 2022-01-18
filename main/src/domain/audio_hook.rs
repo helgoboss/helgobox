@@ -69,6 +69,7 @@ pub struct RealearnAudioHook {
     time_of_last_run: Option<Instant>,
     garbage_bin: GarbageBin,
     clip_record_task: Option<ClipRecordTask>,
+    initialized: bool,
 }
 
 #[derive(Debug)]
@@ -105,6 +106,7 @@ impl RealearnAudioHook {
             time_of_last_run: None,
             garbage_bin,
             clip_record_task: None,
+            initialized: false,
         }
     }
 
@@ -373,6 +375,14 @@ impl RealearnAudioHook {
 
 impl OnAudioBuffer for RealearnAudioHook {
     fn call(&mut self, args: OnAudioBufferArgs) {
+        if !self.initialized {
+            // We have code, e.g. triggered by crossbeam_channel that requests the ID of the
+            // current thread. This operation needs an allocation at the first time it's executed
+            // on a specific thread. Let's do it here, globally exactly once. Then we can
+            // use assert_no_alloc() to detect real regular allocation issues.
+            let _ = std::thread::current().id();
+            self.initialized = true;
+        }
         assert_no_alloc(|| {
             if args.is_post {
                 return;

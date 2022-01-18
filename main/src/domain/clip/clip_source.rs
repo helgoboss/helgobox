@@ -1672,7 +1672,7 @@ unsafe fn fill_samples_audio(
         inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
     }
     if info.block_start_pos() < PositionInSeconds::ZERO {
-        // dbg!("Audio starting at negative position");
+        dbg!("Audio starting at negative position");
         // For audio, starting at a negative position leads to weird sounds.
         // That's why we need to query from 0.0 and offset the resulting sample buffer by that
         // amount. We calculate the sample offset with the outer sample rate because this
@@ -1691,8 +1691,17 @@ unsafe fn fill_samples_audio(
                 tempo_factor: info.final_tempo_factor,
                 dest_buffer: BorrowedAudioBuffer::from_transfer(args.block),
             };
-            let result = stretcher.try_stretch(request);
-            dbg!(result);
+            let parameters = request.stretch_parameters();
+
+            let source_info = SourceInfo::from_source(inner_source).unwrap();
+            let derived_parameters = parameters.derive(&source_info);
+            println!(
+                "{} => {}",
+                derived_parameters.start_frame, derived_parameters.hypothetical_end_frame
+            );
+            if let Err(e) = stretcher.try_stretch(request) {
+                println!("{}", e);
+            }
         } else {
             inner_transfer.set_time_s(info.block_start_pos());
             inner_source.get_samples(&inner_transfer);
@@ -1702,9 +1711,9 @@ unsafe fn fill_samples_audio(
     if written_sample_count < info.length() as _ {
         // We have reached the end of the clip and it doesn't fill the complete block.
         if info.is_last_block() {
-            // dbg!("Audio end of last cycle");
+            dbg!("Audio end of last cycle");
         } else {
-            // dbg!("Audio repeat");
+            dbg!("Audio repeat");
             // Repeat. Because we assume that the user cuts sources
             // sample-perfect, we must immediately fill the rest of the
             // buffer with the very beginning of the source. Start from zero and write just

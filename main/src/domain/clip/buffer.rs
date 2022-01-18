@@ -1,4 +1,5 @@
 use reaper_medium::PcmSourceTransfer;
+use std::ops::Range;
 
 pub trait AudioBuffer {
     fn channel_count(&self) -> usize;
@@ -14,6 +15,41 @@ pub trait AudioBuffer {
     fn data_as_mut_slice(&mut self) -> &mut [f64];
 
     fn data_as_mut_ptr(&mut self) -> *mut f64;
+
+    /// `from_src_frame` and `to_dest_frame` are inclusive start frames.
+    fn copy_to(
+        &self,
+        mut dest: impl AudioBuffer,
+        from_src_frame: usize,
+        to_dest_frame: usize,
+        frame_count: usize,
+    ) -> Result<(), &'static str> {
+        let channel_count = self.channel_count();
+        if channel_count != dest.channel_count() {
+            return Err("different channel counts");
+        }
+        if from_src_frame >= self.frame_count() {
+            return Err("from_src_frame out of source buffer bounds");
+        }
+        if to_dest_frame >= dest.frame_count() {
+            return Err("to_dest_frame out of destination buffer bounds");
+        }
+        // Exclusive end
+        let src_range_end_frame = from_src_frame + frame_count;
+        if src_range_end_frame > self.frame_count() {
+            return Err("end of copied range out of source buffer bounds");
+        }
+        // Exclusive end
+        let dest_range_end_frame = to_dest_frame + frame_count;
+        if dest_range_end_frame > dest.frame_count() {
+            return Err("end of copied range out of destination buffer bounds");
+        }
+        let start_index = channel_count * from_src_frame;
+        let end_index = channel_count * src_range_end_frame;
+        let portion = &self.data_as_slice()[start_index..end_index];
+        dest.data_as_mut_slice().copy_from_slice(portion);
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -27,7 +63,7 @@ impl OwnedAudioBuffer {
     /// Creates an owned audio buffer with the given topology.
     pub fn new(channel_count: usize, frame_count: usize) -> Self {
         Self {
-            data: Vec::with_capacity(channel_count * frame_count),
+            data: vec![0.0; channel_count * frame_count],
             channel_count,
             frame_count,
         }
@@ -81,25 +117,25 @@ impl AudioBuffer for OwnedAudioBuffer {
     }
 }
 
-impl AudioBuffer for &mut OwnedAudioBuffer {
+impl<B: AudioBuffer> AudioBuffer for &mut B {
     fn channel_count(&self) -> usize {
-        self.channel_count
+        (**self).channel_count()
     }
 
     fn frame_count(&self) -> usize {
-        self.frame_count
+        (**self).frame_count()
     }
 
     fn data_as_slice(&self) -> &[f64] {
-        self.data.as_slice()
+        (**self).data_as_slice()
     }
 
     fn data_as_mut_slice(&mut self) -> &mut [f64] {
-        (*self).data_as_mut_slice()
+        (**self).data_as_mut_slice()
     }
 
     fn data_as_mut_ptr(&mut self) -> *mut f64 {
-        (*self).data_as_mut_ptr()
+        (**self).data_as_mut_ptr()
     }
 }
 
