@@ -51,57 +51,66 @@ pub struct StretchRequest<S: CopyToAudioBuffer, B: AudioBuffer> {
 }
 
 impl<S: CopyToAudioBuffer, B: AudioBuffer> StretchRequest<S, B> {
-    pub fn stretch_parameters(&self) -> NativeStretchParameters {
-        NativeStretchParameters {
-            start_time: self.start_time,
+    pub fn stretch_info(&self, source_info: &SourceInfo) -> StretchInfo {
+        let input = StretchInfoInput {
+            start_frame: {
+                // TODO-medium What if we use frames everywhere and only convert to times when REAPER needs it?
+                (self.start_time.get() * source_info.sample_rate.get()) as usize
+            },
             tempo_factor: self.tempo_factor,
             stretched_frame_count: self.dest_buffer.frame_count(),
-        }
+            source_frame_count: source_info.frame_count(),
+        };
+        StretchInfo::new(input)
     }
 
-    /// Returns the end time within the source (modulo).
-    pub fn modulo_end_time(&self, source_info: &SourceInfo) -> PositionInSeconds {
-        self.stretch_parameters().modulo_end_time(source_info)
+    fn modulo_end_frame(&self, source_info: &SourceInfo) -> usize {
+        self.stretch_info(source_info).modulo_end_frame
     }
 }
 
 #[derive(Debug)]
-pub struct NativeStretchParameters {
+pub struct StretchInfoInput {
     /// Position within source from which to start stretching.
-    start_time: PositionInSeconds,
+    start_frame: usize,
     /// 1.0 means original tempo.
     tempo_factor: f64,
     /// Frame count of destination buffer (which contains the stretched material).
     stretched_frame_count: usize,
+    /// Total length of source.
+    source_frame_count: usize,
 }
 
-impl NativeStretchParameters {
-    pub fn derive(&self, source_info: &SourceInfo) -> DerivedStretchParameters {
-        let start_frame = (self.start_time.get() * source_info.sample_rate.get()) as usize;
+#[derive(Debug)]
+pub struct StretchInfo {
+    /// Position within source from which to start stretching.
+    pub start_frame: usize,
+    /// Non-inclusive non-modulo end position in source (or right to source).
+    pub hypothetical_end_frame: usize,
+    /// Non-inclusive modulo end position in source.
+    pub modulo_end_frame: usize,
+    /// Length of the stretched material.
+    ///
+    /// Corresponds to the length of the buffer containing the stretched material.
+    pub stretched_frame_count: usize,
+    /// Length of the original material.
+    pub unstretched_frame_count: usize,
+}
+
+impl StretchInfo {
+    pub fn new(input: StretchInfoInput) -> Self {
         let unstretched_frame_count =
-            (self.stretched_frame_count as f64 / self.tempo_factor) as usize;
-        let hypothetical_end_frame = start_frame + unstretched_frame_count;
-        let modulo_end_frame = hypothetical_end_frame % source_info.frame_count();
-        DerivedStretchParameters {
-            start_frame,
+            (input.stretched_frame_count as f64 / input.tempo_factor) as usize;
+        let hypothetical_end_frame = input.start_frame + unstretched_frame_count;
+        let modulo_end_frame = hypothetical_end_frame % input.source_frame_count;
+        StretchInfo {
+            start_frame: input.start_frame,
+            stretched_frame_count: input.stretched_frame_count,
             unstretched_frame_count,
             hypothetical_end_frame,
             modulo_end_frame,
         }
     }
-
-    fn modulo_end_time(&self, source_info: &SourceInfo) -> PositionInSeconds {
-        let derived = self.derive(source_info);
-        PositionInSeconds::new(derived.modulo_end_frame as f64 / source_info.sample_rate.get())
-    }
-}
-
-#[derive(Debug)]
-pub struct DerivedStretchParameters {
-    pub start_frame: usize,
-    pub unstretched_frame_count: usize,
-    pub hypothetical_end_frame: usize,
-    pub modulo_end_frame: usize,
 }
 
 #[derive(Debug)]
@@ -305,7 +314,7 @@ pub enum AsyncStretcherState {
 #[derive(Debug)]
 pub struct StretchedMaterial {
     /// Position within the source that was the origin of stretching.
-    start_time: PositionInSeconds,
+    start_frame: usize,
     /// Tempo factor.
     tempo_factor: f64,
     /// Audio buffer that contains the stretched material.
@@ -327,16 +336,16 @@ impl StretchedMaterial {
         if req.tempo_factor != self.tempo_factor {
             return Err("tempo factor mismatch");
         }
-        let req_params = req.stretch_parameters().derive(source_info);
-        let material_params = self.stretch_parameters().derive(source_info);
-        if req_params.start_frame < material_params.start_frame {
+        let req_info = req.stretch_info(source_info);
+        let material_info = self.stretch_info(source_info);
+        if req_info.start_frame < material_info.start_frame {
             return Err("requested portion starts before material portion");
         }
-        if req_params.hypothetical_end_frame > material_params.hypothetical_end_frame {
-            dbg!(source_info, material_params);
+        if req_info.hypothetical_end_frame > material_info.hypothetical_end_frame {
+            dbg!(source_info, material_info);
             return Err("requested portion ends after material portion");
         }
-        let material_frame_offset = req_params.start_frame - material_params.start_frame;
+        let material_frame_offset = req_info.start_frame - material_info.start_frame;
         let dest_frame_count = req.dest_buffer.frame_count();
         self.buffer.copy_to(
             &mut req.dest_buffer,
@@ -344,8 +353,7 @@ impl StretchedMaterial {
             0,
             dest_frame_count,
         )?;
-        let status = if req_params.hypothetical_end_frame == material_params.hypothetical_end_frame
-        {
+        let status = if req_info.hypothetical_end_frame == material_info.hypothetical_end_frame {
             MaterialStatus::IsNowObsolete
         } else {
             MaterialStatus::IsStillHot
@@ -353,17 +361,19 @@ impl StretchedMaterial {
         Ok(status)
     }
 
-    pub fn stretch_parameters(&self) -> NativeStretchParameters {
-        NativeStretchParameters {
-            start_time: self.start_time,
+    pub fn stretch_info(&self, source_info: &SourceInfo) -> StretchInfo {
+        let input = StretchInfoInput {
+            start_frame: self.start_frame,
             tempo_factor: self.tempo_factor,
             stretched_frame_count: self.buffer.frame_count(),
-        }
+            source_frame_count: source_info.frame_count(),
+        };
+        StretchInfo::new(input)
     }
 
-    /// Returns the end time within the source (modulo).
-    pub fn modulo_end_time(&self, source_info: &SourceInfo) -> PositionInSeconds {
-        self.stretch_parameters().modulo_end_time(source_info)
+    /// Returns the end frame within the source (modulo).
+    pub fn modulo_end_frame(&self, source_info: &SourceInfo) -> usize {
+        self.stretch_info(source_info).modulo_end_frame
     }
 }
 
@@ -412,8 +422,8 @@ impl AsyncStretcher {
                 // We can't fulfill the incoming request but we can do our best to predict the
                 // next few requests and make sure they will succeed.
                 // Fill stretcher with input buffer covering material for the next few requests.
-                let next_start_time = req.modulo_end_time(&self.source_info);
-                self.request_more_material(&req, equipment, next_start_time, None, None)?;
+                let next_start_frame = req.modulo_end_frame(&self.source_info);
+                self.request_more_material(&req, equipment, next_start_frame, None, None)?;
                 Outcome {
                     next_state: PreparingCurrentMaterial,
                     result: Err(e("first request, cache miss", "")),
@@ -425,8 +435,8 @@ impl AsyncStretcher {
                     match response.material.apply(&mut req, &self.source_info) {
                         Ok(s) => {
                             // And it's the right one!
-                            let next_start_time =
-                                response.material.modulo_end_time(&self.source_info);
+                            let next_start_frame =
+                                response.material.modulo_end_frame(&self.source_info);
                             use MaterialStatus::*;
                             let (next_state, obsolete_material) = match s {
                                 // It's not exhausted yet.
@@ -444,7 +454,7 @@ impl AsyncStretcher {
                             self.request_more_material(
                                 &req,
                                 response.equipment,
-                                next_start_time,
+                                next_start_frame,
                                 obsolete_material,
                                 None,
                             )?;
@@ -455,11 +465,11 @@ impl AsyncStretcher {
                         }
                         Err(msg) => {
                             // It's not the right one :(
-                            let next_start_time = req.modulo_end_time(&self.source_info);
+                            let next_start_frame = req.modulo_end_frame(&self.source_info);
                             self.request_more_material(
                                 &req,
                                 response.equipment,
-                                next_start_time,
+                                next_start_frame,
                                 Some(response.material),
                                 None,
                             )?;
@@ -504,12 +514,12 @@ impl AsyncStretcher {
                                     // And we've got new material already.
                                     // Let the new material become the current material and
                                     // request more material!
-                                    let next_start_time =
-                                        response.material.modulo_end_time(&self.source_info);
+                                    let next_start_frame =
+                                        response.material.modulo_end_frame(&self.source_info);
                                     self.request_more_material(
                                         &req,
                                         response.equipment,
-                                        next_start_time,
+                                        next_start_frame,
                                         Some(current_material),
                                         None,
                                     )?;
@@ -539,7 +549,7 @@ impl AsyncStretcher {
                                     //  but I think this shouldn't happen often. If it does, the
                                     //  next request will miss and request new material.
                                     let next_start_time =
-                                        response.material.modulo_end_time(&self.source_info);
+                                        response.material.modulo_end_frame(&self.source_info);
                                     self.request_more_material(
                                         &req,
                                         response.equipment,
@@ -556,11 +566,11 @@ impl AsyncStretcher {
                                 }
                                 Err(msg2) => {
                                     // It doesn't work :(
-                                    let next_start_time = req.modulo_end_time(&self.source_info);
+                                    let next_start_frame = req.modulo_end_frame(&self.source_info);
                                     self.request_more_material(
                                         &req,
                                         response.equipment,
-                                        next_start_time,
+                                        next_start_frame,
                                         // Yes, all existing material became obsolete.
                                         Some(current_material),
                                         Some(response.material),
@@ -612,12 +622,12 @@ impl AsyncStretcher {
                             IsNowObsolete => {
                                 // The current material is exhausted.
                                 // Let the next material become the current one and request more!
-                                let next_start_time =
-                                    next_material.modulo_end_time(&self.source_info);
+                                let next_start_frame =
+                                    next_material.modulo_end_frame(&self.source_info);
                                 self.request_more_material(
                                     &req,
                                     equipment,
-                                    next_start_time,
+                                    next_start_frame,
                                     Some(current_material),
                                     None,
                                 )?;
@@ -640,12 +650,12 @@ impl AsyncStretcher {
                                 // TODO-low We could check if the new material is now obsolete,
                                 //  but I think this shouldn't happen often. If it does, the
                                 //  next request will miss and request new material.
-                                let next_start_time =
-                                    next_material.modulo_end_time(&self.source_info);
+                                let next_start_frame =
+                                    next_material.modulo_end_frame(&self.source_info);
                                 self.request_more_material(
                                     &req,
                                     equipment,
-                                    next_start_time,
+                                    next_start_frame,
                                     Some(current_material),
                                     None,
                                 )?;
@@ -658,11 +668,11 @@ impl AsyncStretcher {
                             }
                             Err(msg2) => {
                                 // It doesn't work :(
-                                let next_start_time = req.modulo_end_time(&self.source_info);
+                                let next_start_frame = req.modulo_end_frame(&self.source_info);
                                 self.request_more_material(
                                     &req,
                                     equipment,
-                                    next_start_time,
+                                    next_start_frame,
                                     // Yes, all existing material became obsolete.
                                     Some(current_material),
                                     Some(next_material),
@@ -688,12 +698,14 @@ impl AsyncStretcher {
         &self,
         req: &StretchRequest<&BorrowedPcmSource, impl AudioBuffer>,
         equipment: StretchEquipment,
-        start_time: PositionInSeconds,
+        start_frame: usize,
         obsolete_material_1: Option<StretchedMaterial>,
         obsolete_material_2: Option<StretchedMaterial>,
     ) -> Result<(), TryStretchError> {
         let dest_channel_count = req.dest_buffer.channel_count();
         let dest_frame_count = req.dest_buffer.frame_count() * self.lookahead_factor;
+        let start_time =
+            PositionInSeconds::new(start_frame as f64 / self.source_info.sample_rate.get());
         let fill_request = FillRequest {
             source: req.source,
             start_time,
@@ -707,7 +719,7 @@ impl AsyncStretcher {
                 .stretcher
                 .fill(fill_request)
                 .map_err(|msg| e(msg, ""))?,
-            start_time,
+            start_frame,
             tempo_factor: req.tempo_factor,
             dest_channel_count,
             dest_frame_count,
@@ -728,8 +740,8 @@ impl AsyncStretcher {
     fn poll_stretch_response(&mut self) -> Option<AsyncStretchResponse> {
         let response = self.response_receiver.try_iter().last();
         if let Some(r) = &response {
-            let params = r.material.stretch_parameters().derive(&self.source_info);
-            println!("Received material: {:?}", params);
+            let info = r.material.stretch_info(&self.source_info);
+            println!("Received material: {:?}", info);
         }
         response
     }
@@ -745,7 +757,7 @@ pub enum StretchWorkerRequest {
 #[derive(Debug)]
 pub struct AsyncStretchRequest {
     stretcher: FilledReaperStretcher,
-    start_time: PositionInSeconds,
+    start_frame: usize,
     tempo_factor: f64,
     dest_channel_count: usize,
     dest_frame_count: usize,
@@ -788,7 +800,7 @@ fn process_async_stretch_req(mut req: AsyncStretchRequest) -> AsyncStretchRespon
     AsyncStretchResponse {
         equipment: StretchEquipment { stretcher: empty },
         material: StretchedMaterial {
-            start_time: req.start_time,
+            start_frame: req.start_frame,
             tempo_factor: req.tempo_factor,
             buffer: dest_buffer,
         },
