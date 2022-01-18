@@ -83,6 +83,8 @@ pub struct StretchInfoInput {
 
 #[derive(Debug)]
 pub struct StretchInfo {
+    /// The tempo factor.
+    pub tempo_factor: f64,
     /// Position within source from which to start stretching.
     pub start_frame: usize,
     /// Non-inclusive non-modulo end position in source (or right to source).
@@ -99,11 +101,13 @@ pub struct StretchInfo {
 
 impl StretchInfo {
     pub fn new(input: StretchInfoInput) -> Self {
+        // The higher the tempo (factor) the longer the material that we need to stretch.
         let unstretched_frame_count =
-            (input.stretched_frame_count as f64 / input.tempo_factor) as usize;
+            (input.stretched_frame_count as f64 * input.tempo_factor) as usize;
         let hypothetical_end_frame = input.start_frame + unstretched_frame_count;
         let modulo_end_frame = hypothetical_end_frame % input.source_frame_count;
         StretchInfo {
+            tempo_factor: input.tempo_factor,
             start_frame: input.start_frame,
             stretched_frame_count: input.stretched_frame_count,
             unstretched_frame_count,
@@ -209,10 +213,10 @@ impl EmptyReaperStretcher {
         self.api.set_nch(dest_nch as _);
         self.api.set_tempo(req.tempo_factor);
         // Write original material into pitch shift buffer.
-        let source_block_length = (req.dest_frame_count as f64 * req.tempo_factor) as usize;
-        let raw_stretch_buffer = self.api.GetBuffer(source_block_length as _);
+        let unstretched_frame_count = (req.dest_frame_count as f64 * req.tempo_factor) as usize;
+        let raw_stretch_buffer = self.api.GetBuffer(unstretched_frame_count as _);
         let mut stretch_buffer = unsafe {
-            BorrowedAudioBuffer::from_raw(raw_stretch_buffer, dest_nch, source_block_length)
+            BorrowedAudioBuffer::from_raw(raw_stretch_buffer, dest_nch, unstretched_frame_count)
         };
         let read_sample_count = req
             .source

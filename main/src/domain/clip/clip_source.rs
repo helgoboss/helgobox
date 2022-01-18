@@ -1691,12 +1691,11 @@ unsafe fn fill_samples_audio(
                 tempo_factor: info.final_tempo_factor,
                 dest_buffer: BorrowedAudioBuffer::from_transfer(args.block),
             };
-
             let source_info = SourceInfo::from_source(inner_source).unwrap();
             let stretch_info = request.stretch_info(&source_info);
             println!(
-                "{} => {}",
-                stretch_info.start_frame, stretch_info.modulo_end_frame
+                "{} => {} (tempo factor {})",
+                stretch_info.start_frame, stretch_info.modulo_end_frame, stretch_info.tempo_factor
             );
             if let Err(e) = stretcher.try_stretch(request) {
                 println!("{}", e);
