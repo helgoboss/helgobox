@@ -583,6 +583,8 @@ impl ClipPcmSource {
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
         let mut inner_transfer = *args.block;
+        // TODO-high Now that we advance by samples, we need to find a way to provide the correct
+        //  start pos.
         // inner_transfer.set_time_s(info.start_pos());
         inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
         // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while
@@ -1709,6 +1711,9 @@ unsafe fn fill_samples_audio(
     if matches!(time_stretch_mode, Some(TimeStretchMode::Resampling)) {
         inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
     }
+    // TODO-high Now that we advance by samples, we need to react to sample rate changes and
+    //  fix the frame numbers, otherwise the play rate wheel will not work smoothly (it changes
+    //  request sample rates).
     if info.start_frame() < 0 {
         dbg!("Audio starting at negative position");
         // For audio, starting at a negative position leads to weird sounds.
@@ -1736,7 +1741,10 @@ unsafe fn fill_samples_audio(
                     as usize,
             };
             if let Err(e) = stretcher.try_stretch(request) {
-                println!("{}", e);
+                inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
+                inner_transfer.set_time_s(info.start_pos(source_info.sample_rate()));
+                inner_source.get_samples(&inner_transfer);
+                // println!("{}", e);
             }
         } else {
             inner_transfer.set_time_s(info.start_pos(source_info.sample_rate()));
