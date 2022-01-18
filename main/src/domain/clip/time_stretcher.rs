@@ -376,7 +376,6 @@ impl StretchedMaterial {
             return Err("requested source portion starts before material portion");
         }
         if req_info.hypothetical_end_frame > material_info.hypothetical_end_frame {
-            dbg!(source_info, material_info);
             return Err("requested source portion ends after material portion");
         }
         // Now determine the right material portion to write to the destination block.
@@ -791,12 +790,7 @@ impl AsyncStretcher {
     }
 
     fn poll_stretch_response(&mut self) -> Option<AsyncStretchResponse> {
-        let response = self.response_receiver.try_iter().last();
-        if let Some(r) = &response {
-            let info = r.material.stretch_info(&self.source_info);
-            println!("Received material: {:?}", info);
-        }
-        response
+        self.response_receiver.try_iter().last()
     }
 }
 

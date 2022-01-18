@@ -412,11 +412,9 @@ impl ClipPcmSource {
                     // (too late, to be accurate, because we would start advancing too late).
                     let scheduled_play_frame =
                         (s.play_instruction.scheduled_play_pos.get() * sample_rate.get()) as isize;
-                    let data = ResolvedPlayData {
+                    ResolvedPlayData {
                         next_block_pos: timeline_cursor_frame - scheduled_play_frame,
-                    };
-                    dbg!(data);
-                    data
+                    }
                 });
                 let cursor_and_length_info = self.create_cursor_and_length_info_at(
                     play_info,
@@ -437,11 +435,13 @@ impl ClipPcmSource {
                     final_tempo_factor,
                     stop_countdown,
                 );
-                println!(
-                    "{} => {}",
-                    block_info.start_frame(),
-                    block_info.tempo_adjusted_end_frame()
-                );
+                let end_frame = block_info.tempo_adjusted_end_frame();
+                // println!(
+                //     "{} => {} (tempo factor {})",
+                //     block_info.start_frame(),
+                //     end_frame,
+                //     final_tempo_factor
+                // );
                 self.fill_samples(args, &block_info);
                 // This is the point where we advance the block position.
                 let next_play_info = ResolvedPlayData {
@@ -454,8 +454,6 @@ impl ClipPcmSource {
                         //  time_s and the previously requested time_s. If this diff is zero or
                         //  doesn't correspond to the non-tempo-adjusted block duration, we know
                         //  something is wrong.
-                        let end_frame = block_info.tempo_adjusted_end_frame();
-                        println!("calculated block_end_pos {}", end_frame);
                         if end_frame < 0 {
                             // This is still a *pure* count-in. No modulo logic yet.
                             // Also, we don't advance the position by a block duration that is
@@ -1737,11 +1735,6 @@ unsafe fn fill_samples_audio(
                 unstretched_frame_count: (info.frame_count as f64 * info.final_tempo_factor as f64)
                     as usize,
             };
-            let stretch_info = request.stretch_info(&source_info);
-            println!(
-                "{} => {} (tempo factor {})",
-                stretch_info.start_frame, stretch_info.modulo_end_frame, stretch_info.tempo_factor
-            );
             if let Err(e) = stretcher.try_stretch(request) {
                 println!("{}", e);
             }
