@@ -44,8 +44,7 @@ pub struct StretchRequest<S: CopyToAudioBuffer, B: AudioBuffer> {
     pub source: S,
     /// Position within source from which to start stretching.
     pub start_time: PositionInSeconds,
-    /// 1.0 means original tempo.
-    pub tempo_factor: f64,
+    pub unstretched_frame_count: usize,
     /// The final time stretched samples should end up here.
     pub dest_buffer: B,
 }
@@ -57,11 +56,16 @@ impl<S: CopyToAudioBuffer, B: AudioBuffer> StretchRequest<S, B> {
                 // TODO-medium What if we use frames everywhere and only convert to times when REAPER needs it?
                 (self.start_time.get() * source_info.sample_rate.get()) as usize
             },
-            tempo_factor: self.tempo_factor,
+            tempo_factor: self.tempo_factor(),
             stretched_frame_count: self.dest_buffer.frame_count(),
+            unstretched_frame_count: self.unstretched_frame_count,
             source_frame_count: source_info.frame_count(),
         };
         StretchInfo::new(input)
+    }
+
+    fn tempo_factor(&self) -> f64 {
+        calculate_tempo_factor(self.unstretched_frame_count, self.dest_buffer.frame_count())
     }
 
     fn modulo_end_frame(&self, source_info: &SourceInfo) -> usize {
@@ -77,6 +81,11 @@ pub struct StretchInfoInput {
     tempo_factor: f64,
     /// Frame count of destination buffer (which contains the stretched material).
     stretched_frame_count: usize,
+    /// Frame count of unstretched material.
+    ///
+    /// If there are other ways, we should not simply calculate this by multiplying the stretched
+    /// frame count with the tempo factor because this can lead to rounding errors.
+    unstretched_frame_count: usize,
     /// Total length of source.
     source_frame_count: usize,
 }
@@ -101,16 +110,13 @@ pub struct StretchInfo {
 
 impl StretchInfo {
     pub fn new(input: StretchInfoInput) -> Self {
-        // The higher the tempo (factor) the longer the material that we need to stretch.
-        let unstretched_frame_count =
-            (input.stretched_frame_count as f64 * input.tempo_factor) as usize;
-        let hypothetical_end_frame = input.start_frame + unstretched_frame_count;
+        let hypothetical_end_frame = input.start_frame + input.unstretched_frame_count;
         let modulo_end_frame = hypothetical_end_frame % input.source_frame_count;
         StretchInfo {
             tempo_factor: input.tempo_factor,
             start_frame: input.start_frame,
             stretched_frame_count: input.stretched_frame_count,
-            unstretched_frame_count,
+            unstretched_frame_count: input.unstretched_frame_count,
             hypothetical_end_frame,
             modulo_end_frame,
         }
@@ -142,7 +148,7 @@ impl ReaperStretcher {
         let fill_req = FillRequest {
             source: req.source,
             start_time: req.start_time,
-            tempo_factor: req.tempo_factor,
+            unstretched_frame_count: req.unstretched_frame_count,
             dest_channel_count: req.dest_buffer.channel_count(),
             dest_frame_count: req.dest_buffer.frame_count(),
         };
@@ -172,13 +178,35 @@ pub struct FillRequest<S: CopyToAudioBuffer> {
     /// Source material.
     pub source: S,
     /// Position within source where to start stretching.
+    ///
+    /// This needs to be in seconds. REAPER's source API doesn't support querying by frames.
+    // TODO-high Pass in frames here and derive the start time.
     pub start_time: PositionInSeconds,
-    /// 1.0 means original tempo.
-    pub tempo_factor: f64,
     /// The number of channels in the destination buffer.
     pub dest_channel_count: usize,
     /// The number of frames to be filled.
     pub dest_frame_count: usize,
+    /// Number of frames in the source to be stretched.
+    ///
+    /// There's a reason why we don't simply calculate this by multiplying the destination frame
+    /// count with the tempo factor: Rounding errors. Let's say dest_frame_count = 512
+    /// (a typical audio block size) and tempo_factor = 1.0104166666666667. Then
+    /// unstretched_frame_count = dest_frame_count * tempo_factor = 517. Now let's say we want to
+    /// provide 4 blocks worth of pre-stretched material. So dest_frame_count = 512 * 4 = 2048.
+    /// Then we would have unstretched_frame_count = dest_frame_count * tempo_factor = 2069.
+    /// Whereas 517 * 4 = 2068. If we rely on sample-accurate block buffering, we should defer all
+    /// floating point calculations to the end of the processing chain.
+    pub unstretched_frame_count: usize,
+}
+
+impl<S: CopyToAudioBuffer> FillRequest<S> {
+    fn tempo_factor(&self) -> f64 {
+        calculate_tempo_factor(self.unstretched_frame_count, self.dest_frame_count)
+    }
+}
+
+pub fn calculate_tempo_factor(unstretched_frame_count: usize, stretched_frame_count: usize) -> f64 {
+    unstretched_frame_count as f64 / stretched_frame_count as f64
 }
 
 #[derive(Debug)]
@@ -211,12 +239,11 @@ impl EmptyReaperStretcher {
         // Set parameters that can always vary
         let dest_nch = req.dest_channel_count;
         self.api.set_nch(dest_nch as _);
-        self.api.set_tempo(req.tempo_factor);
+        self.api.set_tempo(req.tempo_factor());
         // Write original material into pitch shift buffer.
-        let unstretched_frame_count = (req.dest_frame_count as f64 * req.tempo_factor) as usize;
-        let raw_stretch_buffer = self.api.GetBuffer(unstretched_frame_count as _);
+        let raw_stretch_buffer = self.api.GetBuffer(req.unstretched_frame_count as _);
         let mut stretch_buffer = unsafe {
-            BorrowedAudioBuffer::from_raw(raw_stretch_buffer, dest_nch, unstretched_frame_count)
+            BorrowedAudioBuffer::from_raw(raw_stretch_buffer, dest_nch, req.unstretched_frame_count)
         };
         let read_sample_count = req
             .source
@@ -321,6 +348,7 @@ pub struct StretchedMaterial {
     start_frame: usize,
     /// Tempo factor.
     tempo_factor: f64,
+    unstretched_frame_count: usize,
     /// Audio buffer that contains the stretched material.
     buffer: OwnedAudioBuffer,
 }
@@ -337,7 +365,7 @@ impl StretchedMaterial {
         if req.dest_buffer.channel_count() != self.buffer.channel_count() {
             return Err("channel count mismatch");
         }
-        if req.tempo_factor != self.tempo_factor {
+        if req.tempo_factor() != self.tempo_factor {
             return Err("tempo factor mismatch");
         }
         let req_info = req.stretch_info(source_info);
@@ -370,6 +398,7 @@ impl StretchedMaterial {
             start_frame: self.start_frame,
             tempo_factor: self.tempo_factor,
             stretched_frame_count: self.buffer.frame_count(),
+            unstretched_frame_count: self.unstretched_frame_count,
             source_frame_count: source_info.frame_count(),
         };
         StretchInfo::new(input)
@@ -708,23 +737,25 @@ impl AsyncStretcher {
     ) -> Result<(), TryStretchError> {
         let dest_channel_count = req.dest_buffer.channel_count();
         let dest_frame_count = req.dest_buffer.frame_count() * self.lookahead_factor;
+        let unstretched_frame_count = req.unstretched_frame_count * self.lookahead_factor;
         let start_time =
             PositionInSeconds::new(start_frame as f64 / self.source_info.sample_rate.get());
         let fill_request = FillRequest {
             source: req.source,
             start_time,
-            tempo_factor: req.tempo_factor,
             dest_channel_count,
             dest_frame_count,
+            unstretched_frame_count,
         };
-        // Let another thread to the actual stretching work.
+        // Let another thread do the actual stretching work.
         let async_stretch_request = AsyncStretchRequest {
             stretcher: equipment
                 .stretcher
                 .fill(fill_request)
                 .map_err(|msg| e(msg, ""))?,
             start_frame,
-            tempo_factor: req.tempo_factor,
+            tempo_factor: req.tempo_factor(),
+            unstretched_frame_count,
             dest_channel_count,
             dest_frame_count,
             spare_buffer_1: obsolete_material_1.map(|m| m.buffer.into_inner()),
@@ -763,6 +794,7 @@ pub struct AsyncStretchRequest {
     stretcher: FilledReaperStretcher,
     start_frame: usize,
     tempo_factor: f64,
+    unstretched_frame_count: usize,
     dest_channel_count: usize,
     dest_frame_count: usize,
     spare_buffer_1: Option<Vec<f64>>,
@@ -806,6 +838,7 @@ fn process_async_stretch_req(mut req: AsyncStretchRequest) -> AsyncStretchRespon
         material: StretchedMaterial {
             start_frame: req.start_frame,
             tempo_factor: req.tempo_factor,
+            unstretched_frame_count: req.unstretched_frame_count,
             buffer: dest_buffer,
         },
     }

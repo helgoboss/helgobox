@@ -1688,8 +1688,13 @@ unsafe fn fill_samples_audio(
             let request = StretchRequest {
                 source: inner_source,
                 start_time: info.block_start_pos(),
-                tempo_factor: info.final_tempo_factor,
                 dest_buffer: BorrowedAudioBuffer::from_transfer(args.block),
+                // This is the first and only position where we incorporate the tempo factor in
+                // our own code.
+                // TODO-high Also use this to determine the next block frame as soon
+                //  as we work with frame offsets.
+                unstretched_frame_count: (info.length as f64 * info.final_tempo_factor as f64)
+                    as usize,
             };
             let source_info = SourceInfo::from_source(inner_source).unwrap();
             let stretch_info = request.stretch_info(&source_info);
