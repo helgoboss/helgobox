@@ -12,7 +12,7 @@ use crate::domain::clip::buffer::BorrowedAudioBuffer;
 use crate::domain::clip::source_util::pcm_source_is_midi;
 use crate::domain::clip::time_stretcher::{
     AsyncStretcher, EmptyReaperStretcher, ReaperStretcher, SourceInfo, StretchRequest,
-    StretchWorkerRequest,
+    StretchWorkerRequest, TryStretchError,
 };
 use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos, ClipRecordMode};
 use crate::domain::Timeline;
@@ -412,6 +412,11 @@ impl ClipPcmSource {
                     // (too late, to be accurate, because we would start advancing too late).
                     let scheduled_play_frame =
                         (s.play_instruction.scheduled_play_pos.get() * sample_rate.get()) as isize;
+                    if let InnerSourceKind::Audio { time_stretch_mode } = &mut self.inner.kind {
+                        if let Some(TimeStretchMode::Serious(stretcher)) = time_stretch_mode {
+                            stretcher.reset();
+                        }
+                    }
                     ResolvedPlayData {
                         next_block_pos: timeline_cursor_frame - scheduled_play_frame,
                     }
@@ -442,7 +447,8 @@ impl ClipPcmSource {
                 //     end_frame,
                 //     final_tempo_factor
                 // );
-                self.fill_samples(args, &block_info);
+                let consumed_frame_count = self.fill_samples(args, &block_info);
+                let end_frame = block_info.start_frame() + consumed_frame_count as isize;
                 // This is the point where we advance the block position.
                 let next_play_info = ResolvedPlayData {
                     next_block_pos: {
@@ -547,7 +553,7 @@ impl ClipPcmSource {
         }
     }
 
-    fn fill_samples(&mut self, args: &mut GetSamplesArgs, info: &BlockInfo) {
+    fn fill_samples(&mut self, args: &mut GetSamplesArgs, info: &BlockInfo) -> usize {
         // This means the clip is playing or about o play.
         // We want to start playing as soon as we reach the scheduled start position,
         // that means pos == 0.0. In order to do that, we need to take into account that
@@ -558,7 +564,7 @@ impl ClipPcmSource {
         // (end_pos >= 0.0).
         if info.tempo_adjusted_end_frame() < 0 {
             // Complete block is located before start position (pure count-in block).
-            return;
+            return info.tempo_adjusted_frame_count();
         }
         // At this point we are sure that the end of the block is right of the start position. The
         // start of the block might still be left of the start position (negative number).
@@ -566,12 +572,13 @@ impl ClipPcmSource {
         unsafe {
             match &mut self.inner.kind {
                 Audio { time_stretch_mode } => {
-                    fill_samples_audio(&self.inner.source, args, &info, time_stretch_mode.as_mut());
+                    fill_samples_audio(&self.inner.source, args, &info, time_stretch_mode.as_mut())
                     // TODO-high Reenable post-processing
                     // self.post_process_audio(args, &info, stop_countdown);
                 }
                 Midi => {
                     self.fill_samples_midi(args, &info);
+                    info.tempo_adjusted_frame_count()
                 }
             }
         }
@@ -1706,7 +1713,8 @@ unsafe fn fill_samples_audio(
     args: &mut GetSamplesArgs,
     info: &BlockInfo,
     time_stretch_mode: Option<&mut TimeStretchMode>,
-) {
+) -> usize {
+    let ideal_source_frame_count = info.tempo_adjusted_frame_count();
     let mut inner_transfer = *args.block;
     if matches!(time_stretch_mode, Some(TimeStretchMode::Resampling)) {
         inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
@@ -1725,6 +1733,7 @@ unsafe fn fill_samples_audio(
         with_shifted_samples(&mut inner_transfer, sample_offset, |b| {
             inner_source.get_samples(b);
         });
+        ideal_source_frame_count
     } else {
         // This is the code executed for the majority of the clip.
         let source_info = SourceInfo::from_source(inner_source).unwrap();
@@ -1735,37 +1744,42 @@ unsafe fn fill_samples_audio(
                 dest_buffer: BorrowedAudioBuffer::from_transfer(args.block),
                 // This is the first and only position where we incorporate the tempo factor in
                 // our own code.
-                // TODO-high Also use this to determine the next block frame as soon
-                //  as we work with frame offsets.
-                unstretched_frame_count: (info.frame_count as f64 * info.final_tempo_factor as f64)
-                    as usize,
+                unstretched_frame_count: ideal_source_frame_count,
+                tempo_factor: info.final_tempo_factor,
             };
-            if let Err(e) = stretcher.try_stretch(request) {
-                inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
-                inner_transfer.set_time_s(info.start_pos(source_info.sample_rate()));
-                inner_source.get_samples(&inner_transfer);
-                // println!("{}", e);
+            match stretcher.try_stretch(request) {
+                Ok(s) => s.consumed_source_frames,
+                Err(e) => {
+                    // Fall back to resampling
+                    inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
+                    inner_transfer.set_time_s(info.start_pos(source_info.sample_rate()));
+                    inner_source.get_samples(&inner_transfer);
+                    ideal_source_frame_count
+                    // println!("{}", e);
+                }
             }
         } else {
             inner_transfer.set_time_s(info.start_pos(source_info.sample_rate()));
             inner_source.get_samples(&inner_transfer);
+            ideal_source_frame_count
         }
     }
-    let written_sample_count = inner_transfer.samples_out() as usize;
-    if written_sample_count < info.frame_count() as _ {
-        // We have reached the end of the clip and it doesn't fill the complete block.
-        if info.is_last_block() {
-            dbg!("Audio end of last cycle");
-        } else {
-            dbg!("Audio repeat");
-            // Repeat. Because we assume that the user cuts sources
-            // sample-perfect, we must immediately fill the rest of the
-            // buffer with the very beginning of the source. Start from zero and write just
-            // remaining samples.
-            inner_transfer.set_time_s(PositionInSeconds::ZERO);
-            with_shifted_samples(&mut inner_transfer, written_sample_count as isize, |b| {
-                inner_source.get_samples(b);
-            });
-        }
-    }
+    // TODO-high
+    // let written_sample_count = inner_transfer.samples_out() as usize;
+    // if written_sample_count < info.frame_count() as _ {
+    //     // We have reached the end of the clip and it doesn't fill the complete block.
+    //     if info.is_last_block() {
+    //         dbg!("Audio end of last cycle");
+    //     } else {
+    //         dbg!("Audio repeat");
+    //         // Repeat. Because we assume that the user cuts sources
+    //         // sample-perfect, we must immediately fill the rest of the
+    //         // buffer with the very beginning of the source. Start from zero and write just
+    //         // remaining samples.
+    //         inner_transfer.set_time_s(PositionInSeconds::ZERO);
+    //         with_shifted_samples(&mut inner_transfer, written_sample_count as isize, |b| {
+    //             inner_source.get_samples(b);
+    //         });
+    //     }
+    // }
 }

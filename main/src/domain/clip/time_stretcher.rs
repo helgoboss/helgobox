@@ -45,6 +45,7 @@ pub struct StretchRequest<S: CopyToAudioBuffer, B: AudioBuffer> {
     pub source: S,
     /// Position within source from which to start stretching.
     pub start_frame: usize,
+    pub tempo_factor: f64,
     /// The number of frames from the source to grab.
     pub unstretched_frame_count: usize,
     /// The final time stretched samples should end up here.
@@ -150,6 +151,7 @@ impl ReaperStretcher {
             unstretched_frame_count: req.unstretched_frame_count,
             dest_channel_count: req.dest_buffer.channel_count(),
             dest_frame_count: req.dest_buffer.frame_count(),
+            tempo_factor: req.tempo_factor,
         };
         let filled = empty.fill(fill_req)?;
         self.state = Some(ReaperStretcherState::Empty(filled.stretch(req.dest_buffer)));
@@ -182,6 +184,7 @@ pub struct FillRequest<S: CopyToAudioBuffer> {
     pub dest_channel_count: usize,
     /// The number of frames to be filled.
     pub dest_frame_count: usize,
+    pub tempo_factor: f64,
     /// Number of frames in the source to be stretched.
     ///
     /// There's a reason why we don't simply calculate this by multiplying the destination frame
@@ -197,7 +200,7 @@ pub struct FillRequest<S: CopyToAudioBuffer> {
 
 impl<S: CopyToAudioBuffer> FillRequest<S> {
     fn tempo_factor(&self) -> f64 {
-        calculate_tempo_factor(self.unstretched_frame_count, self.dest_frame_count)
+        self.tempo_factor
     }
 }
 
@@ -227,6 +230,10 @@ impl EmptyReaperStretcher {
         Self { api }
     }
 
+    pub fn reset(&mut self) {
+        self.api.Reset();
+    }
+
     /// Fills the time stretcher with audio material, returning a filled time stretcher.
     pub fn fill(
         self,
@@ -254,12 +261,13 @@ impl FilledReaperStretcher {
     /// Does the actual stretching of the contained audio material.
     pub fn stretch(mut self, mut dest_buffer: impl AudioBuffer) -> EmptyReaperStretcher {
         // Let time stretcher write the stretched material into the destination buffer.
-        unsafe {
+        let written_frames = unsafe {
             self.api.GetSamples(
                 dest_buffer.frame_count() as _,
                 dest_buffer.data_as_mut_ptr(),
-            );
+            )
         };
+        println!("Written frames: {}", written_frames);
         // TODO-high Might have to zero the remaining frames
         EmptyReaperStretcher { api: self.api }
     }
@@ -455,6 +463,12 @@ impl AsyncStretcher {
         }
     }
 
+    pub fn reset(&mut self) {
+        if let AsyncStretcherState::Empty { equipment } = self.state.as_mut().unwrap() {
+            equipment.stretcher.reset();
+        }
+    }
+
     /// Attempts to deliver stretched audio material.
     ///
     /// If the stretching is done asynchronously, this will only succeed if the requested material
@@ -466,19 +480,38 @@ impl AsyncStretcher {
     pub fn try_stretch(
         &mut self,
         mut req: StretchRequest<&BorrowedPcmSource, impl AudioBuffer>,
-    ) -> Result<&'static str, TryStretchError> {
+    ) -> Result<TryStretchSuccess, TryStretchError> {
         use AsyncStretcherState::*;
         let outcome = match self.state.take().unwrap() {
             Empty { equipment } => {
-                // We can't fulfill the incoming request but we can do our best to predict the
-                // next few requests and make sure they will succeed.
-                // Fill stretcher with input buffer covering material for the next few requests.
-                let next_start_frame = req.modulo_end_frame(&self.source_info);
-                self.request_more_material(&req, equipment, next_start_frame, None, None)?;
+                let fill_req = FillRequest {
+                    source: req.source,
+                    start_frame: req.start_frame,
+                    dest_channel_count: req.dest_buffer.channel_count(),
+                    dest_frame_count: req.dest_buffer.frame_count(),
+                    tempo_factor: req.tempo_factor,
+                    unstretched_frame_count: req.unstretched_frame_count,
+                };
+                let filled = equipment
+                    .stretcher
+                    .fill(fill_req)
+                    .map_err(|msg| err(msg, ""))?;
+                let empty = filled.stretch(req.dest_buffer);
                 Outcome {
-                    next_state: PreparingCurrentMaterial,
-                    result: Err(e("first request, cache miss", "")),
+                    next_state: Empty {
+                        equipment: StretchEquipment { stretcher: empty },
+                    },
+                    result: Ok(ok("stretched sync", req.unstretched_frame_count)),
                 }
+                // // We can't fulfill the incoming request but we can do our best to predict the
+                // // next few requests and make sure they will succeed.
+                // // Fill stretcher with input buffer covering material for the next few requests.
+                // let next_start_frame = req.modulo_end_frame(&self.source_info);
+                // self.request_more_material(&req, equipment, next_start_frame, None, None)?;
+                // Outcome {
+                //     next_state: PreparingCurrentMaterial,
+                //     result: Err(e("first request, cache miss", "")),
+                // }
             }
             PreparingCurrentMaterial => {
                 if let Some(response) = self.poll_stretch_response() {
@@ -511,7 +544,10 @@ impl AsyncStretcher {
                             )?;
                             Outcome {
                                 next_state,
-                                result: Ok("current material just arrived and it works"),
+                                result: Ok(ok(
+                                    "current material just arrived and it works",
+                                    todo!(),
+                                )),
                             }
                         }
                         Err(msg) => {
@@ -526,14 +562,14 @@ impl AsyncStretcher {
                             )?;
                             Outcome {
                                 next_state: PreparingCurrentMaterial,
-                                result: Err(e("we have material but not the right one", msg)),
+                                result: Err(err("we have material but not the right one", msg)),
                             }
                         }
                     }
                 } else {
                     Outcome {
                         next_state: PreparingCurrentMaterial,
-                        result: Err(e("second request, still waiting for material", "")),
+                        result: Err(err("second request, still waiting for material", "")),
                     }
                 }
             }
@@ -585,7 +621,10 @@ impl AsyncStretcher {
                         };
                         Outcome {
                             next_state,
-                            result: Ok("current material works while waiting for next one"),
+                            result: Ok(ok(
+                                "current material works while waiting for next one",
+                                todo!(),
+                            )),
                         }
                     }
                     Err(msg1) => {
@@ -612,7 +651,7 @@ impl AsyncStretcher {
                                         next_state: PreparingNextMaterial {
                                             current_material: response.material,
                                         },
-                                        result: Ok("current material doesn't work but next one just arrived and works"),
+                                        result: Ok(ok("current material doesn't work but next one just arrived and works", todo!())),
                                     }
                                 }
                                 Err(msg2) => {
@@ -628,7 +667,7 @@ impl AsyncStretcher {
                                     )?;
                                     Outcome {
                                         next_state: PreparingCurrentMaterial,
-                                        result: Err(e(
+                                        result: Err(err(
                                             "neither current nor new material fits while preparing next material",
                                             msg1
                                         )),
@@ -641,7 +680,7 @@ impl AsyncStretcher {
                             // material.
                             Outcome {
                                 next_state: PreparingNextMaterial { current_material },
-                                result: Err(e(
+                                result: Err(err(
                                     "current material exhausted, waiting for new one",
                                     msg1,
                                 )),
@@ -689,7 +728,7 @@ impl AsyncStretcher {
                         };
                         Outcome {
                             next_state,
-                            result: Ok("current material works while full"),
+                            result: Ok(ok("current material works while full", todo!())),
                         }
                     }
                     Err(msg1) => {
@@ -714,7 +753,7 @@ impl AsyncStretcher {
                                     next_state: PreparingNextMaterial {
                                         current_material: next_material,
                                     },
-                                    result: Ok("next material works while full"),
+                                    result: Ok(ok("next material works while full", todo!())),
                                 }
                             }
                             Err(msg2) => {
@@ -730,7 +769,7 @@ impl AsyncStretcher {
                                 )?;
                                 Outcome {
                                     next_state: PreparingCurrentMaterial,
-                                    result: Err(e(
+                                    result: Err(err(
                                         "neither current nor new material fits while full",
                                         msg1,
                                     )),
@@ -761,6 +800,7 @@ impl AsyncStretcher {
             start_frame,
             dest_channel_count,
             dest_frame_count,
+            tempo_factor: req.tempo_factor,
             unstretched_frame_count,
         };
         // Let another thread do the actual stretching work.
@@ -768,7 +808,7 @@ impl AsyncStretcher {
             stretcher: equipment
                 .stretcher
                 .fill(fill_request)
-                .map_err(|msg| e(msg, ""))?,
+                .map_err(|msg| err(msg, ""))?,
             start_frame,
             tempo_factor: req.tempo_factor(),
             unstretched_frame_count_per_block: req.unstretched_frame_count,
@@ -785,7 +825,7 @@ impl AsyncStretcher {
         self.worker_sender
             .try_send(worker_request)
             .map_err(|_| "couldn't contact worker")
-            .map_err(|msg| e(msg, ""))?;
+            .map_err(|msg| err(msg, ""))?;
         Ok(())
     }
 
@@ -867,7 +907,19 @@ fn process_async_stretch_req(mut req: AsyncStretchRequest) -> AsyncStretchRespon
 
 struct Outcome {
     next_state: AsyncStretcherState,
-    result: Result<&'static str, TryStretchError>,
+    result: Result<TryStretchSuccess, TryStretchError>,
+}
+
+pub struct TryStretchSuccess {
+    pub msg: &'static str,
+    pub consumed_source_frames: usize,
+}
+
+fn ok(msg: &'static str, consumed_source_frames: usize) -> TryStretchSuccess {
+    TryStretchSuccess {
+        msg,
+        consumed_source_frames,
+    }
 }
 
 pub struct TryStretchError {
@@ -885,7 +937,7 @@ impl Display for TryStretchError {
     }
 }
 
-fn e(primary_msg: &'static str, secondary_msg: &'static str) -> TryStretchError {
+fn err(primary_msg: &'static str, secondary_msg: &'static str) -> TryStretchError {
     TryStretchError {
         primary_msg,
         secondary_msg,
