@@ -10,10 +10,7 @@ use std::ptr::null_mut;
 
 use crate::domain::clip::buffer::BorrowedAudioBuffer;
 use crate::domain::clip::source_util::pcm_source_is_midi;
-use crate::domain::clip::time_stretcher::{
-    AsyncStretcher, EmptyReaperStretcher, ReaperStretcher, SourceInfo, StretchRequest,
-    StretchWorkerRequest, TryStretchError,
-};
+use crate::domain::clip::time_stretcher::{AsyncStretcher, StretchRequest, StretchWorkerRequest};
 use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos, ClipRecordMode};
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
@@ -236,13 +233,8 @@ impl ClipPcmSource {
             InnerSourceKind::Audio {
                 time_stretch_mode: {
                     let source_info = SourceInfo::from_source(&inner).unwrap();
-                    let reaper_stretcher = EmptyReaperStretcher::new(source_info.sample_rate());
-                    let async_stretcher = AsyncStretcher::new(
-                        reaper_stretcher,
-                        4,
-                        stretch_worker_sender.clone(),
-                        source_info,
-                    );
+                    let async_stretcher =
+                        AsyncStretcher::new(stretch_worker_sender.clone(), source_info);
                     Some(TimeStretchMode::Serious(async_stretcher))
                 },
                 // time_stretch_mode: Some(TimeStretchMode::Resampling),
@@ -412,11 +404,11 @@ impl ClipPcmSource {
                     // (too late, to be accurate, because we would start advancing too late).
                     let scheduled_play_frame =
                         (s.play_instruction.scheduled_play_pos.get() * sample_rate.get()) as isize;
-                    if let InnerSourceKind::Audio { time_stretch_mode } = &mut self.inner.kind {
-                        if let Some(TimeStretchMode::Serious(stretcher)) = time_stretch_mode {
-                            stretcher.reset();
-                        }
-                    }
+                    // if let InnerSourceKind::Audio { time_stretch_mode } = &mut self.inner.kind {
+                    //     if let Some(TimeStretchMode::Serious(stretcher)) = time_stretch_mode {
+                    //         stretcher.reset();
+                    //     }
+                    // }
                     ResolvedPlayData {
                         next_block_pos: timeline_cursor_frame - scheduled_play_frame,
                     }
@@ -1742,9 +1734,6 @@ unsafe fn fill_samples_audio(
                 source: inner_source,
                 start_frame: info.start_frame() as usize,
                 dest_buffer: BorrowedAudioBuffer::from_transfer(args.block),
-                // This is the first and only position where we incorporate the tempo factor in
-                // our own code.
-                unstretched_frame_count: ideal_source_frame_count,
                 tempo_factor: info.final_tempo_factor,
             };
             match stretcher.try_stretch(request) {
@@ -1782,4 +1771,40 @@ unsafe fn fill_samples_audio(
     //         });
     //     }
     // }
+}
+
+#[derive(Debug)]
+pub struct SourceInfo {
+    sample_rate: Hz,
+    length: DurationInSeconds,
+}
+
+impl SourceInfo {
+    pub fn from_source(source: &BorrowedPcmSource) -> Result<Self, &'static str> {
+        let info = Self {
+            sample_rate: source
+                .get_sample_rate()
+                .ok_or("source without sample rate")?,
+            length: {
+                let length = source.get_length().map_err(|_| "source without length")?;
+                if length == DurationInSeconds::ZERO {
+                    return Err("source is empty");
+                }
+                length
+            },
+        };
+        Ok(info)
+    }
+
+    pub fn sample_rate(&self) -> Hz {
+        self.sample_rate
+    }
+
+    pub fn length(&self) -> DurationInSeconds {
+        self.length
+    }
+
+    pub fn frame_count(&self) -> usize {
+        (self.length.get() * self.sample_rate.get()) as usize
+    }
 }

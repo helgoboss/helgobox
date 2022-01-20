@@ -1,4 +1,5 @@
-use reaper_medium::PcmSourceTransfer;
+use core::cmp;
+use reaper_medium::{BorrowedPcmSource, PcmSourceTransfer, PositionInSeconds};
 use std::ops::Range;
 
 pub trait AudioBuffer {
@@ -13,6 +14,21 @@ pub trait AudioBuffer {
     fn data_as_slice(&self) -> &[f64];
 
     fn data_as_mut_slice(&mut self) -> &mut [f64];
+
+    fn offset_by_mut(&mut self, frame_offset: usize) -> Result<BorrowedAudioBuffer, &'static str> {
+        if frame_offset >= self.frame_count() {
+            return Err("resulting audio buffer is empty");
+        }
+        let new_frame_count = self.frame_count() - frame_offset;
+        let channel_count = self.channel_count();
+        let data_offset = frame_offset * channel_count;
+        let offset_buffer = BorrowedAudioBuffer {
+            data: &mut self.data_as_mut_slice()[data_offset..],
+            frame_count: new_frame_count,
+            channel_count: channel_count,
+        };
+        Ok(offset_buffer)
+    }
 
     fn data_as_mut_ptr(&mut self) -> *mut f64;
 
@@ -187,5 +203,38 @@ impl<'a> AudioBuffer for BorrowedAudioBuffer<'a> {
 
     fn data_as_mut_ptr(&mut self) -> *mut f64 {
         self.data.as_mut_ptr()
+    }
+}
+
+/// Material to be stretched.
+pub trait CopyToAudioBuffer {
+    fn copy_to_audio_buffer(
+        &self,
+        start_frame: usize,
+        dest_buffer: impl AudioBuffer,
+    ) -> Result<usize, &'static str>;
+}
+
+impl<'a> CopyToAudioBuffer for &'a BorrowedPcmSource {
+    fn copy_to_audio_buffer(
+        &self,
+        start_frame: usize,
+        mut dest_buffer: impl AudioBuffer,
+    ) -> Result<usize, &'static str> {
+        let mut transfer = PcmSourceTransfer::default();
+        let sample_rate = self.get_sample_rate().ok_or("source without sample rate")?;
+        let start_time =
+            (start_frame as f64 / sample_rate.get()) % self.get_length().unwrap().get();
+        let start_time = PositionInSeconds::new(start_time);
+        transfer.set_time_s(start_time);
+        transfer.set_sample_rate(sample_rate);
+        // TODO-high Here we need to handle repeat/not-repeat
+        unsafe {
+            transfer.set_nch(dest_buffer.channel_count() as _);
+            transfer.set_length(dest_buffer.frame_count() as _);
+            transfer.set_samples(dest_buffer.data_as_mut_ptr());
+            self.get_samples(&transfer);
+        }
+        Ok(dest_buffer.frame_count())
     }
 }
