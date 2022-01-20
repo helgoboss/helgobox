@@ -1,6 +1,6 @@
 use crate::domain::clip::audio::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
-    SupplyRequest, SupplyResponse,
+    SupplyAudioRequest, SupplyAudioResponse,
 };
 use crate::domain::clip::buffer::{AudioBufMut, OwnedAudioBuffer};
 use core::cmp;
@@ -36,11 +36,12 @@ impl<S: AudioSupplier> AudioCache<S> {
         let mut content =
             OwnedAudioBuffer::new(self.supplier.channel_count(), self.supplier.frame_count());
         let original_sample_rate = self.supplier.sample_rate();
-        let request = SupplyRequest {
+        let request = SupplyAudioRequest {
             start_frame: 0,
             dest_sample_rate: original_sample_rate,
         };
-        self.supplier.supply_audio(&request, content.to_buf_mut());
+        self.supplier
+            .supply_audio(&request, &mut content.to_buf_mut());
         let cached_data = CachedData {
             sample_rate: original_sample_rate,
             content,
@@ -59,9 +60,9 @@ impl<S: AudioSupplier> AudioCache<S> {
 impl<S: AudioSupplier> AudioSupplier for AudioCache<S> {
     fn supply_audio(
         &self,
-        request: &SupplyRequest,
-        mut dest_buffer: AudioBufMut,
-    ) -> SupplyResponse {
+        request: &SupplyAudioRequest,
+        dest_buffer: &mut AudioBufMut,
+    ) -> SupplyAudioResponse {
         if let Some(d) = &self.cached_data {
             // TODO-high Respect the requested sample rate (we need to resample manually).
             let buf = d.content.to_buf();
@@ -70,7 +71,7 @@ impl<S: AudioSupplier> AudioSupplier for AudioCache<S> {
                 cmp::min(num_remaining_frames_in_source, dest_buffer.frame_count());
             buf.slice(request.start_frame..)
                 .copy_to(dest_buffer.slice_mut(0..num_frames_written));
-            SupplyResponse { num_frames_written }
+            SupplyAudioResponse { num_frames_written }
         } else {
             self.supplier.supply_audio(request, dest_buffer)
         }

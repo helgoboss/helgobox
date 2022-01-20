@@ -1,6 +1,6 @@
 use crate::domain::clip::audio::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
-    SupplyRequest, SupplyResponse,
+    SupplyAudioRequest, SupplyAudioResponse,
 };
 use crate::domain::clip::buffer::AudioBufMut;
 use reaper_medium::{BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer};
@@ -8,9 +8,9 @@ use reaper_medium::{BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer}
 impl AudioSupplier for &BorrowedPcmSource {
     fn supply_audio(
         &self,
-        request: &SupplyRequest,
-        mut dest_buffer: AudioBufMut,
-    ) -> SupplyResponse {
+        request: &SupplyAudioRequest,
+        dest_buffer: &mut AudioBufMut,
+    ) -> SupplyAudioResponse {
         let mut transfer = PcmSourceTransfer::default();
         let time_s = convert_duration_in_frames_to_seconds(request.start_frame, self.sample_rate());
         unsafe {
@@ -21,7 +21,7 @@ impl AudioSupplier for &BorrowedPcmSource {
             transfer.set_time_s(time_s.into());
             self.get_samples(&transfer);
         }
-        SupplyResponse {
+        SupplyAudioResponse {
             num_frames_written: transfer.samples_out() as _,
         }
     }

@@ -7,10 +7,17 @@ mod cache;
 use crate::domain::clip::buffer::AudioBufMut;
 pub use cache::*;
 
+mod looper;
+pub use looper::*;
+
 pub trait AudioSupplier {
     /// Writes a portion of audio material into the given destination buffer so that it completely
     /// fills that buffer.
-    fn supply_audio(&self, request: &SupplyRequest, dest_buffer: AudioBufMut) -> SupplyResponse;
+    fn supply_audio(
+        &self,
+        request: &SupplyAudioRequest,
+        dest_buffer: &mut AudioBufMut,
+    ) -> SupplyAudioResponse;
 
     /// How many channels the supplied audio material consists of.
     fn channel_count(&self) -> usize;
@@ -23,7 +30,8 @@ pub trait AudioSupplier {
     fn sample_rate(&self) -> Hz;
 }
 
-pub struct SupplyRequest {
+#[derive(Copy, Clone)]
+pub struct SupplyAudioRequest {
     /// Position within the requested material that marks the start of the desired portion.
     ///
     /// The frame always relates to the preferred sample rate of the audio supplier, not to
@@ -35,7 +43,7 @@ pub struct SupplyRequest {
     pub dest_sample_rate: Hz,
 }
 
-pub struct SupplyResponse {
+pub struct SupplyAudioResponse {
     /// The number of frames that were actually written.
     pub num_frames_written: usize,
 }

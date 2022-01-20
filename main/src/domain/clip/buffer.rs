@@ -64,7 +64,7 @@ impl OwnedAudioBuffer {
 
 // TODO-medium Replace this with one of the audio buffer types in the Rust ecosystem
 //  (dasp_slice, audio, fon, ...)
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct AbstractAudioBuf<T: AsRef<[f64]>> {
     data: T,
     frame_count: usize,
