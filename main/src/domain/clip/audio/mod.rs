@@ -27,6 +27,7 @@ pub trait AudioSupplier {
 
     /// Total length of the supplied audio material in frames, in relation to the audio supplier's
     /// native sample rate.
+    // TODO-high Not every source knows this. Put into separate trait!
     fn frame_count(&self) -> usize;
 
     /// Native (preferred) sample rate of the material.
