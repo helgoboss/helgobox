@@ -43,8 +43,9 @@ impl<S: AudioSupplier> AudioSupplier for AudioLooper<S> {
             start_frame,
             ..*request
         };
+
         let end_frame = start_frame + dest_buffer.frame_count();
-        if end_frame > supplier_frame_count {
+        let end_frame = if end_frame > supplier_frame_count {
             // The requested block covers the border between two cycles.
             let num_frames_at_end = supplier_frame_count - start_frame;
             self.supplier
@@ -57,12 +58,15 @@ impl<S: AudioSupplier> AudioSupplier for AudioLooper<S> {
                 &start_request,
                 &mut dest_buffer.slice_mut(num_frames_at_end..),
             );
+            dest_buffer.frame_count() - num_frames_at_end
         } else {
             // The requested block is within one cycle.
             self.supplier.supply_audio(&request, dest_buffer);
-        }
+            end_frame
+        };
         SupplyAudioResponse {
             num_frames_written: dest_buffer.frame_count(),
+            next_inner_frame: Some(end_frame),
         }
     }
 

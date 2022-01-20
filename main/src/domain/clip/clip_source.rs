@@ -8,6 +8,7 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::ptr::null_mut;
 
+use crate::domain::clip::audio::{AudioLooper, AudioStretcher, AudioSupplier, SupplyAudioRequest};
 use crate::domain::clip::buffer::AudioBufMut;
 use crate::domain::clip::source_util::pcm_source_is_midi;
 use crate::domain::clip::time_stretcher::{AsyncStretcher, StretchRequest, StretchWorkerRequest};
@@ -50,6 +51,8 @@ pub struct ClipPcmSource {
     current_sample_rate: Option<Hz>,
 }
 
+type AudioChain = AudioStretcher<AudioLooper<OwnedPcmSource>>;
+
 struct InnerSource {
     /// This source contains the actual audio/MIDI data.
     ///
@@ -57,6 +60,7 @@ struct InnerSource {
     source: OwnedPcmSource,
     /// Caches the information if the inner clip source contains MIDI or audio material.
     kind: InnerSourceKind,
+    chain: AudioChain,
 }
 
 enum InnerSourceKind {
@@ -242,8 +246,16 @@ impl ClipPcmSource {
         };
         Self {
             inner: InnerSource {
-                source: inner,
                 kind,
+                chain: {
+                    let source = inner.clone();
+                    let mut looper = AudioLooper::new(source);
+                    looper.enable();
+                    let mut stretcher = AudioStretcher::new(looper);
+                    stretcher.enable();
+                    stretcher
+                },
+                source: inner,
             },
             project,
             debug_counter: 0,
@@ -327,6 +339,7 @@ impl ClipPcmSource {
         let timeline_cursor_frame = (timeline_cursor_pos.get() * sample_rate.get()) as isize;
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo);
+        self.inner.chain.set_tempo_factor(final_tempo_factor);
         self.current_sample_rate = Some(sample_rate);
         use ClipState::*;
         match self.state {
@@ -439,8 +452,7 @@ impl ClipPcmSource {
                 //     end_frame,
                 //     final_tempo_factor
                 // );
-                let consumed_frame_count = self.fill_samples(args, &block_info);
-                let end_frame = block_info.start_frame() + consumed_frame_count as isize;
+                let end_frame = self.fill_samples(args, &block_info);
                 // This is the point where we advance the block position.
                 let next_play_info = ResolvedPlayData {
                     next_block_pos: {
@@ -545,7 +557,7 @@ impl ClipPcmSource {
         }
     }
 
-    fn fill_samples(&mut self, args: &mut GetSamplesArgs, info: &BlockInfo) -> usize {
+    fn fill_samples(&mut self, args: &mut GetSamplesArgs, info: &BlockInfo) -> isize {
         // This means the clip is playing or about o play.
         // We want to start playing as soon as we reach the scheduled start position,
         // that means pos == 0.0. In order to do that, we need to take into account that
@@ -556,7 +568,7 @@ impl ClipPcmSource {
         // (end_pos >= 0.0).
         if info.tempo_adjusted_end_frame() < 0 {
             // Complete block is located before start position (pure count-in block).
-            return info.tempo_adjusted_frame_count();
+            return info.start_frame() + info.tempo_adjusted_frame_count() as isize;
         }
         // At this point we are sure that the end of the block is right of the start position. The
         // start of the block might still be left of the start position (negative number).
@@ -564,13 +576,19 @@ impl ClipPcmSource {
         unsafe {
             match &mut self.inner.kind {
                 Audio { time_stretch_mode } => {
-                    fill_samples_audio(&self.inner.source, args, &info, time_stretch_mode.as_mut())
+                    fill_samples_audio(
+                        &self.inner.chain,
+                        &self.inner.source,
+                        args,
+                        &info,
+                        time_stretch_mode.as_mut(),
+                    )
                     // TODO-high Reenable post-processing
                     // self.post_process_audio(args, &info, stop_countdown);
                 }
                 Midi => {
                     self.fill_samples_midi(args, &info);
-                    info.tempo_adjusted_frame_count()
+                    info.start_frame() + info.tempo_adjusted_frame_count() as isize
                 }
             }
         }
@@ -1701,12 +1719,28 @@ impl BlockInfo {
 }
 
 unsafe fn fill_samples_audio(
+    chain: &AudioChain,
     inner_source: &BorrowedPcmSource,
     args: &mut GetSamplesArgs,
     info: &BlockInfo,
     time_stretch_mode: Option<&mut TimeStretchMode>,
-) -> usize {
+) -> isize {
     let ideal_source_frame_count = info.tempo_adjusted_frame_count();
+    if info.start_frame() < 0 {
+        return info.start_frame() + ideal_source_frame_count as isize;
+    }
+    let request = SupplyAudioRequest {
+        start_frame: info.start_frame() as usize,
+        dest_sample_rate: args.block.sample_rate(),
+    };
+    let mut dest_buffer = AudioBufMut::from_raw(
+        args.block.samples(),
+        args.block.nch() as _,
+        args.block.length() as _,
+    );
+    let response = chain.supply_audio(&request, &mut dest_buffer);
+    return response.next_inner_frame.unwrap_or(0) as _;
+
     let mut inner_transfer = *args.block;
     if matches!(time_stretch_mode, Some(TimeStretchMode::Resampling)) {
         inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
@@ -1725,7 +1759,7 @@ unsafe fn fill_samples_audio(
         with_shifted_samples(&mut inner_transfer, sample_offset, |b| {
             inner_source.get_samples(b);
         });
-        ideal_source_frame_count
+        info.start_frame() + ideal_source_frame_count as isize
     } else {
         // This is the code executed for the majority of the clip.
         let source_info = SourceInfo::from_source(inner_source).unwrap();
@@ -1737,20 +1771,20 @@ unsafe fn fill_samples_audio(
                 tempo_factor: info.final_tempo_factor,
             };
             match stretcher.try_stretch(request) {
-                Ok(s) => s.consumed_source_frames,
+                Ok(s) => info.start_frame() + s.consumed_source_frames as isize,
                 Err(e) => {
                     // Fall back to resampling
                     inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
                     inner_transfer.set_time_s(info.start_pos(source_info.sample_rate()));
                     inner_source.get_samples(&inner_transfer);
-                    ideal_source_frame_count
+                    info.start_frame() + ideal_source_frame_count as isize
                     // println!("{}", e);
                 }
             }
         } else {
             inner_transfer.set_time_s(info.start_pos(source_info.sample_rate()));
             inner_source.get_samples(&inner_transfer);
-            ideal_source_frame_count
+            info.start_frame() + ideal_source_frame_count as isize
         }
     }
     // TODO-high

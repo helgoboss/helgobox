@@ -71,7 +71,15 @@ impl<S: AudioSupplier> AudioSupplier for AudioCache<S> {
                 cmp::min(num_remaining_frames_in_source, dest_buffer.frame_count());
             buf.slice(request.start_frame..)
                 .copy_to(dest_buffer.slice_mut(0..num_frames_written));
-            SupplyAudioResponse { num_frames_written }
+            let next_frame = request.start_frame + num_frames_written;
+            SupplyAudioResponse {
+                num_frames_written,
+                next_inner_frame: if next_frame < d.content.to_buf().frame_count() {
+                    Some(next_frame)
+                } else {
+                    None
+                },
+            }
         } else {
             self.supplier.supply_audio(request, dest_buffer)
         }
