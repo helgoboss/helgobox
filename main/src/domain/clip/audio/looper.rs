@@ -38,35 +38,29 @@ impl<S: AudioSupplier> AudioSupplier for AudioLooper<S> {
             return self.supplier.supply_audio(&request, dest_buffer);
         }
         let supplier_frame_count = self.supplier.frame_count();
+        // Start from beginning if we encounter a start frame after the end (modulo).
         let start_frame = request.start_frame % supplier_frame_count;
         let request = SupplyAudioRequest {
             start_frame,
             ..*request
         };
-
-        let end_frame = start_frame + dest_buffer.frame_count();
-        let end_frame = if end_frame > supplier_frame_count {
-            // The requested block covers the border between two cycles.
-            let num_frames_at_end = supplier_frame_count - start_frame;
-            self.supplier
-                .supply_audio(&request, &mut dest_buffer.slice_mut(..num_frames_at_end));
-            let start_request = SupplyAudioRequest {
-                start_frame: 0,
-                ..request
-            };
-            self.supplier.supply_audio(
-                &start_request,
-                &mut dest_buffer.slice_mut(num_frames_at_end..),
-            );
-            dest_buffer.frame_count() - num_frames_at_end
-        } else {
-            // The requested block is within one cycle.
-            self.supplier.supply_audio(&request, dest_buffer);
-            end_frame
+        let response = self.supplier.supply_audio(&request, dest_buffer);
+        if response.num_frames_written == dest_buffer.frame_count() {
+            // Didn't cross the end yet. Nothing else to do.
+            return response;
+        }
+        // Crossed the end. We need to fill the rest with material from the beginning of the source.
+        let second_request = SupplyAudioRequest {
+            start_frame: 0,
+            ..request
         };
+        let second_response = self.supplier.supply_audio(
+            &second_request,
+            &mut dest_buffer.slice_mut(response.num_frames_written..),
+        );
         SupplyAudioResponse {
             num_frames_written: dest_buffer.frame_count(),
-            next_inner_frame: Some(end_frame),
+            next_inner_frame: second_response.next_inner_frame,
         }
     }
 
