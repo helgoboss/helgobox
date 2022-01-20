@@ -1,6 +1,4 @@
-use crate::domain::clip::buffer::{
-    AudioBuffer, BorrowedAudioBuffer, CopyToAudioBuffer, OwnedAudioBuffer,
-};
+use crate::domain::clip::buffer::{AudioBufMut, CopyToAudioBuffer, OwnedAudioBuffer};
 use crate::domain::clip::SourceInfo;
 use crossbeam_channel::{Receiver, Sender};
 use reaper_high::Reaper;
@@ -13,14 +11,14 @@ use std::fmt::{Display, Formatter};
 
 /// A request for stretching source material.
 #[derive(Debug)]
-pub struct StretchRequest<S: CopyToAudioBuffer, B: AudioBuffer> {
+pub struct StretchRequest<'a, S: CopyToAudioBuffer> {
     /// Source material.
     pub source: S,
     /// Position within source from which to start stretching.
     pub start_frame: usize,
     pub tempo_factor: f64,
     /// The final time stretched samples should end up here.
-    pub dest_buffer: B,
+    pub dest_buffer: AudioBufMut<'a>,
 }
 
 pub enum StretchWorkerRequest {
@@ -65,7 +63,7 @@ impl AsyncStretcher {
 
     pub fn try_stretch(
         &mut self,
-        mut req: StretchRequest<&BorrowedPcmSource, impl AudioBuffer>,
+        mut req: StretchRequest<&BorrowedPcmSource>,
     ) -> Result<TryStretchSuccess, &'static str> {
         let mut total_num_frames_read = 0;
         let mut total_num_frames_written = 0;
@@ -78,16 +76,15 @@ impl AsyncStretcher {
             self.api.set_tempo(req.tempo_factor);
             let buffer_frame_count = 128usize;
             let stretch_buffer = self.api.GetBuffer(buffer_frame_count as _);
-            let mut stretch_buffer = unsafe {
-                BorrowedAudioBuffer::from_raw(stretch_buffer, dest_nch, buffer_frame_count)
-            };
+            let mut stretch_buffer =
+                unsafe { AudioBufMut::from_raw(stretch_buffer, dest_nch, buffer_frame_count) };
             let num_frames_read = req
                 .source
                 .copy_to_audio_buffer(req.start_frame + total_num_frames_read, stretch_buffer)?;
             total_num_frames_read += num_frames_read;
             self.api.BufferDone(num_frames_read as _);
             // Get samples
-            let mut offset_buffer = req.dest_buffer.offset_by_mut(total_num_frames_written)?;
+            let mut offset_buffer = req.dest_buffer.slice_mut(total_num_frames_written..);
             let num_frames_written = unsafe {
                 self.api.GetSamples(
                     offset_buffer.frame_count() as _,
