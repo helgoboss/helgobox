@@ -1,15 +1,17 @@
-use crate::domain::clip::audio::stretcher::resampling::Resampler;
-use crate::domain::clip::audio::stretcher::time_stretching::SeriousTimeStretcher;
-use crate::domain::clip::audio::{
+use crate::domain::clip_engine::audio::stretcher::resampling::Resampler;
+use crate::domain::clip_engine::audio::stretcher::time_stretching::SeriousTimeStretcher;
+use crate::domain::clip_engine::audio::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
     SupplyAudioRequest, SupplyAudioResponse,
 };
-use crate::domain::clip::buffer::{AudioBufMut, OwnedAudioBuffer};
+use crate::domain::clip_engine::buffer::{AudioBufMut, OwnedAudioBuffer};
 use core::cmp;
 use reaper_medium::{BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer};
 
 mod resampling;
-mod time_stretching;
+pub use resampling::*;
+pub mod time_stretching;
+pub use time_stretching::*;
 
 pub struct AudioStretcher<S: AudioSupplier> {
     enabled: bool,

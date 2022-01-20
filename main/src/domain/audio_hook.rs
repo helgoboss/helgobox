@@ -1,4 +1,4 @@
-use crate::domain::clip::{
+use crate::domain::clip_engine::{
     clip_timeline, ClipPcmSourceSkills, ClipRecordMode, ClipRecordTiming, PosWithinClipArgs,
     SharedRegister,
 };

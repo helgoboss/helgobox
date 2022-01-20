@@ -23,7 +23,7 @@ use helgoboss_learn::{
 
 use crate::base::default_util::is_default;
 use crate::base::Global;
-use crate::domain::clip::ClipPlayState;
+use crate::domain::clip_engine::ClipPlayState;
 use crate::domain::ui_util::convert_bool_to_unit_value;
 use crate::domain::{
     handle_exclusivity, ActionTarget, AllTrackFxEnableTarget, AutomationModeOverrideTarget,

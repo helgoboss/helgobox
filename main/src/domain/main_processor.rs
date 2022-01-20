@@ -1,4 +1,4 @@
-use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos, ClipChangedEvent};
+use crate::domain::clip_engine::{clip_timeline, clip_timeline_cursor_pos, ClipChangedEvent};
 use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
     CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,

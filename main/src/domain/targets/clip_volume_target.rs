@@ -1,4 +1,4 @@
-use crate::domain::clip::ClipChangedEvent;
+use crate::domain::clip_engine::ClipChangedEvent;
 use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db,
     reaper_volume_unit_value, volume_unit_value,

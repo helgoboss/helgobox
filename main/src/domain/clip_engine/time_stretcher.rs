@@ -1,5 +1,5 @@
-use crate::domain::clip::buffer::{AudioBufMut, CopyToAudioBuffer, OwnedAudioBuffer};
-use crate::domain::clip::SourceInfo;
+use crate::domain::clip_engine::buffer::{AudioBufMut, CopyToAudioBuffer, OwnedAudioBuffer};
+use crate::domain::clip_engine::SourceInfo;
 use crossbeam_channel::{Receiver, Sender};
 use reaper_high::Reaper;
 use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};

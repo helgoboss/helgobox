@@ -1,4 +1,4 @@
-use crate::domain::clip::{
+use crate::domain::clip_engine::{
     ClipChangedEvent, ClipRecordMode, ClipRecordTiming, SlotPlayOptions, SlotStopBehavior,
 };
 use crate::domain::{

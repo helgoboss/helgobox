@@ -2,7 +2,7 @@ use reaper_medium::PositionInSeconds;
 
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 
-use crate::domain::clip::{ClipChangedEvent, ClipPlayState};
+use crate::domain::clip_engine::{ClipChangedEvent, ClipPlayState};
 use crate::domain::{
     AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     FeedbackResolution, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,

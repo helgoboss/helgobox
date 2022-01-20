@@ -8,11 +8,16 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::ptr::null_mut;
 
-use crate::domain::clip::audio::{AudioLooper, AudioStretcher, AudioSupplier, SupplyAudioRequest};
-use crate::domain::clip::buffer::AudioBufMut;
-use crate::domain::clip::source_util::pcm_source_is_midi;
-use crate::domain::clip::time_stretcher::{AsyncStretcher, StretchRequest, StretchWorkerRequest};
-use crate::domain::clip::{clip_timeline, clip_timeline_cursor_pos, ClipRecordMode};
+use crate::domain::clip_engine::audio::stretcher::time_stretching::SeriousTimeStretcher;
+use crate::domain::clip_engine::audio::{
+    AudioLooper, AudioStretcher, AudioSupplier, StretchMode, SupplyAudioRequest,
+};
+use crate::domain::clip_engine::buffer::AudioBufMut;
+use crate::domain::clip_engine::source_util::pcm_source_is_midi;
+use crate::domain::clip_engine::time_stretcher::{
+    AsyncStretcher, StretchRequest, StretchWorkerRequest,
+};
+use crate::domain::clip_engine::{clip_timeline, clip_timeline_cursor_pos, ClipRecordMode};
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
@@ -252,6 +257,8 @@ impl ClipPcmSource {
                     let mut looper = AudioLooper::new(source);
                     looper.enable();
                     let mut stretcher = AudioStretcher::new(looper);
+                    let time_stretcher = SeriousTimeStretcher::new();
+                    stretcher.set_mode(StretchMode::Serious(time_stretcher));
                     stretcher.enable();
                     stretcher
                 },

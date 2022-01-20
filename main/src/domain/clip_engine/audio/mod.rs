@@ -4,13 +4,13 @@ mod source;
 pub use source::*;
 
 mod cache;
-use crate::domain::clip::buffer::AudioBufMut;
+use crate::domain::clip_engine::buffer::AudioBufMut;
 pub use cache::*;
 
 mod looper;
 pub use looper::*;
 
-mod stretcher;
+pub mod stretcher;
 pub use stretcher::*;
 
 pub trait AudioSupplier {

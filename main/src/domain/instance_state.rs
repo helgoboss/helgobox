@@ -14,8 +14,8 @@ use helgoboss_learn::UnitValue;
 use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
-use crate::domain::clip::time_stretcher::{keep_stretching, StretchWorkerRequest};
-use crate::domain::clip::{
+use crate::domain::clip_engine::time_stretcher::{keep_stretching, StretchWorkerRequest};
+use crate::domain::clip_engine::{
     clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipPlayState, ClipRecordMode,
     ClipRecordTiming, ClipSlot, SlotPlayOptions, SlotStopBehavior,
 };

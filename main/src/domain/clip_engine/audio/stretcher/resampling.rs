@@ -1,5 +1,7 @@
-use crate::domain::clip::audio::{AudioSupplier, Ctx, SupplyAudioRequest, SupplyAudioResponse};
-use crate::domain::clip::buffer::AudioBufMut;
+use crate::domain::clip_engine::audio::{
+    AudioSupplier, Ctx, SupplyAudioRequest, SupplyAudioResponse,
+};
+use crate::domain::clip_engine::buffer::AudioBufMut;
 use reaper_medium::Hz;
 
 #[derive(Debug)]

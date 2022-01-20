@@ -75,7 +75,7 @@ pub use exclusivity::*;
 mod io;
 pub use io::*;
 
-pub mod clip;
+pub mod clip_engine;
 
 mod targets;
 pub use targets::*;

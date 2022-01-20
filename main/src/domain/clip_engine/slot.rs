@@ -15,13 +15,13 @@ use std::sync::Arc;
 
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
-use crate::domain::clip::clip_source::{
+use crate::domain::clip_engine::clip_source::{
     ClipPcmSource, ClipPcmSourceSkills, ClipStartTime, ClipState, ClipStopTime, PlayArgs,
     PosWithinClipArgs, RecordArgs, Repetition, ScheduledOrPlayingState, SeekToArgs,
     SetRepeatedArgs, StopArgs, SuspensionReason,
 };
-use crate::domain::clip::time_stretcher::StretchWorkerRequest;
-use crate::domain::clip::{
+use crate::domain::clip_engine::time_stretcher::StretchWorkerRequest;
+use crate::domain::clip_engine::{
     clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
 };
 
