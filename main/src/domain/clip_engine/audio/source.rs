@@ -1,6 +1,6 @@
 use crate::domain::clip_engine::audio::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
-    SupplyAudioRequest, SupplyAudioResponse,
+    ExactSizeAudioSupplier, SupplyAudioRequest, SupplyAudioResponse,
 };
 use crate::domain::clip_engine::buffer::AudioBufMut;
 use reaper_medium::{BorrowedPcmSource, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer};
@@ -44,13 +44,15 @@ impl AudioSupplier for OwnedPcmSource {
             .expect("source doesn't report channel count") as usize
     }
 
-    fn frame_count(&self) -> usize {
-        let duration = self.get_length().unwrap_or(DurationInSeconds::ZERO);
-        convert_duration_in_seconds_to_frames(duration, self.sample_rate())
-    }
-
     fn sample_rate(&self) -> Hz {
         self.get_sample_rate()
             .expect("source doesn't report a sample rate")
+    }
+}
+
+impl ExactSizeAudioSupplier for OwnedPcmSource {
+    fn frame_count(&self) -> usize {
+        let duration = self.get_length().unwrap_or(DurationInSeconds::ZERO);
+        convert_duration_in_seconds_to_frames(duration, self.sample_rate())
     }
 }

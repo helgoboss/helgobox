@@ -83,15 +83,6 @@ impl<S: AudioSupplier> AudioSupplier for AudioStretcher<S> {
         self.supplier.channel_count()
     }
 
-    // TODO-high Not every source knows this. Put into separate trait!
-    fn frame_count(&self) -> usize {
-        use StretchMode::*;
-        match &self.mode {
-            Resampling(m) => self.ctx(m).frame_count(),
-            Serious(m) => self.ctx(m).frame_count(),
-        }
-    }
-
     fn sample_rate(&self) -> Hz {
         use StretchMode::*;
         match &self.mode {

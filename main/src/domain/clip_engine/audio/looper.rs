@@ -1,17 +1,17 @@
 use crate::domain::clip_engine::audio::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
-    SupplyAudioRequest, SupplyAudioResponse,
+    ExactSizeAudioSupplier, SupplyAudioRequest, SupplyAudioResponse,
 };
 use crate::domain::clip_engine::buffer::{AudioBufMut, OwnedAudioBuffer};
 use core::cmp;
 use reaper_medium::{BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer};
 
-pub struct AudioLooper<S: AudioSupplier> {
+pub struct AudioLooper<S: ExactSizeAudioSupplier> {
     enabled: bool,
     supplier: S,
 }
 
-impl<S: AudioSupplier> AudioLooper<S> {
+impl<S: ExactSizeAudioSupplier> AudioLooper<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             enabled: false,
@@ -28,7 +28,7 @@ impl<S: AudioSupplier> AudioLooper<S> {
     }
 }
 
-impl<S: AudioSupplier> AudioSupplier for AudioLooper<S> {
+impl<S: ExactSizeAudioSupplier> AudioSupplier for AudioLooper<S> {
     fn supply_audio(
         &self,
         request: &SupplyAudioRequest,
@@ -66,10 +66,6 @@ impl<S: AudioSupplier> AudioSupplier for AudioLooper<S> {
 
     fn channel_count(&self) -> usize {
         self.supplier.channel_count()
-    }
-
-    fn frame_count(&self) -> usize {
-        self.supplier.frame_count()
     }
 
     fn sample_rate(&self) -> Hz {

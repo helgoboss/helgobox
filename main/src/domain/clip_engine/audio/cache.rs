@@ -1,12 +1,12 @@
 use crate::domain::clip_engine::audio::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
-    SupplyAudioRequest, SupplyAudioResponse,
+    ExactSizeAudioSupplier, SupplyAudioRequest, SupplyAudioResponse,
 };
 use crate::domain::clip_engine::buffer::{AudioBufMut, OwnedAudioBuffer};
 use core::cmp;
 use reaper_medium::{BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer};
 
-pub struct AudioCache<S: AudioSupplier> {
+pub struct AudioCache<S: ExactSizeAudioSupplier> {
     cached_data: Option<CachedData>,
     supplier: S,
 }
@@ -16,7 +16,7 @@ struct CachedData {
     content: OwnedAudioBuffer,
 }
 
-impl<S: AudioSupplier> AudioCache<S> {
+impl<S: ExactSizeAudioSupplier> AudioCache<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             cached_data: None,
@@ -57,7 +57,7 @@ impl<S: AudioSupplier> AudioCache<S> {
     }
 }
 
-impl<S: AudioSupplier> AudioSupplier for AudioCache<S> {
+impl<S: ExactSizeAudioSupplier> AudioSupplier for AudioCache<S> {
     fn supply_audio(
         &self,
         request: &SupplyAudioRequest,
@@ -93,19 +93,21 @@ impl<S: AudioSupplier> AudioSupplier for AudioCache<S> {
         }
     }
 
-    fn frame_count(&self) -> usize {
-        if let Some(d) = &self.cached_data {
-            d.content.to_buf().frame_count()
-        } else {
-            self.supplier.frame_count()
-        }
-    }
-
     fn sample_rate(&self) -> Hz {
         if let Some(d) = &self.cached_data {
             d.sample_rate
         } else {
             self.supplier.sample_rate()
+        }
+    }
+}
+
+impl<S: ExactSizeAudioSupplier> ExactSizeAudioSupplier for AudioCache<S> {
+    fn frame_count(&self) -> usize {
+        if let Some(d) = &self.cached_data {
+            d.content.to_buf().frame_count()
+        } else {
+            self.supplier.frame_count()
         }
     }
 }

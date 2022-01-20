@@ -1,5 +1,5 @@
 use crate::domain::clip_engine::audio::{
-    AudioSupplier, Ctx, SupplyAudioRequest, SupplyAudioResponse,
+    AudioSupplier, Ctx, ExactSizeAudioSupplier, SupplyAudioRequest, SupplyAudioResponse,
 };
 use crate::domain::clip_engine::buffer::AudioBufMut;
 use reaper_medium::Hz;
@@ -24,11 +24,13 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, Resampler, S> {
         self.supplier.channel_count()
     }
 
-    fn frame_count(&self) -> usize {
-        (self.supplier.frame_count() as f64 / self.tempo_factor).round() as usize
-    }
-
     fn sample_rate(&self) -> Hz {
         self.supplier.sample_rate()
+    }
+}
+
+impl<'a, S: ExactSizeAudioSupplier> ExactSizeAudioSupplier for Ctx<'a, Resampler, S> {
+    fn frame_count(&self) -> usize {
+        (self.supplier.frame_count() as f64 / self.tempo_factor).round() as usize
     }
 }

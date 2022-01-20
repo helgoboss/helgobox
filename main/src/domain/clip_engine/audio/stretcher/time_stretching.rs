@@ -83,10 +83,6 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {
         self.supplier.channel_count()
     }
 
-    fn frame_count(&self) -> usize {
-        todo!()
-    }
-
     fn sample_rate(&self) -> Hz {
         self.supplier.sample_rate()
     }
