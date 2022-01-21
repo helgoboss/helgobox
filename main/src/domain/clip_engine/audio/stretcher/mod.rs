@@ -84,6 +84,9 @@ impl<S: AudioSupplier> AudioSupplier for AudioStretcher<S> {
     }
 
     fn sample_rate(&self) -> Hz {
+        if !self.enabled {
+            return self.supplier.sample_rate();
+        }
         use StretchMode::*;
         match &self.mode {
             Resampling(m) => self.ctx(m).sample_rate(),

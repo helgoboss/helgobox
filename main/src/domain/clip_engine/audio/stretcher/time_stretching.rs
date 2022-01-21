@@ -28,8 +28,8 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyAudioResponse {
-        let mut total_num_frames_read = 0;
-        let mut total_num_frames_written = 0;
+        let mut total_num_frames_read = 0usize;
+        let mut total_num_frames_written = 0usize;
         // TODO-medium Setting this right at the beginning should be enough.
         self.mode.api.set_srate(self.supplier.sample_rate().get());
         loop {
@@ -43,7 +43,7 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {
             let mut stretch_buffer =
                 unsafe { AudioBufMut::from_raw(stretch_buffer, dest_nch, buffer_frame_count) };
             let request = SupplyAudioRequest {
-                start_frame: request.start_frame + total_num_frames_read,
+                start_frame: request.start_frame + total_num_frames_read as isize,
                 ..*request
             };
             let response = self.supplier.supply_audio(&request, &mut stretch_buffer);
@@ -72,7 +72,7 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {
             dest_buffer.frame_count(),
             "wrote more frames than requested"
         );
-        let next_frame = request.start_frame + total_num_frames_read;
+        let next_frame = request.start_frame + total_num_frames_read as isize;
         SupplyAudioResponse {
             num_frames_written: total_num_frames_written,
             next_inner_frame: Some(next_frame),

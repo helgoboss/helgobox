@@ -1,8 +1,9 @@
 use crate::domain::clip_engine::audio::{
-    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
-    ExactSizeAudioSupplier, SupplyAudioRequest, SupplyAudioResponse,
+    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
+    supply_source_material, AudioSupplier, ExactSizeAudioSupplier, SourceMaterialRequest,
+    SupplyAudioRequest, SupplyAudioResponse,
 };
-use crate::domain::clip_engine::buffer::{AudioBufMut, OwnedAudioBuffer};
+use crate::domain::clip_engine::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use core::cmp;
 use reaper_medium::{BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer};
 
@@ -63,26 +64,18 @@ impl<S: ExactSizeAudioSupplier> AudioSupplier for AudioCache<S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyAudioResponse {
-        if let Some(d) = &self.cached_data {
-            // TODO-high Respect the requested sample rate (we need to resample manually).
-            let buf = d.content.to_buf();
-            let num_remaining_frames_in_source = buf.frame_count() - request.start_frame;
-            let num_frames_written =
-                cmp::min(num_remaining_frames_in_source, dest_buffer.frame_count());
-            buf.slice(request.start_frame..)
-                .copy_to(dest_buffer.slice_mut(0..num_frames_written));
-            let next_frame = request.start_frame + num_frames_written;
-            SupplyAudioResponse {
-                num_frames_written,
-                next_inner_frame: if next_frame < d.content.to_buf().frame_count() {
-                    Some(next_frame)
-                } else {
-                    None
-                },
-            }
-        } else {
-            self.supplier.supply_audio(request, dest_buffer)
-        }
+        let d = match &self.cached_data {
+            None => return self.supplier.supply_audio(request, dest_buffer),
+            Some(d) => d,
+        };
+        let buf = d.content.to_buf();
+        supply_source_material(
+            request,
+            dest_buffer,
+            d.sample_rate,
+            buf.frame_count(),
+            |input| transfer_samples(buf, input),
+        )
     }
 
     fn channel_count(&self) -> usize {
@@ -110,4 +103,16 @@ impl<S: ExactSizeAudioSupplier> ExactSizeAudioSupplier for AudioCache<S> {
             self.supplier.frame_count()
         }
     }
+}
+
+fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> usize {
+    // TODO-high Respect the requested sample rate (we need to resample manually).
+    let num_remaining_frames_in_source = buf.frame_count() - req.start_frame;
+    let num_frames_written = cmp::min(
+        num_remaining_frames_in_source,
+        req.dest_buffer.frame_count(),
+    );
+    buf.slice(req.start_frame..)
+        .copy_to(req.dest_buffer.slice_mut(0..num_frames_written));
+    num_frames_written
 }

@@ -258,7 +258,7 @@ impl ClipPcmSource {
                     looper.enable();
                     let mut stretcher = AudioStretcher::new(looper);
                     let time_stretcher = SeriousTimeStretcher::new();
-                    stretcher.set_mode(StretchMode::Serious(time_stretcher));
+                    // stretcher.set_mode(StretchMode::Serious(time_stretcher));
                     stretcher.enable();
                     stretcher
                 },
@@ -346,7 +346,6 @@ impl ClipPcmSource {
         let timeline_cursor_frame = (timeline_cursor_pos.get() * sample_rate.get()) as isize;
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo);
-        self.inner.chain.set_tempo_factor(final_tempo_factor);
         self.current_sample_rate = Some(sample_rate);
         use ClipState::*;
         match self.state {
@@ -424,14 +423,34 @@ impl ClipPcmSource {
                     // (too late, to be accurate, because we would start advancing too late).
                     let scheduled_play_frame =
                         (s.play_instruction.scheduled_play_pos.get() * sample_rate.get()) as isize;
+                    let hypothetical_next_block_pos = timeline_cursor_frame - scheduled_play_frame;
+                    let next_block_pos = if hypothetical_next_block_pos < 0 {
+                        // Count-in phase.
+                        let distance_to_start = -hypothetical_next_block_pos as usize;
+                        // The scheduled play position was resolved taking the current project tempo
+                        // into account! In order to keep advancing using our usual source-specific
+                        // tempo factor later, we should fix the distance so it conforms to the tempo
+                        // in which we advance the source play cursor.
+                        // Example:
+                        // - Native source tempo is 100 bpm
+                        // - The tempo at schedule time was 120 bpm. The current distance_to_start
+                        //   value was calculated assuming that this is the normal tempo.
+                        // - However, from the perspective of the source, we had a final tempo
+                        //   factor of 1.2 at that time.
+                        // - We must correct distance_to_start so it is the distance from the
+                        //   perspective of the source!
+                        -((distance_to_start as f64 * final_tempo_factor).round() as isize)
+                    } else {
+                        // Already playing.
+                        hypothetical_next_block_pos
+                    };
+
                     // if let InnerSourceKind::Audio { time_stretch_mode } = &mut self.inner.kind {
                     //     if let Some(TimeStretchMode::Serious(stretcher)) = time_stretch_mode {
                     //         stretcher.reset();
                     //     }
                     // }
-                    ResolvedPlayData {
-                        next_block_pos: timeline_cursor_frame - scheduled_play_frame,
-                    }
+                    ResolvedPlayData { next_block_pos }
                 });
                 let cursor_and_length_info = self.create_cursor_and_length_info_at(
                     play_info,
@@ -452,57 +471,60 @@ impl ClipPcmSource {
                     final_tempo_factor,
                     stop_countdown,
                 );
-                let end_frame = block_info.tempo_adjusted_end_frame();
                 // println!(
                 //     "{} => {} (tempo factor {})",
                 //     block_info.start_frame(),
                 //     end_frame,
                 //     final_tempo_factor
                 // );
+                self.inner.chain.set_tempo_factor(final_tempo_factor);
                 let end_frame = self.fill_samples(args, &block_info);
-                // This is the point where we advance the block position.
                 let next_play_info = ResolvedPlayData {
-                    next_block_pos: {
-                        // TODO-medium This mechanism of advancing the position on every call by
-                        //  the block duration relies on the fact that the preview
-                        //  register timeline calls us continuously and never twice per block.
-                        //  It would be better not to make that assumption and make this more
-                        //  stable by actually looking at the diff between the currently requested
-                        //  time_s and the previously requested time_s. If this diff is zero or
-                        //  doesn't correspond to the non-tempo-adjusted block duration, we know
-                        //  something is wrong.
-                        if end_frame < 0 {
-                            // This is still a *pure* count-in. No modulo logic yet.
-                            // Also, we don't advance the position by a block duration that is
-                            // adjusted using our normal tempo factor because at the time the
-                            // initial countdown value was resolved, REAPER already took the current
-                            // tempo into account. However, we must calculate a new tempo factor
-                            //  based on possible tempo changes during the count-in phase!
-                            // TODO-high When transport is not playing and we change the cursor
-                            //  position, new count-ins in relation to the already playing clips
-                            //  change. I think because the project timeline resets whenever we
-                            //  change the cursor position, which makes the next-bar calculation
-                            //  using a different origin. Crap.
-                            // TODO-high Well, actually this happens also when the transport is
-                            //  running, with the only difference that we also hear and see
-                            //  the reset. Plus, when the transport is running, we want to
-                            //  interrupt the clips and reschedule them. Still to be implemented.
-                            let tempo_factor =
-                                timeline_tempo.get() / s.play_instruction.initial_tempo.get();
-                            let duration =
-                                (block_info.frame_count() as f64 * tempo_factor) as usize;
-                            block_info.start_frame() + duration as isize
-                        } else {
-                            // Playing already.
-                            // Here we make sure that we always stay within the borders of the inner
-                            // source. We don't use every-increasing positions because then tempo
-                            // changes are not smooth anymore in subsequent cycles.
-                            end_frame
-                                % self.native_clip_length_in_frames(block_info.sample_rate())
-                                    as isize
-                        }
-                    },
+                    next_block_pos: end_frame,
                 };
+                // // This is the point where we advance the block position.
+                // let next_play_info = ResolvedPlayData {
+                //     next_block_pos: {
+                //         // TODO-medium This mechanism of advancing the position on every call by
+                //         //  the block duration relies on the fact that the preview
+                //         //  register timeline calls us continuously and never twice per block.
+                //         //  It would be better not to make that assumption and make this more
+                //         //  stable by actually looking at the diff between the currently requested
+                //         //  time_s and the previously requested time_s. If this diff is zero or
+                //         //  doesn't correspond to the non-tempo-adjusted block duration, we know
+                //         //  something is wrong.
+                //         if end_frame < 0 {
+                //             // This is still a *pure* count-in. No modulo logic yet.
+                //             // Also, we don't advance the position by a block duration that is
+                //             // adjusted using our normal tempo factor because at the time the
+                //             // initial countdown value was resolved, REAPER already took the current
+                //             // tempo into account. However, we must calculate a new tempo factor
+                //             //  based on possible tempo changes during the count-in phase!
+                //             // TODO-high When transport is not playing and we change the cursor
+                //             //  position, new count-ins in relation to the already playing clips
+                //             //  change. I think because the project timeline resets whenever we
+                //             //  change the cursor position, which makes the next-bar calculation
+                //             //  using a different origin. Crap.
+                //             // TODO-high Well, actually this happens also when the transport is
+                //             //  running, with the only difference that we also hear and see
+                //             //  the reset. Plus, when the transport is running, we want to
+                //             //  interrupt the clips and reschedule them. Still to be implemented.
+                //             let tempo_factor =
+                //                 timeline_tempo.get() / s.play_instruction.initial_tempo.get();
+                //             let duration =
+                //                 (block_info.frame_count() as f64 * tempo_factor) as usize;
+                //             block_info.start_frame() + duration as isize
+                //         } else {
+                //             // Playing already.
+                //             // Here we make sure that we always stay within the borders of the inner
+                //             // source. We don't use every-increasing positions because then tempo
+                //             // changes are not smooth anymore in subsequent cycles.
+                //             end_frame
+                //                 % self.native_clip_length_in_frames(block_info.sample_rate())
+                //                     as isize
+                //         }
+                //     },
+                // };
                 self.state = if stop_countdown
                     .map(|c| c > block_info.tempo_adjusted_frame_count())
                     .unwrap_or(true)
@@ -1732,12 +1754,8 @@ unsafe fn fill_samples_audio(
     info: &BlockInfo,
     time_stretch_mode: Option<&mut TimeStretchMode>,
 ) -> isize {
-    let ideal_source_frame_count = info.tempo_adjusted_frame_count();
-    if info.start_frame() < 0 {
-        return info.start_frame() + ideal_source_frame_count as isize;
-    }
     let request = SupplyAudioRequest {
-        start_frame: info.start_frame() as usize,
+        start_frame: info.start_frame(),
         dest_sample_rate: args.block.sample_rate(),
     };
     let mut dest_buffer = AudioBufMut::from_raw(
@@ -1746,8 +1764,8 @@ unsafe fn fill_samples_audio(
         args.block.length() as _,
     );
     let response = chain.supply_audio(&request, &mut dest_buffer);
-    return response.next_inner_frame.unwrap_or(0) as _;
-
+    return response.next_inner_frame.unwrap_or(0);
+    let ideal_source_frame_count = info.tempo_adjusted_frame_count();
     let mut inner_transfer = *args.block;
     if matches!(time_stretch_mode, Some(TimeStretchMode::Resampling)) {
         inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());

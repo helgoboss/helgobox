@@ -34,14 +34,14 @@ impl<S: ExactSizeAudioSupplier> AudioSupplier for AudioLooper<S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyAudioResponse {
-        if !self.enabled {
+        if !self.enabled || request.start_frame < 0 {
             return self.supplier.supply_audio(&request, dest_buffer);
         }
         let supplier_frame_count = self.supplier.frame_count();
         // Start from beginning if we encounter a start frame after the end (modulo).
-        let start_frame = request.start_frame % supplier_frame_count;
+        let start_frame = request.start_frame as usize % supplier_frame_count;
         let request = SupplyAudioRequest {
-            start_frame,
+            start_frame: start_frame as isize,
             ..*request
         };
         let response = self.supplier.supply_audio(&request, dest_buffer);

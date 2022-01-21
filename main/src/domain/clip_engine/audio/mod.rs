@@ -1,4 +1,4 @@
-use reaper_medium::{DurationInSeconds, Hz};
+use reaper_medium::{DurationInSeconds, Hz, PositionInSeconds};
 
 mod source;
 pub use source::*;
@@ -46,9 +46,7 @@ pub struct SupplyAudioRequest {
     ///
     /// The frame always relates to the preferred sample rate of the audio supplier, not to
     /// `dest_sample_rate`.
-    // TODO-high Change to isize so that we can cope with supply a request that covers both count-in
-    //  and start material.
-    pub start_frame: usize,
+    pub start_frame: isize,
     /// Desired sample rate of the requested material.
     ///
     /// The supplier might employ resampling to fulfill this sample rate demand.
@@ -58,13 +56,13 @@ pub struct SupplyAudioRequest {
 pub struct SupplyAudioResponse {
     /// The number of frames that were actually written to the destination block.
     ///
-    /// Can be less than requested.
+    /// Can be less than requested to indicate that the end of the source has been reached.
     pub num_frames_written: usize,
     /// The next inner frame to be requested in order to ensure smooth, consecutive playback at
     /// all times.
     ///
     /// If `None`, the end has been reached.
-    pub next_inner_frame: Option<usize>,
+    pub next_inner_frame: Option<isize>,
 }
 
 pub fn convert_duration_in_seconds_to_frames(seconds: DurationInSeconds, sample_rate: Hz) -> usize {
@@ -76,4 +74,81 @@ pub fn convert_duration_in_frames_to_seconds(
     sample_rate: Hz,
 ) -> DurationInSeconds {
     DurationInSeconds::new(frame_count as f64 / sample_rate.get())
+}
+
+pub fn convert_position_in_frames_to_seconds(
+    frame_count: isize,
+    sample_rate: Hz,
+) -> PositionInSeconds {
+    PositionInSeconds::new(frame_count as f64 / sample_rate.get())
+}
+
+/// Helper function for suppliers that read from sources and don't want to deal with
+/// negative start frames themselves.
+fn supply_source_material(
+    request: &SupplyAudioRequest,
+    dest_buffer: &mut AudioBufMut,
+    source_sample_rate: Hz,
+    source_frame_count: usize,
+    supply_inner: impl FnOnce(SourceMaterialRequest) -> usize,
+) -> SupplyAudioResponse {
+    // The lower the destination sample rate in relation to the source sample rate, the
+    // higher the tempo.
+    let tempo_factor = source_sample_rate.get() / request.dest_sample_rate.get();
+    // The higher the tempo, the more inner source material we should grab.
+    let ideal_num_consumed_frames =
+        (dest_buffer.frame_count() as f64 * tempo_factor).round() as usize;
+    let ideal_end_frame = request.start_frame + ideal_num_consumed_frames as isize;
+    if ideal_end_frame < 0 {
+        // Requested portion is located entirely before the actual source material.
+        SupplyAudioResponse {
+            // We haven't reached the end of the source, so still tell the caller that we
+            // wrote all frames.
+            num_frames_written: dest_buffer.frame_count(),
+            // And advance the count-in phase.
+            next_inner_frame: Some(ideal_end_frame),
+        }
+    } else {
+        // Requested portion overlaps with playable material.
+        let num_frames_written = if request.start_frame < 0 {
+            // Left part of the portion is located before and right part after start of material.
+            let offset = -request.start_frame as usize;
+            let mut shifted_dest_buffer = dest_buffer.slice_mut(offset..);
+            let input = SourceMaterialRequest {
+                start_frame: 0,
+                dest_buffer: &mut shifted_dest_buffer,
+                source_sample_rate,
+                dest_sample_rate: request.dest_sample_rate,
+            };
+            let inner_num_frames_written = supply_inner(input);
+            offset + inner_num_frames_written
+        } else {
+            // Requested portion is located on or after start of the actual source material.
+            let input = SourceMaterialRequest {
+                start_frame: request.start_frame as usize,
+                dest_buffer,
+                source_sample_rate,
+                dest_sample_rate: request.dest_sample_rate,
+            };
+            supply_inner(input)
+        };
+        // The higher the tempo, the more inner source material we effectively grabbed.
+        let num_consumed_frames = (num_frames_written as f64 * tempo_factor).round() as usize;
+        let next_frame = request.start_frame + num_consumed_frames as isize;
+        SupplyAudioResponse {
+            num_frames_written,
+            next_inner_frame: if next_frame < source_frame_count as isize {
+                Some(next_frame)
+            } else {
+                None
+            },
+        }
+    }
+}
+
+struct SourceMaterialRequest<'a, 'b> {
+    start_frame: usize,
+    dest_buffer: &'a mut AudioBufMut<'b>,
+    source_sample_rate: Hz,
+    dest_sample_rate: Hz,
 }
