@@ -103,10 +103,10 @@ fn supply_source_material(
     let ideal_end_frame = request.start_frame + ideal_num_consumed_frames as isize;
     if ideal_end_frame <= 0 {
         // Requested portion is located entirely before the actual source material.
-        println!(
-            "ideal end frame {} ({})",
-            ideal_end_frame, ideal_num_consumed_frames
-        );
+        // println!(
+        //     "ideal end frame {} ({})",
+        //     ideal_end_frame, ideal_num_consumed_frames
+        // );
         SupplyAudioResponse {
             // We haven't reached the end of the source, so still tell the caller that we
             // wrote all frames.
@@ -117,6 +117,10 @@ fn supply_source_material(
     } else {
         // Requested portion overlaps with playable material.
         if request.start_frame < 0 {
+            println!(
+                "overlap: start_frame = {}, ideal_end_frame = {}",
+                request.start_frame, ideal_end_frame
+            );
             // Left part of the portion is located before and right part after start of material.
             let num_skipped_frames_in_source = -request.start_frame as usize;
             let proportion_skipped =

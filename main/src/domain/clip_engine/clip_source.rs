@@ -432,6 +432,10 @@ impl ClipPcmSource {
                     // let hypothetical_next_block_pos = timeline_cursor_frame - scheduled_play_frame;
                     let next_block_pos = if hypothetical_next_block_pos < 0 {
                         // Count-in phase.
+                        println!(
+                            "Count-in: hypothetical_next_block_pos = {}",
+                            hypothetical_next_block_pos
+                        );
                         let distance_to_start = -hypothetical_next_block_pos as usize;
                         // The scheduled play position was resolved taking the current project tempo
                         // into account! In order to keep advancing using our usual source-specific
@@ -447,6 +451,9 @@ impl ClipPcmSource {
                         //   perspective of the source!
                         let next_block_pos =
                             -((distance_to_start as f64 * final_tempo_factor).round() as isize);
+                        // TODO-medium Sometimes when raising tempo very much from initial low tempo
+                        //  on count-in, the scheduled_play_pos gets insanely high compared to
+                        //  timeline_cursor_pos. So the clip starts playing in 15secs or so...
                         if next_block_pos < -500000 {
                             dbg!(
                                 hypothetical_next_block_pos_in_secs,
@@ -463,6 +470,34 @@ impl ClipPcmSource {
                         next_block_pos
                     } else {
                         // Already playing.
+                        // TODO-high Sometimes this happens when we turn the tempo very quickly
+                        //  down during count-in. It destroys the timing completely. Reason:
+                        //  The scheduled_play_pos is suddenly behind the timeline_cursor_pos.
+                        //  I think the root cause (also with above opposite issue) is that
+                        //  the timeline is not steady.
+                        //  Solution 1: Use both for scheduling (main thread) and for resolving the
+                        //  initial countdown value (audio thread) a steady timeline. For that, we
+                        //  need to map the scheduled project timeline position (non-steady) to
+                        //  a scheduled steady timeline position - at schedule time.
+                        //  Solution 2: Don't schedule with absolute positions at all. Instead,
+                        //  say "Next bar" and determine both scheduled position and initial
+                        //  countdown value here. Problem: Batch scheduling of multiple clips could
+                        //  lead to different results. Or wait: We *can* use absolute positions but
+                        //  beat-based ones. E.g. Bar 510. The project timeline should be steady in
+                        //  terms of beats at least. Let's do that.
+                        println!(
+                            "Already playing: hypothetical_next_block_pos = {}",
+                            hypothetical_next_block_pos
+                        );
+                        dbg!(
+                            hypothetical_next_block_pos_in_secs,
+                            s.play_instruction.scheduled_play_pos,
+                            sample_rate,
+                            timeline_cursor_frame,
+                            timeline_cursor_pos,
+                            hypothetical_next_block_pos,
+                            final_tempo_factor
+                        );
                         hypothetical_next_block_pos
                     };
 
