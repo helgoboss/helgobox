@@ -260,7 +260,7 @@ impl ClipPcmSource {
                     looper.set_fades_enabled(true);
                     let mut stretcher = AudioStretcher::new(looper);
                     let time_stretcher = SeriousTimeStretcher::new();
-                    stretcher.set_mode(StretchMode::Serious(time_stretcher));
+                    // stretcher.set_mode(StretchMode::Serious(time_stretcher));
                     stretcher.set_enabled(true);
                     stretcher
                 },
@@ -348,6 +348,8 @@ impl ClipPcmSource {
         let timeline_cursor_frame = (timeline_cursor_pos.get() * sample_rate.get()) as isize;
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo);
+        // println!("block sr = {}, block length = {}, block time = {}, timeline cursor pos = {}, timeline cursor frame = {}",
+        //          sample_rate, args.block.length(), args.block.time_s(), timeline_cursor_pos, timeline_cursor_frame);
         self.current_sample_rate = Some(sample_rate);
         use ClipState::*;
         match self.state {
@@ -423,9 +425,11 @@ impl ClipPcmSource {
                     // we would start advancing the count-in cursor from a wrong initial state
                     // and therefore end up with the wrong point in time for starting the clip
                     // (too late, to be accurate, because we would start advancing too late).
-                    let scheduled_play_frame =
-                        (s.play_instruction.scheduled_play_pos.get() * sample_rate.get()) as isize;
-                    let hypothetical_next_block_pos = timeline_cursor_frame - scheduled_play_frame;
+                    let hypothetical_next_block_pos_in_secs =
+                        timeline_cursor_pos - s.play_instruction.scheduled_play_pos;
+                    let hypothetical_next_block_pos =
+                        (hypothetical_next_block_pos_in_secs.get() * sample_rate.get()) as isize;
+                    // let hypothetical_next_block_pos = timeline_cursor_frame - scheduled_play_frame;
                     let next_block_pos = if hypothetical_next_block_pos < 0 {
                         // Count-in phase.
                         let distance_to_start = -hypothetical_next_block_pos as usize;
@@ -441,7 +445,22 @@ impl ClipPcmSource {
                         //   factor of 1.2 at that time.
                         // - We must correct distance_to_start so it is the distance from the
                         //   perspective of the source!
-                        -((distance_to_start as f64 * final_tempo_factor).round() as isize)
+                        let next_block_pos =
+                            -((distance_to_start as f64 * final_tempo_factor).round() as isize);
+                        if next_block_pos < -500000 {
+                            dbg!(
+                                hypothetical_next_block_pos_in_secs,
+                                next_block_pos,
+                                s.play_instruction.scheduled_play_pos,
+                                sample_rate,
+                                timeline_cursor_frame,
+                                timeline_cursor_pos,
+                                hypothetical_next_block_pos,
+                                distance_to_start,
+                                final_tempo_factor
+                            );
+                        }
+                        next_block_pos
                     } else {
                         // Already playing.
                         hypothetical_next_block_pos
@@ -609,10 +628,10 @@ impl ClipPcmSource {
         // the first samples/messages! We need to start playing as soon as the end of
         // the audio block is located on or right to the scheduled start point
         // (end_pos >= 0.0).
-        if info.tempo_adjusted_end_frame() < 0 {
-            // Complete block is located before start position (pure count-in block).
-            return info.start_frame() + info.tempo_adjusted_frame_count() as isize;
-        }
+        // if info.tempo_adjusted_end_frame() < 0 {
+        //     // Complete block is located before start position (pure count-in block).
+        //     return info.start_frame() + info.tempo_adjusted_frame_count() as isize;
+        // }
         // At this point we are sure that the end of the block is right of the start position. The
         // start of the block might still be left of the start position (negative number).
         use InnerSourceKind::*;

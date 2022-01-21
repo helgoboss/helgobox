@@ -30,6 +30,7 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {
     ) -> SupplyAudioResponse {
         let mut total_num_frames_read = 0usize;
         let mut total_num_frames_written = 0usize;
+        // TODO-high This has problems with playrate changes.
         // TODO-medium Setting this right at the beginning should be enough.
         self.mode.api.set_srate(self.supplier.sample_rate().get());
         loop {

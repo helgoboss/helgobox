@@ -32,7 +32,6 @@ pub trait AudioSupplier {
 pub trait ExactSizeAudioSupplier: AudioSupplier {
     /// Total length of the supplied audio material in frames, in relation to the audio supplier's
     /// native sample rate.
-    // TODO-high Not every source knows this. Put into separate trait!
     fn frame_count(&self) -> usize;
 }
 
@@ -102,8 +101,12 @@ fn supply_source_material(
     let ideal_num_consumed_frames =
         (dest_buffer.frame_count() as f64 * tempo_factor).round() as usize;
     let ideal_end_frame = request.start_frame + ideal_num_consumed_frames as isize;
-    if ideal_end_frame < 0 {
+    if ideal_end_frame <= 0 {
         // Requested portion is located entirely before the actual source material.
+        println!(
+            "ideal end frame {} ({})",
+            ideal_end_frame, ideal_num_consumed_frames
+        );
         SupplyAudioResponse {
             // We haven't reached the end of the source, so still tell the caller that we
             // wrote all frames.
@@ -115,21 +118,25 @@ fn supply_source_material(
         // Requested portion overlaps with playable material.
         if request.start_frame < 0 {
             // Left part of the portion is located before and right part after start of material.
-            let offset = -request.start_frame as usize;
-            let mut shifted_dest_buffer = dest_buffer.slice_mut(offset..);
+            let num_skipped_frames_in_source = -request.start_frame as usize;
+            let proportion_skipped =
+                num_skipped_frames_in_source as f64 / ideal_num_consumed_frames as f64;
+            let num_skipped_frames_in_dest =
+                (proportion_skipped * dest_buffer.frame_count() as f64).round() as usize;
+            let mut shifted_dest_buffer = dest_buffer.slice_mut(num_skipped_frames_in_dest..);
             let req = SourceMaterialRequest {
                 start_frame: 0,
                 dest_buffer: &mut shifted_dest_buffer,
                 source_sample_rate,
                 dest_sample_rate: request.dest_sample_rate,
             };
-            println!(
-                "Before source: start = {}, source sr = {}, dest sr = {}",
-                req.start_frame, req.source_sample_rate, req.dest_sample_rate
-            );
+            // println!(
+            //     "Before source: start = {}, source sr = {}, dest sr = {}",
+            //     req.start_frame, req.source_sample_rate, req.dest_sample_rate
+            // );
             let res = supply_inner(req);
             SupplyAudioResponse {
-                num_frames_written: offset + res.num_frames_written,
+                num_frames_written: num_skipped_frames_in_dest + res.num_frames_written,
                 next_inner_frame: res.next_inner_frame,
             }
         } else {
@@ -140,10 +147,10 @@ fn supply_source_material(
                 source_sample_rate,
                 dest_sample_rate: request.dest_sample_rate,
             };
-            println!(
-                "In source: start = {}, source sr = {}, dest sr = {}",
-                req.start_frame, req.source_sample_rate, req.dest_sample_rate
-            );
+            // println!(
+            //     "In source: start = {}, source sr = {}, dest sr = {}",
+            //     req.start_frame, req.source_sample_rate, req.dest_sample_rate
+            // );
             supply_inner(req)
         }
     }
