@@ -13,6 +13,7 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, Resampler, S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyAudioResponse {
+        // TODO-high At lower sample rates there are sometimes clicks. Rounding errors?
         let request = SupplyAudioRequest {
             dest_sample_rate: Hz::new(request.dest_sample_rate.get() / self.tempo_factor),
             ..*request

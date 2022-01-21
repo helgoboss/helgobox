@@ -38,12 +38,8 @@ impl<S: AudioSupplier> AudioStretcher<S> {
         }
     }
 
-    pub fn enable(&mut self) {
-        self.enabled = true;
-    }
-
-    pub fn disable(&mut self) {
-        self.enabled = false;
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
     }
 
     pub fn set_tempo_factor(&mut self, tempo_factor: f64) {

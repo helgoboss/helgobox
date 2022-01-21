@@ -133,6 +133,7 @@ pub enum ClipState {
     /// The player can stop in this state.
     Paused {
         /// Position *within* the clip at which should be resumed later.
+        // TODO-high This is wrong. It should also be a frame within the native source.
         next_block_pos: DurationInSeconds,
     },
 }
@@ -255,11 +256,12 @@ impl ClipPcmSource {
                 chain: {
                     let source = inner.clone();
                     let mut looper = AudioLooper::new(source);
-                    looper.enable();
+                    looper.set_enabled(true);
+                    looper.set_fades_enabled(true);
                     let mut stretcher = AudioStretcher::new(looper);
                     let time_stretcher = SeriousTimeStretcher::new();
-                    // stretcher.set_mode(StretchMode::Serious(time_stretcher));
-                    stretcher.enable();
+                    stretcher.set_mode(StretchMode::Serious(time_stretcher));
+                    stretcher.set_enabled(true);
                     stretcher
                 },
                 source: inner,
@@ -461,7 +463,10 @@ impl ClipPcmSource {
                 let stop_at_end_of_clip =
                     s.scheduled_for_stop || self.repetition == Repetition::Once;
                 let stop_countdown = if stop_at_end_of_clip {
-                    Some(self.countdown_to_end_of_clip(sample_rate, play_info.next_block_pos))
+                    Some(self.countdown_to_end_of_clip(
+                        sample_rate,
+                        self.modulo_pos(play_info.next_block_pos),
+                    ))
                 } else {
                     None
                 };
@@ -584,6 +589,15 @@ impl ClipPcmSource {
                 })
             }
         }
+    }
+
+    fn modulo_pos(&self, pos: isize) -> isize {
+        if pos < 0 {
+            return pos;
+        }
+        let source_sample_rate = self.inner.source.sample_rate();
+        let length = self.native_clip_length_in_frames(source_sample_rate);
+        pos % length as isize
     }
 
     fn fill_samples(&mut self, args: &mut GetSamplesArgs, info: &BlockInfo) -> isize {
@@ -1252,7 +1266,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
             })
             | Suspending { play_info, .. } => {
                 let sr = self.current_sample_rate?;
-                play_info.next_block_pos as f64 / sr.get()
+                self.modulo_pos(play_info.next_block_pos) as f64 / sr.get()
             }
             Paused { next_block_pos } => next_block_pos.get(),
             _ => return None,
@@ -1435,9 +1449,10 @@ pub struct ResolvedPlayData {
     /// At the time `get_samples` is called, this contains the position in the inner source that
     /// should be played next.
     ///
-    /// - It's a position *within* the inner source (modulo!).
-    /// - If this position is negative, we are in the count-in phase. The count-in phase isn't
-    ///   modulo.
+    /// - The frames relate to the source sample rate.
+    /// - The position can be after the source content, in which case one needs to modulo native
+    ///   source length to get the position *within* the inner source.
+    /// - If this position is negative, we are in the count-in phase.
     /// - On each call of `get_samples()`, the position is advanced and set *exactly* to the end of
     ///   the previous block, so that the source is played continuously under any circumstance,
     ///   without skipping material - because skipping material sounds bad.

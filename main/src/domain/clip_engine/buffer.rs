@@ -184,6 +184,15 @@ impl<T: AsRef<[f64]> + AsMut<[f64]>> AbstractAudioBuf<T> {
             channel_count: desc.channel_count,
         }
     }
+
+    pub fn modify_frames(&mut self, mut f: impl FnMut(usize, f64) -> f64) {
+        for frame in 0..self.frame_count {
+            for ch in 0..self.channel_count {
+                let sample = &mut self.data.as_mut()[frame * self.channel_count + ch];
+                *sample = f(frame, *sample);
+            }
+        }
+    }
 }
 
 /// Material to be stretched.
