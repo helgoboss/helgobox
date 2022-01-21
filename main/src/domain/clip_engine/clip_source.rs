@@ -10,7 +10,8 @@ use std::ptr::null_mut;
 
 use crate::domain::clip_engine::audio::stretcher::time_stretching::SeriousTimeStretcher;
 use crate::domain::clip_engine::audio::{
-    AudioLooper, AudioStretcher, AudioSupplier, StretchMode, SupplyAudioRequest,
+    AudioLooper, AudioStretcher, AudioSupplier, MidiSupplier, StretchMode, SupplyAudioRequest,
+    SupplyMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::domain::clip_engine::buffer::AudioBufMut;
 use crate::domain::clip_engine::source_util::pcm_source_is_midi;
@@ -85,7 +86,7 @@ impl InnerSource {
         // TODO-high Correctly determine: For audio, guess depending on length or read metadata or
         //  let overwrite by user.
         // For MIDI, an arbitrary but constant value is enough!
-        Bpm::new(96.0)
+        Bpm::new(MIDI_BASE_BPM)
     }
 }
 
@@ -649,7 +650,10 @@ impl ClipPcmSource {
         if pos < 0 {
             return pos;
         }
-        let source_sample_rate = self.inner.source.sample_rate();
+        let source_sample_rate = match self.inner.kind {
+            InnerSourceKind::Audio { .. } => self.inner.source.sample_rate(),
+            InnerSourceKind::Midi => Hz::new(MIDI_FRAME_RATE),
+        };
         let length = self.native_clip_length_in_frames(source_sample_rate);
         pos % length as isize
     }
@@ -672,64 +676,51 @@ impl ClipPcmSource {
         use InnerSourceKind::*;
         unsafe {
             match &mut self.inner.kind {
-                Audio { time_stretch_mode } => {
-                    fill_samples_audio(
-                        &self.inner.chain,
-                        &self.inner.source,
-                        args,
-                        &info,
-                        time_stretch_mode.as_mut(),
-                    )
-                    // TODO-high Reenable post-processing
-                    // self.post_process_audio(args, &info, stop_countdown);
-                }
-                Midi => {
-                    self.fill_samples_midi(args, &info);
-                    info.start_frame() + info.tempo_adjusted_frame_count() as isize
-                }
+                Audio { time_stretch_mode } => fill_samples_audio(
+                    &self.inner.chain,
+                    &self.inner.source,
+                    args,
+                    &info,
+                    time_stretch_mode.as_mut(),
+                ),
+                Midi => self.fill_samples_midi(args, &info),
             }
         }
     }
 
-    unsafe fn fill_samples_midi(&self, args: &mut GetSamplesArgs, info: &BlockInfo) {
-        let outer_sample_rate = info.sample_rate();
-        // For MIDI it seems to be okay to start at a negative position. The source
-        // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
-        // offset.
-        let mut inner_transfer = *args.block;
-        // TODO-high Now that we advance by samples, we need to find a way to provide the correct
-        //  start pos.
-        // inner_transfer.set_time_s(info.start_pos());
-        inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
-        // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while
-        // playing instead of REAPER letting use its generic mechanism that leads to duplicate
-        // notes, probably through internal position changes. Setting the absolute time to
-        // zero prevents repeated notes when turning the tempo down. According to Justin this
-        // prevents the "re-sync-on-project-change logic".
-        inner_transfer.set_force_bpm(self.inner.original_tempo());
-        inner_transfer.set_absolute_time_s(PositionInSeconds::ZERO);
-        self.inner.source.get_samples(&inner_transfer);
-        let written_sample_count = inner_transfer.samples_out();
-        if written_sample_count < info.frame_count() as _ {
-            // We have reached the end of the clip and it doesn't fill the
-            // complete block.
-            if info.is_last_block() {
-                dbg!("MIDI end of last cycle");
-            } else {
-                dbg!("MIDI repeat");
-                // Repeat. Fill rest of buffer with beginning of source.
-                // We need to start from negative position so the frame
-                // offset of the *added* MIDI events is correctly written.
-                // The negative position should be as long as the duration of
-                // samples already written.
-                let written_duration = written_sample_count as f64 / outer_sample_rate.get();
-                let negative_pos =
-                    PositionInSeconds::new_unchecked(-written_duration) * info.final_tempo_factor();
-                inner_transfer.set_time_s(negative_pos);
-                inner_transfer.set_length(info.frame_count as _);
-                self.inner.source.get_samples(&inner_transfer);
-            }
-        }
+    unsafe fn fill_samples_midi(&self, args: &mut GetSamplesArgs, info: &BlockInfo) -> isize {
+        let request = SupplyMidiRequest {
+            start_frame: info.start_frame(),
+            dest_frame_count: args.block.length() as _,
+            dest_sample_rate: args.block.sample_rate(),
+        };
+        let response = self
+            .inner
+            .source
+            .supply_midi(&request, args.block.midi_event_list());
+        return response.next_inner_frame.unwrap_or(0);
+        // inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
+
+        // if written_sample_count < info.frame_count() as _ {
+        //     // We have reached the end of the clip and it doesn't fill the
+        //     // complete block.
+        //     if info.is_last_block() {
+        //         dbg!("MIDI end of last cycle");
+        //     } else {
+        //         dbg!("MIDI repeat");
+        //         // Repeat. Fill rest of buffer with beginning of source.
+        //         // We need to start from negative position so the frame
+        //         // offset of the *added* MIDI events is correctly written.
+        //         // The negative position should be as long as the duration of
+        //         // samples already written.
+        //         let written_duration = written_sample_count as f64 / outer_sample_rate.get();
+        //         let negative_pos =
+        //             PositionInSeconds::new_unchecked(-written_duration) * info.final_tempo_factor();
+        //         inner_transfer.set_time_s(negative_pos);
+        //         inner_transfer.set_length(info.frame_count as _);
+        //         self.inner.source.get_samples(&inner_transfer);
+        //     }
+        // }
     }
 
     // unsafe fn post_process_audio(

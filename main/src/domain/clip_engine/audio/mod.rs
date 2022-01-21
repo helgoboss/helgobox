@@ -1,4 +1,4 @@
-use reaper_medium::{DurationInSeconds, Hz, PositionInSeconds};
+use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz, PositionInSeconds};
 
 mod source;
 pub use source::*;
@@ -29,6 +29,16 @@ pub trait AudioSupplier {
     fn sample_rate(&self) -> Hz;
 }
 
+pub trait MidiSupplier {
+    /// Writes a portion of MIDI material into the given destination buffer so that it completely
+    /// fills that buffer.
+    fn supply_midi(
+        &self,
+        request: &SupplyMidiRequest,
+        event_list: &BorrowedMidiEventList,
+    ) -> SupplyMidiResponse;
+}
+
 pub trait ExactSizeAudioSupplier: AudioSupplier {
     /// Total length of the supplied audio material in frames, in relation to the audio supplier's
     /// native sample rate.
@@ -52,6 +62,18 @@ pub struct SupplyAudioRequest {
     pub dest_sample_rate: Hz,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct SupplyMidiRequest {
+    /// Position within the most inner material that marks the start of the desired portion.
+    ///
+    /// A MIDI frame, that is 1/1024000 of a second.
+    pub start_frame: isize,
+    /// Number of requested frames.
+    pub dest_frame_count: usize,
+    /// Device sample rate.
+    pub dest_sample_rate: Hz,
+}
+
 pub struct SupplyAudioResponse {
     /// The number of frames that were actually written to the destination block.
     ///
@@ -64,8 +86,22 @@ pub struct SupplyAudioResponse {
     pub next_inner_frame: Option<isize>,
 }
 
+pub struct SupplyMidiResponse {
+    /// The number of frames that were actually written to the destination block.
+    pub num_frames_written: usize,
+    /// The next inner frame to be requested in order to ensure smooth, consecutive playback at
+    /// all times.
+    ///
+    /// If `None`, the end has been reached.
+    pub next_inner_frame: Option<isize>,
+}
+
 pub fn convert_duration_in_seconds_to_frames(seconds: DurationInSeconds, sample_rate: Hz) -> usize {
     (seconds.get() * sample_rate.get()).round() as usize
+}
+
+pub fn convert_duration_in_seconds_to_midi_frames(seconds: DurationInSeconds) -> usize {
+    (seconds.get() * MIDI_FRAME_RATE).round() as usize
 }
 
 pub fn convert_position_in_seconds_to_frames(seconds: PositionInSeconds, sample_rate: Hz) -> isize {
@@ -85,6 +121,22 @@ pub fn convert_position_in_frames_to_seconds(
 ) -> PositionInSeconds {
     PositionInSeconds::new(frame_count as f64 / sample_rate.get())
 }
+
+pub fn convert_position_in_midi_frames_to_seconds(frame_count: isize) -> PositionInSeconds {
+    PositionInSeconds::new(frame_count as f64 / MIDI_FRAME_RATE)
+}
+
+/// We could use just any unit to represent a position within a MIDI source, but we choose frames
+/// with regard to the following frame rate. Choosing frames allows us to treat MIDI similar to
+/// audio, which results in fewer special cases. The frame rate of 1,024,000 is also the unit which
+/// is used in REAPER's MIDI events, so this corresponds nicely to the audio world where one sample
+/// frame is the smallest possible unit.
+pub const MIDI_FRAME_RATE: f64 = 1_024_000.0;
+
+/// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
+/// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample
+/// rate. Plus, we can use the same time stretching supplier. Fewer special cases, nice!
+pub const MIDI_BASE_BPM: f64 = 120.0;
 
 /// Helper function for suppliers that read from sources and don't want to deal with
 /// negative start frames themselves.
