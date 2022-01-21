@@ -36,7 +36,7 @@ pub trait ExactSizeAudioSupplier: AudioSupplier {
     fn frame_count(&self) -> usize;
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct SupplyAudioRequest {
     /// Position within the most inner material that marks the start of the desired portion.
     ///
@@ -69,6 +69,10 @@ pub fn convert_duration_in_seconds_to_frames(seconds: DurationInSeconds, sample_
     (seconds.get() * sample_rate.get()).round() as usize
 }
 
+pub fn convert_position_in_seconds_to_frames(seconds: PositionInSeconds, sample_rate: Hz) -> isize {
+    (seconds.get() * sample_rate.get()).round() as isize
+}
+
 pub fn convert_duration_in_frames_to_seconds(
     frame_count: usize,
     sample_rate: Hz,
@@ -89,8 +93,7 @@ fn supply_source_material(
     request: &SupplyAudioRequest,
     dest_buffer: &mut AudioBufMut,
     source_sample_rate: Hz,
-    source_frame_count: usize,
-    supply_inner: impl FnOnce(SourceMaterialRequest) -> usize,
+    supply_inner: impl FnOnce(SourceMaterialRequest) -> SupplyAudioResponse,
 ) -> SupplyAudioResponse {
     // The lower the destination sample rate in relation to the source sample rate, the
     // higher the tempo.
@@ -110,38 +113,38 @@ fn supply_source_material(
         }
     } else {
         // Requested portion overlaps with playable material.
-        let num_frames_written = if request.start_frame < 0 {
+        if request.start_frame < 0 {
             // Left part of the portion is located before and right part after start of material.
             let offset = -request.start_frame as usize;
             let mut shifted_dest_buffer = dest_buffer.slice_mut(offset..);
-            let input = SourceMaterialRequest {
+            let req = SourceMaterialRequest {
                 start_frame: 0,
                 dest_buffer: &mut shifted_dest_buffer,
                 source_sample_rate,
                 dest_sample_rate: request.dest_sample_rate,
             };
-            let inner_num_frames_written = supply_inner(input);
-            offset + inner_num_frames_written
+            println!(
+                "Before source: start = {}, source sr = {}, dest sr = {}",
+                req.start_frame, req.source_sample_rate, req.dest_sample_rate
+            );
+            let res = supply_inner(req);
+            SupplyAudioResponse {
+                num_frames_written: offset + res.num_frames_written,
+                next_inner_frame: res.next_inner_frame,
+            }
         } else {
             // Requested portion is located on or after start of the actual source material.
-            let input = SourceMaterialRequest {
+            let req = SourceMaterialRequest {
                 start_frame: request.start_frame as usize,
                 dest_buffer,
                 source_sample_rate,
                 dest_sample_rate: request.dest_sample_rate,
             };
-            supply_inner(input)
-        };
-        // The higher the tempo, the more inner source material we effectively grabbed.
-        let num_consumed_frames = (num_frames_written as f64 * tempo_factor).round() as usize;
-        let next_frame = request.start_frame + num_consumed_frames as isize;
-        SupplyAudioResponse {
-            num_frames_written,
-            next_inner_frame: if next_frame < source_frame_count as isize {
-                Some(next_frame)
-            } else {
-                None
-            },
+            println!(
+                "In source: start = {}, source sr = {}, dest sr = {}",
+                req.start_frame, req.source_sample_rate, req.dest_sample_rate
+            );
+            supply_inner(req)
         }
     }
 }

@@ -69,13 +69,9 @@ impl<S: ExactSizeAudioSupplier> AudioSupplier for AudioCache<S> {
             Some(d) => d,
         };
         let buf = d.content.to_buf();
-        supply_source_material(
-            request,
-            dest_buffer,
-            d.sample_rate,
-            buf.frame_count(),
-            |input| transfer_samples(buf, input),
-        )
+        supply_source_material(request, dest_buffer, d.sample_rate, |input| {
+            transfer_samples(buf, input)
+        })
     }
 
     fn channel_count(&self) -> usize {
@@ -105,7 +101,7 @@ impl<S: ExactSizeAudioSupplier> ExactSizeAudioSupplier for AudioCache<S> {
     }
 }
 
-fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> usize {
+fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> SupplyAudioResponse {
     // TODO-high Respect the requested sample rate (we need to resample manually).
     let num_remaining_frames_in_source = buf.frame_count() - req.start_frame;
     let num_frames_written = cmp::min(
@@ -114,5 +110,13 @@ fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> usize {
     );
     buf.slice(req.start_frame..)
         .copy_to(req.dest_buffer.slice_mut(0..num_frames_written));
-    num_frames_written
+    let next_frame = req.start_frame + num_frames_written;
+    SupplyAudioResponse {
+        num_frames_written,
+        next_inner_frame: if next_frame < buf.frame_count() {
+            Some(next_frame as isize)
+        } else {
+            None
+        },
+    }
 }
