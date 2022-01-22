@@ -1,6 +1,4 @@
-use crate::domain::clip_engine::audio::{
-    AudioSupplier, Ctx, SupplyAudioRequest, SupplyAudioResponse,
-};
+use crate::domain::clip_engine::audio::{AudioSupplier, Ctx, SupplyAudioRequest, SupplyResponse};
 use crate::domain::clip_engine::buffer::AudioBufMut;
 use reaper_high::Reaper;
 use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};
@@ -27,7 +25,7 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {
         &self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> SupplyAudioResponse {
+    ) -> SupplyResponse {
         let mut total_num_frames_read = 0usize;
         let mut total_num_frames_written = 0usize;
         // TODO-high This has problems with playrate changes.
@@ -74,7 +72,7 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {
             "wrote more frames than requested"
         );
         let next_frame = request.start_frame + total_num_frames_read as isize;
-        SupplyAudioResponse {
+        SupplyResponse {
             num_frames_written: total_num_frames_written,
             next_inner_frame: Some(next_frame),
         }

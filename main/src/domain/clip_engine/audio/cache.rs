@@ -1,13 +1,15 @@
 use crate::domain::clip_engine::audio::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    supply_source_material, AudioSupplier, ExactSizeAudioSupplier, SourceMaterialRequest,
-    SupplyAudioRequest, SupplyAudioResponse,
+    supply_source_material, AudioSupplier, ExactFrameCount, MidiSupplier, SourceMaterialRequest,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
 };
 use crate::domain::clip_engine::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use core::cmp;
-use reaper_medium::{BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer};
+use reaper_medium::{
+    BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
+};
 
-pub struct AudioCache<S: ExactSizeAudioSupplier> {
+pub struct Cache<S> {
     cached_data: Option<CachedData>,
     supplier: S,
 }
@@ -17,7 +19,7 @@ struct CachedData {
     content: OwnedAudioBuffer,
 }
 
-impl<S: ExactSizeAudioSupplier> AudioCache<S> {
+impl<S: AudioSupplier + ExactFrameCount> Cache<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             cached_data: None,
@@ -58,12 +60,12 @@ impl<S: ExactSizeAudioSupplier> AudioCache<S> {
     }
 }
 
-impl<S: ExactSizeAudioSupplier> AudioSupplier for AudioCache<S> {
+impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Cache<S> {
     fn supply_audio(
         &self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> SupplyAudioResponse {
+    ) -> SupplyResponse {
         let d = match &self.cached_data {
             None => return self.supplier.supply_audio(request, dest_buffer),
             Some(d) => d,
@@ -91,7 +93,18 @@ impl<S: ExactSizeAudioSupplier> AudioSupplier for AudioCache<S> {
     }
 }
 
-impl<S: ExactSizeAudioSupplier> ExactSizeAudioSupplier for AudioCache<S> {
+impl<S: MidiSupplier> MidiSupplier for Cache<S> {
+    fn supply_midi(
+        &self,
+        request: &SupplyMidiRequest,
+        event_list: &BorrowedMidiEventList,
+    ) -> SupplyResponse {
+        // MIDI doesn't need caching.
+        self.supplier.supply_midi(request, event_list)
+    }
+}
+
+impl<S: ExactFrameCount> ExactFrameCount for Cache<S> {
     fn frame_count(&self) -> usize {
         if let Some(d) = &self.cached_data {
             d.content.to_buf().frame_count()
@@ -101,7 +114,7 @@ impl<S: ExactSizeAudioSupplier> ExactSizeAudioSupplier for AudioCache<S> {
     }
 }
 
-fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> SupplyAudioResponse {
+fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> SupplyResponse {
     // TODO-high Respect the requested sample rate (we need to resample manually).
     let num_remaining_frames_in_source = buf.frame_count() - req.start_frame;
     let num_frames_written = cmp::min(
@@ -111,7 +124,7 @@ fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> SupplyAudi
     buf.slice(req.start_frame..)
         .copy_to(req.dest_buffer.slice_mut(0..num_frames_written));
     let next_frame = req.start_frame + num_frames_written;
-    SupplyAudioResponse {
+    SupplyResponse {
         num_frames_written,
         next_inner_frame: if next_frame < buf.frame_count() {
             Some(next_frame as isize)

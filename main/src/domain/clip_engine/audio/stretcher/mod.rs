@@ -2,39 +2,41 @@ use crate::domain::clip_engine::audio::stretcher::resampling::Resampler;
 use crate::domain::clip_engine::audio::stretcher::time_stretching::SeriousTimeStretcher;
 use crate::domain::clip_engine::audio::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
-    SupplyAudioRequest, SupplyAudioResponse,
+    ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
 };
 use crate::domain::clip_engine::buffer::{AudioBufMut, OwnedAudioBuffer};
 use core::cmp;
-use reaper_medium::{BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer};
+use reaper_medium::{
+    BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
+};
 
 mod resampling;
 pub use resampling::*;
 pub mod time_stretching;
 pub use time_stretching::*;
 
-pub struct AudioStretcher<S: AudioSupplier> {
+pub struct Stretcher<S> {
     enabled: bool,
     supplier: S,
     tempo_factor: f64,
-    mode: StretchMode,
+    audio_mode: StretchAudioMode,
 }
 
 #[derive(Debug)]
-pub enum StretchMode {
+pub enum StretchAudioMode {
     /// Changes time but also pitch.
     Resampling(Resampler),
     /// Uses serious time stretching, without influencing pitch.
     Serious(SeriousTimeStretcher),
 }
 
-impl<S: AudioSupplier> AudioStretcher<S> {
+impl<S> Stretcher<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             enabled: false,
             supplier,
             tempo_factor: 1.0,
-            mode: StretchMode::Resampling(Resampler),
+            audio_mode: StretchAudioMode::Resampling(Resampler),
         }
     }
 
@@ -46,11 +48,14 @@ impl<S: AudioSupplier> AudioStretcher<S> {
         self.tempo_factor = tempo_factor;
     }
 
-    pub fn set_mode(&mut self, mode: StretchMode) {
-        self.mode = mode;
+    pub fn set_mode(&mut self, mode: StretchAudioMode) {
+        self.audio_mode = mode;
     }
 
-    fn ctx<'a, T>(&'a self, mode: &'a T) -> Ctx<'a, T, S> {
+    fn ctx<'a, T>(&'a self, mode: &'a T) -> Ctx<'a, T, S>
+    where
+        S: AudioSupplier,
+    {
         Ctx {
             supplier: &self.supplier,
             mode,
@@ -59,17 +64,17 @@ impl<S: AudioSupplier> AudioStretcher<S> {
     }
 }
 
-impl<S: AudioSupplier> AudioSupplier for AudioStretcher<S> {
+impl<S: AudioSupplier> AudioSupplier for Stretcher<S> {
     fn supply_audio(
         &self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> SupplyAudioResponse {
+    ) -> SupplyResponse {
         if !self.enabled {
             return self.supplier.supply_audio(&request, dest_buffer);
         }
-        use StretchMode::*;
-        match &self.mode {
+        use StretchAudioMode::*;
+        match &self.audio_mode {
             Resampling(m) => self.ctx(m).supply_audio(request, dest_buffer),
             Serious(m) => self.ctx(m).supply_audio(request, dest_buffer),
         }
@@ -83,11 +88,34 @@ impl<S: AudioSupplier> AudioSupplier for AudioStretcher<S> {
         if !self.enabled {
             return self.supplier.sample_rate();
         }
-        use StretchMode::*;
-        match &self.mode {
+        use StretchAudioMode::*;
+        match &self.audio_mode {
             Resampling(m) => self.ctx(m).sample_rate(),
             Serious(m) => self.ctx(m).sample_rate(),
         }
+    }
+}
+
+impl<S: MidiSupplier> MidiSupplier for Stretcher<S> {
+    fn supply_midi(
+        &self,
+        request: &SupplyMidiRequest,
+        event_list: &BorrowedMidiEventList,
+    ) -> SupplyResponse {
+        if !self.enabled {
+            return self.supplier.supply_midi(&request, event_list);
+        }
+        let request = SupplyMidiRequest {
+            dest_sample_rate: Hz::new(request.dest_sample_rate.get() / self.tempo_factor),
+            ..*request
+        };
+        self.supplier.supply_midi(&request, event_list)
+    }
+}
+
+impl<S: ExactFrameCount> ExactFrameCount for Stretcher<S> {
+    fn frame_count(&self) -> usize {
+        (self.supplier.frame_count() as f64 / self.tempo_factor).round() as usize
     }
 }
 

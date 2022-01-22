@@ -1,5 +1,5 @@
 use crate::domain::clip_engine::audio::{
-    AudioSupplier, Ctx, ExactSizeAudioSupplier, SupplyAudioRequest, SupplyAudioResponse,
+    AudioSupplier, Ctx, ExactFrameCount, SupplyAudioRequest, SupplyResponse,
 };
 use crate::domain::clip_engine::buffer::AudioBufMut;
 use reaper_medium::Hz;
@@ -12,7 +12,7 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, Resampler, S> {
         &self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> SupplyAudioResponse {
+    ) -> SupplyResponse {
         // TODO-high At lower sample rates there are sometimes clicks. Rounding errors?
         let request = SupplyAudioRequest {
             dest_sample_rate: Hz::new(request.dest_sample_rate.get() / self.tempo_factor),
@@ -27,11 +27,5 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, Resampler, S> {
 
     fn sample_rate(&self) -> Hz {
         self.supplier.sample_rate()
-    }
-}
-
-impl<'a, S: ExactSizeAudioSupplier> ExactSizeAudioSupplier for Ctx<'a, Resampler, S> {
-    fn frame_count(&self) -> usize {
-        (self.supplier.frame_count() as f64 / self.tempo_factor).round() as usize
     }
 }

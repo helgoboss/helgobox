@@ -20,7 +20,7 @@ pub trait AudioSupplier {
         &self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> SupplyAudioResponse;
+    ) -> SupplyResponse;
 
     /// How many channels the supplied audio material consists of.
     fn channel_count(&self) -> usize;
@@ -36,10 +36,10 @@ pub trait MidiSupplier {
         &self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> SupplyMidiResponse;
+    ) -> SupplyResponse;
 }
 
-pub trait ExactSizeAudioSupplier: AudioSupplier {
+pub trait ExactFrameCount {
     /// Total length of the supplied audio material in frames, in relation to the audio supplier's
     /// native sample rate.
     fn frame_count(&self) -> usize;
@@ -74,20 +74,10 @@ pub struct SupplyMidiRequest {
     pub dest_sample_rate: Hz,
 }
 
-pub struct SupplyAudioResponse {
+pub struct SupplyResponse {
     /// The number of frames that were actually written to the destination block.
     ///
     /// Can be less than requested to indicate that the end of the source has been reached.
-    pub num_frames_written: usize,
-    /// The next inner frame to be requested in order to ensure smooth, consecutive playback at
-    /// all times.
-    ///
-    /// If `None`, the end has been reached.
-    pub next_inner_frame: Option<isize>,
-}
-
-pub struct SupplyMidiResponse {
-    /// The number of frames that were actually written to the destination block.
     pub num_frames_written: usize,
     /// The next inner frame to be requested in order to ensure smooth, consecutive playback at
     /// all times.
@@ -136,7 +126,8 @@ pub const MIDI_FRAME_RATE: f64 = 1_024_000.0;
 /// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
 /// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample
 /// rate. Plus, we can use the same time stretching supplier. Fewer special cases, nice!
-pub const MIDI_BASE_BPM: f64 = 120.0;
+// TODO-high Change to 120 later when we detect audio tempos correctly.
+pub const MIDI_BASE_BPM: f64 = 96.0;
 
 /// Helper function for suppliers that read from sources and don't want to deal with
 /// negative start frames themselves.
@@ -144,8 +135,8 @@ fn supply_source_material(
     request: &SupplyAudioRequest,
     dest_buffer: &mut AudioBufMut,
     source_sample_rate: Hz,
-    supply_inner: impl FnOnce(SourceMaterialRequest) -> SupplyAudioResponse,
-) -> SupplyAudioResponse {
+    supply_inner: impl FnOnce(SourceMaterialRequest) -> SupplyResponse,
+) -> SupplyResponse {
     // The lower the destination sample rate in relation to the source sample rate, the
     // higher the tempo.
     let tempo_factor = source_sample_rate.get() / request.dest_sample_rate.get();
@@ -159,7 +150,7 @@ fn supply_source_material(
         //     "ideal end frame {} ({})",
         //     ideal_end_frame, ideal_num_consumed_frames
         // );
-        SupplyAudioResponse {
+        SupplyResponse {
             // We haven't reached the end of the source, so still tell the caller that we
             // wrote all frames.
             num_frames_written: dest_buffer.frame_count(),
@@ -191,7 +182,7 @@ fn supply_source_material(
             //     req.start_frame, req.source_sample_rate, req.dest_sample_rate
             // );
             let res = supply_inner(req);
-            SupplyAudioResponse {
+            SupplyResponse {
                 num_frames_written: num_skipped_frames_in_dest + res.num_frames_written,
                 next_inner_frame: res.next_inner_frame,
             }

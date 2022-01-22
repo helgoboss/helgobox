@@ -10,7 +10,7 @@ use std::ptr::null_mut;
 
 use crate::domain::clip_engine::audio::stretcher::time_stretching::SeriousTimeStretcher;
 use crate::domain::clip_engine::audio::{
-    AudioLooper, AudioStretcher, AudioSupplier, MidiSupplier, StretchMode, SupplyAudioRequest,
+    AudioSupplier, Looper, MidiSupplier, StretchAudioMode, Stretcher, SupplyAudioRequest,
     SupplyMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::domain::clip_engine::buffer::AudioBufMut;
@@ -57,7 +57,7 @@ pub struct ClipPcmSource {
     current_sample_rate: Option<Hz>,
 }
 
-type AudioChain = AudioStretcher<AudioLooper<OwnedPcmSource>>;
+type AudioChain = Stretcher<Looper<OwnedPcmSource>>;
 
 struct InnerSource {
     /// This source contains the actual audio/MIDI data.
@@ -256,10 +256,10 @@ impl ClipPcmSource {
                 kind,
                 chain: {
                     let source = inner.clone();
-                    let mut looper = AudioLooper::new(source);
+                    let mut looper = Looper::new(source);
                     looper.set_enabled(true);
                     looper.set_fades_enabled(true);
-                    let mut stretcher = AudioStretcher::new(looper);
+                    let mut stretcher = Stretcher::new(looper);
                     let time_stretcher = SeriousTimeStretcher::new();
                     // stretcher.set_mode(StretchMode::Serious(time_stretcher));
                     stretcher.set_enabled(true);
@@ -538,7 +538,7 @@ impl ClipPcmSource {
                 //     final_tempo_factor
                 // );
                 self.inner.chain.set_tempo_factor(final_tempo_factor);
-                let end_frame = self.fill_samples(args, &block_info);
+                let end_frame = self.fill_samples(args, &block_info).unwrap_or(0);
                 let next_play_info = ResolvedPlayData {
                     next_block_pos: end_frame,
                 };
@@ -658,7 +658,7 @@ impl ClipPcmSource {
         pos % length as isize
     }
 
-    fn fill_samples(&mut self, args: &mut GetSamplesArgs, info: &BlockInfo) -> isize {
+    fn fill_samples(&mut self, args: &mut GetSamplesArgs, info: &BlockInfo) -> Option<isize> {
         // This means the clip is playing or about o play.
         // We want to start playing as soon as we reach the scheduled start position,
         // that means pos == 0.0. In order to do that, we need to take into account that
@@ -688,7 +688,11 @@ impl ClipPcmSource {
         }
     }
 
-    unsafe fn fill_samples_midi(&self, args: &mut GetSamplesArgs, info: &BlockInfo) -> isize {
+    unsafe fn fill_samples_midi(
+        &self,
+        args: &mut GetSamplesArgs,
+        info: &BlockInfo,
+    ) -> Option<isize> {
         let request = SupplyMidiRequest {
             start_frame: info.start_frame(),
             dest_frame_count: args.block.length() as _,
@@ -696,31 +700,10 @@ impl ClipPcmSource {
         };
         let response = self
             .inner
-            .source
+            .chain
             .supply_midi(&request, args.block.midi_event_list());
-        return response.next_inner_frame.unwrap_or(0);
+        return response.next_inner_frame;
         // inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
-
-        // if written_sample_count < info.frame_count() as _ {
-        //     // We have reached the end of the clip and it doesn't fill the
-        //     // complete block.
-        //     if info.is_last_block() {
-        //         dbg!("MIDI end of last cycle");
-        //     } else {
-        //         dbg!("MIDI repeat");
-        //         // Repeat. Fill rest of buffer with beginning of source.
-        //         // We need to start from negative position so the frame
-        //         // offset of the *added* MIDI events is correctly written.
-        //         // The negative position should be as long as the duration of
-        //         // samples already written.
-        //         let written_duration = written_sample_count as f64 / outer_sample_rate.get();
-        //         let negative_pos =
-        //             PositionInSeconds::new_unchecked(-written_duration) * info.final_tempo_factor();
-        //         inner_transfer.set_time_s(negative_pos);
-        //         inner_transfer.set_length(info.frame_count as _);
-        //         self.inner.source.get_samples(&inner_transfer);
-        //     }
-        // }
     }
 
     // unsafe fn post_process_audio(
@@ -1813,7 +1796,7 @@ unsafe fn fill_samples_audio(
     args: &mut GetSamplesArgs,
     info: &BlockInfo,
     time_stretch_mode: Option<&mut TimeStretchMode>,
-) -> isize {
+) -> Option<isize> {
     let request = SupplyAudioRequest {
         start_frame: info.start_frame(),
         dest_sample_rate: args.block.sample_rate(),
@@ -1824,7 +1807,7 @@ unsafe fn fill_samples_audio(
         args.block.length() as _,
     );
     let response = chain.supply_audio(&request, &mut dest_buffer);
-    return response.next_inner_frame.unwrap_or(0);
+    return response.next_inner_frame;
     let ideal_source_frame_count = info.tempo_adjusted_frame_count();
     let mut inner_transfer = *args.block;
     if matches!(time_stretch_mode, Some(TimeStretchMode::Resampling)) {
@@ -1844,7 +1827,7 @@ unsafe fn fill_samples_audio(
         with_shifted_samples(&mut inner_transfer, sample_offset, |b| {
             inner_source.get_samples(b);
         });
-        info.start_frame() + ideal_source_frame_count as isize
+        Some(info.start_frame() + ideal_source_frame_count as isize)
     } else {
         // This is the code executed for the majority of the clip.
         let source_info = SourceInfo::from_source(inner_source).unwrap();
@@ -1856,20 +1839,20 @@ unsafe fn fill_samples_audio(
                 tempo_factor: info.final_tempo_factor,
             };
             match stretcher.try_stretch(request) {
-                Ok(s) => info.start_frame() + s.consumed_source_frames as isize,
+                Ok(s) => Some(info.start_frame() + s.consumed_source_frames as isize),
                 Err(e) => {
                     // Fall back to resampling
                     inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
                     inner_transfer.set_time_s(info.start_pos(source_info.sample_rate()));
                     inner_source.get_samples(&inner_transfer);
-                    info.start_frame() + ideal_source_frame_count as isize
+                    Some(info.start_frame() + ideal_source_frame_count as isize)
                     // println!("{}", e);
                 }
             }
         } else {
             inner_transfer.set_time_s(info.start_pos(source_info.sample_rate()));
             inner_source.get_samples(&inner_transfer);
-            info.start_frame() + ideal_source_frame_count as isize
+            Some(info.start_frame() + ideal_source_frame_count as isize)
         }
     }
     // TODO-high
