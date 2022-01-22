@@ -428,8 +428,10 @@ impl ClipPcmSource {
                     // (too late, to be accurate, because we would start advancing too late).
                     let hypothetical_next_block_pos_in_secs =
                         timeline_cursor_pos - s.play_instruction.scheduled_play_pos;
-                    let hypothetical_next_block_pos =
-                        (hypothetical_next_block_pos_in_secs.get() * sample_rate.get()) as isize;
+                    let source_frame_rate = self.source_frame_rate();
+                    let hypothetical_next_block_pos = (hypothetical_next_block_pos_in_secs.get()
+                        * source_frame_rate.get())
+                        as isize;
                     // let hypothetical_next_block_pos = timeline_cursor_frame - scheduled_play_frame;
                     let next_block_pos = if hypothetical_next_block_pos < 0 {
                         // Count-in phase.
@@ -650,12 +652,17 @@ impl ClipPcmSource {
         if pos < 0 {
             return pos;
         }
-        let source_sample_rate = match self.inner.kind {
-            InnerSourceKind::Audio { .. } => self.inner.source.sample_rate(),
-            InnerSourceKind::Midi => Hz::new(MIDI_FRAME_RATE),
-        };
+        let source_sample_rate = self.source_frame_rate();
         let length = self.native_clip_length_in_frames(source_sample_rate);
         pos % length as isize
+    }
+
+    fn source_frame_rate(&self) -> Hz {
+        use InnerSourceKind::*;
+        match self.inner.kind {
+            Audio { .. } => self.inner.source.sample_rate(),
+            Midi => Hz::new(MIDI_FRAME_RATE),
+        }
     }
 
     fn fill_samples(&mut self, args: &mut GetSamplesArgs, info: &BlockInfo) -> Option<isize> {
