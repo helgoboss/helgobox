@@ -57,7 +57,7 @@ pub struct ClipPcmSource {
     current_sample_rate: Option<Hz>,
 }
 
-type AudioChain = Stretcher<Looper<OwnedPcmSource>>;
+type SupplierChain = Stretcher<Looper<OwnedPcmSource>>;
 
 struct InnerSource {
     /// This source contains the actual audio/MIDI data.
@@ -66,14 +66,12 @@ struct InnerSource {
     source: OwnedPcmSource,
     /// Caches the information if the inner clip source contains MIDI or audio material.
     kind: InnerSourceKind,
-    chain: AudioChain,
+    chain: SupplierChain,
 }
 
+#[derive(Copy, Clone)]
 enum InnerSourceKind {
-    Audio {
-        /// If `None`, audio will always play in original tempo.
-        time_stretch_mode: Option<TimeStretchMode>,
-    },
+    Audio,
     Midi,
 }
 
@@ -94,14 +92,6 @@ impl InnerSource {
 pub enum Repetition {
     Infinitely,
     Once,
-}
-
-#[derive(Debug)]
-pub enum TimeStretchMode {
-    /// Changes time but also pitch.
-    Resampling,
-    /// Uses serious time stretching, without influencing pitch.
-    Serious(AsyncStretcher),
 }
 
 impl Repetition {
@@ -241,15 +231,7 @@ impl ClipPcmSource {
         let kind = if pcm_source_is_midi(&inner) {
             InnerSourceKind::Midi
         } else {
-            InnerSourceKind::Audio {
-                time_stretch_mode: {
-                    let source_info = SourceInfo::from_source(&inner).unwrap();
-                    let async_stretcher =
-                        AsyncStretcher::new(stretch_worker_sender.clone(), source_info);
-                    Some(TimeStretchMode::Serious(async_stretcher))
-                },
-                // time_stretch_mode: Some(TimeStretchMode::Resampling),
-            }
+            InnerSourceKind::Audio
         };
         Self {
             inner: InnerSource {
@@ -385,7 +367,7 @@ impl ClipPcmSource {
                         final_tempo_factor,
                         Some(transition_countdown),
                     );
-                    self.fill_samples(args, &block_info);
+                    self.fill_samples(args, play_info.next_block_pos);
                     // We want the fade to always have the same length, no matter the tempo.
                     let next_transition_countdown =
                         transition_countdown as isize - block_info.frame_count() as isize;
@@ -540,7 +522,9 @@ impl ClipPcmSource {
                 //     final_tempo_factor
                 // );
                 self.inner.chain.set_tempo_factor(final_tempo_factor);
-                let end_frame = self.fill_samples(args, &block_info).unwrap_or(0);
+                let end_frame = self
+                    .fill_samples(args, play_info.next_block_pos)
+                    .unwrap_or(0);
                 let next_play_info = ResolvedPlayData {
                     next_block_pos: end_frame,
                 };
@@ -665,7 +649,7 @@ impl ClipPcmSource {
         }
     }
 
-    fn fill_samples(&mut self, args: &mut GetSamplesArgs, info: &BlockInfo) -> Option<isize> {
+    fn fill_samples(&mut self, args: &mut GetSamplesArgs, start_frame: isize) -> Option<isize> {
         // This means the clip is playing or about o play.
         // We want to start playing as soon as we reach the scheduled start position,
         // that means pos == 0.0. In order to do that, we need to take into account that
@@ -682,26 +666,33 @@ impl ClipPcmSource {
         // start of the block might still be left of the start position (negative number).
         use InnerSourceKind::*;
         unsafe {
-            match &mut self.inner.kind {
-                Audio { time_stretch_mode } => fill_samples_audio(
-                    &self.inner.chain,
-                    &self.inner.source,
-                    args,
-                    &info,
-                    time_stretch_mode.as_mut(),
-                ),
-                Midi => self.fill_samples_midi(args, &info),
+            match self.inner.kind {
+                Audio => self.fill_samples_audio(args, start_frame),
+                Midi => self.fill_samples_midi(args, start_frame),
             }
         }
     }
-
-    unsafe fn fill_samples_midi(
+    unsafe fn fill_samples_audio(
         &self,
         args: &mut GetSamplesArgs,
-        info: &BlockInfo,
+        start_frame: isize,
     ) -> Option<isize> {
+        let request = SupplyAudioRequest {
+            start_frame,
+            dest_sample_rate: args.block.sample_rate(),
+        };
+        let mut dest_buffer = AudioBufMut::from_raw(
+            args.block.samples(),
+            args.block.nch() as _,
+            args.block.length() as _,
+        );
+        let response = self.inner.chain.supply_audio(&request, &mut dest_buffer);
+        response.next_inner_frame
+    }
+
+    fn fill_samples_midi(&self, args: &mut GetSamplesArgs, start_frame: isize) -> Option<isize> {
         let request = SupplyMidiRequest {
-            start_frame: info.start_frame(),
+            start_frame,
             dest_frame_count: args.block.length() as _,
             dest_sample_rate: args.block.sample_rate(),
         };
@@ -709,8 +700,7 @@ impl ClipPcmSource {
             .inner
             .chain
             .supply_midi(&request, args.block.midi_event_list());
-        return response.next_inner_frame;
-        // inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
+        response.next_inner_frame
     }
 
     // unsafe fn post_process_audio(
@@ -1795,91 +1785,6 @@ impl BlockInfo {
     pub fn tempo_adjusted_sample_rate(&self) -> Hz {
         Hz::new(self.sample_rate.get() / self.final_tempo_factor)
     }
-}
-
-unsafe fn fill_samples_audio(
-    chain: &AudioChain,
-    inner_source: &BorrowedPcmSource,
-    args: &mut GetSamplesArgs,
-    info: &BlockInfo,
-    time_stretch_mode: Option<&mut TimeStretchMode>,
-) -> Option<isize> {
-    let request = SupplyAudioRequest {
-        start_frame: info.start_frame(),
-        dest_sample_rate: args.block.sample_rate(),
-    };
-    let mut dest_buffer = AudioBufMut::from_raw(
-        args.block.samples(),
-        args.block.nch() as _,
-        args.block.length() as _,
-    );
-    let response = chain.supply_audio(&request, &mut dest_buffer);
-    return response.next_inner_frame;
-    let ideal_source_frame_count = info.tempo_adjusted_frame_count();
-    let mut inner_transfer = *args.block;
-    if matches!(time_stretch_mode, Some(TimeStretchMode::Resampling)) {
-        inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
-    }
-    // TODO-high Now that we advance by samples, we need to react to sample rate changes and
-    //  fix the frame numbers, otherwise the play rate wheel will not work smoothly (it changes
-    //  request sample rates).
-    if info.start_frame() < 0 {
-        dbg!("Audio starting at negative position");
-        // For audio, starting at a negative position leads to weird sounds.
-        // That's why we need to query from 0.0 and offset the resulting sample buffer by that
-        // amount. We calculate the sample offset with the outer sample rate because this
-        // doesn't concern the inner source content.
-        let sample_offset = -info.start_frame();
-        inner_transfer.set_time_s(PositionInSeconds::ZERO);
-        with_shifted_samples(&mut inner_transfer, sample_offset, |b| {
-            inner_source.get_samples(b);
-        });
-        Some(info.start_frame() + ideal_source_frame_count as isize)
-    } else {
-        // This is the code executed for the majority of the clip.
-        let source_info = SourceInfo::from_source(inner_source).unwrap();
-        if let Some(TimeStretchMode::Serious(stretcher)) = time_stretch_mode {
-            let request = StretchRequest {
-                source: inner_source,
-                start_frame: info.start_frame() as usize,
-                dest_buffer: AudioBufMut::from_transfer(args.block),
-                tempo_factor: info.final_tempo_factor,
-            };
-            match stretcher.try_stretch(request) {
-                Ok(s) => Some(info.start_frame() + s.consumed_source_frames as isize),
-                Err(e) => {
-                    // Fall back to resampling
-                    inner_transfer.set_sample_rate(info.tempo_adjusted_sample_rate());
-                    inner_transfer.set_time_s(info.start_pos(source_info.sample_rate()));
-                    inner_source.get_samples(&inner_transfer);
-                    Some(info.start_frame() + ideal_source_frame_count as isize)
-                    // println!("{}", e);
-                }
-            }
-        } else {
-            inner_transfer.set_time_s(info.start_pos(source_info.sample_rate()));
-            inner_source.get_samples(&inner_transfer);
-            Some(info.start_frame() + ideal_source_frame_count as isize)
-        }
-    }
-    // TODO-high
-    // let written_sample_count = inner_transfer.samples_out() as usize;
-    // if written_sample_count < info.frame_count() as _ {
-    //     // We have reached the end of the clip and it doesn't fill the complete block.
-    //     if info.is_last_block() {
-    //         dbg!("Audio end of last cycle");
-    //     } else {
-    //         dbg!("Audio repeat");
-    //         // Repeat. Because we assume that the user cuts sources
-    //         // sample-perfect, we must immediately fill the rest of the
-    //         // buffer with the very beginning of the source. Start from zero and write just
-    //         // remaining samples.
-    //         inner_transfer.set_time_s(PositionInSeconds::ZERO);
-    //         with_shifted_samples(&mut inner_transfer, written_sample_count as isize, |b| {
-    //             inner_source.get_samples(b);
-    //         });
-    //     }
-    // }
 }
 
 #[derive(Debug)]
