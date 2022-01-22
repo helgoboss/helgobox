@@ -1,5 +1,7 @@
-use crate::domain::clip_engine::audio::{AudioSupplier, Ctx, SupplyAudioRequest, SupplyResponse};
 use crate::domain::clip_engine::buffer::AudioBufMut;
+use crate::domain::clip_engine::supplier::{
+    AudioSupplier, Ctx, SupplyAudioRequest, SupplyResponse,
+};
 use reaper_high::Reaper;
 use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};
 use reaper_medium::Hz;

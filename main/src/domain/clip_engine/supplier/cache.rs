@@ -1,9 +1,9 @@
-use crate::domain::clip_engine::audio::{
+use crate::domain::clip_engine::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
+use crate::domain::clip_engine::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     supply_source_material, AudioSupplier, ExactFrameCount, MidiSupplier, SourceMaterialRequest,
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
 };
-use crate::domain::clip_engine::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use core::cmp;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,

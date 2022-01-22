@@ -8,13 +8,13 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::ptr::null_mut;
 
-use crate::domain::clip_engine::audio::stretcher::time_stretching::SeriousTimeStretcher;
-use crate::domain::clip_engine::audio::{
+use crate::domain::clip_engine::buffer::AudioBufMut;
+use crate::domain::clip_engine::source_util::pcm_source_is_midi;
+use crate::domain::clip_engine::supplier::stretcher::time_stretching::SeriousTimeStretcher;
+use crate::domain::clip_engine::supplier::{
     AudioSupplier, Looper, MidiSupplier, StretchAudioMode, Stretcher, SupplyAudioRequest,
     SupplyMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
-use crate::domain::clip_engine::buffer::AudioBufMut;
-use crate::domain::clip_engine::source_util::pcm_source_is_midi;
 use crate::domain::clip_engine::time_stretcher::{
     AsyncStretcher, StretchRequest, StretchWorkerRequest,
 };

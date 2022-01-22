@@ -19,7 +19,7 @@ pub mod time_stretcher;
 
 mod buffer;
 
-mod audio;
+mod supplier;
 
 /// Delivers the timeline to be used for clips.
 pub fn clip_timeline(project: Option<Project>) -> impl Timeline {
