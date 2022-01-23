@@ -20,6 +20,10 @@ impl SeriousTimeStretcher {
         let api = unsafe { &*api };
         Self { api }
     }
+
+    pub fn reset(&mut self) {
+        self.api.Reset();
+    }
 }
 
 impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {

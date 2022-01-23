@@ -20,6 +20,12 @@ pub enum LoopBehavior {
     UntilEndOfCycle(usize),
 }
 
+impl Default for LoopBehavior {
+    fn default() -> Self {
+        Self::UntilEndOfCycle(0)
+    }
+}
+
 impl LoopBehavior {
     pub fn from_repetition(repetition: Repetition) -> Self {
         use Repetition::*;
@@ -33,10 +39,14 @@ impl LoopBehavior {
 impl<S: ExactFrameCount> Looper<S> {
     pub fn new(supplier: S) -> Self {
         Self {
-            loop_behavior: LoopBehavior::UntilEndOfCycle(0),
+            loop_behavior: Default::default(),
             fades_enabled: false,
             supplier,
         }
+    }
+
+    pub fn reset(&mut self) {
+        self.loop_behavior = Default::default();
     }
 
     pub fn supplier(&self) -> &S {

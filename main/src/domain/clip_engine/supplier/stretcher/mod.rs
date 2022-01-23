@@ -40,6 +40,14 @@ impl<S> Stretcher<S> {
         }
     }
 
+    pub fn reset(&mut self) {
+        use StretchAudioMode::*;
+        match &mut self.audio_mode {
+            Resampling(s) => s.reset(),
+            Serious(s) => s.reset(),
+        }
+    }
+
     pub fn supplier(&self) -> &S {
         &self.supplier
     }

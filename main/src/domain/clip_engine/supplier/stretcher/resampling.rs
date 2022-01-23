@@ -7,6 +7,12 @@ use reaper_medium::Hz;
 #[derive(Debug)]
 pub struct Resampler;
 
+impl Resampler {
+    pub fn reset(&mut self) {
+        // TODO-high As soon as we do our own resampling, we want to reset the resampler here.
+    }
+}
+
 impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, Resampler, S> {
     fn supply_audio(
         &self,
