@@ -35,6 +35,14 @@ impl LoopBehavior {
             Once => Self::UntilEndOfCycle(0),
         }
     }
+
+    pub fn from_bool(repeated: bool) -> Self {
+        if repeated {
+            Self::Infinitely
+        } else {
+            Self::UntilEndOfCycle(0)
+        }
+    }
 }
 
 impl<S: ExactFrameCount> Looper<S> {

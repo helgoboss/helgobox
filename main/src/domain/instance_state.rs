@@ -14,11 +14,11 @@ use helgoboss_learn::UnitValue;
 use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
-use crate::domain::clip_engine::time_stretcher::{keep_stretching, StretchWorkerRequest};
 use crate::domain::clip_engine::{
     clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipPlayState, ClipRecordMode,
     ClipRecordTiming, ClipSlot, SlotPlayOptions, SlotStopBehavior,
 };
+use crate::domain::clip_engine::{keep_stretching, StretchWorkerRequest};
 use crate::domain::{
     ClipRecordTask, GroupId, MappingCompartment, MappingId, NormalAudioHookTask,
     QualifiedMappingId, RealTimeSender, Tag, Timeline, TimelineMoment,

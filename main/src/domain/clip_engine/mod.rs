@@ -15,11 +15,10 @@ mod clip_source;
 
 mod source_util;
 
-pub mod time_stretcher;
-
 mod buffer;
 
 mod supplier;
+pub use supplier::*;
 
 /// Delivers the timeline to be used for clips.
 pub fn clip_timeline(project: Option<Project>) -> impl Timeline {

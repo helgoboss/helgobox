@@ -2,6 +2,7 @@ use crate::domain::clip_engine::buffer::AudioBufMut;
 use crate::domain::clip_engine::supplier::{
     AudioSupplier, Ctx, SupplyAudioRequest, SupplyResponse, WithFrameRate,
 };
+use crossbeam_channel::Receiver;
 use reaper_high::Reaper;
 use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};
 use reaper_medium::Hz;
@@ -94,3 +95,11 @@ impl<'a, S: WithFrameRate> WithFrameRate for Ctx<'a, SeriousTimeStretcher, S> {
         self.supplier.frame_rate()
     }
 }
+
+pub enum StretchWorkerRequest {
+    Stretch,
+}
+
+/// A function that keeps processing stretch worker requests until the channel of the given receiver
+/// is dropped.
+pub fn keep_stretching(requests: Receiver<StretchWorkerRequest>) {}

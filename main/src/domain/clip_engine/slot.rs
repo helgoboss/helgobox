@@ -20,7 +20,7 @@ use crate::domain::clip_engine::clip_source::{
     PosWithinClipArgs, RecordArgs, Repetition, ScheduledOrPlayingState, SeekToArgs,
     SetRepeatedArgs, StopArgs, SuspensionReason,
 };
-use crate::domain::clip_engine::time_stretcher::StretchWorkerRequest;
+use crate::domain::clip_engine::StretchWorkerRequest;
 use crate::domain::clip_engine::{
     clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
 };
