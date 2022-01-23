@@ -27,6 +27,14 @@ impl<S: AudioSupplier + ExactFrameCount> Cache<S> {
         }
     }
 
+    pub fn supplier(&self) -> &S {
+        &self.supplier
+    }
+
+    pub fn supplier_mut(&mut self) -> &mut S {
+        &mut self.supplier
+    }
+
     /// Enables the cache and builds it, caching all supplied audio data in memory if it hasn't
     /// been cached already.
     ///

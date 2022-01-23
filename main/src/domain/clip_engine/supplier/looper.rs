@@ -3,36 +3,78 @@ use crate::domain::clip_engine::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
     ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
 };
+use crate::domain::clip_engine::Repetition;
 use core::cmp;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
 };
 
 pub struct Looper<S> {
-    enabled: bool,
+    loop_behavior: LoopBehavior,
     fades_enabled: bool,
     supplier: S,
 }
 
-impl<S> Looper<S> {
+pub enum LoopBehavior {
+    Infinitely,
+    UntilEndOfCycle(usize),
+}
+
+impl LoopBehavior {
+    pub fn from_repetition(repetition: Repetition) -> Self {
+        use Repetition::*;
+        match repetition {
+            Infinitely => Self::Infinitely,
+            Once => Self::UntilEndOfCycle(0),
+        }
+    }
+}
+
+impl<S: ExactFrameCount> Looper<S> {
     pub fn new(supplier: S) -> Self {
         Self {
-            enabled: false,
+            loop_behavior: LoopBehavior::UntilEndOfCycle(0),
             fades_enabled: false,
             supplier,
         }
     }
 
-    pub fn set_enabled(&mut self, enabled: bool) {
-        self.enabled = enabled;
+    pub fn supplier(&self) -> &S {
+        &self.supplier
+    }
+
+    pub fn supplier_mut(&mut self) -> &mut S {
+        &mut self.supplier
+    }
+
+    pub fn set_loop_behavior(&mut self, loop_behavior: LoopBehavior) {
+        self.loop_behavior = loop_behavior;
     }
 
     pub fn set_fades_enabled(&mut self, fades_enabled: bool) {
         self.fades_enabled = fades_enabled;
     }
 
+    pub fn get_cycle_at_frame(&self, frame: usize) -> usize {
+        frame / self.supplier.frame_count()
+    }
+
     fn is_relevant(&self, start_frame: isize) -> bool {
-        self.enabled && start_frame >= 0
+        if start_frame < 0 {
+            return false;
+        }
+        let start_frame = start_frame as usize;
+        use LoopBehavior::*;
+        match self.loop_behavior {
+            Infinitely => true,
+            UntilEndOfCycle(n) => {
+                if n == 0 {
+                    false
+                } else {
+                    self.get_cycle_at_frame(start_frame) <= n
+                }
+            }
+        }
     }
 }
 

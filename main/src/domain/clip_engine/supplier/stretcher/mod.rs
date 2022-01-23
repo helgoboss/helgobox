@@ -40,6 +40,14 @@ impl<S> Stretcher<S> {
         }
     }
 
+    pub fn supplier(&self) -> &S {
+        &self.supplier
+    }
+
+    pub fn supplier_mut(&mut self) -> &mut S {
+        &mut self.supplier
+    }
+
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
     }

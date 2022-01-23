@@ -12,8 +12,8 @@ use crate::domain::clip_engine::buffer::AudioBufMut;
 use crate::domain::clip_engine::source_util::pcm_source_is_midi;
 use crate::domain::clip_engine::supplier::stretcher::time_stretching::SeriousTimeStretcher;
 use crate::domain::clip_engine::supplier::{
-    AudioSupplier, Looper, MidiSupplier, StretchAudioMode, Stretcher, SupplyAudioRequest,
-    SupplyMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    AudioSupplier, ClipSupplierChain, LoopBehavior, Looper, MidiSupplier, StretchAudioMode,
+    Stretcher, SupplyAudioRequest, SupplyMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::domain::clip_engine::time_stretcher::{
     AsyncStretcher, StretchRequest, StretchWorkerRequest,
@@ -57,8 +57,6 @@ pub struct ClipPcmSource {
     current_sample_rate: Option<Hz>,
 }
 
-type SupplierChain = Stretcher<Looper<OwnedPcmSource>>;
-
 struct InnerSource {
     /// This source contains the actual audio/MIDI data.
     ///
@@ -66,7 +64,7 @@ struct InnerSource {
     source: OwnedPcmSource,
     /// Caches the information if the inner clip source contains MIDI or audio material.
     kind: InnerSourceKind,
-    chain: SupplierChain,
+    chain: ClipSupplierChain,
 }
 
 #[derive(Copy, Clone)]
@@ -238,14 +236,14 @@ impl ClipPcmSource {
                 kind,
                 chain: {
                     let source = inner.clone();
-                    let mut looper = Looper::new(source);
-                    looper.set_enabled(true);
+                    let mut chain = ClipSupplierChain::new(source);
+                    let looper = chain.looper_mut();
+                    looper.set_loop_behavior(LoopBehavior::Infinitely);
                     looper.set_fades_enabled(true);
-                    let mut stretcher = Stretcher::new(looper);
-                    let time_stretcher = SeriousTimeStretcher::new();
-                    // stretcher.set_mode(StretchMode::Serious(time_stretcher));
+                    let stretcher = chain.stretcher_mut();
                     stretcher.set_enabled(true);
-                    stretcher
+                    // stretcher.set_mode(StretchAudioMode::Serious(time_stretcher));
+                    chain
                 },
                 source: inner,
             },
@@ -284,6 +282,10 @@ impl ClipPcmSource {
 
     fn schedule_play_internal(&mut self, args: PlayArgs) {
         self.repetition = args.repetition;
+        self.inner
+            .chain
+            .looper_mut()
+            .set_loop_behavior(LoopBehavior::from_repetition(args.repetition));
         self.state = ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
             play_instruction: PlayInstruction::from_play_time(
                 args.play_time,
@@ -491,101 +493,84 @@ impl ClipPcmSource {
                     //         stretcher.reset();
                     //     }
                     // }
+
+                    // // This is the point where we advance the block position.
+                    // let next_play_info = ResolvedPlayData {
+                    //     next_block_pos: {
+                    //         // TODO-medium This mechanism of advancing the position on every call by
+                    //         //  the block duration relies on the fact that the preview
+                    //         //  register timeline calls us continuously and never twice per block.
+                    //         //  It would be better not to make that assumption and make this more
+                    //         //  stable by actually looking at the diff between the currently requested
+                    //         //  time_s and the previously requested time_s. If this diff is zero or
+                    //         //  doesn't correspond to the non-tempo-adjusted block duration, we know
+                    //         //  something is wrong.
+                    //         if end_frame < 0 {
+                    //             // This is still a *pure* count-in. No modulo logic yet.
+                    //             // Also, we don't advance the position by a block duration that is
+                    //             // adjusted using our normal tempo factor because at the time the
+                    //             // initial countdown value was resolved, REAPER already took the current
+                    //             // tempo into account. However, we must calculate a new tempo factor
+                    //             //  based on possible tempo changes during the count-in phase!
+                    //             // TODO-high When transport is not playing and we change the cursor
+                    //             //  position, new count-ins in relation to the already playing clips
+                    //             //  change. I think because the project timeline resets whenever we
+                    //             //  change the cursor position, which makes the next-bar calculation
+                    //             //  using a different origin. Crap.
+                    //             // TODO-high Well, actually this happens also when the transport is
+                    //             //  running, with the only difference that we also hear and see
+                    //             //  the reset. Plus, when the transport is running, we want to
+                    //             //  interrupt the clips and reschedule them. Still to be implemented.
+                    //             let tempo_factor =
+                    //                 timeline_tempo.get() / s.play_instruction.initial_tempo.get();
+                    //             let duration =
+                    //                 (block_info.frame_count() as f64 * tempo_factor) as usize;
+                    //             block_info.start_frame() + duration as isize
+                    //         } else {
+                    //             // Playing already.
+                    //             // Here we make sure that we always stay within the borders of the inner
+                    //             // source. We don't use every-increasing positions because then tempo
+                    //             // changes are not smooth anymore in subsequent cycles.
+                    //             end_frame
+                    //                 % self.native_clip_length_in_frames(block_info.sample_rate())
+                    //                     as isize
+                    //         }
+                    //     },
+                    // };
                     ResolvedPlayData { next_block_pos }
                 });
-                let cursor_and_length_info = self.create_cursor_and_length_info_at(
-                    play_info,
-                    timeline_cursor_pos,
-                    timeline_tempo,
-                );
-                // This will contain the remaining seconds to stop (always a positive number).
                 let stop_at_end_of_clip =
                     s.scheduled_for_stop || self.repetition == Repetition::Once;
-                let stop_countdown = if stop_at_end_of_clip {
-                    Some(self.countdown_to_end_of_clip(
-                        sample_rate,
-                        self.modulo_pos(play_info.next_block_pos),
-                    ))
-                } else {
-                    None
-                };
-                let block_info = BlockInfo::new(
-                    args.block,
-                    cursor_and_length_info,
-                    final_tempo_factor,
-                    stop_countdown,
-                );
-                // println!(
-                //     "{} => {} (tempo factor {})",
-                //     block_info.start_frame(),
-                //     end_frame,
-                //     final_tempo_factor
-                // );
-                self.inner.chain.set_tempo_factor(final_tempo_factor);
-                let end_frame = self
-                    .fill_samples(args, play_info.next_block_pos)
-                    .unwrap_or(0);
-                let next_play_info = ResolvedPlayData {
-                    next_block_pos: end_frame,
-                };
-                // // This is the point where we advance the block position.
-                // let next_play_info = ResolvedPlayData {
-                //     next_block_pos: {
-                //         // TODO-medium This mechanism of advancing the position on every call by
-                //         //  the block duration relies on the fact that the preview
-                //         //  register timeline calls us continuously and never twice per block.
-                //         //  It would be better not to make that assumption and make this more
-                //         //  stable by actually looking at the diff between the currently requested
-                //         //  time_s and the previously requested time_s. If this diff is zero or
-                //         //  doesn't correspond to the non-tempo-adjusted block duration, we know
-                //         //  something is wrong.
-                //         if end_frame < 0 {
-                //             // This is still a *pure* count-in. No modulo logic yet.
-                //             // Also, we don't advance the position by a block duration that is
-                //             // adjusted using our normal tempo factor because at the time the
-                //             // initial countdown value was resolved, REAPER already took the current
-                //             // tempo into account. However, we must calculate a new tempo factor
-                //             //  based on possible tempo changes during the count-in phase!
-                //             // TODO-high When transport is not playing and we change the cursor
-                //             //  position, new count-ins in relation to the already playing clips
-                //             //  change. I think because the project timeline resets whenever we
-                //             //  change the cursor position, which makes the next-bar calculation
-                //             //  using a different origin. Crap.
-                //             // TODO-high Well, actually this happens also when the transport is
-                //             //  running, with the only difference that we also hear and see
-                //             //  the reset. Plus, when the transport is running, we want to
-                //             //  interrupt the clips and reschedule them. Still to be implemented.
-                //             let tempo_factor =
-                //                 timeline_tempo.get() / s.play_instruction.initial_tempo.get();
-                //             let duration =
-                //                 (block_info.frame_count() as f64 * tempo_factor) as usize;
-                //             block_info.start_frame() + duration as isize
-                //         } else {
-                //             // Playing already.
-                //             // Here we make sure that we always stay within the borders of the inner
-                //             // source. We don't use every-increasing positions because then tempo
-                //             // changes are not smooth anymore in subsequent cycles.
-                //             end_frame
-                //                 % self.native_clip_length_in_frames(block_info.sample_rate())
-                //                     as isize
-                //         }
-                //     },
-                // };
-                self.state = if stop_countdown
-                    .map(|c| c > block_info.tempo_adjusted_frame_count())
-                    .unwrap_or(true)
-                {
-                    // There's still something to play.
-                    ScheduledOrPlaying(ScheduledOrPlayingState {
-                        resolved_play_data: Some(next_play_info),
-                        ..s
-                    })
-                } else {
-                    // We have reached the natural or scheduled end. Everything that needed to be
-                    // played has been played in previous blocks. Audio fade outs have been applied
-                    // as well, so no need to going to suspending state first. Go right to stop!
-                    Stopped
-                };
+                if stop_at_end_of_clip {
+                    let looper = self.inner.chain.looper_mut();
+                    let last_cycle = if play_info.next_block_pos < 0 {
+                        0
+                    } else {
+                        looper.get_cycle_at_frame(play_info.next_block_pos as usize)
+                    };
+                    looper.set_loop_behavior(LoopBehavior::UntilEndOfCycle(last_cycle));
+                }
+                self.inner
+                    .chain
+                    .stretcher_mut()
+                    .set_tempo_factor(final_tempo_factor);
+                self.state =
+                    if let Some(end_frame) = self.fill_samples(args, play_info.next_block_pos) {
+                        // There's still something to play.
+                        ScheduledOrPlaying(ScheduledOrPlayingState {
+                            resolved_play_data: {
+                                Some(ResolvedPlayData {
+                                    next_block_pos: end_frame,
+                                })
+                            },
+                            ..s
+                        })
+                    } else {
+                        // We have reached the natural or scheduled end. Everything that needed to be
+                        // played has been played in previous blocks. Audio fade outs have been applied
+                        // as well, so no need to going to suspending state first. Go right to stop!
+                        Stopped
+                    };
             }
         }
     }
@@ -686,7 +671,11 @@ impl ClipPcmSource {
             args.block.nch() as _,
             args.block.length() as _,
         );
-        let response = self.inner.chain.supply_audio(&request, &mut dest_buffer);
+        let response = self
+            .inner
+            .chain
+            .head()
+            .supply_audio(&request, &mut dest_buffer);
         response.next_inner_frame
     }
 
@@ -699,6 +688,7 @@ impl ClipPcmSource {
         let response = self
             .inner
             .chain
+            .head()
             .supply_midi(&request, args.block.midi_event_list());
         response.next_inner_frame
     }

@@ -13,6 +13,9 @@ pub use looper::*;
 pub mod stretcher;
 pub use stretcher::*;
 
+mod chain;
+pub use chain::*;
+
 pub trait AudioSupplier {
     /// Writes a portion of audio material into the given destination buffer so that it completely
     /// fills that buffer.
