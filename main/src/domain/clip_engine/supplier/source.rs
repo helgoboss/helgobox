@@ -2,10 +2,10 @@ use crate::domain::clip_engine::buffer::AudioBufMut;
 use crate::domain::clip_engine::source_util::pcm_source_is_midi;
 use crate::domain::clip_engine::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    convert_duration_in_seconds_to_midi_frames, convert_position_in_frames_to_seconds,
-    convert_position_in_midi_frames_to_seconds, convert_position_in_seconds_to_frames,
-    supply_source_material, AudioSupplier, ExactFrameCount, MidiSupplier, SourceMaterialRequest,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
+    supply_source_material, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier,
+    SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
+    MIDI_BASE_BPM,
 };
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
@@ -18,7 +18,7 @@ impl AudioSupplier for OwnedPcmSource {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        supply_source_material(request, dest_buffer, self.sample_rate(), |input| {
+        supply_source_material(request, dest_buffer, self.frame_rate(), |input| {
             transfer_audio(self, input)
         })
     }
@@ -27,15 +27,21 @@ impl AudioSupplier for OwnedPcmSource {
         self.get_num_channels()
             .expect("source doesn't report channel count") as usize
     }
+}
 
-    fn sample_rate(&self) -> Hz {
-        self.get_sample_rate()
-            .expect("source doesn't report a sample rate")
+impl WithFrameRate for OwnedPcmSource {
+    fn frame_rate(&self) -> Hz {
+        if pcm_source_is_midi(self) {
+            Hz::new(MIDI_FRAME_RATE)
+        } else {
+            self.get_sample_rate()
+                .expect("source doesn't report a sample rate")
+        }
     }
 }
 
-impl ExactFrameCount for OwnedPcmSource {
-    fn frame_count(&self) -> usize {
+impl ExactDuration for OwnedPcmSource {
+    fn duration(&self) -> DurationInSeconds {
         if pcm_source_is_midi(self) {
             // For MIDI, get_length() takes the current project tempo in account ... which is not
             // what we want because we want to do all the tempo calculations ourselves and treat
@@ -45,13 +51,16 @@ impl ExactFrameCount for OwnedPcmSource {
                 .expect("MIDI source must have length in beats");
             let beats_per_minute = MIDI_BASE_BPM;
             let beats_per_second = beats_per_minute / 60.0;
-            let duration = DurationInSeconds::new(beats.get() / beats_per_second);
-            let normalized_dest_frame_rate = Hz::new(MIDI_FRAME_RATE);
-            convert_duration_in_seconds_to_frames(duration, normalized_dest_frame_rate)
+            DurationInSeconds::new(beats.get() / beats_per_second)
         } else {
-            let duration = self.get_length().unwrap_or(DurationInSeconds::ZERO);
-            convert_duration_in_seconds_to_frames(duration, self.sample_rate())
+            self.get_length().unwrap_or(DurationInSeconds::ZERO)
         }
+    }
+}
+
+impl ExactFrameCount for OwnedPcmSource {
+    fn frame_count(&self) -> usize {
+        convert_duration_in_seconds_to_frames(self.duration(), self.frame_rate())
     }
 }
 
@@ -138,3 +147,10 @@ fn transfer_audio(source: &OwnedPcmSource, mut req: SourceMaterialRequest) -> Su
         },
     }
 }
+
+/// We could use just any unit to represent a position within a MIDI source, but we choose frames
+/// with regard to the following frame rate. Choosing frames allows us to treat MIDI similar to
+/// audio, which results in fewer special cases. The frame rate of 1,024,000 is also the unit which
+/// is used in REAPER's MIDI events, so this corresponds nicely to the audio world where one sample
+/// frame is the smallest possible unit.
+const MIDI_FRAME_RATE: f64 = 1_024_000.0;

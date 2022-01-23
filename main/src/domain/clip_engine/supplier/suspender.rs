@@ -3,6 +3,7 @@ use crate::domain::clip_engine::supplier::midi_util::silence_midi;
 use crate::domain::clip_engine::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
     ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
+    WithFrameRate,
 };
 use crate::domain::clip_engine::Repetition;
 use core::cmp;
@@ -92,9 +93,11 @@ impl<S: AudioSupplier> AudioSupplier for Suspender<S> {
     fn channel_count(&self) -> usize {
         self.supplier.channel_count()
     }
+}
 
-    fn sample_rate(&self) -> Hz {
-        self.supplier.sample_rate()
+impl<S: WithFrameRate> WithFrameRate for Suspender<S> {
+    fn frame_rate(&self) -> Hz {
+        self.supplier.frame_rate()
     }
 }
 

@@ -4,6 +4,7 @@ use crate::domain::clip_engine::supplier::stretcher::time_stretching::SeriousTim
 use crate::domain::clip_engine::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
     ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
+    WithFrameRate,
 };
 use core::cmp;
 use reaper_medium::{
@@ -68,10 +69,7 @@ impl<S> Stretcher<S> {
         self.audio_mode = mode;
     }
 
-    fn ctx<'a, T>(&'a self, mode: &'a T) -> Ctx<'a, T, S>
-    where
-        S: AudioSupplier,
-    {
+    fn ctx<'a, T>(&'a self, mode: &'a T) -> Ctx<'a, T, S> {
         Ctx {
             supplier: &self.supplier,
             mode,
@@ -80,7 +78,7 @@ impl<S> Stretcher<S> {
     }
 }
 
-impl<S: AudioSupplier> AudioSupplier for Stretcher<S> {
+impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Stretcher<S> {
     fn supply_audio(
         &self,
         request: &SupplyAudioRequest,
@@ -99,15 +97,17 @@ impl<S: AudioSupplier> AudioSupplier for Stretcher<S> {
     fn channel_count(&self) -> usize {
         self.supplier.channel_count()
     }
+}
 
-    fn sample_rate(&self) -> Hz {
+impl<S: WithFrameRate> WithFrameRate for Stretcher<S> {
+    fn frame_rate(&self) -> Hz {
         if !self.enabled {
-            return self.supplier.sample_rate();
+            return self.supplier.frame_rate();
         }
         use StretchAudioMode::*;
         match &self.audio_mode {
-            Resampling(m) => self.ctx(m).sample_rate(),
-            Serious(m) => self.ctx(m).sample_rate(),
+            Resampling(m) => self.ctx(m).frame_rate(),
+            Serious(m) => self.ctx(m).frame_rate(),
         }
     }
 }
@@ -135,7 +135,7 @@ impl<S: ExactFrameCount> ExactFrameCount for Stretcher<S> {
     }
 }
 
-pub struct Ctx<'a, M, S: AudioSupplier> {
+pub struct Ctx<'a, M, S> {
     supplier: &'a S,
     mode: &'a M,
     tempo_factor: f64,

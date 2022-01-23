@@ -1,6 +1,6 @@
 use crate::domain::clip_engine::buffer::AudioBufMut;
 use crate::domain::clip_engine::supplier::{
-    AudioSupplier, Ctx, SupplyAudioRequest, SupplyResponse,
+    AudioSupplier, Ctx, SupplyAudioRequest, SupplyResponse, WithFrameRate,
 };
 use reaper_high::Reaper;
 use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};
@@ -26,7 +26,7 @@ impl SeriousTimeStretcher {
     }
 }
 
-impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {
+impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {
     fn supply_audio(
         &self,
         request: &SupplyAudioRequest,
@@ -36,7 +36,7 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {
         let mut total_num_frames_written = 0usize;
         // TODO-high This has problems with playrate changes.
         // TODO-medium Setting this right at the beginning should be enough.
-        self.mode.api.set_srate(self.supplier.sample_rate().get());
+        self.mode.api.set_srate(self.supplier.frame_rate().get());
         loop {
             // Fill buffer with a minimum amount of source data (so that we never consume more than
             // necessary).
@@ -87,8 +87,10 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {
     fn channel_count(&self) -> usize {
         self.supplier.channel_count()
     }
+}
 
-    fn sample_rate(&self) -> Hz {
-        self.supplier.sample_rate()
+impl<'a, S: WithFrameRate> WithFrameRate for Ctx<'a, SeriousTimeStretcher, S> {
+    fn frame_rate(&self) -> Hz {
+        self.supplier.frame_rate()
     }
 }

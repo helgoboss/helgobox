@@ -12,8 +12,9 @@ use crate::domain::clip_engine::buffer::AudioBufMut;
 use crate::domain::clip_engine::source_util::pcm_source_is_midi;
 use crate::domain::clip_engine::supplier::stretcher::time_stretching::SeriousTimeStretcher;
 use crate::domain::clip_engine::supplier::{
-    AudioSupplier, ClipSupplierChain, LoopBehavior, Looper, MidiSupplier, StretchAudioMode,
-    Stretcher, SupplyAudioRequest, SupplyMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    AudioSupplier, ClipSupplierChain, ExactDuration, ExactFrameCount, LoopBehavior, Looper,
+    MidiSupplier, StretchAudioMode, Stretcher, SupplyAudioRequest, SupplyMidiRequest,
+    WithFrameRate, MIDI_BASE_BPM,
 };
 use crate::domain::clip_engine::time_stretcher::{
     AsyncStretcher, StretchRequest, StretchWorkerRequest,
@@ -605,11 +606,7 @@ impl ClipPcmSource {
     }
 
     fn source_frame_rate(&self) -> Hz {
-        use InnerSourceKind::*;
-        match self.inner.kind {
-            Audio { .. } => self.inner.source.sample_rate(),
-            Midi => Hz::new(MIDI_FRAME_RATE),
-        }
+        self.inner.source.frame_rate()
     }
 
     fn fill_samples(&mut self, args: &mut GetSamplesArgs, start_frame: isize) -> Option<isize> {
@@ -1173,21 +1170,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn native_clip_length(&self) -> DurationInSeconds {
-        if self.inner.is_midi() {
-            // For MIDI, get_length() takes the current project tempo in account ... which is not
-            // what we want because we want to do all the tempo calculations ourselves and treat
-            // MIDI/audio the same wherever possible.
-            let beats = self
-                .inner
-                .source
-                .get_length_beats()
-                .expect("MIDI source must have length in beats");
-            let beats_per_minute = self.inner.original_tempo();
-            let beats_per_second = beats_per_minute.get() / 60.0;
-            DurationInSeconds::new(beats.get() / beats_per_second)
-        } else {
-            self.inner.source.get_length().unwrap_or_default()
-        }
+        self.inner.chain.source().duration()
     }
 
     fn set_tempo_factor(&mut self, tempo_factor: f64) {

@@ -2,7 +2,7 @@ use crate::domain::clip_engine::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer
 use crate::domain::clip_engine::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     supply_source_material, AudioSupplier, ExactFrameCount, MidiSupplier, SourceMaterialRequest,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
 use core::cmp;
 use reaper_medium::{
@@ -19,7 +19,7 @@ struct CachedData {
     content: OwnedAudioBuffer,
 }
 
-impl<S: AudioSupplier + ExactFrameCount> Cache<S> {
+impl<S: AudioSupplier + ExactFrameCount + WithFrameRate> Cache<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             cached_data: None,
@@ -46,7 +46,7 @@ impl<S: AudioSupplier + ExactFrameCount> Cache<S> {
         }
         let mut content =
             OwnedAudioBuffer::new(self.supplier.channel_count(), self.supplier.frame_count());
-        let original_sample_rate = self.supplier.sample_rate();
+        let original_sample_rate = self.supplier.frame_rate();
         let request = SupplyAudioRequest {
             start_frame: 0,
             dest_sample_rate: original_sample_rate,
@@ -91,12 +91,14 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Cache<S> {
             self.supplier.channel_count()
         }
     }
+}
 
-    fn sample_rate(&self) -> Hz {
+impl<S: WithFrameRate> WithFrameRate for Cache<S> {
+    fn frame_rate(&self) -> Hz {
         if let Some(d) = &self.cached_data {
             d.sample_rate
         } else {
-            self.supplier.sample_rate()
+            self.supplier.frame_rate()
         }
     }
 }

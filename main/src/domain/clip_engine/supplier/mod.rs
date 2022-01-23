@@ -32,9 +32,6 @@ pub trait AudioSupplier {
 
     /// How many channels the supplied audio material consists of.
     fn channel_count(&self) -> usize;
-
-    /// Native (preferred) sample rate of the material.
-    fn sample_rate(&self) -> Hz;
 }
 
 pub trait MidiSupplier {
@@ -51,6 +48,15 @@ pub trait ExactFrameCount {
     /// Total length of the supplied audio material in frames, in relation to the audio supplier's
     /// native sample rate.
     fn frame_count(&self) -> usize;
+}
+
+pub trait WithFrameRate {
+    /// Native (preferred) sample rate of the material.
+    fn frame_rate(&self) -> Hz;
+}
+
+pub trait ExactDuration {
+    fn duration(&self) -> DurationInSeconds;
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -98,10 +104,6 @@ pub fn convert_duration_in_seconds_to_frames(seconds: DurationInSeconds, sample_
     (seconds.get() * sample_rate.get()).round() as usize
 }
 
-pub fn convert_duration_in_seconds_to_midi_frames(seconds: DurationInSeconds) -> usize {
-    (seconds.get() * MIDI_FRAME_RATE).round() as usize
-}
-
 pub fn convert_position_in_seconds_to_frames(seconds: PositionInSeconds, sample_rate: Hz) -> isize {
     (seconds.get() * sample_rate.get()).round() as isize
 }
@@ -119,17 +121,6 @@ pub fn convert_position_in_frames_to_seconds(
 ) -> PositionInSeconds {
     PositionInSeconds::new(frame_count as f64 / sample_rate.get())
 }
-
-pub fn convert_position_in_midi_frames_to_seconds(frame_count: isize) -> PositionInSeconds {
-    PositionInSeconds::new(frame_count as f64 / MIDI_FRAME_RATE)
-}
-
-/// We could use just any unit to represent a position within a MIDI source, but we choose frames
-/// with regard to the following frame rate. Choosing frames allows us to treat MIDI similar to
-/// audio, which results in fewer special cases. The frame rate of 1,024,000 is also the unit which
-/// is used in REAPER's MIDI events, so this corresponds nicely to the audio world where one sample
-/// frame is the smallest possible unit.
-pub const MIDI_FRAME_RATE: f64 = 1_024_000.0;
 
 /// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
 /// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample
