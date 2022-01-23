@@ -59,10 +59,6 @@ pub struct ClipPcmSource {
 }
 
 struct InnerSource {
-    /// This source contains the actual audio/MIDI data.
-    ///
-    /// It doesn't change throughout the lifetime of this clip source, although I think it could.
-    source: OwnedPcmSource,
     /// Caches the information if the inner clip source contains MIDI or audio material.
     kind: InnerSourceKind,
     chain: ClipSupplierChain,
@@ -235,8 +231,7 @@ impl ClipPcmSource {
             inner: InnerSource {
                 kind,
                 chain: {
-                    let source = inner.clone();
-                    let mut chain = ClipSupplierChain::new(source);
+                    let mut chain = ClipSupplierChain::new(inner);
                     let looper = chain.looper_mut();
                     looper.set_fades_enabled(true);
                     let stretcher = chain.stretcher_mut();
@@ -244,7 +239,6 @@ impl ClipPcmSource {
                     // stretcher.set_mode(StretchAudioMode::Serious(time_stretcher));
                     chain
                 },
-                source: inner,
             },
             project,
             debug_counter: 0,
@@ -606,7 +600,7 @@ impl ClipPcmSource {
     }
 
     fn source_frame_rate(&self) -> Hz {
-        self.inner.source.frame_rate()
+        self.inner.chain.source().frame_rate()
     }
 
     fn fill_samples(&mut self, args: &mut GetSamplesArgs, start_frame: isize) -> Option<isize> {
@@ -708,43 +702,43 @@ impl ClipPcmSource {
 impl CustomPcmSource for ClipPcmSource {
     fn duplicate(&mut self) -> Option<OwnedPcmSource> {
         // Not correct but probably never used.
-        self.inner.source.duplicate()
+        self.inner.chain.source().duplicate()
     }
 
     fn is_available(&mut self) -> bool {
-        self.inner.source.is_available()
+        self.inner.chain.source().is_available()
     }
 
     fn set_available(&mut self, args: SetAvailableArgs) {
-        self.inner.source.set_available(args.is_available);
+        self.inner.chain.source().set_available(args.is_available);
     }
 
     fn get_type(&mut self) -> &ReaperStr {
-        unsafe { self.inner.source.get_type_unchecked() }
+        unsafe { self.inner.chain.source().get_type_unchecked() }
     }
 
     fn get_file_name(&mut self) -> Option<&ReaperStr> {
-        unsafe { self.inner.source.get_file_name_unchecked() }
+        unsafe { self.inner.chain.source().get_file_name_unchecked() }
     }
 
     fn set_file_name(&mut self, args: SetFileNameArgs) -> bool {
-        self.inner.source.set_file_name(args.new_file_name)
+        self.inner.chain.source().set_file_name(args.new_file_name)
     }
 
     fn get_source(&mut self) -> Option<PcmSource> {
-        self.inner.source.get_source()
+        self.inner.chain.source().get_source()
     }
 
     fn set_source(&mut self, args: SetSourceArgs) {
-        self.inner.source.set_source(args.source);
+        self.inner.chain.source().set_source(args.source);
     }
 
     fn get_num_channels(&mut self) -> Option<u32> {
-        self.inner.source.get_num_channels()
+        self.inner.chain.source().get_num_channels()
     }
 
     fn get_sample_rate(&mut self) -> Option<Hz> {
-        self.inner.source.get_sample_rate()
+        self.inner.chain.source().get_sample_rate()
     }
 
     fn get_length(&mut self) -> DurationInSeconds {
@@ -753,20 +747,25 @@ impl CustomPcmSource for ClipPcmSource {
     }
 
     fn get_length_beats(&mut self) -> Option<DurationInBeats> {
-        let _ = self.inner.source.get_length_beats()?;
+        let _ = self.inner.chain.source().get_length_beats()?;
         Some(DurationInBeats::MAX)
     }
 
     fn get_bits_per_sample(&mut self) -> u32 {
-        self.inner.source.get_bits_per_sample()
+        self.inner.chain.source().get_bits_per_sample()
     }
 
     fn get_preferred_position(&mut self) -> Option<PositionInSeconds> {
-        self.inner.source.get_preferred_position()
+        self.inner.chain.source().get_preferred_position()
     }
 
     fn properties_window(&mut self, args: PropertiesWindowArgs) -> i32 {
-        unsafe { self.inner.source.properties_window(args.parent_window) }
+        unsafe {
+            self.inner
+                .chain
+                .source()
+                .properties_window(args.parent_window)
+        }
     }
 
     fn get_samples(&mut self, mut args: GetSamplesArgs) {
@@ -793,34 +792,39 @@ impl CustomPcmSource for ClipPcmSource {
 
     fn get_peak_info(&mut self, args: GetPeakInfoArgs) {
         unsafe {
-            self.inner.source.get_peak_info(args.block);
+            self.inner.chain.source().get_peak_info(args.block);
         }
     }
 
     fn save_state(&mut self, args: SaveStateArgs) {
         unsafe {
-            self.inner.source.save_state(args.context);
+            self.inner.chain.source().save_state(args.context);
         }
     }
 
     fn load_state(&mut self, args: LoadStateArgs) -> Result<(), Box<dyn Error>> {
-        unsafe { self.inner.source.load_state(args.first_line, args.context) }
+        unsafe {
+            self.inner
+                .chain
+                .source()
+                .load_state(args.first_line, args.context)
+        }
     }
 
     fn peaks_clear(&mut self, args: PeaksClearArgs) {
-        self.inner.source.peaks_clear(args.delete_file);
+        self.inner.chain.source().peaks_clear(args.delete_file);
     }
 
     fn peaks_build_begin(&mut self) -> bool {
-        self.inner.source.peaks_build_begin()
+        self.inner.chain.source().peaks_build_begin()
     }
 
     fn peaks_build_run(&mut self) -> bool {
-        self.inner.source.peaks_build_run()
+        self.inner.chain.source().peaks_build_run()
     }
 
     fn peaks_build_finish(&mut self) {
-        self.inner.source.peaks_build_finish();
+        self.inner.chain.source().peaks_build_finish();
     }
 
     unsafe fn extended(&mut self, args: ExtendedArgs) -> i32 {
@@ -888,10 +892,12 @@ impl CustomPcmSource for ClipPcmSource {
                 self.set_repeated(inner_args);
                 1
             }
-            _ => self
-                .inner
-                .source
-                .extended(args.call, args.parm_1, args.parm_2, args.parm_3),
+            _ => {
+                self.inner
+                    .chain
+                    .source()
+                    .extended(args.call, args.parm_1, args.parm_2, args.parm_3)
+            }
         }
     }
 }
