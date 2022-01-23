@@ -44,8 +44,6 @@ pub struct ClipPcmSource {
     inner: InnerSource,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
-    /// This can change during the lifetime of this clip.
-    repetition: Repetition,
     /// Changes the tempo of this clip in addition to the natural tempo change.
     manual_tempo_factor: f64,
     /// An ever-increasing counter which is used just for debugging purposes at the moment.
@@ -112,9 +110,8 @@ pub enum ClipState {
     ///
     /// The player can stop in this state.
     Paused {
-        /// Position *within* the clip at which should be resumed later.
-        // TODO-high This is wrong. It should also be a frame within the native source.
-        next_block_pos: DurationInSeconds,
+        /// Modulo position within the clip at which should be resumed later.
+        next_block_pos: usize,
     },
 }
 
@@ -221,7 +218,6 @@ impl ClipPcmSource {
             },
             project,
             debug_counter: 0,
-            repetition: Repetition::Once,
             state: ClipState::Stopped,
             manual_tempo_factor: 1.0,
             current_sample_rate: None,
@@ -237,8 +233,29 @@ impl ClipPcmSource {
         (1.0 * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
     }
 
+    fn frame_within_clip(&self, timeline_tempo: Bpm) -> Option<isize> {
+        use ClipState::*;
+        let frame = match self.state {
+            ScheduledOrPlaying(ScheduledOrPlayingState {
+                resolved_play_data: Some(play_info),
+                ..
+            })
+            | Suspending { play_info, .. } => {
+                let pos = play_info.next_block_pos;
+                if pos < 0 {
+                    pos
+                } else {
+                    self.modulo_frame(pos as usize) as isize
+                }
+            }
+            // Pause position is modulo already.
+            Paused { next_block_pos } => next_block_pos as isize,
+            _ => return None,
+        };
+        Some(frame)
+    }
+
     fn schedule_play_internal(&mut self, args: PlayArgs) {
-        self.repetition = args.repetition;
         self.inner
             .chain
             .looper_mut()
@@ -303,7 +320,6 @@ impl ClipPcmSource {
                             play_info,
                             timeline_cursor_pos,
                             &timeline,
-                            args.block,
                         )
                     };
             }
@@ -454,9 +470,7 @@ impl ClipPcmSource {
                     // };
                     ResolvedPlayData { next_block_pos }
                 });
-                let stop_at_end_of_clip =
-                    s.scheduled_for_stop || self.repetition == Repetition::Once;
-                if stop_at_end_of_clip {
+                if s.scheduled_for_stop {
                     let looper = self.inner.chain.looper_mut();
                     let last_cycle = if play_info.next_block_pos < 0 {
                         0
@@ -493,7 +507,6 @@ impl ClipPcmSource {
         play_info: ResolvedPlayData,
         timeline_cursor_pos: PositionInSeconds,
         timeline: impl Timeline,
-        transfer: &PcmSourceTransfer,
     ) -> ClipState {
         match reason {
             SuspensionReason::Retrigger => ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
@@ -504,17 +517,18 @@ impl ClipPcmSource {
                 ),
                 ..Default::default()
             }),
-            SuspensionReason::Pause => ClipState::Paused {
-                next_block_pos: {
-                    if play_info.next_block_pos < 0 {
-                        DurationInSeconds::ZERO
-                    } else {
-                        DurationInSeconds::new(
-                            play_info.next_block_pos as f64 / transfer.sample_rate().get(),
-                        )
-                    }
-                },
-            },
+            SuspensionReason::Pause => {
+                self.inner.chain.looper_mut().reset();
+                ClipState::Paused {
+                    next_block_pos: {
+                        if play_info.next_block_pos < 0 {
+                            0
+                        } else {
+                            self.modulo_frame(play_info.next_block_pos as usize)
+                        }
+                    },
+                }
+            }
             SuspensionReason::Stop => {
                 self.inner.chain.reset();
                 ClipState::Stopped
@@ -532,12 +546,8 @@ impl ClipPcmSource {
         }
     }
 
-    fn modulo_frame(&self, frame: isize) -> isize {
-        if frame < 0 {
-            return frame;
-        }
-        let frame_count = self.inner.chain.source().frame_count();
-        frame % frame_count as isize
+    fn modulo_frame(&self, frame: usize) -> usize {
+        frame % self.inner.chain.source().frame_count()
     }
 
     fn fill_samples(&mut self, args: &mut GetSamplesArgs, start_frame: isize) -> Option<isize> {
@@ -904,7 +914,6 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                 // which is especially annoying when using transport sync because then it's like
                 // forgetting that clip ... the next time the transport is stopped and started,
                 // that clip won't play again.
-                self.repetition = args.repetition;
                 self.state = ClipState::Suspending {
                     reason: SuspensionReason::PlayWhileSuspending {
                         play_time: args.play_time,
@@ -912,16 +921,16 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                     play_info,
                 };
             }
-            // TODO-high Hey, looks like we forgot a proper resume.
+            // TODO-high We should do a fade-in!
             Paused { next_block_pos } => {
                 // Resume
                 self.state = ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
-                    play_instruction: PlayInstruction::from_play_time(
-                        args.play_time,
-                        args.timeline_cursor_pos,
-                        self.timeline(),
-                    ),
-                    ..Default::default()
+                    play_instruction: Default::default(),
+                    resolved_play_data: Some(ResolvedPlayData {
+                        next_block_pos: next_block_pos as isize,
+                    }),
+                    scheduled_for_stop: false,
+                    overdubbing: false,
                 });
             }
         }
@@ -1057,8 +1066,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
             }
             Paused { .. } => {
                 self.state = Paused {
-                    // TODO-high Fix
-                    next_block_pos: DurationInSeconds::ZERO,
+                    next_block_pos: desired_frame,
                 };
             }
         }
@@ -1089,28 +1097,26 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn pos_within_clip(&self, args: PosWithinClipArgs) -> Option<PositionInSeconds> {
-        use ClipState::*;
-        let inner_source_pos = match self.state {
-            ScheduledOrPlaying(ScheduledOrPlayingState {
-                resolved_play_data: Some(play_info),
-                ..
-            })
-            | Suspending { play_info, .. } => {
-                let sr = self.current_sample_rate?;
-                self.modulo_frame(play_info.next_block_pos) as f64 / sr.get()
-            }
-            Paused { next_block_pos } => next_block_pos.get(),
-            _ => return None,
-        };
-        let pos = inner_source_pos / self.calc_final_tempo_factor(args.timeline_tempo);
-        Some(PositionInSeconds::new(pos))
+        let sr = self.current_sample_rate?;
+        let frame = self.frame_within_clip(args.timeline_tempo)?;
+        let second = frame as f64 / sr.get();
+        Some(PositionInSeconds::new(second))
     }
 
     fn proportional_pos_within_clip(&self, args: PosWithinClipArgs) -> Option<UnitValue> {
-        // TODO-high Optimize as soon as pausing repaired
-        let pos_within_clip = self.pos_within_clip(args);
-        let length = self.clip_length(args.timeline_tempo);
-        calculate_proportional_position(pos_within_clip, length)
+        let frame_within_clip = self.frame_within_clip(args.timeline_tempo)?;
+        if frame_within_clip < 0 {
+            None
+        } else {
+            let frame_count = self.inner.chain.source().frame_count();
+            if frame_count == 0 {
+                Some(UnitValue::MIN)
+            } else {
+                let proportional =
+                    UnitValue::new_clamped(frame_within_clip as f64 / frame_count as f64);
+                Some(proportional)
+            }
+        }
     }
 }
 
@@ -1355,16 +1361,6 @@ pub struct SetRepeatedArgs {
 pub struct PosWithinClipArgs {
     pub timeline_cursor_pos: PositionInSeconds,
     pub timeline_tempo: Bpm,
-}
-
-fn calculate_proportional_position(
-    position: Option<PositionInSeconds>,
-    length: DurationInSeconds,
-) -> Option<UnitValue> {
-    if length.get() == 0.0 {
-        return Some(UnitValue::MIN);
-    }
-    position.map(|p| UnitValue::new_clamped(p.get() / length.get()))
 }
 
 const MIN_TEMPO_FACTOR: f64 = 0.0000000001;
