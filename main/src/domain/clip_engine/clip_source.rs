@@ -187,6 +187,8 @@ impl ClipPcmSource {
                     looper.set_fades_enabled(true);
                     let stretcher = chain.stretcher_mut();
                     stretcher.set_enabled(true);
+                    let serious = SeriousTimeStretcher::new();
+                    stretcher.set_mode(StretchAudioMode::Serious(serious));
                     chain
                 },
             },

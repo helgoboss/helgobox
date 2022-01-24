@@ -1,5 +1,6 @@
 use crate::domain::clip_engine::supplier::time_stretching::SeriousTimeStretcher;
 use crate::domain::clip_engine::supplier::{Looper, Stretcher, Suspender};
+use crate::domain::clip_engine::StretchAudioMode;
 use reaper_medium::OwnedPcmSource;
 
 type Head = SuspenderTail;

@@ -35,9 +35,13 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
     ) -> SupplyResponse {
         let mut total_num_frames_read = 0usize;
         let mut total_num_frames_written = 0usize;
-        // TODO-high This has problems with playrate changes.
+        let source_frame_rate = self.supplier.frame_rate();
+        // I think it makes sense to set both the output and the input sample rate to the sample
+        // rate of the source. Then the result can be even cached and sample rate & play-rate
+        // changes don't need to invalidate the cache.
+        // TODO-high However, we need add a resampler on top.
         // TODO-medium Setting this right at the beginning should be enough.
-        self.mode.api.set_srate(self.supplier.frame_rate().get());
+        self.mode.api.set_srate(source_frame_rate.get());
         loop {
             // Fill buffer with a minimum amount of source data (so that we never consume more than
             // necessary).
@@ -50,7 +54,7 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
                 unsafe { AudioBufMut::from_raw(stretch_buffer, dest_nch, buffer_frame_count) };
             let request = SupplyAudioRequest {
                 start_frame: request.start_frame + total_num_frames_read as isize,
-                ..*request
+                dest_sample_rate: source_frame_rate,
             };
             let response = self.supplier.supply_audio(&request, &mut stretch_buffer);
             total_num_frames_read += response.num_frames_written;
