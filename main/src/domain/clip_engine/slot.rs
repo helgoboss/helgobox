@@ -475,9 +475,9 @@ impl State {
         moment: TimelineMoment,
         timeline: &impl Timeline,
     ) -> TransitionResult {
-        if !timeline.follows_reaper_transport() {
-            return Ok(self);
-        }
+        // if !timeline.follows_reaper_transport() {
+        //     return Ok(self);
+        // }
         match self {
             State::Empty => Ok(State::Empty),
             State::Filled(mut s) => {

@@ -4,7 +4,9 @@ use crate::domain::clip_engine::{
 use atomic_float::AtomicF64;
 use helgoboss_learn::BASE_EPSILON;
 use reaper_high::{Project, Reaper};
-use reaper_medium::{Bpm, Hz, MeasureMode, PositionInBeats, PositionInSeconds, ProjectContext};
+use reaper_medium::{
+    Bpm, Hz, MeasureMode, PlayState, PositionInBeats, PositionInSeconds, ProjectContext,
+};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use vst::util::AtomicFloat;
 
@@ -76,6 +78,16 @@ impl ReaperProjectTimeline {
                 .unwrap_or(ProjectContext::CurrentProject),
         }
     }
+
+    fn is_playing_or_paused(&self) -> bool {
+        self.play_state().is_playing
+    }
+
+    fn play_state(&self) -> PlayState {
+        Reaper::get()
+            .medium_reaper()
+            .get_play_state_ex(self.project_context)
+    }
 }
 
 impl Timeline for ReaperProjectTimeline {
@@ -94,10 +106,7 @@ impl Timeline for ReaperProjectTimeline {
     }
 
     fn is_running(&self) -> bool {
-        let play_state = Reaper::get()
-            .medium_reaper()
-            .get_play_state_ex(self.project_context);
-        !play_state.is_paused
+        !self.play_state().is_paused
     }
 
     fn follows_reaper_transport(&self) -> bool {
@@ -105,20 +114,9 @@ impl Timeline for ReaperProjectTimeline {
     }
 
     fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm {
-        let play_state = Reaper::get()
-            .medium_reaper()
-            .get_play_state_ex(self.project_context);
-        // The idea is that we want to follow tempo envelopes while playing but not follow them
-        // while paused (because we don't even see where the hypothetical play cursor is on the
-        // timeline).
-        let tempo_ref_pos = if play_state.is_playing || play_state.is_paused {
-            timeline_pos
-        } else {
-            PositionInSeconds::new(0.0)
-        };
         Reaper::get()
             .medium_reaper()
-            .time_map_2_get_divided_bpm_at_time(self.project_context, tempo_ref_pos)
+            .time_map_2_get_divided_bpm_at_time(self.project_context, timeline_pos)
     }
 }
 
@@ -130,11 +128,6 @@ pub trait Timeline {
         TimelineMoment::new(cursor_pos, tempo, next_bar)
     }
 
-    /// TODO-high Actually, the value returned here should not be interpreted as position in seconds
-    ///  because it could have different meanings depending on the timeline. Its real meaning is to
-    ///  represent an instant that lets you determine tempo and position of next bar. It could be
-    ///  a frame, a second, a whatever. It shouldn't be interpreted by anything but the timeline
-    ///  itself.
     fn cursor_pos(&self) -> PositionInSeconds;
 
     fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32;
@@ -359,4 +352,58 @@ static GLOBAL_STEADY_TIMELINE: SteadyTimeline = SteadyTimeline::new();
 /// Returns a global timeline that is ever-increasing and not influenced by REAPER's transport.
 pub fn global_steady_timeline() -> &'static SteadyTimeline {
     &GLOBAL_STEADY_TIMELINE
+}
+
+pub struct HybridTimeline {
+    project_timeline: ReaperProjectTimeline,
+}
+
+impl HybridTimeline {
+    pub fn new(project: Option<Project>) -> Self {
+        Self {
+            project_timeline: ReaperProjectTimeline::new(project),
+        }
+    }
+}
+
+impl Timeline for HybridTimeline {
+    fn cursor_pos(&self) -> PositionInSeconds {
+        if self.project_timeline.is_playing_or_paused() {
+            self.project_timeline.cursor_pos()
+        } else {
+            global_steady_timeline().cursor_pos()
+        }
+    }
+
+    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
+        if self.project_timeline.is_playing_or_paused() {
+            self.project_timeline.next_bar_at(timeline_pos)
+        } else {
+            global_steady_timeline().next_bar_at(timeline_pos)
+        }
+    }
+
+    fn rel_pos_from_bar(&self, timeline_pos: PositionInSeconds, bar: i32) -> PositionInSeconds {
+        if self.project_timeline.is_playing_or_paused() {
+            self.project_timeline.rel_pos_from_bar(timeline_pos, bar)
+        } else {
+            global_steady_timeline().rel_pos_from_bar(timeline_pos, bar)
+        }
+    }
+
+    fn is_running(&self) -> bool {
+        self.project_timeline.is_running()
+    }
+
+    fn follows_reaper_transport(&self) -> bool {
+        self.project_timeline.is_playing_or_paused()
+    }
+
+    fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm {
+        if self.project_timeline.is_playing_or_paused() {
+            self.project_timeline.tempo_at(timeline_pos)
+        } else {
+            global_steady_timeline().tempo_at(timeline_pos)
+        }
+    }
 }
