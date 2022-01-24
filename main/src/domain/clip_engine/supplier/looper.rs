@@ -10,6 +10,7 @@ use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
 };
 
+// TODO-high Audio can lose timing after a while. Check what's wrong by measuring deviation.
 pub struct Looper<S> {
     loop_behavior: LoopBehavior,
     fades_enabled: bool,

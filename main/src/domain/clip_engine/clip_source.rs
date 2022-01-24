@@ -54,6 +54,7 @@ pub struct ClipPcmSource {
     /// When a preview register plays this source, this field gets constantly updated with the
     /// sample rate used to play the source.
     current_sample_rate: Option<Hz>,
+    previous_bar: i32,
 }
 
 struct InnerSource {
@@ -194,6 +195,7 @@ impl ClipPcmSource {
             state: ClipState::Stopped,
             manual_tempo_factor: 1.0,
             current_sample_rate: None,
+            previous_bar: 0,
         }
     }
 
@@ -253,7 +255,6 @@ impl ClipPcmSource {
         timeline_cursor_pos: PositionInSeconds,
     ) {
         let sample_rate = args.block.sample_rate();
-        let timeline_cursor_frame = (timeline_cursor_pos.get() * sample_rate.get()) as isize;
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo);
         // println!("block sr = {}, block length = {}, block time = {}, timeline cursor pos = {}, timeline cursor frame = {}",
@@ -286,16 +287,17 @@ impl ClipPcmSource {
                     } else {
                         // Suspension finished.
                         self.inner.chain.suspender_mut().reset();
-                        self.get_suspension_follow_up_state(
-                            reason,
-                            play_info,
-                            timeline_cursor_pos,
-                            &timeline,
-                        )
+                        self.get_suspension_follow_up_state(reason, play_info)
                     };
             }
             ScheduledOrPlaying(s) => {
                 // Resolve play info if not yet resolved.
+                let next_bar = timeline.next_bar_at(timeline_cursor_pos);
+                if next_bar != self.previous_bar {
+                    let rel_pos_from_bar = timeline.rel_pos_from_bar(timeline_cursor_pos, next_bar);
+                    println!("Next bar = {} in {}s", next_bar, rel_pos_from_bar);
+                    self.previous_bar = next_bar;
+                }
                 let play_info = s.resolved_play_data.unwrap_or_else(|| {
                     // So, this is how we do play scheduling. Whenever the preview register
                     // calls get_samples() and we are in a fresh ScheduledOrPlaying state, the
@@ -327,8 +329,9 @@ impl ClipPcmSource {
                     //  the reset. Plus, when the transport is running, we want to
                     //  interrupt the clips and reschedule them. Still to be implemented.
                     let next_block_pos = if let Some(bar) = s.play_instruction.scheduled_for_bar {
-                        let bar_pos = timeline.pos_of_bar(bar);
-                        let hypothetical_next_pos = timeline_cursor_pos - bar_pos;
+                        let hypothetical_next_pos =
+                            timeline.rel_pos_from_bar(timeline_cursor_pos, bar);
+                        dbg!(timeline_cursor_pos, bar, hypothetical_next_pos);
                         let hypothetical_next_frame = convert_position_in_seconds_to_frames(
                             hypothetical_next_pos,
                             self.inner.chain.source().frame_rate(),
@@ -391,8 +394,6 @@ impl ClipPcmSource {
         &mut self,
         reason: SuspensionReason,
         play_info: ResolvedPlayData,
-        timeline_cursor_pos: PositionInSeconds,
-        timeline: impl Timeline,
     ) -> ClipState {
         match reason {
             SuspensionReason::Retrigger => ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {

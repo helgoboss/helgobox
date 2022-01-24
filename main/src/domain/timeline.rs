@@ -32,6 +32,33 @@ impl TimelineMoment {
     }
 }
 
+/// This represents the timeline of a REAPER project.
+///
+/// Characteristics:
+///
+/// - The cursor position (seconds) moves forward in real-time and independent from the current
+///   tempo.
+/// - If the project is paused, all positions freeze.
+///   tempo, no matter if the project is playing or not.
+/// - The cursor position is reset whenever the user relocates the cursor in the project.
+///     - This is okay for clip playing when the project is playing because in that case we want
+///       to interrupt the clips and re-align to the changed situation.
+///     - It's not okay for clip playing when the project is paused because it would come as a
+///       surprise for the user that clips are interrupted since they appear to be running
+///       disconnected from the project timeline but actually aren't.
+/// - If the project is playing (not stopped, not paused), the cursor position even resets when
+///   changing the tempo. However, it leaves the bar/beat structure intact.
+///     - The timeline cursor position doesn't influence the position within our clip, so we are
+///       immune against these resets.
+/// - If the project is not playing, tempo changes don't affect the cursor position but they reset
+///   the bar/beat structure.
+///     - It's understandable that the bar/beat structure is affected because REAPER has no tempo
+///       envelope to look at, so it just does the most simple thing: Distributing the bars/beats
+///       in a linear way.
+///     - It's problematic for us that the bar/beat structure is affected because we use bars/beats
+///       to keep the clips in sync (by scheduling them on start of bar). We need the bars/beats
+///       structure to be fluent and adjust to tempo changes dynamically, much as a playing project
+///       would do.
 pub struct ReaperProjectTimeline {
     project_context: ProjectContext,
 }
@@ -57,8 +84,8 @@ impl Timeline for ReaperProjectTimeline {
         get_next_bar_at(timeline_pos, self.project_context)
     }
 
-    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
-        get_pos_of_bar(bar, self.project_context)
+    fn rel_pos_from_bar(&self, timeline_pos: PositionInSeconds, bar: i32) -> PositionInSeconds {
+        timeline_pos - get_pos_of_bar(bar, self.project_context)
     }
 
     fn is_running(&self) -> bool {
@@ -84,7 +111,6 @@ impl Timeline for ReaperProjectTimeline {
         } else {
             PositionInSeconds::new(0.0)
         };
-        // TODO-high Not sure if divided BPM is correct here.
         Reaper::get()
             .medium_reaper()
             .time_map_2_get_divided_bpm_at_time(self.project_context, tempo_ref_pos)
@@ -99,11 +125,16 @@ pub trait Timeline {
         TimelineMoment::new(cursor_pos, tempo, next_bar)
     }
 
+    /// TODO-high Actually, the value returned here should not be interpreted as position in seconds
+    ///  because it could have different meanings depending on the timeline. Its real meaning is to
+    ///  represent an instant that lets you determine tempo and position of next bar. It could be
+    ///  a frame, a second, a whatever. It shouldn't be interpreted by anything but the timeline
+    ///  itself.
     fn cursor_pos(&self) -> PositionInSeconds;
 
     fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32;
 
-    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds;
+    fn rel_pos_from_bar(&self, timeline_pos: PositionInSeconds, bar: i32) -> PositionInSeconds;
 
     fn is_running(&self) -> bool;
 
@@ -112,6 +143,15 @@ pub trait Timeline {
     fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm;
 }
 
+/// This represents a self-made timeline that is driven by the global audio hook.
+///
+/// Characteristics:
+///
+/// - The cursor position (seconds) moves forward in real-time and independent from the current
+///   tempo.
+/// - The tempo is synchronized with the tempo of the current project.
+/// - TODO-high Make bars/beats structure not reset when changing tempo. Either by letting the
+///    cursor position move forward tempo-dependent or by registering the last tempo change.
 pub struct SteadyTimeline {
     sample_counter: AtomicU64,
     sample_rate: AtomicU32,
@@ -126,20 +166,29 @@ impl SteadyTimeline {
     }
 
     pub fn sample_count(&self) -> u64 {
-        self.sample_counter.load(Ordering::Relaxed)
+        self.sample_counter.load(Ordering::SeqCst)
     }
 
     pub fn sample_rate(&self) -> Hz {
-        let discrete_sample_rate = self.sample_rate.load(Ordering::Relaxed) as f64;
+        let discrete_sample_rate = self.sample_rate.load(Ordering::SeqCst) as f64;
         Hz::new(discrete_sample_rate)
     }
 
-    pub fn advance_by(&self, buffer_length: u64, sample_rate: Hz) {
+    pub fn update(&self, buffer_length: u64, sample_rate: Hz) {
         self.sample_counter
-            .fetch_add(buffer_length, Ordering::Relaxed);
+            .fetch_add(buffer_length, Ordering::SeqCst);
         let discrete_sample_rate = sample_rate.get() as u32;
         self.sample_rate
-            .store(discrete_sample_rate, Ordering::Relaxed);
+            .store(discrete_sample_rate, Ordering::SeqCst);
+    }
+
+    fn tempo(&self) -> Bpm {
+        Reaper::get()
+            .medium_reaper()
+            .time_map_2_get_divided_bpm_at_time(
+                ProjectContext::CurrentProject,
+                PositionInSeconds::ZERO,
+            )
     }
 }
 
@@ -154,10 +203,9 @@ impl Timeline for SteadyTimeline {
         get_next_bar_at(timeline_pos, ProjectContext::CurrentProject)
     }
 
-    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
-        // I guess an independent timeline shouldn't get this information from a project.
-        // But let's see how to deal with that as soon as we put it to use.
-        get_pos_of_bar(bar, ProjectContext::CurrentProject)
+    fn rel_pos_from_bar(&self, timeline_pos: PositionInSeconds, bar: i32) -> PositionInSeconds {
+        let pos_of_bar = get_pos_of_bar(bar, ProjectContext::CurrentProject);
+        timeline_pos - pos_of_bar
     }
 
     fn is_running(&self) -> bool {
@@ -169,7 +217,7 @@ impl Timeline for SteadyTimeline {
     }
 
     fn tempo_at(&self, _timeline_pos: PositionInSeconds) -> Bpm {
-        Bpm::new(96.0)
+        self.tempo()
     }
 }
 
@@ -205,8 +253,8 @@ impl<T: Timeline> Timeline for &T {
         (*self).next_bar_at(timeline_pos)
     }
 
-    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
-        (*self).pos_of_bar(bar)
+    fn rel_pos_from_bar(&self, timeline_pos: PositionInSeconds, bar: i32) -> PositionInSeconds {
+        (*self).rel_pos_from_bar(timeline_pos, bar)
     }
 
     fn is_running(&self) -> bool {

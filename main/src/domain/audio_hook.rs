@@ -14,7 +14,7 @@ use reaper_high::{MidiInputDevice, MidiOutputDevice, Project, Reaper};
 use reaper_low::raw::midi_realtime_write_struct_t;
 use reaper_medium::{
     Hz, MeasureMode, MidiEvent, MidiInput, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer,
-    OnAudioBufferArgs, PositionInBeats, PositionInSeconds, SendMidiTime,
+    OnAudioBufferArgs, PositionInBeats, PositionInSeconds, ProjectContext, SendMidiTime,
 };
 use smallvec::SmallVec;
 use std::ptr::null_mut;
@@ -387,7 +387,7 @@ impl OnAudioBuffer for RealearnAudioHook {
             if args.is_post {
                 return;
             }
-            global_steady_timeline().advance_by(args.len as u64, args.srate);
+            global_steady_timeline().update(args.len as u64, args.srate);
             let current_time = Instant::now();
             let time_of_last_run = self.time_of_last_run.replace(current_time);
             let might_be_rebirth = if let Some(time) = time_of_last_run {
