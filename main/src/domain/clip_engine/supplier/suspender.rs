@@ -67,6 +67,7 @@ impl<S: AudioSupplier> AudioSupplier for Suspender<S> {
             // as soon as suspension phase ended).
             return SupplyResponse {
                 num_frames_written: 0,
+                num_frames_consumed: 0,
                 next_inner_frame: None,
             };
         }
@@ -81,6 +82,7 @@ impl<S: AudioSupplier> AudioSupplier for Suspender<S> {
         let request_end_frame = request.start_frame + dest_buffer.frame_count() as isize;
         SupplyResponse {
             num_frames_written: inner_response.num_frames_written,
+            num_frames_consumed: inner_response.num_frames_consumed,
             next_inner_frame: if request_end_frame < suspension_end_frame {
                 inner_response.next_inner_frame
             } else {
@@ -121,6 +123,7 @@ impl<S: MidiSupplier> MidiSupplier for Suspender<S> {
         silence_midi(event_list);
         SupplyResponse {
             num_frames_written: 0,
+            num_frames_consumed: 0,
             next_inner_frame: None,
         }
     }

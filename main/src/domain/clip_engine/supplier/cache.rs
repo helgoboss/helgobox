@@ -136,6 +136,7 @@ fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> SupplyResp
     let next_frame = req.start_frame + num_frames_written;
     SupplyResponse {
         num_frames_written,
+        num_frames_consumed: num_frames_written,
         next_inner_frame: if next_frame < buf.frame_count() {
             Some(next_frame as isize)
         } else {

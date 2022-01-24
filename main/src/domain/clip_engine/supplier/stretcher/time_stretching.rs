@@ -81,6 +81,7 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
         let next_frame = request.start_frame + total_num_frames_read as isize;
         SupplyResponse {
             num_frames_written: total_num_frames_written,
+            num_frames_consumed: total_num_frames_read,
             next_inner_frame: Some(next_frame),
         }
     }

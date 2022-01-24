@@ -123,6 +123,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
             // Didn't cross the end yet. Nothing else to do.
             SupplyResponse {
                 num_frames_written: modulo_response.num_frames_written,
+                num_frames_consumed: modulo_response.num_frames_consumed,
                 next_inner_frame: unmodulo_next_inner_frame(
                     modulo_response.next_inner_frame,
                     start_frame,
@@ -141,6 +142,8 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
             );
             SupplyResponse {
                 num_frames_written: dest_buffer.frame_count(),
+                num_frames_consumed: modulo_response.num_frames_consumed
+                    + start_response.num_frames_consumed,
                 next_inner_frame: unmodulo_next_inner_frame(
                     start_response.next_inner_frame,
                     start_frame,
@@ -190,6 +193,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
             // Didn't cross the end yet. Nothing else to do.
             SupplyResponse {
                 num_frames_written: modulo_response.num_frames_written,
+                num_frames_consumed: modulo_response.num_frames_consumed,
                 next_inner_frame: unmodulo_next_inner_frame(
                     modulo_response.next_inner_frame,
                     start_frame,
@@ -205,14 +209,14 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
             // The negative position should be as long as the duration of
             // samples already written.
             let start_request = SupplyMidiRequest {
-                // TODO-high Probably wrong because start_frame expects source frames, not
-                //  dest frames
-                start_frame: -(modulo_response.num_frames_written as isize),
+                start_frame: -(modulo_response.num_frames_consumed as isize),
                 ..*request
             };
             let start_response = self.supplier.supply_midi(&start_request, event_list);
             SupplyResponse {
                 num_frames_written: request.dest_frame_count,
+                num_frames_consumed: modulo_response.num_frames_consumed
+                    + start_response.num_frames_consumed,
                 next_inner_frame: unmodulo_next_inner_frame(
                     start_response.next_inner_frame,
                     start_frame,

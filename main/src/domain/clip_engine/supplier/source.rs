@@ -80,7 +80,7 @@ impl MidiSupplier for OwnedPcmSource {
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
         let time_s = convert_position_in_frames_to_seconds(req.start_frame, midi_frame_rate);
-        let num_dest_frames_written = unsafe {
+        let num_frames_consumed = unsafe {
             let mut transfer = PcmSourceTransfer::default();
             transfer.set_sample_rate(midi_frame_rate);
             transfer.set_length(normalized_dest_frame_count as i32);
@@ -94,21 +94,21 @@ impl MidiSupplier for OwnedPcmSource {
             transfer.set_absolute_time_s(PositionInSeconds::ZERO);
             transfer.set_midi_event_list(event_list);
             self.get_samples(&transfer);
-            let num_normalized_frames_written = transfer.samples_out() as usize;
-            if num_normalized_frames_written == normalized_dest_frame_count {
-                req.dest_frame_count
-            } else {
-                let ratio =
-                    num_normalized_frames_written as f64 / normalized_dest_frame_count as f64;
-                (ratio * req.dest_frame_count as f64).round() as usize
-            }
+            transfer.samples_out() as usize
+        };
+        let num_frames_written = if num_frames_consumed == normalized_dest_frame_count {
+            req.dest_frame_count
+        } else {
+            let ratio = num_frames_consumed as f64 / normalized_dest_frame_count as f64;
+            (ratio * req.dest_frame_count as f64).round() as usize
         };
         // The lower the sample rate, the higher the tempo, the more inner source material we
         // effectively grabbed.
-        let next_frame = req.start_frame + normalized_dest_frame_count as isize;
+        let next_frame = req.start_frame + num_frames_consumed as isize;
         let source_frame_count = self.frame_count();
         SupplyResponse {
-            num_frames_written: num_dest_frames_written,
+            num_frames_written,
+            num_frames_consumed,
             next_inner_frame: if next_frame < source_frame_count as isize {
                 Some(next_frame)
             } else {
@@ -144,11 +144,12 @@ fn transfer_audio(source: &OwnedPcmSource, mut req: SourceMaterialRequest) -> Su
     // effectively grabbed.
     let consumed_time_in_seconds =
         DurationInSeconds::new(num_frames_written as f64 / req.dest_sample_rate.get());
-    let next_pos_in_seconds = time_s + consumed_time_in_seconds;
-    let next_frame =
-        convert_duration_in_seconds_to_frames(next_pos_in_seconds, req.source_sample_rate);
+    let num_frames_consumed =
+        convert_duration_in_seconds_to_frames(consumed_time_in_seconds, req.source_sample_rate);
+    let next_frame = req.start_frame + num_frames_consumed;
     SupplyResponse {
         num_frames_written,
+        num_frames_consumed,
         next_inner_frame: if next_frame < source.frame_count() {
             Some(next_frame as isize)
         } else {

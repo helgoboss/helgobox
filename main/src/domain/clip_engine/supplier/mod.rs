@@ -96,12 +96,21 @@ pub struct SupplyMidiRequest {
 pub struct SupplyResponse {
     /// The number of frames that were actually written to the destination block.
     ///
-    /// Can be less than requested to indicate that the end of the source has been reached.
+    /// Can be less than requested if the end of the source has been reached.
     pub num_frames_written: usize,
+    /// The number of frames that were actually consumed from the source.
+    ///
+    /// Can be less than requested if the end of the source has been reached.
+    /// If the start of the source has not been reached yet, still fill it with the ideal
+    /// amount of consumed frames.
+    pub num_frames_consumed: usize,
     /// The next inner frame to be requested in order to ensure smooth, consecutive playback at
     /// all times.
     ///
     /// If `None`, the end has been reached.
+    ///
+    /// In many cases, this is just the requested start frame + `num_frames_consumed`. But
+    /// suppliers have the freedom to return other values, e.g. start over from the beginning.
     pub next_inner_frame: Option<isize>,
 }
 
@@ -157,6 +166,7 @@ fn supply_source_material(
             // We haven't reached the end of the source, so still tell the caller that we
             // wrote all frames.
             num_frames_written: dest_buffer.frame_count(),
+            num_frames_consumed: ideal_num_consumed_frames,
             // And advance the count-in phase.
             next_inner_frame: Some(ideal_end_frame),
         }
@@ -187,6 +197,7 @@ fn supply_source_material(
             let res = supply_inner(req);
             SupplyResponse {
                 num_frames_written: num_skipped_frames_in_dest + res.num_frames_written,
+                num_frames_consumed: num_skipped_frames_in_source + res.num_frames_consumed,
                 next_inner_frame: res.next_inner_frame,
             }
         } else {
