@@ -20,8 +20,10 @@ pub use supplier::*;
 
 /// Delivers the timeline to be used for clips.
 pub fn clip_timeline(project: Option<Project>) -> impl Timeline {
-    global_steady_timeline()
-    // ReaperProjectTimeline::new(project)
+    // TODO-high If we really choose this mix between steady and project timeline, we should build
+    //  one timeline that exhibits different behavior depending on the play state.
+    ReaperProjectTimeline::new(project)
+    // global_steady_timeline()
 }
 
 pub fn clip_timeline_cursor_pos(project: Option<Project>) -> PositionInSeconds {
