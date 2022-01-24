@@ -121,12 +121,14 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
         let modulo_response = self.supplier.supply_audio(&modulo_request, dest_buffer);
         let final_response = if modulo_response.num_frames_written == dest_buffer.frame_count() {
             // Didn't cross the end yet. Nothing else to do.
-            build_response(
-                request.start_frame,
-                modulo_start_frame,
-                modulo_response.num_frames_written,
-                modulo_response.next_inner_frame,
-            )
+            SupplyResponse {
+                num_frames_written: modulo_response.num_frames_written,
+                next_inner_frame: unmodulo_next_inner_frame(
+                    modulo_response.next_inner_frame,
+                    start_frame,
+                    supplier_frame_count,
+                ),
+            }
         } else {
             // Crossed the end. We need to fill the rest with material from the beginning of the source.
             let start_request = SupplyAudioRequest {
@@ -137,12 +139,14 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
                 &start_request,
                 &mut dest_buffer.slice_mut(modulo_response.num_frames_written..),
             );
-            build_response(
-                request.start_frame,
-                modulo_start_frame,
-                dest_buffer.frame_count(),
-                start_response.next_inner_frame,
-            )
+            SupplyResponse {
+                num_frames_written: dest_buffer.frame_count(),
+                next_inner_frame: unmodulo_next_inner_frame(
+                    start_response.next_inner_frame,
+                    start_frame,
+                    supplier_frame_count,
+                ),
+            }
         };
         if self.fades_enabled {
             dest_buffer.modify_frames(|frame, sample| {
@@ -161,21 +165,6 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
 impl<S: WithFrameRate> WithFrameRate for Looper<S> {
     fn frame_rate(&self) -> Hz {
         self.supplier.frame_rate()
-    }
-}
-
-fn build_response(
-    original_start_frame: isize,
-    modulo_start_frame: usize,
-    num_frames_written: usize,
-    inner_response_next_inner_frame: Option<isize>,
-) -> SupplyResponse {
-    SupplyResponse {
-        num_frames_written,
-        next_inner_frame: inner_response_next_inner_frame.map(|f| {
-            let num_consumed_frames = f - modulo_start_frame as isize;
-            original_start_frame + num_consumed_frames
-        }),
     }
 }
 
@@ -199,12 +188,14 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
         let modulo_response = self.supplier.supply_midi(&modulo_request, event_list);
         if modulo_response.num_frames_written == request.dest_frame_count {
             // Didn't cross the end yet. Nothing else to do.
-            build_response(
-                request.start_frame,
-                modulo_start_frame,
-                modulo_response.num_frames_written,
-                modulo_response.next_inner_frame,
-            )
+            SupplyResponse {
+                num_frames_written: modulo_response.num_frames_written,
+                next_inner_frame: unmodulo_next_inner_frame(
+                    modulo_response.next_inner_frame,
+                    start_frame,
+                    supplier_frame_count,
+                ),
+            }
         } else {
             // Crossed the end. We need to fill the rest with material from the beginning of the source.
             dbg!("MIDI repeat");
@@ -220,14 +211,36 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
                 ..*request
             };
             let start_response = self.supplier.supply_midi(&start_request, event_list);
-            build_response(
-                request.start_frame,
-                modulo_start_frame,
-                request.dest_frame_count,
-                start_response.next_inner_frame,
-            )
+            SupplyResponse {
+                num_frames_written: request.dest_frame_count,
+                next_inner_frame: unmodulo_next_inner_frame(
+                    start_response.next_inner_frame,
+                    start_frame,
+                    supplier_frame_count,
+                ),
+            }
         }
     }
+}
+
+fn unmodulo_next_inner_frame(
+    next_inner_frame: Option<isize>,
+    previous_start_frame: usize,
+    frame_count: usize,
+) -> Option<isize> {
+    let next_inner_frame = next_inner_frame.unwrap_or(0);
+    assert!(next_inner_frame >= 0);
+    let next_inner_frame = next_inner_frame as usize;
+    assert!(next_inner_frame < frame_count);
+    let previous_cycle = previous_start_frame / frame_count;
+    let previous_modulo_start_frame = previous_start_frame % frame_count;
+    let next_cycle = if previous_modulo_start_frame <= next_inner_frame {
+        // We are still in the same cycle.
+        previous_cycle
+    } else {
+        previous_cycle + 1
+    };
+    Some((next_cycle * frame_count + next_inner_frame) as isize)
 }
 
 fn calc_volume_factor_at(frame: usize, frame_count: usize) -> f64 {
