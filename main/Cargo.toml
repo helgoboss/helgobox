@@ -157,6 +157,8 @@ strum_macros = "0.23"
 measure_time = "0.8.0"
 # Ring buffer for clip stretching
 rtrb = "0.2.1"
+# For our own timeline
+atomic_float = "0.1.0"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

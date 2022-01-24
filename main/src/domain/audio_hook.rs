@@ -387,7 +387,13 @@ impl OnAudioBuffer for RealearnAudioHook {
             if args.is_post {
                 return;
             }
-            global_steady_timeline().update(args.len as u64, args.srate);
+            let tempo = Reaper::get()
+                .medium_reaper()
+                .time_map_2_get_divided_bpm_at_time(
+                    ProjectContext::CurrentProject,
+                    PositionInSeconds::ZERO,
+                );
+            global_steady_timeline().update(args.len as u64, args.srate, tempo);
             let current_time = Instant::now();
             let time_of_last_run = self.time_of_last_run.replace(current_time);
             let might_be_rebirth = if let Some(time) = time_of_last_run {

@@ -20,8 +20,8 @@ pub use supplier::*;
 
 /// Delivers the timeline to be used for clips.
 pub fn clip_timeline(project: Option<Project>) -> impl Timeline {
-    // global_steady_timeline()
-    ReaperProjectTimeline::new(project)
+    global_steady_timeline()
+    // ReaperProjectTimeline::new(project)
 }
 
 pub fn clip_timeline_cursor_pos(project: Option<Project>) -> PositionInSeconds {
