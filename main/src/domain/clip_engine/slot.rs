@@ -16,9 +16,9 @@ use std::sync::Arc;
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
 use crate::domain::clip_engine::clip_source::{
-    ClipPcmSource, ClipPcmSourceSkills, ClipStartTime, ClipState, ClipStopTime, PlayArgs,
-    PosWithinClipArgs, RecordArgs, Repetition, ScheduledOrPlayingState, SeekToArgs,
-    SetRepeatedArgs, StopArgs, SuspensionReason,
+    ClipPcmSource, ClipPcmSourceSkills, ClipState, ClipStopTime, PlayArgs, PosWithinClipArgs,
+    RecordArgs, Repetition, ScheduledOrPlayingState, SeekToArgs, SetRepeatedArgs, StopArgs,
+    SuspensionReason,
 };
 use crate::domain::clip_engine::StretchWorkerRequest;
 use crate::domain::clip_engine::{
@@ -740,10 +740,10 @@ impl FilledState {
             let src = guard.src_mut().expect(NO_SOURCE_LOADED);
             let play_args = PlayArgs {
                 timeline_cursor_pos,
-                play_time: if args.options.next_bar {
-                    ClipStartTime::NextBar
+                scheduled_for_bar: if args.options.next_bar {
+                    Some(moment.next_bar())
                 } else {
-                    ClipStartTime::Immediately
+                    None
                 },
                 repetition: Repetition::from_bool(args.repeat),
             };

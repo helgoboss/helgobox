@@ -6,19 +6,15 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 #[derive(Clone, Copy)]
 pub struct TimelineMoment {
     cursor_pos: PositionInSeconds,
-    // TODO-high Mmh, wanted to remove this, but it could be nice to keep it for performance
-    //  improvements. At the moment, each clip calculates the next bar pos itself from a common
-    //  timeline position (so the result should be the same) but ideally, we would just have one
-    //  timeline moment passing all of that data. Mmh.
-    next_bar_pos: PositionInSeconds,
     tempo: Bpm,
+    next_bar: i32,
 }
 
 impl TimelineMoment {
-    pub fn new(cursor_pos: PositionInSeconds, next_bar_pos: PositionInSeconds, tempo: Bpm) -> Self {
+    pub fn new(cursor_pos: PositionInSeconds, tempo: Bpm, next_bar: i32) -> Self {
         Self {
+            next_bar,
             cursor_pos,
-            next_bar_pos,
             tempo,
         }
     }
@@ -26,11 +22,13 @@ impl TimelineMoment {
     pub fn cursor_pos(&self) -> PositionInSeconds {
         self.cursor_pos
     }
-    pub fn next_bar_pos(&self) -> PositionInSeconds {
-        self.next_bar_pos
-    }
+
     pub fn tempo(&self) -> Bpm {
         self.tempo
+    }
+
+    pub fn next_bar(&self) -> i32 {
+        self.next_bar
     }
 }
 
@@ -55,8 +53,12 @@ impl Timeline for ReaperProjectTimeline {
             .get_play_position_2_ex(self.project_context)
     }
 
-    fn next_bar_pos_at(&self, timeline_pos: PositionInSeconds) -> PositionInSeconds {
-        get_next_bar_pos_from_project(timeline_pos, self.project_context)
+    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
+        get_next_bar_at(timeline_pos, self.project_context)
+    }
+
+    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
+        get_pos_of_bar(bar, self.project_context)
     }
 
     fn is_running(&self) -> bool {
@@ -91,14 +93,16 @@ impl Timeline for ReaperProjectTimeline {
 pub trait Timeline {
     fn capture_moment(&self) -> TimelineMoment {
         let cursor_pos = self.cursor_pos();
-        let next_bar_pos = self.next_bar_pos_at(cursor_pos);
         let tempo = self.tempo_at(cursor_pos);
-        TimelineMoment::new(cursor_pos, next_bar_pos, tempo)
+        let next_bar = self.next_bar_at(cursor_pos);
+        TimelineMoment::new(cursor_pos, tempo, next_bar)
     }
 
     fn cursor_pos(&self) -> PositionInSeconds;
 
-    fn next_bar_pos_at(&self, timeline_pos: PositionInSeconds) -> PositionInSeconds;
+    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32;
+
+    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds;
 
     fn is_running(&self) -> bool;
 
@@ -143,10 +147,16 @@ impl Timeline for SteadyTimeline {
         PositionInSeconds::new(self.sample_count() as f64 / self.sample_rate().get())
     }
 
-    fn next_bar_pos_at(&self, timeline_pos: PositionInSeconds) -> PositionInSeconds {
+    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
         // I guess an independent timeline shouldn't get this information from a project.
         // But let's see how to deal with that as soon as we put it to use.
-        get_next_bar_pos_from_project(timeline_pos, ProjectContext::CurrentProject)
+        get_next_bar_at(timeline_pos, ProjectContext::CurrentProject)
+    }
+
+    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
+        // I guess an independent timeline shouldn't get this information from a project.
+        // But let's see how to deal with that as soon as we put it to use.
+        get_pos_of_bar(bar, ProjectContext::CurrentProject)
     }
 
     fn is_running(&self) -> bool {
@@ -162,21 +172,22 @@ impl Timeline for SteadyTimeline {
     }
 }
 
-pub fn get_next_bar_pos_from_project(
-    cursor_pos: PositionInSeconds,
-    proj_context: ProjectContext,
-) -> PositionInSeconds {
+pub fn get_next_bar_at(cursor_pos: PositionInSeconds, proj_context: ProjectContext) -> i32 {
     let reaper = Reaper::get().medium_reaper();
     let res = reaper.time_map_2_time_to_beats(proj_context, cursor_pos);
-    let next_measure_index = if res.beats_since_measure.get() <= BASE_EPSILON {
+    if res.beats_since_measure.get() <= BASE_EPSILON {
         res.measure_index
     } else {
         res.measure_index + 1
-    };
+    }
+}
+
+pub fn get_pos_of_bar(bar: i32, proj_context: ProjectContext) -> PositionInSeconds {
+    let reaper = Reaper::get().medium_reaper();
     reaper.time_map_2_beats_to_time(
         proj_context,
-        MeasureMode::FromMeasureAtIndex(next_measure_index),
-        PositionInBeats::ZERO,
+        MeasureMode::FromMeasureAtIndex(bar),
+        PositionInBeats::new(0.0),
     )
 }
 
@@ -189,8 +200,12 @@ impl<T: Timeline> Timeline for &T {
         (*self).cursor_pos()
     }
 
-    fn next_bar_pos_at(&self, timeline_pos: PositionInSeconds) -> PositionInSeconds {
-        (*self).next_bar_pos_at(timeline_pos)
+    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
+        (*self).next_bar_at(timeline_pos)
+    }
+
+    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
+        (*self).pos_of_bar(bar)
     }
 
     fn is_running(&self) -> bool {

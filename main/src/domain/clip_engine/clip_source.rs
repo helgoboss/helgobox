@@ -17,7 +17,8 @@ use crate::domain::clip_engine::supplier::{
     WithFrameRate, MIDI_BASE_BPM,
 };
 use crate::domain::clip_engine::{
-    clip_timeline, clip_timeline_cursor_pos, ClipRecordMode, StretchWorkerRequest,
+    clip_timeline, clip_timeline_cursor_pos, convert_position_in_seconds_to_frames, ClipRecordMode,
+    StretchWorkerRequest,
 };
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
@@ -139,13 +140,13 @@ pub enum SuspensionReason {
     /// straight to a playing state is not a good idea. We might get hanging notes. So we
     /// keep suspending but change the reason and thereby the next state (which will be
     /// [`ClipState::ScheduledOrPlaying`]).
-    PlayWhileSuspending { play_time: ClipStartTime },
+    PlayWhileSuspending { scheduled_for_bar: Option<i32> },
 }
 
 #[derive(Clone, Copy)]
 pub struct PlayArgs {
     pub timeline_cursor_pos: PositionInSeconds,
-    pub play_time: ClipStartTime,
+    pub scheduled_for_bar: Option<i32>,
     pub repetition: Repetition,
 }
 
@@ -154,37 +155,7 @@ pub struct RecordArgs {}
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct PlayInstruction {
-    /// We consider the absolute scheduled play position as part of the instruction. It's important
-    /// not to resolve it super-late because then each clip calculates its own positions, which
-    /// can be bad when starting multiple clips at once, e.g. synced to REAPER transport.
-    pub scheduled_play_pos: PositionInSeconds,
-    pub start_pos_within_clip: DurationInSeconds,
-    pub initial_tempo: Bpm,
-}
-
-impl PlayInstruction {
-    fn from_play_time(
-        play_time: ClipStartTime,
-        timeline_cursor_pos: PositionInSeconds,
-        timeline: impl Timeline,
-    ) -> Self {
-        use ClipStartTime::*;
-        let scheduled_play_pos = match play_time {
-            Immediately => timeline_cursor_pos,
-            NextBar => timeline.next_bar_pos_at(timeline_cursor_pos),
-        };
-        Self {
-            scheduled_play_pos,
-            start_pos_within_clip: DurationInSeconds::ZERO,
-            initial_tempo: timeline.tempo_at(timeline_cursor_pos),
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum ClipStartTime {
-    Immediately,
-    NextBar,
+    pub scheduled_for_bar: Option<i32>,
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -261,11 +232,9 @@ impl ClipPcmSource {
             .looper_mut()
             .set_loop_behavior(LoopBehavior::from_repetition(args.repetition));
         self.state = ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
-            play_instruction: PlayInstruction::from_play_time(
-                args.play_time,
-                args.timeline_cursor_pos,
-                self.timeline(),
-            ),
+            play_instruction: PlayInstruction {
+                scheduled_for_bar: args.scheduled_for_bar,
+            },
             ..Default::default()
         });
     }
@@ -328,146 +297,61 @@ impl ClipPcmSource {
                 let play_info = s.resolved_play_data.unwrap_or_else(|| {
                     // So, this is how we do play scheduling. Whenever the preview register
                     // calls get_samples() and we are in a fresh ScheduledOrPlaying state, the
-                    // relative count-in time will be determined. Based on the given absolute
-                    // scheduled-play position. 1. We use a *relative* count-in (instead of just
+                    // relative number of count-in frames will be determined. Based on the given
+                    // absolute bar for which the clip is scheduled.
+                    // 1. We use a *relative* count-in (instead of just
                     // using the absolute scheduled-play position and check if we reached it)
                     // in order to respect arbitrary tempo changes during the count-in phase and
-                    // still end up starting on the correct point in time. 2. We resolve the
+                    // still end up starting on the correct point in time. Okay, we could reach
+                    // the same goal also by regularly checking whether we finally reached the
+                    // start of the bar. But first, we need the relative count-in later anyway
+                    // (for pickup beats, which start to play during count-in time). And second,
+                    // it would be also pretty much unnecessary beat-time mapping.
+                    // 2. We resolve the
                     // count-in length here in the real-time context, not before! In particular not
                     // at the time the play is requested. At that time we just calculate the
-                    // absolute position. Reason: The timeline_cursor_pos at play-request time
-                    // is not necessarily the same as the timeline_cursor_pos at which the
-                    // preview register "picks up" our new play state in get_samples(). If it's not,
+                    // bar index. Reason: The start time of the next bar at play-request time
+                    // is not necessarily the same as the one in the get_samples call. If it's not,
                     // we would start advancing the count-in cursor from a wrong initial state
                     // and therefore end up with the wrong point in time for starting the clip
                     // (too late, to be accurate, because we would start advancing too late).
-                    let hypothetical_next_block_pos_in_secs =
-                        timeline_cursor_pos - s.play_instruction.scheduled_play_pos;
-                    let source_frame_rate = self.inner.chain.source().frame_rate();
-                    let hypothetical_next_block_pos = (hypothetical_next_block_pos_in_secs.get()
-                        * source_frame_rate.get())
-                        as isize;
-                    // let hypothetical_next_block_pos = timeline_cursor_frame - scheduled_play_frame;
-                    let next_block_pos = if hypothetical_next_block_pos < 0 {
-                        // Count-in phase.
-                        println!(
-                            "Count-in: hypothetical_next_block_pos = {}",
-                            hypothetical_next_block_pos
+                    // TODO-high When transport is not playing and we change the cursor
+                    //  position, new count-ins in relation to the already playing clips
+                    //  change. I think because the project timeline resets whenever we
+                    //  change the cursor position, which makes the next-bar calculation
+                    //  using a different origin. Crap.
+                    // TODO-high Well, actually this happens also when the transport is
+                    //  running, with the only difference that we also hear and see
+                    //  the reset. Plus, when the transport is running, we want to
+                    //  interrupt the clips and reschedule them. Still to be implemented.
+                    let next_block_pos = if let Some(bar) = s.play_instruction.scheduled_for_bar {
+                        let bar_pos = timeline.pos_of_bar(bar);
+                        let hypothetical_next_pos = timeline_cursor_pos - bar_pos;
+                        let hypothetical_next_frame = convert_position_in_seconds_to_frames(
+                            hypothetical_next_pos,
+                            self.inner.chain.source().frame_rate(),
                         );
-                        let distance_to_start = -hypothetical_next_block_pos as usize;
-                        // The scheduled play position was resolved taking the current project tempo
-                        // into account! In order to keep advancing using our usual source-specific
-                        // tempo factor later, we should fix the distance so it conforms to the tempo
-                        // in which we advance the source play cursor.
-                        // Example:
-                        // - Native source tempo is 100 bpm
-                        // - The tempo at schedule time was 120 bpm. The current distance_to_start
-                        //   value was calculated assuming that this is the normal tempo.
-                        // - However, from the perspective of the source, we had a final tempo
-                        //   factor of 1.2 at that time.
-                        // - We must correct distance_to_start so it is the distance from the
-                        //   perspective of the source!
-                        let next_block_pos =
-                            -((distance_to_start as f64 * final_tempo_factor).round() as isize);
-                        // TODO-medium Sometimes when raising tempo very much from initial low tempo
-                        //  on count-in, the scheduled_play_pos gets insanely high compared to
-                        //  timeline_cursor_pos. So the clip starts playing in 15secs or so...
-                        if next_block_pos < -500000 {
-                            dbg!(
-                                hypothetical_next_block_pos_in_secs,
-                                next_block_pos,
-                                s.play_instruction.scheduled_play_pos,
-                                sample_rate,
-                                timeline_cursor_frame,
-                                timeline_cursor_pos,
-                                hypothetical_next_block_pos,
-                                distance_to_start,
-                                final_tempo_factor
-                            );
+                        if hypothetical_next_frame < 0 {
+                            // Count-in phase.
+                            // The calculated position was resolved taking the current project tempo
+                            // into account! In order to keep advancing using our usual source-specific
+                            // tempo factor later, we should fix the distance so it conforms to the tempo
+                            // in which we advance the source play cursor.
+                            // Example:
+                            // - Native source tempo is 100 bpm
+                            // - The tempo at schedule time was 120 bpm. The current distance_to_start
+                            //   value was calculated assuming that this is the normal tempo.
+                            // - However, from the perspective of the source, we had a final tempo
+                            //   factor of 1.2 at that time.
+                            // - We must correct distance_to_start so it is the distance from the
+                            //   perspective of the source!
+                            (hypothetical_next_frame as f64 * final_tempo_factor).round() as isize
+                        } else {
+                            hypothetical_next_frame
                         }
-                        next_block_pos
                     } else {
-                        // Already playing.
-                        // TODO-high Sometimes this happens when we turn the tempo very quickly
-                        //  down during count-in. It destroys the timing completely. Reason:
-                        //  The scheduled_play_pos is suddenly behind the timeline_cursor_pos.
-                        //  I think the root cause (also with above opposite issue) is that
-                        //  the timeline is not steady.
-                        //  Solution 1: Use both for scheduling (main thread) and for resolving the
-                        //  initial countdown value (audio thread) a steady timeline. For that, we
-                        //  need to map the scheduled project timeline position (non-steady) to
-                        //  a scheduled steady timeline position - at schedule time.
-                        //  Solution 2: Don't schedule with absolute positions at all. Instead,
-                        //  say "Next bar" and determine both scheduled position and initial
-                        //  countdown value here. Problem: Batch scheduling of multiple clips could
-                        //  lead to different results. Or wait: We *can* use absolute positions but
-                        //  beat-based ones. E.g. Bar 510. The project timeline should be steady in
-                        //  terms of beats at least. Let's do that.
-                        println!(
-                            "Already playing: hypothetical_next_block_pos = {}",
-                            hypothetical_next_block_pos
-                        );
-                        dbg!(
-                            hypothetical_next_block_pos_in_secs,
-                            s.play_instruction.scheduled_play_pos,
-                            sample_rate,
-                            timeline_cursor_frame,
-                            timeline_cursor_pos,
-                            hypothetical_next_block_pos,
-                            final_tempo_factor
-                        );
-                        hypothetical_next_block_pos
+                        0
                     };
-
-                    // if let InnerSourceKind::Audio { time_stretch_mode } = &mut self.inner.kind {
-                    //     if let Some(TimeStretchMode::Serious(stretcher)) = time_stretch_mode {
-                    //         stretcher.reset();
-                    //     }
-                    // }
-
-                    // // This is the point where we advance the block position.
-                    // let next_play_info = ResolvedPlayData {
-                    //     next_block_pos: {
-                    //         // TODO-medium This mechanism of advancing the position on every call by
-                    //         //  the block duration relies on the fact that the preview
-                    //         //  register timeline calls us continuously and never twice per block.
-                    //         //  It would be better not to make that assumption and make this more
-                    //         //  stable by actually looking at the diff between the currently requested
-                    //         //  time_s and the previously requested time_s. If this diff is zero or
-                    //         //  doesn't correspond to the non-tempo-adjusted block duration, we know
-                    //         //  something is wrong.
-                    //         if end_frame < 0 {
-                    //             // This is still a *pure* count-in. No modulo logic yet.
-                    //             // Also, we don't advance the position by a block duration that is
-                    //             // adjusted using our normal tempo factor because at the time the
-                    //             // initial countdown value was resolved, REAPER already took the current
-                    //             // tempo into account. However, we must calculate a new tempo factor
-                    //             //  based on possible tempo changes during the count-in phase!
-                    //             // TODO-high When transport is not playing and we change the cursor
-                    //             //  position, new count-ins in relation to the already playing clips
-                    //             //  change. I think because the project timeline resets whenever we
-                    //             //  change the cursor position, which makes the next-bar calculation
-                    //             //  using a different origin. Crap.
-                    //             // TODO-high Well, actually this happens also when the transport is
-                    //             //  running, with the only difference that we also hear and see
-                    //             //  the reset. Plus, when the transport is running, we want to
-                    //             //  interrupt the clips and reschedule them. Still to be implemented.
-                    //             let tempo_factor =
-                    //                 timeline_tempo.get() / s.play_instruction.initial_tempo.get();
-                    //             let duration =
-                    //                 (block_info.frame_count() as f64 * tempo_factor) as usize;
-                    //             block_info.start_frame() + duration as isize
-                    //         } else {
-                    //             // Playing already.
-                    //             // Here we make sure that we always stay within the borders of the inner
-                    //             // source. We don't use every-increasing positions because then tempo
-                    //             // changes are not smooth anymore in subsequent cycles.
-                    //             end_frame
-                    //                 % self.native_clip_length_in_frames(block_info.sample_rate())
-                    //                     as isize
-                    //         }
-                    //     },
-                    // };
                     ResolvedPlayData { next_block_pos }
                 });
                 if s.scheduled_for_stop {
@@ -510,11 +394,9 @@ impl ClipPcmSource {
     ) -> ClipState {
         match reason {
             SuspensionReason::Retrigger => ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
-                play_instruction: PlayInstruction::from_play_time(
-                    ClipStartTime::Immediately,
-                    timeline_cursor_pos,
-                    timeline,
-                ),
+                play_instruction: PlayInstruction {
+                    scheduled_for_bar: None,
+                },
                 ..Default::default()
             }),
             SuspensionReason::Pause => {
@@ -533,13 +415,9 @@ impl ClipPcmSource {
                 self.inner.chain.reset();
                 ClipState::Stopped
             }
-            SuspensionReason::PlayWhileSuspending { play_time } => {
+            SuspensionReason::PlayWhileSuspending { scheduled_for_bar } => {
                 ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
-                    play_instruction: PlayInstruction::from_play_time(
-                        play_time,
-                        timeline_cursor_pos,
-                        timeline,
-                    ),
+                    play_instruction: PlayInstruction { scheduled_for_bar },
                     ..Default::default()
                 })
             }
@@ -682,6 +560,14 @@ impl CustomPcmSource for ClipPcmSource {
     fn get_samples(&mut self, mut args: GetSamplesArgs) {
         assert_no_alloc(|| {
             // Make sure that in any case, we are only queried once per time, without retries.
+            // TODO-medium This mechanism of advancing the position on every call by
+            //  the block duration relies on the fact that the preview
+            //  register timeline calls us continuously and never twice per block.
+            //  It would be better not to make that assumption and make this more
+            //  stable by actually looking at the diff between the currently requested
+            //  time_s and the previously requested time_s. If this diff is zero or
+            //  doesn't correspond to the non-tempo-adjusted block duration, we know
+            //  something is wrong.
             unsafe {
                 args.block.set_samples_out(args.block.length());
             }
@@ -916,7 +802,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                 // that clip won't play again.
                 self.state = ClipState::Suspending {
                     reason: SuspensionReason::PlayWhileSuspending {
-                        play_time: args.play_time,
+                        scheduled_for_bar: args.scheduled_for_bar,
                     },
                     play_info,
                 };

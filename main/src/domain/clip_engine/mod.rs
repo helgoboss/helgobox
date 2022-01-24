@@ -5,9 +5,7 @@ use reaper_high::{Project, Reaper};
 use reaper_medium::{MeasureMode, PositionInBeats, PositionInSeconds};
 
 mod slot;
-use crate::domain::{
-    get_next_bar_pos_from_project, global_steady_timeline, ReaperProjectTimeline, Timeline,
-};
+use crate::domain::{get_next_bar_at, global_steady_timeline, ReaperProjectTimeline, Timeline};
 pub use clip_source::*;
 pub use slot::*;
 
