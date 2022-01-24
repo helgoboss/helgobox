@@ -1,4 +1,4 @@
-use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz, PositionInSeconds};
+use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds};
 
 mod source;
 pub use source::*;
@@ -45,9 +45,14 @@ pub trait MidiSupplier {
 }
 
 pub trait ExactFrameCount {
-    /// Total length of the supplied audio material in frames, in relation to the audio supplier's
+    /// Total length of the supplied audio material in frames, in relation to the supplier's
     /// native sample rate.
     fn frame_count(&self) -> usize;
+}
+
+pub trait WithTempo {
+    /// Native tempo if applicable.
+    fn tempo(&self) -> Option<Bpm>;
 }
 
 pub trait WithFrameRate {
@@ -125,8 +130,7 @@ pub fn convert_position_in_frames_to_seconds(
 /// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
 /// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample
 /// rate. Plus, we can use the same time stretching supplier. Fewer special cases, nice!
-// TODO-high Change to 120 later when we detect audio tempos correctly.
-pub const MIDI_BASE_BPM: f64 = 96.0;
+pub const MIDI_BASE_BPM: f64 = 120.0;
 
 /// Helper function for suppliers that read from sources and don't want to deal with
 /// negative start frames themselves.

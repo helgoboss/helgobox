@@ -7,6 +7,7 @@ use crate::domain::clip_engine::supplier::{
     SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
     MIDI_BASE_BPM,
 };
+use crate::domain::clip_engine::WithTempo;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
     PcmSourceTransfer, PositionInSeconds,
@@ -113,6 +114,16 @@ impl MidiSupplier for OwnedPcmSource {
             } else {
                 None
             },
+        }
+    }
+}
+
+impl WithTempo for OwnedPcmSource {
+    fn tempo(&self) -> Option<Bpm> {
+        if pcm_source_is_midi(self) {
+            Some(Bpm::new(MIDI_BASE_BPM))
+        } else {
+            None
         }
     }
 }

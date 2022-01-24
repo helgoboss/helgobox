@@ -84,6 +84,7 @@ impl Timeline for ReaperProjectTimeline {
         } else {
             PositionInSeconds::new(0.0)
         };
+        // TODO-high Not sure if divided BPM is correct here.
         Reaper::get()
             .medium_reaper()
             .time_map_2_get_divided_bpm_at_time(self.project_context, tempo_ref_pos)

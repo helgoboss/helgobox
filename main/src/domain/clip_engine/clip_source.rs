@@ -18,7 +18,7 @@ use crate::domain::clip_engine::supplier::{
 };
 use crate::domain::clip_engine::{
     clip_timeline, clip_timeline_cursor_pos, convert_position_in_seconds_to_frames, ClipRecordMode,
-    StretchWorkerRequest,
+    StretchWorkerRequest, WithTempo,
 };
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
@@ -60,6 +60,7 @@ struct InnerSource {
     /// Caches the information if the inner clip source contains MIDI or audio material.
     kind: InnerSourceKind,
     chain: ClipSupplierChain,
+    tempo: Bpm,
 }
 
 #[derive(Copy, Clone)]
@@ -70,10 +71,7 @@ enum InnerSourceKind {
 
 impl InnerSource {
     fn original_tempo(&self) -> Bpm {
-        // TODO-high Correctly determine: For audio, guess depending on length or read metadata or
-        //  let overwrite by user.
-        // For MIDI, an arbitrary but constant value is enough!
-        Bpm::new(MIDI_BASE_BPM)
+        self.tempo
     }
 }
 
@@ -171,8 +169,12 @@ impl ClipPcmSource {
         project: Option<Project>,
         stretch_worker_sender: &Sender<StretchWorkerRequest>,
     ) -> Self {
+        let tempo = inner
+            .tempo()
+            .unwrap_or_else(|| detect_tempo(inner.duration(), project));
         Self {
             inner: InnerSource {
+                tempo,
                 kind: if pcm_source_is_midi(&inner) {
                     InnerSourceKind::Midi
                 } else {
@@ -1250,3 +1252,21 @@ pub struct PosWithinClipArgs {
 }
 
 const MIN_TEMPO_FACTOR: f64 = 0.0000000001;
+
+fn detect_tempo(duration: DurationInSeconds, project: Option<Project>) -> Bpm {
+    const MIN_BPM: f64 = 80.0;
+    const MAX_BPM: f64 = 200.0;
+    let project = project.unwrap_or_else(|| Reaper::get().current_project());
+    let result = Reaper::get()
+        .medium_reaper()
+        .time_map_2_time_to_beats(project.context(), PositionInSeconds::ZERO);
+    let numerator = result.time_signature.numerator;
+    let mut bpm = numerator.get() as f64 * 60.0 / duration.get();
+    while bpm < MIN_BPM {
+        bpm *= 2.0;
+    }
+    while bpm > MAX_BPM {
+        bpm /= 2.0;
+    }
+    Bpm::new(bpm)
+}
