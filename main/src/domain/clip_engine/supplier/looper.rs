@@ -75,6 +75,15 @@ impl<S: ExactFrameCount> Looper<S> {
         self.loop_behavior = loop_behavior;
     }
 
+    pub fn keep_playing_until_end_of_current_cycle(&mut self, pos: isize) {
+        let last_cycle = if pos < 0 {
+            0
+        } else {
+            self.get_cycle_at_frame(pos as usize)
+        };
+        self.loop_behavior = LoopBehavior::UntilEndOfCycle(last_cycle);
+    }
+
     pub fn set_fades_enabled(&mut self, fades_enabled: bool) {
         self.fades_enabled = fades_enabled;
     }

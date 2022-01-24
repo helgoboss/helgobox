@@ -319,24 +319,18 @@ impl ClipPcmSource {
                     // we would start advancing the count-in cursor from a wrong initial state
                     // and therefore end up with the wrong point in time for starting the clip
                     // (too late, to be accurate, because we would start advancing too late).
-                    // TODO-high When transport is not playing and we change the cursor
-                    //  position, new count-ins in relation to the already playing clips
-                    //  change. I think because the project timeline resets whenever we
-                    //  change the cursor position, which makes the next-bar calculation
-                    //  using a different origin. Crap.
                     // TODO-high Well, actually this happens also when the transport is
                     //  running, with the only difference that we also hear and see
                     //  the reset. Plus, when the transport is running, we want to
                     //  interrupt the clips and reschedule them. Still to be implemented.
                     let next_block_pos = if let Some(bar) = s.play_instruction.scheduled_for_bar {
-                        let hypothetical_next_pos =
+                        let rel_timeline_pos_from_bar =
                             timeline.rel_pos_from_bar(timeline_cursor_pos, bar);
-                        dbg!(timeline_cursor_pos, bar, hypothetical_next_pos);
-                        let hypothetical_next_frame = convert_position_in_seconds_to_frames(
-                            hypothetical_next_pos,
+                        let rel_source_pos_from_bar = convert_position_in_seconds_to_frames(
+                            rel_timeline_pos_from_bar,
                             self.inner.chain.source().frame_rate(),
                         );
-                        if hypothetical_next_frame < 0 {
+                        if rel_source_pos_from_bar < 0 {
                             // Count-in phase.
                             // The calculated position was resolved taking the current project tempo
                             // into account! In order to keep advancing using our usual source-specific
@@ -350,9 +344,9 @@ impl ClipPcmSource {
                             //   factor of 1.2 at that time.
                             // - We must correct distance_to_start so it is the distance from the
                             //   perspective of the source!
-                            (hypothetical_next_frame as f64 * final_tempo_factor).round() as isize
+                            (rel_source_pos_from_bar as f64 * final_tempo_factor).round() as isize
                         } else {
-                            hypothetical_next_frame
+                            rel_source_pos_from_bar
                         }
                     } else {
                         0
@@ -360,13 +354,10 @@ impl ClipPcmSource {
                     ResolvedPlayData { next_block_pos }
                 });
                 if s.scheduled_for_stop {
-                    let looper = self.inner.chain.looper_mut();
-                    let last_cycle = if play_info.next_block_pos < 0 {
-                        0
-                    } else {
-                        looper.get_cycle_at_frame(play_info.next_block_pos as usize)
-                    };
-                    looper.set_loop_behavior(LoopBehavior::UntilEndOfCycle(last_cycle));
+                    self.inner
+                        .chain
+                        .looper_mut()
+                        .keep_playing_until_end_of_current_cycle(play_info.next_block_pos);
                 }
                 self.state =
                     if let Some(end_frame) = self.fill_samples(args, play_info.next_block_pos) {
@@ -454,6 +445,7 @@ impl ClipPcmSource {
             }
         }
     }
+
     unsafe fn fill_samples_audio(
         &self,
         args: &mut GetSamplesArgs,
@@ -979,10 +971,18 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn set_repeated(&mut self, args: SetRepeatedArgs) {
-        self.inner
-            .chain
-            .looper_mut()
-            .set_loop_behavior(LoopBehavior::from_bool(args.repeated))
+        let looper = self.inner.chain.looper_mut();
+        if args.repeated {
+            looper.set_loop_behavior(LoopBehavior::Infinitely);
+        } else if let ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
+            resolved_play_data: Some(d),
+            ..
+        }) = self.state
+        {
+            looper.keep_playing_until_end_of_current_cycle(d.next_block_pos);
+        } else {
+            looper.set_loop_behavior(LoopBehavior::UntilEndOfCycle(0));
+        }
     }
 
     fn pos_within_clip(&self, args: PosWithinClipArgs) -> Option<PositionInSeconds> {
