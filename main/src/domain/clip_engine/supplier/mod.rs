@@ -171,6 +171,15 @@ pub fn convert_position_in_frames_to_seconds(
     PositionInSeconds::new(frame_count as f64 / sample_rate.get())
 }
 
+pub fn convert_duration_in_frames_to_other_frame_rate(
+    frame_count: usize,
+    in_sample_rate: Hz,
+    out_sample_rate: Hz,
+) -> usize {
+    let ratio = out_sample_rate.get() / in_sample_rate.get();
+    (ratio * frame_count as f64).round() as usize
+}
+
 /// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
 /// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample
 /// rate. Plus, we can use the same time stretching supplier. Fewer special cases, nice!
@@ -279,23 +288,30 @@ fn print_distance_from_beat_start_at(
     request: &SupplyRequestInfo,
     general_info: &SupplyRequestGeneralInfo,
     frame_offset_within_requested_block: usize,
-    sample_rate: Hz,
+    dest_sample_rate: Hz,
     comment: &str,
 ) {
     let frame_offset_within_root_block =
         request.audio_block_frame_offset + frame_offset_within_requested_block;
     let offset_in_secs =
-        convert_duration_in_frames_to_seconds(frame_offset_within_root_block, sample_rate);
+        convert_duration_in_frames_to_seconds(frame_offset_within_root_block, dest_sample_rate);
     let ref_pos = general_info.audio_block_timeline_cursor_pos + offset_in_secs;
     let timeline = clip_timeline(None);
     let next_bar = timeline.next_bar_at(ref_pos);
-    let rel_pos_from_bar = timeline.rel_pos_from_bar(ref_pos, next_bar - 1);
-    let rel_pos_from_next_bar = timeline.rel_pos_from_bar(ref_pos, next_bar);
-    let distance_to_closest_bar =
+    let rel_pos_from_bar = ref_pos - timeline.pos_of_bar(next_bar - 1);
+    let rel_pos_from_next_bar = ref_pos - timeline.pos_of_bar(next_bar);
+    let rel_pos_from_closest_bar =
         cmp::min_by_key(rel_pos_from_bar, rel_pos_from_next_bar, |v| v.abs());
+    let rel_pos_from_closest_bar_in_timeline_frames =
+        convert_position_in_seconds_to_frames(rel_pos_from_closest_bar, dest_sample_rate);
     println!(
-        "Relative position from closest bar = {}ms (request note: [{}], comment: [{}], clip tempo factor: {}, timeline tempo: {})",
-        distance_to_closest_bar * 1000.0,
+        "Relative position from closest bar = {:.3}ms (= {} timeline frames)\n\
+        Request note: {}\n\
+        Comment: {}\n\
+        Clip tempo factor: {}\n\
+        Timeline tempo: {}",
+        rel_pos_from_closest_bar * 1000.0,
+        rel_pos_from_closest_bar_in_timeline_frames,
         request.note,
         comment,
         general_info.clip_tempo_factor,

@@ -101,8 +101,8 @@ impl Timeline for ReaperProjectTimeline {
         get_next_bar_at(timeline_pos, self.project_context)
     }
 
-    fn rel_pos_from_bar(&self, timeline_pos: PositionInSeconds, bar: i32) -> PositionInSeconds {
-        timeline_pos - get_pos_of_bar(bar, self.project_context)
+    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
+        get_pos_of_bar(bar, self.project_context)
     }
 
     fn is_running(&self) -> bool {
@@ -132,7 +132,7 @@ pub trait Timeline {
 
     fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32;
 
-    fn rel_pos_from_bar(&self, timeline_pos: PositionInSeconds, bar: i32) -> PositionInSeconds;
+    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds;
 
     fn is_running(&self) -> bool;
 
@@ -274,15 +274,14 @@ impl Timeline for SteadyTimeline {
         (bar as i32) + 1
     }
 
-    fn rel_pos_from_bar(&self, timeline_pos: PositionInSeconds, bar: i32) -> PositionInSeconds {
-        let pos_of_bar = calc_pos_of_bar(
+    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
+        calc_pos_of_bar(
             bar,
             self.tempo(),
             self.bar_at_last_tempo_change(),
             self.sample_count_at_last_tempo_change(),
             self.sample_rate(),
-        );
-        timeline_pos - pos_of_bar
+        )
     }
 
     fn is_running(&self) -> bool {
@@ -330,8 +329,8 @@ impl<T: Timeline> Timeline for &T {
         (*self).next_bar_at(timeline_pos)
     }
 
-    fn rel_pos_from_bar(&self, timeline_pos: PositionInSeconds, bar: i32) -> PositionInSeconds {
-        (*self).rel_pos_from_bar(timeline_pos, bar)
+    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
+        (*self).pos_of_bar(bar)
     }
 
     fn is_running(&self) -> bool {
@@ -383,11 +382,11 @@ impl Timeline for HybridTimeline {
         }
     }
 
-    fn rel_pos_from_bar(&self, timeline_pos: PositionInSeconds, bar: i32) -> PositionInSeconds {
+    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
         if self.project_timeline.is_playing_or_paused() {
-            self.project_timeline.rel_pos_from_bar(timeline_pos, bar)
+            self.project_timeline.pos_of_bar(bar)
         } else {
-            global_steady_timeline().rel_pos_from_bar(timeline_pos, bar)
+            global_steady_timeline().pos_of_bar(bar)
         }
     }
 

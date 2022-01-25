@@ -17,7 +17,9 @@ use crate::domain::clip_engine::supplier::{
     WithFrameRate, MIDI_BASE_BPM,
 };
 use crate::domain::clip_engine::{
-    clip_timeline, clip_timeline_cursor_pos, convert_position_in_seconds_to_frames, ClipRecordMode,
+    clip_timeline, clip_timeline_cursor_pos, convert_duration_in_frames_to_other_frame_rate,
+    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
+    convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames, ClipRecordMode,
     StretchWorkerRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, WithTempo,
 };
 use crate::domain::Timeline;
@@ -62,6 +64,7 @@ struct InnerSource {
     kind: InnerSourceKind,
     chain: ClipSupplierChain,
     tempo: Bpm,
+    beat_count: u32,
 }
 
 #[derive(Copy, Clone)]
@@ -71,8 +74,17 @@ enum InnerSourceKind {
 }
 
 impl InnerSource {
-    fn original_tempo(&self) -> Bpm {
+    fn tempo(&self) -> Bpm {
         self.tempo
+    }
+
+    fn beat_count(&self) -> u32 {
+        self.beat_count
+    }
+
+    fn bar_count(&self) -> u32 {
+        // TODO-high Respect different time signatures
+        self.beat_count / 4
     }
 }
 
@@ -170,13 +182,24 @@ impl ClipPcmSource {
         project: Option<Project>,
         stretch_worker_sender: &Sender<StretchWorkerRequest>,
     ) -> Self {
+        let is_midi = pcm_source_is_midi(&inner);
         let tempo = inner
             .tempo()
             .unwrap_or_else(|| detect_tempo(inner.duration(), project));
+        let beat_count = if is_midi {
+            inner
+                .get_length_beats()
+                .expect("MIDI source should report beats")
+                .get()
+                .round() as u32
+        } else {
+            let beats_per_sec = tempo.get() / 60.0;
+            (inner.duration().get() * beats_per_sec).round() as u32
+        };
         Self {
             inner: InnerSource {
                 tempo,
-                kind: if pcm_source_is_midi(&inner) {
+                kind: if is_midi {
                     InnerSourceKind::Midi
                 } else {
                     InnerSourceKind::Audio
@@ -187,10 +210,11 @@ impl ClipPcmSource {
                     looper.set_fades_enabled(true);
                     let stretcher = chain.stretcher_mut();
                     stretcher.set_enabled(true);
-                    let serious = SeriousTimeStretcher::new();
+                    // let serious = SeriousTimeStretcher::new();
                     // stretcher.set_mode(StretchAudioMode::Serious(serious));
                     chain
                 },
+                beat_count,
             },
             project,
             debug_counter: 0,
@@ -202,7 +226,7 @@ impl ClipPcmSource {
     }
 
     fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
-        let timeline_tempo_factor = timeline_tempo.get() / self.inner.original_tempo().get();
+        let timeline_tempo_factor = timeline_tempo.get() / self.inner.tempo().get();
         // (self.manual_tempo_factor * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
         // TODO-medium Enable manual tempo factor at some point when everything is working.
         //  At the moment this introduces too many uncertainties and false positive bugs because
@@ -295,12 +319,6 @@ impl ClipPcmSource {
             }
             ScheduledOrPlaying(s) => {
                 // Resolve play info if not yet resolved.
-                let next_bar = timeline.next_bar_at(timeline_cursor_pos);
-                if next_bar != self.previous_bar {
-                    let rel_pos_from_bar = timeline.rel_pos_from_bar(timeline_cursor_pos, next_bar);
-                    // println!("Next bar = {} in {}s", next_bar, rel_pos_from_bar);
-                    self.previous_bar = next_bar;
-                }
                 let play_info = s.resolved_play_data.unwrap_or_else(|| {
                     // So, this is how we do play scheduling. Whenever the preview register
                     // calls get_samples() and we are in a fresh ScheduledOrPlaying state, the
@@ -326,9 +344,120 @@ impl ClipPcmSource {
                     //  running, with the only difference that we also hear and see
                     //  the reset. Plus, when the transport is running, we want to
                     //  interrupt the clips and reschedule them. Still to be implemented.
-                    let next_block_pos = if let Some(bar) = s.play_instruction.scheduled_for_bar {
+                    let next_block_pos = if let Some(start_bar) =
+                        s.play_instruction.scheduled_for_bar
+                    {
+                        let start_bar_timeline_pos = timeline.pos_of_bar(start_bar);
                         let rel_timeline_pos_from_bar =
-                            timeline.rel_pos_from_bar(timeline_cursor_pos, bar);
+                            timeline_cursor_pos - start_bar_timeline_pos;
+                        // Natural deviation logging
+                        {
+                            // Assuming a constant tempo and time signature during one cycle
+                            // Basics
+                            let source_frame_rate = self.inner.chain.source().frame_rate();
+                            let timeline_frame_rate = args.block.sample_rate();
+                            // Bars
+                            let end_bar = start_bar + self.inner.bar_count() as i32;
+                            let bar_count = end_bar - start_bar;
+                            let end_bar_timeline_pos = timeline.pos_of_bar(end_bar);
+                            assert!(end_bar_timeline_pos > start_bar_timeline_pos);
+                            // Timeline cycle length
+                            let timeline_cycle_length_in_secs =
+                                (end_bar_timeline_pos - start_bar_timeline_pos).abs();
+                            let timeline_cycle_length_in_timeline_frames =
+                                convert_duration_in_seconds_to_frames(
+                                    timeline_cycle_length_in_secs,
+                                    timeline_frame_rate,
+                                );
+                            let timeline_cycle_length_in_source_frames =
+                                convert_duration_in_seconds_to_frames(
+                                    timeline_cycle_length_in_secs,
+                                    source_frame_rate,
+                                );
+                            // Source cycle length
+                            let source_cycle_length_in_secs = self.inner.chain.source().duration();
+                            let source_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
+                                source_cycle_length_in_secs,
+                                timeline_frame_rate
+                            );
+                            let source_cycle_length_in_source_frames = self.inner.chain.source().frame_count();
+                            // Block length
+                            let block_length_in_timeline_frames = args.block.length() as usize;
+                            let block_length_in_secs = convert_duration_in_frames_to_seconds(
+                                block_length_in_timeline_frames, timeline_frame_rate
+                            );
+                            let block_length_in_source_frames =
+                                convert_duration_in_frames_to_other_frame_rate(
+                                    block_length_in_timeline_frames,
+                                    timeline_frame_rate,
+                                    source_frame_rate,
+                                );
+                            // Tempo-adjusted block length
+                            let tempo_adjusted_block_length_in_source_frames =
+                                (block_length_in_source_frames as f64 * final_tempo_factor).round()
+                                    as usize;
+                            let tempo_adjusted_block_length_in_timeline_frames = convert_duration_in_frames_to_other_frame_rate(
+                                tempo_adjusted_block_length_in_source_frames, source_frame_rate, timeline_frame_rate
+                            );
+                            let tempo_adjusted_block_length_in_secs = convert_duration_in_frames_to_seconds(
+                                tempo_adjusted_block_length_in_source_frames,
+                                source_frame_rate
+                            );
+                            let cropped_cycle_length_in_blocks =
+                                source_cycle_length_in_source_frames
+                                    / tempo_adjusted_block_length_in_source_frames;
+                            // Source cycle remainder
+                            let source_cycle_remainder_in_source_frames =
+                                source_cycle_length_in_source_frames
+                                    % tempo_adjusted_block_length_in_source_frames;
+                            // TODO-high All this rounding / not rounding should be factored out so
+                            //  we can quickly test changes.
+                            let source_cycle_remainder_in_timeline_frames =
+                                convert_duration_in_frames_to_other_frame_rate(
+                                    source_cycle_remainder_in_source_frames,
+                                    source_frame_rate,
+                                    timeline_frame_rate,
+                                );
+                            let source_cycle_remainder_in_secs =
+                                convert_duration_in_frames_to_seconds(
+                                    source_cycle_remainder_in_source_frames,
+                                    source_frame_rate,
+                                );
+                            print!(
+                                "\
+                                Bars: {} ({} - {})\n\
+                                Source cycle length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+                                Timeline cycle length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+                                Block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+                                Tempo-adjusted source block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+                                Natural remainder per cycle: {:.3}ms (= {} timeline frames = {} source frames)\n\
+                                Blocks per cycle (floor): {}\n\
+                                ",
+                                bar_count, start_bar, end_bar,
+
+                                source_cycle_length_in_secs.get() * 1000.0,
+                                source_cycle_length_in_timeline_frames,
+                                source_cycle_length_in_source_frames,
+
+                                timeline_cycle_length_in_secs.get() * 1000.0,
+                                timeline_cycle_length_in_timeline_frames,
+                                timeline_cycle_length_in_source_frames,
+
+                                block_length_in_secs.get() * 1000.0,
+                                block_length_in_timeline_frames,
+                                block_length_in_source_frames,
+
+                                tempo_adjusted_block_length_in_secs.get() * 1000.0,
+                                tempo_adjusted_block_length_in_timeline_frames,
+                                tempo_adjusted_block_length_in_source_frames,
+
+                                source_cycle_remainder_in_secs.get() * 1000.0,
+                                source_cycle_remainder_in_timeline_frames,
+                                source_cycle_remainder_in_source_frames,
+
+                                cropped_cycle_length_in_blocks
+                            );
+                        }
                         let rel_source_pos_from_bar = convert_position_in_seconds_to_frames(
                             rel_timeline_pos_from_bar,
                             self.inner.chain.source().frame_rate(),
