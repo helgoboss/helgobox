@@ -291,7 +291,8 @@ fn print_distance_from_beat_start_at(
     let next_bar = timeline.next_bar_at(ref_pos);
     let rel_pos_from_bar = timeline.rel_pos_from_bar(ref_pos, next_bar - 1);
     let rel_pos_from_next_bar = timeline.rel_pos_from_bar(ref_pos, next_bar);
-    let distance_to_closest_bar = cmp::min(rel_pos_from_bar, rel_pos_from_next_bar);
+    let distance_to_closest_bar =
+        cmp::min_by_key(rel_pos_from_bar, rel_pos_from_next_bar, |v| v.abs());
     println!(
         "Relative position from closest bar = {}ms (request note: [{}], comment: [{}], clip tempo factor: {}, timeline tempo: {})",
         distance_to_closest_bar * 1000.0,

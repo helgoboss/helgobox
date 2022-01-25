@@ -71,6 +71,11 @@ impl MidiSupplier for OwnedPcmSource {
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {
+        let midi_frame_rate = Hz::new(MIDI_FRAME_RATE);
+        // As with audio, the ratio between output frame count and output sample rate determines
+        // the playback tempo.
+        let input_ratio = request.dest_frame_count as f64 / request.dest_sample_rate.get();
+        let num_midi_frames_requested = (input_ratio * midi_frame_rate.get()).round() as usize;
         if request.start_frame == 0 {
             print_distance_from_beat_start_at(
                 &request.info,
@@ -80,29 +85,29 @@ impl MidiSupplier for OwnedPcmSource {
                 "(MIDI, start_frame = 0)",
             );
         } else if request.start_frame < 0
-            && (request.start_frame + request.dest_frame_count as isize) >= 0
+            && (request.start_frame + num_midi_frames_requested as isize) >= 0
         {
+            let distance_to_zero_in_midi_frames = (-request.start_frame) as usize;
+            let ratio = request.dest_frame_count as f64 / num_midi_frames_requested as f64;
+            let distance_to_zero_in_dest_frames =
+                (ratio * distance_to_zero_in_midi_frames as f64) as usize;
             print_distance_from_beat_start_at(
                 &request.info,
                 &request.general_info,
-                (-request.start_frame) as usize,
+                // distance_to_zero_in_dest_frames,
+                0,
                 request.dest_sample_rate,
                 "(MIDI, start_frame < 0)",
             );
         }
-        let midi_frame_rate = Hz::new(MIDI_FRAME_RATE);
-        // As with audio, the ratio between output frame count and output sample rate determines
-        // the playback tempo.
-        let input_ratio = request.dest_frame_count as f64 / request.dest_sample_rate.get();
-        let normalized_dest_frame_count = (input_ratio * midi_frame_rate.get()).round() as usize;
         // For MIDI it seems to be okay to start at a negative position. The source
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
         let time_s = convert_position_in_frames_to_seconds(request.start_frame, midi_frame_rate);
-        let num_frames_consumed = unsafe {
+        let num_midi_frames_consumed = unsafe {
             let mut transfer = PcmSourceTransfer::default();
             transfer.set_sample_rate(midi_frame_rate);
-            transfer.set_length(normalized_dest_frame_count as i32);
+            transfer.set_length(num_midi_frames_requested as i32);
             transfer.set_time_s(time_s);
             // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while
             // playing instead of REAPER letting use its generic mechanism that leads to duplicate
@@ -115,21 +120,21 @@ impl MidiSupplier for OwnedPcmSource {
             self.get_samples(&transfer);
             transfer.samples_out() as usize
         };
-        let num_frames_written = if num_frames_consumed == normalized_dest_frame_count {
+        let num_dest_frames_written = if num_midi_frames_consumed == num_midi_frames_requested {
             request.dest_frame_count
         } else {
-            let ratio = num_frames_consumed as f64 / normalized_dest_frame_count as f64;
+            let ratio = num_midi_frames_consumed as f64 / num_midi_frames_requested as f64;
             (ratio * request.dest_frame_count as f64).round() as usize
         };
         // The lower the sample rate, the higher the tempo, the more inner source material we
         // effectively grabbed.
-        let next_frame = request.start_frame + num_frames_consumed as isize;
-        let source_frame_count = self.frame_count();
+        let next_midi_frame = request.start_frame + num_midi_frames_consumed as isize;
+        let midi_frame_count = self.frame_count();
         SupplyResponse {
-            num_frames_written,
-            num_frames_consumed,
-            next_inner_frame: if next_frame < source_frame_count as isize {
-                Some(next_frame)
+            num_frames_written: num_dest_frames_written,
+            num_frames_consumed: num_midi_frames_consumed,
+            next_inner_frame: if next_midi_frame < midi_frame_count as isize {
+                Some(next_midi_frame)
             } else {
                 None
             },
