@@ -53,7 +53,8 @@ impl<S: AudioSupplier + ExactFrameCount + WithFrameRate> Cache<S> {
             dest_sample_rate: original_sample_rate,
             info: SupplyRequestInfo {
                 audio_block_frame_offset: 0,
-                note: "cache",
+                requester: "cache",
+                note: "",
             },
             parent_request: None,
             general_info: &Default::default(),

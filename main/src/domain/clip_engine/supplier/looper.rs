@@ -130,7 +130,8 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
             dest_sample_rate: request.dest_sample_rate,
             info: SupplyRequestInfo {
                 audio_block_frame_offset: request.info.audio_block_frame_offset,
-                note: "looper-audio-modulo-request",
+                requester: "looper-audio-modulo-request",
+                note: "",
             },
             parent_request: Some(request),
             general_info: request.general_info,
@@ -155,7 +156,8 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
                 info: SupplyRequestInfo {
                     audio_block_frame_offset: request.info.audio_block_frame_offset
                         + modulo_response.num_frames_written,
-                    note: "looper-audio-start-request",
+                    requester: "looper-audio-start-request",
+                    note: "",
                 },
                 parent_request: Some(request),
                 general_info: request.general_info,
@@ -214,7 +216,8 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
             dest_sample_rate: request.dest_sample_rate,
             info: SupplyRequestInfo {
                 audio_block_frame_offset: request.info.audio_block_frame_offset,
-                note: "looper-midi-modulo-request",
+                requester: "looper-midi-modulo-request",
+                note: "",
             },
             parent_request: Some(request),
             general_info: request.general_info,
@@ -245,7 +248,8 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
                 info: SupplyRequestInfo {
                     audio_block_frame_offset: request.info.audio_block_frame_offset
                         + modulo_response.num_frames_written,
-                    note: "looper-midi-start-request",
+                    requester: "looper-midi-start-request",
+                    note: "",
                 },
                 parent_request: Some(request),
                 general_info: request.general_info,

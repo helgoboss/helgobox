@@ -2,7 +2,9 @@ use crate::domain::clip_engine::buffer::AudioBufMut;
 use crate::domain::clip_engine::supplier::{
     AudioSupplier, Ctx, SupplyAudioRequest, SupplyResponse, WithFrameRate,
 };
-use crate::domain::clip_engine::SupplyRequestInfo;
+use crate::domain::clip_engine::{
+    adjust_anti_proportionally_positive, adjust_proportionally_positive, SupplyRequestInfo,
+};
 use crossbeam_channel::Receiver;
 use reaper_high::Reaper;
 use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};
@@ -10,6 +12,7 @@ use reaper_medium::Hz;
 
 #[derive(Debug)]
 pub struct SeriousTimeStretcher {
+    // TODO-high Only static until we have a proper owned version (destruction!)
     api: &'static IReaperPitchShift,
 }
 
@@ -34,7 +37,7 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        let mut total_num_frames_read = 0usize;
+        let mut total_num_frames_consumed = 0usize;
         let mut total_num_frames_written = 0usize;
         let source_frame_rate = self.supplier.frame_rate();
         // I think it makes sense to set both the output and the input sample rate to the sample
@@ -54,18 +57,31 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
             let mut stretch_buffer =
                 unsafe { AudioBufMut::from_raw(stretch_buffer, dest_nch, buffer_frame_count) };
             let request = SupplyAudioRequest {
-                start_frame: request.start_frame + total_num_frames_read as isize,
+                start_frame: request.start_frame + total_num_frames_consumed as isize,
                 dest_sample_rate: source_frame_rate,
                 info: SupplyRequestInfo {
+                    // Here we should not add total_num_frames_written because it doesn't grow
+                    // proportionally to the number of consumed source frames. It yields 0 in the
+                    // beginning and then grows fast at the end.
+                    // However, we also can't pass anti-proportionally adjusted consumed source
+                    // frames because the time stretcher may consume lots of source frames in
+                    // advance. Even those that will end up being spit out stretched in the next
+                    // block or the one after that (= input buffering).
+                    // Verdict: At the time this request is made, we have nothing which lets us map
+                    // the currently consumed block of source frames to a frame in the destination
+                    // block. So our best bet is still total_num_frames_written. So better use
+                    // resampling if we want to have accurate bar deviation reporting.
                     audio_block_frame_offset: request.info.audio_block_frame_offset
                         + total_num_frames_written,
-                    note: "time-stretcher",
+                    requester: "time-stretcher",
+                    note: "Attention: Using serious time stretching. Analysis results usually have a negative offset (due to input buffering)."
                 },
                 parent_request: Some(request),
                 general_info: &request.general_info,
             };
             let response = self.supplier.supply_audio(&request, &mut stretch_buffer);
-            total_num_frames_read += response.num_frames_written;
+            total_num_frames_consumed += response.num_frames_written;
+            assert_eq!(response.num_frames_written, response.num_frames_consumed);
             self.mode.api.BufferDone(response.num_frames_written as _);
             // Get samples
             let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
@@ -90,10 +106,10 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
             dest_buffer.frame_count(),
             "wrote more frames than requested"
         );
-        let next_frame = request.start_frame + total_num_frames_read as isize;
+        let next_frame = request.start_frame + total_num_frames_consumed as isize;
         SupplyResponse {
             num_frames_written: total_num_frames_written,
-            num_frames_consumed: total_num_frames_read,
+            num_frames_consumed: total_num_frames_consumed,
             next_inner_frame: Some(next_frame),
         }
     }

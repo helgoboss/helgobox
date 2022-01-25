@@ -211,8 +211,8 @@ impl ClipPcmSource {
                     looper.set_fades_enabled(true);
                     let stretcher = chain.stretcher_mut();
                     stretcher.set_enabled(true);
-                    // let serious = SeriousTimeStretcher::new();
-                    // stretcher.set_mode(StretchAudioMode::Serious(serious));
+                    let serious = SeriousTimeStretcher::new();
+                    stretcher.set_mode(StretchAudioMode::Serious(serious));
                     chain
                 },
                 beat_count,
@@ -629,7 +629,8 @@ impl ClipPcmSource {
             dest_sample_rate: args.block.sample_rate(),
             info: SupplyRequestInfo {
                 audio_block_frame_offset: 0,
-                note: "root-audio",
+                requester: "root-audio",
+                note: "",
             },
             parent_request: None,
             general_info: info,
@@ -659,7 +660,8 @@ impl ClipPcmSource {
             dest_sample_rate: args.block.sample_rate(),
             info: SupplyRequestInfo {
                 audio_block_frame_offset: 0,
-                note: "root-midi",
+                requester: "root-midi",
+                note: "",
             },
             parent_request: None,
             general_info: info,

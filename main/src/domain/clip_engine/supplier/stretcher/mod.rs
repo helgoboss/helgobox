@@ -128,7 +128,8 @@ impl<S: MidiSupplier> MidiSupplier for Stretcher<S> {
             dest_sample_rate: Hz::new(request.dest_sample_rate.get() / self.tempo_factor),
             info: SupplyRequestInfo {
                 audio_block_frame_offset: request.info.audio_block_frame_offset,
-                note: "stretcher-midi",
+                requester: "stretcher-midi",
+                note: "",
             },
             parent_request: Some(request),
             general_info: request.general_info,

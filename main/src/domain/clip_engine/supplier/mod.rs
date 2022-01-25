@@ -127,6 +127,7 @@ pub struct SupplyRequestGeneralInfo {
     pub clip_tempo_factor: f64,
 }
 
+/// Only for analysis and debugging, shouldn't influence behavior.
 #[derive(Clone, Debug, Default)]
 pub struct SupplyRequestInfo {
     /// Frame offset within the currently requested audio block
@@ -138,7 +139,10 @@ pub struct SupplyRequestInfo {
     /// be greater than 0 for the second request. The number should be accumulated if multiple
     /// nested suppliers divide requests.
     pub audio_block_frame_offset: usize,
-    /// A little note, e.g. which supplier in the chain produced/modified this request.
+    /// A little label identifying which supplier and which sub request in the chain
+    /// produced/modified this request.
+    pub requester: &'static str,
+    /// An optional note.
     pub note: &'static str,
 }
 
@@ -392,10 +396,12 @@ fn print_distance_from_beat_start_at(
         Relative position from closest bar: {:.3}ms (= {} timeline frames)\n\
         Effective block offset: {},\n\
         Requester: {}\n\
+        Note: {}\n\
         Comment: {}\n\
         Clip tempo factor: {}\n\
         Timeline tempo: {}\n\
         Parent requester: {:?}\n\
+        Parent note: {:?}\n\
         ",
         block_index,
         request.general_info().audio_block_timeline_cursor_pos,
@@ -404,10 +410,12 @@ fn print_distance_from_beat_start_at(
         closest.rel_pos.get() * 1000.0,
         rel_pos_from_closest_bar_in_timeline_frames,
         effective_block_offset,
+        request.info().requester,
         request.info().note,
         comment,
         request.general_info().clip_tempo_factor,
         request.general_info().timeline_tempo,
+        request.parent_request().map(|r| r.info().requester),
         request.parent_request().map(|r| r.info().note)
     );
 }
