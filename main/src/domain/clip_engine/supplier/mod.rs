@@ -1,4 +1,5 @@
 use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds};
+use std::cmp;
 
 mod source;
 pub use source::*;
@@ -17,6 +18,8 @@ mod chain;
 pub use chain::*;
 
 mod suspender;
+use crate::domain::clip_engine::clip_timeline;
+use crate::domain::Timeline;
 pub use suspender::*;
 
 mod midi_util;
@@ -64,8 +67,8 @@ pub trait ExactDuration {
     fn duration(&self) -> DurationInSeconds;
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct SupplyAudioRequest {
+#[derive(Clone, Debug)]
+pub struct SupplyAudioRequest<'a> {
     /// Position within the most inner material that marks the start of the desired portion.
     ///
     /// It's important to know that we are talking about the position within the most inner audio
@@ -79,10 +82,38 @@ pub struct SupplyAudioRequest {
     ///
     /// The supplier might employ resampling to fulfill this sample rate demand.
     pub dest_sample_rate: Hz,
+    /// Just for analysis and debugging purposes.
+    pub info: SupplyRequestInfo,
+    pub parent_request: Option<&'a SupplyAudioRequest<'a>>,
+    pub general_info: &'a SupplyRequestGeneralInfo,
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct SupplyMidiRequest {
+#[derive(Clone, Debug, Default)]
+pub struct SupplyRequestGeneralInfo {
+    /// Timeline cursor position of the start of the currently requested audio block.
+    pub audio_block_timeline_cursor_pos: PositionInSeconds,
+    /// Current tempo on the timeline.
+    pub timeline_tempo: Bpm,
+    /// Current tempo factor for the clip.
+    pub clip_tempo_factor: f64,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct SupplyRequestInfo {
+    /// Frame offset within the currently requested audio block
+    ///
+    /// At the top of the chain, there's one request per audio block, so this number is usually 0.
+    ///
+    /// Some suppliers sometimes divide this top request into 2 smaller ones (e.g. the looper when
+    /// it reaches the end of the source within one block). In that case, this number will be
+    /// greater than 0 for the second request.
+    pub audio_block_frame_offset: usize,
+    /// A little note, e.g. which supplier in the chain produced/modified this request.
+    pub note: &'static str,
+}
+
+#[derive(Clone, Debug)]
+pub struct SupplyMidiRequest<'a> {
     /// Position within the most inner material that marks the start of the desired portion.
     ///
     /// A MIDI frame, that is 1/1024000 of a second.
@@ -91,6 +122,10 @@ pub struct SupplyMidiRequest {
     pub dest_frame_count: usize,
     /// Device sample rate.
     pub dest_sample_rate: Hz,
+    /// Just for analysis and debugging purposes.
+    pub info: SupplyRequestInfo,
+    pub parent_request: Option<&'a SupplyMidiRequest<'a>>,
+    pub general_info: &'a SupplyRequestGeneralInfo,
 }
 
 pub struct SupplyResponse {
@@ -173,16 +208,23 @@ fn supply_source_material(
     } else {
         // Requested portion overlaps with playable material.
         if request.start_frame < 0 {
-            println!(
-                "overlap: start_frame = {}, ideal_end_frame = {}",
-                request.start_frame, ideal_end_frame
-            );
+            // println!(
+            //     "overlap: start_frame = {}, ideal_end_frame = {}",
+            //     request.start_frame, ideal_end_frame
+            // );
             // Left part of the portion is located before and right part after start of material.
             let num_skipped_frames_in_source = -request.start_frame as usize;
             let proportion_skipped =
                 num_skipped_frames_in_source as f64 / ideal_num_consumed_frames as f64;
             let num_skipped_frames_in_dest =
                 (proportion_skipped * dest_buffer.frame_count() as f64).round() as usize;
+            print_distance_from_beat_start_at(
+                &request.info,
+                &request.general_info,
+                num_skipped_frames_in_dest,
+                request.dest_sample_rate,
+                "audio, start_frame < 0",
+            );
             let mut shifted_dest_buffer = dest_buffer.slice_mut(num_skipped_frames_in_dest..);
             let req = SourceMaterialRequest {
                 start_frame: 0,
@@ -202,6 +244,15 @@ fn supply_source_material(
             }
         } else {
             // Requested portion is located on or after start of the actual source material.
+            if request.start_frame == 0 {
+                print_distance_from_beat_start_at(
+                    &request.info,
+                    &request.general_info,
+                    0,
+                    request.dest_sample_rate,
+                    "audio, start_frame == 0",
+                );
+            }
             let req = SourceMaterialRequest {
                 start_frame: request.start_frame as usize,
                 dest_buffer,
@@ -222,4 +273,31 @@ struct SourceMaterialRequest<'a, 'b> {
     dest_buffer: &'a mut AudioBufMut<'b>,
     source_sample_rate: Hz,
     dest_sample_rate: Hz,
+}
+
+fn print_distance_from_beat_start_at(
+    request: &SupplyRequestInfo,
+    general_info: &SupplyRequestGeneralInfo,
+    frame_offset_within_requested_block: usize,
+    sample_rate: Hz,
+    comment: &str,
+) {
+    let frame_offset_within_root_block =
+        request.audio_block_frame_offset + frame_offset_within_requested_block;
+    let offset_in_secs =
+        convert_duration_in_frames_to_seconds(frame_offset_within_root_block, sample_rate);
+    let ref_pos = general_info.audio_block_timeline_cursor_pos + offset_in_secs;
+    let timeline = clip_timeline(None);
+    let next_bar = timeline.next_bar_at(ref_pos);
+    let rel_pos_from_bar = timeline.rel_pos_from_bar(ref_pos, next_bar - 1);
+    let rel_pos_from_next_bar = timeline.rel_pos_from_bar(ref_pos, next_bar);
+    let distance_to_closest_bar = cmp::min(rel_pos_from_bar, rel_pos_from_next_bar);
+    println!(
+        "Relative position from closest bar = {}ms (request note: [{}], comment: [{}], clip tempo factor: {}, timeline tempo: {})",
+        distance_to_closest_bar * 1000.0,
+        request.note,
+        comment,
+        general_info.clip_tempo_factor,
+        general_info.timeline_tempo
+    );
 }

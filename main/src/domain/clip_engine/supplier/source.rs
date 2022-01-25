@@ -3,9 +3,9 @@ use crate::domain::clip_engine::source_util::pcm_source_is_midi;
 use crate::domain::clip_engine::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
-    supply_source_material, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier,
-    SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
-    MIDI_BASE_BPM,
+    print_distance_from_beat_start_at, supply_source_material, AudioSupplier, ExactDuration,
+    ExactFrameCount, MidiSupplier, SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyResponse, WithFrameRate, MIDI_BASE_BPM,
 };
 use crate::domain::clip_engine::WithTempo;
 use reaper_medium::{
@@ -68,18 +68,37 @@ impl ExactFrameCount for OwnedPcmSource {
 impl MidiSupplier for OwnedPcmSource {
     fn supply_midi(
         &self,
-        req: &SupplyMidiRequest,
+        request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {
+        if request.start_frame == 0 {
+            print_distance_from_beat_start_at(
+                &request.info,
+                &request.general_info,
+                0,
+                request.dest_sample_rate,
+                "(MIDI, start_frame = 0)",
+            );
+        } else if request.start_frame < 0
+            && (request.start_frame + request.dest_frame_count as isize) >= 0
+        {
+            print_distance_from_beat_start_at(
+                &request.info,
+                &request.general_info,
+                (-request.start_frame) as usize,
+                request.dest_sample_rate,
+                "(MIDI, start_frame < 0)",
+            );
+        }
         let midi_frame_rate = Hz::new(MIDI_FRAME_RATE);
         // As with audio, the ratio between output frame count and output sample rate determines
         // the playback tempo.
-        let input_ratio = req.dest_frame_count as f64 / req.dest_sample_rate.get();
+        let input_ratio = request.dest_frame_count as f64 / request.dest_sample_rate.get();
         let normalized_dest_frame_count = (input_ratio * midi_frame_rate.get()).round() as usize;
         // For MIDI it seems to be okay to start at a negative position. The source
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
-        let time_s = convert_position_in_frames_to_seconds(req.start_frame, midi_frame_rate);
+        let time_s = convert_position_in_frames_to_seconds(request.start_frame, midi_frame_rate);
         let num_frames_consumed = unsafe {
             let mut transfer = PcmSourceTransfer::default();
             transfer.set_sample_rate(midi_frame_rate);
@@ -97,14 +116,14 @@ impl MidiSupplier for OwnedPcmSource {
             transfer.samples_out() as usize
         };
         let num_frames_written = if num_frames_consumed == normalized_dest_frame_count {
-            req.dest_frame_count
+            request.dest_frame_count
         } else {
             let ratio = num_frames_consumed as f64 / normalized_dest_frame_count as f64;
-            (ratio * req.dest_frame_count as f64).round() as usize
+            (ratio * request.dest_frame_count as f64).round() as usize
         };
         // The lower the sample rate, the higher the tempo, the more inner source material we
         // effectively grabbed.
-        let next_frame = req.start_frame + num_frames_consumed as isize;
+        let next_frame = request.start_frame + num_frames_consumed as isize;
         let source_frame_count = self.frame_count();
         SupplyResponse {
             num_frames_written,

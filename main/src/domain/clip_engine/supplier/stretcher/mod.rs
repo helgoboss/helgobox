@@ -14,6 +14,7 @@ use reaper_medium::{
 mod resampling;
 pub use resampling::*;
 pub mod time_stretching;
+use crate::domain::clip_engine::SupplyRequestInfo;
 pub use time_stretching::*;
 
 pub struct Stretcher<S> {
@@ -122,8 +123,15 @@ impl<S: MidiSupplier> MidiSupplier for Stretcher<S> {
             return self.supplier.supply_midi(&request, event_list);
         }
         let request = SupplyMidiRequest {
+            start_frame: request.start_frame,
+            dest_frame_count: request.dest_frame_count,
             dest_sample_rate: Hz::new(request.dest_sample_rate.get() / self.tempo_factor),
-            ..*request
+            info: SupplyRequestInfo {
+                audio_block_frame_offset: 0,
+                note: "stretcher-midi",
+            },
+            parent_request: Some(request),
+            general_info: request.general_info,
         };
         self.supplier.supply_midi(&request, event_list)
     }

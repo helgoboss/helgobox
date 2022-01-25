@@ -2,6 +2,7 @@ use crate::domain::clip_engine::buffer::AudioBufMut;
 use crate::domain::clip_engine::supplier::{
     AudioSupplier, Ctx, SupplyAudioRequest, SupplyResponse, WithFrameRate,
 };
+use crate::domain::clip_engine::SupplyRequestInfo;
 use crossbeam_channel::Receiver;
 use reaper_high::Reaper;
 use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};
@@ -55,6 +56,12 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
             let request = SupplyAudioRequest {
                 start_frame: request.start_frame + total_num_frames_read as isize,
                 dest_sample_rate: source_frame_rate,
+                info: SupplyRequestInfo {
+                    audio_block_frame_offset: total_num_frames_written,
+                    note: "time-stretcher",
+                },
+                parent_request: Some(request),
+                general_info: &request.general_info,
             };
             let response = self.supplier.supply_audio(&request, &mut stretch_buffer);
             total_num_frames_read += response.num_frames_written;
@@ -68,10 +75,10 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
                 )
             };
             total_num_frames_written += num_frames_written as usize;
-            println!(
-                "num_frames_read: {}, total_num_frames_read: {}, num_frames_written: {}, total_num_frames_written: {}",
-                response.num_frames_written, total_num_frames_read, num_frames_written, total_num_frames_written
-            );
+            // println!(
+            //     "num_frames_read: {}, total_num_frames_read: {}, num_frames_written: {}, total_num_frames_written: {}",
+            //     response.num_frames_written, total_num_frames_read, num_frames_written, total_num_frames_written
+            // );
             if total_num_frames_written >= dest_buffer.frame_count() {
                 // We have enough stretched material.
                 break;

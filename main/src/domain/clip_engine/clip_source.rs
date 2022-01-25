@@ -18,7 +18,7 @@ use crate::domain::clip_engine::supplier::{
 };
 use crate::domain::clip_engine::{
     clip_timeline, clip_timeline_cursor_pos, convert_position_in_seconds_to_frames, ClipRecordMode,
-    StretchWorkerRequest, WithTempo,
+    StretchWorkerRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, WithTempo,
 };
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
@@ -188,7 +188,7 @@ impl ClipPcmSource {
                     let stretcher = chain.stretcher_mut();
                     stretcher.set_enabled(true);
                     let serious = SeriousTimeStretcher::new();
-                    stretcher.set_mode(StretchAudioMode::Serious(serious));
+                    // stretcher.set_mode(StretchAudioMode::Serious(serious));
                     chain
                 },
             },
@@ -250,18 +250,18 @@ impl ClipPcmSource {
         clip_timeline(self.project)
     }
 
-    fn get_samples_internal(
-        &mut self,
-        args: &mut GetSamplesArgs,
-        timeline: impl Timeline,
-        timeline_cursor_pos: PositionInSeconds,
-    ) {
-        let sample_rate = args.block.sample_rate();
+    fn get_samples_internal(&mut self, args: &mut GetSamplesArgs, timeline: impl Timeline) {
+        let timeline_cursor_pos = timeline.cursor_pos();
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo);
         // println!("block sr = {}, block length = {}, block time = {}, timeline cursor pos = {}, timeline cursor frame = {}",
         //          sample_rate, args.block.length(), args.block.time_s(), timeline_cursor_pos, timeline_cursor_frame);
-        self.current_sample_rate = Some(sample_rate);
+        let general_info = SupplyRequestGeneralInfo {
+            audio_block_timeline_cursor_pos: timeline_cursor_pos,
+            timeline_tempo,
+            clip_tempo_factor: final_tempo_factor,
+        };
+        self.current_sample_rate = Some(args.block.sample_rate());
         self.inner
             .chain
             .stretcher_mut()
@@ -275,29 +275,30 @@ impl ClipPcmSource {
                 if !suspender.is_suspending() {
                     suspender.suspend(play_info.next_block_pos);
                 }
-                self.state =
-                    if let Some(end_frame) = self.fill_samples(args, play_info.next_block_pos) {
-                        // Suspension not finished yet.
-                        Suspending {
-                            reason,
-                            play_info: {
-                                ResolvedPlayData {
-                                    next_block_pos: end_frame,
-                                }
-                            },
-                        }
-                    } else {
-                        // Suspension finished.
-                        self.inner.chain.suspender_mut().reset();
-                        self.get_suspension_follow_up_state(reason, play_info)
-                    };
+                self.state = if let Some(end_frame) =
+                    self.fill_samples(args, play_info.next_block_pos, &general_info)
+                {
+                    // Suspension not finished yet.
+                    Suspending {
+                        reason,
+                        play_info: {
+                            ResolvedPlayData {
+                                next_block_pos: end_frame,
+                            }
+                        },
+                    }
+                } else {
+                    // Suspension finished.
+                    self.inner.chain.suspender_mut().reset();
+                    self.get_suspension_follow_up_state(reason, play_info)
+                };
             }
             ScheduledOrPlaying(s) => {
                 // Resolve play info if not yet resolved.
                 let next_bar = timeline.next_bar_at(timeline_cursor_pos);
                 if next_bar != self.previous_bar {
                     let rel_pos_from_bar = timeline.rel_pos_from_bar(timeline_cursor_pos, next_bar);
-                    println!("Next bar = {} in {}s", next_bar, rel_pos_from_bar);
+                    // println!("Next bar = {} in {}s", next_bar, rel_pos_from_bar);
                     self.previous_bar = next_bar;
                 }
                 let play_info = s.resolved_play_data.unwrap_or_else(|| {
@@ -361,24 +362,25 @@ impl ClipPcmSource {
                         .looper_mut()
                         .keep_playing_until_end_of_current_cycle(play_info.next_block_pos);
                 }
-                self.state =
-                    if let Some(end_frame) = self.fill_samples(args, play_info.next_block_pos) {
-                        // There's still something to play.
-                        ScheduledOrPlaying(ScheduledOrPlayingState {
-                            resolved_play_data: {
-                                Some(ResolvedPlayData {
-                                    next_block_pos: end_frame,
-                                })
-                            },
-                            ..s
-                        })
-                    } else {
-                        // We have reached the natural or scheduled end. Everything that needed to be
-                        // played has been played in previous blocks. Audio fade outs have been applied
-                        // as well, so no need to go to suspending state first. Go right to stop!
-                        self.inner.chain.reset();
-                        Stopped
-                    };
+                self.state = if let Some(end_frame) =
+                    self.fill_samples(args, play_info.next_block_pos, &general_info)
+                {
+                    // There's still something to play.
+                    ScheduledOrPlaying(ScheduledOrPlayingState {
+                        resolved_play_data: {
+                            Some(ResolvedPlayData {
+                                next_block_pos: end_frame,
+                            })
+                        },
+                        ..s
+                    })
+                } else {
+                    // We have reached the natural or scheduled end. Everything that needed to be
+                    // played has been played in previous blocks. Audio fade outs have been applied
+                    // as well, so no need to go to suspending state first. Go right to stop!
+                    self.inner.chain.reset();
+                    Stopped
+                };
             }
         }
     }
@@ -424,7 +426,12 @@ impl ClipPcmSource {
         frame % self.inner.chain.source().frame_count()
     }
 
-    fn fill_samples(&mut self, args: &mut GetSamplesArgs, start_frame: isize) -> Option<isize> {
+    fn fill_samples(
+        &mut self,
+        args: &mut GetSamplesArgs,
+        start_frame: isize,
+        info: &SupplyRequestGeneralInfo,
+    ) -> Option<isize> {
         // This means the clip is playing or about o play.
         // We want to start playing as soon as we reach the scheduled start position,
         // that means pos == 0.0. In order to do that, we need to take into account that
@@ -442,8 +449,8 @@ impl ClipPcmSource {
         use InnerSourceKind::*;
         unsafe {
             match self.inner.kind {
-                Audio => self.fill_samples_audio(args, start_frame),
-                Midi => self.fill_samples_midi(args, start_frame),
+                Audio => self.fill_samples_audio(args, start_frame, info),
+                Midi => self.fill_samples_midi(args, start_frame, info),
             }
         }
     }
@@ -452,10 +459,17 @@ impl ClipPcmSource {
         &self,
         args: &mut GetSamplesArgs,
         start_frame: isize,
+        info: &SupplyRequestGeneralInfo,
     ) -> Option<isize> {
         let request = SupplyAudioRequest {
             start_frame,
             dest_sample_rate: args.block.sample_rate(),
+            info: SupplyRequestInfo {
+                audio_block_frame_offset: 0,
+                note: "root-audio",
+            },
+            parent_request: None,
+            general_info: info,
         };
         let mut dest_buffer = AudioBufMut::from_raw(
             args.block.samples(),
@@ -470,11 +484,22 @@ impl ClipPcmSource {
         response.next_inner_frame
     }
 
-    fn fill_samples_midi(&self, args: &mut GetSamplesArgs, start_frame: isize) -> Option<isize> {
+    fn fill_samples_midi(
+        &self,
+        args: &mut GetSamplesArgs,
+        start_frame: isize,
+        info: &SupplyRequestGeneralInfo,
+    ) -> Option<isize> {
         let request = SupplyMidiRequest {
             start_frame,
             dest_frame_count: args.block.length() as _,
             dest_sample_rate: args.block.sample_rate(),
+            info: SupplyRequestInfo {
+                audio_block_frame_offset: 0,
+                note: "root-midi",
+            },
+            parent_request: None,
+            general_info: info,
         };
         let response = self
             .inner
@@ -576,9 +601,8 @@ impl CustomPcmSource for ClipPcmSource {
                 // TODO-high Pausing main transport and continuing has timing issues.
                 return;
             }
-            let timeline_cursor_pos = timeline.cursor_pos();
             // Get samples
-            self.get_samples_internal(&mut args, timeline, timeline_cursor_pos);
+            self.get_samples_internal(&mut args, timeline);
         });
         debug_assert_eq!(args.block.samples_out(), args.block.length());
     }

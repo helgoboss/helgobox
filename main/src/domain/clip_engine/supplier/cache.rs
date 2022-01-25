@@ -4,6 +4,7 @@ use crate::domain::clip_engine::supplier::{
     supply_source_material, AudioSupplier, ExactFrameCount, MidiSupplier, SourceMaterialRequest,
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
+use crate::domain::clip_engine::SupplyRequestInfo;
 use core::cmp;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
@@ -50,6 +51,12 @@ impl<S: AudioSupplier + ExactFrameCount + WithFrameRate> Cache<S> {
         let request = SupplyAudioRequest {
             start_frame: 0,
             dest_sample_rate: original_sample_rate,
+            info: SupplyRequestInfo {
+                audio_block_frame_offset: 0,
+                note: "cache",
+            },
+            parent_request: None,
+            general_info: &Default::default(),
         };
         self.supplier
             .supply_audio(&request, &mut content.to_buf_mut());

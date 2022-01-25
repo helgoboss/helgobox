@@ -1,13 +1,14 @@
 use crate::domain::clip_engine::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::domain::clip_engine::supplier::{
-    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
-    ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
-    WithFrameRate,
+    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
+    print_distance_from_beat_start_at, AudioSupplier, ExactFrameCount, MidiSupplier,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
-use crate::domain::clip_engine::Repetition;
+use crate::domain::clip_engine::{clip_timeline, Repetition, SupplyRequestInfo};
 use core::cmp;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
+    PositionInSeconds,
 };
 
 // TODO-high Audio can lose timing after a while. Check what's wrong by measuring deviation.
@@ -126,7 +127,13 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
         let modulo_start_frame = start_frame % supplier_frame_count;
         let modulo_request = SupplyAudioRequest {
             start_frame: modulo_start_frame as isize,
-            ..*request
+            dest_sample_rate: request.dest_sample_rate,
+            info: SupplyRequestInfo {
+                audio_block_frame_offset: 0,
+                note: "looper-audio-modulo-request",
+            },
+            parent_request: Some(request),
+            general_info: request.general_info,
         };
         let modulo_response = self.supplier.supply_audio(&modulo_request, dest_buffer);
         let final_response = if modulo_response.num_frames_written == dest_buffer.frame_count() {
@@ -144,7 +151,13 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
             // Crossed the end. We need to fill the rest with material from the beginning of the source.
             let start_request = SupplyAudioRequest {
                 start_frame: 0,
-                ..*request
+                dest_sample_rate: request.dest_sample_rate,
+                info: SupplyRequestInfo {
+                    audio_block_frame_offset: modulo_response.num_frames_written,
+                    note: "looper-audio-start-request",
+                },
+                parent_request: Some(request),
+                general_info: request.general_info,
             };
             let start_response = self.supplier.supply_audio(
                 &start_request,
@@ -196,7 +209,14 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
         let modulo_start_frame = start_frame % supplier_frame_count;
         let modulo_request = SupplyMidiRequest {
             start_frame: modulo_start_frame as isize,
-            ..*request
+            dest_frame_count: request.dest_frame_count,
+            dest_sample_rate: request.dest_sample_rate,
+            info: SupplyRequestInfo {
+                audio_block_frame_offset: 0,
+                note: "looper-midi-modulo-request",
+            },
+            parent_request: Some(request),
+            general_info: request.general_info,
         };
         let modulo_response = self.supplier.supply_midi(&modulo_request, event_list);
         if modulo_response.num_frames_written == request.dest_frame_count {
@@ -212,7 +232,6 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
             }
         } else {
             // Crossed the end. We need to fill the rest with material from the beginning of the source.
-            dbg!("MIDI repeat");
             // Repeat. Fill rest of buffer with beginning of source.
             // We need to start from negative position so the frame
             // offset of the *added* MIDI events is correctly written.
@@ -220,7 +239,14 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
             // samples already written.
             let start_request = SupplyMidiRequest {
                 start_frame: -(modulo_response.num_frames_consumed as isize),
-                ..*request
+                dest_sample_rate: request.dest_sample_rate,
+                dest_frame_count: request.dest_frame_count,
+                info: SupplyRequestInfo {
+                    audio_block_frame_offset: modulo_response.num_frames_written,
+                    note: "looper-midi-start-request",
+                },
+                parent_request: Some(request),
+                general_info: request.general_info,
             };
             let start_response = self.supplier.supply_midi(&start_request, event_list);
             SupplyResponse {
