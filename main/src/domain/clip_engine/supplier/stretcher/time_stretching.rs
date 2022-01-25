@@ -47,8 +47,7 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
         // TODO-medium Setting this right at the beginning should be enough.
         self.mode.api.set_srate(source_frame_rate.get());
         loop {
-            // Fill buffer with a minimum amount of source data (so that we never consume more than
-            // necessary).
+            // Get time stretcher buffer.
             let dest_nch = dest_buffer.channel_count();
             self.mode.api.set_nch(dest_nch as _);
             self.mode.api.set_tempo(self.tempo_factor);
@@ -56,7 +55,9 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
             let stretch_buffer = self.mode.api.GetBuffer(buffer_frame_count as _);
             let mut stretch_buffer =
                 unsafe { AudioBufMut::from_raw(stretch_buffer, dest_nch, buffer_frame_count) };
-            let request = SupplyAudioRequest {
+            // Fill buffer with a minimum amount of source data (so that we never consume more than
+            // necessary).
+            let inner_request = SupplyAudioRequest {
                 start_frame: request.start_frame + total_num_frames_consumed as isize,
                 dest_sample_rate: source_frame_rate,
                 info: SupplyRequestInfo {
@@ -79,11 +80,18 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
                 parent_request: Some(request),
                 general_info: &request.general_info,
             };
-            let response = self.supplier.supply_audio(&request, &mut stretch_buffer);
-            total_num_frames_consumed += response.num_frames_written;
-            assert_eq!(response.num_frames_written, response.num_frames_consumed);
-            self.mode.api.BufferDone(response.num_frames_written as _);
-            // Get samples
+            let inner_response = self
+                .supplier
+                .supply_audio(&inner_request, &mut stretch_buffer);
+            total_num_frames_consumed += inner_response.num_frames_written;
+            assert_eq!(
+                inner_response.num_frames_written,
+                inner_response.num_frames_consumed
+            );
+            self.mode
+                .api
+                .BufferDone(inner_response.num_frames_written as _);
+            // Get output material.
             let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
             let num_frames_written = unsafe {
                 self.mode.api.GetSamples(

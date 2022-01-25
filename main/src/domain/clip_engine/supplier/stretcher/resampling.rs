@@ -41,62 +41,80 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, Resampler, 
             .api
             .SetRates(source_frame_rate.get(), dest_sample_rate.get());
         // Set ResamplePrepare's out_samples to refer to request a specific number of input samples.
-        const RESAMPLE_EXT_SETFEEDMODE: i32 = 0x1001;
-        let ext_result = unsafe {
-            self.mode.api.Extended(
-                RESAMPLE_EXT_SETFEEDMODE,
-                1 as *mut _,
-                null_mut(),
-                null_mut(),
-            )
-        };
-        // loop {
-        // Get resampler buffer.
-        let num_frames_to_be_consumed =
-            adjust_proportionally_positive(dest_buffer.frame_count() as f64, self.tempo_factor);
-        let mut resample_buffer: *mut f64 = null_mut();
-        let num_source_frames_to_write = unsafe {
-            self.mode.api.ResamplePrepare(
-                num_frames_to_be_consumed as _,
-                source_channel_count as i32,
-                &mut resample_buffer,
-            )
-        };
-        let mut resample_buffer = unsafe {
-            AudioBufMut::from_raw(
-                resample_buffer,
-                source_channel_count,
-                num_frames_to_be_consumed,
-            )
-        };
-        // Feed resampler buffer with source material.
-        let inner_request = SupplyAudioRequest {
-            start_frame: request.start_frame,
-            dest_sample_rate: source_frame_rate,
-            info: SupplyRequestInfo {
-                audio_block_frame_offset: request.info.audio_block_frame_offset,
-                requester: "active-resampler",
-                note: "",
-            },
-            parent_request: Some(request),
-            general_info: request.general_info,
-        };
-        let inner_response = self
-            .supplier
-            .supply_audio(&inner_request, &mut resample_buffer);
-        // Get output material.
-        let num_frames_written = unsafe {
-            self.mode.api.ResampleOut(
-                dest_buffer.data_as_mut_ptr(),
-                num_source_frames_to_write,
-                dest_buffer.frame_count() as _,
-                dest_buffer.channel_count() as _,
-            )
-        };
-        // }
+        // const RESAMPLE_EXT_SETFEEDMODE: i32 = 0x1001;
+        // let ext_result = unsafe {
+        //     self.mode.api.Extended(
+        //         RESAMPLE_EXT_SETFEEDMODE,
+        //         1 as *mut _,
+        //         null_mut(),
+        //         null_mut(),
+        //     )
+        // };
+        loop {
+            // Get resampler buffer.
+            let buffer_frame_count = 128usize;
+            let mut resample_buffer: *mut f64 = null_mut();
+            let num_source_frames_to_write = unsafe {
+                self.mode.api.ResamplePrepare(
+                    buffer_frame_count as _,
+                    source_channel_count as i32,
+                    &mut resample_buffer,
+                )
+            };
+            let mut resample_buffer = unsafe {
+                AudioBufMut::from_raw(
+                    resample_buffer,
+                    source_channel_count,
+                    num_source_frames_to_write as _,
+                )
+            };
+            // Feed resampler buffer with source material.
+            let inner_request = SupplyAudioRequest {
+                start_frame: request.start_frame + total_num_frames_consumed as isize,
+                dest_sample_rate: source_frame_rate,
+                info: SupplyRequestInfo {
+                    audio_block_frame_offset: request.info.audio_block_frame_offset
+                        + total_num_frames_written,
+                    requester: "active-resampler",
+                    note: "",
+                },
+                parent_request: Some(request),
+                general_info: request.general_info,
+            };
+            let inner_response = self
+                .supplier
+                .supply_audio(&inner_request, &mut resample_buffer);
+            total_num_frames_consumed += inner_response.num_frames_written;
+            assert_eq!(
+                inner_response.num_frames_written,
+                inner_response.num_frames_consumed
+            );
+            // Get output material.
+            let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
+            let num_frames_written = unsafe {
+                self.mode.api.ResampleOut(
+                    offset_buffer.data_as_mut_ptr(),
+                    num_source_frames_to_write,
+                    offset_buffer.frame_count() as _,
+                    dest_buffer.channel_count() as _,
+                )
+            };
+            total_num_frames_written += num_frames_written as usize;
+            if total_num_frames_written >= dest_buffer.frame_count() {
+                // We have enough resampled material.
+                break;
+            }
+        }
+        assert_eq!(
+            total_num_frames_written,
+            dest_buffer.frame_count(),
+            "wrote more frames than requested"
+        );
+        let next_frame = request.start_frame + total_num_frames_consumed as isize;
         SupplyResponse {
-            num_frames_written: num_frames_written as _,
-            ..inner_response
+            num_frames_written: total_num_frames_written,
+            num_frames_consumed: total_num_frames_consumed,
+            next_inner_frame: Some(next_frame),
         }
         // // TODO-high At lower sample rates there are sometimes clicks. Rounding errors?
         // let request = SupplyAudioRequest {
