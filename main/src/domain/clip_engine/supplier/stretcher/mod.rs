@@ -14,7 +14,7 @@ use reaper_medium::{
 mod resampling;
 pub use resampling::*;
 pub mod time_stretching;
-use crate::domain::clip_engine::SupplyRequestInfo;
+use crate::domain::clip_engine::{adjust_anti_proportionally_positive, SupplyRequestInfo};
 pub use time_stretching::*;
 
 pub struct Stretcher<S> {
@@ -139,7 +139,7 @@ impl<S: MidiSupplier> MidiSupplier for Stretcher<S> {
 
 impl<S: ExactFrameCount> ExactFrameCount for Stretcher<S> {
     fn frame_count(&self) -> usize {
-        (self.supplier.frame_count() as f64 / self.tempo_factor).round() as usize
+        adjust_anti_proportionally_positive(self.supplier.frame_count() as f64, self.tempo_factor)
     }
 }
 

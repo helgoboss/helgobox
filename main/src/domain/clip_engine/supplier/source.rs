@@ -7,7 +7,9 @@ use crate::domain::clip_engine::supplier::{
     ExactFrameCount, MidiSupplier, SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest,
     SupplyResponse, WithFrameRate, MIDI_BASE_BPM,
 };
-use crate::domain::clip_engine::WithTempo;
+use crate::domain::clip_engine::{
+    adjust_proportionally, adjust_proportionally_positive, WithTempo,
+};
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
     PcmSourceTransfer, PositionInSeconds,
@@ -75,7 +77,8 @@ impl MidiSupplier for OwnedPcmSource {
         // As with audio, the ratio between output frame count and output sample rate determines
         // the playback tempo.
         let input_ratio = request.dest_frame_count as f64 / request.dest_sample_rate.get();
-        let num_midi_frames_requested = (input_ratio * midi_frame_rate.get()).round() as usize;
+        let num_midi_frames_requested =
+            adjust_proportionally_positive(midi_frame_rate.get(), input_ratio);
         if request.start_frame == 0 {
             print_distance_from_beat_start_at(
                 &request.info,
@@ -90,12 +93,11 @@ impl MidiSupplier for OwnedPcmSource {
             let distance_to_zero_in_midi_frames = (-request.start_frame) as usize;
             let ratio = request.dest_frame_count as f64 / num_midi_frames_requested as f64;
             let distance_to_zero_in_dest_frames =
-                (ratio * distance_to_zero_in_midi_frames as f64) as usize;
+                adjust_proportionally_positive(distance_to_zero_in_midi_frames as f64, ratio);
             print_distance_from_beat_start_at(
                 &request.info,
                 &request.general_info,
-                // distance_to_zero_in_dest_frames,
-                0,
+                distance_to_zero_in_dest_frames,
                 request.dest_sample_rate,
                 "(MIDI, start_frame < 0)",
             );
@@ -124,7 +126,7 @@ impl MidiSupplier for OwnedPcmSource {
             request.dest_frame_count
         } else {
             let ratio = num_midi_frames_consumed as f64 / num_midi_frames_requested as f64;
-            (ratio * request.dest_frame_count as f64).round() as usize
+            adjust_proportionally_positive(request.dest_frame_count as f64, ratio)
         };
         // The lower the sample rate, the higher the tempo, the more inner source material we
         // effectively grabbed.

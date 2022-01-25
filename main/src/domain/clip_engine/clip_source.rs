@@ -17,10 +17,11 @@ use crate::domain::clip_engine::supplier::{
     WithFrameRate, MIDI_BASE_BPM,
 };
 use crate::domain::clip_engine::{
-    clip_timeline, clip_timeline_cursor_pos, convert_duration_in_frames_to_other_frame_rate,
-    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames, ClipRecordMode,
-    StretchWorkerRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, WithTempo,
+    adjust_proportionally, adjust_proportionally_positive, clip_timeline, clip_timeline_cursor_pos,
+    convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
+    convert_duration_in_seconds_to_frames, convert_position_in_frames_to_seconds,
+    convert_position_in_seconds_to_frames, ClipRecordMode, StretchWorkerRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, WithTempo,
 };
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
@@ -393,9 +394,7 @@ impl ClipPcmSource {
                                     source_frame_rate,
                                 );
                             // Tempo-adjusted block length
-                            let tempo_adjusted_block_length_in_source_frames =
-                                (block_length_in_source_frames as f64 * final_tempo_factor).round()
-                                    as usize;
+                            let tempo_adjusted_block_length_in_source_frames = adjust_proportionally_positive(block_length_in_source_frames as f64, final_tempo_factor);
                             let tempo_adjusted_block_length_in_timeline_frames = convert_duration_in_frames_to_other_frame_rate(
                                 tempo_adjusted_block_length_in_source_frames, source_frame_rate, timeline_frame_rate
                             );
@@ -476,7 +475,7 @@ impl ClipPcmSource {
                             //   factor of 1.2 at that time.
                             // - We must correct distance_to_start so it is the distance from the
                             //   perspective of the source!
-                            (rel_source_pos_from_bar as f64 * final_tempo_factor).round() as isize
+                            adjust_proportionally(rel_source_pos_from_bar as f64, final_tempo_factor)
                         } else {
                             rel_source_pos_from_bar
                         }
@@ -1084,7 +1083,8 @@ impl ClipPcmSourceSkills for ClipPcmSource {
 
     fn seek_to(&mut self, args: SeekToArgs) {
         let frame_count = self.inner.chain.source().frame_count();
-        let desired_frame = (frame_count as f64 * args.desired_pos.get()).round() as usize;
+        let desired_frame =
+            adjust_proportionally_positive(frame_count as f64, args.desired_pos.get());
         use ClipState::*;
         match self.state {
             Stopped | Suspending { .. } => {}

@@ -157,6 +157,22 @@ pub fn convert_position_in_seconds_to_frames(seconds: PositionInSeconds, sample_
     (seconds.get() * sample_rate.get()).round() as isize
 }
 
+pub fn adjust_proportionally_positive(frame_count: f64, factor: f64) -> usize {
+    adjust_proportionally(frame_count, factor) as usize
+}
+
+pub fn adjust_anti_proportionally_positive(frame_count: f64, factor: f64) -> usize {
+    adjust_anti_proportionally(frame_count, factor) as usize
+}
+
+pub fn adjust_proportionally(frame_count: f64, factor: f64) -> isize {
+    (frame_count as f64 * factor).round() as isize
+}
+
+pub fn adjust_anti_proportionally(frame_count: f64, factor: f64) -> isize {
+    (frame_count as f64 / factor).round() as isize
+}
+
 pub fn convert_duration_in_frames_to_seconds(
     frame_count: usize,
     sample_rate: Hz,
@@ -198,7 +214,7 @@ fn supply_source_material(
     let tempo_factor = source_sample_rate.get() / request.dest_sample_rate.get();
     // The higher the tempo, the more inner source material we should grab.
     let ideal_num_consumed_frames =
-        (dest_buffer.frame_count() as f64 * tempo_factor).round() as usize;
+        adjust_proportionally_positive(dest_buffer.frame_count() as f64, tempo_factor);
     let ideal_end_frame = request.start_frame + ideal_num_consumed_frames as isize;
     if ideal_end_frame <= 0 {
         // Requested portion is located entirely before the actual source material.
@@ -225,8 +241,10 @@ fn supply_source_material(
             let num_skipped_frames_in_source = -request.start_frame as usize;
             let proportion_skipped =
                 num_skipped_frames_in_source as f64 / ideal_num_consumed_frames as f64;
-            let num_skipped_frames_in_dest =
-                (proportion_skipped * dest_buffer.frame_count() as f64).round() as usize;
+            let num_skipped_frames_in_dest = adjust_proportionally_positive(
+                dest_buffer.frame_count() as f64,
+                proportion_skipped,
+            );
             print_distance_from_beat_start_at(
                 &request.info,
                 &request.general_info,
