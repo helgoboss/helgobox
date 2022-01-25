@@ -212,7 +212,7 @@ impl ClipPcmSource {
                     let stretcher = chain.stretcher_mut();
                     stretcher.set_enabled(true);
                     let serious = SeriousTimeStretcher::new();
-                    stretcher.set_mode(StretchAudioMode::Serious(serious));
+                    // stretcher.set_mode(StretchAudioMode::Serious(serious));
                     chain
                 },
                 beat_count,

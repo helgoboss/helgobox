@@ -38,7 +38,7 @@ impl<S> Stretcher<S> {
             enabled: false,
             supplier,
             tempo_factor: 1.0,
-            audio_mode: StretchAudioMode::Resampling(Resampler),
+            audio_mode: StretchAudioMode::Resampling(Resampler::new()),
         }
     }
 
