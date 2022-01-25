@@ -296,7 +296,6 @@ fn supply_source_material(
             print_distance_from_beat_start_at(
                 request,
                 num_skipped_frames_in_dest,
-                request.dest_sample_rate,
                 "audio, start_frame < 0",
             );
             let mut shifted_dest_buffer = dest_buffer.slice_mut(num_skipped_frames_in_dest..);
@@ -319,12 +318,7 @@ fn supply_source_material(
         } else {
             // Requested portion is located on or after start of the actual source material.
             if request.start_frame == 0 {
-                print_distance_from_beat_start_at(
-                    request,
-                    0,
-                    request.dest_sample_rate,
-                    "audio, start_frame == 0",
-                );
+                print_distance_from_beat_start_at(request, 0, "audio, start_frame == 0");
             }
             let req = SourceMaterialRequest {
                 start_frame: request.start_frame as usize,
@@ -348,15 +342,17 @@ struct SourceMaterialRequest<'a, 'b> {
     dest_sample_rate: Hz,
 }
 
+/// This deals with timeline units only.
 fn print_distance_from_beat_start_at(
     request: &impl SupplyRequest,
     additional_block_offset: usize,
-    dest_sample_rate: Hz,
     comment: &str,
 ) {
     let effective_block_offset = request.info().audio_block_frame_offset + additional_block_offset;
-    let offset_in_timeline_secs =
-        convert_duration_in_frames_to_seconds(effective_block_offset, dest_sample_rate);
+    let offset_in_timeline_secs = convert_duration_in_frames_to_seconds(
+        effective_block_offset,
+        request.general_info().output_frame_rate,
+    );
     let ref_pos = request.general_info().audio_block_timeline_cursor_pos + offset_in_timeline_secs;
     let timeline = clip_timeline(None);
     let next_bar = timeline.next_bar_at(ref_pos);
@@ -376,8 +372,10 @@ fn print_distance_from_beat_start_at(
     let current_bar_info = create_bar_info(next_bar - 1);
     let next_bar_info = create_bar_info(next_bar);
     let closest = cmp::min_by_key(&current_bar_info, &next_bar_info, |v| v.rel_pos.abs());
-    let rel_pos_from_closest_bar_in_timeline_frames =
-        convert_position_in_seconds_to_frames(closest.rel_pos, dest_sample_rate);
+    let rel_pos_from_closest_bar_in_timeline_frames = convert_position_in_seconds_to_frames(
+        closest.rel_pos,
+        request.general_info().output_frame_rate,
+    );
     let block_duration = convert_duration_in_frames_to_seconds(
         request.general_info().audio_block_length,
         request.general_info().output_frame_rate,
