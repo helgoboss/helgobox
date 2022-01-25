@@ -25,7 +25,7 @@ impl<'a, S: AudioSupplier> AudioSupplier for Ctx<'a, Resampler, S> {
             start_frame: request.start_frame,
             dest_sample_rate: Hz::new(request.dest_sample_rate.get() / self.tempo_factor),
             info: SupplyRequestInfo {
-                audio_block_frame_offset: 0,
+                audio_block_frame_offset: request.info.audio_block_frame_offset,
                 note: "resampler",
             },
             parent_request: Some(request),

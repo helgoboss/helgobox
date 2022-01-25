@@ -228,11 +228,15 @@ impl ClipPcmSource {
 
     fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
         let timeline_tempo_factor = timeline_tempo.get() / self.inner.tempo().get();
-        // (self.manual_tempo_factor * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
-        // TODO-medium Enable manual tempo factor at some point when everything is working.
-        //  At the moment this introduces too many uncertainties and false positive bugs because
-        //  our demo project makes it too easy to accidentally change the manual tempo.
-        (1.0 * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
+        if let Some(f) = FIXED_TEMPO_FACTOR {
+            f
+        } else {
+            // TODO-medium Enable manual tempo factor at some point when everything is working.
+            //  At the moment this introduces too many uncertainties and false positive bugs because
+            //  our demo project makes it too easy to accidentally change the manual tempo.
+            (1.0 * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
+            // (self.manual_tempo_factor * timeline_tempo_factor).max(MIN_TEMPO_FACTOR)
+        }
     }
 
     fn frame_within_clip(&self, timeline_tempo: Bpm) -> Option<isize> {
@@ -283,6 +287,8 @@ impl ClipPcmSource {
         //          sample_rate, args.block.length(), args.block.time_s(), timeline_cursor_pos, timeline_cursor_frame);
         let general_info = SupplyRequestGeneralInfo {
             audio_block_timeline_cursor_pos: timeline_cursor_pos,
+            audio_block_length: args.block.length() as usize,
+            output_frame_rate: args.block.sample_rate(),
             timeline_tempo,
             clip_tempo_factor: final_tempo_factor,
         };
@@ -348,15 +354,17 @@ impl ClipPcmSource {
                     let next_block_pos = if let Some(start_bar) =
                         s.play_instruction.scheduled_for_bar
                     {
+                        // Basics
+                        let block_length_in_timeline_frames = args.block.length() as usize;
+                        let source_frame_rate = self.inner.chain.source().frame_rate();
+                        let timeline_frame_rate = args.block.sample_rate();
+                        // Essential calculation
                         let start_bar_timeline_pos = timeline.pos_of_bar(start_bar);
-                        let rel_timeline_pos_from_bar =
+                        let rel_pos_from_bar_in_secs =
                             timeline_cursor_pos - start_bar_timeline_pos;
                         // Natural deviation logging
                         {
                             // Assuming a constant tempo and time signature during one cycle
-                            // Basics
-                            let source_frame_rate = self.inner.chain.source().frame_rate();
-                            let timeline_frame_rate = args.block.sample_rate();
                             // Bars
                             let end_bar = start_bar + self.inner.bar_count() as i32;
                             let bar_count = end_bar - start_bar;
@@ -393,46 +401,53 @@ impl ClipPcmSource {
                                     timeline_frame_rate,
                                     source_frame_rate,
                                 );
-                            // Tempo-adjusted block length
-                            let tempo_adjusted_block_length_in_source_frames = adjust_proportionally_positive(block_length_in_source_frames as f64, final_tempo_factor);
-                            let tempo_adjusted_block_length_in_timeline_frames = convert_duration_in_frames_to_other_frame_rate(
-                                tempo_adjusted_block_length_in_source_frames, source_frame_rate, timeline_frame_rate
+                            // Block count and remainder
+                            let num_full_blocks = source_cycle_length_in_source_frames / block_length_in_source_frames;
+                            let remainder_in_source_frames = source_cycle_length_in_source_frames % block_length_in_source_frames;
+                            // Tempo-adjusted
+                            let adjusted_block_length_in_source_frames = adjust_proportionally_positive(block_length_in_source_frames as f64, final_tempo_factor);
+                            let adjusted_block_length_in_timeline_frames = convert_duration_in_frames_to_other_frame_rate(
+                                adjusted_block_length_in_source_frames, source_frame_rate, timeline_frame_rate
                             );
-                            let tempo_adjusted_block_length_in_secs = convert_duration_in_frames_to_seconds(
-                                tempo_adjusted_block_length_in_source_frames,
+                            let adjusted_block_length_in_secs = convert_duration_in_frames_to_seconds(
+                                adjusted_block_length_in_source_frames,
                                 source_frame_rate
                             );
-                            let cropped_cycle_length_in_blocks =
-                                source_cycle_length_in_source_frames
-                                    / tempo_adjusted_block_length_in_source_frames;
+                            let adjusted_remainder_in_source_frames = adjust_proportionally_positive(remainder_in_source_frames as f64, final_tempo_factor);
                             // Source cycle remainder
-                            let source_cycle_remainder_in_source_frames =
-                                source_cycle_length_in_source_frames
-                                    % tempo_adjusted_block_length_in_source_frames;
-                            // TODO-high All this rounding / not rounding should be factored out so
-                            //  we can quickly test changes.
-                            let source_cycle_remainder_in_timeline_frames =
+                            let adjusted_remainder_in_timeline_frames =
                                 convert_duration_in_frames_to_other_frame_rate(
-                                    source_cycle_remainder_in_source_frames,
+                                    adjusted_remainder_in_source_frames,
                                     source_frame_rate,
                                     timeline_frame_rate,
                                 );
-                            let source_cycle_remainder_in_secs =
+                            let adjusted_remainder_in_secs =
                                 convert_duration_in_frames_to_seconds(
-                                    source_cycle_remainder_in_source_frames,
+                                    adjusted_remainder_in_source_frames,
                                     source_frame_rate,
                                 );
+                            let block_index = (timeline_cursor_pos.get() / block_length_in_secs.get()) as isize;
                             print!(
-                                "\
+                                "\n\
+                                # Natural deviation report\n\
+                                Block index: {},\n\
+                                Tempo factor: {:.3}\n\
                                 Bars: {} ({} - {})\n\
+                                Start bar position: {:.3}s\n\
                                 Source cycle length: {:.3}ms (= {} timeline frames = {} source frames)\n\
                                 Timeline cycle length: {:.3}ms (= {} timeline frames = {} source frames)\n\
                                 Block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
-                                Tempo-adjusted source block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
-                                Natural remainder per cycle: {:.3}ms (= {} timeline frames = {} source frames)\n\
-                                Blocks per cycle (floor): {}\n\
+                                Tempo-adjusted block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+                                Number of full blocks: {}\n\
+                                Tempo-adjusted remainder per cycle: {:.3}ms (= {} timeline frames = {} source frames)\n\
                                 ",
+                                block_index,
+
+                                final_tempo_factor,
+
                                 bar_count, start_bar, end_bar,
+
+                                start_bar_timeline_pos.get(),
 
                                 source_cycle_length_in_secs.get() * 1000.0,
                                 source_cycle_length_in_timeline_frames,
@@ -446,39 +461,59 @@ impl ClipPcmSource {
                                 block_length_in_timeline_frames,
                                 block_length_in_source_frames,
 
-                                tempo_adjusted_block_length_in_secs.get() * 1000.0,
-                                tempo_adjusted_block_length_in_timeline_frames,
-                                tempo_adjusted_block_length_in_source_frames,
+                                adjusted_block_length_in_secs.get() * 1000.0,
+                                adjusted_block_length_in_timeline_frames,
+                                adjusted_block_length_in_source_frames,
 
-                                source_cycle_remainder_in_secs.get() * 1000.0,
-                                source_cycle_remainder_in_timeline_frames,
-                                source_cycle_remainder_in_source_frames,
+                                num_full_blocks,
 
-                                cropped_cycle_length_in_blocks
+                                adjusted_remainder_in_secs.get() * 1000.0,
+                                adjusted_remainder_in_timeline_frames,
+                                adjusted_remainder_in_source_frames,
                             );
                         }
-                        let rel_source_pos_from_bar = convert_position_in_seconds_to_frames(
-                            rel_timeline_pos_from_bar,
+                        let rel_pos_from_bar_in_source_frames = convert_position_in_seconds_to_frames(
+                            rel_pos_from_bar_in_secs,
                             self.inner.chain.source().frame_rate(),
                         );
-                        if rel_source_pos_from_bar < 0 {
-                            // Count-in phase.
-                            // The calculated position was resolved taking the current project tempo
-                            // into account! In order to keep advancing using our usual source-specific
-                            // tempo factor later, we should fix the distance so it conforms to the tempo
-                            // in which we advance the source play cursor.
-                            // Example:
-                            // - Native source tempo is 100 bpm
-                            // - The tempo at schedule time was 120 bpm. The current distance_to_start
-                            //   value was calculated assuming that this is the normal tempo.
-                            // - However, from the perspective of the source, we had a final tempo
-                            //   factor of 1.2 at that time.
-                            // - We must correct distance_to_start so it is the distance from the
-                            //   perspective of the source!
-                            adjust_proportionally(rel_source_pos_from_bar as f64, final_tempo_factor)
-                        } else {
-                            rel_source_pos_from_bar
+                        // Now we have a countdown/position in source frames, but it doesn't yet
+                        // take the tempo adjustment of the source into account. 
+                        // Once we have initialized the countdown with the first value, each 
+                        // get_samples() call - including this one - will advance it by a frame 
+                        // count that ideally = block length in source frames * tempo factor.
+                        // We use this countdown approach for two reasons.
+                        //
+                        // 1. In order to allow tempo changes during count-in time.
+                        // 2. In future, the count-in phase might play source material already.
+                        //
+                        // Especially (2) means that the count-in phase will not always have that
+                        // ideal length which makes the source frame ZERO be perfectly aligned with
+                        // the ZERO of the timeline bar. I think this is unavoidable when dealing
+                        // with material that needs sample-rate conversion and/or time
+                        // stretching. So if one of this is involved, this is just an estimation.
+                        // However, in real-world scenarios this usually results in slight start
+                        // deviations around 0-5ms, so it still makes sense musically.
+
+                        /// It can make a difference if we apply a factor once on a large integer x and then round or
+                        /// n times on x/n and round each time. Latter is what happens in practice because we advance frames step by step in n blocks.
+                        fn adjust_proportionally_in_blocks(value: isize, factor: f64, block_length: usize) -> isize {
+                            let abs_value = value.abs() as usize;
+                            let block_count = abs_value / block_length;
+                            let remainder = abs_value % block_length;
+                            let adjusted_block_length = adjust_proportionally_positive(block_length as f64, factor);
+                            let adjusted_remainder = adjust_proportionally_positive(remainder as f64, factor);
+                            let total_without_remainder = block_count * adjusted_block_length;
+                            let total = total_without_remainder + adjusted_remainder;
+                            dbg!(abs_value, adjusted_block_length, block_count, remainder, adjusted_remainder, total_without_remainder, total);
+                            total as isize * value.signum()
                         }
+                        let block_length_in_source_frames =
+                            convert_duration_in_frames_to_other_frame_rate(
+                                block_length_in_timeline_frames,
+                                timeline_frame_rate,
+                                source_frame_rate,
+                            );
+                        adjust_proportionally_in_blocks(rel_pos_from_bar_in_source_frames, final_tempo_factor, block_length_in_source_frames)
                     } else {
                         0
                     };
@@ -1426,3 +1461,6 @@ fn detect_tempo(duration: DurationInSeconds, project: Option<Project>) -> Bpm {
     }
     Bpm::new(bpm)
 }
+
+const FIXED_TEMPO_FACTOR: Option<f64> = None;
+// const FIXED_TEMPO_FACTOR: Option<f64> = Some(1.0);

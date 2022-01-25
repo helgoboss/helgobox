@@ -57,7 +57,8 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
                 start_frame: request.start_frame + total_num_frames_read as isize,
                 dest_sample_rate: source_frame_rate,
                 info: SupplyRequestInfo {
-                    audio_block_frame_offset: total_num_frames_written,
+                    audio_block_frame_offset: request.info.audio_block_frame_offset
+                        + total_num_frames_written,
                     note: "time-stretcher",
                 },
                 parent_request: Some(request),

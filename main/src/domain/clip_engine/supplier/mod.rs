@@ -67,6 +67,13 @@ pub trait ExactDuration {
     fn duration(&self) -> DurationInSeconds;
 }
 
+pub trait SupplyRequest {
+    fn start_frame(&self) -> isize;
+    fn info(&self) -> &SupplyRequestInfo;
+    fn general_info(&self) -> &SupplyRequestGeneralInfo;
+    fn parent_request(&self) -> Option<&Self>;
+}
+
 #[derive(Clone, Debug)]
 pub struct SupplyAudioRequest<'a> {
     /// Position within the most inner material that marks the start of the desired portion.
@@ -88,10 +95,32 @@ pub struct SupplyAudioRequest<'a> {
     pub general_info: &'a SupplyRequestGeneralInfo,
 }
 
+impl<'a> SupplyRequest for SupplyAudioRequest<'a> {
+    fn start_frame(&self) -> isize {
+        self.start_frame
+    }
+
+    fn info(&self) -> &SupplyRequestInfo {
+        &self.info
+    }
+
+    fn general_info(&self) -> &SupplyRequestGeneralInfo {
+        self.general_info
+    }
+
+    fn parent_request(&self) -> Option<&Self> {
+        self.parent_request
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct SupplyRequestGeneralInfo {
     /// Timeline cursor position of the start of the currently requested audio block.
     pub audio_block_timeline_cursor_pos: PositionInSeconds,
+    /// Audio block length in frames.
+    pub audio_block_length: usize,
+    /// The device frame rate.
+    pub output_frame_rate: Hz,
     /// Current tempo on the timeline.
     pub timeline_tempo: Bpm,
     /// Current tempo factor for the clip.
@@ -104,9 +133,10 @@ pub struct SupplyRequestInfo {
     ///
     /// At the top of the chain, there's one request per audio block, so this number is usually 0.
     ///
-    /// Some suppliers sometimes divide this top request into 2 smaller ones (e.g. the looper when
-    /// it reaches the end of the source within one block). In that case, this number will be
-    /// greater than 0 for the second request.
+    /// Some suppliers divide this top request into smaller ones (e.g. the looper when
+    /// it reaches the start or end of the source within one block). In that case, this number will
+    /// be greater than 0 for the second request. The number should be accumulated if multiple
+    /// nested suppliers divide requests.
     pub audio_block_frame_offset: usize,
     /// A little note, e.g. which supplier in the chain produced/modified this request.
     pub note: &'static str,
@@ -126,6 +156,24 @@ pub struct SupplyMidiRequest<'a> {
     pub info: SupplyRequestInfo,
     pub parent_request: Option<&'a SupplyMidiRequest<'a>>,
     pub general_info: &'a SupplyRequestGeneralInfo,
+}
+
+impl<'a> SupplyRequest for SupplyMidiRequest<'a> {
+    fn start_frame(&self) -> isize {
+        self.start_frame
+    }
+
+    fn info(&self) -> &SupplyRequestInfo {
+        &self.info
+    }
+
+    fn general_info(&self) -> &SupplyRequestGeneralInfo {
+        self.general_info
+    }
+
+    fn parent_request(&self) -> Option<&Self> {
+        self.parent_request
+    }
 }
 
 pub struct SupplyResponse {
@@ -246,8 +294,7 @@ fn supply_source_material(
                 proportion_skipped,
             );
             print_distance_from_beat_start_at(
-                &request.info,
-                &request.general_info,
+                request,
                 num_skipped_frames_in_dest,
                 request.dest_sample_rate,
                 "audio, start_frame < 0",
@@ -273,8 +320,7 @@ fn supply_source_material(
             // Requested portion is located on or after start of the actual source material.
             if request.start_frame == 0 {
                 print_distance_from_beat_start_at(
-                    &request.info,
-                    &request.general_info,
+                    request,
                     0,
                     request.dest_sample_rate,
                     "audio, start_frame == 0",
@@ -303,36 +349,67 @@ struct SourceMaterialRequest<'a, 'b> {
 }
 
 fn print_distance_from_beat_start_at(
-    request: &SupplyRequestInfo,
-    general_info: &SupplyRequestGeneralInfo,
-    frame_offset_within_requested_block: usize,
+    request: &impl SupplyRequest,
+    additional_block_offset: usize,
     dest_sample_rate: Hz,
     comment: &str,
 ) {
-    let frame_offset_within_root_block =
-        request.audio_block_frame_offset + frame_offset_within_requested_block;
-    let offset_in_secs =
-        convert_duration_in_frames_to_seconds(frame_offset_within_root_block, dest_sample_rate);
-    let ref_pos = general_info.audio_block_timeline_cursor_pos + offset_in_secs;
+    let effective_block_offset = request.info().audio_block_frame_offset + additional_block_offset;
+    let offset_in_timeline_secs =
+        convert_duration_in_frames_to_seconds(effective_block_offset, dest_sample_rate);
+    let ref_pos = request.general_info().audio_block_timeline_cursor_pos + offset_in_timeline_secs;
     let timeline = clip_timeline(None);
     let next_bar = timeline.next_bar_at(ref_pos);
-    let rel_pos_from_bar = ref_pos - timeline.pos_of_bar(next_bar - 1);
-    let rel_pos_from_next_bar = ref_pos - timeline.pos_of_bar(next_bar);
-    let rel_pos_from_closest_bar =
-        cmp::min_by_key(rel_pos_from_bar, rel_pos_from_next_bar, |v| v.abs());
+    struct BarInfo {
+        bar: i32,
+        pos: PositionInSeconds,
+        rel_pos: PositionInSeconds,
+    }
+    let create_bar_info = |bar| {
+        let bar_pos = timeline.pos_of_bar(bar);
+        BarInfo {
+            bar,
+            pos: bar_pos,
+            rel_pos: ref_pos - bar_pos,
+        }
+    };
+    let current_bar_info = create_bar_info(next_bar - 1);
+    let next_bar_info = create_bar_info(next_bar);
+    let closest = cmp::min_by_key(&current_bar_info, &next_bar_info, |v| v.rel_pos.abs());
     let rel_pos_from_closest_bar_in_timeline_frames =
-        convert_position_in_seconds_to_frames(rel_pos_from_closest_bar, dest_sample_rate);
+        convert_position_in_seconds_to_frames(closest.rel_pos, dest_sample_rate);
+    let block_duration = convert_duration_in_frames_to_seconds(
+        request.general_info().audio_block_length,
+        request.general_info().output_frame_rate,
+    );
+    let block_index = (request.general_info().audio_block_timeline_cursor_pos.get()
+        / block_duration.get()) as isize;
     println!(
-        "Relative position from closest bar = {:.3}ms (= {} timeline frames)\n\
-        Request note: {}\n\
+        "\n\
+        # New loop cycle\n\
+        Block index: {}\n\
+        Block start position: {:.3}s\n\
+        Closest bar: {}\n\
+        Closest bar timeline position: {:.3}s\n\
+        Relative position from closest bar: {:.3}ms (= {} timeline frames)\n\
+        Effective block offset: {},\n\
+        Requester: {}\n\
         Comment: {}\n\
         Clip tempo factor: {}\n\
-        Timeline tempo: {}",
-        rel_pos_from_closest_bar * 1000.0,
+        Timeline tempo: {}\n\
+        Parent requester: {:?}\n\
+        ",
+        block_index,
+        request.general_info().audio_block_timeline_cursor_pos,
+        closest.bar,
+        closest.pos.get(),
+        closest.rel_pos.get() * 1000.0,
         rel_pos_from_closest_bar_in_timeline_frames,
-        request.note,
+        effective_block_offset,
+        request.info().note,
         comment,
-        general_info.clip_tempo_factor,
-        general_info.timeline_tempo
+        request.general_info().clip_tempo_factor,
+        request.general_info().timeline_tempo,
+        request.parent_request().map(|r| r.info().note)
     );
 }

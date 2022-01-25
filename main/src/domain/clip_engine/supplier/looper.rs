@@ -129,7 +129,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
             start_frame: modulo_start_frame as isize,
             dest_sample_rate: request.dest_sample_rate,
             info: SupplyRequestInfo {
-                audio_block_frame_offset: 0,
+                audio_block_frame_offset: request.info.audio_block_frame_offset,
                 note: "looper-audio-modulo-request",
             },
             parent_request: Some(request),
@@ -153,7 +153,8 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
                 start_frame: 0,
                 dest_sample_rate: request.dest_sample_rate,
                 info: SupplyRequestInfo {
-                    audio_block_frame_offset: modulo_response.num_frames_written,
+                    audio_block_frame_offset: request.info.audio_block_frame_offset
+                        + modulo_response.num_frames_written,
                     note: "looper-audio-start-request",
                 },
                 parent_request: Some(request),
@@ -212,7 +213,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
             dest_frame_count: request.dest_frame_count,
             dest_sample_rate: request.dest_sample_rate,
             info: SupplyRequestInfo {
-                audio_block_frame_offset: 0,
+                audio_block_frame_offset: request.info.audio_block_frame_offset,
                 note: "looper-midi-modulo-request",
             },
             parent_request: Some(request),
@@ -242,7 +243,8 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
                 dest_sample_rate: request.dest_sample_rate,
                 dest_frame_count: request.dest_frame_count,
                 info: SupplyRequestInfo {
-                    audio_block_frame_offset: modulo_response.num_frames_written,
+                    audio_block_frame_offset: request.info.audio_block_frame_offset
+                        + modulo_response.num_frames_written,
                     note: "looper-midi-start-request",
                 },
                 parent_request: Some(request),

@@ -81,8 +81,7 @@ impl MidiSupplier for OwnedPcmSource {
             adjust_proportionally_positive(midi_frame_rate.get(), input_ratio);
         if request.start_frame == 0 {
             print_distance_from_beat_start_at(
-                &request.info,
-                &request.general_info,
+                request,
                 0,
                 request.dest_sample_rate,
                 "(MIDI, start_frame = 0)",
@@ -95,8 +94,7 @@ impl MidiSupplier for OwnedPcmSource {
             let distance_to_zero_in_dest_frames =
                 adjust_proportionally_positive(distance_to_zero_in_midi_frames as f64, ratio);
             print_distance_from_beat_start_at(
-                &request.info,
-                &request.general_info,
+                request,
                 distance_to_zero_in_dest_frames,
                 request.dest_sample_rate,
                 "(MIDI, start_frame < 0)",
