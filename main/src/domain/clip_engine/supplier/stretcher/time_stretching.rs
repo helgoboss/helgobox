@@ -43,14 +43,17 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
         // I think it makes sense to set both the output and the input sample rate to the sample
         // rate of the source. Then the result can be even cached and sample rate & play-rate
         // changes don't need to invalidate the cache.
-        // TODO-high However, we need add a resampler on top.
+        // TODO-high However, we need to add a resampler on top. We could actually always add a
+        //  resampler before the time stretcher and just let it do the usual sample rate conversion,
+        //  unless the stretch mode is Resampler in which case it should consider the tempo when
+        //  when calculating the output sample rate.
         // TODO-medium Setting this right at the beginning should be enough.
         self.mode.api.set_srate(source_frame_rate.get());
+        let dest_nch = dest_buffer.channel_count();
+        self.mode.api.set_nch(dest_nch as _);
+        self.mode.api.set_tempo(self.tempo_factor);
         loop {
             // Get time stretcher buffer.
-            let dest_nch = dest_buffer.channel_count();
-            self.mode.api.set_nch(dest_nch as _);
-            self.mode.api.set_tempo(self.tempo_factor);
             let buffer_frame_count = 128usize;
             let stretch_buffer = self.mode.api.GetBuffer(buffer_frame_count as _);
             let mut stretch_buffer =

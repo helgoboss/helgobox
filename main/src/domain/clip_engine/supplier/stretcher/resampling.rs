@@ -40,6 +40,7 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, Resampler, 
         self.mode
             .api
             .SetRates(source_frame_rate.get(), dest_sample_rate.get());
+        // TODO-high Fix the count-in beeeep (also in time stretching).
         // Set ResamplePrepare's out_samples to refer to request a specific number of input samples.
         // const RESAMPLE_EXT_SETFEEDMODE: i32 = 0x1001;
         // let ext_result = unsafe {
