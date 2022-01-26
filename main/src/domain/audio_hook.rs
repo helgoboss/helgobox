@@ -1,6 +1,6 @@
 use crate::domain::clip_engine::{
     clip_timeline, ClipPcmSourceSkills, ClipRecordMode, ClipRecordTiming, PosWithinClipArgs,
-    SharedRegister,
+    SharedRegister, WriteMidiRequest,
 };
 use crate::domain::{
     classify_midi_message, global_steady_timeline, Event, Garbage, GarbageBin, IncomingMidiMessage,
@@ -264,27 +264,13 @@ impl RealearnAudioHook {
                             timeline_tempo,
                         })
                         .unwrap_or_default();
-                    let mut write_struct = midi_realtime_write_struct_t {
-                        // TODO-medium The following values work for arbitrary REAPER tempos, but
-                        //  not sure if they work for custom tempo factors.
-                        global_time: pos_within_clip.get(),
-                        srate: args.srate.get(),
-                        item_playrate: 1.0,
-                        global_item_time: 0.0,
-                        length: args.len as _,
-                        // Overdub
-                        overwritemode: 0,
-                        events: event_list.as_ptr().as_mut(),
-                        latency: 0.0,
-                        // Not used
-                        overwrite_actives: null_mut(),
+                    let req = WriteMidiRequest {
+                        pos_within_clip,
+                        input_sample_rate: args.srate,
+                        block_length: args.len as _,
+                        events: event_list,
                     };
-                    src.as_mut().extended(
-                        0x10005,
-                        &mut write_struct as *mut _ as _,
-                        null_mut(),
-                        null_mut(),
-                    );
+                    src.as_mut().write_midi(req);
                 }
             });
         }

@@ -27,13 +27,16 @@ use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use reaper_high::{Project, Reaper};
-use reaper_low::raw::{IReaperPitchShift, PCM_source_transfer_t, REAPER_PITCHSHIFT_API_VER};
+use reaper_low::raw::{
+    midi_realtime_write_struct_t, IReaperPitchShift, PCM_source_transfer_t,
+    REAPER_PITCHSHIFT_API_VER,
+};
 use reaper_medium::{
-    BorrowedPcmSource, Bpm, CustomPcmSource, DurationInBeats, DurationInSeconds, ExtendedArgs,
-    GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MidiEvent, OwnedPcmSource, PcmSource,
-    PcmSourceTransfer, PeaksClearArgs, PitchShiftMode, PitchShiftSubMode, PositionInSeconds,
-    PropertiesWindowArgs, ReaperStr, SaveStateArgs, SetAvailableArgs, SetFileNameArgs,
-    SetSourceArgs,
+    BorrowedMidiEventList, BorrowedPcmSource, Bpm, CustomPcmSource, DurationInBeats,
+    DurationInSeconds, ExtendedArgs, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, MidiEvent,
+    OwnedPcmSource, PcmSource, PcmSourceTransfer, PeaksClearArgs, PitchShiftMode,
+    PitchShiftSubMode, PositionInSeconds, PropertiesWindowArgs, ReaperStr, SaveStateArgs,
+    SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
 };
 
 /// A PCM source which wraps a native REAPER PCM source and applies all kinds of clip
@@ -123,7 +126,7 @@ pub enum ClipState {
     ///
     /// The player can stop in this state.
     Paused {
-        /// Modulo position within the clip at which should be resumed later.
+        /// Modulo position within the inner source at which should be resumed later.
         next_block_pos: usize,
     },
 }
@@ -232,7 +235,7 @@ impl ClipPcmSource {
         }
     }
 
-    fn frame_within_clip(&self, timeline_tempo: Bpm) -> Option<isize> {
+    fn frame_within_inner_source(&self) -> Option<isize> {
         use ClipState::*;
         let frame = match self.state {
             ScheduledOrPlaying(ScheduledOrPlayingState {
@@ -854,6 +857,11 @@ impl CustomPcmSource for ClipPcmSource {
                 *(args.parm_1 as *mut f64) = self.get_tempo_factor();
                 1
             }
+            EXT_WRITE_MIDI => {
+                let inner_args = *(args.parm_1 as *mut _);
+                self.write_midi(inner_args);
+                1
+            }
             EXT_SET_REPEATED => {
                 let inner_args = *(args.parm_1 as *mut _);
                 self.set_repeated(inner_args);
@@ -928,6 +936,16 @@ pub trait ClipPcmSourceSkills {
 
     /// Returns the position within the clip as proportional value.
     fn proportional_pos_within_clip(&self, args: PosWithinClipArgs) -> Option<UnitValue>;
+
+    fn write_midi(&mut self, request: WriteMidiRequest);
+}
+
+#[derive(Copy, Clone)]
+pub struct WriteMidiRequest<'a> {
+    pub pos_within_clip: PositionInSeconds,
+    pub input_sample_rate: Hz,
+    pub block_length: usize,
+    pub events: &'a BorrowedMidiEventList,
 }
 
 impl ClipPcmSourceSkills for ClipPcmSource {
@@ -1175,14 +1193,18 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn pos_within_clip(&self, args: PosWithinClipArgs) -> Option<PositionInSeconds> {
-        let sr = self.current_sample_rate?;
-        let frame = self.frame_within_clip(args.timeline_tempo)?;
-        let second = frame as f64 / sr.get();
-        Some(PositionInSeconds::new(second))
+        let source_pos_in_source_frames = self.frame_within_inner_source()?;
+        let source_pos_in_secs = convert_position_in_frames_to_seconds(
+            source_pos_in_source_frames,
+            self.inner.chain.reaper_source().frame_rate(),
+        );
+        let final_tempo_factor = self.calc_final_tempo_factor(args.timeline_tempo);
+        let source_pos_in_secs_tempo_adjusted = source_pos_in_secs.get() / final_tempo_factor;
+        Some(PositionInSeconds::new(source_pos_in_secs_tempo_adjusted))
     }
 
     fn proportional_pos_within_clip(&self, args: PosWithinClipArgs) -> Option<UnitValue> {
-        let frame_within_clip = self.frame_within_clip(args.timeline_tempo)?;
+        let frame_within_clip = self.frame_within_inner_source()?;
         if frame_within_clip < 0 {
             None
         } else {
@@ -1194,6 +1216,33 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                     UnitValue::new_clamped(frame_within_clip as f64 / frame_count as f64);
                 Some(proportional)
             }
+        }
+    }
+
+    fn write_midi(&mut self, request: WriteMidiRequest) {
+        let mut write_struct = midi_realtime_write_struct_t {
+            // TODO-medium The following values work for arbitrary REAPER tempos, but
+            //  not sure if they work for custom tempo factors.
+            global_time: request.pos_within_clip.get(),
+            srate: request.input_sample_rate.get(),
+            item_playrate: 1.0,
+            global_item_time: 0.0,
+            length: request.block_length as _,
+            // Overdub
+            overwritemode: 0,
+            events: unsafe { request.events.as_ptr().as_mut() },
+            latency: 0.0,
+            // Not used
+            overwrite_actives: null_mut(),
+        };
+        const PCM_SOURCE_EXT_ADDMIDIEVENTS: i32 = 0x10005;
+        unsafe {
+            self.inner.chain.reaper_source_mut().extended(
+                PCM_SOURCE_EXT_ADDMIDIEVENTS,
+                &mut write_struct as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
         }
     }
 }
@@ -1338,6 +1387,17 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         }
         f
     }
+
+    fn write_midi(&mut self, mut request: WriteMidiRequest) {
+        unsafe {
+            self.extended(
+                EXT_WRITE_MIDI,
+                &mut request as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1413,6 +1473,7 @@ const EXT_TEMPO_FACTOR: i32 = 2359785;
 const EXT_NATIVE_CLIP_LENGTH: i32 = 2359786;
 const EXT_PROPORTIONAL_POS_WITHIN_CLIP: i32 = 2359787;
 const EXT_RECORD: i32 = 2359788;
+const EXT_WRITE_MIDI: i32 = 2359789;
 
 #[derive(Clone, Copy)]
 pub struct StopArgs {
