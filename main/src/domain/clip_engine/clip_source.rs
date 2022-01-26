@@ -519,12 +519,6 @@ impl ClipPcmSource {
                     };
                     ResolvedPlayData { next_block_pos }
                 });
-                if s.scheduled_for_stop {
-                    self.inner
-                        .chain
-                        .looper_mut()
-                        .keep_playing_until_end_of_current_cycle(play_info.next_block_pos);
-                }
                 self.state = if let Some(end_frame) =
                     self.fill_samples(args, play_info.next_block_pos, &general_info)
                 {
@@ -958,6 +952,10 @@ impl ClipPcmSourceSkills for ClipPcmSource {
             ScheduledOrPlaying(s) => {
                 if s.scheduled_for_stop {
                     // Scheduled for stop. Backpedal!
+                    self.inner
+                        .chain
+                        .looper_mut()
+                        .set_loop_behavior(LoopBehavior::Infinitely);
                     self.state = ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
                         scheduled_for_stop: false,
                         ..s
@@ -1087,6 +1085,12 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                                 }
                                 ClipStopTime::EndOfClip => {
                                     // Schedule
+                                    self.inner
+                                        .chain
+                                        .looper_mut()
+                                        .keep_playing_until_end_of_current_cycle(
+                                            play_info.next_block_pos,
+                                        );
                                     ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
                                         scheduled_for_stop: true,
                                         ..s

@@ -77,6 +77,8 @@ impl<S: ExactFrameCount> Looper<S> {
     }
 
     pub fn keep_playing_until_end_of_current_cycle(&mut self, pos: isize) {
+        // TODO-high Scheduling for stop after 2nd cycle plays a bit
+        //  too far. Check MIDI clip, plays the downbeat!
         let last_cycle = if pos < 0 {
             0
         } else {
