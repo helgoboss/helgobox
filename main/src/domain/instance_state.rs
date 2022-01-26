@@ -297,7 +297,7 @@ impl InstanceState {
     }
 
     pub fn process_transport_change(&mut self, change: TransportChange, project: Option<Project>) {
-        let timeline = clip_timeline(project);
+        let timeline = clip_timeline(project, true);
         let moment = timeline.capture_moment();
         for slot in self.clip_slots.iter_mut() {
             slot.process_transport_change(change, moment, &timeline)
@@ -395,7 +395,7 @@ impl InstanceState {
             project,
             track,
             options,
-            clip_timeline(Some(project)).capture_moment(),
+            clip_timeline(Some(project), false).capture_moment(),
         )
     }
 
@@ -410,8 +410,10 @@ impl InstanceState {
             let task = NormalAudioHookTask::StopClipRecording;
             self.audio_hook_task_sender.send(task).unwrap();
         }
-        self.get_slot_mut(slot_index)?
-            .stop(stop_behavior, clip_timeline(Some(project)).capture_moment())
+        self.get_slot_mut(slot_index)?.stop(
+            stop_behavior,
+            clip_timeline(Some(project), false).capture_moment(),
+        )
     }
 
     pub fn record_clip(
@@ -423,7 +425,7 @@ impl InstanceState {
     ) -> Result<(), &'static str> {
         let register = self.get_slot_mut(slot_index)?.record()?;
         let task = ClipRecordTask {
-            abs_start_pos: clip_timeline(Some(project)).cursor_pos(),
+            abs_start_pos: clip_timeline(Some(project), false).cursor_pos(),
             register,
             timing,
             mode,

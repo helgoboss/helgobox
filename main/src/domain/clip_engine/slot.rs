@@ -322,7 +322,7 @@ impl ClipSlot {
     pub fn toggle_repeat(&mut self) -> ClipChangedEvent {
         let new_value = !self.clip.repeat;
         self.clip.repeat = new_value;
-        let timeline = clip_timeline(None);
+        let timeline = clip_timeline(None, false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let args = SetRepeatedArgs {
             timeline_cursor_pos,
@@ -372,7 +372,7 @@ impl ClipSlot {
 
     /// Returns the current position within the slot clip on a percentage basis.
     pub fn proportional_position(&self) -> Result<UnitValue, &'static str> {
-        let timeline = clip_timeline(None);
+        let timeline = clip_timeline(None, false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let args = PosWithinClipArgs {
             timeline_cursor_pos,
@@ -390,7 +390,7 @@ impl ClipSlot {
 
     /// Returns the current clip position in seconds.
     pub fn position_in_seconds(&self) -> Result<PositionInSeconds, &'static str> {
-        let timeline = clip_timeline(None);
+        let timeline = clip_timeline(None, false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let args = PosWithinClipArgs {
             timeline_cursor_pos,
@@ -413,7 +413,7 @@ impl ClipSlot {
         &mut self,
         desired_proportional_pos: UnitValue,
     ) -> Result<Option<ClipChangedEvent>, &'static str> {
-        let timeline = clip_timeline(None);
+        let timeline = clip_timeline(None, false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let args = SeekToArgs {
             timeline_cursor_pos,
@@ -487,10 +487,6 @@ impl State {
         match self {
             State::Empty => Ok(State::Empty),
             State::Filled(mut s) => {
-                let play_args = match s.last_play_args.clone() {
-                    None => return Ok(State::Filled(s)),
-                    Some(a) => a,
-                };
                 // Clip was started once already.
                 match change {
                     TransportChange::PlayState(new_play_state) => {
@@ -504,8 +500,11 @@ impl State {
                             Some(c) => c,
                         };
                         // We have a relevant transport change.
+                        let play_args = match s.last_play_args.clone() {
+                            None => return Ok(State::Filled(s)),
+                            Some(a) => a,
+                        };
                         let synced = play_args.options.next_bar;
-                        // Clip was started in sync with project.
                         let state = s.play_state(reg, moment.cursor_pos());
                         use ClipPlayState::*;
                         // Pausing the transport makes the complete timeline pause, so we don't need to
@@ -542,7 +541,22 @@ impl State {
                             }
                         }
                     }
-                    TransportChange::PlayCursorJump => s.play(reg, play_args, moment),
+                    TransportChange::PlayCursorJump => {
+                        let play_args = match s.last_play_args.clone() {
+                            None => return Ok(State::Filled(s)),
+                            Some(a) => a,
+                        };
+                        let synced = play_args.options.next_bar;
+                        if !synced {
+                            return Ok(State::Filled(s));
+                        }
+                        let play_state = s.play_state(reg, moment.cursor_pos());
+                        use ClipPlayState::*;
+                        if !matches!(play_state, ScheduledForPlay | Playing | ScheduledForStop) {
+                            return Ok(State::Filled(s));
+                        }
+                        s.play(reg, play_args, moment)
+                    }
                 }
             }
             State::Transitioning => unreachable!(),
@@ -747,7 +761,7 @@ impl FilledState {
                 guard.set_preview_track(args.track.as_ref().map(|t| t.raw()));
             }
             // Start clip.
-            let timeline_cursor_pos = clip_timeline_cursor_pos(Some(args.project));
+            let timeline_cursor_pos = moment.cursor_pos();
             let src = guard.src_mut().expect(NO_SOURCE_LOADED);
             let play_args = PlayArgs {
                 timeline_cursor_pos,
@@ -1037,9 +1051,7 @@ fn get_play_state(clip_state: ClipState) -> ClipPlayState {
             }
         }
         Suspending { reason, .. } => match reason {
-            SuspensionReason::Retrigger | SuspensionReason::PlayWhileSuspending { .. } => {
-                ClipPlayState::Playing
-            }
+            SuspensionReason::Retrigger { .. } => ClipPlayState::Playing,
             SuspensionReason::Pause => ClipPlayState::Paused,
             SuspensionReason::Stop => ClipPlayState::Stopped,
         },

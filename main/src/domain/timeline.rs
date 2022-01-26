@@ -354,19 +354,25 @@ pub fn global_steady_timeline() -> &'static SteadyTimeline {
 
 pub struct HybridTimeline {
     project_timeline: ReaperProjectTimeline,
+    force_project_timeline: bool,
 }
 
 impl HybridTimeline {
-    pub fn new(project: Option<Project>) -> Self {
+    pub fn new(project: Option<Project>, force_project_timeline: bool) -> Self {
         Self {
             project_timeline: ReaperProjectTimeline::new(project),
+            force_project_timeline,
         }
+    }
+
+    fn use_project_timeline(&self) -> bool {
+        self.force_project_timeline || self.project_timeline.is_playing_or_paused()
     }
 }
 
 impl Timeline for HybridTimeline {
     fn cursor_pos(&self) -> PositionInSeconds {
-        if self.project_timeline.is_playing_or_paused() {
+        if self.use_project_timeline() {
             self.project_timeline.cursor_pos()
         } else {
             global_steady_timeline().cursor_pos()
@@ -374,7 +380,7 @@ impl Timeline for HybridTimeline {
     }
 
     fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
-        if self.project_timeline.is_playing_or_paused() {
+        if self.use_project_timeline() {
             self.project_timeline.next_bar_at(timeline_pos)
         } else {
             global_steady_timeline().next_bar_at(timeline_pos)
@@ -382,7 +388,7 @@ impl Timeline for HybridTimeline {
     }
 
     fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
-        if self.project_timeline.is_playing_or_paused() {
+        if self.use_project_timeline() {
             self.project_timeline.pos_of_bar(bar)
         } else {
             global_steady_timeline().pos_of_bar(bar)
@@ -390,15 +396,23 @@ impl Timeline for HybridTimeline {
     }
 
     fn is_running(&self) -> bool {
-        self.project_timeline.is_running()
+        if self.use_project_timeline() {
+            self.project_timeline.is_running()
+        } else {
+            global_steady_timeline().is_running()
+        }
     }
 
     fn follows_reaper_transport(&self) -> bool {
-        self.project_timeline.is_playing_or_paused()
+        if self.use_project_timeline() {
+            self.project_timeline.follows_reaper_transport()
+        } else {
+            global_steady_timeline().follows_reaper_transport()
+        }
     }
 
     fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm {
-        if self.project_timeline.is_playing_or_paused() {
+        if self.use_project_timeline() {
             self.project_timeline.tempo_at(timeline_pos)
         } else {
             global_steady_timeline().tempo_at(timeline_pos)

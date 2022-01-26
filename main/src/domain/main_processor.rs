@@ -667,7 +667,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         //  We should introduce a set that contains the currently filled or playing slot numbers
         //  iterate over them only instead of all slots.
         let mut instance_state = self.basics.instance_state.borrow_mut();
-        let timeline = clip_timeline(self.basics.context.project());
+        let timeline = clip_timeline(self.basics.context.project(), false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         for i in 0..CLIP_SLOT_COUNT {

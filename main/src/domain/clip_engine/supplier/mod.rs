@@ -358,7 +358,7 @@ fn print_distance_from_beat_start_at(
         request.general_info().output_frame_rate,
     );
     let ref_pos = request.general_info().audio_block_timeline_cursor_pos + offset_in_timeline_secs;
-    let timeline = clip_timeline(None);
+    let timeline = clip_timeline(None, false);
     let next_bar = timeline.next_bar_at(ref_pos);
     struct BarInfo {
         bar: i32,

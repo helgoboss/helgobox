@@ -141,18 +141,11 @@ pub struct ScheduledOrPlayingState {
 pub enum SuspensionReason {
     /// Play was suspended for initiating a retriggering, so the next state will be  
     /// [`ClipState::ScheduledOrPlaying`] again.
-    Retrigger,
+    Retrigger { scheduled_for_bar: Option<i32> },
     /// Play was suspended for initiating a pause, so the next state will be [`ClipState::Paused`].
     Pause,
     /// Play was suspended for initiating a stop, so the next state will be [`ClipState::Stopped`].
     Stop,
-    /// The clip might receive a play request when it's currently about to suspend due to pause,
-    /// stop or retrigger. In this case it's important not to ignore the request because it can be
-    /// annoying to have unfulfilled play requests. However, skipping the suspension and going
-    /// straight to a playing state is not a good idea. We might get hanging notes. So we
-    /// keep suspending but change the reason and thereby the next state (which will be
-    /// [`ClipState::ScheduledOrPlaying`]).
-    PlayWhileSuspending { scheduled_for_bar: Option<i32> },
 }
 
 #[derive(Clone, Copy)]
@@ -272,11 +265,6 @@ impl ClipPcmSource {
             },
             ..Default::default()
         });
-    }
-
-    /// Returns the parent timeline.
-    fn timeline(&self) -> impl Timeline {
-        clip_timeline(self.project)
     }
 
     fn get_samples_internal(&mut self, args: &mut GetSamplesArgs, timeline: impl Timeline) {
@@ -548,12 +536,12 @@ impl ClipPcmSource {
         play_info: ResolvedPlayData,
     ) -> ClipState {
         match reason {
-            SuspensionReason::Retrigger => ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
-                play_instruction: PlayInstruction {
-                    scheduled_for_bar: None,
-                },
-                ..Default::default()
-            }),
+            SuspensionReason::Retrigger { scheduled_for_bar } => {
+                ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
+                    play_instruction: PlayInstruction { scheduled_for_bar },
+                    ..Default::default()
+                })
+            }
             SuspensionReason::Pause => {
                 self.inner.chain.looper_mut().reset();
                 ClipState::Paused {
@@ -569,12 +557,6 @@ impl ClipPcmSource {
             SuspensionReason::Stop => {
                 self.inner.chain.reset();
                 ClipState::Stopped
-            }
-            SuspensionReason::PlayWhileSuspending { scheduled_for_bar } => {
-                ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
-                    play_instruction: PlayInstruction { scheduled_for_bar },
-                    ..Default::default()
-                })
             }
         }
     }
@@ -753,7 +735,7 @@ impl CustomPcmSource for ClipPcmSource {
                 args.block.set_samples_out(args.block.length());
             }
             // Get main timeline info
-            let timeline = self.timeline();
+            let timeline = clip_timeline(self.project, false);
             if !timeline.is_running() {
                 // Main timeline is paused. Don't play, we don't want to play the same buffer
                 // repeatedly!
@@ -965,7 +947,12 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                     if let Some(play_info) = s.resolved_play_data {
                         if play_info.has_started_already() {
                             // Already playing. Retrigger!
-                            self.schedule_play_internal(args);
+                            self.state = ClipState::Suspending {
+                                reason: SuspensionReason::Retrigger {
+                                    scheduled_for_bar: args.scheduled_for_bar,
+                                },
+                                play_info,
+                            };
                         } else {
                             // Not yet playing. Reschedule!
                             self.schedule_play_internal(args);
@@ -982,7 +969,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                 // forgetting that clip ... the next time the transport is stopped and started,
                 // that clip won't play again.
                 self.state = ClipState::Suspending {
-                    reason: SuspensionReason::PlayWhileSuspending {
+                    reason: SuspensionReason::Retrigger {
                         scheduled_for_bar: args.scheduled_for_bar,
                     },
                     play_info,

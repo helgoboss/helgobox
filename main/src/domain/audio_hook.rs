@@ -239,7 +239,7 @@ impl RealearnAudioHook {
             None => return,
             Some(t) => t,
         };
-        let timeline = clip_timeline(Some(record_task.project));
+        let timeline = clip_timeline(Some(record_task.project), false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         let rel_start_pos = timeline_cursor_pos - record_task.abs_start_pos;
