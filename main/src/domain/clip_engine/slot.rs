@@ -375,7 +375,6 @@ impl ClipSlot {
         let timeline = clip_timeline(None, false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let args = PosWithinClipArgs {
-            timeline_cursor_pos,
             timeline_tempo: timeline.tempo_at(timeline_cursor_pos),
         };
         let guard = lock(&self.register);
@@ -393,7 +392,6 @@ impl ClipSlot {
         let timeline = clip_timeline(None, false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let args = PosWithinClipArgs {
-            timeline_cursor_pos,
             timeline_tempo: timeline.tempo_at(timeline_cursor_pos),
         };
         let guard = lock(&self.register);
@@ -889,10 +887,7 @@ impl FilledState {
         // At first collect some up-to-date clip source state.
         // TODO-high We should optimize this by getting everything at once.
         let (clip_state, play_state, pos_within_clip) = {
-            let args = PosWithinClipArgs {
-                timeline_cursor_pos,
-                timeline_tempo,
-            };
+            let args = PosWithinClipArgs { timeline_tempo };
             // React gracefully even in weird situations (because we are in poll).
             let guard = match reg.lock() {
                 Ok(g) => g,

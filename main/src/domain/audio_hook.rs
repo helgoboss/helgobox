@@ -233,9 +233,21 @@ impl RealearnAudioHook {
         }
     }
 
+    fn clear_clip_record_task_if_project_not_available_anymore(&mut self) {
+        if !self
+            .clip_record_task
+            .as_ref()
+            .map(|t| t.project.is_available())
+            .unwrap_or(true)
+        {
+            self.clip_record_task = None;
+        }
+    }
+
     fn process_clip_record_tasks(&mut self, args: &OnAudioBufferArgs) {
+        self.clear_clip_record_task_if_project_not_available_anymore();
         // TODO-high This still needs a lot of refinement but the proof of concept works nicely.
-        let record_task = match &self.clip_record_task {
+        let record_task = match &mut self.clip_record_task {
             None => return,
             Some(t) => t,
         };
@@ -257,15 +269,8 @@ impl RealearnAudioHook {
                 let mut guard = record_task.register.lock().expect("couldn't acquire lock");
                 let src = guard.src_mut().expect("no source to record on");
                 unsafe {
-                    let pos_within_clip = src
-                        .as_ref()
-                        .pos_within_clip(PosWithinClipArgs {
-                            timeline_cursor_pos,
-                            timeline_tempo,
-                        })
-                        .unwrap_or_default();
                     let req = WriteMidiRequest {
-                        pos_within_clip,
+                        timeline_tempo,
                         input_sample_rate: args.srate,
                         block_length: args.len as _,
                         events: event_list,

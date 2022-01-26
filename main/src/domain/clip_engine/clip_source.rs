@@ -942,7 +942,7 @@ pub trait ClipPcmSourceSkills {
 
 #[derive(Copy, Clone)]
 pub struct WriteMidiRequest<'a> {
-    pub pos_within_clip: PositionInSeconds,
+    pub timeline_tempo: Bpm,
     pub input_sample_rate: Hz,
     pub block_length: usize,
     pub events: &'a BorrowedMidiEventList,
@@ -1220,10 +1220,13 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn write_midi(&mut self, request: WriteMidiRequest) {
+        let pos_within_clip = self
+            .pos_within_clip(PosWithinClipArgs {
+                timeline_tempo: request.timeline_tempo,
+            })
+            .unwrap_or_default();
         let mut write_struct = midi_realtime_write_struct_t {
-            // TODO-medium The following values work for arbitrary REAPER tempos, but
-            //  not sure if they work for custom tempo factors.
-            global_time: request.pos_within_clip.get(),
+            global_time: pos_within_clip.get(),
             srate: request.input_sample_rate.get(),
             item_playrate: 1.0,
             global_item_time: 0.0,
@@ -1498,7 +1501,6 @@ pub struct SetRepeatedArgs {
 
 #[derive(Clone, Copy)]
 pub struct PosWithinClipArgs {
-    pub timeline_cursor_pos: PositionInSeconds,
     pub timeline_tempo: Bpm,
 }
 
