@@ -2212,6 +2212,7 @@ impl Session {
             midi_feedback_output: self.midi_feedback_output.get(),
             input_logging_enabled: self.input_logging_enabled.get(),
             output_logging_enabled: self.output_logging_enabled.get(),
+            project: self.context.project(),
         };
         self.normal_real_time_task_sender.send(task).unwrap();
     }

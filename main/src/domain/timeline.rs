@@ -46,7 +46,6 @@ impl TimelineMoment {
 /// - The cursor position (seconds) moves forward in real-time and independent from the current
 ///   tempo.
 /// - If the project is paused, all positions freeze.
-///   tempo, no matter if the project is playing or not.
 /// - The cursor position is reset whenever the user relocates the cursor in the project.
 ///     - This is okay for clip playing when the project is playing because in that case we want
 ///       to interrupt the clips and re-align to the changed situation.

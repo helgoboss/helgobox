@@ -1,4 +1,6 @@
-use crate::domain::clip_engine::{clip_timeline, clip_timeline_cursor_pos, ClipChangedEvent};
+use crate::domain::clip_engine::{
+    clip_timeline, clip_timeline_cursor_pos, ClipChangedEvent, TransportChange,
+};
 use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
     CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
@@ -1264,6 +1266,13 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         format_midi_source_value(&value),
                     );
                 }
+                PlayJumpDetected => {
+                    let mut instance_state = self.basics.instance_state.borrow_mut();
+                    instance_state.process_transport_change(
+                        TransportChange::PlayCursorJump,
+                        self.basics.context.project(),
+                    );
+                }
             }
         }
     }
@@ -1428,7 +1437,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     return;
                 }
             }
-            instance_state.process_transport_change(e.new_value, project);
+            instance_state
+                .process_transport_change(TransportChange::PlayState(e.new_value), project);
         }
         self.process_feedback_related_reaper_event(|mapping, target| {
             mapping.process_change_event(
@@ -2343,6 +2353,7 @@ pub enum NormalRealTimeToMainThreadTask {
     LogLifecycleOutput {
         value: MidiSourceValue<'static, RawShortMessage>,
     },
+    PlayJumpDetected,
 }
 
 /// A parameter-related task (which is potentially sent very frequently, just think of automation).

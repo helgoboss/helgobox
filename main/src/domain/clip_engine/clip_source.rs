@@ -965,10 +965,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                     if let Some(play_info) = s.resolved_play_data {
                         if play_info.has_started_already() {
                             // Already playing. Retrigger!
-                            self.state = ClipState::Suspending {
-                                reason: SuspensionReason::Retrigger,
-                                play_info,
-                            };
+                            self.schedule_play_internal(args);
                         } else {
                             // Not yet playing. Reschedule!
                             self.schedule_play_internal(args);

@@ -13,8 +13,11 @@ use helgoboss_midi::{
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
     ShortMessageFactory, ShortMessageType,
 };
-use reaper_high::{MidiOutputDevice, Reaper};
-use reaper_medium::{Hz, MidiInputDeviceId, MidiOutputDeviceId, SendMidiTime};
+use reaper_high::{MidiOutputDevice, Project, Reaper};
+use reaper_medium::{
+    Hz, MidiInputDeviceId, MidiOutputDeviceId, PositionInSeconds, ProjectContext, ReaperPointer,
+    SendMidiTime,
+};
 use slog::{debug, trace};
 
 use crate::base::Global;
@@ -34,6 +37,7 @@ const FEEDBACK_BULK_SIZE: usize = 100;
 pub struct RealTimeProcessor {
     instance_id: InstanceId,
     logger: slog::Logger,
+    play_position_jump_detector: PlayPositionJumpDetector,
     // Synced processing settings
     control_mode: ControlMode,
     midi_control_input: MidiControlInput,
@@ -63,6 +67,51 @@ pub struct RealTimeProcessor {
     output_logging_enabled: bool,
 }
 
+/// Detects play position discontinuity while the project is playing, ignoring tempo changes.
+#[derive(Debug)]
+struct PlayPositionJumpDetector {
+    project_context: ProjectContext,
+    previous_beat: Option<isize>,
+}
+
+impl PlayPositionJumpDetector {
+    pub fn new(project: Option<Project>) -> Self {
+        Self {
+            project_context: project
+                .map(|p| p.context())
+                .unwrap_or(ProjectContext::CurrentProject),
+            previous_beat: None,
+        }
+    }
+
+    /// Returns `true` if a jump has been detected.
+    ///
+    /// To be called in each audio block.
+    pub fn detect_play_jump(&mut self) -> bool {
+        let reaper = Reaper::get().medium_reaper();
+        if let ProjectContext::Proj(p) = self.project_context {
+            if !reaper.validate_ptr(ReaperPointer::ReaProject(p)) {
+                // Project doesn't exist anymore. Happens when closing it.
+                return false;
+            }
+        }
+        let play_state = reaper.get_play_state_ex(self.project_context);
+        if !play_state.is_playing {
+            return false;
+        }
+        let play_pos = reaper.get_play_position_2_ex(self.project_context);
+        let res = reaper.time_map_2_time_to_beats(self.project_context, play_pos);
+        let beat = res.full_beats.get() as isize;
+        if let Some(previous_beat) = self.previous_beat.replace(beat) {
+            let beat_diff = beat - previous_beat;
+            beat_diff < 0 || beat_diff > 1
+        } else {
+            // Don't count initial change as jump.
+            false
+        }
+    }
+}
+
 impl RealTimeProcessor {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -79,6 +128,7 @@ impl RealTimeProcessor {
         RealTimeProcessor {
             instance_id,
             logger: parent_logger.new(slog::o!("struct" => "RealTimeProcessor")),
+            play_position_jump_detector: PlayPositionJumpDetector::new(None),
             control_mode: ControlMode::Controlling,
             normal_task_receiver,
             feedback_task_receiver,
@@ -205,13 +255,19 @@ impl RealTimeProcessor {
     /// downtime of the audio device. It could also be just a downtime related to opening the
     /// project itself, which we detect to some degree. See the code that reacts to this parameter.
     pub fn run_from_audio_hook_essential(&mut self, sample_count: usize, might_be_rebirth: bool) {
+        // Detect change of next audio block position
+        if self.play_position_jump_detector.detect_play_jump() {
+            self.normal_main_task_sender
+                .try_send(NormalRealTimeToMainThreadTask::PlayJumpDetected)
+                .unwrap()
+        }
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
             .increase_sample_counter_by(sample_count as u64);
-        // Process occasional tasks sent from other thread (probably main thread)
         if might_be_rebirth {
             self.request_full_sync_and_discard_tasks_if_successful();
         }
+        // Process occasional tasks sent from other thread (probably main thread)
         let normal_task_count = self.normal_task_receiver.len();
         for task in self.normal_task_receiver.try_iter().take(NORMAL_BULK_SIZE) {
             use NormalRealTimeTask::*;
@@ -354,6 +410,7 @@ impl RealTimeProcessor {
                     midi_feedback_output,
                     input_logging_enabled,
                     output_logging_enabled,
+                    project,
                 } => {
                     permit_alloc(|| {
                         debug!(self.logger, "Updating settings...");
@@ -371,6 +428,7 @@ impl RealTimeProcessor {
                     self.midi_feedback_output = midi_feedback_output;
                     self.input_logging_enabled = input_logging_enabled;
                     self.output_logging_enabled = output_logging_enabled;
+                    self.play_position_jump_detector = PlayPositionJumpDetector::new(project);
                     // Handle activation
                     if self.processor_feedback_is_effectively_on() && feedback_output_changing {
                         self.send_lifecycle_midi_for_all_mappings(LifecyclePhase::Activation);
@@ -1223,6 +1281,7 @@ pub enum NormalRealTimeTask {
         midi_feedback_output: Option<MidiDestination>,
         input_logging_enabled: bool,
         output_logging_enabled: bool,
+        project: Option<Project>,
     },
     /// This takes care of propagating target activation states (for non-virtual mappings).
     UpdateTargetActivations(MappingCompartment, Vec<ActivationChange>),

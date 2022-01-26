@@ -21,6 +21,8 @@ mod supplier;
 pub use supplier::*;
 
 /// Delivers the timeline to be used for clips.
+// TODO-high Introduce flag for enforcing the project timeline (for not running into surprises
+//  e.g. at transport stop and start).
 pub fn clip_timeline(project: Option<Project>) -> impl Timeline {
     HybridTimeline::new(project)
 }

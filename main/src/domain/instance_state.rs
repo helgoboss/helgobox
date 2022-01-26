@@ -16,7 +16,7 @@ use rx_util::Notifier;
 use crate::base::{AsyncNotifier, Prop};
 use crate::domain::clip_engine::{
     clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipPlayState, ClipRecordMode,
-    ClipRecordTiming, ClipSlot, SlotPlayOptions, SlotStopBehavior,
+    ClipRecordTiming, ClipSlot, SlotPlayOptions, SlotStopBehavior, TransportChange,
 };
 use crate::domain::clip_engine::{keep_stretching, StretchWorkerRequest};
 use crate::domain::{
@@ -296,23 +296,12 @@ impl InstanceState {
             .filter(move |id| self.mapping_is_on(QualifiedMappingId::new(compartment, *id)))
     }
 
-    pub fn process_transport_change(
-        &mut self,
-        new_play_state: PlayState,
-        project: Option<Project>,
-    ) {
+    pub fn process_transport_change(&mut self, change: TransportChange, project: Option<Project>) {
         let timeline = clip_timeline(project);
         let moment = timeline.capture_moment();
-        for (slot_index, slot) in self.clip_slots.iter_mut().enumerate() {
-            if let Some(event) = slot
-                .process_transport_change(new_play_state, moment, &timeline)
-                .unwrap()
-            {
-                let instance_event = InstanceStateChanged::Clip { slot_index, event };
-                self.instance_feedback_event_sender
-                    .try_send(instance_event)
-                    .unwrap();
-            }
+        for slot in self.clip_slots.iter_mut() {
+            slot.process_transport_change(change, moment, &timeline)
+                .unwrap();
         }
     }
 
