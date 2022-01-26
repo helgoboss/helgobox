@@ -344,7 +344,7 @@ impl ClipPcmSource {
                     {
                         // Basics
                         let block_length_in_timeline_frames = args.block.length() as usize;
-                        let source_frame_rate = self.inner.chain.source().frame_rate();
+                        let source_frame_rate = self.inner.chain.reaper_source().frame_rate();
                         let timeline_frame_rate = args.block.sample_rate();
                         // Essential calculation
                         let start_bar_timeline_pos = timeline.pos_of_bar(start_bar);
@@ -372,12 +372,12 @@ impl ClipPcmSource {
                                     source_frame_rate,
                                 );
                             // Source cycle length
-                            let source_cycle_length_in_secs = self.inner.chain.source().duration();
+                            let source_cycle_length_in_secs = self.inner.chain.reaper_source().duration();
                             let source_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
                                 source_cycle_length_in_secs,
                                 timeline_frame_rate
                             );
-                            let source_cycle_length_in_source_frames = self.inner.chain.source().frame_count();
+                            let source_cycle_length_in_source_frames = self.inner.chain.reaper_source().frame_count();
                             // Block length
                             let block_length_in_timeline_frames = args.block.length() as usize;
                             let block_length_in_secs = convert_duration_in_frames_to_seconds(
@@ -462,7 +462,7 @@ impl ClipPcmSource {
                         }
                         let rel_pos_from_bar_in_source_frames = convert_position_in_seconds_to_frames(
                             rel_pos_from_bar_in_secs,
-                            self.inner.chain.source().frame_rate(),
+                            self.inner.chain.reaper_source().frame_rate(),
                         );
                         // Now we have a countdown/position in source frames, but it doesn't yet
                         // take the tempo adjustment of the source into account. 
@@ -562,7 +562,7 @@ impl ClipPcmSource {
     }
 
     fn modulo_frame(&self, frame: usize) -> usize {
-        frame % self.inner.chain.source().frame_count()
+        frame % self.inner.chain.reaper_source().frame_count()
     }
 
     fn fill_samples(
@@ -654,43 +654,49 @@ impl ClipPcmSource {
 impl CustomPcmSource for ClipPcmSource {
     fn duplicate(&mut self) -> Option<OwnedPcmSource> {
         // Not correct but probably never used.
-        self.inner.chain.source().duplicate()
+        self.inner.chain.reaper_source().duplicate()
     }
 
     fn is_available(&mut self) -> bool {
-        self.inner.chain.source().is_available()
+        self.inner.chain.reaper_source().is_available()
     }
 
     fn set_available(&mut self, args: SetAvailableArgs) {
-        self.inner.chain.source().set_available(args.is_available);
+        self.inner
+            .chain
+            .reaper_source()
+            .set_available(args.is_available);
     }
 
     fn get_type(&mut self) -> &ReaperStr {
-        unsafe { self.inner.chain.source().get_type_unchecked() }
+        unsafe { self.inner.chain.reaper_source().get_type_unchecked() }
     }
 
     fn get_file_name(&mut self) -> Option<&ReaperStr> {
-        unsafe { self.inner.chain.source().get_file_name_unchecked() }
+        unsafe { self.inner.chain.reaper_source().get_file_name_unchecked() }
     }
 
     fn set_file_name(&mut self, args: SetFileNameArgs) -> bool {
-        self.inner.chain.source().set_file_name(args.new_file_name)
+        self.inner
+            .chain
+            .reaper_source()
+            .set_file_name(args.new_file_name)
     }
 
     fn get_source(&mut self) -> Option<PcmSource> {
-        self.inner.chain.source().get_source()
+        self.inner.chain.reaper_source().get_source()
     }
 
     fn set_source(&mut self, args: SetSourceArgs) {
-        self.inner.chain.source().set_source(args.source);
+        self.inner.chain.reaper_source().set_source(args.source);
     }
 
     fn get_num_channels(&mut self) -> Option<u32> {
-        self.inner.chain.source().get_num_channels()
+        self.inner.chain.reaper_source().get_num_channels()
     }
 
     fn get_sample_rate(&mut self) -> Option<Hz> {
-        self.inner.chain.source().get_sample_rate()
+        self.inner.chain.reaper_source().get_sample_rate()
     }
 
     fn get_length(&mut self) -> DurationInSeconds {
@@ -699,23 +705,23 @@ impl CustomPcmSource for ClipPcmSource {
     }
 
     fn get_length_beats(&mut self) -> Option<DurationInBeats> {
-        let _ = self.inner.chain.source().get_length_beats()?;
+        let _ = self.inner.chain.reaper_source().get_length_beats()?;
         Some(DurationInBeats::MAX)
     }
 
     fn get_bits_per_sample(&mut self) -> u32 {
-        self.inner.chain.source().get_bits_per_sample()
+        self.inner.chain.reaper_source().get_bits_per_sample()
     }
 
     fn get_preferred_position(&mut self) -> Option<PositionInSeconds> {
-        self.inner.chain.source().get_preferred_position()
+        self.inner.chain.reaper_source().get_preferred_position()
     }
 
     fn properties_window(&mut self, args: PropertiesWindowArgs) -> i32 {
         unsafe {
             self.inner
                 .chain
-                .source()
+                .reaper_source()
                 .properties_window(args.parent_window)
         }
     }
@@ -750,13 +756,13 @@ impl CustomPcmSource for ClipPcmSource {
 
     fn get_peak_info(&mut self, args: GetPeakInfoArgs) {
         unsafe {
-            self.inner.chain.source().get_peak_info(args.block);
+            self.inner.chain.reaper_source().get_peak_info(args.block);
         }
     }
 
     fn save_state(&mut self, args: SaveStateArgs) {
         unsafe {
-            self.inner.chain.source().save_state(args.context);
+            self.inner.chain.reaper_source().save_state(args.context);
         }
     }
 
@@ -764,25 +770,28 @@ impl CustomPcmSource for ClipPcmSource {
         unsafe {
             self.inner
                 .chain
-                .source()
+                .reaper_source()
                 .load_state(args.first_line, args.context)
         }
     }
 
     fn peaks_clear(&mut self, args: PeaksClearArgs) {
-        self.inner.chain.source().peaks_clear(args.delete_file);
+        self.inner
+            .chain
+            .reaper_source()
+            .peaks_clear(args.delete_file);
     }
 
     fn peaks_build_begin(&mut self) -> bool {
-        self.inner.chain.source().peaks_build_begin()
+        self.inner.chain.reaper_source().peaks_build_begin()
     }
 
     fn peaks_build_run(&mut self) -> bool {
-        self.inner.chain.source().peaks_build_run()
+        self.inner.chain.reaper_source().peaks_build_run()
     }
 
     fn peaks_build_finish(&mut self) {
-        self.inner.chain.source().peaks_build_finish();
+        self.inner.chain.reaper_source().peaks_build_finish();
     }
 
     unsafe fn extended(&mut self, args: ExtendedArgs) -> i32 {
@@ -850,12 +859,12 @@ impl CustomPcmSource for ClipPcmSource {
                 self.set_repeated(inner_args);
                 1
             }
-            _ => {
-                self.inner
-                    .chain
-                    .source()
-                    .extended(args.call, args.parm_1, args.parm_2, args.parm_3)
-            }
+            _ => self.inner.chain.reaper_source().extended(
+                args.call,
+                args.parm_1,
+                args.parm_2,
+                args.parm_3,
+            ),
         }
     }
 }
@@ -1107,7 +1116,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn seek_to(&mut self, args: SeekToArgs) {
-        let frame_count = self.inner.chain.source().frame_count();
+        let frame_count = self.inner.chain.reaper_source().frame_count();
         let desired_frame =
             adjust_proportionally_positive(frame_count as f64, args.desired_pos.get());
         use ClipState::*;
@@ -1139,7 +1148,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn native_clip_length(&self) -> DurationInSeconds {
-        self.inner.chain.source().duration()
+        self.inner.chain.reaper_source().duration()
     }
 
     fn set_tempo_factor(&mut self, tempo_factor: f64) {
@@ -1177,7 +1186,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         if frame_within_clip < 0 {
             None
         } else {
-            let frame_count = self.inner.chain.source().frame_count();
+            let frame_count = self.inner.chain.reaper_source().frame_count();
             if frame_count == 0 {
                 Some(UnitValue::MIN)
             } else {

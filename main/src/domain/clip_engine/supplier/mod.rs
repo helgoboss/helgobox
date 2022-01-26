@@ -1,8 +1,8 @@
 use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds};
 use std::cmp;
 
-mod source;
-pub use source::*;
+mod reaper_source;
+pub use reaper_source::*;
 
 mod cache;
 use crate::domain::clip_engine::buffer::AudioBufMut;
@@ -10,6 +10,9 @@ pub use cache::*;
 
 mod looper;
 pub use looper::*;
+
+mod flexible_source;
+pub use flexible_source::*;
 
 pub mod stretcher;
 pub use stretcher::*;

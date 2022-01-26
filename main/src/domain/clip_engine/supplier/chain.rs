@@ -1,23 +1,25 @@
 use crate::domain::clip_engine::supplier::time_stretching::SeriousTimeStretcher;
 use crate::domain::clip_engine::supplier::{Looper, Stretcher, Suspender};
-use crate::domain::clip_engine::StretchAudioMode;
+use crate::domain::clip_engine::{FlexibleSource, StretchAudioMode};
 use reaper_medium::OwnedPcmSource;
 
 type Head = SuspenderTail;
 type SuspenderTail = Suspender<StretcherTail>;
 type StretcherTail = Stretcher<LooperTail>;
-type LooperTail = Looper<SourceTail>;
-type SourceTail = OwnedPcmSource;
+type LooperTail = Looper<FlexibleSourceTail>;
+type FlexibleSourceTail = FlexibleSource<ReaperSourceTail>;
+type ReaperSourceTail = OwnedPcmSource;
 
 pub struct ClipSupplierChain {
     head: Head,
 }
 
 impl ClipSupplierChain {
-    pub fn new(source: OwnedPcmSource) -> Self {
+    pub fn new(reaper_source: OwnedPcmSource) -> Self {
         Self {
             head: {
-                let mut looper = Looper::new(source);
+                let mut flexible_source = FlexibleSource::new(reaper_source);
+                let mut looper = Looper::new(flexible_source);
                 let mut stretcher = Stretcher::new(looper);
                 Suspender::new(stretcher)
             },
@@ -62,11 +64,19 @@ impl ClipSupplierChain {
         self.stretcher_mut().supplier_mut()
     }
 
-    pub fn source(&self) -> &SourceTail {
+    pub fn flexible_source(&self) -> &FlexibleSourceTail {
         self.looper().supplier()
     }
 
-    pub fn source_mut(&mut self) -> &mut SourceTail {
+    pub fn flexible_source_mut(&mut self) -> &mut FlexibleSourceTail {
         self.looper_mut().supplier_mut()
+    }
+
+    pub fn reaper_source(&self) -> &ReaperSourceTail {
+        self.flexible_source().supplier()
+    }
+
+    pub fn reaper_source_mut(&mut self) -> &mut ReaperSourceTail {
+        self.flexible_source_mut().supplier_mut()
     }
 }
