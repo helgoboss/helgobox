@@ -16,6 +16,7 @@ mod clip_source;
 mod source_util;
 
 mod buffer;
+pub use buffer::*;
 
 mod supplier;
 pub use supplier::*;

@@ -144,7 +144,7 @@ impl RealearnTarget for ClipTransportTarget {
                     instance_state.record_clip(
                         self.slot_index,
                         ClipRecordTiming::StartImmediatelyStopOnDemand,
-                        ClipRecordMode::MidiOverdub,
+                        None,
                         self.project,
                     );
                 } else {
@@ -154,7 +154,6 @@ impl RealearnTarget for ClipTransportTarget {
                         self.project,
                     );
                 }
-                return Err("not supported at the moment");
             }
             Repeat => {
                 instance_state.toggle_repeat(self.slot_index)?;

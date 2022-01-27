@@ -1,6 +1,6 @@
 use crate::domain::clip_engine::{
-    clip_timeline, ClipPcmSourceSkills, ClipRecordMode, ClipRecordTiming, PosWithinClipArgs,
-    SharedRegister, WriteMidiRequest,
+    clip_timeline, AudioBuf, ClipPcmSourceSkills, ClipRecordMode, ClipRecordTiming,
+    PosWithinClipArgs, SharedRegister, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::domain::{
     classify_midi_message, global_steady_timeline, Event, Garbage, GarbageBin, IncomingMidiMessage,
@@ -17,6 +17,7 @@ use reaper_medium::{
     OnAudioBufferArgs, PositionInBeats, PositionInSeconds, ProjectContext, SendMidiTime,
 };
 use smallvec::SmallVec;
+use std::os::raw::c_int;
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -74,10 +75,10 @@ pub struct RealearnAudioHook {
 
 #[derive(Debug)]
 pub struct ClipRecordTask {
+    // TODO-high This should be an optional beat number.
     pub abs_start_pos: PositionInSeconds,
     pub register: SharedRegister,
     pub timing: ClipRecordTiming,
-    pub mode: ClipRecordMode,
     pub project: Project,
 }
 
@@ -251,33 +252,64 @@ impl RealearnAudioHook {
             None => return,
             Some(t) => t,
         };
+        let mut guard = record_task.register.lock().expect("couldn't acquire lock");
+        let src = guard.src_mut().expect("no source to record on");
+        let mode = match src.as_ref().clip_record_mode() {
+            None => return,
+            Some(m) => m,
+        };
         let timeline = clip_timeline(Some(record_task.project), false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         let rel_start_pos = timeline_cursor_pos - record_task.abs_start_pos;
-        for dev_id in 0..MidiInputDeviceId::MAX_DEVICE_COUNT {
-            let dev_id = MidiInputDeviceId::new(dev_id);
-            MidiInputDevice::new(dev_id).with_midi_input(|mi| {
-                let mi = match mi {
+        match mode {
+            ClipRecordMode::MidiOverdub => {
+                for dev_id in 0..MidiInputDeviceId::MAX_DEVICE_COUNT {
+                    let dev_id = MidiInputDeviceId::new(dev_id);
+                    MidiInputDevice::new(dev_id).with_midi_input(|mi| {
+                        let mi = match mi {
+                            None => return,
+                            Some(m) => m,
+                        };
+                        let event_list = mi.get_read_buf();
+                        if event_list.get_size() == 0 {
+                            return;
+                        }
+                        unsafe {
+                            let req = WriteMidiRequest {
+                                timeline_tempo,
+                                input_sample_rate: args.srate,
+                                block_length: args.len as _,
+                                events: event_list,
+                            };
+                            src.as_mut().write_midi(req);
+                        }
+                    });
+                }
+            }
+            ClipRecordMode::Audio => unsafe {
+                let reg = args.reg.get().as_ref();
+                let get_buffer = match reg.GetBuffer {
                     None => return,
-                    Some(m) => m,
+                    Some(f) => f,
                 };
-                let event_list = mi.get_read_buf();
-                if event_list.get_size() == 0 {
+                let input_channel_count = args.reg.input_nch();
+                // TODO-high Support particular channels, mono and multi-channel
+                let left_buffer = (get_buffer)(false, 6);
+                let right_buffer = (get_buffer)(false, 7);
+                if left_buffer.is_null() || right_buffer.is_null() {
                     return;
                 }
-                let mut guard = record_task.register.lock().expect("couldn't acquire lock");
-                let src = guard.src_mut().expect("no source to record on");
-                unsafe {
-                    let req = WriteMidiRequest {
-                        timeline_tempo,
-                        input_sample_rate: args.srate,
-                        block_length: args.len as _,
-                        events: event_list,
-                    };
-                    src.as_mut().write_midi(req);
-                }
-            });
+                let left_buffer = AudioBuf::from_raw(left_buffer, 1, args.len as _);
+                let right_buffer = AudioBuf::from_raw(right_buffer, 1, args.len as _);
+                let req = WriteAudioRequest {
+                    input_sample_rate: args.srate,
+                    block_length: args.len as _,
+                    left_buffer,
+                    right_buffer,
+                };
+                src.as_mut().write_audio(req);
+            },
         }
     }
 

@@ -420,7 +420,7 @@ impl InstanceState {
         &mut self,
         slot_index: usize,
         timing: ClipRecordTiming,
-        mode: ClipRecordMode,
+        enforce_mode: Option<ClipRecordMode>,
         project: Project,
     ) -> Result<(), &'static str> {
         let register = self.get_slot_mut(slot_index)?.record()?;
@@ -428,7 +428,6 @@ impl InstanceState {
             abs_start_pos: clip_timeline(Some(project), false).cursor_pos(),
             register,
             timing,
-            mode,
             project,
         };
         self.audio_hook_task_sender

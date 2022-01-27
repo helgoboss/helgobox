@@ -140,7 +140,7 @@ fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> SupplyResp
         req.dest_buffer.frame_count(),
     );
     buf.slice(req.start_frame..)
-        .copy_to(req.dest_buffer.slice_mut(0..num_frames_written));
+        .copy_to(&mut req.dest_buffer.slice_mut(0..num_frames_written));
     let next_frame = req.start_frame + num_frames_written;
     SupplyResponse {
         num_frames_written,

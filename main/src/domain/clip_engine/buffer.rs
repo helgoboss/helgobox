@@ -23,16 +23,16 @@ impl OwnedAudioBuffer {
     pub fn to_buf(&self) -> AudioBuf {
         AudioBuf {
             data: self.data.as_slice(),
-            frame_count: 0,
-            channel_count: 0,
+            frame_count: self.frame_count,
+            channel_count: self.channel_count,
         }
     }
 
     pub fn to_buf_mut(&mut self) -> AudioBufMut {
         AudioBufMut {
             data: self.data.as_mut_slice(),
-            frame_count: 0,
-            channel_count: 0,
+            frame_count: self.frame_count,
+            channel_count: self.channel_count,
         }
     }
 
@@ -74,6 +74,16 @@ pub struct AbstractAudioBuf<T: AsRef<[f64]>> {
 pub type AudioBuf<'a> = AbstractAudioBuf<&'a [f64]>;
 pub type AudioBufMut<'a> = AbstractAudioBuf<&'a mut [f64]>;
 
+impl<'a> AudioBuf<'a> {
+    pub unsafe fn from_raw(data: *mut f64, channel_count: usize, frame_count: usize) -> Self {
+        AudioBuf {
+            data: unsafe { std::slice::from_raw_parts(data, (channel_count * frame_count) as _) },
+            frame_count,
+            channel_count,
+        }
+    }
+}
+
 impl<'a> AudioBufMut<'a> {
     pub unsafe fn from_transfer(transfer: &PcmSourceTransfer) -> Self {
         Self::from_raw(
@@ -99,14 +109,13 @@ impl<T: AsRef<[f64]>> AbstractAudioBuf<T> {
         self.channel_count * self.channel_count
     }
 
-    /// Destination buffer must have the same number of channels.
-    pub fn copy_to(&self, mut dest: AudioBufMut) -> Result<(), &'static str> {
-        let channel_count = self.channel_count();
-        if channel_count != dest.channel_count() {
+    /// Destination buffer must have the same number of channels and frames.
+    pub fn copy_to(&self, dest: &mut AudioBufMut) -> Result<(), &'static str> {
+        if dest.channel_count() != self.channel_count() {
             return Err("different channel counts");
         }
-        if dest.frame_count() > self.frame_count() {
-            return Err("end of copied range out of source buffer bounds");
+        if dest.frame_count() != self.frame_count() {
+            return Err("different frame counts");
         }
         dest.data_as_mut_slice().copy_from_slice(self.data.as_ref());
         Ok(())

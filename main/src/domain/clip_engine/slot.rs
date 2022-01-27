@@ -1089,4 +1089,5 @@ pub enum ClipRecordTiming {
 #[derive(Debug)]
 pub enum ClipRecordMode {
     MidiOverdub,
+    Audio,
 }

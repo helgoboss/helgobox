@@ -1332,7 +1332,7 @@ Remarks:
 - Between the brackets, each digit represents one bit. The left bit is the most significant one.
 - Spaces between the two nibbles (4 bits) can be omitted.
 
-*Extracing and encoding a value*
+*Extracting and encoding a value*
 
 For the _feedback_ direction, the examples I've shown you so far aren't real-world examples, because there's no point in sending the same MIDI message to the device over and over again! If you really would want to send a constant MIDI message to the device, you would be
 much better off using a <<mapping-lifecycle-actions,Mapping lifecycle action>>, which allow you to send raw MIDI

@@ -20,7 +20,7 @@ use crate::domain::clip_engine::{
     adjust_proportionally, adjust_proportionally_positive, clip_timeline, clip_timeline_cursor_pos,
     convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
     convert_duration_in_seconds_to_frames, convert_position_in_frames_to_seconds,
-    convert_position_in_seconds_to_frames, ClipRecordMode, StretchWorkerRequest,
+    convert_position_in_seconds_to_frames, AudioBuf, ClipRecordMode, StretchWorkerRequest,
     SupplyRequestGeneralInfo, SupplyRequestInfo, WithTempo,
 };
 use crate::domain::Timeline;
@@ -207,7 +207,7 @@ impl ClipPcmSource {
                     looper.set_fades_enabled(true);
                     let stretcher = chain.stretcher_mut();
                     stretcher.set_enabled(true);
-                    let serious = SeriousTimeStretcher::new();
+                    // let serious = SeriousTimeStretcher::new();
                     // stretcher.set_mode(StretchAudioMode::Serious(serious));
                     chain
                 },
@@ -862,6 +862,15 @@ impl CustomPcmSource for ClipPcmSource {
                 self.write_midi(inner_args);
                 1
             }
+            EXT_WRITE_AUDIO => {
+                let inner_args = *(args.parm_1 as *mut _);
+                self.write_audio(inner_args);
+                1
+            }
+            EXT_CLIP_RECORD_MODE => {
+                *(args.parm_1 as *mut _) = self.clip_record_mode();
+                1
+            }
             EXT_SET_REPEATED => {
                 let inner_args = *(args.parm_1 as *mut _);
                 self.set_repeated(inner_args);
@@ -937,7 +946,11 @@ pub trait ClipPcmSourceSkills {
     /// Returns the position within the clip as proportional value.
     fn proportional_pos_within_clip(&self, args: PosWithinClipArgs) -> Option<UnitValue>;
 
+    fn clip_record_mode(&self) -> Option<ClipRecordMode>;
+
     fn write_midi(&mut self, request: WriteMidiRequest);
+
+    fn write_audio(&mut self, request: WriteAudioRequest);
 }
 
 #[derive(Copy, Clone)]
@@ -946,6 +959,14 @@ pub struct WriteMidiRequest<'a> {
     pub input_sample_rate: Hz,
     pub block_length: usize,
     pub events: &'a BorrowedMidiEventList,
+}
+
+#[derive(Copy, Clone)]
+pub struct WriteAudioRequest<'a> {
+    pub input_sample_rate: Hz,
+    pub block_length: usize,
+    pub left_buffer: AudioBuf<'a>,
+    pub right_buffer: AudioBuf<'a>,
 }
 
 impl ClipPcmSourceSkills for ClipPcmSource {
@@ -1248,6 +1269,17 @@ impl ClipPcmSourceSkills for ClipPcmSource {
             );
         }
     }
+
+    fn clip_record_mode(&self) -> Option<ClipRecordMode> {
+        match self.inner.kind {
+            InnerSourceKind::Audio => Some(ClipRecordMode::Audio),
+            InnerSourceKind::Midi => Some(ClipRecordMode::MidiOverdub),
+        }
+    }
+
+    fn write_audio(&mut self, request: WriteAudioRequest) {
+        self.inner.chain.flexible_source_mut().write_audio(request);
+    }
 }
 
 impl ClipPcmSourceSkills for BorrowedPcmSource {
@@ -1401,6 +1433,30 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
             );
         }
     }
+
+    fn clip_record_mode(&self) -> Option<ClipRecordMode> {
+        let mut m: Option<ClipRecordMode> = None;
+        unsafe {
+            self.extended(
+                EXT_CLIP_RECORD_MODE,
+                &mut m as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
+        }
+        m
+    }
+
+    fn write_audio(&mut self, mut request: WriteAudioRequest) {
+        unsafe {
+            self.extended(
+                EXT_WRITE_AUDIO,
+                &mut request as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1477,6 +1533,8 @@ const EXT_NATIVE_CLIP_LENGTH: i32 = 2359786;
 const EXT_PROPORTIONAL_POS_WITHIN_CLIP: i32 = 2359787;
 const EXT_RECORD: i32 = 2359788;
 const EXT_WRITE_MIDI: i32 = 2359789;
+const EXT_CLIP_RECORD_MODE: i32 = 2359790;
+const EXT_WRITE_AUDIO: i32 = 2359791;
 
 #[derive(Clone, Copy)]
 pub struct StopArgs {
