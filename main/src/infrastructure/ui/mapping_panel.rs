@@ -4193,12 +4193,11 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let slot = instance_state.get_slot(self.target.slot_index()).ok();
                     let (label, enabled) = if let Some(slot) = slot {
                         if let Some(content) = &slot.descriptor().content {
-                            match content {
-                                ClipContent::File { file } => (
-                                    file.to_string_lossy().to_string(),
-                                    slot.clip_info().is_some(),
-                                ),
-                            }
+                            let label = match content {
+                                ClipContent::File { file } => file.to_string_lossy().to_string(),
+                                ClipContent::MidiChunk { .. } => String::from("<In-memory MIDI>"),
+                            };
+                            (label, slot.clip_info().is_some())
                         } else {
                             ("<Slot empty>".to_owned(), false)
                         }

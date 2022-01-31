@@ -378,7 +378,7 @@ impl InstanceState {
         item: Item,
     ) -> Result<(), Box<dyn Error>> {
         let slot = get_slot_mut(&mut self.clip_slots, slot_index)?;
-        let content = ClipContent::from_item(item)?;
+        let content = ClipContent::from_item(item, false)?;
         slot.fill_by_user(content, item.project(), &self.stretch_worker_sender)?;
         self.notify_slot_contents_changed();
         Ok(())

@@ -193,6 +193,7 @@ impl ClipPcmSource {
             let beats_per_sec = tempo.get() / 60.0;
             (inner.duration().get() * beats_per_sec).round() as u32
         };
+        assert_ne!(beat_count, 0, "source reported beat count of zero");
         Self {
             inner: InnerSource {
                 tempo,
