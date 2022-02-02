@@ -15,13 +15,13 @@ use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
 use crate::domain::{
-    ClipRecordTask, GroupId, MappingCompartment, MappingId, NormalAudioHookTask,
-    QualifiedMappingId, RealTimeSender, Tag,
+    GroupId, MappingCompartment, MappingId, NormalAudioHookTask, QualifiedMappingId,
+    RealTimeSender, Tag,
 };
 use playtime_clip_engine::{
-    clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipPlayState, ClipRecordSourceType,
-    ClipRecordTiming, ClipSlot, RecordArgs, RecordKind, SlotPlayOptions, SlotStopBehavior,
-    Timeline, TimelineMoment, TransportChange,
+    clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipMatrix, ClipMatrixHandler,
+    ClipPlayState, ClipRecordSourceType, ClipRecordTask, ClipRecordTiming, ClipSlot, RecordArgs,
+    RecordKind, SlotPlayOptions, SlotStopBehavior, Timeline, TimelineMoment, TransportChange,
 };
 use playtime_clip_engine::{keep_stretching, StretchWorkerRequest};
 
@@ -29,11 +29,13 @@ pub const CLIP_SLOT_COUNT: usize = 8;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 
+pub type RealearnClipMatrix = ClipMatrix<RealearnClipMatrixHandler>;
+
 /// State connected to the instance which also needs to be accessible from layers *above* the
 /// processing layer (otherwise it could reside in the main processor).
 #[derive(Debug)]
 pub struct InstanceState {
-    clip_slots: Vec<ClipSlot>,
+    clip_matrix: RealearnClipMatrix,
     instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
     /// Which mappings are in which group.
@@ -70,9 +72,43 @@ pub struct InstanceState {
     /// - Set by target "ReaLearn: Enable/disable instances".
     /// - Non-redundant state!
     active_instance_tags: HashSet<Tag>,
+}
+
+#[derive(Debug)]
+pub struct RealearnClipMatrixHandler {
     audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
-    /// To communicate with the time stretching worker.
-    stretch_worker_sender: Sender<StretchWorkerRequest>,
+    slot_contents_changed_subject: LocalSubject<'static, (), ()>,
+    instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
+}
+
+impl RealearnClipMatrixHandler {
+    fn new(
+        audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
+        instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
+    ) -> Self {
+        Self {
+            audio_hook_task_sender,
+            slot_contents_changed_subject: Default::default(),
+            instance_feedback_event_sender,
+        }
+    }
+}
+
+impl ClipMatrixHandler for RealearnClipMatrixHandler {
+    fn request_recording_input(&self, task: ClipRecordTask) {
+        self.audio_hook_task_sender
+            .send(NormalAudioHookTask::StartClipRecording(task))
+            .unwrap()
+    }
+
+    fn notify_slot_contents_changed(&mut self) {
+        AsyncNotifier::notify(&mut self.slot_contents_changed_subject, &());
+    }
+
+    fn notify_clip_changed(&self, slot_index: usize, event: ClipChangedEvent) {
+        let event = InstanceStateChanged::Clip { slot_index, event };
+        self.instance_feedback_event_sender.try_send(event).unwrap();
+    }
 }
 
 #[derive(Debug)]
@@ -85,12 +121,12 @@ impl InstanceState {
         instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
         audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
     ) -> Self {
-        let (stretch_worker_sender, stretch_worker_receiver) = crossbeam_channel::bounded(500);
-        std::thread::spawn(move || {
-            keep_stretching(stretch_worker_receiver);
-        });
+        let clip_matrix_handler = RealearnClipMatrixHandler::new(
+            audio_hook_task_sender,
+            instance_feedback_event_sender.clone(),
+        );
         Self {
-            clip_slots: (0..8).map(ClipSlot::new).collect(),
+            clip_matrix: ClipMatrix::new(clip_matrix_handler),
             instance_feedback_event_sender,
             slot_contents_changed_subject: Default::default(),
             mappings_by_group: Default::default(),
@@ -99,9 +135,21 @@ impl InstanceState {
             on_mappings: Default::default(),
             active_mapping_tags: Default::default(),
             active_instance_tags: Default::default(),
-            audio_hook_task_sender,
-            stretch_worker_sender,
         }
+    }
+
+    pub fn clip_matrix(&self) -> &RealearnClipMatrix {
+        &self.clip_matrix
+    }
+
+    pub fn clip_matrix_mut(&mut self) -> &mut RealearnClipMatrix {
+        &mut self.clip_matrix
+    }
+
+    pub fn slot_contents_changed(
+        &self,
+    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
+        self.slot_contents_changed_subject.clone()
     }
 
     pub fn set_mapping_infos(&mut self, mapping_infos: HashMap<QualifiedMappingId, MappingInfo>) {
@@ -297,211 +345,9 @@ impl InstanceState {
             .filter(move |id| self.mapping_is_on(QualifiedMappingId::new(compartment, *id)))
     }
 
-    pub fn process_transport_change(&mut self, change: TransportChange, project: Option<Project>) {
-        let timeline = clip_timeline(project, true);
-        let moment = timeline.capture_moment();
-        for slot in self.clip_slots.iter_mut() {
-            slot.process_transport_change(change, moment, &timeline)
-                .unwrap();
-        }
-    }
-
-    pub fn slot_contents_changed(
-        &self,
-    ) -> impl LocalObservable<'static, Item = (), Err = ()> + 'static {
-        self.slot_contents_changed_subject.clone()
-    }
-
-    /// Detects clips that are finished playing and invokes a stop feedback event if not looped.
-    pub fn poll_slot(
-        &mut self,
-        slot_index: usize,
-        timeline_cursor_pos: PositionInSeconds,
-        timeline_tempo: Bpm,
-    ) -> Option<ClipChangedEvent> {
-        self.clip_slots
-            .get_mut(slot_index)
-            .expect("no such slot")
-            .poll(timeline_cursor_pos, timeline_tempo)
-    }
-
-    pub fn filled_slot_descriptors(&self) -> Vec<QualifiedSlotDescriptor> {
-        self.clip_slots
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| s.is_filled())
-            .map(|(i, s)| QualifiedSlotDescriptor {
-                index: i,
-                descriptor: s.descriptor().clone(),
-            })
-            .collect()
-    }
-
-    pub fn load_slots(
-        &mut self,
-        descriptors: Vec<QualifiedSlotDescriptor>,
-        project: Option<Project>,
-    ) -> Result<(), &'static str> {
-        for slot in &mut self.clip_slots {
-            let _ = slot.reset();
-        }
-        for desc in descriptors {
-            let events = {
-                let slot = get_slot_mut(&mut self.clip_slots, desc.index)?;
-                slot.load(desc.descriptor, project, &self.stretch_worker_sender)?
-            };
-            for e in events {
-                self.send_clip_changed_event(desc.index, e);
-            }
-        }
-        self.notify_slot_contents_changed();
-        Ok(())
-    }
-
-    pub fn fill_slot_by_user(
-        &mut self,
-        slot_index: usize,
-        content: ClipContent,
-        project: Option<Project>,
-    ) -> Result<(), &'static str> {
-        get_slot_mut(&mut self.clip_slots, slot_index)?.fill_by_user(
-            content,
-            project,
-            &self.stretch_worker_sender,
-        )?;
-        self.notify_slot_contents_changed();
-        Ok(())
-    }
-
-    pub fn fill_slot_with_item_source(
-        &mut self,
-        slot_index: usize,
-        item: Item,
-    ) -> Result<(), Box<dyn Error>> {
-        let slot = get_slot_mut(&mut self.clip_slots, slot_index)?;
-        let content = ClipContent::from_item(item, false)?;
-        slot.fill_by_user(content, item.project(), &self.stretch_worker_sender)?;
-        self.notify_slot_contents_changed();
-        Ok(())
-    }
-
-    pub fn play_clip(
-        &mut self,
-        project: Project,
-        slot_index: usize,
-        track: Option<Track>,
-        options: SlotPlayOptions,
-    ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.play(
-            project,
-            track,
-            options,
-            clip_timeline(Some(project), false).capture_moment(),
-        )
-    }
-
-    /// If repeat is not enabled and `immediately` is false, this has essentially no effect.
-    pub fn stop_clip(
-        &mut self,
-        slot_index: usize,
-        stop_behavior: SlotStopBehavior,
-        project: Project,
-    ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.stop(
-            stop_behavior,
-            clip_timeline(Some(project), false).capture_moment(),
-        )
-    }
-
-    pub fn record_clip(
-        &mut self,
-        slot_index: usize,
-        project: Project,
-        args: RecordArgs,
-    ) -> Result<(), &'static str> {
-        let slot = get_slot_mut(&mut self.clip_slots, slot_index)?;
-        let register = slot.record(project, &self.stretch_worker_sender, args)?;
-        let task = ClipRecordTask { register, project };
-        self.audio_hook_task_sender
-            .send(NormalAudioHookTask::StartClipRecording(task))
-            .map_err(|_| "couldn't send record task")
-    }
-
-    pub fn pause_clip(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.pause()
-    }
-
-    pub fn toggle_repeat(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.toggle_repeat();
-        self.send_clip_changed_event(slot_index, event);
-        Ok(())
-    }
-
-    pub fn seek_slot(
-        &mut self,
-        slot_index: usize,
-        position: UnitValue,
-    ) -> Result<(), &'static str> {
-        let event = self
-            .get_slot_mut(slot_index)?
-            .set_proportional_position(position)?;
-        if let Some(event) = event {
-            self.send_clip_changed_event(slot_index, event);
-        }
-        Ok(())
-    }
-
-    pub fn set_volume(
-        &mut self,
-        slot_index: usize,
-        volume: ReaperVolumeValue,
-    ) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.set_volume(volume);
-        self.send_clip_changed_event(slot_index, event);
-        Ok(())
-    }
-
-    pub fn set_clip_tempo_factor(
-        &mut self,
-        slot_index: usize,
-        tempo_factor: f64,
-    ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?
-            .set_tempo_factor(tempo_factor);
-        Ok(())
-    }
-
-    pub fn get_slot(&self, slot_index: usize) -> Result<&ClipSlot, &'static str> {
-        self.clip_slots.get(slot_index).ok_or("no such slot")
-    }
-
-    fn get_slot_mut(&mut self, slot_index: usize) -> Result<&mut ClipSlot, &'static str> {
-        self.clip_slots.get_mut(slot_index).ok_or("no such slot")
-    }
-
-    fn send_clip_changed_event(&self, slot_index: usize, event: ClipChangedEvent) {
-        self.send_feedback_event(InstanceStateChanged::Clip { slot_index, event });
-    }
-
     fn send_feedback_event(&self, event: InstanceStateChanged) {
         self.instance_feedback_event_sender.try_send(event).unwrap();
     }
-
-    fn notify_slot_contents_changed(&mut self) {
-        AsyncNotifier::notify(&mut self.slot_contents_changed_subject, &());
-    }
-}
-
-fn get_slot_mut(slots: &mut [ClipSlot], index: usize) -> Result<&mut ClipSlot, &'static str> {
-    slots.get_mut(index).ok_or("no such slot")
-}
-
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct QualifiedSlotDescriptor {
-    #[serde(rename = "index")]
-    pub index: usize,
-    #[serde(flatten)]
-    pub descriptor: Clip,
 }
 
 #[derive(Debug)]

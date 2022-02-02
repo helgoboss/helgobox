@@ -7,8 +7,8 @@ use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
 use playtime_clip_engine::{
     clip_timeline, global_steady_timeline, AudioBuf, ClipPcmSourceSkills, ClipRecordSourceType,
-    ClipRecordTiming, PosWithinClipArgs, SharedRegister, Timeline, WriteAudioRequest,
-    WriteMidiRequest,
+    ClipRecordTask, ClipRecordTiming, PosWithinClipArgs, SharedRegister, Timeline,
+    WriteAudioRequest, WriteMidiRequest,
 };
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Project, Reaper};
 use reaper_low::raw::midi_realtime_write_struct_t;
@@ -70,12 +70,6 @@ pub struct RealearnAudioHook {
     garbage_bin: GarbageBin,
     clip_record_task: Option<ClipRecordTask>,
     initialized: bool,
-}
-
-#[derive(Debug)]
-pub struct ClipRecordTask {
-    pub register: SharedRegister,
-    pub project: Project,
 }
 
 #[derive(Debug)]

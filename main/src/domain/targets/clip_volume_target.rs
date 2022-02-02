@@ -61,12 +61,10 @@ impl RealearnTarget for ClipVolumeTarget {
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
         let mut instance_state = context.control_context.instance_state.borrow_mut();
-        // TODO-high Restore volume function
-        // instance_state.set_volume(
-        //     self.slot_index,
-        //     volume.unwrap_or(Volume::MIN).reaper_value(),
-        // )?;
-        instance_state.set_clip_tempo_factor(self.slot_index, value.to_unit_value()?.get() * 2.0);
+        instance_state.clip_matrix_mut().set_volume(
+            self.slot_index,
+            volume.unwrap_or(Volume::MIN).reaper_value(),
+        )?;
         Ok(None)
     }
 
@@ -111,7 +109,11 @@ impl RealearnTarget for ClipVolumeTarget {
 impl ClipVolumeTarget {
     fn volume(&self, context: ControlContext) -> Option<Volume> {
         let instance_state = context.instance_state.borrow();
-        let reaper_volume = instance_state.get_slot(self.slot_index).ok()?.volume();
+        let reaper_volume = instance_state
+            .clip_matrix()
+            .get_slot(self.slot_index)
+            .ok()?
+            .volume();
         Some(Volume::from_reaper_value(reaper_volume))
     }
 }
@@ -120,18 +122,8 @@ impl<'a> Target<'a> for ClipVolumeTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        // TODO-high Restore volume
-        // let volume = self.volume(context)?;
-        // Some(AbsoluteValue::Continuous(volume_unit_value(volume)))
-        let tempo_factor = context
-            .instance_state
-            .borrow()
-            .get_slot(self.slot_index)
-            .ok()?
-            .tempo_factor();
-        Some(AbsoluteValue::Continuous(UnitValue::new_clamped(
-            tempo_factor / 2.0,
-        )))
+        let volume = self.volume(context)?;
+        Some(AbsoluteValue::Continuous(volume_unit_value(volume)))
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

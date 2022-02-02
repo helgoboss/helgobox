@@ -5,8 +5,8 @@ use crate::application::{
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     GroupId, GroupKey, InstanceState, MappingCompartment, MappingId, MidiControlInput,
-    MidiDestination, OscDeviceId, ParameterArray, QualifiedSlotDescriptor, Tag,
-    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    MidiDestination, OscDeviceId, ParameterArray, Tag, COMPARTMENT_PARAMETER_COUNT,
+    ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
@@ -15,6 +15,7 @@ use crate::infrastructure::data::{
 use crate::infrastructure::plugin::App;
 
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
+use playtime_clip_engine::QualifiedSlotDescriptor;
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -239,7 +240,7 @@ impl SessionData {
                 parameters,
                 MappingCompartment::ControllerMappings,
             ),
-            clip_slots: { instance_state.filled_slot_descriptors() },
+            clip_slots: { instance_state.clip_matrix().filled_slot_descriptors() },
             tags: session.tags.get_ref().clone(),
             controller: CompartmentState::from_instance_state(
                 &instance_state,
@@ -439,7 +440,7 @@ impl SessionData {
         // Instance state
         {
             let mut instance_state = session.instance_state().borrow_mut();
-            instance_state.load_slots(
+            instance_state.clip_matrix_mut().load_slots(
                 self.clip_slots.clone(),
                 Some(session.context().project_or_current_project()),
             )?;

@@ -94,53 +94,46 @@ impl RealearnTarget for ClipTransportTarget {
         use TransportAction::*;
         let on = !value.to_unit_value()?.is_zero();
         let mut instance_state = context.control_context.instance_state.borrow_mut();
+        let clip_matrix = instance_state.clip_matrix_mut();
         match self.action {
             PlayStop => {
                 if on {
-                    instance_state.play_clip(
+                    clip_matrix.play_clip(
                         self.project,
                         self.slot_index,
                         self.track.clone(),
                         self.play_options,
                     )?;
                 } else {
-                    instance_state.stop_clip(
-                        self.slot_index,
-                        self.stop_behavior(),
-                        self.project,
-                    )?;
+                    clip_matrix.stop_clip(self.slot_index, self.stop_behavior(), self.project)?;
                 }
             }
             PlayPause => {
                 if on {
-                    instance_state.play_clip(
+                    clip_matrix.play_clip(
                         self.project,
                         self.slot_index,
                         self.track.clone(),
                         self.play_options,
                     )?;
                 } else {
-                    instance_state.pause_clip(self.slot_index)?;
+                    clip_matrix.pause_clip(self.slot_index)?;
                 }
             }
             Stop => {
                 if on {
-                    instance_state.stop_clip(
-                        self.slot_index,
-                        self.stop_behavior(),
-                        self.project,
-                    )?;
+                    clip_matrix.stop_clip(self.slot_index, self.stop_behavior(), self.project)?;
                 }
             }
             Pause => {
                 if on {
-                    instance_state.pause_clip(self.slot_index)?;
+                    clip_matrix.pause_clip(self.slot_index)?;
                 }
             }
             RecordStop => {
                 println!("Pressed record with on = {:?}", on);
                 if on {
-                    instance_state.record_clip(
+                    clip_matrix.record_clip(
                         self.slot_index,
                         self.project,
                         RecordArgs {
@@ -151,7 +144,7 @@ impl RealearnTarget for ClipTransportTarget {
                         },
                     );
                 } else {
-                    instance_state.stop_clip(
+                    clip_matrix.stop_clip(
                         self.slot_index,
                         SlotStopBehavior::EndOfClip,
                         self.project,
@@ -159,7 +152,7 @@ impl RealearnTarget for ClipTransportTarget {
                 }
             }
             Repeat => {
-                instance_state.toggle_repeat(self.slot_index)?;
+                clip_matrix.toggle_repeat(self.slot_index)?;
             }
         };
         Ok(None)
@@ -235,11 +228,16 @@ impl<'a> Target<'a> for ClipTransportTarget {
         use TransportAction::*;
         let val = match self.action {
             PlayStop | PlayPause | Stop | Pause | RecordStop => {
-                let play_state = instance_state.get_slot(self.slot_index).ok()?.play_state();
+                let play_state = instance_state
+                    .clip_matrix()
+                    .get_slot(self.slot_index)
+                    .ok()?
+                    .play_state();
                 clip_play_state_unit_value(self.action, play_state)
             }
             Repeat => {
                 let is_looped = instance_state
+                    .clip_matrix()
                     .get_slot(self.slot_index)
                     .ok()?
                     .repeat_is_enabled();

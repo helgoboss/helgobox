@@ -672,6 +672,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         for i in 0..CLIP_SLOT_COUNT {
             for event in instance_state
+                .clip_matrix_mut()
                 .poll_slot(i, timeline_cursor_pos, timeline_tempo)
                 .into_iter()
             {
@@ -1268,7 +1269,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 PlayJumpDetected => {
                     let mut instance_state = self.basics.instance_state.borrow_mut();
-                    instance_state.process_transport_change(
+                    instance_state.clip_matrix_mut().process_transport_change(
                         TransportChange::PlayCursorJump,
                         self.basics.context.project(),
                     );
@@ -1438,6 +1439,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
             }
             instance_state
+                .clip_matrix_mut()
                 .process_transport_change(TransportChange::PlayState(e.new_value), project);
         }
         self.process_feedback_related_reaper_event(|mapping, target| {

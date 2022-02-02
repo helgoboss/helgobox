@@ -613,7 +613,7 @@ impl MappingPanel {
                     let mapping = self.mapping();
                     let mapping = mapping.borrow();
                     let slot_index = mapping.target_model.slot_index();
-                    if let Ok(slot) = instance_state.get_slot(slot_index) {
+                    if let Ok(slot) = instance_state.clip_matrix().get_slot(slot_index) {
                         if let Some(content) = &slot.descriptor().content {
                             let info = SlotInfo {
                                 file_name: content
@@ -661,7 +661,9 @@ impl MappingPanel {
                         .ok_or("no item selected")?;
                     let slot_index = self.mapping().borrow().target_model.slot_index();
                     let mut instance_state = session.instance_state().borrow_mut();
-                    instance_state.fill_slot_with_item_source(slot_index, item)
+                    instance_state
+                        .clip_matrix_mut()
+                        .fill_slot_with_item_source(slot_index, item)
                 };
                 if let Err(e) = result {
                     self.view.require_window().alert("ReaLearn", e.to_string());
@@ -4190,7 +4192,10 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_slot() => {
                     let instance_state = self.session.instance_state().borrow();
-                    let slot = instance_state.get_slot(self.target.slot_index()).ok();
+                    let slot = instance_state
+                        .clip_matrix()
+                        .get_slot(self.target.slot_index())
+                        .ok();
                     let (label, enabled) = if let Some(slot) = slot {
                         if let Some(content) = &slot.descriptor().content {
                             let label = match content {

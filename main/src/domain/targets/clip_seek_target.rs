@@ -59,7 +59,9 @@ impl RealearnTarget for ClipSeekTarget {
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_unit_value()?;
         let mut instance_state = context.control_context.instance_state.borrow_mut();
-        instance_state.seek_slot(self.slot_index, value)?;
+        instance_state
+            .clip_matrix_mut()
+            .seek_slot(self.slot_index, value)?;
         Ok(None)
     }
 
@@ -123,6 +125,7 @@ impl ClipSeekTarget {
     fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
         let instance_state = context.instance_state.borrow();
         instance_state
+            .clip_matrix()
             .get_slot(self.slot_index)
             .ok()?
             .position_in_seconds()
@@ -136,6 +139,7 @@ impl<'a> Target<'a> for ClipSeekTarget {
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let instance_state = context.instance_state.borrow();
         let val = instance_state
+            .clip_matrix()
             .get_slot(self.slot_index)
             .ok()?
             .proportional_position()
