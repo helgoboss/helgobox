@@ -26,6 +26,7 @@ realearn-meter = ["reaper-high/reaper-meter", "serde_prometheus"]
  reaper-low = { path = "../../reaper-rs/main/low" }
 swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
+playtime-clip-engine = { path = "../clip-engine" }
 realearn-api = { path = "../api" }
 realearn-csi = { path = "../csi" }
 helgoboss-midi = { version = "0.3", features = ["serde", "serde_repr"] }
@@ -45,8 +46,8 @@ derive_more = "0.99.5"
 lazycell = "1.2"
 enum-iterator = "0.6.0"
 num_enum = "0.5.0"
-scopeguard = "1.1.0"
 crossbeam-channel = "0.5"
+scopeguard = "1.1.0"
 uuid = { version = "0.8.1", features = ["v4", "serde"] }
 slog = "2.5.2"
 # For interacting with the OS clipboard
@@ -155,10 +156,6 @@ strum = "0.23"
 strum_macros = "0.23"
 # For some quick and dirty profiling
 measure_time = "0.8.0"
-# Ring buffer for clip stretching
-rtrb = "0.2.1"
-# For our own timeline
-atomic_float = "0.1.0"
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

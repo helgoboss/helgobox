@@ -14,16 +14,16 @@ use helgoboss_learn::UnitValue;
 use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
-use crate::domain::clip_engine::{
-    clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipPlayState, ClipRecordSourceType,
-    ClipRecordTiming, ClipSlot, RecordArgs, RecordKind, SlotPlayOptions, SlotStopBehavior,
-    TransportChange,
-};
-use crate::domain::clip_engine::{keep_stretching, StretchWorkerRequest};
 use crate::domain::{
     ClipRecordTask, GroupId, MappingCompartment, MappingId, NormalAudioHookTask,
-    QualifiedMappingId, RealTimeSender, Tag, Timeline, TimelineMoment,
+    QualifiedMappingId, RealTimeSender, Tag,
 };
+use playtime_clip_engine::{
+    clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipPlayState, ClipRecordSourceType,
+    ClipRecordTiming, ClipSlot, RecordArgs, RecordKind, SlotPlayOptions, SlotStopBehavior,
+    Timeline, TimelineMoment, TransportChange,
+};
+use playtime_clip_engine::{keep_stretching, StretchWorkerRequest};
 
 pub const CLIP_SLOT_COUNT: usize = 8;
 

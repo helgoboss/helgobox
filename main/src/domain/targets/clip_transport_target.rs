@@ -1,7 +1,3 @@
-use crate::domain::clip_engine::{
-    ClipChangedEvent, ClipRecordSourceType, ClipRecordTiming, RecordArgs, RecordKind,
-    SlotPlayOptions, SlotStopBehavior,
-};
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, get_effective_tracks,
     transport_is_enabled_unit_value, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
@@ -10,6 +6,10 @@ use crate::domain::{
     TrackDescriptor, TransportAction, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
+use playtime_clip_engine::{
+    ClipChangedEvent, ClipRecordSourceType, ClipRecordTiming, RecordArgs, RecordKind,
+    SlotPlayOptions, SlotStopBehavior,
+};
 use reaper_high::{Project, Track};
 
 #[derive(Debug)]

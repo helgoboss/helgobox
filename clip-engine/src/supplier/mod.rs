@@ -5,7 +5,7 @@ mod reaper_source;
 pub use reaper_source::*;
 
 mod cache;
-use crate::domain::clip_engine::buffer::AudioBufMut;
+use crate::buffer::AudioBufMut;
 pub use cache::*;
 
 mod looper;
@@ -17,12 +17,13 @@ pub use flexible_source::*;
 pub mod stretcher;
 pub use stretcher::*;
 
+use crate::Timeline;
+
 mod chain;
 pub use chain::*;
 
 mod suspender;
-use crate::domain::clip_engine::clip_timeline;
-use crate::domain::Timeline;
+use crate::clip_timeline;
 pub use suspender::*;
 
 mod midi_util;

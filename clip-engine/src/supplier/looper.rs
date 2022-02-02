@@ -1,10 +1,10 @@
-use crate::domain::clip_engine::buffer::{AudioBufMut, OwnedAudioBuffer};
-use crate::domain::clip_engine::supplier::{
+use crate::buffer::{AudioBufMut, OwnedAudioBuffer};
+use crate::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     print_distance_from_beat_start_at, AudioSupplier, ExactFrameCount, MidiSupplier,
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
-use crate::domain::clip_engine::{clip_timeline, Repetition, SupplyRequestInfo};
+use crate::{clip_timeline, Repetition, SupplyRequestInfo};
 use core::cmp;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,

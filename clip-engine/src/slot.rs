@@ -1,4 +1,3 @@
-use crate::domain::{Timeline, TimelineMoment};
 use crossbeam_channel::Sender;
 use enumflags2::BitFlags;
 use reaper_high::{OwnedSource, Project, Reaper, Track};
@@ -15,15 +14,16 @@ use std::sync::Arc;
 
 use helgoboss_learn::{UnitValue, BASE_EPSILON};
 
-use crate::domain::clip_engine::clip_source::{
+use crate::clip_source::{
     ClipPcmSource, ClipPcmSourceSkills, ClipState, ClipStopTime, PlayArgs, PosWithinClipArgs,
     RecordArgs, Repetition, ScheduledOrPlayingState, SeekToArgs, SetRepeatedArgs, StopArgs,
     SuspensionReason,
 };
-use crate::domain::clip_engine::{
+use crate::{
     clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
+    Timeline, TimelineMoment,
 };
-use crate::domain::clip_engine::{RecordKind, StretchWorkerRequest};
+use crate::{RecordKind, StretchWorkerRequest};
 
 /// Represents an actually playable clip slot.
 ///

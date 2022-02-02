@@ -5,8 +5,11 @@ use reaper_high::{Item, OwnedSource, Project, Reaper, ReaperSource};
 use reaper_medium::{MidiImportBehavior, ReaperVolumeValue};
 use serde::{Deserialize, Serialize};
 
-use crate::base::default_util::is_default;
 use helgoboss_learn::UnitValue;
+
+fn is_default<T: Default + PartialEq>(v: &T) -> bool {
+    v == &T::default()
+}
 
 /// Describes settings and contents of one clip slot.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

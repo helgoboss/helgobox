@@ -1,8 +1,6 @@
-use crate::domain::clip_engine::buffer::AudioBufMut;
-use crate::domain::clip_engine::supplier::{
-    AudioSupplier, Ctx, SupplyAudioRequest, SupplyResponse, WithFrameRate,
-};
-use crate::domain::clip_engine::{
+use crate::buffer::AudioBufMut;
+use crate::supplier::{AudioSupplier, Ctx, SupplyAudioRequest, SupplyResponse, WithFrameRate};
+use crate::{
     adjust_anti_proportionally_positive, adjust_proportionally_positive, SupplyRequestInfo,
 };
 use crossbeam_channel::Receiver;

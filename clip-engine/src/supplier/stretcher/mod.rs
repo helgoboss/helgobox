@@ -1,7 +1,7 @@
-use crate::domain::clip_engine::buffer::{AudioBufMut, OwnedAudioBuffer};
-use crate::domain::clip_engine::supplier::stretcher::resampling::Resampler;
-use crate::domain::clip_engine::supplier::stretcher::time_stretching::SeriousTimeStretcher;
-use crate::domain::clip_engine::supplier::{
+use crate::buffer::{AudioBufMut, OwnedAudioBuffer};
+use crate::supplier::stretcher::resampling::Resampler;
+use crate::supplier::stretcher::time_stretching::SeriousTimeStretcher;
+use crate::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
     ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
     WithFrameRate,
@@ -14,7 +14,7 @@ use reaper_medium::{
 mod resampling;
 pub use resampling::*;
 pub mod time_stretching;
-use crate::domain::clip_engine::{adjust_anti_proportionally_positive, SupplyRequestInfo};
+use crate::{adjust_anti_proportionally_positive, SupplyRequestInfo};
 pub use time_stretching::*;
 
 pub struct Stretcher<S> {

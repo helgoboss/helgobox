@@ -1,8 +1,8 @@
-use crate::domain::clip_engine::buffer::AudioBufMut;
-use crate::domain::clip_engine::supplier::{
+use crate::buffer::AudioBufMut;
+use crate::supplier::{
     AudioSupplier, Ctx, ExactFrameCount, SupplyAudioRequest, SupplyResponse, WithFrameRate,
 };
-use crate::domain::clip_engine::{adjust_proportionally_positive, SupplyRequestInfo};
+use crate::{adjust_proportionally_positive, SupplyRequestInfo};
 use reaper_high::Reaper;
 use reaper_low::raw::REAPER_Resample_Interface;
 use reaper_medium::Hz;

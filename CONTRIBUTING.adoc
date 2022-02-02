@@ -27,8 +27,9 @@ See link:ARCHITECTURE.adoc[here].
 
 |`/` |Workspace root 
 |`/api` |Data structures of ReaLearn's preset API (which is e.g. used in the Lua-based ReaLearn Script) 
-|`/csi` |Code for interfacing with the ControlSurfaceIntegrator (CSI) project 
-|`/doc` |Documentation 
+|`/clip-engine` |Clip engine for playing/recording clips
+|`/csi` |Code for interfacing with the ControlSurfaceIntegrator (CSI) project
+|`/doc` |Documentation
 |`/main` |Main crate (`realearn`) 
 |`/proto` |gRPC / Protocol Buffers schema for communicating with ReaLearn at runtime 
 |`/rx-util` |Utility crate providing primitives for reactive programming (`rx-util`) 

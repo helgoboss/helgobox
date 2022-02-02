@@ -1,6 +1,4 @@
-use crate::domain::clip_engine::{
-    convert_duration_in_frames_to_seconds, convert_position_in_seconds_to_frames,
-};
+use crate::{convert_duration_in_frames_to_seconds, convert_position_in_seconds_to_frames};
 use atomic_float::AtomicF64;
 use helgoboss_learn::BASE_EPSILON;
 use reaper_high::{Project, Reaper};
@@ -8,7 +6,6 @@ use reaper_medium::{
     Bpm, Hz, MeasureMode, PlayState, PositionInBeats, PositionInSeconds, ProjectContext,
 };
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
-use vst::util::AtomicFloat;
 
 #[derive(Clone, Copy)]
 pub struct TimelineMoment {

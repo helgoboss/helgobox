@@ -8,22 +8,21 @@ use std::convert::TryInto;
 use std::error::Error;
 use std::ptr::null_mut;
 
-use crate::domain::clip_engine::buffer::AudioBufMut;
-use crate::domain::clip_engine::source_util::pcm_source_is_midi;
-use crate::domain::clip_engine::supplier::stretcher::time_stretching::SeriousTimeStretcher;
-use crate::domain::clip_engine::supplier::{
+use crate::buffer::AudioBufMut;
+use crate::source_util::pcm_source_is_midi;
+use crate::supplier::stretcher::time_stretching::SeriousTimeStretcher;
+use crate::supplier::{
     AudioSupplier, ClipSupplierChain, ExactDuration, ExactFrameCount, LoopBehavior, Looper,
     MidiSupplier, StretchAudioMode, Stretcher, SupplyAudioRequest, SupplyMidiRequest,
     WithFrameRate, MIDI_BASE_BPM,
 };
-use crate::domain::clip_engine::{
+use crate::{
     adjust_proportionally, adjust_proportionally_positive, clip_timeline, clip_timeline_cursor_pos,
     convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
     convert_duration_in_seconds_to_frames, convert_position_in_frames_to_seconds,
     convert_position_in_seconds_to_frames, AudioBuf, ClipRecordSourceType, ClipRecordTiming,
-    StretchWorkerRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, WithTempo,
+    StretchWorkerRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, Timeline, WithTempo,
 };
-use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
 use helgoboss_midi::{controller_numbers, Channel, RawShortMessage, ShortMessageFactory, U7};
 use reaper_high::{Project, Reaper};

@@ -1,4 +1,3 @@
-use crate::domain::clip_engine::ClipChangedEvent;
 use crate::domain::ui_util::{
     format_value_as_db, format_value_as_db_without_unit, parse_value_from_db,
     reaper_volume_unit_value, volume_unit_value,
@@ -9,6 +8,7 @@ use crate::domain::{
     ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
+use playtime_clip_engine::ClipChangedEvent;
 use reaper_high::Volume;
 
 #[derive(Debug)]

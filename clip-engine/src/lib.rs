@@ -1,13 +1,16 @@
-mod clip;
+mod matrix;
+pub use matrix::*;
 
+mod timeline;
+pub use timeline::*;
+
+mod clip;
 pub use clip::*;
+
 use reaper_high::{Project, Reaper};
 use reaper_medium::{MeasureMode, PositionInBeats, PositionInSeconds};
 
 mod slot;
-use crate::domain::{
-    get_next_bar_at, global_steady_timeline, HybridTimeline, ReaperProjectTimeline, Timeline,
-};
 pub use clip_source::*;
 pub use slot::*;
 

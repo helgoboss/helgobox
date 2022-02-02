@@ -1,15 +1,13 @@
-use crate::domain::clip_engine::buffer::AudioBufMut;
-use crate::domain::clip_engine::source_util::pcm_source_is_midi;
-use crate::domain::clip_engine::supplier::{
+use crate::buffer::AudioBufMut;
+use crate::source_util::pcm_source_is_midi;
+use crate::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
     print_distance_from_beat_start_at, supply_source_material, AudioSupplier, ExactDuration,
     ExactFrameCount, MidiSupplier, SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest,
     SupplyResponse, WithFrameRate, MIDI_BASE_BPM,
 };
-use crate::domain::clip_engine::{
-    adjust_proportionally, adjust_proportionally_positive, WithTempo,
-};
+use crate::{adjust_proportionally, adjust_proportionally_positive, WithTempo};
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
     PcmSourceTransfer, PositionInSeconds,

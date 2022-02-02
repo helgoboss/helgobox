@@ -44,7 +44,6 @@ use crate::application::{
 };
 use crate::base::Global;
 use crate::base::{notification, when, Prop};
-use crate::domain::clip_engine::{ClipContent, ClipInfo};
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
@@ -66,6 +65,7 @@ use crate::infrastructure::ui::util::{
 use crate::infrastructure::ui::{
     EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
 };
+use playtime_clip_engine::{ClipContent, ClipInfo};
 
 #[derive(Debug)]
 pub struct MappingPanel {

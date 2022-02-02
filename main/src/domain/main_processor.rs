@@ -1,6 +1,3 @@
-use crate::domain::clip_engine::{
-    clip_timeline, clip_timeline_cursor_pos, ClipChangedEvent, TransportChange,
-};
 use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
     CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
@@ -15,7 +12,7 @@ use crate::domain::{
     OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedMappingId, QualifiedSource,
     RealFeedbackValue, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
     ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString, SourceFeedbackValue,
-    SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetValueChangedEvent, Timeline,
+    SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetValueChangedEvent,
     UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
 };
 use derive_more::Display;
@@ -23,6 +20,9 @@ use enum_map::EnumMap;
 use helgoboss_learn::{
     AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
     ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
+};
+use playtime_clip_engine::{
+    clip_timeline, clip_timeline_cursor_pos, ClipChangedEvent, Timeline, TransportChange,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;

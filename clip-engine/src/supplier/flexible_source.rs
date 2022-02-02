@@ -1,5 +1,5 @@
-use crate::domain::clip_engine::buffer::AudioBufMut;
-use crate::domain::clip_engine::{
+use crate::buffer::AudioBufMut;
+use crate::{
     AudioBuf, AudioSupplier, ExactFrameCount, MidiSupplier, OwnedAudioBuffer, SupplyAudioRequest,
     SupplyMidiRequest, SupplyResponse, WithFrameRate, WriteAudioRequest,
 };

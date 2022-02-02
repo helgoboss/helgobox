@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "api",
+    "clip-engine",
     "csi",
     "main",
     "rx-util",
