@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use crossbeam_channel::Sender;
 use enum_map::EnumMap;
-use reaper_high::{Item, Project, Track};
+use reaper_high::{Item, OwnedSource, Project, Track};
 use reaper_medium::{Bpm, PlayState, PositionInSeconds, ReaperVolumeValue};
 use rxrust::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -15,8 +15,9 @@ use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
 use crate::domain::clip_engine::{
-    clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipPlayState, ClipRecordMode,
-    ClipRecordTiming, ClipSlot, SlotPlayOptions, SlotStopBehavior, TransportChange,
+    clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipPlayState, ClipRecordSourceType,
+    ClipRecordTiming, ClipSlot, RecordArgs, RecordKind, SlotPlayOptions, SlotStopBehavior,
+    TransportChange,
 };
 use crate::domain::clip_engine::{keep_stretching, StretchWorkerRequest};
 use crate::domain::{
@@ -406,10 +407,6 @@ impl InstanceState {
         stop_behavior: SlotStopBehavior,
         project: Project,
     ) -> Result<(), &'static str> {
-        if self.get_slot_mut(slot_index)?.play_state() == ClipPlayState::Recording {
-            let task = NormalAudioHookTask::StopClipRecording;
-            self.audio_hook_task_sender.send(task).unwrap();
-        }
         self.get_slot_mut(slot_index)?.stop(
             stop_behavior,
             clip_timeline(Some(project), false).capture_moment(),
@@ -419,17 +416,12 @@ impl InstanceState {
     pub fn record_clip(
         &mut self,
         slot_index: usize,
-        timing: ClipRecordTiming,
-        enforce_mode: Option<ClipRecordMode>,
         project: Project,
+        args: RecordArgs,
     ) -> Result<(), &'static str> {
-        let register = self.get_slot_mut(slot_index)?.record()?;
-        let task = ClipRecordTask {
-            abs_start_pos: clip_timeline(Some(project), false).cursor_pos(),
-            register,
-            timing,
-            project,
-        };
+        let slot = get_slot_mut(&mut self.clip_slots, slot_index)?;
+        let register = slot.record(project, &self.stretch_worker_sender, args)?;
+        let task = ClipRecordTask { register, project };
         self.audio_hook_task_sender
             .send(NormalAudioHookTask::StartClipRecording(task))
             .map_err(|_| "couldn't send record task")

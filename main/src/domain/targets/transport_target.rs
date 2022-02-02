@@ -38,17 +38,7 @@ pub struct TransportTarget {
 
 impl RealearnTarget for TransportTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        use TransportAction::*;
-        match self.action {
-            // Retriggerable because we want to be able to retrigger play!
-            PlayStop | PlayPause => (
-                ControlType::AbsoluteContinuousRetriggerable,
-                TargetCharacter::Switch,
-            ),
-            Stop | Pause | Record | Repeat => {
-                (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
-            }
-        }
+        self.action.control_type_and_character()
     }
 
     fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
@@ -87,7 +77,7 @@ impl RealearnTarget for TransportTarget {
                     self.project.pause();
                 }
             }
-            Record => {
+            RecordStop => {
                 if on {
                     Reaper::get().enable_record_in_current_project();
                 } else {
@@ -150,7 +140,7 @@ impl RealearnTarget for TransportTarget {
                         ),
                         _ => (false, None),
                     },
-                    Record => match evt {
+                    RecordStop => match evt {
                         PlayStateChanged(e) if e.project == self.project => (
                             true,
                             Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
@@ -202,7 +192,7 @@ impl<'a> Target<'a> for TransportTarget {
                 transport_is_enabled_unit_value(!play_state.is_playing && !play_state.is_paused)
             }
             Pause => transport_is_enabled_unit_value(play_state.is_paused),
-            Record => transport_is_enabled_unit_value(play_state.is_recording),
+            RecordStop => transport_is_enabled_unit_value(play_state.is_recording),
             Repeat => transport_is_enabled_unit_value(self.project.repeat_is_enabled()),
         };
         Some(AbsoluteValue::Continuous(value))

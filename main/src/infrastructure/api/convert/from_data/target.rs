@@ -565,7 +565,7 @@ fn convert_transport_action(transport_action: TransportAction) -> schema::Transp
         PlayPause => T::PlayPause,
         Stop => T::Stop,
         Pause => T::Pause,
-        Record => T::Record,
+        RecordStop => T::Record,
         Repeat => T::Repeat,
     }
 }

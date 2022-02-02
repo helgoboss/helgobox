@@ -1066,7 +1066,7 @@ fn convert_transport_action(transport_action: TransportAction) -> domain::Transp
         PlayPause => T::PlayPause,
         Stop => T::Stop,
         Pause => T::Pause,
-        Record => T::Record,
+        Record => T::RecordStop,
         Repeat => T::Repeat,
     }
 }

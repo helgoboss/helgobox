@@ -1,5 +1,6 @@
 use crate::domain::clip_engine::{
-    ClipChangedEvent, ClipRecordMode, ClipRecordTiming, SlotPlayOptions, SlotStopBehavior,
+    ClipChangedEvent, ClipRecordSourceType, ClipRecordTiming, RecordArgs, RecordKind,
+    SlotPlayOptions, SlotStopBehavior,
 };
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, get_effective_tracks,
@@ -78,10 +79,7 @@ impl ClipTransportTarget {
 
 impl RealearnTarget for ClipTransportTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
-        (
-            ControlType::AbsoluteContinuousRetriggerable,
-            TargetCharacter::Switch,
-        )
+        self.action.control_type_and_character()
     }
 
     fn format_value(&self, value: UnitValue, _: ControlContext) -> String {
@@ -139,13 +137,18 @@ impl RealearnTarget for ClipTransportTarget {
                     instance_state.pause_clip(self.slot_index)?;
                 }
             }
-            Record => {
+            RecordStop => {
+                println!("Pressed record with on = {:?}", on);
                 if on {
                     instance_state.record_clip(
                         self.slot_index,
-                        ClipRecordTiming::StartImmediatelyStopOnDemand,
-                        None,
                         self.project,
+                        RecordArgs {
+                            kind: RecordKind::Normal {
+                                play_after: true,
+                                timing: ClipRecordTiming::StartImmediatelyStopOnDemand,
+                            },
+                        },
                     );
                 } else {
                     instance_state.stop_clip(
@@ -193,15 +196,13 @@ impl RealearnTarget for ClipTransportTarget {
             }) if *si == self.slot_index => {
                 use TransportAction::*;
                 match self.action {
-                    PlayStop | PlayPause | Stop | Pause => match event {
+                    PlayStop | PlayPause | Stop | Pause | RecordStop => match event {
                         ClipChangedEvent::PlayState(new_state) => {
                             let uv = clip_play_state_unit_value(self.action, *new_state);
                             (true, Some(AbsoluteValue::Continuous(uv)))
                         }
                         _ => (false, None),
                     },
-                    // Not supported at the moment.
-                    Record => (false, None),
                     Repeat => match event {
                         ClipChangedEvent::ClipRepeat(new_state) => (
                             true,
@@ -233,7 +234,7 @@ impl<'a> Target<'a> for ClipTransportTarget {
         let instance_state = context.instance_state.borrow();
         use TransportAction::*;
         let val = match self.action {
-            PlayStop | PlayPause | Stop | Pause | Record => {
+            PlayStop | PlayPause | Stop | Pause | RecordStop => {
                 let play_state = instance_state.get_slot(self.slot_index).ok()?.play_state();
                 clip_play_state_unit_value(self.action, play_state)
             }

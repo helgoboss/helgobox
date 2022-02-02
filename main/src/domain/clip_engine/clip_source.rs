@@ -20,8 +20,8 @@ use crate::domain::clip_engine::{
     adjust_proportionally, adjust_proportionally_positive, clip_timeline, clip_timeline_cursor_pos,
     convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
     convert_duration_in_seconds_to_frames, convert_position_in_frames_to_seconds,
-    convert_position_in_seconds_to_frames, AudioBuf, ClipRecordMode, StretchWorkerRequest,
-    SupplyRequestGeneralInfo, SupplyRequestInfo, WithTempo,
+    convert_position_in_seconds_to_frames, AudioBuf, ClipRecordSourceType, ClipRecordTiming,
+    StretchWorkerRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, WithTempo,
 };
 use crate::domain::Timeline;
 use helgoboss_learn::UnitValue;
@@ -129,6 +129,8 @@ pub enum ClipState {
         /// Modulo position within the inner source at which should be resumed later.
         next_block_pos: usize,
     },
+    /// Recording from scratch, not MIDI overdub.
+    Recording(RecordingState),
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -140,7 +142,42 @@ pub struct ScheduledOrPlayingState {
     pub overdubbing: bool,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, Debug)]
+pub struct RecordingState {
+    pub play_after: bool,
+    pub mode: InternalRecordMode,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum InternalRecordMode {
+    Unsynced,
+    Synced {
+        start_bar: i32,
+        end_bar: Option<i32>,
+    },
+}
+
+impl InternalRecordMode {
+    fn from_timing(timing: ClipRecordTiming) -> Self {
+        use ClipRecordTiming::*;
+        match timing {
+            StartImmediatelyStopOnDemand => Self::Unsynced,
+            StartOnBarStopOnDemand { start_bar } => Self::Synced {
+                start_bar,
+                end_bar: None,
+            },
+            StartOnBarStopOnBar {
+                start_bar,
+                bar_count,
+            } => Self::Synced {
+                start_bar,
+                end_bar: Some(start_bar + bar_count as i32),
+            },
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
 pub enum SuspensionReason {
     /// Play was suspended for initiating a retriggering, so the next state will be  
     /// [`ClipState::ScheduledOrPlaying`] again.
@@ -149,6 +186,8 @@ pub enum SuspensionReason {
     Pause,
     /// Play was suspended for initiating a stop, so the next state will be [`ClipState::Stopped`].
     Stop,
+    /// Play was suspended for initiating recording.
+    Record(RecordingState),
 }
 
 #[derive(Clone, Copy)]
@@ -158,8 +197,19 @@ pub struct PlayArgs {
     pub repetition: Repetition,
 }
 
-#[derive(Clone, Copy)]
-pub struct RecordArgs {}
+#[derive(Copy, Clone)]
+pub struct RecordArgs {
+    pub kind: RecordKind,
+}
+
+#[derive(Copy, Clone)]
+pub enum RecordKind {
+    Normal {
+        play_after: bool,
+        timing: ClipRecordTiming,
+    },
+    MidiOverdub,
+}
 
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct PlayInstruction {
@@ -291,8 +341,7 @@ impl ClipPcmSource {
             .set_tempo_factor(final_tempo_factor);
         use ClipState::*;
         match self.state {
-            Stopped => {}
-            Paused { .. } => {}
+            Stopped | Paused { .. } => {}
             Suspending { reason, play_info } => {
                 let suspender = self.inner.chain.suspender_mut();
                 if !suspender.is_suspending() {
@@ -339,10 +388,6 @@ impl ClipPcmSource {
                     // we would start advancing the count-in cursor from a wrong initial state
                     // and therefore end up with the wrong point in time for starting the clip
                     // (too late, to be accurate, because we would start advancing too late).
-                    // TODO-high Well, actually this happens also when the transport is
-                    //  running, with the only difference that we also hear and see
-                    //  the reset. Plus, when the transport is running, we want to
-                    //  interrupt the clips and reschedule them. Still to be implemented.
                     let next_block_pos = if let Some(start_bar) =
                         s.play_instruction.scheduled_for_bar
                     {
@@ -531,6 +576,39 @@ impl ClipPcmSource {
                     Stopped
                 };
             }
+            Recording(s) => {
+                if let InternalRecordMode::Synced {
+                    end_bar: Some(end_bar),
+                    ..
+                } = s.mode
+                {
+                    if timeline.next_bar_at(timeline_cursor_pos) >= end_bar {
+                        // Close to scheduled recording end.
+                        let block_length_in_timeline_frames = args.block.length() as usize;
+                        let timeline_frame_rate = args.block.sample_rate();
+                        let block_length_in_secs = convert_duration_in_frames_to_seconds(
+                            block_length_in_timeline_frames,
+                            timeline_frame_rate,
+                        );
+                        let block_end_pos = timeline_cursor_pos + block_length_in_secs;
+                        let record_end_pos = timeline.pos_of_bar(end_bar);
+                        if block_end_pos >= record_end_pos {
+                            // We have recorded the last block.
+                            if s.play_after {
+                                self.state = ScheduledOrPlaying(ScheduledOrPlayingState {
+                                    play_instruction: PlayInstruction {
+                                        scheduled_for_bar: Some(end_bar),
+                                    },
+                                    ..Default::default()
+                                });
+                                self.get_samples_internal(args, timeline);
+                            } else {
+                                self.state = Stopped;
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -562,6 +640,7 @@ impl ClipPcmSource {
                 self.inner.chain.reset();
                 ClipState::Stopped
             }
+            SuspensionReason::Record(s) => ClipState::Recording(s),
         }
     }
 
@@ -947,7 +1026,8 @@ pub trait ClipPcmSourceSkills {
     /// Returns the position within the clip as proportional value.
     fn proportional_pos_within_clip(&self, args: PosWithinClipArgs) -> Option<UnitValue>;
 
-    fn clip_record_mode(&self) -> Option<ClipRecordMode>;
+    /// Returns `None` if not recording.
+    fn clip_record_mode(&self) -> Option<ClipRecordSourceType>;
 
     fn write_midi(&mut self, request: WriteMidiRequest);
 
@@ -1036,6 +1116,10 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                     overdubbing: false,
                 });
             }
+            Recording(_) => {
+                // TODO-high It would probably be good to react the same way as if we would
+                //  stop recording and press play right afterwards (or auto-play).
+            }
         }
     }
 
@@ -1063,30 +1147,57 @@ impl ClipPcmSourceSkills for ClipPcmSource {
                 //  that would feel natural.
             }
             Suspending { reason, play_info } => {
-                if reason != SuspensionReason::Pause {
-                    // We are in another transition already. Simply change it to pause.
-                    self.state = ClipState::Suspending {
-                        reason: SuspensionReason::Pause,
-                        play_info,
-                    };
-                }
+                self.state = ClipState::Suspending {
+                    reason: SuspensionReason::Pause,
+                    play_info,
+                };
             }
+            // Pausing recording ... no, we don't want that.
+            Recording(_) => {}
         }
     }
 
     fn record(&mut self, args: RecordArgs) {
         use ClipState::*;
-        match self.state {
-            Stopped => {}
-            ScheduledOrPlaying(s) => {
-                self.state = ScheduledOrPlaying(ScheduledOrPlayingState {
-                    overdubbing: true,
-                    ..s
-                });
+        match args.kind {
+            RecordKind::Normal { play_after, timing } => {
+                let recording_state = RecordingState {
+                    play_after,
+                    mode: InternalRecordMode::from_timing(timing),
+                };
+                self.state = match self.state {
+                    Stopped => Recording(recording_state),
+                    ScheduledOrPlaying(s) => {
+                        if let Some(d) = s.resolved_play_data {
+                            if d.has_started_already() {
+                                Suspending {
+                                    reason: SuspensionReason::Record(recording_state),
+                                    play_info: d,
+                                }
+                            } else {
+                                Recording(recording_state)
+                            }
+                        } else {
+                            Recording(recording_state)
+                        }
+                    }
+                    Suspending { play_info, .. } => Suspending {
+                        reason: SuspensionReason::Record(recording_state),
+                        play_info,
+                    },
+                    Paused { .. } | Recording(_) => Recording(recording_state),
+                };
             }
-            Suspending { .. } => {}
-            Paused { .. } => {}
+            RecordKind::MidiOverdub => {
+                if let ScheduledOrPlaying(s) = self.state {
+                    self.state = ScheduledOrPlaying(ScheduledOrPlayingState {
+                        overdubbing: true,
+                        ..s
+                    });
+                }
+            }
         }
+        println!("Recording");
     }
 
     fn stop(&mut self, args: StopArgs) {
@@ -1094,63 +1205,106 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         match self.state {
             Stopped => {}
             ScheduledOrPlaying(s) => {
-                if let Some(play_info) = s.resolved_play_data {
-                    if s.scheduled_for_stop {
-                        // Already scheduled for stop.
-                        if args.stop_time == ClipStopTime::Immediately {
-                            // Transition to stop now!
-                            self.state = Suspending {
-                                reason: SuspensionReason::Stop,
-                                play_info,
+                if s.overdubbing {
+                    // Currently recording overdub. Stop recording, continue playing.
+                    self.state = ScheduledOrPlaying(ScheduledOrPlayingState {
+                        overdubbing: false,
+                        ..s
+                    })
+                } else {
+                    // Just playing, not recording.
+                    if let Some(play_info) = s.resolved_play_data {
+                        if s.scheduled_for_stop {
+                            // Already scheduled for stop.
+                            if args.stop_time == ClipStopTime::Immediately {
+                                // Transition to stop now!
+                                self.state = Suspending {
+                                    reason: SuspensionReason::Stop,
+                                    play_info,
+                                };
+                            }
+                        } else {
+                            // Not yet scheduled for stop.
+                            self.state = if play_info.has_started_already() {
+                                // Playing
+                                match args.stop_time {
+                                    ClipStopTime::Immediately => {
+                                        // Immediately. Transition to stop.
+                                        Suspending {
+                                            reason: SuspensionReason::Stop,
+                                            play_info,
+                                        }
+                                    }
+                                    ClipStopTime::EndOfClip => {
+                                        // Schedule
+                                        self.inner
+                                            .chain
+                                            .looper_mut()
+                                            .keep_playing_until_end_of_current_cycle(
+                                                play_info.next_block_pos,
+                                            );
+                                        ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
+                                            scheduled_for_stop: true,
+                                            ..s
+                                        })
+                                    }
+                                }
+                            } else {
+                                // Not yet playing. Backpedal.
+                                ClipState::Stopped
                             };
                         }
                     } else {
-                        // Not yet scheduled for stop.
-                        self.state = if play_info.has_started_already() {
-                            // Playing
-                            match args.stop_time {
-                                ClipStopTime::Immediately => {
-                                    // Immediately. Transition to stop.
-                                    Suspending {
-                                        reason: SuspensionReason::Stop,
-                                        play_info,
-                                    }
-                                }
-                                ClipStopTime::EndOfClip => {
-                                    // Schedule
-                                    self.inner
-                                        .chain
-                                        .looper_mut()
-                                        .keep_playing_until_end_of_current_cycle(
-                                            play_info.next_block_pos,
-                                        );
-                                    ClipState::ScheduledOrPlaying(ScheduledOrPlayingState {
-                                        scheduled_for_stop: true,
-                                        ..s
-                                    })
-                                }
-                            }
-                        } else {
-                            // Not yet playing. Backpedal.
-                            ClipState::Stopped
-                        };
+                        // Not yet playing. Backpedal.
+                        self.state = ClipState::Stopped;
                     }
-                } else {
-                    // Not yet playing. Backpedal.
-                    self.state = ClipState::Stopped;
                 }
             }
             Paused { .. } => {
                 self.state = ClipState::Stopped;
             }
             Suspending { reason, play_info } => {
-                if args.stop_time == ClipStopTime::Immediately && reason != SuspensionReason::Stop {
+                if args.stop_time == ClipStopTime::Immediately {
                     // We are in another transition already. Simply change it to stop.
                     self.state = Suspending {
                         reason: SuspensionReason::Stop,
                         play_info,
                     };
                 }
+            }
+            Recording(s) => {
+                use InternalRecordMode::*;
+                self.state = match s.mode {
+                    Unsynced => {
+                        if s.play_after {
+                            ScheduledOrPlaying(Default::default())
+                        } else {
+                            Stopped
+                        }
+                    }
+                    Synced { start_bar, end_bar } => {
+                        // TODO-high If start bar in future, discard recording.
+                        if end_bar.is_some() {
+                            // End already scheduled. Take care of stopping after recording.
+                            Recording(RecordingState {
+                                play_after: false,
+                                ..s
+                            })
+                        } else {
+                            // End not scheduled yet. Schedule end.
+                            // TODO-medium Better pass the timeline.
+                            let timeline = clip_timeline(self.project, false);
+                            let next_bar = timeline.next_bar_at(args.timeline_cursor_pos);
+                            Recording(RecordingState {
+                                mode: InternalRecordMode::Synced {
+                                    start_bar,
+                                    end_bar: Some(next_bar),
+                                },
+                                ..s
+                            })
+                        }
+                    }
+                };
             }
         }
     }
@@ -1161,7 +1315,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
             adjust_proportionally_positive(frame_count as f64, args.desired_pos.get());
         use ClipState::*;
         match self.state {
-            Stopped | Suspending { .. } => {}
+            Stopped | Suspending { .. } | Recording(_) => {}
             ScheduledOrPlaying(s) => {
                 if let Some(play_info) = s.resolved_play_data {
                     if play_info.has_started_already() {
@@ -1242,6 +1396,8 @@ impl ClipPcmSourceSkills for ClipPcmSource {
     }
 
     fn write_midi(&mut self, request: WriteMidiRequest) {
+        // TODO-high When not doing overdub, we must calculate the position from the time when
+        //  recording began.
         let pos_within_clip = self
             .pos_within_clip(PosWithinClipArgs {
                 timeline_tempo: request.timeline_tempo,
@@ -1271,10 +1427,22 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
-    fn clip_record_mode(&self) -> Option<ClipRecordMode> {
-        match self.inner.kind {
-            InnerSourceKind::Audio => Some(ClipRecordMode::Audio),
-            InnerSourceKind::Midi => Some(ClipRecordMode::MidiOverdub),
+    fn clip_record_mode(&self) -> Option<ClipRecordSourceType> {
+        use ClipState::*;
+        match self.state {
+            Stopped | Suspending { .. } | Paused { .. } => None,
+            ScheduledOrPlaying(s) => {
+                if s.overdubbing {
+                    Some(ClipRecordSourceType::Midi)
+                } else {
+                    None
+                }
+            }
+            // TODO-medium When recording past end, return None (should usually not happen)
+            Recording(_) => match self.inner.kind {
+                InnerSourceKind::Audio => Some(ClipRecordSourceType::Audio),
+                InnerSourceKind::Midi => Some(ClipRecordSourceType::Midi),
+            },
         }
     }
 
@@ -1435,8 +1603,8 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
         }
     }
 
-    fn clip_record_mode(&self) -> Option<ClipRecordMode> {
-        let mut m: Option<ClipRecordMode> = None;
+    fn clip_record_mode(&self) -> Option<ClipRecordSourceType> {
+        let mut m: Option<ClipRecordSourceType> = None;
         unsafe {
             self.extended(
                 EXT_CLIP_RECORD_MODE,

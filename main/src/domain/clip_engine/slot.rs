@@ -20,10 +20,10 @@ use crate::domain::clip_engine::clip_source::{
     RecordArgs, Repetition, ScheduledOrPlayingState, SeekToArgs, SetRepeatedArgs, StopArgs,
     SuspensionReason,
 };
-use crate::domain::clip_engine::StretchWorkerRequest;
 use crate::domain::clip_engine::{
     clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
 };
+use crate::domain::clip_engine::{RecordKind, StretchWorkerRequest};
 
 /// Represents an actually playable clip slot.
 ///
@@ -297,8 +297,40 @@ impl ClipSlot {
     }
 
     /// Instructs this slot to record a clip.
-    pub fn record(&mut self) -> Result<SharedRegister, &'static str> {
-        let result = self.start_transition().record(&self.register);
+    pub fn record(
+        &mut self,
+        project: Project,
+        stretch_worker_sender: &Sender<StretchWorkerRequest>,
+        args: RecordArgs,
+    ) -> Result<SharedRegister, &'static str> {
+        // TODO-high We should probably keep the current source, not replace it
+        //  immediately, in order to allow a fade out.
+        if let RecordKind::Normal { .. } = args.kind {
+            // TODO-high Also implement for audio recording.
+            let mut source = OwnedSource::from_type("MIDI")?;
+            // TODO-high Only keep necessary parts of the chunk
+            // TODO-high Make clip very short. Realtime-writing makes it longer automatically.
+            // TODO-high We absolutely need the permanent section supplier, then we can play the
+            //  source correctly positioned and with correct length even the source is too long
+            //  and starts too early.
+            let chunk = "\
+                HASDATA 1 960 QN\n\
+                CCINTERP 32\n\
+                POOLEDEVTS {1F408000-28E4-46FA-9CB8-935A213C5904}\n\
+                E 115200 b0 7b 00\n\
+                CCINTERP 32\n\
+                CHASE_CC_TAKEOFFS 1\n\
+                GUID {1A129921-1EC6-4C57-B340-95F076A6B9FF}\n\
+                IGNTEMPO 0 120 4 4\n\
+                SRCCOLOR 647\n\
+                VELLANE 141 274 0\n\
+            >\n\
+            ";
+            source.set_state_chunk("<SOURCE MIDI\n", String::from(chunk))?;
+            self.clear()?;
+            self.fill_with_source(source, Some(project), stretch_worker_sender)?;
+        }
+        let result = self.start_transition().record(&self.register, args);
         self.finish_transition(result)?;
         Ok(self.register.clone())
     }
@@ -598,12 +630,12 @@ impl State {
         }
     }
 
-    pub fn record(self, reg: &SharedRegister) -> TransitionResult {
+    pub fn record(self, reg: &SharedRegister, record_args: RecordArgs) -> TransitionResult {
         use State::*;
         match self {
-            // TODO-high Implement recording for empty slot
+            // Before recording, a slot is always filled with a source, so empty should not happen.
             Empty => Ok(Empty),
-            Filled(s) => s.record(reg),
+            Filled(s) => s.record(reg, record_args),
             Transitioning => unreachable!(),
         }
     }
@@ -810,10 +842,10 @@ impl FilledState {
         Ok(State::Filled(next_state))
     }
 
-    pub fn record(self, reg: &SharedRegister) -> TransitionResult {
+    pub fn record(self, reg: &SharedRegister, record_args: RecordArgs) -> TransitionResult {
         let mut guard = lock(reg);
         let src = guard.src_mut().expect(NO_SOURCE_LOADED);
-        src.as_mut().record(RecordArgs {});
+        src.as_mut().record(record_args);
         Ok(State::Filled(self))
     }
 
@@ -876,14 +908,6 @@ impl FilledState {
         timeline_cursor_pos: PositionInSeconds,
         timeline_tempo: Bpm,
     ) -> (TransitionResult, Option<ClipChangedEvent>) {
-        let handle = match self.handle {
-            None => {
-                // If we don't have a preview register handle, the clip is stopped or paused and we can
-                // return early. No polling necessary.
-                return (Ok(State::Filled(self)), None);
-            }
-            Some(h) => h,
-        };
         // At first collect some up-to-date clip source state.
         // TODO-high We should optimize this by getting everything at once.
         let (clip_state, play_state, pos_within_clip) = {
@@ -912,6 +936,7 @@ impl FilledState {
             ))
         } else {
             // Play state has changed. Emit this instead of a position change.
+            println!("Clip state changed: {:?}", play_state);
             Some(ClipChangedEvent::PlayState(play_state))
         };
         // Then determine next state.
@@ -969,11 +994,9 @@ impl FilledState {
             //     // We are still playing and need the preview register to keep playing.
             //     ScheduledOrPlaying { .. } | Suspending { .. } => Some(handle),
             // };
-            let next_handle = Some(handle);
-            // Then build new state.
             let filled_state = FilledState {
                 last_clip_play_state: play_state,
-                handle: next_handle,
+                handle: self.handle,
                 ..self
             };
             State::Filled(filled_state)
@@ -1049,8 +1072,10 @@ fn get_play_state(clip_state: ClipState) -> ClipPlayState {
             SuspensionReason::Retrigger { .. } => ClipPlayState::Playing,
             SuspensionReason::Pause => ClipPlayState::Paused,
             SuspensionReason::Stop => ClipPlayState::Stopped,
+            SuspensionReason::Record(_) => ClipPlayState::Recording,
         },
         Paused { .. } => ClipPlayState::Paused,
+        Recording(_) => ClipPlayState::Recording,
     }
 }
 
@@ -1079,15 +1104,15 @@ impl RelevantTransportChange {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum ClipRecordTiming {
     StartImmediatelyStopOnDemand,
-    StartOnNextBarStopOnDemand,
-    StartOnNextBarWithCycles(u32),
+    StartOnBarStopOnDemand { start_bar: i32 },
+    StartOnBarStopOnBar { start_bar: i32, bar_count: u32 },
 }
 
 #[derive(Debug)]
-pub enum ClipRecordMode {
-    MidiOverdub,
+pub enum ClipRecordSourceType {
+    Midi,
     Audio,
 }

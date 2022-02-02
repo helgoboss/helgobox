@@ -616,14 +616,10 @@ pub(crate) fn clip_play_state_unit_value(
 ) -> UnitValue {
     use TransportAction::*;
     match action {
-        PlayStop | PlayPause | Stop | Pause | Record => match action {
-            PlayStop | PlayPause => play_state.feedback_value(),
-            Stop => transport_is_enabled_unit_value(play_state == ClipPlayState::Stopped),
-            Pause => transport_is_enabled_unit_value(play_state == ClipPlayState::Paused),
-            // TODO-high Would probably make sense to introduce a few more Record variants.
-            Record => play_state.feedback_value(),
-            _ => unreachable!(),
-        },
+        PlayStop | PlayPause => play_state.feedback_value(),
+        Stop => transport_is_enabled_unit_value(play_state == ClipPlayState::Stopped),
+        Pause => transport_is_enabled_unit_value(play_state == ClipPlayState::Paused),
+        RecordStop => transport_is_enabled_unit_value(play_state == ClipPlayState::Recording),
         _ => panic!("wrong argument"),
     }
 }
@@ -895,8 +891,8 @@ pub enum TransportAction {
     #[display(fmt = "Pause")]
     Pause,
     #[serde(rename = "record")]
-    #[display(fmt = "Record")]
-    Record,
+    #[display(fmt = "Record/stop")]
+    RecordStop,
     #[serde(rename = "repeat")]
     #[display(fmt = "Repeat")]
     Repeat,
@@ -905,6 +901,22 @@ pub enum TransportAction {
 impl Default for TransportAction {
     fn default() -> Self {
         TransportAction::PlayStop
+    }
+}
+
+impl TransportAction {
+    pub fn control_type_and_character(&self) -> (ControlType, TargetCharacter) {
+        use TransportAction::*;
+        match self {
+            // Retriggerable because we want to be able to retrigger play!
+            PlayStop | PlayPause => (
+                ControlType::AbsoluteContinuousRetriggerable,
+                TargetCharacter::Switch,
+            ),
+            Stop | Pause | RecordStop | Repeat => {
+                (ControlType::AbsoluteContinuous, TargetCharacter::Switch)
+            }
+        }
     }
 }
 
@@ -924,7 +936,7 @@ fn determine_target_for_action(action: Action) -> ReaperTarget {
         // Record button
         1013 => ReaperTarget::Transport(TransportTarget {
             project,
-            action: TransportAction::Record,
+            action: TransportAction::RecordStop,
         }),
         // Repeat button
         1068 => ReaperTarget::Transport(TransportTarget {
