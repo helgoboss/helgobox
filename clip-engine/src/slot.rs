@@ -38,7 +38,7 @@ pub struct ClipSlot {
 
 #[derive(Copy, Clone)]
 pub enum TransportChange {
-    PlayState(PlayState),
+    PlayState(RelevantPlayStateChange),
     PlayCursorJump,
 }
 
@@ -266,6 +266,7 @@ impl ClipSlot {
         self.finish_transition(result)
     }
 
+    // DONE
     /// This method should be called whenever REAPER's play state changes. It will make the clip
     /// start/stop synchronized with REAPER's transport.
     pub fn process_transport_change(
@@ -521,16 +522,7 @@ impl State {
             State::Filled(mut s) => {
                 // Clip was started once already.
                 match change {
-                    TransportChange::PlayState(new_play_state) => {
-                        let rel_change = RelevantTransportChange::from_play_state_change(
-                            s.last_project_play_state,
-                            new_play_state,
-                        );
-                        s.last_project_play_state = new_play_state;
-                        let rel_change = match rel_change {
-                            None => return Ok(State::Filled(s)),
-                            Some(c) => c,
-                        };
+                    TransportChange::PlayState(rel_change) => {
                         // We have a relevant transport change.
                         let play_args = match s.last_play_args.clone() {
                             None => return Ok(State::Filled(s)),
@@ -542,7 +534,7 @@ impl State {
                         // Pausing the transport makes the complete timeline pause, so we don't need to
                         // do anything here.
                         match rel_change {
-                            RelevantTransportChange::PlayAfterStop => {
+                            RelevantPlayStateChange::PlayAfterStop => {
                                 match state {
                                     Stopped | Paused if s.was_caused_by_transport_change => {
                                         // REAPER transport was started, either from stopped or paused
@@ -558,7 +550,7 @@ impl State {
                                     }
                                 }
                             }
-                            RelevantTransportChange::StopAfterPlay => match state {
+                            RelevantPlayStateChange::StopAfterPlay => match state {
                                 ScheduledForPlay | Playing | ScheduledForStop if synced => {
                                     // Stop and memorize
                                     s.stop(reg, SlotStopBehavior::Immediately, true, moment)
@@ -568,7 +560,7 @@ impl State {
                                     s.stop(reg, SlotStopBehavior::Immediately, false, moment)
                                 }
                             },
-                            RelevantTransportChange::StopAfterPause => {
+                            RelevantPlayStateChange::StopAfterPause => {
                                 s.stop(reg, SlotStopBehavior::Immediately, false, moment)
                             }
                         }
@@ -682,11 +674,6 @@ impl State {
                 let mut g = lock(reg);
                 g.set_src(Some(source));
                 let new_state = FilledState {
-                    last_project_play_state: {
-                        project
-                            .unwrap_or_else(|| Reaper::get().current_project())
-                            .play_state()
-                    },
                     last_clip_play_state: ClipPlayState::Stopped,
                     handle: None,
                     last_play_args: None,
@@ -742,8 +729,6 @@ fn stop_playing_preview(track: Option<&Track>, handle: NonNull<raw::preview_regi
 
 #[derive(Debug)]
 struct FilledState {
-    // TODO-high This could be saved elsewhere, just once, e.g. in InstanceState
-    last_project_play_state: PlayState,
     last_clip_play_state: ClipPlayState,
     handle: Option<NonNull<raw::preview_register_t>>,
     last_play_args: Option<ClipPlayArgs>,
@@ -808,7 +793,6 @@ impl FilledState {
         }
         let was_caused_by_transport_change = self.was_caused_by_transport_change;
         let last_play_state = self.last_clip_play_state;
-        let last_project_play_state = self.last_project_play_state;
         let handle = if let Some(handle) = self.handle {
             // Preview register playing already.
             handle
@@ -818,7 +802,6 @@ impl FilledState {
                 .map_err(|text| (State::Filled(self), text))?
         };
         let next_state = FilledState {
-            last_project_play_state,
             handle: Some(handle),
             last_play_args: Some(args),
             was_caused_by_transport_change,
@@ -1036,16 +1019,16 @@ fn get_play_state(clip_state: ClipState) -> ClipPlayState {
 // DONE
 const NO_SOURCE_LOADED: &str = "no source loaded";
 
-#[derive(Debug)]
-enum RelevantTransportChange {
+#[derive(Copy, Clone, Debug)]
+pub enum RelevantPlayStateChange {
     PlayAfterStop,
     StopAfterPlay,
     StopAfterPause,
 }
 
-impl RelevantTransportChange {
-    fn from_play_state_change(old: PlayState, new: PlayState) -> Option<Self> {
-        use RelevantTransportChange::*;
+impl RelevantPlayStateChange {
+    pub fn from_play_state_change(old: PlayState, new: PlayState) -> Option<Self> {
+        use RelevantPlayStateChange::*;
         let change = if !old.is_paused && !old.is_playing && new.is_playing {
             PlayAfterStop
         } else if old.is_playing && !new.is_playing && !new.is_paused {

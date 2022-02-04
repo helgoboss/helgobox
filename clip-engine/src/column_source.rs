@@ -1,6 +1,7 @@
 use crate::{
     clip_timeline, ClipChangedEvent, ClipPlayArgs, ClipProcessArgs, ClipStopArgs, ClipStopBehavior,
-    NewClip, Slot, SlotPollArgs, Timeline,
+    NewClip, Slot, SlotPollArgs, SlotProcessTransportChangeArgs, Timeline, TimelineMoment,
+    TransportChange,
 };
 use assert_no_alloc::assert_no_alloc;
 use num_enum::TryFromPrimitive;
@@ -94,6 +95,12 @@ impl ColumnSource {
     pub fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {
         let slot = get_slot_mut(&mut self.slots, args.index);
         slot.poll(args.slot_args)
+    }
+
+    pub fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
+        for slot in &mut self.slots {
+            slot.process_transport_change(args);
+        }
     }
 
     fn get_num_channels(&self) -> Option<u32> {

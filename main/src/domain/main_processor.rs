@@ -22,10 +22,11 @@ use helgoboss_learn::{
     ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
 };
 use playtime_clip_engine::{
-    clip_timeline, clip_timeline_cursor_pos, ClipChangedEvent, Timeline, TransportChange,
+    clip_timeline, clip_timeline_cursor_pos, ClipChangedEvent, RelevantPlayStateChange, Timeline,
+    TransportChange,
 };
 use std::borrow::Cow;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 use crate::base::Global;
 use crate::domain::ui_util::{
@@ -36,7 +37,7 @@ use crate::domain::ui_util::{
 use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
 use reaper_high::{ChangeEvent, Reaper};
-use reaper_medium::ReaperNormalizedFxParamValue;
+use reaper_medium::{PlayState, ReaperNormalizedFxParamValue};
 use rosc::{OscMessage, OscPacket, OscType};
 use slog::{debug, trace};
 use smallvec::SmallVec;
@@ -65,6 +66,7 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     collections: Collections,
     /// Contains IDs of those mappings who need to be polled as frequently as possible.
     poll_control_mappings: EnumMap<MappingCompartment, OrderedMappingIdSet>,
+    last_play_state: Cell<PlayState>,
 }
 
 #[derive(Debug)]
@@ -258,6 +260,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) =
             crossbeam_channel::bounded(FEEDBACK_TASK_QUEUE_SIZE);
         let logger = parent_logger.new(slog::o!("struct" => "MainProcessor"));
+        let last_play_state = context.project_or_current_project().play_state();
         MainProcessor {
             basics: Basics {
                 instance_id,
@@ -302,6 +305,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 previous_target_values: Default::default(),
             },
             poll_control_mappings: Default::default(),
+            last_play_state: Cell::new(last_play_state),
         }
     }
 
@@ -1438,9 +1442,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     return;
                 }
             }
-            instance_state
-                .clip_matrix_mut()
-                .process_transport_change(TransportChange::PlayState(e.new_value), project);
+            let last_play_state = self.last_play_state.replace(e.new_value);
+            if let Some(relevant) =
+                RelevantPlayStateChange::from_play_state_change(last_play_state, e.new_value)
+            {
+                instance_state
+                    .clip_matrix_mut()
+                    .process_transport_change(TransportChange::PlayState(relevant), project);
+            }
         }
         self.process_feedback_related_reaper_event(|mapping, target| {
             mapping.process_change_event(

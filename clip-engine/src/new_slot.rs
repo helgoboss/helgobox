@@ -1,5 +1,6 @@
 use crate::{
-    ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipStopArgs, NewClip, Timeline,
+    ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipStopArgs, ClipStopBehavior,
+    NewClip, RelevantPlayStateChange, Timeline, TimelineMoment, TransportChange,
 };
 use helgoboss_learn::UnitValue;
 use reaper_medium::{Bpm, PcmSourceTransfer, PositionInSeconds};
@@ -7,7 +8,19 @@ use reaper_medium::{Bpm, PcmSourceTransfer, PositionInSeconds};
 #[derive(Debug, Default)]
 pub struct Slot {
     clip: Option<NewClip>,
+    runtime_data: RuntimeData,
+}
+
+#[derive(Debug, Default)]
+struct RuntimeData {
     last_play_state: ClipPlayState,
+    last_play: Option<LastPlay>,
+    stop_was_caused_by_transport_change: bool,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct LastPlay {
+    was_synced_to_bar: bool,
 }
 
 impl Slot {
@@ -21,12 +34,16 @@ impl Slot {
     }
 
     pub fn play_clip(&mut self, args: ClipPlayArgs) -> Result<(), &'static str> {
+        self.runtime_data.last_play = Some(LastPlay {
+            was_synced_to_bar: args.from_bar.is_some(),
+        });
         let clip = self.get_clip_mut()?;
         clip.play(args);
         Ok(())
     }
 
     pub fn stop_clip(&mut self, args: ClipStopArgs) -> Result<(), &'static str> {
+        self.runtime_data.stop_was_caused_by_transport_change = false;
         let clip = self.get_clip_mut()?;
         clip.stop(args);
         Ok(())
@@ -45,7 +62,7 @@ impl Slot {
     }
 
     pub fn poll(&mut self, args: SlotPollArgs) -> Option<ClipChangedEvent> {
-        let last_play_state = self.last_play_state;
+        let last_play_state = self.runtime_data.last_play_state;
         let clip = self.get_clip_mut().ok()?;
         let play_state = clip.play_state();
         let next_event = if play_state == last_play_state {
@@ -58,8 +75,80 @@ impl Slot {
             println!("Clip state changed: {:?}", play_state);
             Some(ClipChangedEvent::PlayState(play_state))
         };
-        self.last_play_state = play_state;
+        self.runtime_data.last_play_state = play_state;
         next_event
+    }
+
+    pub fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
+        let clip = match &mut self.clip {
+            None => return,
+            Some(c) => c,
+        };
+        match args.change {
+            TransportChange::PlayState(rel_change) => {
+                // We have a relevant transport change.
+                let last_play = match self.runtime_data.last_play {
+                    None => return,
+                    Some(a) => a,
+                };
+                // Clip was started at least once already.
+                let state = clip.play_state();
+                use ClipPlayState::*;
+                use RelevantPlayStateChange::*;
+                match rel_change {
+                    PlayAfterStop => {
+                        match state {
+                            Stopped if self.runtime_data.stop_was_caused_by_transport_change => {
+                                // REAPER transport was started from stopped state. Clip is stopped
+                                // as well and was put in that state due to a previous transport
+                                // stop. Play the clip!
+                                let args = ClipPlayArgs {
+                                    from_bar: Some(args.moment.next_bar()),
+                                };
+                                clip.play(args);
+                            }
+                            _ => {
+                                // Stop and forget (because we have a timeline switch).
+                                self.runtime_data.stop_clip_by_transport(clip, args, false);
+                            }
+                        }
+                    }
+                    StopAfterPlay => match state {
+                        ScheduledForPlay | Playing | ScheduledForStop
+                            if last_play.was_synced_to_bar =>
+                        {
+                            // Stop and memorize
+                            self.runtime_data.stop_clip_by_transport(clip, args, true);
+                        }
+                        _ => {
+                            // Stop and forget
+                            self.runtime_data.stop_clip_by_transport(clip, args, false);
+                        }
+                    },
+                    StopAfterPause => {
+                        self.runtime_data.stop_clip_by_transport(clip, args, false);
+                    }
+                }
+            }
+            TransportChange::PlayCursorJump => {
+                // The play cursor was repositioned.
+                let last_play = match self.runtime_data.last_play {
+                    None => return,
+                    Some(a) => a,
+                };
+                if !last_play.was_synced_to_bar {
+                    return;
+                }
+                let play_state = clip.play_state();
+                use ClipPlayState::*;
+                if !matches!(play_state, ScheduledForPlay | Playing | ScheduledForStop) {
+                    return;
+                }
+                clip.play(ClipPlayArgs {
+                    from_bar: Some(args.moment.next_bar()),
+                });
+            }
+        }
     }
 
     pub fn process(&mut self, args: ClipProcessArgs<impl Timeline>) -> Result<(), &'static str> {
@@ -77,8 +166,30 @@ impl Slot {
     }
 }
 
+impl RuntimeData {
+    fn stop_clip_by_transport(
+        &mut self,
+        clip: &mut NewClip,
+        args: &SlotProcessTransportChangeArgs,
+        keep_starting_with_transport: bool,
+    ) {
+        self.stop_was_caused_by_transport_change = keep_starting_with_transport;
+        clip.stop(ClipStopArgs {
+            stop_behavior: ClipStopBehavior::Immediately,
+            timeline_cursor_pos: args.moment.cursor_pos(),
+            timeline: args.timeline,
+        });
+    }
+}
+
 pub struct SlotPollArgs {
     pub timeline_tempo: Bpm,
+}
+
+pub struct SlotProcessTransportChangeArgs<'a> {
+    pub change: TransportChange,
+    pub moment: TimelineMoment,
+    pub timeline: &'a dyn Timeline,
 }
 
 const SLOT_NOT_FILLED: &str = "slot not filled";

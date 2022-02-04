@@ -1,7 +1,8 @@
 use crate::{
     ClipChangedEvent, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnPollSlotArgs,
     ColumnSetClipRepeatedArgs, ColumnSource, ColumnStopClipArgs, SharedColumnSource,
-    SharedRegister, Slot,
+    SharedRegister, Slot, SlotProcessTransportChangeArgs, Timeline, TimelineMoment,
+    TransportChange,
 };
 use crossbeam_channel::Sender;
 use enumflags2::BitFlags;
@@ -73,6 +74,12 @@ impl Column {
 
     pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
         self.with_source_mut(|s| s.toggle_clip_repeated(index))
+    }
+
+    /// This method should be called whenever REAPER's play state changes. It will make the clip
+    /// start/stop synchronized with REAPER's transport.
+    pub fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
+        self.with_source_mut(|s| s.process_transport_change(args));
     }
 
     fn with_source<R>(&self, f: impl FnOnce(&ColumnSource) -> R) -> R {

@@ -315,7 +315,6 @@ impl NewClip {
                             })
                         } else {
                             // End not scheduled yet. Schedule end.
-                            // TODO-medium Better pass the timeline.
                             let next_bar = args.timeline.next_bar_at(args.timeline_cursor_pos);
                             Recording(NewRecordingState {
                                 timing: Synced {

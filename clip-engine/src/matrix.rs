@@ -2,8 +2,9 @@ use crate::{
     clip_timeline, keep_stretching, ClipChangedEvent, ClipContent, ClipPlayArgs, ClipSlot,
     ClipStopArgs, ClipStopBehavior, Column, ColumnFillSlotArgs, ColumnPlayClipArgs,
     ColumnPollSlotArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs, LegacyClip, NewClip,
-    RecordArgs, SharedRegister, Slot, SlotPlayOptions, SlotPollArgs, SlotStopBehavior,
-    StretchWorkerRequest, Timeline, TransportChange,
+    RecordArgs, SharedRegister, Slot, SlotPlayOptions, SlotPollArgs,
+    SlotProcessTransportChangeArgs, SlotStopBehavior, StretchWorkerRequest, Timeline,
+    TransportChange,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -159,9 +160,13 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
     pub fn process_transport_change(&mut self, change: TransportChange, project: Option<Project>) {
         let timeline = clip_timeline(project, true);
         let moment = timeline.capture_moment();
-        for slot in self.clip_slots.iter_mut() {
-            slot.process_transport_change(change, moment, &timeline)
-                .unwrap();
+        let args = SlotProcessTransportChangeArgs {
+            change,
+            moment,
+            timeline: &timeline,
+        };
+        for column in &mut self.columns {
+            column.process_transport_change(&args);
         }
     }
 
@@ -230,16 +235,6 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
     ) -> Result<(), &'static str> {
         let event = self.get_slot_mut(slot_index)?.set_volume(volume);
         self.handler.notify_clip_changed(slot_index, event);
-        Ok(())
-    }
-
-    pub fn set_clip_tempo_factor(
-        &mut self,
-        slot_index: usize,
-        tempo_factor: f64,
-    ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?
-            .set_tempo_factor(tempo_factor);
         Ok(())
     }
 
