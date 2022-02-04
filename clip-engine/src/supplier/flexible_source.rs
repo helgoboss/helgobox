@@ -6,6 +6,7 @@ use crate::{
 use reaper_medium::{BorrowedMidiEventList, Hz};
 use std::cmp;
 
+#[derive(Debug)]
 pub struct FlexibleSource<S> {
     supplier: S,
     temporary_audio_buffer: OwnedAudioBuffer,

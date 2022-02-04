@@ -11,6 +11,7 @@ use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
 };
 
+#[derive(Debug)]
 pub struct Suspender<S> {
     start_frame: Option<isize>,
     supplier: S,

@@ -1,24 +1,28 @@
 use crate::application::{
     empty_parameter_settings, reaper_supports_global_midi_filter, CompartmentInSession, GroupModel,
-    MainPresetAutoLoadMode, ParameterSetting, Session, SessionState,
+    MainPresetAutoLoadMode, ParameterSetting, Session, SessionState, TargetCategory,
+    VirtualTrackType,
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
     GroupId, GroupKey, InstanceState, MappingCompartment, MappingId, MidiControlInput,
-    MidiDestination, OscDeviceId, ParameterArray, Tag, COMPARTMENT_PARAMETER_COUNT,
-    ZEROED_PLUGIN_PARAMETERS,
+    MidiDestination, OscDeviceId, ParameterArray, ReaperTargetType, Tag, TransportAction,
+    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
-    ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData, MigrationDescriptor,
-    ParameterData,
+    deserialize_track, ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData,
+    MigrationDescriptor, ParameterData,
 };
 use crate::infrastructure::plugin::App;
 
+use crate::base::notification;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
-use playtime_clip_engine::QualifiedSlotDescriptor;
+use playtime_clip_engine::{LegacyClip, LegacyClipOutput, LegacySlotDescriptor};
+use reaper_high::{Reaper, Track};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
+use serde_ini::de::Trait;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::error::Error;
@@ -86,7 +90,8 @@ pub struct SessionData {
     // which is used in CompartmentModelData.
     #[serde(default, skip_serializing_if = "is_default")]
     controller_parameters: HashMap<String, ParameterData>,
-    #[serde(default, skip_serializing_if = "is_default")]
+    // Legacy (ReaLearn <= 2.12.0-pre.4)
+    #[serde(default, skip_serializing)]
     clip_slots: Vec<QualifiedSlotDescriptor>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
@@ -240,7 +245,7 @@ impl SessionData {
                 parameters,
                 MappingCompartment::ControllerMappings,
             ),
-            clip_slots: { instance_state.clip_matrix().filled_slot_descriptors() },
+            clip_slots: vec![],
             tags: session.tags.get_ref().clone(),
             controller: CompartmentState::from_instance_state(
                 &instance_state,
@@ -440,8 +445,15 @@ impl SessionData {
         // Instance state
         {
             let mut instance_state = session.instance_state().borrow_mut();
-            instance_state.clip_matrix_mut().load_slots(
-                self.clip_slots.clone(),
+            instance_state.clip_matrix_mut().load_slots_legacy(
+                self.clip_slots
+                    .iter()
+                    .map(|desc| LegacySlotDescriptor {
+                        output: self.determine_legacy_clip_track(desc.index),
+                        index: desc.index,
+                        clip: desc.descriptor.clone(),
+                    })
+                    .collect(),
                 Some(session.context().project_or_current_project()),
             )?;
             instance_state
@@ -465,6 +477,62 @@ impl SessionData {
             );
         }
         Ok(())
+    }
+
+    fn determine_legacy_clip_track(&self, slot_index: usize) -> LegacyClipOutput {
+        let mut candidates: Vec<_> = self
+            .mappings
+            .iter()
+            .chain(self.controller_mappings.iter())
+            .filter_map(|m| {
+                if m.target.category == TargetCategory::Reaper
+                    && m.target.r#type == ReaperTargetType::ClipTransport
+                    && matches!(m.target.transport_action, TransportAction::PlayPause | TransportAction::PlayStop)
+                    && m.target.slot_index == slot_index
+                {
+                    if m.target.with_track {
+                        let prop_values = deserialize_track(&m.target.track_data);
+                        use VirtualTrackType::*;
+                        let t = match prop_values.r#type {
+                            This => LegacyClipOutput::ThisTrack,
+                            Selected | AllSelected | Dynamic => {
+                                warn_about_legacy_clip_loss(slot_index, "The clip play target used track \"Selected\", \"All selected\" or \"Dynamic\" which is not supported anymore. Falling back to playing slot on \"This\" track.");
+                                LegacyClipOutput::ThisTrack
+                            },
+                            Master => LegacyClipOutput::MasterTrack,
+                            ById => if let Some(id) = prop_values.id { LegacyClipOutput::TrackById(id) } else {
+                                LegacyClipOutput::ThisTrack
+                            },
+                            ByName => LegacyClipOutput::TrackByName(prop_values.name),
+                            AllByName => {
+                                warn_about_legacy_clip_loss(slot_index, "The clip play target used track \"All by name\" which is not supported anymore. Falling back to identifying track by name.");
+                                LegacyClipOutput::TrackByName(prop_values.name)
+                            },
+                            ByIndex => LegacyClipOutput::TrackByIndex(prop_values.index),
+                            ByIdOrName => if let Some(id) = prop_values.id {
+                                LegacyClipOutput::TrackById(id)
+                            } else {
+                                LegacyClipOutput::TrackByName(prop_values.name)
+                            }
+                        };
+                        Some(t)
+                    } else {
+                        Some(LegacyClipOutput::HardwareOutput)
+                    }
+                } else {
+                    None
+                }
+            }).collect();
+        if candidates.len() > 1 {
+            warn_about_legacy_clip_loss(slot_index, "This clip was referred to by multiple clip play targets. Only the first one will be taken into account.");
+        }
+        let res = if let Some(first) = candidates.drain(..).next() {
+            first
+        } else {
+            warn_about_legacy_clip_loss(slot_index, "There was no corresponding play target for this clip. Clip will be played on the master track instead.");
+            LegacyClipOutput::MasterTrack
+        };
+        res
     }
 
     pub fn parameters_as_array(&self) -> ParameterArray {
@@ -555,4 +623,25 @@ pub trait DataToModelConversionContext {
     }
 
     fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId>;
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct QualifiedSlotDescriptor {
+    #[serde(rename = "index")]
+    pub index: usize,
+    #[serde(flatten)]
+    pub descriptor: LegacyClip,
+}
+
+fn warn_about_legacy_clip_loss(slot_index: usize, msg: &str) {
+    notification::warn(format!(
+        "\
+        You have loaded a preset that makes use of the experimental clip engine contained in \
+        older ReaLearn versions. This engine is now legacy and replaced by a new engine. The new \
+        engine is better in many ways but doesn't support some of the more exotic features of the \
+        old engine. In particular, clip {} will probably behave differently now. Details: {}
+        ",
+        slot_index + 1,
+        msg
+    ))
 }

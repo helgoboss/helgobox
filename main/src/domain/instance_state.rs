@@ -19,8 +19,8 @@ use crate::domain::{
     RealTimeSender, Tag,
 };
 use playtime_clip_engine::{
-    clip_timeline, Clip, ClipChangedEvent, ClipContent, ClipMatrix, ClipMatrixHandler,
-    ClipPlayState, ClipRecordSourceType, ClipRecordTask, ClipRecordTiming, ClipSlot, RecordArgs,
+    clip_timeline, ClipChangedEvent, ClipContent, ClipMatrix, ClipMatrixHandler, ClipPlayState,
+    ClipRecordSourceType, ClipRecordTask, ClipRecordTiming, ClipSlot, LegacyClip, RecordArgs,
     RecordKind, SlotPlayOptions, SlotStopBehavior, Timeline, TimelineMoment, TransportChange,
 };
 use playtime_clip_engine::{keep_stretching, StretchWorkerRequest};
@@ -120,13 +120,14 @@ impl InstanceState {
     pub fn new(
         instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
         audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
+        this_track: Option<Track>,
     ) -> Self {
         let clip_matrix_handler = RealearnClipMatrixHandler::new(
             audio_hook_task_sender,
             instance_feedback_event_sender.clone(),
         );
         Self {
-            clip_matrix: ClipMatrix::new(clip_matrix_handler),
+            clip_matrix: ClipMatrix::new(clip_matrix_handler, this_track),
             instance_feedback_event_sender,
             slot_contents_changed_subject: Default::default(),
             mappings_by_group: Default::default(),

@@ -20,8 +20,8 @@ use crate::clip_source::{
     SuspensionReason,
 };
 use crate::{
-    clip_timeline, clip_timeline_cursor_pos, Clip, ClipChangedEvent, ClipContent, ClipPlayState,
-    Timeline, TimelineMoment,
+    clip_timeline, clip_timeline_cursor_pos, ClipChangedEvent, ClipContent, ClipPlayState,
+    LegacyClip, Timeline, TimelineMoment,
 };
 use crate::{RecordKind, StretchWorkerRequest};
 
@@ -31,7 +31,7 @@ use crate::{RecordKind, StretchWorkerRequest};
 #[derive(Debug)]
 pub struct ClipSlot {
     index: u32,
-    clip: Clip,
+    clip: LegacyClip,
     register: SharedRegister,
     state: State,
 }
@@ -51,7 +51,7 @@ impl Drop for ClipSlot {
 pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
 /// Creates a REAPER preview register with its initial settings taken from the given descriptor.
-fn create_shared_register(descriptor: &Clip) -> SharedRegister {
+fn create_shared_register(descriptor: &LegacyClip) -> SharedRegister {
     let mut register = OwnedPreviewRegister::default();
     register.set_volume(descriptor.volume);
     register.set_out_chan(-1);
@@ -60,7 +60,7 @@ fn create_shared_register(descriptor: &Clip) -> SharedRegister {
 
 impl ClipSlot {
     pub fn new(index: u32) -> Self {
-        let descriptor = Clip::default();
+        let descriptor = LegacyClip::default();
         let register = create_shared_register(&descriptor);
         Self {
             index,
@@ -71,7 +71,7 @@ impl ClipSlot {
     }
 
     /// Returns the slot descriptor.
-    pub fn descriptor(&self) -> &Clip {
+    pub fn descriptor(&self) -> &LegacyClip {
         &self.clip
     }
 
@@ -88,7 +88,7 @@ impl ClipSlot {
     /// Stops playback if necessary.
     pub fn load(
         &mut self,
-        clip: Clip,
+        clip: LegacyClip,
         project: Option<Project>,
         stretch_worker_sender: &Sender<StretchWorkerRequest>,
     ) -> Result<Vec<ClipChangedEvent>, &'static str> {
@@ -99,7 +99,7 @@ impl ClipSlot {
         self.load_events()
     }
 
-    fn start_load(&mut self, clip: Clip) -> Result<(), &'static str> {
+    fn start_load(&mut self, clip: LegacyClip) -> Result<(), &'static str> {
         self.clear()?;
         // Using a completely new register saves us from cleaning up.
         self.register = create_shared_register(&clip);

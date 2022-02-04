@@ -1,11 +1,12 @@
 use crate::{
-    clip_timeline, keep_stretching, Clip, ClipChangedEvent, ClipContent, ClipSlot, RecordArgs,
-    SharedRegister, SlotPlayOptions, SlotStopBehavior, StretchWorkerRequest, Timeline,
-    TransportChange,
+    clip_timeline, keep_stretching, ClipChangedEvent, ClipContent, ClipPlayArgs, ClipSlot,
+    ClipStopArgs, ClipStopBehavior, Column, ColumnFillSlotArgs, ColumnPlaySlotArgs,
+    ColumnStopSlotArgs, LegacyClip, NewClip, RecordArgs, SharedRegister, SlotPlayOptions,
+    SlotStopBehavior, StretchWorkerRequest, Timeline, TransportChange,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
-use reaper_high::{Item, Project, Track};
+use reaper_high::{Guid, Item, Project, Reaper, Track};
 use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -16,10 +17,12 @@ pub struct ClipMatrix<H> {
     clip_slots: Vec<ClipSlot>,
     /// To communicate with the time stretching worker.
     stretch_worker_sender: Sender<StretchWorkerRequest>,
+    columns: Vec<Column>,
+    containing_track: Option<Track>,
 }
 
 impl<H: ClipMatrixHandler> ClipMatrix<H> {
-    pub fn new(handler: H) -> Self {
+    pub fn new(handler: H, containing_track: Option<Track>) -> Self {
         let (stretch_worker_sender, stretch_worker_receiver) = crossbeam_channel::bounded(500);
         std::thread::spawn(move || {
             keep_stretching(stretch_worker_receiver);
@@ -28,7 +31,93 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
             handler,
             clip_slots: (0..8).map(ClipSlot::new).collect(),
             stretch_worker_sender,
+            columns: vec![],
+            containing_track,
         }
+    }
+
+    pub fn clear(&mut self) {
+        // TODO-medium How about suspension?
+        self.columns.clear();
+    }
+
+    /// This is for loading slots the legacy way.
+    pub fn load_slots_legacy(
+        &mut self,
+        descriptors: Vec<LegacySlotDescriptor>,
+        project: Option<Project>,
+    ) -> Result<(), &'static str> {
+        self.clear();
+        for desc in descriptors {
+            let content = match desc.clip.content {
+                None => continue,
+                Some(c) => c,
+            };
+            let resolved_track = if let Some(track) = self.containing_track.as_ref() {
+                desc.output.resolve_track(track.clone())
+            } else {
+                None
+            };
+            let mut column = Column::new(resolved_track);
+            let args = ColumnFillSlotArgs {
+                index: desc.index,
+                clip: {
+                    let source = content.create_source(project)?.into_raw();
+                    NewClip::new(source, project)
+                },
+            };
+            column.fill_slot(args);
+            self.columns.push(column);
+        }
+        self.handler.notify_slot_contents_changed();
+        Ok(())
+    }
+
+    pub fn play_clip_legacy(
+        &mut self,
+        project: Project,
+        slot_index: usize,
+        track: Option<Track>,
+        options: SlotPlayOptions,
+    ) -> Result<(), &'static str> {
+        let column = get_column_mut(&mut self.columns, slot_index)?;
+        let args = ColumnPlaySlotArgs {
+            index: slot_index,
+            clip_args: ClipPlayArgs {
+                from_bar: if options.next_bar {
+                    let timeline = clip_timeline(Some(project), false);
+                    Some(timeline.next_bar_at(timeline.cursor_pos()))
+                } else {
+                    None
+                },
+            },
+        };
+        column.play_slot(args)?;
+        Ok(())
+    }
+
+    /// If repeat is not enabled and `immediately` is false, this has essentially no effect.
+    pub fn stop_clip_legacy(
+        &mut self,
+        slot_index: usize,
+        stop_behavior: SlotStopBehavior,
+        project: Project,
+    ) -> Result<(), &'static str> {
+        let column = get_column_mut(&mut self.columns, slot_index)?;
+        let timeline = clip_timeline(Some(project), false);
+        let args = ColumnStopSlotArgs {
+            index: slot_index,
+            clip_args: ClipStopArgs {
+                stop_behavior: match stop_behavior {
+                    SlotStopBehavior::Immediately => ClipStopBehavior::Immediately,
+                    SlotStopBehavior::EndOfClip => ClipStopBehavior::EndOfClip,
+                },
+                timeline_cursor_pos: timeline.cursor_pos(),
+                timeline: &timeline,
+            },
+        };
+        column.stop_slot(args)?;
+        Ok(())
     }
 
     pub fn process_transport_change(&mut self, change: TransportChange, project: Option<Project>) {
@@ -51,39 +140,6 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
             .get_mut(slot_index)
             .expect("no such slot")
             .poll(timeline_cursor_pos, timeline_tempo)
-    }
-
-    pub fn filled_slot_descriptors(&self) -> Vec<QualifiedSlotDescriptor> {
-        self.clip_slots
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| s.is_filled())
-            .map(|(i, s)| QualifiedSlotDescriptor {
-                index: i,
-                descriptor: s.descriptor().clone(),
-            })
-            .collect()
-    }
-
-    pub fn load_slots(
-        &mut self,
-        descriptors: Vec<QualifiedSlotDescriptor>,
-        project: Option<Project>,
-    ) -> Result<(), &'static str> {
-        for slot in &mut self.clip_slots {
-            let _ = slot.reset();
-        }
-        for desc in descriptors {
-            let events = {
-                let slot = get_slot_mut(&mut self.clip_slots, desc.index)?;
-                slot.load(desc.descriptor, project, &self.stretch_worker_sender)?
-            };
-            for e in events {
-                self.handler.notify_clip_changed(desc.index, e);
-            }
-        }
-        self.handler.notify_slot_contents_changed();
-        Ok(())
     }
 
     pub fn fill_slot_by_user(
@@ -111,34 +167,6 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         slot.fill_by_user(content, item.project(), &self.stretch_worker_sender)?;
         self.handler.notify_slot_contents_changed();
         Ok(())
-    }
-
-    pub fn play_clip(
-        &mut self,
-        project: Project,
-        slot_index: usize,
-        track: Option<Track>,
-        options: SlotPlayOptions,
-    ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.play(
-            project,
-            track,
-            options,
-            clip_timeline(Some(project), false).capture_moment(),
-        )
-    }
-
-    /// If repeat is not enabled and `immediately` is false, this has essentially no effect.
-    pub fn stop_clip(
-        &mut self,
-        slot_index: usize,
-        stop_behavior: SlotStopBehavior,
-        project: Project,
-    ) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.stop(
-            stop_behavior,
-            clip_timeline(Some(project), false).capture_moment(),
-        )
     }
 
     pub fn record_clip(
@@ -211,12 +239,47 @@ fn get_slot_mut(slots: &mut [ClipSlot], index: usize) -> Result<&mut ClipSlot, &
     slots.get_mut(index).ok_or("no such slot")
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct QualifiedSlotDescriptor {
-    #[serde(rename = "index")]
+fn get_column_mut(columns: &mut [Column], index: usize) -> Result<&mut Column, &'static str> {
+    columns.get_mut(index).ok_or("no such column")
+}
+
+pub struct LegacySlotDescriptor {
+    pub output: LegacyClipOutput,
     pub index: usize,
-    #[serde(flatten)]
-    pub descriptor: Clip,
+    pub clip: LegacyClip,
+}
+
+pub enum LegacyClipOutput {
+    MasterTrack,
+    ThisTrack,
+    TrackById(Guid),
+    TrackByIndex(u32),
+    TrackByName(String),
+    HardwareOutput,
+}
+
+impl LegacyClipOutput {
+    fn resolve_track(&self, containing_track: Track) -> Option<Track> {
+        use LegacyClipOutput::*;
+        match self {
+            MasterTrack => Some(containing_track.project().master_track()),
+            ThisTrack => Some(containing_track),
+            TrackById(id) => {
+                let track = containing_track.project().track_by_guid(id);
+                if track.is_available() {
+                    Some(track)
+                } else {
+                    None
+                }
+            }
+            TrackByIndex(index) => containing_track.project().track_by_index(*index),
+            TrackByName(name) => containing_track
+                .project()
+                .tracks()
+                .find(|t| t.name().map(|n| n.to_str() == name).unwrap_or(false)),
+            HardwareOutput => None,
+        }
+    }
 }
 
 #[derive(Debug)]

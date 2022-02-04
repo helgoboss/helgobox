@@ -98,19 +98,23 @@ impl RealearnTarget for ClipTransportTarget {
         match self.action {
             PlayStop => {
                 if on {
-                    clip_matrix.play_clip(
+                    clip_matrix.play_clip_legacy(
                         self.project,
                         self.slot_index,
                         self.track.clone(),
                         self.play_options,
                     )?;
                 } else {
-                    clip_matrix.stop_clip(self.slot_index, self.stop_behavior(), self.project)?;
+                    clip_matrix.stop_clip_legacy(
+                        self.slot_index,
+                        self.stop_behavior(),
+                        self.project,
+                    )?;
                 }
             }
             PlayPause => {
                 if on {
-                    clip_matrix.play_clip(
+                    clip_matrix.play_clip_legacy(
                         self.project,
                         self.slot_index,
                         self.track.clone(),
@@ -122,7 +126,11 @@ impl RealearnTarget for ClipTransportTarget {
             }
             Stop => {
                 if on {
-                    clip_matrix.stop_clip(self.slot_index, self.stop_behavior(), self.project)?;
+                    clip_matrix.stop_clip_legacy(
+                        self.slot_index,
+                        self.stop_behavior(),
+                        self.project,
+                    )?;
                 }
             }
             Pause => {
@@ -144,7 +152,7 @@ impl RealearnTarget for ClipTransportTarget {
                         },
                     );
                 } else {
-                    clip_matrix.stop_clip(
+                    clip_matrix.stop_clip_legacy(
                         self.slot_index,
                         SlotStopBehavior::EndOfClip,
                         self.project,

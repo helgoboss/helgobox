@@ -2822,6 +2822,7 @@ dependencies = [
  "helgoboss-learn",
  "helgoboss-midi",
  "nanoid",
+ "num_enum 0.5.4",
  "realearn-api",
  "reaper-high",
  "reaper-low",
@@ -3259,7 +3260,7 @@ dependencies = [
 
 [[package]]
 name = "realearn"
-version = "2.12.0-pre.4"
+version = "2.12.0-pre.5"
 dependencies = [
  "approx",
  "arboard",

@@ -11,12 +11,14 @@ use reaper_medium::{
     PositionInSeconds,
 };
 
+#[derive(Debug)]
 pub struct Looper<S> {
     loop_behavior: LoopBehavior,
     fades_enabled: bool,
     supplier: S,
 }
 
+#[derive(Debug)]
 pub enum LoopBehavior {
     Infinitely,
     UntilEndOfCycle(usize),

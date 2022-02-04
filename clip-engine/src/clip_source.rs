@@ -16,6 +16,7 @@ use crate::supplier::{
     MidiSupplier, StretchAudioMode, Stretcher, SupplyAudioRequest, SupplyMidiRequest,
     WithFrameRate, MIDI_BASE_BPM,
 };
+use crate::tempo_util::detect_tempo;
 use crate::{
     adjust_proportionally, adjust_proportionally_positive, clip_timeline, clip_timeline_cursor_pos,
     convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
@@ -272,6 +273,7 @@ impl ClipPcmSource {
         }
     }
 
+    // DONE
     fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
         let timeline_tempo_factor = timeline_tempo.get() / self.inner.tempo().get();
         if let Some(f) = FIXED_TEMPO_FACTOR {
@@ -320,6 +322,7 @@ impl ClipPcmSource {
         });
     }
 
+    // DONE
     fn get_samples_internal(&mut self, args: &mut GetSamplesArgs, timeline: impl Timeline) {
         let timeline_cursor_pos = timeline.cursor_pos();
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
@@ -367,26 +370,6 @@ impl ClipPcmSource {
             ScheduledOrPlaying(s) => {
                 // Resolve play info if not yet resolved.
                 let play_info = s.resolved_play_data.unwrap_or_else(|| {
-                    // So, this is how we do play scheduling. Whenever the preview register
-                    // calls get_samples() and we are in a fresh ScheduledOrPlaying state, the
-                    // relative number of count-in frames will be determined. Based on the given
-                    // absolute bar for which the clip is scheduled.
-                    // 1. We use a *relative* count-in (instead of just
-                    // using the absolute scheduled-play position and check if we reached it)
-                    // in order to respect arbitrary tempo changes during the count-in phase and
-                    // still end up starting on the correct point in time. Okay, we could reach
-                    // the same goal also by regularly checking whether we finally reached the
-                    // start of the bar. But first, we need the relative count-in later anyway
-                    // (for pickup beats, which start to play during count-in time). And second,
-                    // it would be also pretty much unnecessary beat-time mapping.
-                    // 2. We resolve the
-                    // count-in length here in the real-time context, not before! In particular not
-                    // at the time the play is requested. At that time we just calculate the
-                    // bar index. Reason: The start time of the next bar at play-request time
-                    // is not necessarily the same as the one in the get_samples call. If it's not,
-                    // we would start advancing the count-in cursor from a wrong initial state
-                    // and therefore end up with the wrong point in time for starting the clip
-                    // (too late, to be accurate, because we would start advancing too late).
                     let next_block_pos = if let Some(start_bar) =
                         s.play_instruction.scheduled_for_bar
                     {
@@ -396,151 +379,38 @@ impl ClipPcmSource {
                         let timeline_frame_rate = args.block.sample_rate();
                         // Essential calculation
                         let start_bar_timeline_pos = timeline.pos_of_bar(start_bar);
-                        let rel_pos_from_bar_in_secs =
-                            timeline_cursor_pos - start_bar_timeline_pos;
-                        // Natural deviation logging
-                        {
-                            // Assuming a constant tempo and time signature during one cycle
-                            // Bars
-                            let end_bar = start_bar + self.inner.bar_count() as i32;
-                            let bar_count = end_bar - start_bar;
-                            let end_bar_timeline_pos = timeline.pos_of_bar(end_bar);
-                            assert!(end_bar_timeline_pos > start_bar_timeline_pos);
-                            // Timeline cycle length
-                            let timeline_cycle_length_in_secs =
-                                (end_bar_timeline_pos - start_bar_timeline_pos).abs();
-                            let timeline_cycle_length_in_timeline_frames =
-                                convert_duration_in_seconds_to_frames(
-                                    timeline_cycle_length_in_secs,
-                                    timeline_frame_rate,
-                                );
-                            let timeline_cycle_length_in_source_frames =
-                                convert_duration_in_seconds_to_frames(
-                                    timeline_cycle_length_in_secs,
-                                    source_frame_rate,
-                                );
-                            // Source cycle length
-                            let source_cycle_length_in_secs = self.inner.chain.reaper_source().duration();
-                            let source_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
-                                source_cycle_length_in_secs,
-                                timeline_frame_rate
+                        let rel_pos_from_bar_in_secs = timeline_cursor_pos - start_bar_timeline_pos;
+                        let rel_pos_from_bar_in_source_frames =
+                            convert_position_in_seconds_to_frames(
+                                rel_pos_from_bar_in_secs,
+                                self.inner.chain.reaper_source().frame_rate(),
                             );
-                            let source_cycle_length_in_source_frames = self.inner.chain.reaper_source().frame_count();
-                            // Block length
-                            let block_length_in_timeline_frames = args.block.length() as usize;
-                            let block_length_in_secs = convert_duration_in_frames_to_seconds(
-                                block_length_in_timeline_frames, timeline_frame_rate
-                            );
-                            let block_length_in_source_frames =
-                                convert_duration_in_frames_to_other_frame_rate(
-                                    block_length_in_timeline_frames,
-                                    timeline_frame_rate,
-                                    source_frame_rate,
-                                );
-                            // Block count and remainder
-                            let num_full_blocks = source_cycle_length_in_source_frames / block_length_in_source_frames;
-                            let remainder_in_source_frames = source_cycle_length_in_source_frames % block_length_in_source_frames;
-                            // Tempo-adjusted
-                            let adjusted_block_length_in_source_frames = adjust_proportionally_positive(block_length_in_source_frames as f64, final_tempo_factor);
-                            let adjusted_block_length_in_timeline_frames = convert_duration_in_frames_to_other_frame_rate(
-                                adjusted_block_length_in_source_frames, source_frame_rate, timeline_frame_rate
-                            );
-                            let adjusted_block_length_in_secs = convert_duration_in_frames_to_seconds(
-                                adjusted_block_length_in_source_frames,
-                                source_frame_rate
-                            );
-                            let adjusted_remainder_in_source_frames = adjust_proportionally_positive(remainder_in_source_frames as f64, final_tempo_factor);
-                            // Source cycle remainder
-                            let adjusted_remainder_in_timeline_frames =
-                                convert_duration_in_frames_to_other_frame_rate(
-                                    adjusted_remainder_in_source_frames,
-                                    source_frame_rate,
-                                    timeline_frame_rate,
-                                );
-                            let adjusted_remainder_in_secs =
-                                convert_duration_in_frames_to_seconds(
-                                    adjusted_remainder_in_source_frames,
-                                    source_frame_rate,
-                                );
-                            let block_index = (timeline_cursor_pos.get() / block_length_in_secs.get()) as isize;
-                            print!(
-                                "\n\
-                                # Natural deviation report\n\
-                                Block index: {},\n\
-                                Tempo factor: {:.3}\n\
-                                Bars: {} ({} - {})\n\
-                                Start bar position: {:.3}s\n\
-                                Source cycle length: {:.3}ms (= {} timeline frames = {} source frames)\n\
-                                Timeline cycle length: {:.3}ms (= {} timeline frames = {} source frames)\n\
-                                Block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
-                                Tempo-adjusted block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
-                                Number of full blocks: {}\n\
-                                Tempo-adjusted remainder per cycle: {:.3}ms (= {} timeline frames = {} source frames)\n\
-                                ",
-                                block_index,
-
-                                final_tempo_factor,
-
-                                bar_count, start_bar, end_bar,
-
-                                start_bar_timeline_pos.get(),
-
-                                source_cycle_length_in_secs.get() * 1000.0,
-                                source_cycle_length_in_timeline_frames,
-                                source_cycle_length_in_source_frames,
-
-                                timeline_cycle_length_in_secs.get() * 1000.0,
-                                timeline_cycle_length_in_timeline_frames,
-                                timeline_cycle_length_in_source_frames,
-
-                                block_length_in_secs.get() * 1000.0,
-                                block_length_in_timeline_frames,
-                                block_length_in_source_frames,
-
-                                adjusted_block_length_in_secs.get() * 1000.0,
-                                adjusted_block_length_in_timeline_frames,
-                                adjusted_block_length_in_source_frames,
-
-                                num_full_blocks,
-
-                                adjusted_remainder_in_secs.get() * 1000.0,
-                                adjusted_remainder_in_timeline_frames,
-                                adjusted_remainder_in_source_frames,
-                            );
-                        }
-                        let rel_pos_from_bar_in_source_frames = convert_position_in_seconds_to_frames(
-                            rel_pos_from_bar_in_secs,
-                            self.inner.chain.reaper_source().frame_rate(),
-                        );
-                        // Now we have a countdown/position in source frames, but it doesn't yet
-                        // take the tempo adjustment of the source into account. 
-                        // Once we have initialized the countdown with the first value, each 
-                        // get_samples() call - including this one - will advance it by a frame 
-                        // count that ideally = block length in source frames * tempo factor.
-                        // We use this countdown approach for two reasons.
-                        //
-                        // 1. In order to allow tempo changes during count-in time.
-                        // 2. In future, the count-in phase might play source material already.
-                        //
-                        // Especially (2) means that the count-in phase will not always have that
-                        // ideal length which makes the source frame ZERO be perfectly aligned with
-                        // the ZERO of the timeline bar. I think this is unavoidable when dealing
-                        // with material that needs sample-rate conversion and/or time
-                        // stretching. So if one of this is involved, this is just an estimation.
-                        // However, in real-world scenarios this usually results in slight start
-                        // deviations around 0-5ms, so it still makes sense musically.
 
                         /// It can make a difference if we apply a factor once on a large integer x and then round or
                         /// n times on x/n and round each time. Latter is what happens in practice because we advance frames step by step in n blocks.
-                        fn adjust_proportionally_in_blocks(value: isize, factor: f64, block_length: usize) -> isize {
+                        fn adjust_proportionally_in_blocks(
+                            value: isize,
+                            factor: f64,
+                            block_length: usize,
+                        ) -> isize {
                             let abs_value = value.abs() as usize;
                             let block_count = abs_value / block_length;
                             let remainder = abs_value % block_length;
-                            let adjusted_block_length = adjust_proportionally_positive(block_length as f64, factor);
-                            let adjusted_remainder = adjust_proportionally_positive(remainder as f64, factor);
+                            let adjusted_block_length =
+                                adjust_proportionally_positive(block_length as f64, factor);
+                            let adjusted_remainder =
+                                adjust_proportionally_positive(remainder as f64, factor);
                             let total_without_remainder = block_count * adjusted_block_length;
                             let total = total_without_remainder + adjusted_remainder;
-                            dbg!(abs_value, adjusted_block_length, block_count, remainder, adjusted_remainder, total_without_remainder, total);
+                            dbg!(
+                                abs_value,
+                                adjusted_block_length,
+                                block_count,
+                                remainder,
+                                adjusted_remainder,
+                                total_without_remainder,
+                                total
+                            );
                             total as isize * value.signum()
                         }
                         let block_length_in_source_frames =
@@ -549,7 +419,11 @@ impl ClipPcmSource {
                                 timeline_frame_rate,
                                 source_frame_rate,
                             );
-                        adjust_proportionally_in_blocks(rel_pos_from_bar_in_source_frames, final_tempo_factor, block_length_in_source_frames)
+                        adjust_proportionally_in_blocks(
+                            rel_pos_from_bar_in_source_frames,
+                            final_tempo_factor,
+                            block_length_in_source_frames,
+                        )
                     } else {
                         0
                     };
@@ -611,6 +485,7 @@ impl ClipPcmSource {
         }
     }
 
+    // DONE
     fn get_suspension_follow_up_state(
         &mut self,
         reason: SuspensionReason,
@@ -647,6 +522,7 @@ impl ClipPcmSource {
         frame % self.inner.chain.reaper_source().frame_count()
     }
 
+    // DONE
     fn fill_samples(
         &mut self,
         args: &mut GetSamplesArgs,
@@ -676,6 +552,7 @@ impl ClipPcmSource {
         }
     }
 
+    // DONE
     unsafe fn fill_samples_audio(
         &self,
         args: &mut GetSamplesArgs,
@@ -706,6 +583,7 @@ impl ClipPcmSource {
         response.next_inner_frame
     }
 
+    // DONE
     fn fill_samples_midi(
         &self,
         args: &mut GetSamplesArgs,
@@ -724,11 +602,10 @@ impl ClipPcmSource {
             parent_request: None,
             general_info: info,
         };
-        let response = self
-            .inner
-            .chain
-            .head()
-            .supply_midi(&request, args.block.midi_event_list());
+        let response = self.inner.chain.head().supply_midi(
+            &request,
+            args.block.midi_event_list().expect("no MIDI event list"),
+        );
         response.next_inner_frame
     }
 }
@@ -808,6 +685,7 @@ impl CustomPcmSource for ClipPcmSource {
         }
     }
 
+    // DONE
     fn get_samples(&mut self, mut args: GetSamplesArgs) {
         assert_no_alloc(|| {
             // Make sure that in any case, we are only queried once per time, without retries.
@@ -1054,6 +932,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         self.state
     }
 
+    // DONE
     fn play(&mut self, args: PlayArgs) {
         use ClipState::*;
         match self.state {
@@ -1629,36 +1508,6 @@ impl ClipPcmSourceSkills for BorrowedPcmSource {
 
 #[derive(Copy, Clone, Debug)]
 pub struct ResolvedPlayData {
-    /// At the time `get_samples` is called, this contains the position in the inner source that
-    /// should be played next.
-    ///
-    /// - The frames relate to the source sample rate.
-    /// - The position can be after the source content, in which case one needs to modulo native
-    ///   source length to get the position *within* the inner source.
-    /// - If this position is negative, we are in the count-in phase.
-    /// - On each call of `get_samples()`, the position is advanced and set *exactly* to the end of
-    ///   the previous block, so that the source is played continuously under any circumstance,
-    ///   without skipping material - because skipping material sounds bad.
-    /// - Before introducing this field, we were instead memorizing the absolute timeline position
-    ///   at which the clip started playing. Then we always played the source at the position that
-    ///   corresponds to the current absolute timeline position - which is basically the analog to
-    ///   putting items in the arrange view. It works flawlessly ... until you interact with the
-    ///   timeline and/or make on-the-fly tempo changes. Read on!
-    /// - First issue: The REAPER project timeline is
-    ///   non-steady. It resets its position when we change the cursor position - even when the
-    ///   project is not playing and therefore no sync is desired from ReaLearn's perspective.
-    ///   The same happens when we change the tempo and the project is playing: The speed of the
-    ///   timeline doesn't change (which is fine) but its position resets!
-    /// - Second issue: While we could solve the first issue by consulting a steady timeline (e.g.
-    ///   the preview register timeline), there's a second one that is about on-the-fly tempo
-    ///   changes only. When increasing or decreasing the tempo, we really want the clip to play
-    ///   continuously, with every sample block continuing at the position where it left off in the
-    ///   previous block. That is the absolute basis for a smooth tempo changing experience. If we
-    ///   calculate the position that should be played based on some distance-to-start logic using
-    ///   a linear timeline, we will have a hard time achieving this. Because this logic assumes
-    ///   that the tempo was always the same since the clip started playing.
-    /// - For these reasons, we use this relative-to-previous-block logic. It guarantees that the
-    ///   clip is played continuously, no matter what. Simple and effective.
     pub next_block_pos: isize,
 }
 
@@ -1668,25 +1517,6 @@ impl ResolvedPlayData {
     }
 }
 
-// TODO-low Using this extended() mechanism is not very Rusty. The reason why we do it at the
-//  moment is that we acquire access to the source by accessing the `source` attribute of the
-//  preview register data structure. First, this can be *any* source in general, it's not
-//  necessarily a PCM source for clips. Okay, this is not the primary issue. In practice we make
-//  sure that it's only ever a PCM source for clips, so we could just do some explicit casting,
-//  right? No. The thing which we get back there is not a reference to our ClipPcmSource struct.
-//  It's the reaper-rs C++ PCM source, the one that delegates to our Rust struct. This C++ PCM
-//  source implements the C++ virtual base class that REAPER API requires and it owns our Rust
-//  struct. So if we really want to get rid of the extended() mechanism, we would have to access the
-//  ClipPcmSource directly, without taking the C++ detour. And how is this possible in a safe Rusty
-//  way that guarantees us that no one else is mutably accessing the source at the same time? By
-//  wrapping the source in a mutex. However, this would mean that all calls to that source, even
-//  the ones from REAPER would have to unlock the mutex first. For each source operation. That
-//  sounds like a bad idea (or is it not because happy path is fast)? Well, but the point is, we
-//  already have a mutex. The one around the preview register. This one is strictly necessary,
-//  even the REAPER API requires it. As long as we have that outer mutex locked, we should in theory
-//  be able to safely interact with our source directly from Rust. So in order to get rid of the
-//  extended() mechanism, we would have to provide a way to get a correctly typed reference to our
-//  original Rust struct. This itself is maybe possible by using some unsafe code, not sure.
 const EXT_CLIP_STATE: i32 = 2359769;
 const EXT_PLAY: i32 = 2359771;
 const EXT_CLIP_LENGTH: i32 = 2359772;
@@ -1730,25 +1560,9 @@ pub struct PosWithinClipArgs {
     pub timeline_tempo: Bpm,
 }
 
+// DONE
 const MIN_TEMPO_FACTOR: f64 = 0.0000000001;
 
-fn detect_tempo(duration: DurationInSeconds, project: Option<Project>) -> Bpm {
-    const MIN_BPM: f64 = 80.0;
-    const MAX_BPM: f64 = 200.0;
-    let project = project.unwrap_or_else(|| Reaper::get().current_project());
-    let result = Reaper::get()
-        .medium_reaper()
-        .time_map_2_time_to_beats(project.context(), PositionInSeconds::ZERO);
-    let numerator = result.time_signature.numerator;
-    let mut bpm = numerator.get() as f64 * 60.0 / duration.get();
-    while bpm < MIN_BPM {
-        bpm *= 2.0;
-    }
-    while bpm > MAX_BPM {
-        bpm /= 2.0;
-    }
-    Bpm::new(bpm)
-}
-
+// DISCARDED
 const FIXED_TEMPO_FACTOR: Option<f64> = None;
 // const FIXED_TEMPO_FACTOR: Option<f64> = Some(1.0);

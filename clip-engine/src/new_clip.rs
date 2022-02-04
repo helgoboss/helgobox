@@ -1,0 +1,778 @@
+use crate::source_util::pcm_source_is_midi;
+use crate::tempo_util::detect_tempo;
+use crate::{
+    adjust_proportionally_positive, clip_timeline, convert_duration_in_frames_to_other_frame_rate,
+    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
+    convert_position_in_seconds_to_frames, AudioBufMut, AudioSupplier, ClipSupplierChain,
+    ExactDuration, ExactFrameCount, LoopBehavior, MidiSupplier, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, Timeline, WithFrameRate,
+    WithTempo,
+};
+use reaper_high::Project;
+use reaper_medium::{Bpm, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds};
+
+#[derive(Debug)]
+pub struct NewClip {
+    supplier_chain: ClipSupplierChain,
+    tempo: Bpm,
+    beat_count: u32,
+    state: NewClipState,
+    repeated: bool,
+    is_midi: bool,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum NewClipState {
+    /// At this state, the clip is stopped. No fade-in, no fade-out ... nothing.
+    Stopped,
+    Playing(PlayingState),
+    /// Very short transition for fade outs or sending all-notes-off before entering another state.
+    Suspending(SuspendingState),
+    Paused(PausedState),
+    /// Recording from scratch, not MIDI overdub.
+    Recording(NewRecordingState),
+}
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct PlayingState {
+    pub start_bar: Option<i32>,
+    pub pos: Option<InnerPos>,
+    pub scheduled_for_stop: bool,
+    pub overdubbing: bool,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct SuspendingState {
+    pub next_state: StateAfterSuspension,
+    pub pos: InnerPos,
+}
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct PausedState {
+    pub pos: usize,
+}
+
+//region Description
+/// At the time `get_samples` is called, this contains the position in the inner source that
+/// should be played next.
+///
+/// - The frames relate to the source sample rate.
+/// - The position can be after the source content, in which case one needs to modulo native
+///   source length to get the position *within* the inner source.
+/// - If this position is negative, we are in the count-in phase.
+/// - On each call of `get_samples()`, the position is advanced and set *exactly* to the end of
+///   the previous block, so that the source is played continuously under any circumstance,
+///   without skipping material - because skipping material sounds bad.
+/// - Before introducing this field, we were instead memorizing the absolute timeline position
+///   at which the clip started playing. Then we always played the source at the position that
+///   corresponds to the current absolute timeline position - which is basically the analog to
+///   putting items in the arrange view. It works flawlessly ... until you interact with the
+///   timeline and/or make on-the-fly tempo changes. Read on!
+/// - First issue: The REAPER project timeline is
+///   non-steady. It resets its position when we change the cursor position - even when the
+///   project is not playing and therefore no sync is desired from ReaLearn's perspective.
+///   The same happens when we change the tempo and the project is playing: The speed of the
+///   timeline doesn't change (which is fine) but its position resets!
+/// - Second issue: While we could solve the first issue by consulting a steady timeline (e.g.
+///   the preview register timeline), there's a second one that is about on-the-fly tempo
+///   changes only. When increasing or decreasing the tempo, we really want the clip to play
+///   continuously, with every sample block continuing at the position where it left off in the
+///   previous block. That is the absolute basis for a smooth tempo changing experience. If we
+///   calculate the position that should be played based on some distance-to-start logic using
+///   a linear timeline, we will have a hard time achieving this. Because this logic assumes
+///   that the tempo was always the same since the clip started playing.
+/// - For these reasons, we use this relative-to-previous-block logic. It guarantees that the
+///   clip is played continuously, no matter what. Simple and effective.
+//endregion
+type InnerPos = isize;
+
+#[derive(Copy, Clone, Debug)]
+pub enum StateAfterSuspension {
+    /// Play was suspended for initiating a retriggering, so the next state will be  
+    /// [`ClipState::ScheduledOrPlaying`] again.
+    Playing(PlayingState),
+    /// Play was suspended for initiating a pause, so the next state will be [`ClipState::Paused`].
+    Paused(PausedState),
+    /// Play was suspended for initiating a stop, so the next state will be [`ClipState::Stopped`].
+    Stopped,
+    /// Play was suspended for initiating recording.
+    Recording(NewRecordingState),
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct NewRecordingState {
+    pub play_after: bool,
+    pub timing: RecordTiming,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum RecordTiming {
+    Unsynced,
+    Synced {
+        start_bar: i32,
+        end_bar: Option<i32>,
+    },
+}
+
+impl NewClip {
+    pub fn new(source: OwnedPcmSource, project: Option<Project>) -> Self {
+        let is_midi = pcm_source_is_midi(&source);
+        let tempo = source
+            .tempo()
+            .unwrap_or_else(|| detect_tempo(source.duration(), project));
+        let beat_count = if is_midi {
+            source
+                .get_length_beats()
+                .expect("MIDI source should report beats")
+                .get()
+                .round() as u32
+        } else {
+            let beats_per_sec = tempo.get() / 60.0;
+            (source.duration().get() * beats_per_sec).round() as u32
+        };
+        assert_ne!(beat_count, 0, "source reported beat count of zero");
+        let supplier_chain = {
+            let mut chain = ClipSupplierChain::new(source);
+            let looper = chain.looper_mut();
+            looper.set_fades_enabled(true);
+            let stretcher = chain.stretcher_mut();
+            stretcher.set_enabled(true);
+            // let serious = SeriousTimeStretcher::new();
+            // stretcher.set_mode(StretchAudioMode::Serious(serious));
+            chain
+        };
+        Self {
+            supplier_chain,
+            tempo,
+            beat_count,
+            state: NewClipState::Stopped,
+            repeated: false,
+            is_midi,
+        }
+    }
+
+    pub fn play(&mut self, args: ClipPlayArgs) {
+        use NewClipState::*;
+        match self.state {
+            // Not yet running.
+            Stopped => self.schedule_play_internal(args),
+            Playing(s) => {
+                if s.scheduled_for_stop {
+                    // Scheduled for stop. Backpedal!
+                    self.supplier_chain
+                        .looper_mut()
+                        .set_loop_behavior(LoopBehavior::Infinitely);
+                    self.state = Playing(PlayingState {
+                        scheduled_for_stop: false,
+                        ..s
+                    });
+                } else {
+                    // Scheduled for play or playing already.
+                    if let Some(pos) = s.pos {
+                        if pos >= 0 {
+                            // Already playing. Retrigger!
+                            self.state = Suspending(SuspendingState {
+                                next_state: StateAfterSuspension::Playing(PlayingState {
+                                    start_bar: args.from_bar,
+                                    ..Default::default()
+                                }),
+                                pos,
+                            });
+                        } else {
+                            // Not yet playing. Reschedule!
+                            self.schedule_play_internal(args);
+                        }
+                    } else {
+                        // Not yet playing. Reschedule!
+                        self.schedule_play_internal(args);
+                    }
+                }
+            }
+            Suspending(s) => {
+                // It's important to handle this, otherwise some play actions simply have no effect,
+                // which is especially annoying when using transport sync because then it's like
+                // forgetting that clip ... the next time the transport is stopped and started,
+                // that clip won't play again.
+                self.state = NewClipState::Suspending(SuspendingState {
+                    next_state: StateAfterSuspension::Playing(PlayingState {
+                        start_bar: args.from_bar,
+                        ..Default::default()
+                    }),
+                    ..s
+                });
+            }
+            // TODO-high We should do a fade-in!
+            Paused(s) => {
+                // Resume
+                self.state = NewClipState::Playing(PlayingState {
+                    pos: Some(s.pos as isize),
+                    ..Default::default()
+                });
+            }
+            Recording(_) => {
+                // TODO-high It would probably be good to react the same way as if we would
+                //  stop recording and press play right afterwards (or auto-play).
+            }
+        }
+    }
+
+    pub fn stop(&mut self, args: ClipStopArgs) {
+        use NewClipState::*;
+        match self.state {
+            Stopped => {}
+            Playing(s) => {
+                if s.overdubbing {
+                    // Currently recording overdub. Stop recording, continue playing.
+                    self.state = Playing(PlayingState {
+                        overdubbing: false,
+                        ..s
+                    })
+                } else {
+                    // Just playing, not recording.
+                    if let Some(pos) = s.pos {
+                        if s.scheduled_for_stop {
+                            // Already scheduled for stop.
+                            if args.stop_behavior == ClipStopBehavior::Immediately {
+                                // Transition to stop now!
+                                self.state = Suspending(SuspendingState {
+                                    next_state: StateAfterSuspension::Stopped,
+                                    pos,
+                                });
+                            }
+                        } else {
+                            // Not yet scheduled for stop.
+                            self.state = if pos >= 0 {
+                                // Playing
+                                match args.stop_behavior {
+                                    ClipStopBehavior::Immediately => {
+                                        // Immediately. Transition to stop.
+                                        Suspending(SuspendingState {
+                                            next_state: StateAfterSuspension::Stopped,
+                                            pos,
+                                        })
+                                    }
+                                    ClipStopBehavior::EndOfClip => {
+                                        // Schedule
+                                        self.supplier_chain
+                                            .looper_mut()
+                                            .keep_playing_until_end_of_current_cycle(pos);
+                                        Playing(PlayingState {
+                                            scheduled_for_stop: true,
+                                            ..s
+                                        })
+                                    }
+                                }
+                            } else {
+                                // Not yet playing. Backpedal.
+                                Stopped
+                            };
+                        }
+                    } else {
+                        // Not yet playing. Backpedal.
+                        self.state = Stopped;
+                    }
+                }
+            }
+            Paused { .. } => {
+                self.state = Stopped;
+            }
+            Suspending(s) => {
+                if args.stop_behavior == ClipStopBehavior::Immediately {
+                    // We are in another transition already. Simply change it to stop.
+                    self.state = Suspending(SuspendingState {
+                        next_state: StateAfterSuspension::Stopped,
+                        ..s
+                    });
+                }
+            }
+            Recording(s) => {
+                use RecordTiming::*;
+                self.state = match s.timing {
+                    Unsynced => {
+                        if s.play_after {
+                            Playing(Default::default())
+                        } else {
+                            Stopped
+                        }
+                    }
+                    Synced { start_bar, end_bar } => {
+                        // TODO-high If start bar in future, discard recording.
+                        if end_bar.is_some() {
+                            // End already scheduled. Take care of stopping after recording.
+                            Recording(NewRecordingState {
+                                play_after: false,
+                                ..s
+                            })
+                        } else {
+                            // End not scheduled yet. Schedule end.
+                            // TODO-medium Better pass the timeline.
+                            let next_bar = args.timeline.next_bar_at(args.timeline_cursor_pos);
+                            Recording(NewRecordingState {
+                                timing: Synced {
+                                    start_bar,
+                                    end_bar: Some(next_bar),
+                                },
+                                ..s
+                            })
+                        }
+                    }
+                };
+            }
+        }
+    }
+
+    /// Returns if any samples could have been written.
+    pub fn process(&mut self, args: ClipProcessArgs<impl Timeline>) {
+        use NewClipState::*;
+        match self.state {
+            Stopped | Paused(_) => {}
+            Playing(s) => self.process_playing(s, args),
+            Suspending(s) => self.process_suspending(s, args),
+            Recording(s) => self.process_recording(s, args),
+        }
+    }
+
+    fn process_playing(&mut self, s: PlayingState, args: ClipProcessArgs<impl Timeline>) {
+        let general_info = self.prepare_process(&args);
+        let pos = s.pos.unwrap_or_else(|| {
+            if let Some(start_bar) = s.start_bar {
+                self.calc_initial_pos_from_start_bar(
+                    start_bar,
+                    &args,
+                    general_info.clip_tempo_factor,
+                )
+            } else {
+                0
+            }
+        });
+        self.state = if let Some(end_frame) = self.fill_samples(args, pos, &general_info) {
+            // There's still something to play.
+            NewClipState::Playing(PlayingState {
+                pos: Some(end_frame),
+                ..s
+            })
+        } else {
+            // We have reached the natural or scheduled end. Everything that needed to be
+            // played has been played in previous blocks. Audio fade outs have been applied
+            // as well, so no need to go to suspending state first. Go right to stop!
+            self.supplier_chain.reset();
+            NewClipState::Stopped
+        };
+    }
+
+    fn fill_samples(
+        &mut self,
+        args: ClipProcessArgs<impl Timeline>,
+        start_frame: isize,
+        info: &SupplyRequestGeneralInfo,
+    ) -> Option<isize> {
+        if self.is_midi {
+            self.fill_samples_midi(args, start_frame, info)
+        } else {
+            self.fill_samples_audio(args, start_frame, info)
+        }
+    }
+    fn fill_samples_audio(
+        &self,
+        args: ClipProcessArgs<impl Timeline>,
+        start_frame: isize,
+        info: &SupplyRequestGeneralInfo,
+    ) -> Option<isize> {
+        let request = SupplyAudioRequest {
+            start_frame,
+            dest_sample_rate: args.block.sample_rate(),
+            info: SupplyRequestInfo {
+                audio_block_frame_offset: 0,
+                requester: "root-audio",
+                note: "",
+            },
+            parent_request: None,
+            general_info: info,
+        };
+        let mut dest_buffer = unsafe {
+            AudioBufMut::from_raw(
+                args.block.samples(),
+                args.block.nch() as _,
+                args.block.length() as _,
+            )
+        };
+        let response = self
+            .supplier_chain
+            .head()
+            .supply_audio(&request, &mut dest_buffer);
+        response.next_inner_frame
+    }
+
+    fn fill_samples_midi(
+        &self,
+        args: ClipProcessArgs<impl Timeline>,
+        start_frame: isize,
+        info: &SupplyRequestGeneralInfo,
+    ) -> Option<isize> {
+        let request = SupplyMidiRequest {
+            start_frame,
+            dest_frame_count: args.block.length() as _,
+            dest_sample_rate: args.block.sample_rate(),
+            info: SupplyRequestInfo {
+                audio_block_frame_offset: 0,
+                requester: "root-midi",
+                note: "",
+            },
+            parent_request: None,
+            general_info: info,
+        };
+        let response = self.supplier_chain.head().supply_midi(
+            &request,
+            args.block.midi_event_list().expect("no MIDI event list"),
+        );
+        response.next_inner_frame
+    }
+
+    /// So, this is how we do play scheduling. Whenever the preview register
+    /// calls get_samples() and we are in a fresh ScheduledOrPlaying state, the
+    /// relative number of count-in frames will be determined. Based on the given
+    /// absolute bar for which the clip is scheduled.
+    ///
+    /// 1. We use a *relative* count-in (instead of just
+    /// using the absolute scheduled-play position and check if we reached it)
+    /// in order to respect arbitrary tempo changes during the count-in phase and
+    /// still end up starting on the correct point in time. Okay, we could reach
+    /// the same goal also by regularly checking whether we finally reached the
+    /// start of the bar. But first, we need the relative count-in later anyway
+    /// (for pickup beats, which start to play during count-in time). And second,
+    /// it would be also pretty much unnecessary beat-time mapping.
+    ///
+    /// 2. We resolve the
+    /// count-in length here in the real-time context, not before! In particular not
+    /// at the time the play is requested. At that time we just calculate the
+    /// bar index. Reason: The start time of the next bar at play-request time
+    /// is not necessarily the same as the one in the get_samples call. If it's not,
+    /// we would start advancing the count-in cursor from a wrong initial state
+    /// and therefore end up with the wrong point in time for starting the clip
+    /// (too late, to be accurate, because we would start advancing too late).
+    fn calc_initial_pos_from_start_bar(
+        &self,
+        start_bar: i32,
+        args: &ClipProcessArgs<impl Timeline>,
+        clip_tempo_factor: f64,
+    ) -> isize {
+        // Basics
+        let block_length_in_timeline_frames = args.block.length() as usize;
+        let source_frame_rate = self.supplier_chain.reaper_source().frame_rate();
+        let timeline_frame_rate = args.block.sample_rate();
+        // Essential calculation
+        let start_bar_timeline_pos = args.timeline.pos_of_bar(start_bar);
+        let rel_pos_from_bar_in_secs = args.timeline_cursor_pos - start_bar_timeline_pos;
+        let rel_pos_from_bar_in_source_frames = convert_position_in_seconds_to_frames(
+            rel_pos_from_bar_in_secs,
+            self.supplier_chain.reaper_source().frame_rate(),
+        );
+        {
+            let args = LogNaturalDeviationArgs {
+                start_bar,
+                block: args.block,
+                timeline: &args.timeline,
+                timeline_cursor_pos: args.timeline_cursor_pos,
+                clip_tempo_factor,
+                timeline_frame_rate,
+                source_frame_rate,
+                start_bar_timeline_pos,
+            };
+            self.log_natural_deviation(args);
+        }
+        //region Description
+        // Now we have a countdown/position in source frames, but it doesn't yet
+        // take the tempo adjustment of the source into account.
+        // Once we have initialized the countdown with the first value, each
+        // get_samples() call - including this one - will advance it by a frame
+        // count that ideally = block length in source frames * tempo factor.
+        // We use this countdown approach for two reasons.
+        //
+        // 1. In order to allow tempo changes during count-in time.
+        // 2. In future, the count-in phase might play source material already.
+        //
+        // Especially (2) means that the count-in phase will not always have that
+        // ideal length which makes the source frame ZERO be perfectly aligned with
+        // the ZERO of the timeline bar. I think this is unavoidable when dealing
+        // with material that needs sample-rate conversion and/or time
+        // stretching. So if one of this is involved, this is just an estimation.
+        // However, in real-world scenarios this usually results in slight start
+        // deviations around 0-5ms, so it still makes sense musically.
+        //endregion
+        let block_length_in_source_frames = convert_duration_in_frames_to_other_frame_rate(
+            block_length_in_timeline_frames,
+            timeline_frame_rate,
+            source_frame_rate,
+        );
+        adjust_proportionally_in_blocks(
+            rel_pos_from_bar_in_source_frames,
+            clip_tempo_factor,
+            block_length_in_source_frames,
+        )
+    }
+
+    fn log_natural_deviation(&self, args: LogNaturalDeviationArgs<impl Timeline>) {
+        // Assuming a constant tempo and time signature during one cycle
+        // Bars
+        let end_bar = args.start_bar + self.bar_count() as i32;
+        let bar_count = end_bar - args.start_bar;
+        let end_bar_timeline_pos = args.timeline.pos_of_bar(end_bar);
+        assert!(end_bar_timeline_pos > args.start_bar_timeline_pos);
+        // Timeline cycle length
+        let timeline_cycle_length_in_secs =
+            (end_bar_timeline_pos - args.start_bar_timeline_pos).abs();
+        let timeline_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
+            timeline_cycle_length_in_secs,
+            args.timeline_frame_rate,
+        );
+        let timeline_cycle_length_in_source_frames = convert_duration_in_seconds_to_frames(
+            timeline_cycle_length_in_secs,
+            args.source_frame_rate,
+        );
+        // Source cycle length
+        let source_cycle_length_in_secs = self.supplier_chain.reaper_source().duration();
+        let source_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
+            source_cycle_length_in_secs,
+            args.timeline_frame_rate,
+        );
+        let source_cycle_length_in_source_frames =
+            self.supplier_chain.reaper_source().frame_count();
+        // Block length
+        let block_length_in_timeline_frames = args.block.length() as usize;
+        let block_length_in_secs = convert_duration_in_frames_to_seconds(
+            block_length_in_timeline_frames,
+            args.timeline_frame_rate,
+        );
+        let block_length_in_source_frames = convert_duration_in_frames_to_other_frame_rate(
+            block_length_in_timeline_frames,
+            args.timeline_frame_rate,
+            args.source_frame_rate,
+        );
+        // Block count and remainder
+        let num_full_blocks = source_cycle_length_in_source_frames / block_length_in_source_frames;
+        let remainder_in_source_frames =
+            source_cycle_length_in_source_frames % block_length_in_source_frames;
+        // Tempo-adjusted
+        let adjusted_block_length_in_source_frames = adjust_proportionally_positive(
+            block_length_in_source_frames as f64,
+            args.clip_tempo_factor,
+        );
+        let adjusted_block_length_in_timeline_frames =
+            convert_duration_in_frames_to_other_frame_rate(
+                adjusted_block_length_in_source_frames,
+                args.source_frame_rate,
+                args.timeline_frame_rate,
+            );
+        let adjusted_block_length_in_secs = convert_duration_in_frames_to_seconds(
+            adjusted_block_length_in_source_frames,
+            args.source_frame_rate,
+        );
+        let adjusted_remainder_in_source_frames = adjust_proportionally_positive(
+            remainder_in_source_frames as f64,
+            args.clip_tempo_factor,
+        );
+        // Source cycle remainder
+        let adjusted_remainder_in_timeline_frames = convert_duration_in_frames_to_other_frame_rate(
+            adjusted_remainder_in_source_frames,
+            args.source_frame_rate,
+            args.timeline_frame_rate,
+        );
+        let adjusted_remainder_in_secs = convert_duration_in_frames_to_seconds(
+            adjusted_remainder_in_source_frames,
+            args.source_frame_rate,
+        );
+        let block_index = (args.timeline_cursor_pos.get() / block_length_in_secs.get()) as isize;
+        print!(
+            "\n\
+            # Natural deviation report\n\
+            Block index: {},\n\
+            Tempo factor: {:.3}\n\
+            Bars: {} ({} - {})\n\
+            Start bar position: {:.3}s\n\
+            Source cycle length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+            Timeline cycle length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+            Block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+            Tempo-adjusted block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+            Number of full blocks: {}\n\
+            Tempo-adjusted remainder per cycle: {:.3}ms (= {} timeline frames = {} source frames)\n\
+            ",
+            block_index,
+            args.clip_tempo_factor,
+            bar_count,
+            args.start_bar,
+            end_bar,
+            args.start_bar_timeline_pos.get(),
+            source_cycle_length_in_secs.get() * 1000.0,
+            source_cycle_length_in_timeline_frames,
+            source_cycle_length_in_source_frames,
+            timeline_cycle_length_in_secs.get() * 1000.0,
+            timeline_cycle_length_in_timeline_frames,
+            timeline_cycle_length_in_source_frames,
+            block_length_in_secs.get() * 1000.0,
+            block_length_in_timeline_frames,
+            block_length_in_source_frames,
+            adjusted_block_length_in_secs.get() * 1000.0,
+            adjusted_block_length_in_timeline_frames,
+            adjusted_block_length_in_source_frames,
+            num_full_blocks,
+            adjusted_remainder_in_secs.get() * 1000.0,
+            adjusted_remainder_in_timeline_frames,
+            adjusted_remainder_in_source_frames,
+        );
+    }
+
+    fn bar_count(&self) -> u32 {
+        // TODO-high Respect different time signatures
+        self.beat_count / 4
+    }
+
+    fn process_suspending(&mut self, s: SuspendingState, args: ClipProcessArgs<impl Timeline>) {
+        let suspender = self.supplier_chain.suspender_mut();
+        if !suspender.is_suspending() {
+            suspender.suspend(s.pos);
+        }
+        let general_info = self.prepare_process(&args);
+        self.state = if let Some(end_frame) = self.fill_samples(args, s.pos, &general_info) {
+            // Suspension not finished yet.
+            NewClipState::Suspending(SuspendingState {
+                pos: end_frame,
+                ..s
+            })
+        } else {
+            // Suspension finished.
+            self.supplier_chain.suspender_mut().reset();
+            use StateAfterSuspension::*;
+            match s.next_state {
+                Playing(s) => NewClipState::Playing(s),
+                Paused(s) => {
+                    // TODO-high Set follow-up Pause state in pause() correctly, see old
+                    //  get_suspension_follow_up_state()
+                    self.supplier_chain.looper_mut().reset();
+                    NewClipState::Paused(s)
+                }
+                Stopped => {
+                    self.supplier_chain.reset();
+                    NewClipState::Stopped
+                }
+                Recording(s) => NewClipState::Recording(s),
+            }
+        };
+    }
+
+    fn process_recording(&mut self, s: NewRecordingState, args: ClipProcessArgs<impl Timeline>) {
+        if let RecordTiming::Synced {
+            end_bar: Some(end_bar),
+            ..
+        } = s.timing
+        {
+            if args.timeline.next_bar_at(args.timeline_cursor_pos) >= end_bar {
+                // Close to scheduled recording end.
+                let block_length_in_timeline_frames = args.block.length() as usize;
+                let timeline_frame_rate = args.block.sample_rate();
+                let block_length_in_secs = convert_duration_in_frames_to_seconds(
+                    block_length_in_timeline_frames,
+                    timeline_frame_rate,
+                );
+                let block_end_pos = args.timeline_cursor_pos + block_length_in_secs;
+                let record_end_pos = args.timeline.pos_of_bar(end_bar);
+                if block_end_pos >= record_end_pos {
+                    // We have recorded the last block.
+                    if s.play_after {
+                        self.state = NewClipState::Playing(PlayingState {
+                            start_bar: Some(end_bar),
+                            ..Default::default()
+                        });
+                        self.process(args);
+                    } else {
+                        self.state = NewClipState::Stopped;
+                    }
+                }
+            }
+        }
+    }
+
+    fn prepare_process(
+        &mut self,
+        args: &ClipProcessArgs<impl Timeline>,
+    ) -> SupplyRequestGeneralInfo {
+        let final_tempo_factor = self.calc_final_tempo_factor(args.timeline_tempo);
+        let general_info = SupplyRequestGeneralInfo {
+            audio_block_timeline_cursor_pos: args.timeline_cursor_pos,
+            audio_block_length: args.block.length() as usize,
+            output_frame_rate: args.block.sample_rate(),
+            timeline_tempo: args.timeline_tempo,
+            clip_tempo_factor: final_tempo_factor,
+        };
+        self.supplier_chain
+            .stretcher_mut()
+            .set_tempo_factor(final_tempo_factor);
+        general_info
+    }
+
+    fn schedule_play_internal(&mut self, args: ClipPlayArgs) {
+        self.supplier_chain
+            .looper_mut()
+            .set_loop_behavior(LoopBehavior::from_bool(self.repeated));
+        self.state = NewClipState::Playing(PlayingState {
+            start_bar: args.from_bar,
+            ..Default::default()
+        });
+    }
+
+    fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
+        let timeline_tempo_factor = timeline_tempo.get() / self.tempo.get();
+        timeline_tempo_factor.max(MIN_TEMPO_FACTOR)
+    }
+}
+
+/// It can make a difference if we apply a factor once on a large integer x and then round or
+/// n times on x/n and round each time. Latter is what happens in practice because we advance
+/// frames step by step in n blocks.
+fn adjust_proportionally_in_blocks(value: isize, factor: f64, block_length: usize) -> isize {
+    let abs_value = value.abs() as usize;
+    let block_count = abs_value / block_length;
+    let remainder = abs_value % block_length;
+    let adjusted_block_length = adjust_proportionally_positive(block_length as f64, factor);
+    let adjusted_remainder = adjust_proportionally_positive(remainder as f64, factor);
+    let total_without_remainder = block_count * adjusted_block_length;
+    let total = total_without_remainder + adjusted_remainder;
+    // dbg!(abs_value, adjusted_block_length, block_count, remainder, adjusted_remainder, total_without_remainder, total);
+    total as isize * value.signum()
+}
+
+pub struct ClipPlayArgs {
+    pub from_bar: Option<i32>,
+}
+
+pub struct ClipStopArgs<'a> {
+    pub stop_behavior: ClipStopBehavior,
+    pub timeline_cursor_pos: PositionInSeconds,
+    pub timeline: &'a dyn Timeline,
+}
+
+#[derive(PartialEq)]
+pub enum ClipStopBehavior {
+    Immediately,
+    EndOfClip,
+}
+
+pub struct ClipProcessArgs<'a, T: Timeline> {
+    pub block: &'a mut PcmSourceTransfer,
+    pub timeline: T,
+    pub timeline_cursor_pos: PositionInSeconds,
+    pub timeline_tempo: Bpm,
+}
+
+struct LogNaturalDeviationArgs<'a, T: Timeline> {
+    start_bar: i32,
+    block: &'a PcmSourceTransfer,
+    timeline: T,
+    timeline_cursor_pos: PositionInSeconds,
+    // timeline_tempo: Bpm,
+    clip_tempo_factor: f64,
+    timeline_frame_rate: Hz,
+    source_frame_rate: Hz,
+    start_bar_timeline_pos: PositionInSeconds,
+}
+
+const MIN_TEMPO_FACTOR: f64 = 0.0000000001;

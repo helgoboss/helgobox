@@ -17,6 +17,7 @@ pub mod time_stretching;
 use crate::{adjust_anti_proportionally_positive, SupplyRequestInfo};
 pub use time_stretching::*;
 
+#[derive(Debug)]
 pub struct Stretcher<S> {
     enabled: bool,
     supplier: S,

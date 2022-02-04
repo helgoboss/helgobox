@@ -29,3 +29,4 @@ serde = { version = "1.0", features = ["derive"] }
 nanoid = "0.3.0"
 # For deriving file names
 slug = "0.1.4"
+num_enum = "0.5.0"

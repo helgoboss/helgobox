@@ -10,6 +10,7 @@ type LooperTail = Looper<FlexibleSourceTail>;
 type FlexibleSourceTail = FlexibleSource<ReaperSourceTail>;
 type ReaperSourceTail = OwnedPcmSource;
 
+#[derive(Debug)]
 pub struct ClipSupplierChain {
     head: Head,
 }
