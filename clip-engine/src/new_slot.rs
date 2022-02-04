@@ -1,9 +1,10 @@
 use crate::{
-    ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipStopArgs, ClipStopBehavior,
-    NewClip, RelevantPlayStateChange, Timeline, TimelineMoment, TransportChange,
+    ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordSourceType,
+    ClipStopArgs, ClipStopBehavior, NewClip, RecordBehavior, RecordKind, RelevantPlayStateChange,
+    Timeline, TimelineMoment, TransportChange, WriteAudioRequest, WriteMidiRequest,
 };
 use helgoboss_learn::UnitValue;
-use reaper_medium::{Bpm, PcmSourceTransfer, PositionInSeconds};
+use reaper_medium::{Bpm, PcmSourceTransfer, PositionInSeconds, ReaperVolumeValue};
 
 #[derive(Debug, Default)]
 pub struct Slot {
@@ -37,28 +38,59 @@ impl Slot {
         self.runtime_data.last_play = Some(LastPlay {
             was_synced_to_bar: args.from_bar.is_some(),
         });
-        let clip = self.get_clip_mut()?;
-        clip.play(args);
+        self.get_clip_mut()?.play(args);
         Ok(())
     }
 
     pub fn stop_clip(&mut self, args: ClipStopArgs) -> Result<(), &'static str> {
         self.runtime_data.stop_was_caused_by_transport_change = false;
-        let clip = self.get_clip_mut()?;
-        clip.stop(args);
+        self.get_clip_mut()?.stop(args);
         Ok(())
     }
 
     pub fn set_clip_repeated(&mut self, repeated: bool) -> Result<(), &'static str> {
-        let clip = self.get_clip_mut()?;
-        clip.set_repeated(repeated);
+        self.get_clip_mut()?.set_repeated(repeated);
         Ok(())
     }
 
     pub fn toggle_clip_repeated(&mut self) -> Result<ClipChangedEvent, &'static str> {
-        let clip = self.get_clip_mut()?;
-        let event = clip.toggle_repeated();
-        Ok(event)
+        Ok(self.get_clip_mut()?.toggle_repeated())
+    }
+
+    pub fn record_clip(&mut self, behavior: RecordBehavior) -> Result<(), &'static str> {
+        self.get_clip_mut()?.record(behavior);
+        Ok(())
+    }
+
+    pub fn pause_clip(&mut self) -> Result<(), &'static str> {
+        self.get_clip_mut()?.pause();
+        Ok(())
+    }
+
+    pub fn seek_clip(&mut self, desired_pos: UnitValue) -> Result<(), &'static str> {
+        self.get_clip_mut()?.seek(desired_pos);
+        Ok(())
+    }
+
+    pub fn clip_record_source_type(&self) -> Option<ClipRecordSourceType> {
+        self.get_clip().ok()?.record_source_type()
+    }
+
+    pub fn write_clip_midi(&mut self, request: WriteMidiRequest) -> Result<(), &'static str> {
+        self.get_clip_mut()?.write_midi(request);
+        Ok(())
+    }
+
+    pub fn write_clip_audio(&mut self, request: WriteAudioRequest) -> Result<(), &'static str> {
+        self.get_clip_mut()?.write_audio(request);
+        Ok(())
+    }
+
+    pub fn set_clip_volume(
+        &mut self,
+        volume: ReaperVolumeValue,
+    ) -> Result<ClipChangedEvent, &'static str> {
+        Ok(self.get_clip_mut()?.set_volume(volume))
     }
 
     pub fn poll(&mut self, args: SlotPollArgs) -> Option<ClipChangedEvent> {
@@ -152,8 +184,7 @@ impl Slot {
     }
 
     pub fn process(&mut self, args: ClipProcessArgs<impl Timeline>) -> Result<(), &'static str> {
-        let clip = self.get_clip_mut()?;
-        clip.process(args);
+        self.get_clip_mut()?.process(args);
         Ok(())
     }
 

@@ -1,10 +1,10 @@
 use crate::{
-    clip_timeline, keep_stretching, ClipChangedEvent, ClipContent, ClipPlayArgs, ClipSlot,
-    ClipStopArgs, ClipStopBehavior, Column, ColumnFillSlotArgs, ColumnPlayClipArgs,
+    clip_timeline, keep_stretching, ClipChangedEvent, ClipContent, ClipPlayArgs, ClipRecordTiming,
+    ClipSlot, ClipStopArgs, ClipStopBehavior, Column, ColumnFillSlotArgs, ColumnPlayClipArgs,
     ColumnPollSlotArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs, LegacyClip, NewClip,
-    RecordArgs, SharedRegister, Slot, SlotPlayOptions, SlotPollArgs,
-    SlotProcessTransportChangeArgs, SlotStopBehavior, StretchWorkerRequest, Timeline,
-    TransportChange,
+    RecordArgs, RecordBehavior, RecordKind, RecordTiming, SharedColumnSource, SharedRegister, Slot,
+    SlotPlayOptions, SlotPollArgs, SlotProcessTransportChangeArgs, SlotStopBehavior,
+    StretchWorkerRequest, Timeline, TransportChange,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -133,17 +133,17 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         timeline_cursor_pos: PositionInSeconds,
         timeline_tempo: Bpm,
     ) -> Option<ClipChangedEvent> {
-        let column = get_column_mut(&mut self.columns, slot_index).ok()?;
         let args = ColumnPollSlotArgs {
             index: 0,
             slot_args: SlotPollArgs { timeline_tempo },
         };
-        column.poll_slot(args)
+        get_column_mut(&mut self.columns, slot_index)
+            .ok()?
+            .poll_slot(args)
     }
 
     pub fn toggle_repeat_legacy(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        let column = get_column_mut(&mut self.columns, slot_index)?;
-        let event = column.toggle_clip_repeated(0)?;
+        let event = get_column_mut(&mut self.columns, slot_index)?.toggle_clip_repeated(0)?;
         self.handler.notify_clip_changed(slot_index, event);
         Ok(())
     }
@@ -153,8 +153,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         slot_index: usize,
         f: impl FnOnce(&Slot) -> Result<R, &'static str>,
     ) -> Result<R, &'static str> {
-        let column = get_column(&self.columns, slot_index)?;
-        column.with_slot(0, f)
+        get_column(&self.columns, slot_index)?.with_slot(0, f)
     }
 
     pub fn process_transport_change(&mut self, change: TransportChange, project: Option<Project>) {
@@ -168,6 +167,61 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         for column in &mut self.columns {
             column.process_transport_change(&args);
         }
+    }
+
+    pub fn record_clip_legacy(
+        &mut self,
+        slot_index: usize,
+        project: Project,
+        args: RecordArgs,
+    ) -> Result<(), &'static str> {
+        let behavior = match args.kind {
+            RecordKind::Normal { play_after, timing } => RecordBehavior::Normal {
+                play_after,
+                timing: match timing {
+                    ClipRecordTiming::StartImmediatelyStopOnDemand => RecordTiming::Unsynced,
+                    ClipRecordTiming::StartOnBarStopOnDemand { start_bar } => {
+                        RecordTiming::Synced {
+                            start_bar,
+                            end_bar: None,
+                        }
+                    }
+                    ClipRecordTiming::StartOnBarStopOnBar {
+                        start_bar,
+                        bar_count,
+                    } => RecordTiming::Synced {
+                        start_bar,
+                        end_bar: Some(start_bar + bar_count as i32),
+                    },
+                },
+            },
+            RecordKind::MidiOverdub => RecordBehavior::MidiOverdub,
+        };
+        let task = get_column_mut(&mut self.columns, slot_index)?.record_clip(0, behavior)?;
+        self.handler.request_recording_input(task);
+        Ok(())
+    }
+
+    pub fn pause_clip_legacy(&mut self, slot_index: usize) -> Result<(), &'static str> {
+        get_column_mut(&mut self.columns, slot_index)?.pause_clip(0)
+    }
+
+    pub fn seek_clip_legacy(
+        &mut self,
+        slot_index: usize,
+        position: UnitValue,
+    ) -> Result<(), &'static str> {
+        get_column_mut(&mut self.columns, slot_index)?.seek_clip(0, position)
+    }
+
+    pub fn set_clip_volume_legacy(
+        &mut self,
+        slot_index: usize,
+        volume: ReaperVolumeValue,
+    ) -> Result<(), &'static str> {
+        let event = get_column_mut(&mut self.columns, slot_index)?.set_clip_volume(0, volume)?;
+        self.handler.notify_clip_changed(slot_index, event);
+        Ok(())
     }
 
     pub fn fill_slot_by_user(
@@ -194,47 +248,6 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         let content = ClipContent::from_item(item, false)?;
         slot.fill_by_user(content, item.project(), &self.stretch_worker_sender)?;
         self.handler.notify_slot_contents_changed();
-        Ok(())
-    }
-
-    pub fn record_clip(
-        &mut self,
-        slot_index: usize,
-        project: Project,
-        args: RecordArgs,
-    ) -> Result<(), &'static str> {
-        let slot = get_slot_mut(&mut self.clip_slots, slot_index)?;
-        let register = slot.record(project, &self.stretch_worker_sender, args)?;
-        let task = ClipRecordTask { register, project };
-        self.handler.request_recording_input(task);
-        Ok(())
-    }
-
-    pub fn pause_clip(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        self.get_slot_mut(slot_index)?.pause()
-    }
-
-    pub fn seek_slot(
-        &mut self,
-        slot_index: usize,
-        position: UnitValue,
-    ) -> Result<(), &'static str> {
-        let event = self
-            .get_slot_mut(slot_index)?
-            .set_proportional_position(position)?;
-        if let Some(event) = event {
-            self.handler.notify_clip_changed(slot_index, event);
-        }
-        Ok(())
-    }
-
-    pub fn set_volume(
-        &mut self,
-        slot_index: usize,
-        volume: ReaperVolumeValue,
-    ) -> Result<(), &'static str> {
-        let event = self.get_slot_mut(slot_index)?.set_volume(volume);
-        self.handler.notify_clip_changed(slot_index, event);
         Ok(())
     }
 
@@ -298,8 +311,8 @@ impl LegacyClipOutput {
 
 #[derive(Debug)]
 pub struct ClipRecordTask {
-    pub register: SharedRegister,
-    pub project: Project,
+    pub column_source: SharedColumnSource,
+    pub slot_index: usize,
 }
 
 pub trait ClipMatrixHandler {

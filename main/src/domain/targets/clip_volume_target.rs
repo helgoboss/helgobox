@@ -61,7 +61,7 @@ impl RealearnTarget for ClipVolumeTarget {
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
         let mut instance_state = context.control_context.instance_state.borrow_mut();
-        instance_state.clip_matrix_mut().set_volume(
+        instance_state.clip_matrix_mut().set_clip_volume_legacy(
             self.slot_index,
             volume.unwrap_or(Volume::MIN).reaper_value(),
         )?;

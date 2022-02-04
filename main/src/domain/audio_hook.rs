@@ -387,18 +387,11 @@ impl RealTimeProcessorLocker for SharedRealTimeProcessor {
 
 /// Returns whether task still relevant.
 fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipRecordTask) -> bool {
-    if !record_task.project.is_available() {
-        return false;
-    };
-    let mut guard = record_task.register.lock().expect("couldn't acquire lock");
-    let src = guard.src_mut().expect("no source to record on");
-    let mode = match src.as_ref().clip_record_mode() {
+    let mut src = record_task.column_source.lock();
+    let mode = match src.clip_record_source_type(record_task.slot_index) {
         None => return false,
         Some(m) => m,
     };
-    let timeline = clip_timeline(Some(record_task.project), false);
-    let timeline_cursor_pos = timeline.cursor_pos();
-    let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
     match mode {
         ClipRecordSourceType::Midi => {
             for dev_id in 0..MidiInputDeviceId::MAX_DEVICE_COUNT {
@@ -414,12 +407,11 @@ fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipReco
                     }
                     unsafe {
                         let req = WriteMidiRequest {
-                            timeline_tempo,
                             input_sample_rate: args.srate,
                             block_length: args.len as _,
                             events: event_list,
                         };
-                        src.as_mut().write_midi(req);
+                        src.write_clip_midi(record_task.slot_index, req).unwrap();
                     }
                 });
             }
@@ -445,7 +437,7 @@ fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipReco
                 left_buffer,
                 right_buffer,
             };
-            src.as_mut().write_audio(req);
+            src.write_clip_audio(record_task.slot_index, req).unwrap();
         },
     }
     true

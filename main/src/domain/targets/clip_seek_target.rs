@@ -61,7 +61,7 @@ impl RealearnTarget for ClipSeekTarget {
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         instance_state
             .clip_matrix_mut()
-            .seek_slot(self.slot_index, value)?;
+            .seek_clip_legacy(self.slot_index, value)?;
         Ok(None)
     }
 

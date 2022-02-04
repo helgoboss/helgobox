@@ -916,7 +916,6 @@ pub trait ClipPcmSourceSkills {
 
 #[derive(Copy, Clone)]
 pub struct WriteMidiRequest<'a> {
-    pub timeline_tempo: Bpm,
     pub input_sample_rate: Hz,
     pub block_length: usize,
     pub events: &'a BorrowedMidiEventList,
@@ -1004,6 +1003,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
+    // DONE
     fn pause(&mut self, timeline_cursor_pos: PositionInSeconds) {
         use ClipState::*;
         match self.state {
@@ -1190,6 +1190,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
+    // DONE
     fn seek_to(&mut self, args: SeekToArgs) {
         let frame_count = self.inner.chain.reaper_source().frame_count();
         let desired_frame =
@@ -1278,12 +1279,13 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
+    // DONE
     fn write_midi(&mut self, request: WriteMidiRequest) {
         // TODO-high When not doing overdub, we must calculate the position from the time when
         //  recording began.
         let pos_within_clip = self
             .pos_within_clip(PosWithinClipArgs {
-                timeline_tempo: request.timeline_tempo,
+                timeline_tempo: Bpm::new(96.0),
             })
             .unwrap_or_default();
         let mut write_struct = midi_realtime_write_struct_t {
@@ -1310,6 +1312,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
+    // DONE
     fn clip_record_mode(&self) -> Option<ClipRecordSourceType> {
         use ClipState::*;
         match self.state {
@@ -1329,6 +1332,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
+    // DONE
     fn write_audio(&mut self, request: WriteAudioRequest) {
         self.inner.chain.flexible_source_mut().write_audio(request);
     }

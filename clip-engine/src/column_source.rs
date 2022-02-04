@@ -1,9 +1,11 @@
 use crate::{
-    clip_timeline, ClipChangedEvent, ClipPlayArgs, ClipProcessArgs, ClipStopArgs, ClipStopBehavior,
-    NewClip, Slot, SlotPollArgs, SlotProcessTransportChangeArgs, Timeline, TimelineMoment,
-    TransportChange,
+    clip_timeline, ClipChangedEvent, ClipPlayArgs, ClipProcessArgs, ClipRecordSourceType,
+    ClipStopArgs, ClipStopBehavior, NewClip, RecordBehavior, RecordKind, Slot, SlotPollArgs,
+    SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange, WriteAudioRequest,
+    WriteMidiRequest,
 };
 use assert_no_alloc::assert_no_alloc;
+use helgoboss_learn::UnitValue;
 use num_enum::TryFromPrimitive;
 use reaper_high::{BorrowedSource, Project};
 use reaper_low::raw::preview_register_t;
@@ -11,7 +13,7 @@ use reaper_medium::{
     reaper_str, BorrowedPcmSource, CustomPcmSource, DurationInBeats, DurationInSeconds,
     ExtendedArgs, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, OwnedPcmSource,
     OwnedPreviewRegister, PcmSource, PeaksClearArgs, PositionInSeconds, PropertiesWindowArgs,
-    ReaperStr, SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
+    ReaperStr, ReaperVolumeValue, SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
 };
 use std::convert::{TryFrom, TryInto};
 use std::error::Error;
@@ -55,8 +57,7 @@ impl ColumnSource {
     }
 
     pub fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
-        let slot = get_slot_mut(&mut self.slots, args.index);
-        slot.fill(args.clip);
+        get_slot_mut(&mut self.slots, args.index).fill(args.clip);
     }
 
     pub fn with_slot<R>(
@@ -64,32 +65,71 @@ impl ColumnSource {
         index: usize,
         f: impl FnOnce(&Slot) -> Result<R, &'static str>,
     ) -> Result<R, &'static str> {
-        let slot = get_slot(&self.slots, index)?;
-        f(&slot)
+        f(get_slot(&self.slots, index)?)
     }
 
     pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
-        let slot = get_slot_mut(&mut self.slots, args.index);
         // TODO-high If column mode Song, suspend all other clips first.
-        slot.play_clip(args.clip_args)
+        get_slot_mut(&mut self.slots, args.index).play_clip(args.clip_args)
     }
 
     pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
-        let slot = get_slot_mut(&mut self.slots, args.index);
-        slot.stop_clip(args.clip_args)
+        get_slot_mut(&mut self.slots, args.index).stop_clip(args.clip_args)
     }
 
     pub fn set_clip_repeated(
         &mut self,
         args: ColumnSetClipRepeatedArgs,
     ) -> Result<(), &'static str> {
-        let slot = get_slot_mut(&mut self.slots, args.index);
-        slot.set_clip_repeated(args.repeated)
+        get_slot_mut(&mut self.slots, args.index).set_clip_repeated(args.repeated)
     }
 
     pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
-        let slot = get_slot_mut(&mut self.slots, index);
-        slot.toggle_clip_repeated()
+        get_slot_mut(&mut self.slots, index).toggle_clip_repeated()
+    }
+
+    pub fn record_clip(
+        &mut self,
+        index: usize,
+        behavior: RecordBehavior,
+    ) -> Result<(), &'static str> {
+        get_slot_mut(&mut self.slots, index).record_clip(behavior)
+    }
+
+    pub fn pause_clip(&mut self, index: usize) -> Result<(), &'static str> {
+        get_slot_mut(&mut self.slots, index).pause_clip()
+    }
+
+    pub fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) -> Result<(), &'static str> {
+        get_slot_mut(&mut self.slots, index).seek_clip(desired_pos)
+    }
+
+    pub fn clip_record_source_type(&self, index: usize) -> Option<ClipRecordSourceType> {
+        get_slot(&self.slots, index).ok()?.clip_record_source_type()
+    }
+
+    pub fn write_clip_midi(
+        &mut self,
+        index: usize,
+        request: WriteMidiRequest,
+    ) -> Result<(), &'static str> {
+        get_slot_mut(&mut self.slots, index).write_clip_midi(request)
+    }
+
+    pub fn write_clip_audio(
+        &mut self,
+        index: usize,
+        request: WriteAudioRequest,
+    ) -> Result<(), &'static str> {
+        get_slot_mut(&mut self.slots, index).write_clip_audio(request)
+    }
+
+    pub fn set_clip_volume(
+        &mut self,
+        index: usize,
+        volume: ReaperVolumeValue,
+    ) -> Result<ClipChangedEvent, &'static str> {
+        get_slot_mut(&mut self.slots, index).set_clip_volume(volume)
     }
 
     pub fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {

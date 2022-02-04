@@ -1,16 +1,18 @@
 use crate::{
-    ClipChangedEvent, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnPollSlotArgs,
-    ColumnSetClipRepeatedArgs, ColumnSource, ColumnStopClipArgs, SharedColumnSource,
-    SharedRegister, Slot, SlotProcessTransportChangeArgs, Timeline, TimelineMoment,
-    TransportChange,
+    ClipChangedEvent, ClipRecordTask, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnPollSlotArgs,
+    ColumnSetClipRepeatedArgs, ColumnSource, ColumnStopClipArgs, RecordBehavior, RecordKind,
+    SharedColumnSource, SharedRegister, Slot, SlotProcessTransportChangeArgs, Timeline,
+    TimelineMoment, TransportChange,
 };
 use crossbeam_channel::Sender;
 use enumflags2::BitFlags;
+use helgoboss_learn::UnitValue;
 use reaper_high::{BorrowedSource, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
     create_custom_owned_pcm_source, BorrowedPcmSource, CustomPcmSource, FlexibleOwnedPcmSource,
-    MeasureAlignment, OwnedPreviewRegister, ReaperMutex, ReaperMutexGuard, ReaperVolumeValue,
+    MeasureAlignment, OwnedPreviewRegister, PositionInSeconds, ReaperMutex, ReaperMutexGuard,
+    ReaperVolumeValue,
 };
 use std::ptr::NonNull;
 use std::sync::Arc;
@@ -74,6 +76,35 @@ impl Column {
 
     pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
         self.with_source_mut(|s| s.toggle_clip_repeated(index))
+    }
+
+    pub fn record_clip(
+        &mut self,
+        index: usize,
+        behavior: RecordBehavior,
+    ) -> Result<ClipRecordTask, &'static str> {
+        self.with_source_mut(|s| s.record_clip(index, behavior))?;
+        let task = ClipRecordTask {
+            column_source: self.column_source.clone(),
+            slot_index: index,
+        };
+        Ok(task)
+    }
+
+    pub fn pause_clip(&mut self, index: usize) -> Result<(), &'static str> {
+        self.with_source_mut(|s| s.pause_clip(index))
+    }
+
+    pub fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) -> Result<(), &'static str> {
+        self.with_source_mut(|s| s.seek_clip(index, desired_pos))
+    }
+
+    pub fn set_clip_volume(
+        &mut self,
+        index: usize,
+        volume: ReaperVolumeValue,
+    ) -> Result<ClipChangedEvent, &'static str> {
+        self.with_source_mut(|s| s.set_clip_volume(index, volume))
     }
 
     /// This method should be called whenever REAPER's play state changes. It will make the clip

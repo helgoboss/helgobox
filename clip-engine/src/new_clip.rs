@@ -4,16 +4,19 @@ use crate::{
     adjust_proportionally_positive, clip_timeline, convert_duration_in_frames_to_other_frame_rate,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames, AudioBufMut,
-    AudioSupplier, ClipChangedEvent, ClipContent, ClipInfo, ClipPlayState, ClipSupplierChain,
-    CreateClipContentMode, ExactDuration, ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, Timeline,
-    WithFrameRate, WithTempo,
+    AudioSupplier, ClipChangedEvent, ClipContent, ClipInfo, ClipPlayState, ClipRecordSourceType,
+    ClipRecordTiming, ClipSupplierChain, CreateClipContentMode, ExactDuration, ExactFrameCount,
+    LegacyClip, LoopBehavior, MidiSupplier, RecordKind, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, Timeline, WithFrameRate, WithTempo,
+    WriteAudioRequest, WriteMidiRequest,
 };
 use helgoboss_learn::UnitValue;
 use reaper_high::{Project, ReaperSource};
+use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
     Bpm, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds, ReaperVolumeValue,
 };
+use std::ptr::null_mut;
 
 #[derive(Debug)]
 pub struct NewClip {
@@ -113,8 +116,17 @@ struct NewRecordingState {
     pub timing: RecordTiming,
 }
 
+#[derive(Copy, Clone)]
+pub enum RecordBehavior {
+    Normal {
+        play_after: bool,
+        timing: RecordTiming,
+    },
+    MidiOverdub,
+}
+
 #[derive(Copy, Clone, Debug)]
-enum RecordTiming {
+pub enum RecordTiming {
     Unsynced,
     Synced {
         start_bar: i32,
@@ -348,6 +360,167 @@ impl NewClip {
 
     pub fn volume(&self) -> ReaperVolumeValue {
         self.volume
+    }
+
+    pub fn record(&mut self, behavior: RecordBehavior) {
+        use NewClipState::*;
+        match behavior {
+            RecordBehavior::Normal { play_after, timing } => {
+                let recording_state = NewRecordingState { play_after, timing };
+                self.state = match self.state {
+                    Stopped => Recording(recording_state),
+                    Playing(s) => {
+                        if let Some(pos) = s.pos {
+                            if pos >= 0 {
+                                Suspending(SuspendingState {
+                                    next_state: StateAfterSuspension::Recording(recording_state),
+                                    pos,
+                                })
+                            } else {
+                                Recording(recording_state)
+                            }
+                        } else {
+                            Recording(recording_state)
+                        }
+                    }
+                    Suspending(s) => Suspending(SuspendingState {
+                        next_state: StateAfterSuspension::Recording(recording_state),
+                        ..s
+                    }),
+                    Paused(_) | Recording(_) => Recording(recording_state),
+                };
+            }
+            RecordBehavior::MidiOverdub => {
+                if let Playing(s) = self.state {
+                    self.state = Playing(PlayingState {
+                        overdubbing: true,
+                        ..s
+                    });
+                }
+            }
+        }
+        println!("Recording");
+    }
+
+    pub fn pause(&mut self) {
+        use NewClipState::*;
+        match self.state {
+            Stopped | Paused(_) => {}
+            Playing(s) => {
+                if let Some(pos) = s.pos {
+                    if pos >= 0 {
+                        let pos = pos as usize;
+                        // Playing. Pause!
+                        // (If this clip is scheduled for stop already, a pause will backpedal from
+                        // that.)
+                        self.state = Suspending(SuspendingState {
+                            next_state: StateAfterSuspension::Paused(PausedState { pos }),
+                            pos: pos as isize,
+                        });
+                    }
+                }
+                // If not yet playing, we don't do anything at the moment.
+                // TODO-medium In future, we could defer the clip scheduling to the future. I think
+                //  that would feel natural.
+            }
+            Suspending(s) => {
+                // TODO-medium As soon as we have count-in material to play, paused should also
+                //  allow negative pause positions.
+                self.state = Suspending(SuspendingState {
+                    next_state: StateAfterSuspension::Paused(PausedState {
+                        pos: s.pos as usize,
+                    }),
+                    ..s
+                });
+            }
+            // Pausing recording ... no, we don't want that.
+            Recording(_) => {}
+        }
+    }
+
+    pub fn seek(&mut self, desired_pos: UnitValue) {
+        let frame_count = self.supplier_chain.reaper_source().frame_count();
+        let desired_frame = adjust_proportionally_positive(frame_count as f64, desired_pos.get());
+        use NewClipState::*;
+        match self.state {
+            Stopped | Suspending(_) | Recording(_) => {}
+            Playing(s) => {
+                if let Some(pos) = s.pos {
+                    if pos >= 0 {
+                        self.state = Playing(PlayingState {
+                            pos: Some(desired_frame as isize),
+                            ..s
+                        });
+                    }
+                }
+            }
+            Paused(_) => {
+                self.state = Paused(PausedState { pos: desired_frame });
+            }
+        }
+    }
+
+    pub fn record_source_type(&self) -> Option<ClipRecordSourceType> {
+        use NewClipState::*;
+        match self.state {
+            Stopped | Suspending(_) | Paused(_) => None,
+            Playing(s) => {
+                if s.overdubbing {
+                    Some(ClipRecordSourceType::Midi)
+                } else {
+                    None
+                }
+            }
+            // TODO-medium When recording past end, return None (should usually not happen)
+            Recording(_) => {
+                if self.is_midi {
+                    Some(ClipRecordSourceType::Midi)
+                } else {
+                    Some(ClipRecordSourceType::Audio)
+                }
+            }
+        }
+    }
+
+    pub fn write_midi(&mut self, request: WriteMidiRequest) {
+        // TODO-high When not doing overdub, we must calculate the position from the time when
+        //  recording began.
+        let timeline = clip_timeline(self.project, false);
+        let pos_within_clip = self
+            .position_in_seconds(timeline.tempo_at(timeline.cursor_pos()))
+            .unwrap_or_default();
+        let mut write_struct = midi_realtime_write_struct_t {
+            global_time: pos_within_clip.get(),
+            srate: request.input_sample_rate.get(),
+            item_playrate: 1.0,
+            global_item_time: 0.0,
+            length: request.block_length as _,
+            // Overdub
+            overwritemode: 0,
+            events: unsafe { request.events.as_ptr().as_mut() },
+            latency: 0.0,
+            // Not used
+            overwrite_actives: null_mut(),
+        };
+        unsafe {
+            self.supplier_chain.reaper_source_mut().extended(
+                PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
+                &mut write_struct as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
+        }
+    }
+
+    pub fn write_audio(&mut self, request: WriteAudioRequest) {
+        self.supplier_chain
+            .flexible_source_mut()
+            .write_audio(request);
+    }
+
+    pub fn set_volume(&mut self, volume: ReaperVolumeValue) -> ClipChangedEvent {
+        self.volume = volume;
+        ClipChangedEvent::ClipVolume(volume)
     }
 
     pub fn info_legacy(&self) -> ClipInfo {

@@ -121,7 +121,7 @@ impl RealearnTarget for ClipTransportTarget {
                         self.play_options,
                     )?;
                 } else {
-                    clip_matrix.pause_clip(self.slot_index)?;
+                    clip_matrix.pause_clip_legacy(self.slot_index)?;
                 }
             }
             Stop => {
@@ -135,13 +135,13 @@ impl RealearnTarget for ClipTransportTarget {
             }
             Pause => {
                 if on {
-                    clip_matrix.pause_clip(self.slot_index)?;
+                    clip_matrix.pause_clip_legacy(self.slot_index)?;
                 }
             }
             RecordStop => {
                 println!("Pressed record with on = {:?}", on);
                 if on {
-                    clip_matrix.record_clip(
+                    clip_matrix.record_clip_legacy(
                         self.slot_index,
                         self.project,
                         RecordArgs {

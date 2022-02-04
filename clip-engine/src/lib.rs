@@ -49,3 +49,5 @@ pub fn clip_timeline(project: Option<Project>, force_project_timeline: bool) -> 
 pub fn clip_timeline_cursor_pos(project: Option<Project>) -> PositionInSeconds {
     clip_timeline(project, false).cursor_pos()
 }
+
+pub type ClipEngineResult<T> = Result<T, &'static str>;
