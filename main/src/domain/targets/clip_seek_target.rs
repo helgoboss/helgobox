@@ -8,7 +8,7 @@ use crate::domain::{
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
-use playtime_clip_engine::{ClipChangedEvent, ClipPlayState};
+use playtime_clip_engine::{clip_timeline, ClipChangedEvent, ClipPlayState, Timeline};
 
 #[derive(Debug)]
 pub struct UnresolvedClipSeekTarget {
@@ -124,12 +124,14 @@ impl RealearnTarget for ClipSeekTarget {
 impl ClipSeekTarget {
     fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
         let instance_state = context.instance_state.borrow();
+        let timeline = clip_timeline(context.processor_context.project(), false);
+        let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
         instance_state
             .clip_matrix()
-            .get_slot(self.slot_index)
+            .with_slot_legacy(self.slot_index, |slot| {
+                Ok(slot.clip()?.position_in_seconds(timeline_tempo))
+            })
             .ok()?
-            .position_in_seconds()
-            .ok()
     }
 }
 
@@ -140,10 +142,10 @@ impl<'a> Target<'a> for ClipSeekTarget {
         let instance_state = context.instance_state.borrow();
         let val = instance_state
             .clip_matrix()
-            .get_slot(self.slot_index)
-            .ok()?
-            .proportional_position()
-            .ok()?;
+            .with_slot_legacy(self.slot_index, |slot| {
+                Ok(slot.clip()?.proportional_position())
+            })
+            .ok()??;
         Some(AbsoluteValue::Continuous(val))
     }
 

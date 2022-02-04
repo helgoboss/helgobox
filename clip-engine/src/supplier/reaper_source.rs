@@ -163,10 +163,11 @@ fn transfer_audio(source: &OwnedPcmSource, mut req: SourceMaterialRequest) -> Su
     let num_frames_consumed =
         convert_duration_in_seconds_to_frames(consumed_time_in_seconds, req.source_sample_rate);
     let next_frame = req.start_frame + num_frames_consumed;
+    let source_frame_count = source.frame_count();
     SupplyResponse {
         num_frames_written,
         num_frames_consumed,
-        next_inner_frame: if next_frame < source.frame_count() {
+        next_inner_frame: if next_frame < source_frame_count {
             Some(next_frame as isize)
         } else {
             None

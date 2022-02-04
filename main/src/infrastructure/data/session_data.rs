@@ -490,35 +490,31 @@ impl SessionData {
                     && matches!(m.target.transport_action, TransportAction::PlayPause | TransportAction::PlayStop)
                     && m.target.slot_index == slot_index
                 {
-                    if m.target.with_track {
-                        let prop_values = deserialize_track(&m.target.track_data);
-                        use VirtualTrackType::*;
-                        let t = match prop_values.r#type {
-                            This => LegacyClipOutput::ThisTrack,
-                            Selected | AllSelected | Dynamic => {
-                                warn_about_legacy_clip_loss(slot_index, "The clip play target used track \"Selected\", \"All selected\" or \"Dynamic\" which is not supported anymore. Falling back to playing slot on \"This\" track.");
-                                LegacyClipOutput::ThisTrack
-                            },
-                            Master => LegacyClipOutput::MasterTrack,
-                            ById => if let Some(id) = prop_values.id { LegacyClipOutput::TrackById(id) } else {
-                                LegacyClipOutput::ThisTrack
-                            },
-                            ByName => LegacyClipOutput::TrackByName(prop_values.name),
-                            AllByName => {
-                                warn_about_legacy_clip_loss(slot_index, "The clip play target used track \"All by name\" which is not supported anymore. Falling back to identifying track by name.");
-                                LegacyClipOutput::TrackByName(prop_values.name)
-                            },
-                            ByIndex => LegacyClipOutput::TrackByIndex(prop_values.index),
-                            ByIdOrName => if let Some(id) = prop_values.id {
-                                LegacyClipOutput::TrackById(id)
-                            } else {
-                                LegacyClipOutput::TrackByName(prop_values.name)
-                            }
-                        };
-                        Some(t)
-                    } else {
-                        Some(LegacyClipOutput::HardwareOutput)
-                    }
+                    let prop_values = deserialize_track(&m.target.track_data);
+                    use VirtualTrackType::*;
+                    let t = match prop_values.r#type {
+                        This => LegacyClipOutput::ThisTrack,
+                        Selected | AllSelected | Dynamic => {
+                            warn_about_legacy_clip_loss(slot_index, "The clip play target used track \"Selected\", \"All selected\" or \"Dynamic\" which is not supported anymore. Falling back to playing slot on \"This\" track.");
+                            LegacyClipOutput::ThisTrack
+                        },
+                        Master => LegacyClipOutput::MasterTrack,
+                        ById => if let Some(id) = prop_values.id { LegacyClipOutput::TrackById(id) } else {
+                            LegacyClipOutput::ThisTrack
+                        },
+                        ByName => LegacyClipOutput::TrackByName(prop_values.name),
+                        AllByName => {
+                            warn_about_legacy_clip_loss(slot_index, "The clip play target used track \"All by name\" which is not supported anymore. Falling back to identifying track by name.");
+                            LegacyClipOutput::TrackByName(prop_values.name)
+                        },
+                        ByIndex => LegacyClipOutput::TrackByIndex(prop_values.index),
+                        ByIdOrName => if let Some(id) = prop_values.id {
+                            LegacyClipOutput::TrackById(id)
+                        } else {
+                            LegacyClipOutput::TrackByName(prop_values.name)
+                        }
+                    };
+                    Some(t)
                 } else {
                     None
                 }

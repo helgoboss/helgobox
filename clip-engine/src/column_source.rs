@@ -1,6 +1,6 @@
 use crate::{
-    clip_timeline, ClipPlayArgs, ClipProcessArgs, ClipStopArgs, ClipStopBehavior, NewClip, Slot,
-    Timeline,
+    clip_timeline, ClipChangedEvent, ClipPlayArgs, ClipProcessArgs, ClipStopArgs, ClipStopBehavior,
+    NewClip, Slot, SlotPollArgs, Timeline,
 };
 use assert_no_alloc::assert_no_alloc;
 use num_enum::TryFromPrimitive;
@@ -199,8 +199,11 @@ impl CustomPcmSource for ColumnSource {
             use OpCode::*;
             match op_code {
                 FillSlot => forward_ext(&args, |a| self.fill_slot(a)),
-                PlaySlot => forward_ext(&args, |a| self.play_slot(a)),
-                StopSlot => forward_ext(&args, |a| self.stop_slot(a)),
+                PlayClip => forward_ext(&args, |a| self.play_clip(a)),
+                StopClip => forward_ext(&args, |a| self.stop_clip(a)),
+                SetClipRepeated => forward_ext(&args, |a| self.set_clip_repeated(a)),
+                ToggleClipRepeated => forward_ext(&args, |a| self.toggle_clip_repeated(a)),
+                PollSlot => forward_ext(&args, |a| self.poll_slot(a)),
             }
         } else {
             // TODO-medium Maybe implement PCM_SOURCE_EXT_NOTIFYPREVIEWPLAYPOS. This is the only
@@ -233,14 +236,20 @@ impl CustomPcmSource for ColumnSource {
 #[repr(i32)]
 enum OpCode {
     FillSlot = 2359769,
-    PlaySlot,
-    StopSlot,
+    PlayClip,
+    StopClip,
+    ToggleClipRepeated,
+    SetClipRepeated,
+    PollSlot,
 }
 
 pub trait ColumnSourceSkills {
     fn fill_slot(&mut self, args: ColumnFillSlotArgs);
-    fn play_slot(&mut self, args: ColumnPlaySlotArgs) -> Result<(), &'static str>;
-    fn stop_slot(&mut self, args: ColumnStopSlotArgs) -> Result<(), &'static str>;
+    fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str>;
+    fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str>;
+    fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> Result<(), &'static str>;
+    fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str>;
+    fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent>;
 }
 
 pub struct ColumnFillSlotArgs {
@@ -248,14 +257,29 @@ pub struct ColumnFillSlotArgs {
     pub clip: NewClip,
 }
 
-pub struct ColumnPlaySlotArgs {
+pub struct ColumnPlayClipArgs {
     pub index: usize,
     pub clip_args: ClipPlayArgs,
 }
 
-pub struct ColumnStopSlotArgs<'a> {
+pub struct ColumnStopClipArgs<'a> {
     pub index: usize,
     pub clip_args: ClipStopArgs<'a>,
+}
+
+pub struct ColumnSetClipRepeatedArgs {
+    pub index: usize,
+    pub repeated: bool,
+}
+
+pub struct ColumnPollSlotArgs {
+    pub index: usize,
+    pub slot_args: SlotPollArgs,
+}
+
+pub struct ColumnWithSlotArgs<'a> {
+    pub index: usize,
+    pub use_slot: &'a dyn Fn(),
 }
 
 impl ColumnSourceSkills for BorrowedPcmSource {
@@ -263,12 +287,24 @@ impl ColumnSourceSkills for BorrowedPcmSource {
         ext_in(self, OpCode::FillSlot, args);
     }
 
-    fn play_slot(&mut self, args: ColumnPlaySlotArgs) -> Result<(), &'static str> {
-        ext_in_out_result(self, OpCode::PlaySlot, args)
+    fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
+        ext_in_out_result(self, OpCode::PlayClip, args)
     }
 
-    fn stop_slot(&mut self, args: ColumnStopSlotArgs) -> Result<(), &'static str> {
-        ext_in_out_result(self, OpCode::StopSlot, args)
+    fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
+        ext_in_out_result(self, OpCode::StopClip, args)
+    }
+
+    fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> Result<(), &'static str> {
+        ext_in_out_result(self, OpCode::SetClipRepeated, args)
+    }
+
+    fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
+        ext_in_out_result(self, OpCode::ToggleClipRepeated, index)
+    }
+
+    fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {
+        ext_in_out_default(self, OpCode::PollSlot, args)
     }
 }
 
@@ -278,15 +314,30 @@ impl ColumnSourceSkills for ColumnSource {
         slot.fill(args.clip);
     }
 
-    fn play_slot(&mut self, args: ColumnPlaySlotArgs) -> Result<(), &'static str> {
+    fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
         let slot = get_slot_mut(&mut self.slots, args.index);
         // TODO-high If column mode Song, suspend all other clips first.
-        slot.play(args.clip_args)
+        slot.play_clip(args.clip_args)
     }
 
-    fn stop_slot(&mut self, args: ColumnStopSlotArgs) -> Result<(), &'static str> {
+    fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
         let slot = get_slot_mut(&mut self.slots, args.index);
-        slot.stop(args.clip_args)
+        slot.stop_clip(args.clip_args)
+    }
+
+    fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> Result<(), &'static str> {
+        let slot = get_slot_mut(&mut self.slots, args.index);
+        slot.set_clip_repeated(args.repeated)
+    }
+
+    fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
+        let slot = get_slot_mut(&mut self.slots, index);
+        slot.toggle_clip_repeated()
+    }
+
+    fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {
+        let slot = get_slot_mut(&mut self.slots, args.index);
+        slot.poll(args.slot_args)
     }
 }
 

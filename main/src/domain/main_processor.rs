@@ -673,7 +673,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         for i in 0..CLIP_SLOT_COUNT {
             for event in instance_state
                 .clip_matrix_mut()
-                .poll_slot(i, timeline_cursor_pos, timeline_tempo)
+                .poll_slot_legacy(i, timeline_cursor_pos, timeline_tempo)
                 .into_iter()
             {
                 let is_position_change = matches!(&event, ClipChangedEvent::ClipPosition(_));

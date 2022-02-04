@@ -65,6 +65,12 @@ impl ClipPlayState {
     }
 }
 
+impl Default for ClipPlayState {
+    fn default() -> Self {
+        Self::Stopped
+    }
+}
+
 #[derive(Debug)]
 pub enum ClipChangedEvent {
     PlayState(ClipPlayState),

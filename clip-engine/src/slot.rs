@@ -59,6 +59,7 @@ fn create_shared_register(descriptor: &LegacyClip) -> SharedRegister {
 }
 
 impl ClipSlot {
+    // DONE
     pub fn new(index: u32) -> Self {
         let descriptor = LegacyClip::default();
         let register = create_shared_register(&descriptor);
@@ -71,6 +72,7 @@ impl ClipSlot {
     }
 
     /// Returns the slot descriptor.
+    // DONE
     pub fn descriptor(&self) -> &LegacyClip {
         &self.clip
     }
@@ -902,6 +904,7 @@ impl FilledState {
         get_play_state(clip_state)
     }
 
+    // DONE
     pub fn poll(
         self,
         reg: &SharedRegister,
@@ -943,57 +946,6 @@ impl FilledState {
         let next_state = {
             // At first check if it's time to stop the preview register (to save resources).
             use ClipState::*;
-            // TODO-medium So ... it sometimes happens that starting the preview register takes
-            //  simply too long to quickly enter get_samples() and resolve the first play data
-            //  in time. When it happens too late, it can have multiple consequences:
-            //  - When increasing the tempo very quickly shortly after triggering the clip,
-            //    the count-in will be calculated very long - because the
-            //    main timeline is not steady and changes its position during a tempo change AND
-            //    the calculation will happen pretty late, after the position already changed.
-            //  - Analogously, when decreasing the tempo in the same manner, the count-in will be
-            //    virtually non-existent (positive).
-            //  - When syncing to REAPER transport shortly before or right on start of a bar, some
-            //    clips might wait for the next bar instead of on the first downbeat.
-            //  - Temporary solution at the moment is to not stop the preview registers once
-            //    started.
-            //  Ideas to fix that in a cleaner way:
-            //  a. Don't use a relative count-in and also not an absolute position on the timeline
-            //    at play-request time. Instead, just save in the clip source that it should start
-            //    to play at start of bar x. Then, in each clip source get_samples() call, in the
-            //    count-in phase, call the tempo map function to determine the position of bar x
-            //    relative to the current timeline cursor. That position can change dynamically
-            //    in case of tempo changes during count-in time.
-            //    Possible downside: Relocation of play cursor would lead to weird results because
-            //    of the fact that the count-in would not be relative anymore but based on absolute
-            //    locations. But well, when the REAPER transport is playing, we *want* interruption.
-            //    And when not, we can use a steady timeline, also for determining location of the
-            //    next bar.
-            //  b. Use a steady timeline to resolve the count-in duration. But how do we connect the
-            //    timeline of REAPER - on which the next-beat calculations happens - with the
-            //    steady timeline? Probably by calculating the difference between both timelines
-            //    at play-request time and offsetting the calculated absolute next-bar position
-            //    accordingly. Probably we can't use the preview register as
-            //    steady timeline (even it is steady and tempo-independent), simply because we can't
-            //    connect the both timelines at request time, we don't have access to it. So we
-            //    would need to use our own steady timeline instead.
-            //  c. Mmh, have we even tried that? Use absolute positions for count-in (not for play,
-            //     that for sure causes issues). DOESN'T WORK. Simple prove in branch
-            //     "experiment/non-working-absolute-count-in".
-            // TODO-high For the temporary solution to be actually reliable, we would need to
-            //  start the preview register as soon as the slot is filled!
-            // let next_handle = match clip_state {
-            //     // We still have a playing preview register but the clip got stopped or paused.
-            //     // Stop it!
-            //     Stopped | Paused { .. } => {
-            //         stop_playing_preview(
-            //             self.last_play_args.as_ref().and_then(|a| a.track.as_ref()),
-            //             handle,
-            //         );
-            //         None
-            //     }
-            //     // We are still playing and need the preview register to keep playing.
-            //     ScheduledOrPlaying { .. } | Suspending { .. } => Some(handle),
-            // };
             let filled_state = FilledState {
                 last_clip_play_state: play_state,
                 handle: self.handle,
@@ -1045,10 +997,12 @@ impl SlotPlayOptions {
     }
 }
 
+// DONE
 fn lock(reg: &SharedRegister) -> ReaperMutexGuard<OwnedPreviewRegister> {
     reg.lock().expect("couldn't acquire lock")
 }
 
+// DONE
 fn get_play_state(clip_state: ClipState) -> ClipPlayState {
     use ClipState::*;
     match clip_state {
@@ -1079,6 +1033,7 @@ fn get_play_state(clip_state: ClipState) -> ClipPlayState {
     }
 }
 
+// DONE
 const NO_SOURCE_LOADED: &str = "no source loaded";
 
 #[derive(Debug)]

@@ -605,7 +605,7 @@ impl MappingPanel {
             SlotMenuAction::ShowSlotInfo => {
                 struct SlotInfo {
                     file_name: String,
-                    clip_info: Option<ClipInfo>,
+                    clip_info: ClipInfo,
                 }
                 let info = {
                     let instance_state = self.session().borrow().instance_state().clone();
@@ -613,36 +613,36 @@ impl MappingPanel {
                     let mapping = self.mapping();
                     let mapping = mapping.borrow();
                     let slot_index = mapping.target_model.slot_index();
-                    if let Ok(slot) = instance_state.clip_matrix().get_slot(slot_index) {
-                        if let Some(content) = &slot.descriptor().content {
-                            let info = SlotInfo {
-                                file_name: content
-                                    .file()
-                                    .map(|p| p.to_string_lossy().to_string())
-                                    .unwrap_or_default(),
-                                clip_info: slot.clip_info(),
-                            };
-                            Some(info)
-                        } else {
-                            None
-                        }
+                    if let Ok((descriptor, clip_info)) = instance_state
+                        .clip_matrix()
+                        .with_slot_legacy(slot_index, |slot| {
+                            let clip = slot.clip()?;
+                            Ok((clip.descriptor_legacy(), clip.info_legacy()))
+                        })
+                    {
+                        let info = SlotInfo {
+                            file_name: descriptor
+                                .content
+                                .unwrap()
+                                .file()
+                                .map(|p| p.to_string_lossy().to_string())
+                                .unwrap_or_default(),
+                            clip_info,
+                        };
+                        Some(info)
                     } else {
                         None
                     }
                 };
                 let msg = if let Some(info) = info {
-                    let suffix = if let Some(clip_info) = info.clip_info {
-                        format!(
-                            "Type: {}\n\nLength: {}",
-                            clip_info.r#type,
-                            clip_info
-                                .length
-                                .map(|l| format!("{} secs", l))
-                                .unwrap_or_default()
-                        )
-                    } else {
-                        "<offline>".to_owned()
-                    };
+                    let suffix = format!(
+                        "Type: {}\n\nLength: {}",
+                        info.clip_info.r#type,
+                        info.clip_info
+                            .length
+                            .map(|l| format!("{} secs", l))
+                            .unwrap_or_default()
+                    );
                     format!("Source: {}\n\n{}", info.file_name, suffix)
                 } else {
                     "Slot is empty".to_owned()
@@ -4192,17 +4192,20 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_slot() => {
                     let instance_state = self.session.instance_state().borrow();
-                    let slot = instance_state
+                    let descriptor = instance_state
                         .clip_matrix()
-                        .get_slot(self.target.slot_index())
+                        .with_slot_legacy(self.target.slot_index(), |slot| {
+                            let clip = slot.clip()?;
+                            Ok(clip.descriptor_legacy())
+                        })
                         .ok();
-                    let (label, enabled) = if let Some(slot) = slot {
-                        if let Some(content) = &slot.descriptor().content {
+                    let (label, enabled) = if let Some(descriptor) = descriptor {
+                        if let Some(content) = &descriptor.content {
                             let label = match content {
                                 ClipContent::File { file } => file.to_string_lossy().to_string(),
                                 ClipContent::MidiChunk { .. } => String::from("<In-memory MIDI>"),
                             };
-                            (label, slot.clip_info().is_some())
+                            (label, true)
                         } else {
                             ("<Slot empty>".to_owned(), false)
                         }

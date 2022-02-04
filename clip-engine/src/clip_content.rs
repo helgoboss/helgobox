@@ -12,6 +12,11 @@ pub enum ClipContent {
     MidiChunk { chunk: String },
 }
 
+pub enum CreateClipContentMode {
+    AllowEmbeddedData,
+    ForceExportToFile { file_base_name: String },
+}
+
 impl ClipContent {
     /// Creates slot content based on the audio/MIDI file used by the given item.
     ///
@@ -24,42 +29,57 @@ impl ClipContent {
             .ok_or("take has no source")?
             .root_source();
         let root_source = ReaperSource::new(root_source);
-        let source_type = root_source.r#type();
-        let item_project = item.project();
-        enum Res {
-            File(PathBuf),
-            MidiChunk(String),
-        }
-        let res = if let Some(source_file) = root_source.file_name() {
-            Res::File(source_file)
+        use CreateClipContentMode::*;
+        let mode = if force_export_to_file {
+            ForceExportToFile {
+                file_base_name: active_take.name(),
+            }
+        } else {
+            AllowEmbeddedData
+        };
+        Self::from_reaper_source(&root_source, mode, item.project())
+    }
+
+    pub fn from_reaper_source(
+        source: &ReaperSource,
+        mode: CreateClipContentMode,
+        project: Option<Project>,
+    ) -> Result<Self, Box<dyn Error>> {
+        let source_type = source.r#type();
+        let content = if let Some(source_file) = source.file_name() {
+            Self::from_file(project, source_file)
         } else if matches!(source_type.as_str(), "MIDI" | "MIDIPOOL") {
-            if force_export_to_file {
-                let project = item_project.unwrap_or_else(|| Reaper::get().current_project());
-                let recording_path = project.recording_path();
-                let take_name = active_take.name();
-                let take_name_slug = slug::slugify(take_name);
-                let unique_id = nanoid::nanoid!(8);
-                let file_name = format!("{}-{}.mid", take_name_slug, unique_id);
-                let source_file = recording_path.join(file_name);
-                root_source
-                    .export_to_file(&source_file)
-                    .map_err(|_| "couldn't export MIDI source to file")?;
-                Res::File(source_file)
-            } else {
-                Res::MidiChunk(root_source.state_chunk())
+            use CreateClipContentMode::*;
+            match mode {
+                AllowEmbeddedData => Self::from_midi_chunk(source.state_chunk()),
+                ForceExportToFile { file_base_name } => {
+                    let project = project.unwrap_or_else(|| Reaper::get().current_project());
+                    let recording_path = project.recording_path();
+                    let name_slug = slug::slugify(file_base_name);
+                    let unique_id = nanoid::nanoid!(8);
+                    let file_name = format!("{}-{}.mid", name_slug, unique_id);
+                    let source_file = recording_path.join(file_name);
+                    source
+                        .export_to_file(&source_file)
+                        .map_err(|_| "couldn't export MIDI source to file")?;
+                    Self::from_file(Some(project), source_file)
+                }
             }
         } else {
             return Err(format!("item source incompatible (type {})", source_type).into());
         };
-        let content = match res {
-            Res::File(file) => ClipContent::File {
-                file: item_project
-                    .and_then(|p| p.make_path_relative_if_in_project_directory(&file))
-                    .unwrap_or(file),
-            },
-            Res::MidiChunk(chunk) => ClipContent::MidiChunk { chunk },
-        };
         Ok(content)
+    }
+
+    /// Takes care of making the path project-relative (if a project is given).
+    pub fn from_file(project: Option<Project>, file: PathBuf) -> Self {
+        Self::File {
+            file: make_relative(project, file),
+        }
+    }
+
+    pub fn from_midi_chunk(chunk: String) -> Self {
+        Self::MidiChunk { chunk }
     }
 
     /// Returns the path to the file, if the clip slot content is file-based.
@@ -103,4 +123,10 @@ impl ClipContent {
             }
         }
     }
+}
+
+fn make_relative(project: Option<Project>, file: PathBuf) -> PathBuf {
+    project
+        .and_then(|p| p.make_path_relative_if_in_project_directory(&file))
+        .unwrap_or(file)
 }

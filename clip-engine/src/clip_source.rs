@@ -287,6 +287,7 @@ impl ClipPcmSource {
         }
     }
 
+    // DONE
     fn frame_within_inner_source(&self) -> Option<isize> {
         use ClipState::*;
         let frame = match self.state {
@@ -309,6 +310,7 @@ impl ClipPcmSource {
         Some(frame)
     }
 
+    // DONE
     fn schedule_play_internal(&mut self, args: PlayArgs) {
         self.inner
             .chain
@@ -518,6 +520,7 @@ impl ClipPcmSource {
         }
     }
 
+    // DONE
     fn modulo_frame(&self, frame: usize) -> usize {
         frame % self.inner.chain.reaper_source().frame_count()
     }
@@ -1246,6 +1249,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         }
     }
 
+    // DONE
     fn pos_within_clip(&self, args: PosWithinClipArgs) -> Option<PositionInSeconds> {
         let source_pos_in_source_frames = self.frame_within_inner_source()?;
         let source_pos_in_secs = convert_position_in_frames_to_seconds(
@@ -1257,6 +1261,7 @@ impl ClipPcmSourceSkills for ClipPcmSource {
         Some(PositionInSeconds::new(source_pos_in_secs_tempo_adjusted))
     }
 
+    // DONE
     fn proportional_pos_within_clip(&self, args: PosWithinClipArgs) -> Option<UnitValue> {
         let frame_within_clip = self.frame_within_inner_source()?;
         if frame_within_clip < 0 {

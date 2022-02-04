@@ -111,9 +111,8 @@ impl ClipVolumeTarget {
         let instance_state = context.instance_state.borrow();
         let reaper_volume = instance_state
             .clip_matrix()
-            .get_slot(self.slot_index)
-            .ok()?
-            .volume();
+            .with_slot_legacy(self.slot_index, |slot| Ok(slot.clip()?.volume()))
+            .ok()?;
         Some(Volume::from_reaper_value(reaper_volume))
     }
 }

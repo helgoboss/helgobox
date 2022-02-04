@@ -1,6 +1,7 @@
 use crate::{
-    ClipChangedEvent, ColumnFillSlotArgs, ColumnPlaySlotArgs, ColumnSource, ColumnSourceSkills,
-    ColumnStopSlotArgs, LegacyClip, SharedRegister, StretchWorkerRequest, Timeline,
+    ClipChangedEvent, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnPollSlotArgs,
+    ColumnSetClipRepeatedArgs, ColumnSource, ColumnSourceSkills, ColumnStopClipArgs, LegacyClip,
+    SharedRegister, Slot, StretchWorkerRequest, Timeline,
 };
 use crossbeam_channel::Sender;
 use enumflags2::BitFlags;
@@ -66,6 +67,8 @@ impl PlayingPreviewRegister {
     }
 }
 
+const COLUMN_SOURCE_NOT_SET: &str = "column source must be set";
+
 impl Column {
     pub fn new(track: Option<Track>) -> Self {
         Self {
@@ -85,17 +88,51 @@ impl Column {
         self.with_source_mut(|s| s.fill_slot(args));
     }
 
-    pub fn play_slot(&mut self, args: ColumnPlaySlotArgs) -> Result<(), &'static str> {
-        self.with_source_mut(|s| s.play_slot(args))
+    pub fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {
+        self.with_source_mut(|s| s.poll_slot(args))
     }
 
-    pub fn stop_slot(&mut self, args: ColumnStopSlotArgs) -> Result<(), &'static str> {
-        self.with_source_mut(|s| s.stop_slot(args))
+    pub fn with_slot<R>(
+        &self,
+        index: usize,
+        f: impl FnOnce(&Slot) -> Result<R, &'static str>,
+    ) -> Result<R, &'static str> {
+        // TODO-high This amount of generics (especially the generic return type) is impossible
+        //  or at least difficult to do through FFI boundaries. One more reason (besides source
+        //  sharing between MIDI and audio preview register) to finally make and end to the ext
+        //  mechanism and use a proper mutex. Mutex should be very fast anyway if unlocked.
+        // self.with_source(|s| s.with_slot(index))
+        todo!()
+    }
+
+    pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
+        self.with_source_mut(|s| s.play_clip(args))
+    }
+
+    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
+        self.with_source_mut(|s| s.stop_clip(args))
+    }
+
+    pub fn set_clip_repeated(
+        &mut self,
+        args: ColumnSetClipRepeatedArgs,
+    ) -> Result<(), &'static str> {
+        self.with_source_mut(|s| s.set_clip_repeated(args))
+    }
+
+    pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
+        self.with_source_mut(|s| s.toggle_clip_repeated(index))
+    }
+
+    fn with_source<R>(&self, f: impl FnOnce(&BorrowedPcmSource) -> R) -> R {
+        let guard = lock(&self.audio_preview_register.preview_register);
+        let src = guard.src().expect(COLUMN_SOURCE_NOT_SET);
+        f(src.as_ref())
     }
 
     fn with_source_mut<R>(&mut self, f: impl FnOnce(&mut BorrowedPcmSource) -> R) -> R {
         let mut guard = lock(&self.audio_preview_register.preview_register);
-        let src = guard.src_mut().expect("column source must be set");
+        let src = guard.src_mut().expect(COLUMN_SOURCE_NOT_SET);
         f(src.as_mut())
     }
 }
