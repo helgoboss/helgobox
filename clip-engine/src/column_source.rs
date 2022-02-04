@@ -16,7 +16,20 @@ use std::convert::{TryFrom, TryInto};
 use std::error::Error;
 use std::mem::ManuallyDrop;
 use std::ptr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
+
+#[derive(Clone, Debug)]
+pub struct SharedColumnSource(Arc<Mutex<ColumnSource>>);
+
+impl SharedColumnSource {
+    pub fn new(column_source: ColumnSource) -> Self {
+        Self(Arc::new(Mutex::new(column_source)))
+    }
+
+    pub fn lock(&self) -> MutexGuard<ColumnSource> {
+        self.0.lock().expect("shared column mutex guard")
+    }
+}
 
 #[derive(Debug)]
 pub struct ColumnSource {
@@ -39,90 +52,59 @@ impl ColumnSource {
             project,
         }
     }
-}
 
-#[derive(Debug)]
-pub enum ClipColumnMode {
-    /// Song mode.
-    ///
-    /// - Only one clip in the column can play at a certain point in time.
-    /// - Clips are started/stopped if the corresponding scene is started/stopped.
-    Song,
-    /// Free mode.
-    ///
-    /// - Multiple clips can play simultaneously.
-    /// - Clips are not started/stopped if the corresponding scene is started/stopped.
-    Free,
-}
-
-impl Default for ClipColumnMode {
-    fn default() -> Self {
-        Self::Song
-    }
-}
-
-impl CustomPcmSource for ColumnSource {
-    fn duplicate(&mut self) -> Option<OwnedPcmSource> {
-        unimplemented!()
+    pub fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
+        let slot = get_slot_mut(&mut self.slots, args.index);
+        slot.fill(args.clip);
     }
 
-    fn is_available(&mut self) -> bool {
-        unimplemented!()
+    pub fn with_slot<R>(
+        &self,
+        index: usize,
+        f: impl FnOnce(&Slot) -> Result<R, &'static str>,
+    ) -> Result<R, &'static str> {
+        let slot = get_slot(&self.slots, index)?;
+        f(&slot)
     }
 
-    fn set_available(&mut self, args: SetAvailableArgs) {
-        unimplemented!()
+    pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
+        let slot = get_slot_mut(&mut self.slots, args.index);
+        // TODO-high If column mode Song, suspend all other clips first.
+        slot.play_clip(args.clip_args)
     }
 
-    fn get_type(&mut self) -> &ReaperStr {
-        reaper_str!("WAVE")
+    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
+        let slot = get_slot_mut(&mut self.slots, args.index);
+        slot.stop_clip(args.clip_args)
     }
 
-    fn get_file_name(&mut self) -> Option<&ReaperStr> {
-        unimplemented!()
+    pub fn set_clip_repeated(
+        &mut self,
+        args: ColumnSetClipRepeatedArgs,
+    ) -> Result<(), &'static str> {
+        let slot = get_slot_mut(&mut self.slots, args.index);
+        slot.set_clip_repeated(args.repeated)
     }
 
-    fn set_file_name(&mut self, args: SetFileNameArgs) -> bool {
-        unimplemented!()
+    pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
+        let slot = get_slot_mut(&mut self.slots, index);
+        slot.toggle_clip_repeated()
     }
 
-    fn get_source(&mut self) -> Option<PcmSource> {
-        unimplemented!()
+    pub fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {
+        let slot = get_slot_mut(&mut self.slots, args.index);
+        slot.poll(args.slot_args)
     }
 
-    fn set_source(&mut self, args: SetSourceArgs) {
-        unimplemented!()
-    }
-
-    fn get_num_channels(&mut self) -> Option<u32> {
+    fn get_num_channels(&self) -> Option<u32> {
         // TODO-high We should return the maximum channel count over all clips.
         //  In get_samples(), we should convert interleaved buffer accordingly.
         //  Probably a good idea to cache the max channel count.
         Some(2)
     }
 
-    fn get_sample_rate(&mut self) -> Option<Hz> {
-        unimplemented!()
-    }
-
-    fn get_length(&mut self) -> DurationInSeconds {
+    fn duration(&self) -> DurationInSeconds {
         DurationInSeconds::MAX
-    }
-
-    fn get_length_beats(&mut self) -> Option<DurationInBeats> {
-        unimplemented!()
-    }
-
-    fn get_bits_per_sample(&mut self) -> u32 {
-        unimplemented!()
-    }
-
-    fn get_preferred_position(&mut self) -> Option<PositionInSeconds> {
-        unimplemented!()
-    }
-
-    fn properties_window(&mut self, args: PropertiesWindowArgs) -> i32 {
-        unimplemented!()
     }
 
     fn get_samples(&mut self, mut args: GetSamplesArgs) {
@@ -166,19 +148,113 @@ impl CustomPcmSource for ColumnSource {
         debug_assert_eq!(args.block.samples_out(), args.block.length());
     }
 
-    fn get_peak_info(&mut self, args: GetPeakInfoArgs) {
+    fn extended(&mut self, args: ExtendedArgs) -> i32 {
+        // TODO-medium Maybe implement PCM_SOURCE_EXT_NOTIFYPREVIEWPLAYPOS. This is the only
+        //  extended call done by the preview register, at least for type WAVE.
+        0
+    }
+}
+
+#[derive(Debug)]
+pub enum ClipColumnMode {
+    /// Song mode.
+    ///
+    /// - Only one clip in the column can play at a certain point in time.
+    /// - Clips are started/stopped if the corresponding scene is started/stopped.
+    Song,
+    /// Free mode.
+    ///
+    /// - Multiple clips can play simultaneously.
+    /// - Clips are not started/stopped if the corresponding scene is started/stopped.
+    Free,
+}
+
+impl Default for ClipColumnMode {
+    fn default() -> Self {
+        Self::Song
+    }
+}
+
+impl CustomPcmSource for SharedColumnSource {
+    fn duplicate(&mut self) -> Option<OwnedPcmSource> {
         unimplemented!()
     }
 
-    fn save_state(&mut self, args: SaveStateArgs) {
+    fn is_available(&mut self) -> bool {
         unimplemented!()
     }
 
-    fn load_state(&mut self, args: LoadStateArgs) -> Result<(), Box<dyn Error>> {
+    fn set_available(&mut self, _: SetAvailableArgs) {
         unimplemented!()
     }
 
-    fn peaks_clear(&mut self, args: PeaksClearArgs) {
+    fn get_type(&mut self) -> &ReaperStr {
+        // This is not relevant for usage in preview registers, but it will be called.
+        // TODO-medium Return something less misleading here.
+        reaper_str!("WAVE")
+    }
+
+    fn get_file_name(&mut self) -> Option<&ReaperStr> {
+        unimplemented!()
+    }
+
+    fn set_file_name(&mut self, _: SetFileNameArgs) -> bool {
+        unimplemented!()
+    }
+
+    fn get_source(&mut self) -> Option<PcmSource> {
+        unimplemented!()
+    }
+
+    fn set_source(&mut self, _: SetSourceArgs) {
+        unimplemented!()
+    }
+
+    fn get_num_channels(&mut self) -> Option<u32> {
+        self.lock().get_num_channels()
+    }
+
+    fn get_sample_rate(&mut self) -> Option<Hz> {
+        unimplemented!()
+    }
+
+    fn get_length(&mut self) -> DurationInSeconds {
+        self.lock().duration()
+    }
+
+    fn get_length_beats(&mut self) -> Option<DurationInBeats> {
+        unimplemented!()
+    }
+
+    fn get_bits_per_sample(&mut self) -> u32 {
+        unimplemented!()
+    }
+
+    fn get_preferred_position(&mut self) -> Option<PositionInSeconds> {
+        unimplemented!()
+    }
+
+    fn properties_window(&mut self, _: PropertiesWindowArgs) -> i32 {
+        unimplemented!()
+    }
+
+    fn get_samples(&mut self, mut args: GetSamplesArgs) {
+        self.lock().get_samples(args)
+    }
+
+    fn get_peak_info(&mut self, _: GetPeakInfoArgs) {
+        unimplemented!()
+    }
+
+    fn save_state(&mut self, _: SaveStateArgs) {
+        unimplemented!()
+    }
+
+    fn load_state(&mut self, _: LoadStateArgs) -> Result<(), Box<dyn Error>> {
+        unimplemented!()
+    }
+
+    fn peaks_clear(&mut self, _: PeaksClearArgs) {
         unimplemented!()
     }
 
@@ -195,61 +271,8 @@ impl CustomPcmSource for ColumnSource {
     }
 
     unsafe fn extended(&mut self, args: ExtendedArgs) -> i32 {
-        if let Ok(op_code) = OpCode::try_from(args.call) {
-            use OpCode::*;
-            match op_code {
-                FillSlot => forward_ext(&args, |a| self.fill_slot(a)),
-                PlayClip => forward_ext(&args, |a| self.play_clip(a)),
-                StopClip => forward_ext(&args, |a| self.stop_clip(a)),
-                SetClipRepeated => forward_ext(&args, |a| self.set_clip_repeated(a)),
-                ToggleClipRepeated => forward_ext(&args, |a| self.toggle_clip_repeated(a)),
-                PollSlot => forward_ext(&args, |a| self.poll_slot(a)),
-            }
-        } else {
-            // TODO-medium Maybe implement PCM_SOURCE_EXT_NOTIFYPREVIEWPLAYPOS. This is the only
-            //  extended call done by the preview register, at least for type WAVE.
-            0
-        }
+        self.lock().extended(args)
     }
-}
-
-// TODO-low Using this extended() mechanism is not very Rusty. The reason why we do it at the
-//  moment is that we acquire access to the source by accessing the `source` attribute of the
-//  preview register data structure. First, this can be *any* source in general, it's not
-//  necessarily a PCM source for clips. Okay, this is not the primary issue. In practice we make
-//  sure that it's only ever a PCM source for clips, so we could just do some explicit casting,
-//  right? No. The thing which we get back there is not a reference to our ClipPcmSource struct.
-//  It's the reaper-rs C++ PCM source, the one that delegates to our Rust struct. This C++ PCM
-//  source implements the C++ virtual base class that REAPER API requires and it owns our Rust
-//  struct. So if we really want to get rid of the extended() mechanism, we would have to access the
-//  ClipPcmSource directly, without taking the C++ detour. And how is this possible in a safe Rusty
-//  way that guarantees us that no one else is mutably accessing the source at the same time? By
-//  wrapping the source in a mutex. However, this would mean that all calls to that source, even
-//  the ones from REAPER would have to unlock the mutex first. For each source operation. That
-//  sounds like a bad idea (or is it not because happy path is fast)? Well, but the point is, we
-//  already have a mutex. The one around the preview register. This one is strictly necessary,
-//  even the REAPER API requires it. As long as we have that outer mutex locked, we should in theory
-//  be able to safely interact with our source directly from Rust. So in order to get rid of the
-//  extended() mechanism, we would have to provide a way to get a correctly typed reference to our
-//  original Rust struct. This itself is maybe possible by using some unsafe code, not sure.
-#[derive(Copy, Clone, TryFromPrimitive)]
-#[repr(i32)]
-enum OpCode {
-    FillSlot = 2359769,
-    PlayClip,
-    StopClip,
-    ToggleClipRepeated,
-    SetClipRepeated,
-    PollSlot,
-}
-
-pub trait ColumnSourceSkills {
-    fn fill_slot(&mut self, args: ColumnFillSlotArgs);
-    fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str>;
-    fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str>;
-    fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> Result<(), &'static str>;
-    fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str>;
-    fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent>;
 }
 
 pub struct ColumnFillSlotArgs {
@@ -282,63 +305,8 @@ pub struct ColumnWithSlotArgs<'a> {
     pub use_slot: &'a dyn Fn(),
 }
 
-impl ColumnSourceSkills for BorrowedPcmSource {
-    fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
-        ext_in(self, OpCode::FillSlot, args);
-    }
-
-    fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
-        ext_in_out_result(self, OpCode::PlayClip, args)
-    }
-
-    fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
-        ext_in_out_result(self, OpCode::StopClip, args)
-    }
-
-    fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> Result<(), &'static str> {
-        ext_in_out_result(self, OpCode::SetClipRepeated, args)
-    }
-
-    fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
-        ext_in_out_result(self, OpCode::ToggleClipRepeated, index)
-    }
-
-    fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {
-        ext_in_out_default(self, OpCode::PollSlot, args)
-    }
-}
-
-impl ColumnSourceSkills for ColumnSource {
-    fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
-        let slot = get_slot_mut(&mut self.slots, args.index);
-        slot.fill(args.clip);
-    }
-
-    fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
-        let slot = get_slot_mut(&mut self.slots, args.index);
-        // TODO-high If column mode Song, suspend all other clips first.
-        slot.play_clip(args.clip_args)
-    }
-
-    fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
-        let slot = get_slot_mut(&mut self.slots, args.index);
-        slot.stop_clip(args.clip_args)
-    }
-
-    fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> Result<(), &'static str> {
-        let slot = get_slot_mut(&mut self.slots, args.index);
-        slot.set_clip_repeated(args.repeated)
-    }
-
-    fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
-        let slot = get_slot_mut(&mut self.slots, index);
-        slot.toggle_clip_repeated()
-    }
-
-    fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {
-        let slot = get_slot_mut(&mut self.slots, args.index);
-        slot.poll(args.slot_args)
-    }
+fn get_slot(slots: &Vec<Slot>, index: usize) -> Result<&Slot, &'static str> {
+    slots.get(index).ok_or("slot doesn't exist")
 }
 
 fn get_slot_mut(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
@@ -346,50 +314,4 @@ fn get_slot_mut(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
         slots.resize_with(index + 1, Default::default);
     }
     slots.get_mut(index).unwrap()
-}
-
-fn ext_in<T>(source: &BorrowedPcmSource, op_code: OpCode, mut args: T) {
-    ext_in_out_default::<T, ()>(source, op_code, args);
-}
-
-fn ext_in_out_default<T, R: Default>(
-    source: &BorrowedPcmSource,
-    op_code: OpCode,
-    mut args: T,
-) -> R {
-    ext_in_out(source, op_code, args, R::default())
-}
-
-fn ext_in_out_result<T, R>(
-    source: &BorrowedPcmSource,
-    op_code: OpCode,
-    mut args: T,
-) -> Result<R, &'static str> {
-    ext_in_out(source, op_code, args, Err("column source ext error"))
-}
-
-fn ext_in_out<T, R>(source: &BorrowedPcmSource, op_code: OpCode, args: T, default: R) -> R {
-    use std::ptr::null_mut;
-    let mut return_value = default;
-    // We want to "move" the arguments across the FFI boundary in order to be able to pass non-Copy
-    // structs by value. Moving means that ownership is passed to the callee and thus this function
-    // is not responsible for dropping the value anymore.
-    // Attention: If extended() doesn't pick the value up, we have a memory leak!
-    let mut args = ManuallyDrop::new(args);
-    unsafe {
-        source.extended(
-            op_code as _,
-            // Pass pointer to stack value
-            &mut args as *mut _ as _,
-            &mut return_value as *mut _ as _,
-            null_mut(),
-        );
-    }
-    return_value
-}
-
-unsafe fn forward_ext<T, R>(args: &ExtendedArgs, f: impl FnOnce(T) -> R) -> i32 {
-    let inner_args = ptr::read(args.parm_1 as *mut T);
-    *(args.parm_2 as *mut _) = f(inner_args);
-    1
 }

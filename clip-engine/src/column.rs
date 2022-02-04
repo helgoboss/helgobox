@@ -1,7 +1,7 @@
 use crate::{
     ClipChangedEvent, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnPollSlotArgs,
-    ColumnSetClipRepeatedArgs, ColumnSource, ColumnSourceSkills, ColumnStopClipArgs, LegacyClip,
-    SharedRegister, Slot, StretchWorkerRequest, Timeline,
+    ColumnSetClipRepeatedArgs, ColumnSource, ColumnStopClipArgs, SharedColumnSource,
+    SharedRegister, Slot,
 };
 use crossbeam_channel::Sender;
 use enumflags2::BitFlags;
@@ -17,8 +17,8 @@ use std::sync::Arc;
 #[derive(Clone, Debug)]
 pub struct Column {
     track: Option<Track>,
-    audio_preview_register: PlayingPreviewRegister,
-    // midi_preview_register: PlayingPreviewRegister,
+    column_source: SharedColumnSource,
+    preview_register: PlayingPreviewRegister,
 }
 
 #[derive(Clone, Debug)]
@@ -27,6 +27,75 @@ struct PlayingPreviewRegister {
     play_handle: NonNull<preview_register_t>,
 }
 
+impl Column {
+    pub fn new(track: Option<Track>) -> Self {
+        let source = ColumnSource::new(track.as_ref().map(|t| t.project()));
+        let shared_source = SharedColumnSource::new(source);
+        Self {
+            preview_register: {
+                PlayingPreviewRegister::new(shared_source.clone(), track.as_ref())
+            },
+            track,
+            column_source: shared_source,
+        }
+    }
+
+    pub fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
+        self.with_source_mut(|s| s.fill_slot(args));
+    }
+
+    pub fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {
+        self.with_source_mut(|s| s.poll_slot(args))
+    }
+
+    pub fn with_slot<R>(
+        &self,
+        index: usize,
+        f: impl FnOnce(&Slot) -> Result<R, &'static str>,
+    ) -> Result<R, &'static str> {
+        self.with_source(|s| s.with_slot(index, f))
+    }
+
+    pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
+        self.with_source_mut(|s| s.play_clip(args))
+    }
+
+    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
+        self.with_source_mut(|s| s.stop_clip(args))
+    }
+
+    pub fn set_clip_repeated(
+        &mut self,
+        args: ColumnSetClipRepeatedArgs,
+    ) -> Result<(), &'static str> {
+        self.with_source_mut(|s| s.set_clip_repeated(args))
+    }
+
+    pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
+        self.with_source_mut(|s| s.toggle_clip_repeated(index))
+    }
+
+    fn with_source<R>(&self, f: impl FnOnce(&ColumnSource) -> R) -> R {
+        let guard = self.column_source.lock();
+        f(&guard)
+    }
+
+    fn with_source_mut<R>(&mut self, f: impl FnOnce(&mut ColumnSource) -> R) -> R {
+        let mut guard = self.column_source.lock();
+        f(&mut guard)
+    }
+}
+
+fn lock(reg: &SharedRegister) -> ReaperMutexGuard<OwnedPreviewRegister> {
+    reg.lock().expect("couldn't acquire lock")
+}
+
+impl Drop for Column {
+    fn drop(&mut self) {
+        self.preview_register
+            .stop_playing_preview(self.track.as_ref());
+    }
+}
 impl PlayingPreviewRegister {
     pub fn new(source: impl CustomPcmSource + 'static, track: Option<&Track>) -> Self {
         let mut register = OwnedPreviewRegister::default();
@@ -64,89 +133,6 @@ impl PlayingPreviewRegister {
                 .medium_session()
                 .stop_preview(self.play_handle);
         };
-    }
-}
-
-const COLUMN_SOURCE_NOT_SET: &str = "column source must be set";
-
-impl Column {
-    pub fn new(track: Option<Track>) -> Self {
-        Self {
-            audio_preview_register: {
-                let source = ColumnSource::new(track.as_ref().map(|t| t.project()));
-                PlayingPreviewRegister::new(source, track.as_ref())
-            },
-            // midi_preview_register: {
-            //     let source = ColumnSource::new(track.as_ref().map(|t| t.project()));
-            //     PlayingPreviewRegister::new(source, track.as_ref())
-            // },
-            track,
-        }
-    }
-
-    pub fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
-        self.with_source_mut(|s| s.fill_slot(args));
-    }
-
-    pub fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {
-        self.with_source_mut(|s| s.poll_slot(args))
-    }
-
-    pub fn with_slot<R>(
-        &self,
-        index: usize,
-        f: impl FnOnce(&Slot) -> Result<R, &'static str>,
-    ) -> Result<R, &'static str> {
-        // TODO-high This amount of generics (especially the generic return type) is impossible
-        //  or at least difficult to do through FFI boundaries. One more reason (besides source
-        //  sharing between MIDI and audio preview register) to finally make and end to the ext
-        //  mechanism and use a proper mutex. Mutex should be very fast anyway if unlocked.
-        // self.with_source(|s| s.with_slot(index))
-        todo!()
-    }
-
-    pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
-        self.with_source_mut(|s| s.play_clip(args))
-    }
-
-    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
-        self.with_source_mut(|s| s.stop_clip(args))
-    }
-
-    pub fn set_clip_repeated(
-        &mut self,
-        args: ColumnSetClipRepeatedArgs,
-    ) -> Result<(), &'static str> {
-        self.with_source_mut(|s| s.set_clip_repeated(args))
-    }
-
-    pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
-        self.with_source_mut(|s| s.toggle_clip_repeated(index))
-    }
-
-    fn with_source<R>(&self, f: impl FnOnce(&BorrowedPcmSource) -> R) -> R {
-        let guard = lock(&self.audio_preview_register.preview_register);
-        let src = guard.src().expect(COLUMN_SOURCE_NOT_SET);
-        f(src.as_ref())
-    }
-
-    fn with_source_mut<R>(&mut self, f: impl FnOnce(&mut BorrowedPcmSource) -> R) -> R {
-        let mut guard = lock(&self.audio_preview_register.preview_register);
-        let src = guard.src_mut().expect(COLUMN_SOURCE_NOT_SET);
-        f(src.as_mut())
-    }
-}
-
-fn lock(reg: &SharedRegister) -> ReaperMutexGuard<OwnedPreviewRegister> {
-    reg.lock().expect("couldn't acquire lock")
-}
-
-impl Drop for Column {
-    fn drop(&mut self) {
-        // self.midi_preview_register
-        //     .stop_playing_preview(self.track.as_ref());
-        self.audio_preview_register
-            .stop_playing_preview(self.track.as_ref());
     }
 }
 
