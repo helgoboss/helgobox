@@ -76,7 +76,8 @@ impl ReaperProjectTimeline {
     }
 
     fn is_playing_or_paused(&self) -> bool {
-        self.play_state().is_playing
+        let play_state = self.play_state();
+        play_state.is_playing || play_state.is_paused
     }
 
     fn play_state(&self) -> PlayState {
