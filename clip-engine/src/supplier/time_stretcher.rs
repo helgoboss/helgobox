@@ -147,7 +147,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
 
 impl<S: MidiSupplier> MidiSupplier for TimeStretcher<S> {
     fn supply_midi(
-        &self,
+        &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {

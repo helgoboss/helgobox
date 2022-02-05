@@ -105,7 +105,7 @@ impl<S: WithFrameRate> WithFrameRate for Suspender<S> {
 
 impl<S: MidiSupplier> MidiSupplier for Suspender<S> {
     fn supply_midi(
-        &self,
+        &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {

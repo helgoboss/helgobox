@@ -156,7 +156,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
 
 impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
     fn supply_midi(
-        &self,
+        &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {

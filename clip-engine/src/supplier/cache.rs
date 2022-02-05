@@ -113,7 +113,7 @@ impl<S: WithFrameRate> WithFrameRate for Cache<S> {
 
 impl<S: MidiSupplier> MidiSupplier for Cache<S> {
     fn supply_midi(
-        &self,
+        &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {

@@ -255,7 +255,7 @@ impl<S: WithFrameRate> WithFrameRate for Looper<S> {
 
 impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
     fn supply_midi(
-        &self,
+        &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {

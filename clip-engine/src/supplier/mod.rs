@@ -48,7 +48,7 @@ pub trait MidiSupplier {
     /// Writes a portion of MIDI material into the given destination buffer so that it completely
     /// fills that buffer.
     fn supply_midi(
-        &self,
+        &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse;

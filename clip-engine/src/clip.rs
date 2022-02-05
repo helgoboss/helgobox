@@ -829,7 +829,7 @@ impl Clip {
     }
 
     fn fill_samples_midi(
-        &self,
+        &mut self,
         args: ClipProcessArgs<impl Timeline>,
         start_frame: isize,
         info: &SupplyRequestGeneralInfo,
@@ -847,7 +847,7 @@ impl Clip {
             parent_request: None,
             general_info: info,
         };
-        let response = self.supplier_chain.head().supply_midi(
+        let response = self.supplier_chain.head_mut().supply_midi(
             &request,
             args.block.midi_event_list().expect("no MIDI event list"),
         );

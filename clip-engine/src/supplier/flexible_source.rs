@@ -105,7 +105,7 @@ impl<S: AudioSupplier> AudioSupplier for FlexibleSource<S> {
 
 impl<S: MidiSupplier> MidiSupplier for FlexibleSource<S> {
     fn supply_midi(
-        &self,
+        &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {

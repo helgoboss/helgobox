@@ -67,7 +67,7 @@ impl ExactFrameCount for OwnedPcmSource {
 
 impl MidiSupplier for OwnedPcmSource {
     fn supply_midi(
-        &self,
+        &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {
