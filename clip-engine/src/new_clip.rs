@@ -630,7 +630,7 @@ impl NewClip {
                 }
             }
             // Pause position is modulo already.
-            Paused(s) => Some(s.pos as isize),
+            Paused(s) => Some(self.modulo_frame(s.pos) as isize),
             _ => None,
         }
     }
