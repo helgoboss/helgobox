@@ -19,7 +19,7 @@ use std::convert::{TryFrom, TryInto};
 use std::error::Error;
 use std::mem::ManuallyDrop;
 use std::ptr;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, LockResult, Mutex, MutexGuard};
 
 #[derive(Clone, Debug)]
 pub struct SharedColumnSource(Arc<Mutex<ColumnSource>>);
@@ -30,7 +30,10 @@ impl SharedColumnSource {
     }
 
     pub fn lock(&self) -> MutexGuard<ColumnSource> {
-        self.0.lock().expect("shared column mutex guard")
+        match self.0.lock() {
+            Ok(g) => g,
+            Err(e) => e.into_inner(),
+        }
     }
 }
 
