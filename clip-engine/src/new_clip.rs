@@ -692,7 +692,7 @@ impl NewClip {
                         if pos < seek_pos {
                             // We might need to fast-forward.
                             let real_distance = seek_pos - pos;
-                            let desired_distance_in_secs = DurationInSeconds::new(1.000);
+                            let desired_distance_in_secs = DurationInSeconds::new(0.100);
                             let source_frame_rate =
                                 self.supplier_chain.reaper_source().frame_rate();
                             let desired_distance = convert_duration_in_seconds_to_frames(
@@ -702,7 +702,7 @@ impl NewClip {
                             if desired_distance < real_distance {
                                 // We need to fast-forward.
                                 let playback_speed_factor =
-                                    real_distance as f64 / desired_distance as f64;
+                                    32.0f64.min(real_distance as f64 / desired_distance as f64);
                                 let sample_rate_factor = 1.0 / playback_speed_factor;
                                 (sample_rate_factor, Some(seek_pos))
                             } else {
