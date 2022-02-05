@@ -1,45 +1,68 @@
 use crate::buffer::AudioBufMut;
 use crate::supplier::{
-    AudioSupplier, Ctx, ExactFrameCount, SupplyAudioRequest, SupplyResponse, WithFrameRate,
+    AudioSupplier, ExactFrameCount, SupplyAudioRequest, SupplyResponse, WithFrameRate,
 };
-use crate::{adjust_proportionally_positive, SupplyRequestInfo};
+use crate::{adjust_proportionally_positive, MidiSupplier, SupplyMidiRequest, SupplyRequestInfo};
 use reaper_high::Reaper;
 use reaper_low::raw::REAPER_Resample_Interface;
-use reaper_medium::Hz;
+use reaper_medium::{BorrowedMidiEventList, Hz};
 use std::ptr::null_mut;
 
 #[derive(Debug)]
-pub struct Resampler {
+pub struct Resampler<S> {
+    enabled: bool,
+    supplier: S,
     // TODO-high Only static until we have a proper owned version (destruction!)
     api: &'static REAPER_Resample_Interface,
 }
 
-impl Resampler {
-    pub fn new() -> Self {
+impl<S> Resampler<S> {
+    pub fn new(supplier: S) -> Self {
         let api = Reaper::get().medium_reaper().low().Resampler_Create();
         let api = unsafe { &*api };
-        Self { api }
+        Self {
+            enabled: false,
+            supplier,
+            api,
+        }
     }
 
     pub fn reset(&mut self) {
         self.api.Reset();
     }
+
+    pub fn supplier(&self) -> &S {
+        &self.supplier
+    }
+
+    pub fn supplier_mut(&mut self) -> &mut S {
+        &mut self.supplier
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
 }
 
-impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, Resampler, S> {
+impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
     fn supply_audio(
         &self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
+        if !self.enabled {
+            return self.supplier.supply_audio(&request, dest_buffer);
+        }
+        let dest_frame_rate = request.dest_sample_rate;
+        let source_frame_rate = self.supplier.frame_rate();
+        if source_frame_rate == dest_frame_rate {
+            return self.supplier.supply_audio(&request, dest_buffer);
+        }
         let mut total_num_frames_consumed = 0usize;
         let mut total_num_frames_written = 0usize;
-        let source_frame_rate = self.supplier.frame_rate();
         let source_channel_count = self.supplier.channel_count();
-        let dest_sample_rate = Hz::new(request.dest_sample_rate.get() / self.tempo_factor);
-        self.mode
-            .api
-            .SetRates(source_frame_rate.get(), dest_sample_rate.get());
+        self.api
+            .SetRates(source_frame_rate.get(), dest_frame_rate.get());
         // TODO-high Fix the count-in beeeep (also in time stretching).
         // Set ResamplePrepare's out_samples to refer to request a specific number of input samples.
         // const RESAMPLE_EXT_SETFEEDMODE: i32 = 0x1001;
@@ -56,7 +79,7 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, Resampler, 
             let buffer_frame_count = 128usize;
             let mut resample_buffer: *mut f64 = null_mut();
             let num_source_frames_to_write = unsafe {
-                self.mode.api.ResamplePrepare(
+                self.api.ResamplePrepare(
                     buffer_frame_count as _,
                     source_channel_count as i32,
                     &mut resample_buffer,
@@ -86,14 +109,14 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, Resampler, 
                 .supplier
                 .supply_audio(&inner_request, &mut resample_buffer);
             total_num_frames_consumed += inner_response.num_frames_written;
-            assert_eq!(
-                inner_response.num_frames_written,
-                inner_response.num_frames_consumed
-            );
+            // assert_eq!(
+            //     inner_response.num_frames_written,
+            //     inner_response.num_frames_consumed
+            // );
             // Get output material.
             let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
             let num_frames_written = unsafe {
-                self.mode.api.ResampleOut(
+                self.api.ResampleOut(
                     offset_buffer.data_as_mut_ptr(),
                     num_source_frames_to_write,
                     offset_buffer.frame_count() as _,
@@ -137,7 +160,17 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, Resampler, 
     }
 }
 
-impl<'a, S: WithFrameRate> WithFrameRate for Ctx<'a, Resampler, S> {
+impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
+    fn supply_midi(
+        &self,
+        request: &SupplyMidiRequest,
+        event_list: &BorrowedMidiEventList,
+    ) -> SupplyResponse {
+        return self.supplier.supply_midi(&request, event_list);
+    }
+}
+
+impl<S: WithFrameRate> WithFrameRate for Resampler<S> {
     fn frame_rate(&self) -> Hz {
         self.supplier.frame_rate()
     }

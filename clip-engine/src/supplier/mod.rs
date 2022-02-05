@@ -14,8 +14,11 @@ pub use looper::*;
 mod flexible_source;
 pub use flexible_source::*;
 
-pub mod stretcher;
-pub use stretcher::*;
+pub mod time_stretcher;
+pub use time_stretcher::*;
+
+pub mod resampler;
+pub use resampler::*;
 
 use crate::Timeline;
 

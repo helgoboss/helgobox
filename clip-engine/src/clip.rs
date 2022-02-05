@@ -155,12 +155,15 @@ impl Clip {
         assert_ne!(beat_count, 0, "source reported beat count of zero");
         let supplier_chain = {
             let mut chain = ClipSupplierChain::new(source);
+            // Configure resampler
+            let resampler = chain.resampler_mut();
+            resampler.set_enabled(true);
+            // Configure time stratcher
+            let time_stretcher = chain.time_stretcher_mut();
+            // time_stretcher.set_enabled(true);
+            // Configure looper
             let looper = chain.looper_mut();
             looper.set_fades_enabled(true);
-            let stretcher = chain.stretcher_mut();
-            stretcher.set_enabled(true);
-            // let serious = SeriousTimeStretcher::new();
-            // stretcher.set_mode(StretchAudioMode::Serious(serious));
             chain
         };
         Self {
@@ -1127,7 +1130,7 @@ impl Clip {
             clip_tempo_factor: final_tempo_factor,
         };
         self.supplier_chain
-            .stretcher_mut()
+            .time_stretcher_mut()
             .set_tempo_factor(final_tempo_factor);
         general_info
     }

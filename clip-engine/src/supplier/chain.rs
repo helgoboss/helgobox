@@ -1,11 +1,11 @@
-use crate::supplier::time_stretching::SeriousTimeStretcher;
-use crate::supplier::{Looper, Stretcher, Suspender};
-use crate::{FlexibleSource, StretchAudioMode};
+use crate::supplier::{Looper, Suspender};
+use crate::{FlexibleSource, Resampler, TimeStretcher};
 use reaper_medium::OwnedPcmSource;
 
 type Head = SuspenderTail;
-type SuspenderTail = Suspender<StretcherTail>;
-type StretcherTail = Stretcher<LooperTail>;
+type SuspenderTail = Suspender<ResamplerTail>;
+type ResamplerTail = Resampler<TimeStretcherTail>;
+type TimeStretcherTail = TimeStretcher<LooperTail>;
 type LooperTail = Looper<FlexibleSourceTail>;
 type FlexibleSourceTail = FlexibleSource<ReaperSourceTail>;
 type ReaperSourceTail = OwnedPcmSource;
@@ -19,17 +19,17 @@ impl ClipSupplierChain {
     pub fn new(reaper_source: OwnedPcmSource) -> Self {
         Self {
             head: {
-                let mut flexible_source = FlexibleSource::new(reaper_source);
-                let mut looper = Looper::new(flexible_source);
-                let mut stretcher = Stretcher::new(looper);
-                Suspender::new(stretcher)
+                Suspender::new(Resampler::new(TimeStretcher::new(Looper::new(
+                    FlexibleSource::new(reaper_source),
+                ))))
             },
         }
     }
 
     pub fn reset(&mut self) {
         self.suspender_mut().reset();
-        self.stretcher_mut().reset();
+        self.resampler_mut().reset();
+        self.time_stretcher_mut().reset();
         self.looper_mut().reset();
     }
 
@@ -49,20 +49,28 @@ impl ClipSupplierChain {
         &mut self.head
     }
 
-    pub fn stretcher(&self) -> &StretcherTail {
+    pub fn resampler(&self) -> &ResamplerTail {
         self.head.supplier()
     }
 
-    pub fn stretcher_mut(&mut self) -> &mut StretcherTail {
+    pub fn resampler_mut(&mut self) -> &mut ResamplerTail {
         self.head.supplier_mut()
     }
 
+    pub fn time_stretcher(&self) -> &TimeStretcherTail {
+        self.resampler().supplier()
+    }
+
+    pub fn time_stretcher_mut(&mut self) -> &mut TimeStretcherTail {
+        self.resampler_mut().supplier_mut()
+    }
+
     pub fn looper(&self) -> &LooperTail {
-        self.stretcher().supplier()
+        self.time_stretcher().supplier()
     }
 
     pub fn looper_mut(&mut self) -> &mut LooperTail {
-        self.stretcher_mut().supplier_mut()
+        self.time_stretcher_mut().supplier_mut()
     }
 
     pub fn flexible_source(&self) -> &FlexibleSourceTail {

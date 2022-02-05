@@ -1,27 +1,52 @@
 use crate::buffer::AudioBufMut;
-use crate::supplier::{AudioSupplier, Ctx, SupplyAudioRequest, SupplyResponse, WithFrameRate};
+use crate::supplier::{AudioSupplier, SupplyAudioRequest, SupplyResponse, WithFrameRate};
 use crate::{
-    adjust_anti_proportionally_positive, adjust_proportionally_positive, SupplyRequestInfo,
+    adjust_anti_proportionally_positive, adjust_proportionally_positive, ExactFrameCount,
+    MidiSupplier, SupplyMidiRequest, SupplyRequestInfo,
 };
 use crossbeam_channel::Receiver;
 use reaper_high::Reaper;
 use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};
-use reaper_medium::Hz;
+use reaper_medium::{BorrowedMidiEventList, Hz};
 
 #[derive(Debug)]
-pub struct SeriousTimeStretcher {
+pub struct TimeStretcher<S> {
     // TODO-high Only static until we have a proper owned version (destruction!)
     api: &'static IReaperPitchShift,
+    supplier: S,
+    enabled: bool,
+    tempo_factor: f64,
 }
 
-impl SeriousTimeStretcher {
-    pub fn new() -> Self {
+impl<S> TimeStretcher<S> {
+    pub fn new(supplier: S) -> Self {
         let api = Reaper::get()
             .medium_reaper()
             .low()
             .ReaperGetPitchShiftAPI(REAPER_PITCHSHIFT_API_VER);
         let api = unsafe { &*api };
-        Self { api }
+        Self {
+            api,
+            supplier,
+            enabled: false,
+            tempo_factor: 1.0,
+        }
+    }
+
+    pub fn supplier(&self) -> &S {
+        &self.supplier
+    }
+
+    pub fn supplier_mut(&mut self) -> &mut S {
+        &mut self.supplier
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
+
+    pub fn set_tempo_factor(&mut self, tempo_factor: f64) {
+        self.tempo_factor = tempo_factor;
     }
 
     pub fn reset(&mut self) {
@@ -29,12 +54,15 @@ impl SeriousTimeStretcher {
     }
 }
 
-impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTimeStretcher, S> {
+impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
     fn supply_audio(
         &self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
+        if !self.enabled {
+            return self.supplier.supply_audio(&request, dest_buffer);
+        }
         let mut total_num_frames_consumed = 0usize;
         let mut total_num_frames_written = 0usize;
         let source_frame_rate = self.supplier.frame_rate();
@@ -46,14 +74,14 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
         //  unless the stretch mode is Resampler in which case it should consider the tempo when
         //  when calculating the output sample rate.
         // TODO-medium Setting this right at the beginning should be enough.
-        self.mode.api.set_srate(source_frame_rate.get());
+        self.api.set_srate(source_frame_rate.get());
         let dest_nch = dest_buffer.channel_count();
-        self.mode.api.set_nch(dest_nch as _);
-        self.mode.api.set_tempo(self.tempo_factor);
+        self.api.set_nch(dest_nch as _);
+        self.api.set_tempo(self.tempo_factor);
         loop {
             // Get time stretcher buffer.
             let buffer_frame_count = 128usize;
-            let stretch_buffer = self.mode.api.GetBuffer(buffer_frame_count as _);
+            let stretch_buffer = self.api.GetBuffer(buffer_frame_count as _);
             let mut stretch_buffer =
                 unsafe { AudioBufMut::from_raw(stretch_buffer, dest_nch, buffer_frame_count) };
             // Fill buffer with a minimum amount of source data (so that we never consume more than
@@ -75,7 +103,7 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
                     // resampling if we want to have accurate bar deviation reporting.
                     audio_block_frame_offset: request.info.audio_block_frame_offset
                         + total_num_frames_written,
-                    requester: "time-stretcher",
+                    requester: "time-stretcher-audio",
                     note: "Attention: Using serious time stretching. Analysis results usually have a negative offset (due to input buffering)."
                 },
                 parent_request: Some(request),
@@ -89,13 +117,11 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
                 inner_response.num_frames_written,
                 inner_response.num_frames_consumed
             );
-            self.mode
-                .api
-                .BufferDone(inner_response.num_frames_written as _);
+            self.api.BufferDone(inner_response.num_frames_written as _);
             // Get output material.
             let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
             let num_frames_written = unsafe {
-                self.mode.api.GetSamples(
+                self.api.GetSamples(
                     offset_buffer.frame_count() as _,
                     offset_buffer.data_as_mut_ptr(),
                 )
@@ -128,7 +154,32 @@ impl<'a, S: AudioSupplier + WithFrameRate> AudioSupplier for Ctx<'a, SeriousTime
     }
 }
 
-impl<'a, S: WithFrameRate> WithFrameRate for Ctx<'a, SeriousTimeStretcher, S> {
+impl<S: MidiSupplier> MidiSupplier for TimeStretcher<S> {
+    fn supply_midi(
+        &self,
+        request: &SupplyMidiRequest,
+        event_list: &BorrowedMidiEventList,
+    ) -> SupplyResponse {
+        if !self.enabled {
+            return self.supplier.supply_midi(&request, event_list);
+        }
+        let request = SupplyMidiRequest {
+            start_frame: request.start_frame,
+            dest_frame_count: request.dest_frame_count,
+            dest_sample_rate: Hz::new(request.dest_sample_rate.get() / self.tempo_factor),
+            info: SupplyRequestInfo {
+                audio_block_frame_offset: request.info.audio_block_frame_offset,
+                requester: "time-stretcher-midi",
+                note: "",
+            },
+            parent_request: Some(request),
+            general_info: request.general_info,
+        };
+        self.supplier.supply_midi(&request, event_list)
+    }
+}
+
+impl<S: WithFrameRate> WithFrameRate for TimeStretcher<S> {
     fn frame_rate(&self) -> Hz {
         self.supplier.frame_rate()
     }
