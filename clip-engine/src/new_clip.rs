@@ -14,7 +14,8 @@ use helgoboss_learn::UnitValue;
 use reaper_high::{Project, ReaperSource};
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
-    Bpm, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds, ReaperVolumeValue,
+    Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds,
+    ReaperVolumeValue,
 };
 use std::ptr::null_mut;
 
@@ -50,6 +51,7 @@ struct PlayingState {
     pub pos: Option<InnerPos>,
     pub scheduled_for_stop: bool,
     pub overdubbing: bool,
+    pub seek_pos: Option<usize>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -424,8 +426,6 @@ impl NewClip {
                 //  that would feel natural.
             }
             Suspending(s) => {
-                // TODO-medium As soon as we have count-in material to play, paused should also
-                //  allow negative pause positions.
                 self.state = Suspending(SuspendingState {
                     next_state: StateAfterSuspension::Paused(PausedState {
                         pos: s.pos as usize,
@@ -447,8 +447,11 @@ impl NewClip {
             Playing(s) => {
                 if let Some(pos) = s.pos {
                     if pos >= 0 {
+                        let pos = pos as usize;
+                        let current_cycle = self.supplier_chain.looper().get_cycle_at_frame(pos);
+                        let real_desired_frame = current_cycle * frame_count + desired_frame;
                         self.state = Playing(PlayingState {
-                            pos: Some(desired_frame as isize),
+                            seek_pos: Some(real_desired_frame),
                             ..s
                         });
                     }
@@ -648,22 +651,115 @@ impl NewClip {
     }
 
     fn process_playing(&mut self, s: PlayingState, args: ClipProcessArgs<impl Timeline>) {
-        let general_info = self.prepare_process(&args);
-        let pos = s.pos.unwrap_or_else(|| {
-            if let Some(start_bar) = s.start_bar {
+        let general_info = self.prepare_playing(&args);
+        struct Go {
+            pos: isize,
+            sample_rate_factor: f64,
+            new_seek_pos: Option<usize>,
+        }
+        impl Default for Go {
+            fn default() -> Self {
+                Go {
+                    pos: 0,
+                    sample_rate_factor: 1.0,
+                    new_seek_pos: None,
+                }
+            }
+        }
+        let go = if let Some(pos) = s.pos {
+            // Already counting in or playing.
+            if let Some(seek_pos) = s.seek_pos {
+                // Seek requested.
+                if self.is_midi {
+                    // MIDI. Let's jump to the position directly.
+                    Go {
+                        pos: seek_pos as isize,
+                        sample_rate_factor: 1.0,
+                        new_seek_pos: None,
+                    }
+                } else {
+                    // Audio. Let's fast-forward if possible.
+                    let (sample_rate_factor, new_seek_pos) = if pos >= 0 {
+                        // Playing.
+                        let pos = pos as usize;
+                        if pos < seek_pos {
+                            // We might need to fast-forward.
+                            let real_distance = seek_pos - pos;
+                            let desired_distance_in_secs = DurationInSeconds::new(1.000);
+                            let source_frame_rate =
+                                self.supplier_chain.reaper_source().frame_rate();
+                            let desired_distance = convert_duration_in_seconds_to_frames(
+                                desired_distance_in_secs,
+                                source_frame_rate,
+                            );
+                            if desired_distance < real_distance {
+                                // We need to fast-forward.
+                                let playback_speed_factor =
+                                    real_distance as f64 / desired_distance as f64;
+                                let sample_rate_factor = 1.0 / playback_speed_factor;
+                                (sample_rate_factor, Some(seek_pos))
+                            } else {
+                                // We are almost there anyway, so no.
+                                (1.0, None)
+                            }
+                        } else {
+                            // We need to rewind. But we reject this at the moment.
+                            (1.0, None)
+                        }
+                    } else {
+                        // Counting in.
+                        // We prevent seek during count-in but just in case, we reject it here.
+                        (1.0, None)
+                    };
+                    Go {
+                        pos,
+                        sample_rate_factor,
+                        new_seek_pos,
+                    }
+                }
+            } else {
+                // No seek requested
+                Go {
+                    pos,
+                    ..Go::default()
+                }
+            }
+        } else {
+            // Not counting in or playing yet.
+            let pos = if let Some(start_bar) = s.start_bar {
+                // Scheduled play. Start countdown.
                 self.calc_initial_pos_from_start_bar(
                     start_bar,
                     &args,
                     general_info.clip_tempo_factor,
                 )
             } else {
+                // Immediate play.
                 0
+            };
+            Go {
+                pos,
+                ..Go::default()
             }
-        });
-        self.state = if let Some(end_frame) = self.fill_samples(args, pos, &general_info) {
+        };
+        self.state = if let Some(end_frame) =
+            self.fill_samples(args, go.pos, &general_info, go.sample_rate_factor)
+        {
             // There's still something to play.
             NewClipState::Playing(PlayingState {
                 pos: Some(end_frame),
+                seek_pos: if let Some(new_seek_pos) = go.new_seek_pos {
+                    // Check if we reached our desired position.
+                    if end_frame >= new_seek_pos as isize {
+                        // Reached
+                        None
+                    } else {
+                        // Not reached yet.
+                        Some(new_seek_pos)
+                    }
+                } else {
+                    None
+                },
                 ..s
             })
         } else {
@@ -680,11 +776,13 @@ impl NewClip {
         args: ClipProcessArgs<impl Timeline>,
         start_frame: isize,
         info: &SupplyRequestGeneralInfo,
+        sample_rate_factor: f64,
     ) -> Option<isize> {
+        let dest_sample_rate = Hz::new(args.block.sample_rate().get() * sample_rate_factor);
         if self.is_midi {
-            self.fill_samples_midi(args, start_frame, info)
+            self.fill_samples_midi(args, start_frame, info, dest_sample_rate)
         } else {
-            self.fill_samples_audio(args, start_frame, info)
+            self.fill_samples_audio(args, start_frame, info, dest_sample_rate)
         }
     }
 
@@ -693,10 +791,11 @@ impl NewClip {
         args: ClipProcessArgs<impl Timeline>,
         start_frame: isize,
         info: &SupplyRequestGeneralInfo,
+        dest_sample_rate: Hz,
     ) -> Option<isize> {
         let request = SupplyAudioRequest {
             start_frame,
-            dest_sample_rate: args.block.sample_rate(),
+            dest_sample_rate,
             info: SupplyRequestInfo {
                 audio_block_frame_offset: 0,
                 requester: "root-audio",
@@ -726,11 +825,12 @@ impl NewClip {
         args: ClipProcessArgs<impl Timeline>,
         start_frame: isize,
         info: &SupplyRequestGeneralInfo,
+        dest_sample_rate: Hz,
     ) -> Option<isize> {
         let request = SupplyMidiRequest {
             start_frame,
             dest_frame_count: args.block.length() as _,
-            dest_sample_rate: args.block.sample_rate(),
+            dest_sample_rate,
             info: SupplyRequestInfo {
                 audio_block_frame_offset: 0,
                 requester: "root-midi",
@@ -945,12 +1045,12 @@ impl NewClip {
     }
 
     fn process_suspending(&mut self, s: SuspendingState, args: ClipProcessArgs<impl Timeline>) {
+        let general_info = self.prepare_playing(&args);
         let suspender = self.supplier_chain.suspender_mut();
         if !suspender.is_suspending() {
             suspender.suspend(s.pos);
         }
-        let general_info = self.prepare_process(&args);
-        self.state = if let Some(end_frame) = self.fill_samples(args, s.pos, &general_info) {
+        self.state = if let Some(end_frame) = self.fill_samples(args, s.pos, &general_info, 1.0) {
             // Suspension not finished yet.
             NewClipState::Suspending(SuspendingState {
                 pos: end_frame,
@@ -1009,7 +1109,7 @@ impl NewClip {
         }
     }
 
-    fn prepare_process(
+    fn prepare_playing(
         &mut self,
         args: &ClipProcessArgs<impl Timeline>,
     ) -> SupplyRequestGeneralInfo {
