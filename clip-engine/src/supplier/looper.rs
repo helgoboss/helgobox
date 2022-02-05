@@ -4,7 +4,7 @@ use crate::supplier::{
     print_distance_from_beat_start_at, AudioSupplier, ExactFrameCount, MidiSupplier,
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
-use crate::{clip_timeline, Repetition, SupplyRequestInfo};
+use crate::{clip_timeline, SupplyRequestInfo};
 use core::cmp;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
@@ -27,6 +27,22 @@ pub enum LoopBehavior {
 impl Default for LoopBehavior {
     fn default() -> Self {
         Self::UntilEndOfCycle(0)
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum Repetition {
+    Infinitely,
+    Once,
+}
+
+impl Repetition {
+    pub fn from_bool(repeated: bool) -> Self {
+        if repeated {
+            Repetition::Infinitely
+        } else {
+            Repetition::Once
+        }
     }
 }
 

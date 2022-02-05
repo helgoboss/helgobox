@@ -1,10 +1,11 @@
 use crate::{
     ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordSourceType,
-    ClipStopArgs, ClipStopBehavior, NewClip, RecordBehavior, RecordKind, RelevantPlayStateChange,
-    Timeline, TimelineMoment, TransportChange, WriteAudioRequest, WriteMidiRequest,
+    ClipStopArgs, ClipStopBehavior, NewClip, RecordBehavior, RecordKind, Timeline, TimelineMoment,
+    WriteAudioRequest, WriteMidiRequest,
 };
 use helgoboss_learn::UnitValue;
-use reaper_medium::{Bpm, PcmSourceTransfer, PositionInSeconds, ReaperVolumeValue};
+use reaper_high::OwnedSource;
+use reaper_medium::{Bpm, PcmSourceTransfer, PlayState, PositionInSeconds, ReaperVolumeValue};
 
 #[derive(Debug, Default)]
 pub struct Slot {
@@ -58,6 +59,36 @@ impl Slot {
     }
 
     pub fn record_clip(&mut self, behavior: RecordBehavior) -> Result<(), &'static str> {
+        // TODO-high We should probably keep the current source, not replace it
+        //  immediately, in order to allow a fade out.
+        if let RecordBehavior::Normal { .. } = behavior {
+            // TODO-high Also implement for audio recording.
+            let mut source = OwnedSource::from_type("MIDI").unwrap();
+            // TODO-high Only keep necessary parts of the chunk
+            // TODO-high Make clip very short. Realtime-writing makes it longer automatically.
+            // TODO-high We absolutely need the permanent section supplier, then we can play the
+            //  source correctly positioned and with correct length even the source is too long
+            //  and starts too early.
+            let chunk = "\
+                HASDATA 1 960 QN\n\
+                CCINTERP 32\n\
+                POOLEDEVTS {1F408000-28E4-46FA-9CB8-935A213C5904}\n\
+                E 115200 b0 7b 00\n\
+                CCINTERP 32\n\
+                CHASE_CC_TAKEOFFS 1\n\
+                GUID {1A129921-1EC6-4C57-B340-95F076A6B9FF}\n\
+                IGNTEMPO 0 120 4 4\n\
+                SRCCOLOR 647\n\
+                VELLANE 141 274 0\n\
+            >\n\
+            ";
+            source
+                .set_state_chunk("<SOURCE MIDI\n", String::from(chunk))
+                .unwrap();
+            // TODO-high Do it
+            // self.clear()?;
+            // self.fill_with_source(source, Some(project), stretch_worker_sender)?;
+        }
         self.get_clip_mut()?.record(behavior);
         Ok(())
     }
@@ -224,3 +255,31 @@ pub struct SlotProcessTransportChangeArgs<'a> {
 }
 
 const SLOT_NOT_FILLED: &str = "slot not filled";
+
+#[derive(Copy, Clone)]
+pub enum TransportChange {
+    PlayState(RelevantPlayStateChange),
+    PlayCursorJump,
+}
+#[derive(Copy, Clone, Debug)]
+pub enum RelevantPlayStateChange {
+    PlayAfterStop,
+    StopAfterPlay,
+    StopAfterPause,
+}
+
+impl RelevantPlayStateChange {
+    pub fn from_play_state_change(old: PlayState, new: PlayState) -> Option<Self> {
+        use RelevantPlayStateChange::*;
+        let change = if !old.is_paused && !old.is_playing && new.is_playing {
+            PlayAfterStop
+        } else if old.is_playing && !new.is_playing && !new.is_paused {
+            StopAfterPlay
+        } else if old.is_paused && !new.is_playing && !new.is_paused {
+            StopAfterPause
+        } else {
+            return None;
+        };
+        Some(change)
+    }
+}

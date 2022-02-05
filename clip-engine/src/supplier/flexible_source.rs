@@ -1,7 +1,7 @@
 use crate::buffer::AudioBufMut;
 use crate::{
     AudioBuf, AudioSupplier, ExactFrameCount, MidiSupplier, OwnedAudioBuffer, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse, WithFrameRate, WriteAudioRequest,
+    SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
 use reaper_medium::{BorrowedMidiEventList, Hz};
 use std::cmp;
@@ -11,6 +11,21 @@ pub struct FlexibleSource<S> {
     supplier: S,
     temporary_audio_buffer: OwnedAudioBuffer,
     next_record_start_frame: usize,
+}
+
+#[derive(Copy, Clone)]
+pub struct WriteMidiRequest<'a> {
+    pub input_sample_rate: Hz,
+    pub block_length: usize,
+    pub events: &'a BorrowedMidiEventList,
+}
+
+#[derive(Copy, Clone)]
+pub struct WriteAudioRequest<'a> {
+    pub input_sample_rate: Hz,
+    pub block_length: usize,
+    pub left_buffer: AudioBuf<'a>,
+    pub right_buffer: AudioBuf<'a>,
 }
 
 impl<S> FlexibleSource<S> {

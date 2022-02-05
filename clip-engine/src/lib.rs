@@ -13,12 +13,6 @@ use reaper_medium::{MeasureMode, PositionInBeats, PositionInSeconds};
 mod clip_content;
 pub use clip_content::*;
 
-mod slot;
-pub use clip_source::*;
-pub use slot::*;
-
-mod clip_source;
-
 mod source_util;
 
 mod buffer;

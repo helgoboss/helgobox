@@ -2222,11 +2222,6 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetUseLoopPoints(is_checked),
                     ));
                 }
-                ReaperTargetType::ClipTransport => {
-                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetBuffered(
-                        is_checked,
-                    )));
-                }
                 _ => {}
             },
             TargetCategory::Virtual => {}
@@ -4666,21 +4661,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::Seek => Some(("Use loop points", self.target.use_loop_points())),
                 ReaperTargetType::GoToBookmark => {
                     Some(("Set loop points", self.target.use_loop_points()))
-                }
-                ReaperTargetType::ClipTransport
-                    if matches!(
-                        self.target.transport_action(),
-                        TransportAction::PlayStop | TransportAction::PlayPause
-                    ) =>
-                {
-                    let is_enabled = !self.target.next_bar();
-                    self.view
-                        .require_control(checkbox_id)
-                        .set_enabled(is_enabled);
-                    Some((
-                        "Buffered",
-                        self.target.slot_play_options().is_effectively_buffered(),
-                    ))
                 }
                 _ => None,
             },

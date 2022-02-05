@@ -5,7 +5,6 @@ use crate::supplier::{
     ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
     WithFrameRate,
 };
-use crate::Repetition;
 use core::cmp;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,

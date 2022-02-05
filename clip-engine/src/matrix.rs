@@ -1,9 +1,8 @@
 use crate::{
-    clip_timeline, keep_stretching, ClipChangedEvent, ClipContent, ClipPlayArgs, ClipRecordTiming,
-    ClipSlot, ClipStopArgs, ClipStopBehavior, Column, ColumnFillSlotArgs, ColumnPlayClipArgs,
-    ColumnPollSlotArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs, LegacyClip, NewClip,
-    RecordArgs, RecordBehavior, RecordKind, RecordTiming, SharedColumnSource, SharedRegister, Slot,
-    SlotPlayOptions, SlotPollArgs, SlotProcessTransportChangeArgs, SlotStopBehavior,
+    clip_timeline, keep_stretching, ClipChangedEvent, ClipContent, ClipPlayArgs, ClipStopArgs,
+    ClipStopBehavior, Column, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnPollSlotArgs,
+    ColumnSetClipRepeatedArgs, ColumnStopClipArgs, LegacyClip, NewClip, RecordBehavior,
+    RecordTiming, SharedColumnSource, Slot, SlotPollArgs, SlotProcessTransportChangeArgs,
     StretchWorkerRequest, Timeline, TransportChange,
 };
 use crossbeam_channel::Sender;
@@ -16,7 +15,6 @@ use std::error::Error;
 #[derive(Debug)]
 pub struct ClipMatrix<H> {
     handler: H,
-    clip_slots: Vec<ClipSlot>,
     /// To communicate with the time stretching worker.
     stretch_worker_sender: Sender<StretchWorkerRequest>,
     columns: Vec<Column>,
@@ -31,7 +29,6 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         });
         Self {
             handler,
-            clip_slots: (0..8).map(ClipSlot::new).collect(),
             stretch_worker_sender,
             columns: vec![],
             containing_track,
@@ -224,40 +221,18 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         Ok(())
     }
 
-    pub fn fill_slot_by_user(
-        &mut self,
-        slot_index: usize,
-        content: ClipContent,
-        project: Option<Project>,
-    ) -> Result<(), &'static str> {
-        get_slot_mut(&mut self.clip_slots, slot_index)?.fill_by_user(
-            content,
-            project,
-            &self.stretch_worker_sender,
-        )?;
-        self.handler.notify_slot_contents_changed();
-        Ok(())
-    }
-
     pub fn fill_slot_with_item_source(
         &mut self,
         slot_index: usize,
         item: Item,
     ) -> Result<(), Box<dyn Error>> {
-        let slot = get_slot_mut(&mut self.clip_slots, slot_index)?;
-        let content = ClipContent::from_item(item, false)?;
-        slot.fill_by_user(content, item.project(), &self.stretch_worker_sender)?;
-        self.handler.notify_slot_contents_changed();
-        Ok(())
+        todo!()
+        // let slot = get_slot_mut(&mut self.clip_slots, slot_index)?;
+        // let content = ClipContent::from_item(item, false)?;
+        // slot.fill_by_user(content, item.project(), &self.stretch_worker_sender)?;
+        // self.handler.notify_slot_contents_changed();
+        // Ok(())
     }
-
-    fn get_slot_mut(&mut self, slot_index: usize) -> Result<&mut ClipSlot, &'static str> {
-        self.clip_slots.get_mut(slot_index).ok_or("no such slot")
-    }
-}
-
-fn get_slot_mut(slots: &mut [ClipSlot], index: usize) -> Result<&mut ClipSlot, &'static str> {
-    slots.get_mut(index).ok_or("no such slot")
 }
 
 fn get_column(columns: &[Column], index: usize) -> Result<&Column, &'static str> {
@@ -319,4 +294,40 @@ pub trait ClipMatrixHandler {
     fn request_recording_input(&self, task: ClipRecordTask);
     fn notify_slot_contents_changed(&mut self);
     fn notify_clip_changed(&self, slot_index: usize, event: ClipChangedEvent);
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum ClipRecordTiming {
+    StartImmediatelyStopOnDemand,
+    StartOnBarStopOnDemand { start_bar: i32 },
+    StartOnBarStopOnBar { start_bar: i32, bar_count: u32 },
+}
+
+// TODO-medium Evolved into a perfect duplicate of ClipStopTime
+/// Defines how to stop the clip.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum SlotStopBehavior {
+    Immediately,
+    EndOfClip,
+}
+/// Contains instructions how to play a clip.
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
+pub struct SlotPlayOptions {
+    /// Syncs with timeline.
+    pub next_bar: bool,
+    pub buffered: bool,
+}
+
+#[derive(Copy, Clone)]
+pub struct RecordArgs {
+    pub kind: RecordKind,
+}
+
+#[derive(Copy, Clone)]
+pub enum RecordKind {
+    Normal {
+        play_after: bool,
+        timing: ClipRecordTiming,
+    },
+    MidiOverdub,
 }

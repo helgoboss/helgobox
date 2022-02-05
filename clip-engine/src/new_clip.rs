@@ -4,19 +4,20 @@ use crate::{
     adjust_proportionally_positive, clip_timeline, convert_duration_in_frames_to_other_frame_rate,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames, AudioBufMut,
-    AudioSupplier, ClipChangedEvent, ClipContent, ClipInfo, ClipPlayState, ClipRecordSourceType,
-    ClipRecordTiming, ClipSupplierChain, CreateClipContentMode, ExactDuration, ExactFrameCount,
-    LegacyClip, LoopBehavior, MidiSupplier, RecordKind, SupplyAudioRequest, SupplyMidiRequest,
+    AudioSupplier, ClipChangedEvent, ClipContent, ClipPlayState, ClipRecordTiming,
+    ClipSupplierChain, CreateClipContentMode, ExactDuration, ExactFrameCount, LegacyClip,
+    LoopBehavior, MidiSupplier, RecordKind, SupplyAudioRequest, SupplyMidiRequest,
     SupplyRequestGeneralInfo, SupplyRequestInfo, Timeline, WithFrameRate, WithTempo,
     WriteAudioRequest, WriteMidiRequest,
 };
 use helgoboss_learn::UnitValue;
-use reaper_high::{Project, ReaperSource};
+use reaper_high::{OwnedSource, Project, ReaperSource};
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
     Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds,
     ReaperVolumeValue,
 };
+use std::path::PathBuf;
 use std::ptr::null_mut;
 
 #[derive(Debug)]
@@ -1199,3 +1200,16 @@ struct LogNaturalDeviationArgs<'a, T: Timeline> {
 }
 
 const MIN_TEMPO_FACTOR: f64 = 0.0000000001;
+
+#[derive(Debug)]
+pub enum ClipRecordSourceType {
+    Midi,
+    Audio,
+}
+
+/// Contains static information about a clip.
+pub struct ClipInfo {
+    pub r#type: String,
+    pub file_name: Option<PathBuf>,
+    pub length: Option<DurationInSeconds>,
+}

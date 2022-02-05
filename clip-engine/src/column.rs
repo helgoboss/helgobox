@@ -1,8 +1,8 @@
 use crate::{
     ClipChangedEvent, ClipRecordTask, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnPollSlotArgs,
     ColumnSetClipRepeatedArgs, ColumnSource, ColumnStopClipArgs, RecordBehavior, RecordKind,
-    SharedColumnSource, SharedRegister, Slot, SlotProcessTransportChangeArgs, Timeline,
-    TimelineMoment, TransportChange,
+    SharedColumnSource, Slot, SlotProcessTransportChangeArgs, Timeline, TimelineMoment,
+    TransportChange,
 };
 use crossbeam_channel::Sender;
 use enumflags2::BitFlags;
@@ -16,6 +16,8 @@ use reaper_medium::{
 };
 use std::ptr::NonNull;
 use std::sync::Arc;
+
+pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
 #[derive(Clone, Debug)]
 pub struct Column {
