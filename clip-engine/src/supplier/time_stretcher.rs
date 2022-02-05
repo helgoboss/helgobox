@@ -47,7 +47,7 @@ impl<S> TimeStretcher<S> {
         self.tempo_factor = tempo_factor;
     }
 
-    pub fn reset(&mut self) {
+    pub fn reset_buffers_and_latency(&mut self) {
         self.api.as_mut().as_mut().Reset();
     }
 }

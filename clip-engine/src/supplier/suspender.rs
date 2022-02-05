@@ -87,6 +87,7 @@ impl<S: AudioSupplier> AudioSupplier for Suspender<S> {
                 inner_response.next_inner_frame
             } else {
                 // Suspension finished.
+                self.start_frame = None;
                 None
             },
         }

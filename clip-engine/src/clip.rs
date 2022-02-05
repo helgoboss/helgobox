@@ -774,7 +774,7 @@ impl Clip {
             // We have reached the natural or scheduled end. Everything that needed to be
             // played has been played in previous blocks. Audio fade outs have been applied
             // as well, so no need to go to suspending state first. Go right to stop!
-            self.supplier_chain.reset();
+            self.supplier_chain.reset_for_play();
             ClipState::Stopped
         };
     }
@@ -1066,18 +1066,16 @@ impl Clip {
             })
         } else {
             // Suspension finished.
-            self.supplier_chain.suspender_mut().reset();
             use StateAfterSuspension::*;
             match s.next_state {
                 Playing(s) => ClipState::Playing(s),
                 Paused(s) => {
                     // TODO-high Set follow-up Pause state in pause() correctly, see old
                     //  get_suspension_follow_up_state()
-                    self.supplier_chain.looper_mut().reset();
                     ClipState::Paused(s)
                 }
                 Stopped => {
-                    self.supplier_chain.reset();
+                    self.supplier_chain.reset_for_play();
                     ClipState::Stopped
                 }
                 Recording(s) => ClipState::Recording(s),

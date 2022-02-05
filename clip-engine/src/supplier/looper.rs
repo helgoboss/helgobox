@@ -81,14 +81,6 @@ impl<S: ExactFrameCount> Looper<S> {
         }
     }
 
-    pub fn reset(&mut self) {
-        if let LoopBehavior::UntilEndOfCycle(n) = self.loop_behavior {
-            if n > 0 {
-                self.loop_behavior = LoopBehavior::Infinitely;
-            }
-        }
-    }
-
     pub fn supplier(&self) -> &S {
         &self.supplier
     }
