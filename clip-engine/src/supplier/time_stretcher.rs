@@ -69,10 +69,6 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
         // I think it makes sense to set both the output and the input sample rate to the sample
         // rate of the source. Then the result can be even cached and sample rate & play-rate
         // changes don't need to invalidate the cache.
-        // TODO-high However, we need to add a resampler on top. We could actually always add a
-        //  resampler before the time stretcher and just let it do the usual sample rate conversion,
-        //  unless the stretch mode is Resampler in which case it should consider the tempo when
-        //  when calculating the output sample rate.
         // TODO-medium Setting this right at the beginning should be enough.
         self.api.set_srate(source_frame_rate.get());
         let dest_nch = dest_buffer.channel_count();
@@ -112,11 +108,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
             let inner_response = self
                 .supplier
                 .supply_audio(&inner_request, &mut stretch_buffer);
-            total_num_frames_consumed += inner_response.num_frames_written;
-            assert_eq!(
-                inner_response.num_frames_written,
-                inner_response.num_frames_consumed
-            );
+            total_num_frames_consumed += inner_response.num_frames_consumed;
             self.api.BufferDone(inner_response.num_frames_written as _);
             // Get output material.
             let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);

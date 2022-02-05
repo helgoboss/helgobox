@@ -160,7 +160,7 @@ impl Clip {
             resampler.set_enabled(true);
             // Configure time stratcher
             let time_stretcher = chain.time_stretcher_mut();
-            // time_stretcher.set_enabled(true);
+            time_stretcher.set_enabled(true);
             // Configure looper
             let looper = chain.looper_mut();
             looper.set_fades_enabled(true);

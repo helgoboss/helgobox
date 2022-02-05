@@ -108,11 +108,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
             let inner_response = self
                 .supplier
                 .supply_audio(&inner_request, &mut resample_buffer);
-            total_num_frames_consumed += inner_response.num_frames_written;
-            // assert_eq!(
-            //     inner_response.num_frames_written,
-            //     inner_response.num_frames_consumed
-            // );
+            total_num_frames_consumed += inner_response.num_frames_consumed;
             // Get output material.
             let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
             let num_frames_written = unsafe {
