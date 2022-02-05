@@ -1,6 +1,6 @@
 use crate::{
-    ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordSourceType,
-    ClipStopArgs, ClipStopBehavior, NewClip, RecordBehavior, RecordKind, Timeline, TimelineMoment,
+    Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordSourceType,
+    ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, Timeline, TimelineMoment,
     WriteAudioRequest, WriteMidiRequest,
 };
 use helgoboss_learn::UnitValue;
@@ -9,7 +9,7 @@ use reaper_medium::{Bpm, PcmSourceTransfer, PlayState, PositionInSeconds, Reaper
 
 #[derive(Debug, Default)]
 pub struct Slot {
-    clip: Option<NewClip>,
+    clip: Option<Clip>,
     runtime_data: RuntimeData,
 }
 
@@ -26,12 +26,12 @@ pub struct LastPlay {
 }
 
 impl Slot {
-    pub fn fill(&mut self, clip: NewClip) {
+    pub fn fill(&mut self, clip: Clip) {
         // TODO-medium Suspend previous clip if playing.
         self.clip = Some(clip);
     }
 
-    pub fn clip(&self) -> Result<&NewClip, &'static str> {
+    pub fn clip(&self) -> Result<&Clip, &'static str> {
         self.get_clip()
     }
 
@@ -219,11 +219,11 @@ impl Slot {
         Ok(())
     }
 
-    fn get_clip(&self) -> Result<&NewClip, &'static str> {
+    fn get_clip(&self) -> Result<&Clip, &'static str> {
         self.clip.as_ref().ok_or(SLOT_NOT_FILLED)
     }
 
-    fn get_clip_mut(&mut self) -> Result<&mut NewClip, &'static str> {
+    fn get_clip_mut(&mut self) -> Result<&mut Clip, &'static str> {
         self.clip.as_mut().ok_or(SLOT_NOT_FILLED)
     }
 }
@@ -231,7 +231,7 @@ impl Slot {
 impl RuntimeData {
     fn stop_clip_by_transport(
         &mut self,
-        clip: &mut NewClip,
+        clip: &mut Clip,
         args: &SlotProcessTransportChangeArgs,
         keep_starting_with_transport: bool,
     ) {

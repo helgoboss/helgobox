@@ -1,7 +1,7 @@
 use crate::{
-    clip_timeline, keep_stretching, ClipChangedEvent, ClipContent, ClipPlayArgs, ClipStopArgs,
-    ClipStopBehavior, Column, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnPollSlotArgs,
-    ColumnSetClipRepeatedArgs, ColumnStopClipArgs, LegacyClip, NewClip, RecordBehavior,
+    clip_timeline, keep_stretching, Clip, ClipChangedEvent, ClipContent, ClipPlayArgs,
+    ClipStopArgs, ClipStopBehavior, Column, ColumnFillSlotArgs, ColumnPlayClipArgs,
+    ColumnPollSlotArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs, LegacyClip, RecordBehavior,
     RecordTiming, SharedColumnSource, Slot, SlotPollArgs, SlotProcessTransportChangeArgs,
     StretchWorkerRequest, Timeline, TransportChange,
 };
@@ -63,7 +63,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
                 index: row,
                 clip: {
                     let source = content.create_source(project)?.into_raw();
-                    NewClip::new(source, project)
+                    Clip::new(source, project)
                 },
             });
             column.set_clip_repeated(ColumnSetClipRepeatedArgs {

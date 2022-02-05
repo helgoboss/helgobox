@@ -1,6 +1,6 @@
 use crate::{
-    clip_timeline, ClipChangedEvent, ClipPlayArgs, ClipProcessArgs, ClipRecordSourceType,
-    ClipStopArgs, ClipStopBehavior, NewClip, RecordBehavior, RecordKind, Slot, SlotPollArgs,
+    clip_timeline, Clip, ClipChangedEvent, ClipPlayArgs, ClipProcessArgs, ClipRecordSourceType,
+    ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, Slot, SlotPollArgs,
     SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange, WriteAudioRequest,
     WriteMidiRequest,
 };
@@ -327,7 +327,7 @@ impl CustomPcmSource for SharedColumnSource {
 
 pub struct ColumnFillSlotArgs {
     pub index: usize,
-    pub clip: NewClip,
+    pub clip: Clip,
 }
 
 pub struct ColumnPlayClipArgs {

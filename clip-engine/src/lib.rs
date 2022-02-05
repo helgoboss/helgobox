@@ -4,8 +4,8 @@ pub use matrix::*;
 mod timeline;
 pub use timeline::*;
 
-mod clip;
-pub use clip::*;
+mod legacy_clip;
+pub use legacy_clip::*;
 
 use reaper_high::{Project, Reaper};
 use reaper_medium::{MeasureMode, PositionInBeats, PositionInSeconds};
@@ -27,11 +27,11 @@ pub use column::*;
 mod column_source;
 pub use column_source::*;
 
-mod new_slot;
-pub use new_slot::*;
+mod slot;
+pub use slot::*;
 
-mod new_clip;
-pub use new_clip::*;
+mod clip;
+pub use clip::*;
 
 mod tempo_util;
 
