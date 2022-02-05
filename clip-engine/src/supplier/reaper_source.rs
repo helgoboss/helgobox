@@ -15,7 +15,7 @@ use reaper_medium::{
 
 impl AudioSupplier for OwnedPcmSource {
     fn supply_audio(
-        &self,
+        &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {

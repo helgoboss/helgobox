@@ -7,12 +7,11 @@ use crate::{
 use crossbeam_channel::Receiver;
 use reaper_high::Reaper;
 use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};
-use reaper_medium::{BorrowedMidiEventList, Hz};
+use reaper_medium::{BorrowedMidiEventList, Hz, OwnedReaperPitchShift};
 
 #[derive(Debug)]
 pub struct TimeStretcher<S> {
-    // TODO-high Only static until we have a proper owned version (destruction!)
-    api: &'static IReaperPitchShift,
+    api: OwnedReaperPitchShift,
     supplier: S,
     enabled: bool,
     tempo_factor: f64,
@@ -22,9 +21,8 @@ impl<S> TimeStretcher<S> {
     pub fn new(supplier: S) -> Self {
         let api = Reaper::get()
             .medium_reaper()
-            .low()
-            .ReaperGetPitchShiftAPI(REAPER_PITCHSHIFT_API_VER);
-        let api = unsafe { &*api };
+            .reaper_get_pitch_shift_api(REAPER_PITCHSHIFT_API_VER)
+            .expect("couldn't get pitch shift API in correct version");
         Self {
             api,
             supplier,
@@ -50,13 +48,13 @@ impl<S> TimeStretcher<S> {
     }
 
     pub fn reset(&mut self) {
-        self.api.Reset();
+        self.api.as_mut().as_mut().Reset();
     }
 }
 
 impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
     fn supply_audio(
-        &self,
+        &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
@@ -70,14 +68,15 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
         // rate of the source. Then the result can be even cached and sample rate & play-rate
         // changes don't need to invalidate the cache.
         // TODO-medium Setting this right at the beginning should be enough.
-        self.api.set_srate(source_frame_rate.get());
+        let api = self.api.as_mut().as_mut();
+        api.set_srate(source_frame_rate.get());
         let dest_nch = dest_buffer.channel_count();
-        self.api.set_nch(dest_nch as _);
-        self.api.set_tempo(self.tempo_factor);
+        api.set_nch(dest_nch as _);
+        api.set_tempo(self.tempo_factor);
         loop {
             // Get time stretcher buffer.
             let buffer_frame_count = 128usize;
-            let stretch_buffer = self.api.GetBuffer(buffer_frame_count as _);
+            let stretch_buffer = api.GetBuffer(buffer_frame_count as _);
             let mut stretch_buffer =
                 unsafe { AudioBufMut::from_raw(stretch_buffer, dest_nch, buffer_frame_count) };
             // Fill buffer with a minimum amount of source data (so that we never consume more than
@@ -109,11 +108,11 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
                 .supplier
                 .supply_audio(&inner_request, &mut stretch_buffer);
             total_num_frames_consumed += inner_response.num_frames_consumed;
-            self.api.BufferDone(inner_response.num_frames_written as _);
+            api.BufferDone(inner_response.num_frames_written as _);
             // Get output material.
             let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
             let num_frames_written = unsafe {
-                self.api.GetSamples(
+                api.GetSamples(
                     offset_buffer.frame_count() as _,
                     offset_buffer.data_as_mut_ptr(),
                 )

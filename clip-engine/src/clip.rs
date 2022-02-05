@@ -795,7 +795,7 @@ impl Clip {
     }
 
     fn fill_samples_audio(
-        &self,
+        &mut self,
         args: ClipProcessArgs<impl Timeline>,
         start_frame: isize,
         info: &SupplyRequestGeneralInfo,
@@ -821,7 +821,7 @@ impl Clip {
         };
         let response = self
             .supplier_chain
-            .head()
+            .head_mut()
             .supply_audio(&request, &mut dest_buffer);
         // TODO-high There's an issue e.g. when playing the piano audio clip that makes
         //  the clip not stop for a long time when it's not looped. Check that!

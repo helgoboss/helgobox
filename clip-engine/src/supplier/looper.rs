@@ -156,7 +156,7 @@ struct RelevantData {
 
 impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
     fn supply_audio(
-        &self,
+        &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {

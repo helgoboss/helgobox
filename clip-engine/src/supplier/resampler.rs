@@ -5,21 +5,19 @@ use crate::supplier::{
 use crate::{adjust_proportionally_positive, MidiSupplier, SupplyMidiRequest, SupplyRequestInfo};
 use reaper_high::Reaper;
 use reaper_low::raw::REAPER_Resample_Interface;
-use reaper_medium::{BorrowedMidiEventList, Hz};
+use reaper_medium::{BorrowedMidiEventList, Hz, OwnedReaperResample};
 use std::ptr::null_mut;
 
 #[derive(Debug)]
 pub struct Resampler<S> {
     enabled: bool,
     supplier: S,
-    // TODO-high Only static until we have a proper owned version (destruction!)
-    api: &'static REAPER_Resample_Interface,
+    api: OwnedReaperResample,
 }
 
 impl<S> Resampler<S> {
     pub fn new(supplier: S) -> Self {
-        let api = Reaper::get().medium_reaper().low().Resampler_Create();
-        let api = unsafe { &*api };
+        let api = Reaper::get().medium_reaper().resampler_create();
         Self {
             enabled: false,
             supplier,
@@ -28,7 +26,7 @@ impl<S> Resampler<S> {
     }
 
     pub fn reset(&mut self) {
-        self.api.Reset();
+        self.api.as_mut().as_mut().Reset();
     }
 
     pub fn supplier(&self) -> &S {
@@ -46,7 +44,7 @@ impl<S> Resampler<S> {
 
 impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
     fn supply_audio(
-        &self,
+        &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
@@ -61,8 +59,8 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
         let mut total_num_frames_consumed = 0usize;
         let mut total_num_frames_written = 0usize;
         let source_channel_count = self.supplier.channel_count();
-        self.api
-            .SetRates(source_frame_rate.get(), dest_frame_rate.get());
+        let api = self.api.as_mut().as_mut();
+        api.SetRates(source_frame_rate.get(), dest_frame_rate.get());
         // TODO-high Fix the count-in beeeep (also in time stretching).
         // Set ResamplePrepare's out_samples to refer to request a specific number of input samples.
         // const RESAMPLE_EXT_SETFEEDMODE: i32 = 0x1001;
@@ -79,7 +77,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
             let buffer_frame_count = 128usize;
             let mut resample_buffer: *mut f64 = null_mut();
             let num_source_frames_to_write = unsafe {
-                self.api.ResamplePrepare(
+                api.ResamplePrepare(
                     buffer_frame_count as _,
                     source_channel_count as i32,
                     &mut resample_buffer,
@@ -112,7 +110,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
             // Get output material.
             let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
             let num_frames_written = unsafe {
-                self.api.ResampleOut(
+                api.ResampleOut(
                     offset_buffer.data_as_mut_ptr(),
                     num_source_frames_to_write,
                     offset_buffer.frame_count() as _,

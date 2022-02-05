@@ -72,7 +72,7 @@ impl<S> FlexibleSource<S> {
 
 impl<S: AudioSupplier> AudioSupplier for FlexibleSource<S> {
     fn supply_audio(
-        &self,
+        &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {

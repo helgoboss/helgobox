@@ -35,7 +35,7 @@ pub trait AudioSupplier {
     /// Writes a portion of audio material into the given destination buffer so that it completely
     /// fills that buffer.
     fn supply_audio(
-        &self,
+        &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse;
