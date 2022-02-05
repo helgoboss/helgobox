@@ -447,20 +447,27 @@ impl NewClip {
             Playing(s) => {
                 if let Some(pos) = s.pos {
                     if pos >= 0 {
-                        let pos = pos as usize;
-                        let current_cycle = self.supplier_chain.looper().get_cycle_at_frame(pos);
-                        let real_desired_frame = current_cycle * frame_count + desired_frame;
+                        let up_cycled_frame =
+                            self.up_cycle_frame(desired_frame, pos as usize, frame_count);
                         self.state = Playing(PlayingState {
-                            seek_pos: Some(real_desired_frame),
+                            seek_pos: Some(up_cycled_frame),
                             ..s
                         });
                     }
                 }
             }
-            Paused(_) => {
-                self.state = Paused(PausedState { pos: desired_frame });
+            Paused(s) => {
+                let up_cycled_frame = self.up_cycle_frame(desired_frame, s.pos, frame_count);
+                self.state = Paused(PausedState {
+                    pos: up_cycled_frame,
+                });
             }
         }
+    }
+
+    fn up_cycle_frame(&self, frame: usize, offset_pos: usize, frame_count: usize) -> usize {
+        let current_cycle = self.supplier_chain.looper().get_cycle_at_frame(offset_pos);
+        current_cycle * frame_count + frame
     }
 
     pub fn record_source_type(&self) -> Option<ClipRecordSourceType> {
@@ -748,7 +755,7 @@ impl NewClip {
             // There's still something to play.
             NewClipState::Playing(PlayingState {
                 pos: Some(end_frame),
-                seek_pos: if let Some(new_seek_pos) = go.new_seek_pos {
+                seek_pos: go.new_seek_pos.and_then(|new_seek_pos| {
                     // Check if we reached our desired position.
                     if end_frame >= new_seek_pos as isize {
                         // Reached
@@ -757,9 +764,7 @@ impl NewClip {
                         // Not reached yet.
                         Some(new_seek_pos)
                     }
-                } else {
-                    None
-                },
+                }),
                 ..s
             })
         } else {
