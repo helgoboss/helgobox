@@ -584,11 +584,12 @@ impl ReadyState {
                     ..s
                 });
             }
-            // TODO-high We should do a fade-in!
             Paused(s) => {
                 // Resume
+                let pos = s.pos as isize;
+                supplier_chain.fader_mut().start_fade_in(pos);
                 self.state = ReadySubState::Playing(PlayingState {
-                    pos: Some(s.pos as isize),
+                    pos: Some(pos),
                     ..Default::default()
                 });
             }
