@@ -1,7 +1,8 @@
+use crate::SlotInstruction::KeepSlot;
 use crate::{
     Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordSourceType,
-    ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, Timeline, TimelineMoment,
-    WriteAudioRequest, WriteMidiRequest,
+    ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, SlotInstruction, Timeline,
+    TimelineMoment, WriteAudioRequest, WriteMidiRequest,
 };
 use helgoboss_learn::UnitValue;
 use reaper_high::{OwnedSource, Project};
@@ -45,7 +46,9 @@ impl Slot {
 
     pub fn stop_clip(&mut self, args: ClipStopArgs) -> Result<(), &'static str> {
         self.runtime_data.stop_was_caused_by_transport_change = false;
-        self.get_clip_mut()?.stop(args);
+        if self.get_clip_mut()?.stop(args) == SlotInstruction::ClearSlot {
+            self.clip = None;
+        }
         Ok(())
     }
 
@@ -128,74 +131,83 @@ impl Slot {
     }
 
     pub fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
-        let clip = match &mut self.clip {
-            None => return,
-            Some(c) => c,
-        };
-        match args.change {
-            TransportChange::PlayState(rel_change) => {
-                // We have a relevant transport change.
-                let last_play = match self.runtime_data.last_play {
-                    None => return,
-                    Some(a) => a,
-                };
-                // Clip was started at least once already.
-                let state = clip.play_state();
-                use ClipPlayState::*;
-                use RelevantPlayStateChange::*;
-                match rel_change {
-                    PlayAfterStop => {
-                        match state {
-                            Stopped if self.runtime_data.stop_was_caused_by_transport_change => {
-                                // REAPER transport was started from stopped state. Clip is stopped
-                                // as well and was put in that state due to a previous transport
-                                // stop. Play the clip!
-                                let args = ClipPlayArgs {
-                                    from_bar: Some(args.moment.next_bar()),
-                                };
-                                clip.play(args);
+        let slot_instruction = {
+            let clip = match &mut self.clip {
+                None => return,
+                Some(c) => c,
+            };
+            match args.change {
+                TransportChange::PlayState(rel_change) => {
+                    // We have a relevant transport change.
+                    let last_play = match self.runtime_data.last_play {
+                        None => return,
+                        Some(a) => a,
+                    };
+                    // Clip was started at least once already.
+                    let state = clip.play_state();
+                    use ClipPlayState::*;
+                    use RelevantPlayStateChange::*;
+                    match rel_change {
+                        PlayAfterStop => {
+                            match state {
+                                Stopped
+                                    if self.runtime_data.stop_was_caused_by_transport_change =>
+                                {
+                                    // REAPER transport was started from stopped state. Clip is stopped
+                                    // as well and was put in that state due to a previous transport
+                                    // stop. Play the clip!
+                                    let args = ClipPlayArgs {
+                                        from_bar: Some(args.moment.next_bar()),
+                                    };
+                                    clip.play(args);
+                                    SlotInstruction::KeepSlot
+                                }
+                                _ => {
+                                    // Stop and forget (because we have a timeline switch).
+                                    self.runtime_data.stop_clip_by_transport(clip, args, false)
+                                }
+                            }
+                        }
+                        StopAfterPlay => match state {
+                            ScheduledForPlay | Playing | ScheduledForStop
+                                if last_play.was_synced_to_bar =>
+                            {
+                                // Stop and memorize
+                                self.runtime_data.stop_clip_by_transport(clip, args, true)
                             }
                             _ => {
-                                // Stop and forget (because we have a timeline switch).
-                                self.runtime_data.stop_clip_by_transport(clip, args, false);
+                                // Stop and forget
+                                self.runtime_data.stop_clip_by_transport(clip, args, false)
                             }
+                        },
+                        StopAfterPause => {
+                            self.runtime_data.stop_clip_by_transport(clip, args, false)
                         }
                     }
-                    StopAfterPlay => match state {
-                        ScheduledForPlay | Playing | ScheduledForStop
-                            if last_play.was_synced_to_bar =>
-                        {
-                            // Stop and memorize
-                            self.runtime_data.stop_clip_by_transport(clip, args, true);
-                        }
-                        _ => {
-                            // Stop and forget
-                            self.runtime_data.stop_clip_by_transport(clip, args, false);
-                        }
-                    },
-                    StopAfterPause => {
-                        self.runtime_data.stop_clip_by_transport(clip, args, false);
+                }
+                TransportChange::PlayCursorJump => {
+                    // The play cursor was repositioned.
+                    let last_play = match self.runtime_data.last_play {
+                        None => return,
+                        Some(a) => a,
+                    };
+                    if !last_play.was_synced_to_bar {
+                        return;
                     }
+                    let play_state = clip.play_state();
+                    use ClipPlayState::*;
+                    if !matches!(play_state, ScheduledForPlay | Playing | ScheduledForStop) {
+                        return;
+                    }
+                    clip.play(ClipPlayArgs {
+                        from_bar: Some(args.moment.next_bar()),
+                    });
+                    KeepSlot
                 }
             }
-            TransportChange::PlayCursorJump => {
-                // The play cursor was repositioned.
-                let last_play = match self.runtime_data.last_play {
-                    None => return,
-                    Some(a) => a,
-                };
-                if !last_play.was_synced_to_bar {
-                    return;
-                }
-                let play_state = clip.play_state();
-                use ClipPlayState::*;
-                if !matches!(play_state, ScheduledForPlay | Playing | ScheduledForStop) {
-                    return;
-                }
-                clip.play(ClipPlayArgs {
-                    from_bar: Some(args.moment.next_bar()),
-                });
-            }
+        };
+        if slot_instruction == SlotInstruction::ClearSlot {
+            self.clip = None;
         }
     }
 
@@ -222,13 +234,13 @@ impl RuntimeData {
         clip: &mut Clip,
         args: &SlotProcessTransportChangeArgs,
         keep_starting_with_transport: bool,
-    ) {
+    ) -> SlotInstruction {
         self.stop_was_caused_by_transport_change = keep_starting_with_transport;
         clip.stop(ClipStopArgs {
             stop_behavior: ClipStopBehavior::Immediately,
             timeline_cursor_pos: args.moment.cursor_pos(),
             timeline: args.timeline,
-        });
+        })
     }
 }
 

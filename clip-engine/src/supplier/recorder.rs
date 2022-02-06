@@ -6,12 +6,13 @@ use crate::{
 use reaper_high::OwnedSource;
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{BorrowedMidiEventList, Hz, OwnedPcmSource, PositionInSeconds};
-use std::cmp;
 use std::ptr::null_mut;
+use std::{cmp, mem};
 
 #[derive(Debug)]
 pub struct Recorder {
     supplier: OwnedPcmSource,
+    old_supplier: Option<OwnedPcmSource>,
     temporary_audio_buffer: OwnedAudioBuffer,
     next_record_start_frame: usize,
 }
@@ -35,6 +36,7 @@ impl Recorder {
     pub fn new(source: OwnedPcmSource) -> Self {
         Self {
             supplier: source,
+            old_supplier: None,
             temporary_audio_buffer: OwnedAudioBuffer::new(2, 48000 * 2),
             next_record_start_frame: 0,
         }
@@ -50,7 +52,18 @@ impl Recorder {
 
     pub fn prepare_recording(&mut self) {
         // TODO-high Just replacing is not a good idea. Fade outs?
-        self.supplier = get_empty_midi_source();
+        let old_supplier = mem::replace(&mut self.supplier, get_empty_midi_source());
+        self.old_supplier = Some(old_supplier);
+    }
+
+    pub fn commit_recording(&mut self) {
+        self.old_supplier = None;
+    }
+
+    pub fn rollback_recording(&mut self) {
+        if let Some(old_supplier) = self.old_supplier.take() {
+            self.supplier = old_supplier;
+        }
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {

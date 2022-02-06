@@ -171,6 +171,13 @@ struct RecordingState {
     pub play_after: bool,
     pub timing: RecordTiming,
     pub is_midi: bool,
+    pub rollback_data: Option<RollbackData>,
+}
+
+#[derive(Copy, Clone, Debug)]
+struct RollbackData {
+    repeated: bool,
+    source_data: SourceData,
 }
 
 #[derive(Copy, Clone)]
@@ -211,13 +218,13 @@ impl Clip {
         timing: RecordTiming,
         project: Option<Project>,
     ) -> Self {
-        // TODO-high This should be None, ideally. We prepare the recording anyway.
         let recording_state = RecordingState {
             timeline_start_pos: clip_timeline(project, false).cursor_pos(),
             play_after,
             timing,
             // TODO-high Support audio
             is_midi: true,
+            rollback_data: None,
         };
         Self {
             supplier_chain: SupplierChain::new(get_empty_midi_source()),
@@ -237,21 +244,25 @@ impl Clip {
         }
     }
 
-    pub fn stop(&mut self, args: ClipStopArgs) {
+    #[must_use]
+    pub fn stop(&mut self, args: ClipStopArgs) -> SlotInstruction {
         use ClipState::*;
-        self.state = match &mut self.state {
+        use RecordingStopOutcome::*;
+        let outcome = match &mut self.state {
             Ready(s) => {
                 s.stop(args, &mut self.supplier_chain);
-                return;
+                KeepState
             }
-            Recording(s) => {
-                if let Some(ready_state) = s.stop(args, &self.supplier_chain, self.project) {
-                    Ready(ready_state)
-                } else {
-                    return;
-                }
-            }
+            Recording(s) => s.stop(args, &mut self.supplier_chain, self.project),
         };
+        match outcome {
+            KeepState => SlotInstruction::KeepSlot,
+            TransitionToReady(ready_state) => {
+                self.state = Ready(ready_state);
+                SlotInstruction::KeepSlot
+            }
+            ClearSlot => SlotInstruction::ClearSlot,
+        }
     }
 
     pub fn set_repeated(&mut self, repeated: bool) {
@@ -438,7 +449,7 @@ impl Clip {
         let next_state = match &mut self.state {
             Ready(s) => s.process(args, &mut self.supplier_chain).map(Recording),
             Recording(s) => s
-                .process(args, &self.supplier_chain, self.project)
+                .process(args, &mut self.supplier_chain, self.project)
                 .map(Ready),
         };
         if let Some(s) = next_state {
@@ -1183,6 +1194,13 @@ impl ReadyState {
             timing,
             // TODO-high Support audio
             is_midi: true,
+            rollback_data: {
+                let data = RollbackData {
+                    repeated: self.repeated,
+                    source_data: self.source_data,
+                };
+                Some(data)
+            },
         };
         use ClipState::*;
         use ReadySubState::*;
@@ -1333,27 +1351,49 @@ impl RecordingState {
     pub fn stop(
         &mut self,
         args: ClipStopArgs,
-        supplier_chain: &SupplierChain,
+        supplier_chain: &mut SupplierChain,
         project: Option<Project>,
-    ) -> Option<ReadyState> {
+    ) -> RecordingStopOutcome {
         use RecordTiming::*;
+        use RecordingStopOutcome::*;
         match self.timing {
-            Unsynced => Some(self.finish_recording(self.play_after, None, supplier_chain, project)),
+            Unsynced => {
+                let ready_state =
+                    self.finish_recording(self.play_after, None, supplier_chain, project);
+                TransitionToReady(ready_state)
+            }
             Synced { start_bar, end_bar } => {
-                // TODO-high If start bar in future, discard recording.
-                use ClipState::*;
-                if end_bar.is_some() {
-                    // End already scheduled. Take care of stopping after recording.
-                    self.play_after = false;
+                let next_bar = args.timeline.next_bar_at(args.timeline_cursor_pos);
+                if next_bar <= start_bar {
+                    // Zero point of recording hasn't even been reached yet. Try to roll back.
+                    if let Some(rollback_data) = &self.rollback_data {
+                        // We have a previous source that we can roll back to.
+                        supplier_chain.recorder_mut().rollback_recording();
+                        let ready_state = ReadyState {
+                            state: ReadySubState::Stopped,
+                            source_data: rollback_data.source_data,
+                            repeated: rollback_data.repeated,
+                        };
+                        TransitionToReady(ready_state)
+                    } else {
+                        // There was nothing to roll back to. How sad.
+                        ClearSlot
+                    }
                 } else {
-                    // End not scheduled yet. Schedule end.
-                    let next_bar = args.timeline.next_bar_at(args.timeline_cursor_pos);
-                    self.timing = Synced {
-                        start_bar,
-                        end_bar: Some(next_bar),
-                    };
+                    // We are recording already.
+                    use ClipState::*;
+                    if end_bar.is_some() {
+                        // End already scheduled. Take care of stopping after recording.
+                        self.play_after = false;
+                    } else {
+                        // End not scheduled yet. Schedule end.
+                        self.timing = Synced {
+                            start_bar,
+                            end_bar: Some(next_bar),
+                        };
+                    }
+                    KeepState
                 }
-                None
             }
         }
     }
@@ -1361,7 +1401,7 @@ impl RecordingState {
     fn process(
         &mut self,
         args: &mut ClipProcessArgs<impl Timeline>,
-        supplier_chain: &SupplierChain,
+        supplier_chain: &mut SupplierChain,
         project: Option<Project>,
     ) -> Option<ReadyState> {
         if let RecordTiming::Synced {
@@ -1403,10 +1443,10 @@ impl RecordingState {
         self,
         play_after: bool,
         start_bar: Option<i32>,
-        supplier_chain: &SupplierChain,
+        supplier_chain: &mut SupplierChain,
         project: Option<Project>,
     ) -> ReadyState {
-        // Set source data
+        supplier_chain.recorder_mut().commit_recording();
         let source_data = SourceData::from_source(supplier_chain.reaper_source(), project);
         // Change state
         ReadyState {
@@ -1422,6 +1462,18 @@ impl RecordingState {
             repeated: play_after,
         }
     }
+}
+
+#[derive(PartialEq)]
+pub enum SlotInstruction {
+    KeepSlot,
+    ClearSlot,
+}
+
+enum RecordingStopOutcome {
+    KeepState,
+    TransitionToReady(ReadyState),
+    ClearSlot,
 }
 
 /// It can make a difference if we apply a factor once on a large integer x and then round or
