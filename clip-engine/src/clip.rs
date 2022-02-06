@@ -526,9 +526,7 @@ impl Clip {
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
-        self.supplier_chain
-            .flexible_source_mut()
-            .write_audio(request);
+        self.supplier_chain.recorder_mut().write_audio(request);
     }
 
     pub fn set_volume(&mut self, volume: ReaperVolumeValue) -> ClipChangedEvent {

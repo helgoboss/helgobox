@@ -7,7 +7,7 @@ use reaper_medium::{BorrowedMidiEventList, Hz};
 use std::cmp;
 
 #[derive(Debug)]
-pub struct FlexibleSource<S> {
+pub struct Recorder<S> {
     supplier: S,
     temporary_audio_buffer: OwnedAudioBuffer,
     next_record_start_frame: usize,
@@ -28,7 +28,7 @@ pub struct WriteAudioRequest<'a> {
     pub right_buffer: AudioBuf<'a>,
 }
 
-impl<S> FlexibleSource<S> {
+impl<S> Recorder<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             supplier,
@@ -70,7 +70,7 @@ impl<S> FlexibleSource<S> {
     }
 }
 
-impl<S: AudioSupplier> AudioSupplier for FlexibleSource<S> {
+impl<S: AudioSupplier> AudioSupplier for Recorder<S> {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -103,7 +103,7 @@ impl<S: AudioSupplier> AudioSupplier for FlexibleSource<S> {
     }
 }
 
-impl<S: MidiSupplier> MidiSupplier for FlexibleSource<S> {
+impl<S: MidiSupplier> MidiSupplier for Recorder<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
@@ -113,13 +113,13 @@ impl<S: MidiSupplier> MidiSupplier for FlexibleSource<S> {
     }
 }
 
-impl<S: ExactFrameCount> ExactFrameCount for FlexibleSource<S> {
+impl<S: ExactFrameCount> ExactFrameCount for Recorder<S> {
     fn frame_count(&self) -> usize {
         self.supplier.frame_count()
     }
 }
 
-impl<S: WithFrameRate> WithFrameRate for FlexibleSource<S> {
+impl<S: WithFrameRate> WithFrameRate for Recorder<S> {
     fn frame_rate(&self) -> Hz {
         self.supplier.frame_rate()
     }

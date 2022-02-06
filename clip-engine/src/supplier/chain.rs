@@ -1,13 +1,13 @@
 use crate::supplier::{Looper, Suspender};
-use crate::{FlexibleSource, Resampler, TimeStretcher};
+use crate::{Recorder, Resampler, TimeStretcher};
 use reaper_medium::OwnedPcmSource;
 
 type Head = SuspenderTail;
 type SuspenderTail = Suspender<ResamplerTail>;
 type ResamplerTail = Resampler<TimeStretcherTail>;
 type TimeStretcherTail = TimeStretcher<LooperTail>;
-type LooperTail = Looper<FlexibleSourceTail>;
-type FlexibleSourceTail = FlexibleSource<ReaperSourceTail>;
+type LooperTail = Looper<RecorderTail>;
+type RecorderTail = Recorder<ReaperSourceTail>;
 type ReaperSourceTail = OwnedPcmSource;
 
 #[derive(Debug)]
@@ -20,7 +20,7 @@ impl ClipSupplierChain {
         Self {
             head: {
                 Suspender::new(Resampler::new(TimeStretcher::new(Looper::new(
-                    FlexibleSource::new(reaper_source),
+                    Recorder::new(reaper_source),
                 ))))
             },
         }
@@ -72,19 +72,19 @@ impl ClipSupplierChain {
         self.time_stretcher_mut().supplier_mut()
     }
 
-    pub fn flexible_source(&self) -> &FlexibleSourceTail {
+    pub fn recorder(&self) -> &RecorderTail {
         self.looper().supplier()
     }
 
-    pub fn flexible_source_mut(&mut self) -> &mut FlexibleSourceTail {
+    pub fn recorder_mut(&mut self) -> &mut RecorderTail {
         self.looper_mut().supplier_mut()
     }
 
     pub fn reaper_source(&self) -> &ReaperSourceTail {
-        self.flexible_source().supplier()
+        self.recorder().supplier()
     }
 
     pub fn reaper_source_mut(&mut self) -> &mut ReaperSourceTail {
-        self.flexible_source_mut().supplier_mut()
+        self.recorder_mut().supplier_mut()
     }
 }

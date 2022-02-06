@@ -11,8 +11,8 @@ pub use cache::*;
 mod looper;
 pub use looper::*;
 
-mod flexible_source;
-pub use flexible_source::*;
+mod recorder;
+pub use recorder::*;
 
 pub mod time_stretcher;
 pub use time_stretcher::*;
