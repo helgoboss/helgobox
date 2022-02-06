@@ -40,7 +40,8 @@ struct SourceData {
 }
 
 impl SourceData {
-    fn from_source(source: &OwnedPcmSource, is_midi: bool, project: Option<Project>) -> Self {
+    fn from_source(source: &OwnedPcmSource, project: Option<Project>) -> Self {
+        let is_midi = pcm_source_is_midi(source);
         let tempo = source
             .tempo()
             .unwrap_or_else(|| detect_tempo(source.duration(), project));
@@ -172,11 +173,10 @@ pub enum RecordTiming {
 
 impl Clip {
     pub fn from_source(source: OwnedPcmSource, project: Option<Project>) -> Self {
-        let is_midi = pcm_source_is_midi(&source);
-        let source_data = SourceData::from_source(&source, is_midi, project);
+        let source_data = SourceData::from_source(&source, project);
         Self::new(
             Some(source_data),
-            is_midi,
+            pcm_source_is_midi(&source),
             ClipSupplierChain::new(source),
             project,
         )
@@ -349,17 +349,13 @@ impl Clip {
             }
             Recording(s) => {
                 use RecordTiming::*;
-                self.state = match s.timing {
+                match s.timing {
                     Unsynced => {
-                        if s.play_after {
-                            Playing(Default::default())
-                        } else {
-                            Stopped
-                        }
+                        self.finish_recording(s.play_after, None);
                     }
                     Synced { start_bar, end_bar } => {
                         // TODO-high If start bar in future, discard recording.
-                        if end_bar.is_some() {
+                        self.state = if end_bar.is_some() {
                             // End already scheduled. Take care of stopping after recording.
                             Recording(RecordingState {
                                 play_after: false,
@@ -375,9 +371,9 @@ impl Clip {
                                 },
                                 ..s
                             })
-                        }
+                        };
                     }
-                };
+                }
             }
         }
     }
@@ -1106,6 +1102,7 @@ impl Clip {
         } else {
             // Suspension finished.
             use StateAfterSuspension::*;
+            self.reset_for_play();
             match s.next_state {
                 Playing(s) => ClipState::Playing(s),
                 Paused(s) => {
@@ -1140,19 +1137,31 @@ impl Clip {
                 let record_end_pos = args.timeline.pos_of_bar(end_bar);
                 if block_end_pos >= record_end_pos {
                     // We have recorded the last block.
+                    self.finish_recording(s.play_after, Some(end_bar));
                     if s.play_after {
-                        self.set_repeated(true);
-                        self.state = ClipState::Playing(PlayingState {
-                            start_bar: Some(end_bar),
-                            ..Default::default()
-                        });
                         self.process(args);
-                    } else {
-                        self.state = ClipState::Stopped;
                     }
                 }
             }
         }
+    }
+
+    fn finish_recording(&mut self, play_after: bool, start_bar: Option<i32>) {
+        // Set source data
+        let source_data =
+            SourceData::from_source(self.supplier_chain.reaper_source(), self.project);
+        dbg!(&source_data);
+        self.source_data = Some(source_data);
+        // Change state
+        self.state = if play_after {
+            self.repeated = true;
+            ClipState::Playing(PlayingState {
+                start_bar,
+                ..Default::default()
+            })
+        } else {
+            ClipState::Stopped
+        };
     }
 
     fn prepare_playing(

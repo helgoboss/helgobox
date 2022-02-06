@@ -7,8 +7,8 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_clip_engine::{
-    ClipChangedEvent, ClipRecordSourceType, ClipRecordTiming, RecordArgs, RecordKind,
-    SlotPlayOptions, SlotStopBehavior,
+    clip_timeline, ClipChangedEvent, ClipRecordSourceType, ClipRecordTiming, RecordArgs,
+    RecordKind, SlotPlayOptions, SlotStopBehavior, Timeline,
 };
 use reaper_high::{Project, Track};
 
@@ -141,13 +141,22 @@ impl RealearnTarget for ClipTransportTarget {
             RecordStop => {
                 println!("Pressed record with on = {:?}", on);
                 if on {
+                    let timing = if self.play_options.next_bar {
+                        let timeline = clip_timeline(Some(self.project), false);
+                        let next_bar = timeline.next_bar_at(timeline.cursor_pos());
+                        ClipRecordTiming::StartOnBarStopOnDemand {
+                            start_bar: next_bar,
+                        }
+                    } else {
+                        ClipRecordTiming::StartImmediatelyStopOnDemand
+                    };
                     clip_matrix.record_clip_legacy(
                         self.slot_index,
                         self.project,
                         RecordArgs {
                             kind: RecordKind::Normal {
                                 play_after: true,
-                                timing: ClipRecordTiming::StartImmediatelyStopOnDemand,
+                                timing,
                             },
                         },
                     );
