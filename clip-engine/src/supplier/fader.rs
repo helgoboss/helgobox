@@ -12,15 +12,28 @@ use reaper_medium::{
 
 #[derive(Debug)]
 pub struct Fader<S> {
-    start_frame: Option<isize>,
+    fade: Option<Fade>,
     supplier: S,
 }
-//
-// struct Fade {
-//     direction: FadeDirection,
-//     start_frame: isize
-// }
 
+#[derive(Clone, Copy, Debug)]
+struct Fade {
+    direction: FadeDirection,
+    start_frame: isize,
+    end_frame: isize,
+}
+
+impl Fade {
+    fn new(start_frame: isize, direction: FadeDirection) -> Self {
+        Fade {
+            direction,
+            start_frame,
+            end_frame: start_frame + FADE_LENGTH as isize,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 enum FadeDirection {
     FadeIn,
     FadeOut,
@@ -29,17 +42,25 @@ enum FadeDirection {
 impl<S> Fader<S> {
     pub fn new(supplier: S) -> Self {
         Self {
-            start_frame: None,
+            fade: None,
             supplier,
         }
     }
 
+    pub fn is_fading_in(&self) -> bool {
+        self.fade
+            .map(|f| f.direction == FadeDirection::FadeIn)
+            .unwrap_or(false)
+    }
+
     pub fn is_fading_out(&self) -> bool {
-        self.start_frame.is_some()
+        self.fade
+            .map(|f| f.direction == FadeDirection::FadeOut)
+            .unwrap_or(false)
     }
 
     pub fn reset(&mut self) {
-        self.start_frame = None;
+        self.fade = None;
     }
 
     pub fn supplier(&self) -> &S {
@@ -50,8 +71,12 @@ impl<S> Fader<S> {
         &mut self.supplier
     }
 
+    pub fn start_fade_in(&mut self, start_frame: isize) {
+        self.fade = Some(Fade::new(start_frame, FadeDirection::FadeIn));
+    }
+
     pub fn start_fade_out(&mut self, start_frame: isize) {
-        self.start_frame = Some(start_frame);
+        self.fade = Some(Fade::new(start_frame, FadeDirection::FadeOut));
     }
 }
 
@@ -61,42 +86,57 @@ impl<S: AudioSupplier> AudioSupplier for Fader<S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        let fade_start_frame = match self.start_frame {
+        use FadeDirection::*;
+        let fade = match self.fade {
             // No fade request.
             None => return self.supplier.supply_audio(request, dest_buffer),
             Some(f) => f,
         };
-        if request.start_frame < fade_start_frame {
-            // Fade not started yet. Shouldn't happen if used in normal ways (instant fade).
+        if request.start_frame < fade.start_frame && fade.direction == FadeOut {
+            // Fade out not started yet. Shouldn't happen if used in normal ways (instant fade).
             return self.supplier.supply_audio(request, dest_buffer);
         }
-        let fade_end_frame = fade_start_frame + FADE_LENGTH as isize;
-        if request.start_frame >= fade_end_frame {
+        if request.start_frame >= fade.end_frame {
             // Nothing to fade anymore. Shouldn't happen if used in normal ways (stops requests
             // as soon as fade phase ended).
-            return SupplyResponse {
-                num_frames_written: 0,
-                num_frames_consumed: 0,
-                next_inner_frame: None,
-            };
+            match fade.direction {
+                FadeIn => {
+                    return self.supplier.supply_audio(request, dest_buffer);
+                }
+                FadeOut => {
+                    return SupplyResponse {
+                        num_frames_written: 0,
+                        num_frames_consumed: 0,
+                        next_inner_frame: None,
+                    };
+                }
+            }
         }
         // In fade phase.
         let inner_response = self.supplier.supply_audio(request, dest_buffer);
-        let remaining_frames_until_fade_finished = (fade_end_frame - request.start_frame) as usize;
+        let counter = match fade.direction {
+            FadeIn => (request.start_frame - fade.start_frame) as usize,
+            FadeOut => (fade.end_frame - request.start_frame) as usize,
+        };
         dest_buffer.modify_frames(|frame, sample| {
-            let factor = (remaining_frames_until_fade_finished + frame) as f64 / FADE_LENGTH as f64;
+            let factor = (counter + frame) as f64 / FADE_LENGTH as f64;
             sample * factor
         });
         let request_end_frame = request.start_frame + dest_buffer.frame_count() as isize;
         SupplyResponse {
             num_frames_written: inner_response.num_frames_written,
             num_frames_consumed: inner_response.num_frames_consumed,
-            next_inner_frame: if request_end_frame < fade_end_frame {
-                inner_response.next_inner_frame
-            } else {
-                // Fade finished.
-                self.start_frame = None;
-                None
+            next_inner_frame: {
+                if request_end_frame < fade.end_frame {
+                    inner_response.next_inner_frame
+                } else {
+                    // Fade finished.
+                    self.fade = None;
+                    match fade.direction {
+                        FadeIn => inner_response.next_inner_frame,
+                        FadeOut => None,
+                    }
+                }
             },
         }
     }
@@ -118,12 +158,19 @@ impl<S: MidiSupplier> MidiSupplier for Fader<S> {
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {
-        let fade_start_frame = match self.start_frame {
-            // No fade request.
-            None => return self.supplier.supply_midi(request, event_list),
-            Some(f) => f,
+        let fade = match self.fade {
+            Some(
+                f
+                @
+                Fade {
+                    direction: FadeDirection::FadeOut,
+                    ..
+                },
+            ) => f,
+            // No fade out request.
+            _ => return self.supplier.supply_midi(request, event_list),
         };
-        if request.start_frame < fade_start_frame {
+        if request.start_frame < fade.start_frame {
             // Fade not started yet. Shouldn't happen if used in normal ways (instant fade).
             return self.supplier.supply_midi(request, event_list);
         }
