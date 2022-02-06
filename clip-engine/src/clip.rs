@@ -1009,9 +1009,9 @@ impl ReadyState {
         supplier_chain: &mut SupplierChain,
     ) -> Option<RecordingState> {
         let general_info = self.prepare_playing(&args, supplier_chain);
-        let suspender = supplier_chain.suspender_mut();
-        if !suspender.is_suspending() {
-            suspender.suspend(s.pos);
+        let fader = supplier_chain.fader_mut();
+        if !fader.is_fading_out() {
+            fader.start_fade_out(s.pos);
         }
         self.state = if let Some(end_frame) =
             self.fill_samples(args, s.pos, &general_info, 1.0, supplier_chain)
@@ -1043,7 +1043,7 @@ impl ReadyState {
     }
 
     fn reset_for_play(&mut self, supplier_chain: &mut SupplierChain) {
-        supplier_chain.suspender_mut().reset();
+        supplier_chain.fader_mut().reset();
         supplier_chain.resampler_mut().reset_buffers_and_latency();
         supplier_chain
             .time_stretcher_mut()

@@ -1,9 +1,9 @@
-use crate::supplier::{Looper, Suspender};
+use crate::supplier::{Fader, Looper};
 use crate::{Recorder, Resampler, TimeStretcher};
 use reaper_medium::OwnedPcmSource;
 
-type Head = SuspenderTail;
-type SuspenderTail = Suspender<ResamplerTail>;
+type Head = FaderTail;
+type FaderTail = Fader<ResamplerTail>;
 type ResamplerTail = Resampler<TimeStretcherTail>;
 type TimeStretcherTail = TimeStretcher<LooperTail>;
 type LooperTail = Looper<RecorderTail>;
@@ -19,7 +19,7 @@ impl SupplierChain {
     pub fn new(reaper_source: OwnedPcmSource) -> Self {
         let mut chain = Self {
             head: {
-                Suspender::new(Resampler::new(TimeStretcher::new(Looper::new(
+                Fader::new(Resampler::new(TimeStretcher::new(Looper::new(
                     Recorder::new(reaper_source),
                 ))))
             },
@@ -44,11 +44,11 @@ impl SupplierChain {
         &mut self.head
     }
 
-    pub fn suspender(&self) -> &SuspenderTail {
+    pub fn fader(&self) -> &FaderTail {
         &self.head
     }
 
-    pub fn suspender_mut(&mut self) -> &mut SuspenderTail {
+    pub fn fader_mut(&mut self) -> &mut FaderTail {
         &mut self.head
     }
 

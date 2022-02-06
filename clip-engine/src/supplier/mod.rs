@@ -25,9 +25,9 @@ use crate::Timeline;
 mod chain;
 pub use chain::*;
 
-mod suspender;
+mod fader;
 use crate::clip_timeline;
-pub use suspender::*;
+pub use fader::*;
 
 mod midi_util;
 
