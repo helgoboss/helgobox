@@ -96,7 +96,7 @@ impl ColumnSource {
         index: usize,
         behavior: RecordBehavior,
     ) -> Result<(), &'static str> {
-        get_slot_mut(&mut self.slots, index).record_clip(behavior)
+        get_slot_mut(&mut self.slots, index).record_clip(behavior, self.project)
     }
 
     pub fn pause_clip(&mut self, index: usize) -> Result<(), &'static str> {

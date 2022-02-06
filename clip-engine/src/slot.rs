@@ -4,7 +4,7 @@ use crate::{
     WriteAudioRequest, WriteMidiRequest,
 };
 use helgoboss_learn::UnitValue;
-use reaper_high::OwnedSource;
+use reaper_high::{OwnedSource, Project};
 use reaper_medium::{Bpm, PcmSourceTransfer, PlayState, PositionInSeconds, ReaperVolumeValue};
 
 #[derive(Debug, Default)]
@@ -58,38 +58,21 @@ impl Slot {
         Ok(self.get_clip_mut()?.toggle_repeated())
     }
 
-    pub fn record_clip(&mut self, behavior: RecordBehavior) -> Result<(), &'static str> {
-        // TODO-high We should probably keep the current source, not replace it
-        //  immediately, in order to allow a fade out.
-        if let RecordBehavior::Normal { .. } = behavior {
-            // TODO-high Also implement for audio recording.
-            let mut source = OwnedSource::from_type("MIDI").unwrap();
-            // TODO-high Only keep necessary parts of the chunk
-            // TODO-high Make clip very short. Realtime-writing makes it longer automatically.
-            // TODO-high We absolutely need the permanent section supplier, then we can play the
-            //  source correctly positioned and with correct length even the source is too long
-            //  and starts too early.
-            let chunk = "\
-                HASDATA 1 960 QN\n\
-                CCINTERP 32\n\
-                POOLEDEVTS {1F408000-28E4-46FA-9CB8-935A213C5904}\n\
-                E 115200 b0 7b 00\n\
-                CCINTERP 32\n\
-                CHASE_CC_TAKEOFFS 1\n\
-                GUID {1A129921-1EC6-4C57-B340-95F076A6B9FF}\n\
-                IGNTEMPO 0 120 4 4\n\
-                SRCCOLOR 647\n\
-                VELLANE 141 274 0\n\
-            >\n\
-            ";
-            source
-                .set_state_chunk("<SOURCE MIDI\n", String::from(chunk))
-                .unwrap();
-            // TODO-high Do it
-            // self.clear()?;
-            // self.fill_with_source(source, Some(project), stretch_worker_sender)?;
+    pub fn record_clip(
+        &mut self,
+        behavior: RecordBehavior,
+        project: Option<Project>,
+    ) -> Result<(), &'static str> {
+        use RecordBehavior::*;
+        match behavior {
+            Normal { play_after, timing } => {
+                let clip = self.clip.get_or_insert_with(|| Clip::empty(project));
+                clip.record(play_after, timing);
+            }
+            MidiOverdub => {
+                self.get_clip_mut()?.midi_overdub();
+            }
         }
-        self.get_clip_mut()?.record(behavior);
         Ok(())
     }
 

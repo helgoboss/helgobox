@@ -1,14 +1,17 @@
 use crate::buffer::AudioBufMut;
 use crate::{
-    AudioBuf, AudioSupplier, ExactFrameCount, MidiSupplier, OwnedAudioBuffer, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse, WithFrameRate,
+    clip_timeline, AudioBuf, AudioSupplier, ExactFrameCount, MidiSupplier, OwnedAudioBuffer,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
-use reaper_medium::{BorrowedMidiEventList, Hz};
+use reaper_high::OwnedSource;
+use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
+use reaper_medium::{BorrowedMidiEventList, Hz, OwnedPcmSource, PositionInSeconds};
 use std::cmp;
+use std::ptr::null_mut;
 
 #[derive(Debug)]
-pub struct Recorder<S> {
-    supplier: S,
+pub struct Recorder {
+    supplier: OwnedPcmSource,
     temporary_audio_buffer: OwnedAudioBuffer,
     next_record_start_frame: usize,
 }
@@ -28,21 +31,26 @@ pub struct WriteAudioRequest<'a> {
     pub right_buffer: AudioBuf<'a>,
 }
 
-impl<S> Recorder<S> {
-    pub fn new(supplier: S) -> Self {
+impl Recorder {
+    pub fn new(source: OwnedPcmSource) -> Self {
         Self {
-            supplier,
+            supplier: source,
             temporary_audio_buffer: OwnedAudioBuffer::new(2, 48000 * 2),
             next_record_start_frame: 0,
         }
     }
 
-    pub fn supplier(&self) -> &S {
+    pub fn supplier(&self) -> &OwnedPcmSource {
         &self.supplier
     }
 
-    pub fn supplier_mut(&mut self) -> &mut S {
+    pub fn supplier_mut(&mut self) -> &mut OwnedPcmSource {
         &mut self.supplier
+    }
+
+    pub fn prepare_recording(&mut self) {
+        // TODO-high Just replacing is not a good idea. Fade outs?
+        self.supplier = get_empty_midi_source();
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
@@ -68,9 +76,60 @@ impl<S> Recorder<S> {
         //     .copy_to(&mut out_buf.slice_mut(start_frame..end_frame));
         self.next_record_start_frame += num_frames_written;
     }
+
+    pub fn write_midi(&mut self, request: WriteMidiRequest, pos: PositionInSeconds) {
+        let mut write_struct = midi_realtime_write_struct_t {
+            global_time: pos.get(),
+            srate: request.input_sample_rate.get(),
+            item_playrate: 1.0,
+            global_item_time: 0.0,
+            length: request.block_length as _,
+            // Overdub
+            overwritemode: 0,
+            events: unsafe { request.events.as_ptr().as_mut() },
+            latency: 0.0,
+            // Not used
+            overwrite_actives: null_mut(),
+        };
+        unsafe {
+            self.supplier.extended(
+                PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
+                &mut write_struct as *mut _ as _,
+                null_mut(),
+                null_mut(),
+            );
+        }
+    }
 }
 
-impl<S: AudioSupplier> AudioSupplier for Recorder<S> {
+/// Returns an empty MIDI source prepared for recording.
+pub fn get_empty_midi_source() -> OwnedPcmSource {
+    // TODO-high Also implement for audio recording.
+    let mut source = OwnedSource::from_type("MIDI").unwrap();
+    // TODO-high Only keep necessary parts of the chunk
+    // TODO-high We absolutely need the permanent section supplier, then we can play the
+    //  source correctly positioned and with correct length even the source is too long
+    //  and starts too early.
+    let chunk = "\
+                HASDATA 1 960 QN\n\
+                CCINTERP 32\n\
+                POOLEDEVTS {1F408000-28E4-46FA-9CB8-935A213C5904}\n\
+                E 1 b0 7b 00\n\
+                CCINTERP 32\n\
+                CHASE_CC_TAKEOFFS 1\n\
+                GUID {1A129921-1EC6-4C57-B340-95F076A6B9FF}\n\
+                IGNTEMPO 0 120 4 4\n\
+                SRCCOLOR 647\n\
+                VELLANE 141 274 0\n\
+            >\n\
+            ";
+    source
+        .set_state_chunk("<SOURCE MIDI\n", String::from(chunk))
+        .unwrap();
+    source.into_raw()
+}
+
+impl AudioSupplier for Recorder {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -103,7 +162,7 @@ impl<S: AudioSupplier> AudioSupplier for Recorder<S> {
     }
 }
 
-impl<S: MidiSupplier> MidiSupplier for Recorder<S> {
+impl MidiSupplier for Recorder {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
@@ -113,13 +172,13 @@ impl<S: MidiSupplier> MidiSupplier for Recorder<S> {
     }
 }
 
-impl<S: ExactFrameCount> ExactFrameCount for Recorder<S> {
+impl ExactFrameCount for Recorder {
     fn frame_count(&self) -> usize {
         self.supplier.frame_count()
     }
 }
 
-impl<S: WithFrameRate> WithFrameRate for Recorder<S> {
+impl WithFrameRate for Recorder {
     fn frame_rate(&self) -> Hz {
         self.supplier.frame_rate()
     }

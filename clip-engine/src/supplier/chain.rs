@@ -7,7 +7,7 @@ type SuspenderTail = Suspender<ResamplerTail>;
 type ResamplerTail = Resampler<TimeStretcherTail>;
 type TimeStretcherTail = TimeStretcher<LooperTail>;
 type LooperTail = Looper<RecorderTail>;
-type RecorderTail = Recorder<ReaperSourceTail>;
+type RecorderTail = Recorder;
 type ReaperSourceTail = OwnedPcmSource;
 
 #[derive(Debug)]
@@ -17,13 +17,23 @@ pub struct ClipSupplierChain {
 
 impl ClipSupplierChain {
     pub fn new(reaper_source: OwnedPcmSource) -> Self {
-        Self {
+        let mut chain = Self {
             head: {
                 Suspender::new(Resampler::new(TimeStretcher::new(Looper::new(
                     Recorder::new(reaper_source),
                 ))))
             },
-        }
+        };
+        // Configure resampler
+        let resampler = chain.resampler_mut();
+        resampler.set_enabled(true);
+        // Configure time stratcher
+        let time_stretcher = chain.time_stretcher_mut();
+        time_stretcher.set_enabled(true);
+        // Configure looper
+        let looper = chain.looper_mut();
+        looper.set_fades_enabled(true);
+        chain
     }
 
     pub fn reset_for_play(&mut self) {

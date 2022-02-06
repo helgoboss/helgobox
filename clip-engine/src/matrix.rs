@@ -63,7 +63,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
                 index: row,
                 clip: {
                     let source = content.create_source(project)?.into_raw();
-                    Clip::new(source, project)
+                    Clip::from_source(source, project)
                 },
             });
             column.set_clip_repeated(ColumnSetClipRepeatedArgs {
@@ -226,12 +226,13 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         slot_index: usize,
         item: Item,
     ) -> Result<(), Box<dyn Error>> {
-        todo!()
         // let slot = get_slot_mut(&mut self.clip_slots, slot_index)?;
         // let content = ClipContent::from_item(item, false)?;
         // slot.fill_by_user(content, item.project(), &self.stretch_worker_sender)?;
         // self.handler.notify_slot_contents_changed();
-        // Ok(())
+        let content = ClipContent::from_item(item, false)?;
+        dbg!(content);
+        Ok(())
     }
 }
 

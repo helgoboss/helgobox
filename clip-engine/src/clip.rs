@@ -3,11 +3,12 @@ use crate::tempo_util::detect_tempo;
 use crate::{
     adjust_proportionally_positive, clip_timeline, convert_duration_in_frames_to_other_frame_rate,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames, AudioBufMut,
-    AudioSupplier, ClipContent, ClipRecordTiming, ClipSupplierChain, CreateClipContentMode,
-    ExactDuration, ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier, RecordKind,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, Timeline,
-    WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest,
+    convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
+    get_empty_midi_source, AudioBufMut, AudioSupplier, ClipContent, ClipRecordTiming,
+    ClipSupplierChain, CreateClipContentMode, ExactDuration, ExactFrameCount, LegacyClip,
+    LoopBehavior, MidiSupplier, RecordKind, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, Timeline, WithFrameRate, WithTempo,
+    WriteAudioRequest, WriteMidiRequest,
 };
 use helgoboss_learn::UnitValue;
 use reaper_high::{OwnedSource, Project, ReaperSource};
@@ -21,16 +22,46 @@ use std::ptr::null_mut;
 
 #[derive(Debug)]
 pub struct Clip {
+    source_data: Option<SourceData>,
     supplier_chain: ClipSupplierChain,
-    tempo: Bpm,
-    beat_count: u32,
+    is_midi: bool,
     state: ClipState,
     repeated: bool,
     project: Option<Project>,
-    is_midi: bool,
     // TODO-high Not yet implemented. This must also be implemented for MIDI, so we better choose
     //  a more neutral unit.
     volume: ReaperVolumeValue,
+}
+
+#[derive(Debug)]
+struct SourceData {
+    tempo: Bpm,
+    beat_count: u32,
+}
+
+impl SourceData {
+    fn from_source(source: &OwnedPcmSource, is_midi: bool, project: Option<Project>) -> Self {
+        let tempo = source
+            .tempo()
+            .unwrap_or_else(|| detect_tempo(source.duration(), project));
+        let beat_count = if is_midi {
+            source
+                .get_length_beats()
+                .expect("MIDI source should report beats")
+                .get()
+                .round() as u32
+        } else {
+            let beats_per_sec = tempo.get() / 60.0;
+            (source.duration().get() * beats_per_sec).round() as u32
+        };
+        assert_ne!(beat_count, 0, "source reported beat count of zero");
+        Self { tempo, beat_count }
+    }
+
+    fn bar_count(&self) -> u32 {
+        // TODO-high Respect different time signatures
+        self.beat_count / 4
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -114,6 +145,8 @@ enum StateAfterSuspension {
 
 #[derive(Copy, Clone, Debug)]
 struct RecordingState {
+    /// Timeline position at which recording was triggered.
+    pub timeline_start_pos: PositionInSeconds,
     pub play_after: bool,
     pub timing: RecordTiming,
 }
@@ -137,43 +170,36 @@ pub enum RecordTiming {
 }
 
 impl Clip {
-    pub fn new(source: OwnedPcmSource, project: Option<Project>) -> Self {
+    pub fn from_source(source: OwnedPcmSource, project: Option<Project>) -> Self {
         let is_midi = pcm_source_is_midi(&source);
-        let tempo = source
-            .tempo()
-            .unwrap_or_else(|| detect_tempo(source.duration(), project));
-        let beat_count = if is_midi {
-            source
-                .get_length_beats()
-                .expect("MIDI source should report beats")
-                .get()
-                .round() as u32
-        } else {
-            let beats_per_sec = tempo.get() / 60.0;
-            (source.duration().get() * beats_per_sec).round() as u32
-        };
-        assert_ne!(beat_count, 0, "source reported beat count of zero");
-        let supplier_chain = {
-            let mut chain = ClipSupplierChain::new(source);
-            // Configure resampler
-            let resampler = chain.resampler_mut();
-            resampler.set_enabled(true);
-            // Configure time stratcher
-            let time_stretcher = chain.time_stretcher_mut();
-            time_stretcher.set_enabled(true);
-            // Configure looper
-            let looper = chain.looper_mut();
-            looper.set_fades_enabled(true);
-            chain
-        };
+        let source_data = SourceData::from_source(&source, is_midi, project);
+        Self::new(
+            Some(source_data),
+            is_midi,
+            ClipSupplierChain::new(source),
+            project,
+        )
+    }
+
+    pub fn empty(project: Option<Project>) -> Self {
+        // TODO-high This should be None, ideally. We prepare the recording anyway.
+        let source = get_empty_midi_source();
+        Self::new(None, true, ClipSupplierChain::new(source), project)
+    }
+
+    fn new(
+        source_data: Option<SourceData>,
+        is_midi: bool,
+        supplier_chain: ClipSupplierChain,
+        project: Option<Project>,
+    ) -> Self {
         Self {
+            source_data,
             supplier_chain,
-            tempo,
-            beat_count,
+            is_midi,
             state: ClipState::Stopped,
             repeated: false,
             project,
-            is_midi,
             volume: Default::default(),
         }
     }
@@ -367,44 +393,47 @@ impl Clip {
         self.volume
     }
 
-    pub fn record(&mut self, behavior: RecordBehavior) {
+    pub fn midi_overdub(&mut self) {
         use ClipState::*;
-        match behavior {
-            RecordBehavior::Normal { play_after, timing } => {
-                let recording_state = RecordingState { play_after, timing };
-                self.state = match self.state {
-                    Stopped => Recording(recording_state),
-                    Playing(s) => {
-                        if let Some(pos) = s.pos {
-                            if pos >= 0 {
-                                Suspending(SuspendingState {
-                                    next_state: StateAfterSuspension::Recording(recording_state),
-                                    pos,
-                                })
-                            } else {
-                                Recording(recording_state)
-                            }
-                        } else {
-                            Recording(recording_state)
-                        }
+        // TODO-medium Maybe we should start to play if not yet playing
+        if let Playing(s) = self.state {
+            self.state = Playing(PlayingState {
+                overdubbing: true,
+                ..s
+            });
+        }
+    }
+
+    pub fn record(&mut self, play_after: bool, timing: RecordTiming) {
+        self.supplier_chain.recorder_mut().prepare_recording();
+        use ClipState::*;
+        let recording_state = RecordingState {
+            timeline_start_pos: clip_timeline(self.project, false).cursor_pos(),
+            play_after,
+            timing,
+        };
+        self.state = match self.state {
+            Stopped => Recording(recording_state),
+            Playing(s) => {
+                if let Some(pos) = s.pos {
+                    if pos >= 0 {
+                        Suspending(SuspendingState {
+                            next_state: StateAfterSuspension::Recording(recording_state),
+                            pos,
+                        })
+                    } else {
+                        Recording(recording_state)
                     }
-                    Suspending(s) => Suspending(SuspendingState {
-                        next_state: StateAfterSuspension::Recording(recording_state),
-                        ..s
-                    }),
-                    Paused(_) | Recording(_) => Recording(recording_state),
-                };
-            }
-            RecordBehavior::MidiOverdub => {
-                if let Playing(s) = self.state {
-                    self.state = Playing(PlayingState {
-                        overdubbing: true,
-                        ..s
-                    });
+                } else {
+                    Recording(recording_state)
                 }
             }
-        }
-        println!("Recording");
+            Suspending(s) => Suspending(SuspendingState {
+                next_state: StateAfterSuspension::Recording(recording_state),
+                ..s
+            }),
+            Paused(_) | Recording(_) => Recording(recording_state),
+        };
     }
 
     pub fn pause(&mut self) {
@@ -496,33 +525,21 @@ impl Clip {
     }
 
     pub fn write_midi(&mut self, request: WriteMidiRequest) {
-        // TODO-high When not doing overdub, we must calculate the position from the time when
-        //  recording began.
         let timeline = clip_timeline(self.project, false);
-        let pos_within_clip = self
-            .position_in_seconds(timeline.tempo_at(timeline.cursor_pos()))
-            .unwrap_or_default();
-        let mut write_struct = midi_realtime_write_struct_t {
-            global_time: pos_within_clip.get(),
-            srate: request.input_sample_rate.get(),
-            item_playrate: 1.0,
-            global_item_time: 0.0,
-            length: request.block_length as _,
-            // Overdub
-            overwritemode: 0,
-            events: unsafe { request.events.as_ptr().as_mut() },
-            latency: 0.0,
-            // Not used
-            overwrite_actives: null_mut(),
+        let timeline_cursor_pos = timeline.cursor_pos();
+        use ClipState::*;
+        let record_pos = match self.state {
+            Playing(PlayingState {
+                overdubbing: true, ..
+            }) => self
+                .position_in_seconds(timeline.tempo_at(timeline_cursor_pos))
+                .unwrap_or_default(),
+            Recording(s) => timeline_cursor_pos - s.timeline_start_pos,
+            _ => return,
         };
-        unsafe {
-            self.supplier_chain.reaper_source_mut().extended(
-                PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
-                &mut write_struct as *mut _ as _,
-                null_mut(),
-                null_mut(),
-            );
-        }
+        self.supplier_chain
+            .recorder_mut()
+            .write_midi(request, record_pos);
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
@@ -937,8 +954,15 @@ impl Clip {
 
     fn log_natural_deviation(&self, args: LogNaturalDeviationArgs<impl Timeline>) {
         // Assuming a constant tempo and time signature during one cycle
-        // Bars
-        let end_bar = args.start_bar + self.bar_count() as i32;
+        // TODO-high Just temporary! We should introduce 2 parent states: Recording and Ready.
+        //  Ready has source data and contains all the known states such as Playing, Stopped, ...
+        //  In Recording state, the reaper_source() should be None.
+        let bar_count = self
+            .source_data
+            .as_ref()
+            .map(|d| d.bar_count())
+            .unwrap_or(1);
+        let end_bar = args.start_bar + bar_count as i32;
         let bar_count = end_bar - args.start_bar;
         let end_bar_timeline_pos = args.timeline.pos_of_bar(end_bar);
         assert!(end_bar_timeline_pos > args.start_bar_timeline_pos);
@@ -1045,11 +1069,6 @@ impl Clip {
         );
     }
 
-    fn bar_count(&self) -> u32 {
-        // TODO-high Respect different time signatures
-        self.beat_count / 4
-    }
-
     fn process_suspending(&mut self, s: SuspendingState, args: ClipProcessArgs<impl Timeline>) {
         let general_info = self.prepare_playing(&args);
         let suspender = self.supplier_chain.suspender_mut();
@@ -1142,8 +1161,12 @@ impl Clip {
     }
 
     fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
-        let timeline_tempo_factor = timeline_tempo.get() / self.tempo.get();
-        timeline_tempo_factor.max(MIN_TEMPO_FACTOR)
+        if let Some(d) = &self.source_data {
+            let timeline_tempo_factor = timeline_tempo.get() / d.tempo.get();
+            timeline_tempo_factor.max(MIN_TEMPO_FACTOR)
+        } else {
+            1.0
+        }
     }
 }
 
