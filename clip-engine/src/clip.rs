@@ -937,7 +937,7 @@ impl Clip {
                 source_frame_rate,
                 start_bar_timeline_pos,
             };
-            self.log_natural_deviation(args);
+            // self.log_natural_deviation(args);
         }
         //region Description
         // Now we have a countdown/position in source frames, but it doesn't yet

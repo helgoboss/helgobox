@@ -139,7 +139,6 @@ impl RealearnTarget for ClipTransportTarget {
                 }
             }
             RecordStop => {
-                println!("Pressed record with on = {:?}", on);
                 if on {
                     let timing = if self.play_options.next_bar {
                         let timeline = clip_timeline(Some(self.project), false);
