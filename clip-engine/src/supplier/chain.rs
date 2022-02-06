@@ -36,12 +36,6 @@ impl ClipSupplierChain {
         chain
     }
 
-    pub fn reset_for_play(&mut self) {
-        self.suspender_mut().reset();
-        self.resampler_mut().reset_buffers_and_latency();
-        self.time_stretcher_mut().reset_buffers_and_latency();
-    }
-
     pub fn head(&self) -> &Head {
         &self.head
     }

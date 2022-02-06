@@ -147,6 +147,7 @@ enum StateAfterSuspension {
 struct RecordingState {
     /// Timeline position at which recording was triggered.
     pub timeline_start_pos: PositionInSeconds,
+    /// Implies repeat.
     pub play_after: bool,
     pub timing: RecordTiming,
 }
@@ -212,6 +213,8 @@ impl Clip {
             Playing(s) => {
                 if s.scheduled_for_stop {
                     // Scheduled for stop. Backpedal!
+                    // We can only schedule for stop when repeated, so we can set this
+                    // back to Infinitely.
                     self.supplier_chain
                         .looper_mut()
                         .set_loop_behavior(LoopBehavior::Infinitely);
@@ -305,14 +308,20 @@ impl Clip {
                                         })
                                     }
                                     ClipStopBehavior::EndOfClip => {
-                                        // Schedule
-                                        self.supplier_chain
-                                            .looper_mut()
-                                            .keep_playing_until_end_of_current_cycle(pos);
-                                        Playing(PlayingState {
-                                            scheduled_for_stop: true,
-                                            ..s
-                                        })
+                                        if self.repeated {
+                                            // Schedule
+                                            self.supplier_chain
+                                                .looper_mut()
+                                                .keep_playing_until_end_of_current_cycle(pos);
+                                            Playing(PlayingState {
+                                                scheduled_for_stop: true,
+                                                ..s
+                                            })
+                                        } else {
+                                            // Scheduling stop of a non-repeated clip doesn't make
+                                            // sense.
+                                            self.state
+                                        }
                                     }
                                 }
                             } else {
@@ -376,13 +385,13 @@ impl Clip {
     pub fn set_repeated(&mut self, repeated: bool) {
         self.repeated = repeated;
         let looper = self.supplier_chain.looper_mut();
-        if repeated {
-            looper.set_loop_behavior(LoopBehavior::Infinitely);
-        } else if let ClipState::Playing(PlayingState { pos: Some(pos), .. }) = self.state {
-            looper.keep_playing_until_end_of_current_cycle(pos);
-        } else {
-            looper.set_loop_behavior(LoopBehavior::UntilEndOfCycle(0));
+        if !repeated {
+            if let ClipState::Playing(PlayingState { pos: Some(pos), .. }) = self.state {
+                looper.keep_playing_until_end_of_current_cycle(pos);
+                return;
+            }
         }
+        looper.set_loop_behavior(LoopBehavior::from_bool(repeated));
     }
 
     pub fn repeated(&self) -> bool {
@@ -789,9 +798,22 @@ impl Clip {
             // We have reached the natural or scheduled end. Everything that needed to be
             // played has been played in previous blocks. Audio fade outs have been applied
             // as well, so no need to go to suspending state first. Go right to stop!
-            self.supplier_chain.reset_for_play();
+            self.reset_for_play();
             ClipState::Stopped
         };
+    }
+
+    fn reset_for_play(&mut self) {
+        self.supplier_chain.suspender_mut().reset();
+        self.supplier_chain
+            .resampler_mut()
+            .reset_buffers_and_latency();
+        self.supplier_chain
+            .time_stretcher_mut()
+            .reset_buffers_and_latency();
+        self.supplier_chain
+            .looper_mut()
+            .set_loop_behavior(LoopBehavior::from_bool(self.repeated));
     }
 
     fn fill_samples(
@@ -1092,7 +1114,7 @@ impl Clip {
                     ClipState::Paused(s)
                 }
                 Stopped => {
-                    self.supplier_chain.reset_for_play();
+                    self.reset_for_play();
                     ClipState::Stopped
                 }
                 Recording(s) => ClipState::Recording(s),
@@ -1119,6 +1141,7 @@ impl Clip {
                 if block_end_pos >= record_end_pos {
                     // We have recorded the last block.
                     if s.play_after {
+                        self.set_repeated(true);
                         self.state = ClipState::Playing(PlayingState {
                             start_bar: Some(end_bar),
                             ..Default::default()
@@ -1151,9 +1174,6 @@ impl Clip {
     }
 
     fn schedule_play_internal(&mut self, args: ClipPlayArgs) {
-        self.supplier_chain
-            .looper_mut()
-            .set_loop_behavior(LoopBehavior::from_bool(self.repeated));
         self.state = ClipState::Playing(PlayingState {
             start_bar: args.from_bar,
             ..Default::default()
