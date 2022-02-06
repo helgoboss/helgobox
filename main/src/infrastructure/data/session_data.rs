@@ -17,7 +17,9 @@ use crate::infrastructure::plugin::App;
 
 use crate::base::notification;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
-use playtime_clip_engine::{LegacyClip, LegacyClipOutput, LegacySlotDescriptor};
+use playtime_clip_engine::{
+    LegacyClip, LegacyClipOutput, LegacySlotDescriptor, QualifiedSlotDescriptor,
+};
 use reaper_high::{Reaper, Track};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
@@ -91,7 +93,7 @@ pub struct SessionData {
     #[serde(default, skip_serializing_if = "is_default")]
     controller_parameters: HashMap<String, ParameterData>,
     // Legacy (ReaLearn <= 2.12.0-pre.4)
-    #[serde(default, skip_serializing)]
+    #[serde(default, skip_serializing_if = "is_default")]
     clip_slots: Vec<QualifiedSlotDescriptor>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
@@ -245,7 +247,11 @@ impl SessionData {
                 parameters,
                 MappingCompartment::ControllerMappings,
             ),
-            clip_slots: vec![],
+            clip_slots: {
+                instance_state
+                    .clip_matrix()
+                    .filled_slot_descriptors_legacy()
+            },
             tags: session.tags.get_ref().clone(),
             controller: CompartmentState::from_instance_state(
                 &instance_state,
@@ -619,14 +625,6 @@ pub trait DataToModelConversionContext {
     }
 
     fn non_default_group_id_by_key(&self, key: &GroupKey) -> Option<GroupId>;
-}
-
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct QualifiedSlotDescriptor {
-    #[serde(rename = "index")]
-    pub index: usize,
-    #[serde(flatten)]
-    pub descriptor: LegacyClip,
 }
 
 fn warn_about_legacy_clip_loss(slot_index: usize, msg: &str) {

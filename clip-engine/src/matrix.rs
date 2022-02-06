@@ -76,6 +76,21 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         Ok(())
     }
 
+    pub fn filled_slot_descriptors_legacy(&self) -> Vec<QualifiedSlotDescriptor> {
+        self.columns
+            .iter()
+            .enumerate()
+            .filter_map(|(i, column)| {
+                Some(QualifiedSlotDescriptor {
+                    index: i,
+                    descriptor: column
+                        .with_slot(0, |slot| Ok(slot.clip()?.descriptor_legacy()))
+                        .ok()?,
+                })
+            })
+            .collect()
+    }
+
     pub fn play_clip_legacy(
         &mut self,
         project: Project,
@@ -331,4 +346,12 @@ pub enum RecordKind {
         timing: ClipRecordTiming,
     },
     MidiOverdub,
+}
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct QualifiedSlotDescriptor {
+    #[serde(rename = "index")]
+    pub index: usize,
+    #[serde(flatten)]
+    pub descriptor: LegacyClip,
 }
