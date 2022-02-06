@@ -30,7 +30,7 @@ pub struct Clip {
     volume: ReaperVolumeValue,
 }
 
-// TODO-medium It's a bit strange that this is copied on each state change that happens within
+// TODO-medium It's a bit strange that this is copied on some state changes that happen within
 //  the ready state. If we don't want to copy this one day, we can make state: Option<ClipState>.
 //  and take the state out when we need to mutate it and put it back in when finished. Then we
 //  can mutate freely without having to worry about the borrow checker (which would otherwise
@@ -68,7 +68,7 @@ impl SourceData {
 
     fn bar_count(&self) -> u32 {
         // TODO-high Respect different time signatures
-        self.beat_count / 4
+        (self.beat_count as f64 / 4.0).ceil() as u32
     }
 }
 
@@ -1052,7 +1052,12 @@ impl ReadyState {
         let end_bar = args.start_bar + bar_count as i32;
         let bar_count = end_bar - args.start_bar;
         let end_bar_timeline_pos = args.timeline.pos_of_bar(end_bar);
-        assert!(end_bar_timeline_pos > args.start_bar_timeline_pos);
+        assert!(
+            end_bar_timeline_pos > args.start_bar_timeline_pos,
+            "end_bar_timeline_pos {} <= start_bar_timeline_pos {}",
+            end_bar_timeline_pos,
+            args.start_bar_timeline_pos
+        );
         // Timeline cycle length
         let timeline_cycle_length_in_secs =
             (end_bar_timeline_pos - args.start_bar_timeline_pos).abs();
