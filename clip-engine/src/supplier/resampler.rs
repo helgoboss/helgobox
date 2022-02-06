@@ -72,7 +72,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
         //         null_mut(),
         //     )
         // };
-        loop {
+        let reached_end = loop {
             // Get resampler buffer.
             let buffer_frame_count = 128usize;
             let mut resample_buffer: *mut f64 = null_mut();
@@ -106,6 +106,9 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
             let inner_response = self
                 .supplier
                 .supply_audio(&inner_request, &mut resample_buffer);
+            if inner_response.num_frames_consumed == 0 {
+                break true;
+            }
             total_num_frames_consumed += inner_response.num_frames_consumed;
             // Get output material.
             let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
@@ -120,19 +123,17 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
             total_num_frames_written += num_frames_written as usize;
             if total_num_frames_written >= dest_buffer.frame_count() {
                 // We have enough resampled material.
-                break;
+                break false;
             }
-        }
-        assert_eq!(
-            total_num_frames_written,
-            dest_buffer.frame_count(),
-            "wrote more frames than requested"
-        );
-        let next_frame = request.start_frame + total_num_frames_consumed as isize;
+        };
         SupplyResponse {
             num_frames_written: total_num_frames_written,
             num_frames_consumed: total_num_frames_consumed,
-            next_inner_frame: Some(next_frame),
+            next_inner_frame: if reached_end {
+                None
+            } else {
+                Some(request.start_frame + total_num_frames_consumed as isize)
+            },
         }
         // // TODO-high At lower sample rates there are sometimes clicks. Rounding errors?
         // let request = SupplyAudioRequest {

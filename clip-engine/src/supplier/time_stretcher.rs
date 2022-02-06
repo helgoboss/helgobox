@@ -73,7 +73,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
         let dest_nch = dest_buffer.channel_count();
         api.set_nch(dest_nch as _);
         api.set_tempo(self.tempo_factor);
-        loop {
+        let reached_end = loop {
             // Get time stretcher buffer.
             let buffer_frame_count = 128usize;
             let stretch_buffer = api.GetBuffer(buffer_frame_count as _);
@@ -107,6 +107,9 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
             let inner_response = self
                 .supplier
                 .supply_audio(&inner_request, &mut stretch_buffer);
+            if inner_response.num_frames_consumed == 0 {
+                break true;
+            }
             total_num_frames_consumed += inner_response.num_frames_consumed;
             api.BufferDone(inner_response.num_frames_written as _);
             // Get output material.
@@ -124,19 +127,17 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
             // );
             if total_num_frames_written >= dest_buffer.frame_count() {
                 // We have enough stretched material.
-                break;
+                break false;
             }
-        }
-        assert_eq!(
-            total_num_frames_written,
-            dest_buffer.frame_count(),
-            "wrote more frames than requested"
-        );
-        let next_frame = request.start_frame + total_num_frames_consumed as isize;
+        };
         SupplyResponse {
             num_frames_written: total_num_frames_written,
             num_frames_consumed: total_num_frames_consumed,
-            next_inner_frame: Some(next_frame),
+            next_inner_frame: if reached_end {
+                None
+            } else {
+                Some(request.start_frame + total_num_frames_consumed as isize)
+            },
         }
     }
 

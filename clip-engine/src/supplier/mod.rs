@@ -205,6 +205,7 @@ pub struct SupplyResponse {
     ///
     /// In many cases, this is just the requested start frame + `num_frames_consumed`. But
     /// suppliers have the freedom to return other values, e.g. start over from the beginning.
+    // TODO-high We should make this a boolean. Even the looper doesn't jump back anymore.
     pub next_inner_frame: Option<isize>,
 }
 
