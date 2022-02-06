@@ -11,11 +11,11 @@ type RecorderTail = Recorder;
 type ReaperSourceTail = OwnedPcmSource;
 
 #[derive(Debug)]
-pub struct ClipSupplierChain {
+pub struct SupplierChain {
     head: Head,
 }
 
-impl ClipSupplierChain {
+impl SupplierChain {
     pub fn new(reaper_source: OwnedPcmSource) -> Self {
         let mut chain = Self {
             head: {

@@ -185,14 +185,14 @@ impl ColumnSource {
             // println!("block sr = {}, block length = {}, block time = {}, timeline cursor pos = {}, timeline cursor frame = {}",
             //          sample_rate, args.block.length(), args.block.time_s(), timeline_cursor_pos, timeline_cursor_frame);
             for slot in &mut self.slots {
-                let inner_args = ClipProcessArgs {
+                let mut inner_args = ClipProcessArgs {
                     block: args.block,
                     timeline: &timeline,
                     timeline_cursor_pos,
                     timeline_tempo,
                 };
                 // TODO-high Take care of mixing as soon as we implement Free mode.
-                let _ = slot.process(inner_args);
+                let _ = slot.process(&mut inner_args);
             }
         });
         debug_assert_eq!(args.block.samples_out(), args.block.length());

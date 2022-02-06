@@ -65,10 +65,12 @@ impl Slot {
     ) -> Result<(), &'static str> {
         use RecordBehavior::*;
         match behavior {
-            Normal { play_after, timing } => {
-                let clip = self.clip.get_or_insert_with(|| Clip::empty(project));
-                clip.record(play_after, timing);
-            }
+            Normal { play_after, timing } => match &mut self.clip {
+                None => self.clip = Some(Clip::from_recording(play_after, timing, project)),
+                Some(clip) => {
+                    clip.record(play_after, timing);
+                }
+            },
             MidiOverdub => {
                 self.get_clip_mut()?.midi_overdub();
             }
@@ -197,7 +199,10 @@ impl Slot {
         }
     }
 
-    pub fn process(&mut self, args: ClipProcessArgs<impl Timeline>) -> Result<(), &'static str> {
+    pub fn process(
+        &mut self,
+        args: &mut ClipProcessArgs<impl Timeline>,
+    ) -> Result<(), &'static str> {
         self.get_clip_mut()?.process(args);
         Ok(())
     }

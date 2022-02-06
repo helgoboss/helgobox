@@ -5,10 +5,9 @@ use crate::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
     get_empty_midi_source, AudioBufMut, AudioSupplier, ClipContent, ClipRecordTiming,
-    ClipSupplierChain, CreateClipContentMode, ExactDuration, ExactFrameCount, LegacyClip,
-    LoopBehavior, MidiSupplier, RecordKind, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequestGeneralInfo, SupplyRequestInfo, Timeline, WithFrameRate, WithTempo,
-    WriteAudioRequest, WriteMidiRequest,
+    CreateClipContentMode, ExactDuration, ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier,
+    RecordKind, SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
+    SupplyRequestInfo, Timeline, WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest,
 };
 use helgoboss_learn::UnitValue;
 use reaper_high::{OwnedSource, Project, ReaperSource};
@@ -17,26 +16,30 @@ use reaper_medium::{
     Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds,
     ReaperVolumeValue,
 };
+use std::fs::read;
 use std::path::PathBuf;
 use std::ptr::null_mut;
 
 #[derive(Debug)]
 pub struct Clip {
-    source_data: Option<SourceData>,
-    supplier_chain: ClipSupplierChain,
-    is_midi: bool,
+    supplier_chain: SupplierChain,
     state: ClipState,
-    repeated: bool,
     project: Option<Project>,
     // TODO-high Not yet implemented. This must also be implemented for MIDI, so we better choose
     //  a more neutral unit.
     volume: ReaperVolumeValue,
 }
 
-#[derive(Debug)]
+// TODO-medium It's a bit strange that this is copied on each state change that happens within
+//  the ready state. If we don't want to copy this one day, we can make state: Option<ClipState>.
+//  and take the state out when we need to mutate it and put it back in when finished. Then we
+//  can mutate freely without having to worry about the borrow checker (which would otherwise
+//  always get in the way if we want to call a method on self).
+#[derive(Copy, Clone, Debug)]
 struct SourceData {
     tempo: Bpm,
     beat_count: u32,
+    is_midi: bool,
 }
 
 impl SourceData {
@@ -56,7 +59,11 @@ impl SourceData {
             (source.duration().get() * beats_per_sec).round() as u32
         };
         assert_ne!(beat_count, 0, "source reported beat count of zero");
-        Self { tempo, beat_count }
+        Self {
+            tempo,
+            beat_count,
+            is_midi,
+        }
     }
 
     fn bar_count(&self) -> u32 {
@@ -67,14 +74,26 @@ impl SourceData {
 
 #[derive(Copy, Clone, Debug)]
 enum ClipState {
+    Ready(ReadyState),
+    /// Recording from scratch, not MIDI overdub.
+    Recording(RecordingState),
+}
+
+#[derive(Copy, Clone, Debug)]
+struct ReadyState {
+    state: ReadySubState,
+    source_data: SourceData,
+    repeated: bool,
+}
+
+#[derive(Copy, Clone, Debug)]
+enum ReadySubState {
     /// At this state, the clip is stopped. No fade-in, no fade-out ... nothing.
     Stopped,
     Playing(PlayingState),
     /// Very short transition for fade outs or sending all-notes-off before entering another state.
     Suspending(SuspendingState),
     Paused(PausedState),
-    /// Recording from scratch, not MIDI overdub.
-    Recording(RecordingState),
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -151,6 +170,7 @@ struct RecordingState {
     /// Implies repeat.
     pub play_after: bool,
     pub timing: RecordTiming,
+    pub is_midi: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -173,33 +193,35 @@ pub enum RecordTiming {
 
 impl Clip {
     pub fn from_source(source: OwnedPcmSource, project: Option<Project>) -> Self {
-        let source_data = SourceData::from_source(&source, project);
-        Self::new(
-            Some(source_data),
-            pcm_source_is_midi(&source),
-            ClipSupplierChain::new(source),
+        let ready_state = ReadyState {
+            state: ReadySubState::Stopped,
+            source_data: SourceData::from_source(&source, project),
+            repeated: false,
+        };
+        Self {
+            supplier_chain: SupplierChain::new(source),
+            state: ClipState::Ready(ready_state),
             project,
-        )
+            volume: Default::default(),
+        }
     }
 
-    pub fn empty(project: Option<Project>) -> Self {
-        // TODO-high This should be None, ideally. We prepare the recording anyway.
-        let source = get_empty_midi_source();
-        Self::new(None, true, ClipSupplierChain::new(source), project)
-    }
-
-    fn new(
-        source_data: Option<SourceData>,
-        is_midi: bool,
-        supplier_chain: ClipSupplierChain,
+    pub fn from_recording(
+        play_after: bool,
+        timing: RecordTiming,
         project: Option<Project>,
     ) -> Self {
+        // TODO-high This should be None, ideally. We prepare the recording anyway.
+        let recording_state = RecordingState {
+            timeline_start_pos: clip_timeline(project, false).cursor_pos(),
+            play_after,
+            timing,
+            // TODO-high Support audio
+            is_midi: true,
+        };
         Self {
-            source_data,
-            supplier_chain,
-            is_midi,
-            state: ClipState::Stopped,
-            repeated: false,
+            supplier_chain: SupplierChain::new(get_empty_midi_source()),
+            state: ClipState::Recording(recording_state),
             project,
             volume: Default::default(),
         }
@@ -207,6 +229,300 @@ impl Clip {
 
     pub fn play(&mut self, args: ClipPlayArgs) {
         use ClipState::*;
+        match &mut self.state {
+            Ready(s) => s.play(args, &mut self.supplier_chain),
+            // TODO-high It would probably be good to react the same way as if we would
+            //  stop recording and press play right afterwards (or auto-play).
+            Recording(_) => return,
+        }
+    }
+
+    pub fn stop(&mut self, args: ClipStopArgs) {
+        use ClipState::*;
+        self.state = match &mut self.state {
+            Ready(s) => {
+                s.stop(args, &mut self.supplier_chain);
+                return;
+            }
+            Recording(s) => {
+                if let Some(ready_state) = s.stop(args, &self.supplier_chain, self.project) {
+                    Ready(ready_state)
+                } else {
+                    return;
+                }
+            }
+        };
+    }
+
+    pub fn set_repeated(&mut self, repeated: bool) {
+        use ClipState::*;
+        match &mut self.state {
+            Ready(s) => {
+                s.set_repeated(repeated, &mut self.supplier_chain);
+            }
+            Recording(s) => s.set_play_after(repeated),
+        }
+    }
+
+    pub fn repeated(&self) -> bool {
+        use ClipState::*;
+        match self.state {
+            Ready(s) => s.repeated,
+            Recording(s) => s.play_after,
+        }
+    }
+
+    pub fn volume(&self) -> ReaperVolumeValue {
+        self.volume
+    }
+
+    pub fn midi_overdub(&mut self) {
+        use ClipState::*;
+        match &mut self.state {
+            Ready(s) => s.midi_overdub(),
+            Recording(_) => {}
+        }
+    }
+
+    pub fn record(&mut self, play_after: bool, timing: RecordTiming) {
+        self.supplier_chain.recorder_mut().prepare_recording();
+        use ClipState::*;
+        match &mut self.state {
+            Ready(s) => {
+                if let Some(recording_state) = s.record(play_after, timing, self.project) {
+                    self.state = Recording(recording_state);
+                }
+            }
+            Recording(_) => {}
+        }
+    }
+
+    pub fn pause(&mut self) {
+        use ClipState::*;
+        match &mut self.state {
+            Ready(s) => s.pause(),
+            Recording(_) => {}
+        }
+    }
+
+    pub fn seek(&mut self, desired_pos: UnitValue) {
+        use ClipState::*;
+        match &mut self.state {
+            Ready(s) => s.seek(desired_pos, &self.supplier_chain),
+            Recording(_) => {}
+        }
+    }
+
+    pub fn record_source_type(&self) -> Option<ClipRecordSourceType> {
+        use ClipState::*;
+        match &self.state {
+            Ready(s) => {
+                use ReadySubState::*;
+                match s.state {
+                    Stopped | Suspending(_) | Paused(_) => None,
+                    Playing(s) => {
+                        if s.overdubbing {
+                            Some(ClipRecordSourceType::Midi)
+                        } else {
+                            None
+                        }
+                    }
+                }
+            }
+            // TODO-medium When recording past end, return None (should usually not happen)
+            Recording(s) => {
+                if s.is_midi {
+                    Some(ClipRecordSourceType::Midi)
+                } else {
+                    Some(ClipRecordSourceType::Audio)
+                }
+            }
+        }
+    }
+
+    pub fn write_midi(&mut self, request: WriteMidiRequest) {
+        let timeline = clip_timeline(self.project, false);
+        let timeline_cursor_pos = timeline.cursor_pos();
+        use ClipState::*;
+        let record_pos = match &self.state {
+            Ready(s) => {
+                use ReadySubState::*;
+                if let Playing(PlayingState {
+                    overdubbing: true, ..
+                }) = s.state
+                {
+                    self.position_in_seconds(timeline.tempo_at(timeline_cursor_pos))
+                        .unwrap_or_default()
+                } else {
+                    return;
+                }
+            }
+            Recording(s) => timeline_cursor_pos - s.timeline_start_pos,
+        };
+        self.supplier_chain
+            .recorder_mut()
+            .write_midi(request, record_pos);
+    }
+
+    pub fn write_audio(&mut self, request: WriteAudioRequest) {
+        self.supplier_chain.recorder_mut().write_audio(request);
+    }
+
+    pub fn set_volume(&mut self, volume: ReaperVolumeValue) -> ClipChangedEvent {
+        self.volume = volume;
+        ClipChangedEvent::ClipVolume(volume)
+    }
+
+    pub fn info_legacy(&self) -> ClipInfo {
+        let source = self.supplier_chain.reaper_source();
+        ClipInfo {
+            r#type: source.get_type(|t| t.to_string()),
+            file_name: source.get_file_name(|p| Some(p?.to_owned())),
+            length: {
+                // TODO-low Doesn't need to be optional
+                Some(source.duration())
+            },
+        }
+    }
+
+    pub fn descriptor_legacy(&self) -> LegacyClip {
+        LegacyClip {
+            volume: self.volume,
+            repeat: self.repeated(),
+            content: Some(self.content()),
+        }
+    }
+
+    fn content(&self) -> ClipContent {
+        let source = self.supplier_chain.reaper_source();
+        let source = ReaperSource::new(source.as_ptr());
+        ClipContent::from_reaper_source(
+            &source,
+            CreateClipContentMode::AllowEmbeddedData,
+            self.project,
+        )
+        .unwrap()
+    }
+
+    pub fn toggle_repeated(&mut self) -> ClipChangedEvent {
+        self.set_repeated(!self.repeated());
+        ClipChangedEvent::ClipRepeat(self.repeated())
+    }
+
+    pub fn play_state(&self) -> ClipPlayState {
+        use ClipState::*;
+        match &self.state {
+            Ready(s) => s.play_state(),
+            Recording(_) => ClipPlayState::Recording,
+        }
+    }
+
+    pub fn position_in_seconds(&self, timeline_tempo: Bpm) -> Option<PositionInSeconds> {
+        use ClipState::*;
+        match &self.state {
+            Ready(s) => s.position_in_seconds(timeline_tempo, &self.supplier_chain),
+            Recording(_) => None,
+        }
+    }
+
+    pub fn proportional_position(&self) -> Option<UnitValue> {
+        use ClipState::*;
+        match &self.state {
+            Ready(s) => s.proportional_position(&self.supplier_chain),
+            Recording(_) => None,
+        }
+    }
+
+    pub fn process(&mut self, args: &mut ClipProcessArgs<impl Timeline>) {
+        use ClipState::*;
+        let next_state = match &mut self.state {
+            Ready(s) => s.process(args, &mut self.supplier_chain).map(Recording),
+            Recording(s) => s
+                .process(args, &self.supplier_chain, self.project)
+                .map(Ready),
+        };
+        if let Some(s) = next_state {
+            self.state = s;
+            if matches!(
+                s,
+                Ready(ReadyState {
+                    state: ReadySubState::Playing(_),
+                    ..
+                })
+            ) {
+                // Changed from record to playing. Don't miss any samples!
+                self.process(args);
+            }
+        }
+    }
+}
+
+impl ReadyState {
+    pub fn position_in_seconds(
+        &self,
+        timeline_tempo: Bpm,
+        supplier_chain: &SupplierChain,
+    ) -> Option<PositionInSeconds> {
+        let source_pos_in_source_frames = self.frame_within_reaper_source(supplier_chain)?;
+        let source_pos_in_secs = convert_position_in_frames_to_seconds(
+            source_pos_in_source_frames,
+            supplier_chain.reaper_source().frame_rate(),
+        );
+        let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo);
+        let source_pos_in_secs_tempo_adjusted = source_pos_in_secs.get() / final_tempo_factor;
+        Some(PositionInSeconds::new(source_pos_in_secs_tempo_adjusted))
+    }
+
+    pub fn proportional_position(&self, supplier_chain: &SupplierChain) -> Option<UnitValue> {
+        let frame = self.frame_within_reaper_source(supplier_chain)?;
+        if frame < 0 {
+            None
+        } else {
+            let frame_count = supplier_chain.reaper_source().frame_count();
+            if frame_count == 0 {
+                Some(UnitValue::MIN)
+            } else {
+                let proportional = UnitValue::new_clamped(frame as f64 / frame_count as f64);
+                Some(proportional)
+            }
+        }
+    }
+
+    fn frame_within_reaper_source(&self, supplier_chain: &SupplierChain) -> Option<isize> {
+        use ReadySubState::*;
+        match self.state {
+            Playing(PlayingState { pos: Some(pos), .. })
+            | Suspending(SuspendingState { pos, .. }) => {
+                if pos < 0 {
+                    Some(pos)
+                } else {
+                    Some(self.modulo_frame(pos as usize, supplier_chain) as isize)
+                }
+            }
+            // Pause position is modulo already.
+            Paused(s) => Some(self.modulo_frame(s.pos, supplier_chain) as isize),
+            _ => None,
+        }
+    }
+
+    fn modulo_frame(&self, frame: usize, supplier_chain: &SupplierChain) -> usize {
+        frame % supplier_chain.reaper_source().frame_count()
+    }
+
+    pub fn set_repeated(&mut self, repeated: bool, supplier_chain: &mut SupplierChain) {
+        self.repeated = repeated;
+        let looper = supplier_chain.looper_mut();
+        if !repeated {
+            if let ReadySubState::Playing(PlayingState { pos: Some(pos), .. }) = self.state {
+                looper.keep_playing_until_end_of_current_cycle(pos);
+                return;
+            }
+        }
+        looper.set_loop_behavior(LoopBehavior::from_bool(repeated));
+    }
+
+    pub fn play(&mut self, args: ClipPlayArgs, supplier_chain: &mut SupplierChain) {
+        use ReadySubState::*;
         match self.state {
             // Not yet running.
             Stopped => self.schedule_play_internal(args),
@@ -215,7 +531,7 @@ impl Clip {
                     // Scheduled for stop. Backpedal!
                     // We can only schedule for stop when repeated, so we can set this
                     // back to Infinitely.
-                    self.supplier_chain
+                    supplier_chain
                         .looper_mut()
                         .set_loop_behavior(LoopBehavior::Infinitely);
                     self.state = Playing(PlayingState {
@@ -249,7 +565,7 @@ impl Clip {
                 // which is especially annoying when using transport sync because then it's like
                 // forgetting that clip ... the next time the transport is stopped and started,
                 // that clip won't play again.
-                self.state = ClipState::Suspending(SuspendingState {
+                self.state = ReadySubState::Suspending(SuspendingState {
                     next_state: StateAfterSuspension::Playing(PlayingState {
                         start_bar: args.from_bar,
                         ..Default::default()
@@ -260,20 +576,16 @@ impl Clip {
             // TODO-high We should do a fade-in!
             Paused(s) => {
                 // Resume
-                self.state = ClipState::Playing(PlayingState {
+                self.state = ReadySubState::Playing(PlayingState {
                     pos: Some(s.pos as isize),
                     ..Default::default()
                 });
             }
-            Recording(_) => {
-                // TODO-high It would probably be good to react the same way as if we would
-                //  stop recording and press play right afterwards (or auto-play).
-            }
         }
     }
 
-    pub fn stop(&mut self, args: ClipStopArgs) {
-        use ClipState::*;
+    pub fn stop(&mut self, args: ClipStopArgs, supplier_chain: &mut SupplierChain) {
+        use ReadySubState::*;
         match self.state {
             Stopped => {}
             Playing(s) => {
@@ -310,7 +622,7 @@ impl Clip {
                                     ClipStopBehavior::EndOfClip => {
                                         if self.repeated {
                                             // Schedule
-                                            self.supplier_chain
+                                            supplier_chain
                                                 .looper_mut()
                                                 .keep_playing_until_end_of_current_cycle(pos);
                                             Playing(PlayingState {
@@ -347,341 +659,32 @@ impl Clip {
                     });
                 }
             }
-            Recording(s) => {
-                use RecordTiming::*;
-                match s.timing {
-                    Unsynced => {
-                        self.finish_recording(s.play_after, None);
-                    }
-                    Synced { start_bar, end_bar } => {
-                        // TODO-high If start bar in future, discard recording.
-                        self.state = if end_bar.is_some() {
-                            // End already scheduled. Take care of stopping after recording.
-                            Recording(RecordingState {
-                                play_after: false,
-                                ..s
-                            })
-                        } else {
-                            // End not scheduled yet. Schedule end.
-                            let next_bar = args.timeline.next_bar_at(args.timeline_cursor_pos);
-                            Recording(RecordingState {
-                                timing: Synced {
-                                    start_bar,
-                                    end_bar: Some(next_bar),
-                                },
-                                ..s
-                            })
-                        };
-                    }
-                }
-            }
         }
     }
 
-    pub fn set_repeated(&mut self, repeated: bool) {
-        self.repeated = repeated;
-        let looper = self.supplier_chain.looper_mut();
-        if !repeated {
-            if let ClipState::Playing(PlayingState { pos: Some(pos), .. }) = self.state {
-                looper.keep_playing_until_end_of_current_cycle(pos);
-                return;
-            }
-        }
-        looper.set_loop_behavior(LoopBehavior::from_bool(repeated));
-    }
-
-    pub fn repeated(&self) -> bool {
-        self.repeated
-    }
-
-    pub fn volume(&self) -> ReaperVolumeValue {
-        self.volume
-    }
-
-    pub fn midi_overdub(&mut self) {
-        use ClipState::*;
-        // TODO-medium Maybe we should start to play if not yet playing
-        if let Playing(s) = self.state {
-            self.state = Playing(PlayingState {
-                overdubbing: true,
-                ..s
-            });
-        }
-    }
-
-    pub fn record(&mut self, play_after: bool, timing: RecordTiming) {
-        self.supplier_chain.recorder_mut().prepare_recording();
-        use ClipState::*;
-        let recording_state = RecordingState {
-            timeline_start_pos: clip_timeline(self.project, false).cursor_pos(),
-            play_after,
-            timing,
-        };
-        self.state = match self.state {
-            Stopped => Recording(recording_state),
+    pub fn process(
+        &mut self,
+        args: &mut ClipProcessArgs<impl Timeline>,
+        supplier_chain: &mut SupplierChain,
+    ) -> Option<RecordingState> {
+        use ReadySubState::*;
+        match self.state {
+            Stopped | Paused(_) => None,
             Playing(s) => {
-                if let Some(pos) = s.pos {
-                    if pos >= 0 {
-                        Suspending(SuspendingState {
-                            next_state: StateAfterSuspension::Recording(recording_state),
-                            pos,
-                        })
-                    } else {
-                        Recording(recording_state)
-                    }
-                } else {
-                    Recording(recording_state)
-                }
+                self.process_playing(s, args, supplier_chain);
+                None
             }
-            Suspending(s) => Suspending(SuspendingState {
-                next_state: StateAfterSuspension::Recording(recording_state),
-                ..s
-            }),
-            Paused(_) | Recording(_) => Recording(recording_state),
-        };
-    }
-
-    pub fn pause(&mut self) {
-        use ClipState::*;
-        match self.state {
-            Stopped | Paused(_) => {}
-            Playing(s) => {
-                if let Some(pos) = s.pos {
-                    if pos >= 0 {
-                        let pos = pos as usize;
-                        // Playing. Pause!
-                        // (If this clip is scheduled for stop already, a pause will backpedal from
-                        // that.)
-                        self.state = Suspending(SuspendingState {
-                            next_state: StateAfterSuspension::Paused(PausedState { pos }),
-                            pos: pos as isize,
-                        });
-                    }
-                }
-                // If not yet playing, we don't do anything at the moment.
-                // TODO-medium In future, we could defer the clip scheduling to the future. I think
-                //  that would feel natural.
-            }
-            Suspending(s) => {
-                self.state = Suspending(SuspendingState {
-                    next_state: StateAfterSuspension::Paused(PausedState {
-                        pos: s.pos as usize,
-                    }),
-                    ..s
-                });
-            }
-            // Pausing recording ... no, we don't want that.
-            Recording(_) => {}
+            Suspending(s) => self.process_suspending(s, args, supplier_chain),
         }
     }
 
-    pub fn seek(&mut self, desired_pos: UnitValue) {
-        let frame_count = self.supplier_chain.reaper_source().frame_count();
-        let desired_frame = adjust_proportionally_positive(frame_count as f64, desired_pos.get());
-        use ClipState::*;
-        match self.state {
-            Stopped | Suspending(_) | Recording(_) => {}
-            Playing(s) => {
-                if let Some(pos) = s.pos {
-                    if pos >= 0 {
-                        let up_cycled_frame =
-                            self.up_cycle_frame(desired_frame, pos as usize, frame_count);
-                        self.state = Playing(PlayingState {
-                            seek_pos: Some(up_cycled_frame),
-                            ..s
-                        });
-                    }
-                }
-            }
-            Paused(s) => {
-                let up_cycled_frame = self.up_cycle_frame(desired_frame, s.pos, frame_count);
-                self.state = Paused(PausedState {
-                    pos: up_cycled_frame,
-                });
-            }
-        }
-    }
-
-    fn up_cycle_frame(&self, frame: usize, offset_pos: usize, frame_count: usize) -> usize {
-        let current_cycle = self.supplier_chain.looper().get_cycle_at_frame(offset_pos);
-        current_cycle * frame_count + frame
-    }
-
-    pub fn record_source_type(&self) -> Option<ClipRecordSourceType> {
-        use ClipState::*;
-        match self.state {
-            Stopped | Suspending(_) | Paused(_) => None,
-            Playing(s) => {
-                if s.overdubbing {
-                    Some(ClipRecordSourceType::Midi)
-                } else {
-                    None
-                }
-            }
-            // TODO-medium When recording past end, return None (should usually not happen)
-            Recording(_) => {
-                if self.is_midi {
-                    Some(ClipRecordSourceType::Midi)
-                } else {
-                    Some(ClipRecordSourceType::Audio)
-                }
-            }
-        }
-    }
-
-    pub fn write_midi(&mut self, request: WriteMidiRequest) {
-        let timeline = clip_timeline(self.project, false);
-        let timeline_cursor_pos = timeline.cursor_pos();
-        use ClipState::*;
-        let record_pos = match self.state {
-            Playing(PlayingState {
-                overdubbing: true, ..
-            }) => self
-                .position_in_seconds(timeline.tempo_at(timeline_cursor_pos))
-                .unwrap_or_default(),
-            Recording(s) => timeline_cursor_pos - s.timeline_start_pos,
-            _ => return,
-        };
-        self.supplier_chain
-            .recorder_mut()
-            .write_midi(request, record_pos);
-    }
-
-    pub fn write_audio(&mut self, request: WriteAudioRequest) {
-        self.supplier_chain.recorder_mut().write_audio(request);
-    }
-
-    pub fn set_volume(&mut self, volume: ReaperVolumeValue) -> ClipChangedEvent {
-        self.volume = volume;
-        ClipChangedEvent::ClipVolume(volume)
-    }
-
-    pub fn info_legacy(&self) -> ClipInfo {
-        let source = self.supplier_chain.reaper_source();
-        ClipInfo {
-            r#type: source.get_type(|t| t.to_string()),
-            file_name: source.get_file_name(|p| Some(p?.to_owned())),
-            length: {
-                // TODO-low Doesn't need to be optional
-                Some(source.duration())
-            },
-        }
-    }
-
-    pub fn descriptor_legacy(&self) -> LegacyClip {
-        LegacyClip {
-            volume: self.volume,
-            repeat: self.repeated,
-            content: Some(self.content()),
-        }
-    }
-
-    fn content(&self) -> ClipContent {
-        let source = self.supplier_chain.reaper_source();
-        let source = ReaperSource::new(source.as_ptr());
-        ClipContent::from_reaper_source(
-            &source,
-            CreateClipContentMode::AllowEmbeddedData,
-            self.project,
-        )
-        .unwrap()
-    }
-
-    pub fn toggle_repeated(&mut self) -> ClipChangedEvent {
-        self.set_repeated(!self.repeated);
-        ClipChangedEvent::ClipRepeat(self.repeated)
-    }
-
-    pub fn play_state(&self) -> ClipPlayState {
-        use ClipState::*;
-        match self.state {
-            Stopped => ClipPlayState::Stopped,
-            Playing(s) => {
-                if s.overdubbing {
-                    ClipPlayState::Recording
-                } else if s.scheduled_for_stop {
-                    ClipPlayState::ScheduledForStop
-                } else if let Some(pos) = s.pos {
-                    if pos < 0 {
-                        ClipPlayState::ScheduledForPlay
-                    } else {
-                        ClipPlayState::Playing
-                    }
-                } else {
-                    ClipPlayState::ScheduledForPlay
-                }
-            }
-            Suspending(s) => match s.next_state {
-                StateAfterSuspension::Playing(_) => ClipPlayState::Playing,
-                StateAfterSuspension::Paused(_) => ClipPlayState::Paused,
-                StateAfterSuspension::Stopped => ClipPlayState::Stopped,
-                StateAfterSuspension::Recording(_) => ClipPlayState::Recording,
-            },
-            Paused(_) => ClipPlayState::Paused,
-            Recording(_) => ClipPlayState::Recording,
-        }
-    }
-
-    pub fn position_in_seconds(&self, timeline_tempo: Bpm) -> Option<PositionInSeconds> {
-        let source_pos_in_source_frames = self.frame_within_reaper_source()?;
-        let source_pos_in_secs = convert_position_in_frames_to_seconds(
-            source_pos_in_source_frames,
-            self.supplier_chain.reaper_source().frame_rate(),
-        );
-        let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo);
-        let source_pos_in_secs_tempo_adjusted = source_pos_in_secs.get() / final_tempo_factor;
-        Some(PositionInSeconds::new(source_pos_in_secs_tempo_adjusted))
-    }
-
-    pub fn proportional_position(&self) -> Option<UnitValue> {
-        let frame = self.frame_within_reaper_source()?;
-        if frame < 0 {
-            None
-        } else {
-            let frame_count = self.supplier_chain.reaper_source().frame_count();
-            if frame_count == 0 {
-                Some(UnitValue::MIN)
-            } else {
-                let proportional = UnitValue::new_clamped(frame as f64 / frame_count as f64);
-                Some(proportional)
-            }
-        }
-    }
-
-    fn frame_within_reaper_source(&self) -> Option<isize> {
-        use ClipState::*;
-        match self.state {
-            Playing(PlayingState { pos: Some(pos), .. })
-            | Suspending(SuspendingState { pos, .. }) => {
-                if pos < 0 {
-                    Some(pos)
-                } else {
-                    Some(self.modulo_frame(pos as usize) as isize)
-                }
-            }
-            // Pause position is modulo already.
-            Paused(s) => Some(self.modulo_frame(s.pos) as isize),
-            _ => None,
-        }
-    }
-
-    fn modulo_frame(&self, frame: usize) -> usize {
-        frame % self.supplier_chain.reaper_source().frame_count()
-    }
-
-    /// Returns if any samples could have been written.
-    pub fn process(&mut self, args: ClipProcessArgs<impl Timeline>) {
-        use ClipState::*;
-        match self.state {
-            Stopped | Paused(_) => {}
-            Playing(s) => self.process_playing(s, args),
-            Suspending(s) => self.process_suspending(s, args),
-            Recording(s) => self.process_recording(s, args),
-        }
-    }
-
-    fn process_playing(&mut self, s: PlayingState, args: ClipProcessArgs<impl Timeline>) {
-        let general_info = self.prepare_playing(&args);
+    fn process_playing(
+        &mut self,
+        s: PlayingState,
+        args: &mut ClipProcessArgs<impl Timeline>,
+        supplier_chain: &mut SupplierChain,
+    ) {
+        let general_info = self.prepare_playing(&args, supplier_chain);
         struct Go {
             pos: isize,
             sample_rate_factor: f64,
@@ -700,7 +703,7 @@ impl Clip {
             // Already counting in or playing.
             if let Some(seek_pos) = s.seek_pos {
                 // Seek requested.
-                if self.is_midi {
+                if self.source_data.is_midi {
                     // MIDI. Let's jump to the position directly.
                     Go {
                         pos: seek_pos as isize,
@@ -716,8 +719,7 @@ impl Clip {
                             // We might need to fast-forward.
                             let real_distance = seek_pos - pos;
                             let desired_distance_in_secs = DurationInSeconds::new(0.100);
-                            let source_frame_rate =
-                                self.supplier_chain.reaper_source().frame_rate();
+                            let source_frame_rate = supplier_chain.reaper_source().frame_rate();
                             let desired_distance = convert_duration_in_seconds_to_frames(
                                 desired_distance_in_secs,
                                 source_frame_rate,
@@ -762,6 +764,7 @@ impl Clip {
                     start_bar,
                     &args,
                     general_info.clip_tempo_factor,
+                    supplier_chain,
                 )
             } else {
                 // Immediate play.
@@ -772,11 +775,15 @@ impl Clip {
                 ..Go::default()
             }
         };
-        self.state = if let Some(end_frame) =
-            self.fill_samples(args, go.pos, &general_info, go.sample_rate_factor)
-        {
+        self.state = if let Some(end_frame) = self.fill_samples(
+            args,
+            go.pos,
+            &general_info,
+            go.sample_rate_factor,
+            supplier_chain,
+        ) {
             // There's still something to play.
-            ClipState::Playing(PlayingState {
+            ReadySubState::Playing(PlayingState {
                 pos: Some(end_frame),
                 seek_pos: go.new_seek_pos.and_then(|new_seek_pos| {
                     // Check if we reached our desired position.
@@ -794,45 +801,34 @@ impl Clip {
             // We have reached the natural or scheduled end. Everything that needed to be
             // played has been played in previous blocks. Audio fade outs have been applied
             // as well, so no need to go to suspending state first. Go right to stop!
-            self.reset_for_play();
-            ClipState::Stopped
+            self.reset_for_play(supplier_chain);
+            ReadySubState::Stopped
         };
-    }
-
-    fn reset_for_play(&mut self) {
-        self.supplier_chain.suspender_mut().reset();
-        self.supplier_chain
-            .resampler_mut()
-            .reset_buffers_and_latency();
-        self.supplier_chain
-            .time_stretcher_mut()
-            .reset_buffers_and_latency();
-        self.supplier_chain
-            .looper_mut()
-            .set_loop_behavior(LoopBehavior::from_bool(self.repeated));
     }
 
     fn fill_samples(
         &mut self,
-        args: ClipProcessArgs<impl Timeline>,
+        args: &mut ClipProcessArgs<impl Timeline>,
         start_frame: isize,
         info: &SupplyRequestGeneralInfo,
         sample_rate_factor: f64,
+        supplier_chain: &mut SupplierChain,
     ) -> Option<isize> {
         let dest_sample_rate = Hz::new(args.block.sample_rate().get() * sample_rate_factor);
-        if self.is_midi {
-            self.fill_samples_midi(args, start_frame, info, dest_sample_rate)
+        if self.source_data.is_midi {
+            self.fill_samples_midi(args, start_frame, info, dest_sample_rate, supplier_chain)
         } else {
-            self.fill_samples_audio(args, start_frame, info, dest_sample_rate)
+            self.fill_samples_audio(args, start_frame, info, dest_sample_rate, supplier_chain)
         }
     }
 
     fn fill_samples_audio(
         &mut self,
-        args: ClipProcessArgs<impl Timeline>,
+        args: &mut ClipProcessArgs<impl Timeline>,
         start_frame: isize,
         info: &SupplyRequestGeneralInfo,
         dest_sample_rate: Hz,
+        supplier_chain: &mut SupplierChain,
     ) -> Option<isize> {
         let request = SupplyAudioRequest {
             start_frame,
@@ -852,8 +848,7 @@ impl Clip {
                 args.block.length() as _,
             )
         };
-        let response = self
-            .supplier_chain
+        let response = supplier_chain
             .head_mut()
             .supply_audio(&request, &mut dest_buffer);
         // TODO-high There's an issue e.g. when playing the piano audio clip that makes
@@ -863,10 +858,11 @@ impl Clip {
 
     fn fill_samples_midi(
         &mut self,
-        args: ClipProcessArgs<impl Timeline>,
+        args: &mut ClipProcessArgs<impl Timeline>,
         start_frame: isize,
         info: &SupplyRequestGeneralInfo,
         dest_sample_rate: Hz,
+        supplier_chain: &mut SupplierChain,
     ) -> Option<isize> {
         let request = SupplyMidiRequest {
             start_frame,
@@ -880,11 +876,35 @@ impl Clip {
             parent_request: None,
             general_info: info,
         };
-        let response = self.supplier_chain.head_mut().supply_midi(
+        let response = supplier_chain.head_mut().supply_midi(
             &request,
             args.block.midi_event_list().expect("no MIDI event list"),
         );
         response.next_inner_frame
+    }
+
+    fn prepare_playing(
+        &mut self,
+        args: &ClipProcessArgs<impl Timeline>,
+        supplier_chain: &mut SupplierChain,
+    ) -> SupplyRequestGeneralInfo {
+        let final_tempo_factor = self.calc_final_tempo_factor(args.timeline_tempo);
+        let general_info = SupplyRequestGeneralInfo {
+            audio_block_timeline_cursor_pos: args.timeline_cursor_pos,
+            audio_block_length: args.block.length() as usize,
+            output_frame_rate: args.block.sample_rate(),
+            timeline_tempo: args.timeline_tempo,
+            clip_tempo_factor: final_tempo_factor,
+        };
+        supplier_chain
+            .time_stretcher_mut()
+            .set_tempo_factor(final_tempo_factor);
+        general_info
+    }
+
+    fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
+        let timeline_tempo_factor = timeline_tempo.get() / self.source_data.tempo.get();
+        timeline_tempo_factor.max(MIN_TEMPO_FACTOR)
     }
 
     /// So, this is how we do play scheduling. Whenever the preview register
@@ -914,17 +934,18 @@ impl Clip {
         start_bar: i32,
         args: &ClipProcessArgs<impl Timeline>,
         clip_tempo_factor: f64,
+        supplier_chain: &SupplierChain,
     ) -> isize {
         // Basics
         let block_length_in_timeline_frames = args.block.length() as usize;
-        let source_frame_rate = self.supplier_chain.reaper_source().frame_rate();
+        let source_frame_rate = supplier_chain.reaper_source().frame_rate();
         let timeline_frame_rate = args.block.sample_rate();
         // Essential calculation
         let start_bar_timeline_pos = args.timeline.pos_of_bar(start_bar);
         let rel_pos_from_bar_in_secs = args.timeline_cursor_pos - start_bar_timeline_pos;
         let rel_pos_from_bar_in_source_frames = convert_position_in_seconds_to_frames(
             rel_pos_from_bar_in_secs,
-            self.supplier_chain.reaper_source().frame_rate(),
+            supplier_chain.reaper_source().frame_rate(),
         );
         {
             let args = LogNaturalDeviationArgs {
@@ -937,7 +958,7 @@ impl Clip {
                 source_frame_rate,
                 start_bar_timeline_pos,
             };
-            // self.log_natural_deviation(args);
+            self.log_natural_deviation(args, supplier_chain);
         }
         //region Description
         // Now we have a countdown/position in source frames, but it doesn't yet
@@ -970,16 +991,64 @@ impl Clip {
         )
     }
 
-    fn log_natural_deviation(&self, args: LogNaturalDeviationArgs<impl Timeline>) {
+    fn process_suspending(
+        &mut self,
+        s: SuspendingState,
+        args: &mut ClipProcessArgs<impl Timeline>,
+        supplier_chain: &mut SupplierChain,
+    ) -> Option<RecordingState> {
+        let general_info = self.prepare_playing(&args, supplier_chain);
+        let suspender = supplier_chain.suspender_mut();
+        if !suspender.is_suspending() {
+            suspender.suspend(s.pos);
+        }
+        self.state = if let Some(end_frame) =
+            self.fill_samples(args, s.pos, &general_info, 1.0, supplier_chain)
+        {
+            // Suspension not finished yet.
+            ReadySubState::Suspending(SuspendingState {
+                pos: end_frame,
+                ..s
+            })
+        } else {
+            // Suspension finished.
+            use StateAfterSuspension::*;
+            self.reset_for_play(supplier_chain);
+            match s.next_state {
+                Playing(s) => ReadySubState::Playing(s),
+                Paused(s) => {
+                    // TODO-high Set follow-up Pause state in pause() correctly, see old
+                    //  get_suspension_follow_up_state()
+                    ReadySubState::Paused(s)
+                }
+                Stopped => {
+                    self.reset_for_play(supplier_chain);
+                    ReadySubState::Stopped
+                }
+                Recording(s) => return Some(s),
+            }
+        };
+        None
+    }
+
+    fn reset_for_play(&mut self, supplier_chain: &mut SupplierChain) {
+        supplier_chain.suspender_mut().reset();
+        supplier_chain.resampler_mut().reset_buffers_and_latency();
+        supplier_chain
+            .time_stretcher_mut()
+            .reset_buffers_and_latency();
+        supplier_chain
+            .looper_mut()
+            .set_loop_behavior(LoopBehavior::from_bool(self.repeated));
+    }
+
+    fn log_natural_deviation(
+        &self,
+        args: LogNaturalDeviationArgs<impl Timeline>,
+        supplier_chain: &SupplierChain,
+    ) {
         // Assuming a constant tempo and time signature during one cycle
-        // TODO-high Just temporary! We should introduce 2 parent states: Recording and Ready.
-        //  Ready has source data and contains all the known states such as Playing, Stopped, ...
-        //  In Recording state, the reaper_source() should be None.
-        let bar_count = self
-            .source_data
-            .as_ref()
-            .map(|d| d.bar_count())
-            .unwrap_or(1);
+        let bar_count = self.source_data.bar_count();
         let end_bar = args.start_bar + bar_count as i32;
         let bar_count = end_bar - args.start_bar;
         let end_bar_timeline_pos = args.timeline.pos_of_bar(end_bar);
@@ -996,13 +1065,12 @@ impl Clip {
             args.source_frame_rate,
         );
         // Source cycle length
-        let source_cycle_length_in_secs = self.supplier_chain.reaper_source().duration();
+        let source_cycle_length_in_secs = supplier_chain.reaper_source().duration();
         let source_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
             source_cycle_length_in_secs,
             args.timeline_frame_rate,
         );
-        let source_cycle_length_in_source_frames =
-            self.supplier_chain.reaper_source().frame_count();
+        let source_cycle_length_in_source_frames = supplier_chain.reaper_source().frame_count();
         // Block length
         let block_length_in_timeline_frames = args.block.length() as usize;
         let block_length_in_secs = convert_duration_in_frames_to_seconds(
@@ -1087,43 +1155,214 @@ impl Clip {
         );
     }
 
-    fn process_suspending(&mut self, s: SuspendingState, args: ClipProcessArgs<impl Timeline>) {
-        let general_info = self.prepare_playing(&args);
-        let suspender = self.supplier_chain.suspender_mut();
-        if !suspender.is_suspending() {
-            suspender.suspend(s.pos);
-        }
-        self.state = if let Some(end_frame) = self.fill_samples(args, s.pos, &general_info, 1.0) {
-            // Suspension not finished yet.
-            ClipState::Suspending(SuspendingState {
-                pos: end_frame,
+    pub fn midi_overdub(&mut self) {
+        use ReadySubState::*;
+        // TODO-medium Maybe we should start to play if not yet playing
+        if let Playing(s) = self.state {
+            self.state = Playing(PlayingState {
+                overdubbing: true,
                 ..s
-            })
-        } else {
-            // Suspension finished.
-            use StateAfterSuspension::*;
-            self.reset_for_play();
-            match s.next_state {
-                Playing(s) => ClipState::Playing(s),
-                Paused(s) => {
-                    // TODO-high Set follow-up Pause state in pause() correctly, see old
-                    //  get_suspension_follow_up_state()
-                    ClipState::Paused(s)
-                }
-                Stopped => {
-                    self.reset_for_play();
-                    ClipState::Stopped
-                }
-                Recording(s) => ClipState::Recording(s),
-            }
-        };
+            });
+        }
     }
 
-    fn process_recording(&mut self, s: RecordingState, args: ClipProcessArgs<impl Timeline>) {
+    pub fn record(
+        &mut self,
+        play_after: bool,
+        timing: RecordTiming,
+        project: Option<Project>,
+    ) -> Option<RecordingState> {
+        let recording_state = RecordingState {
+            timeline_start_pos: clip_timeline(project, false).cursor_pos(),
+            play_after,
+            timing,
+            // TODO-high Support audio
+            is_midi: true,
+        };
+        use ClipState::*;
+        use ReadySubState::*;
+        match self.state {
+            Stopped => Some(recording_state),
+            Playing(s) => {
+                if let Some(pos) = s.pos {
+                    if pos >= 0 {
+                        self.state = Suspending(SuspendingState {
+                            next_state: StateAfterSuspension::Recording(recording_state),
+                            pos,
+                        });
+                        None
+                    } else {
+                        Some(recording_state)
+                    }
+                } else {
+                    Some(recording_state)
+                }
+            }
+            Suspending(s) => {
+                self.state = Suspending(SuspendingState {
+                    next_state: StateAfterSuspension::Recording(recording_state),
+                    ..s
+                });
+                None
+            }
+            Paused(_) => Some(recording_state),
+        }
+    }
+    pub fn pause(&mut self) {
+        use ReadySubState::*;
+        match self.state {
+            Stopped | Paused(_) => {}
+            Playing(s) => {
+                if let Some(pos) = s.pos {
+                    if pos >= 0 {
+                        let pos = pos as usize;
+                        // Playing. Pause!
+                        // (If this clip is scheduled for stop already, a pause will backpedal from
+                        // that.)
+                        self.state = Suspending(SuspendingState {
+                            next_state: StateAfterSuspension::Paused(PausedState { pos }),
+                            pos: pos as isize,
+                        });
+                    }
+                }
+                // If not yet playing, we don't do anything at the moment.
+                // TODO-medium In future, we could defer the clip scheduling to the future. I think
+                //  that would feel natural.
+            }
+            Suspending(s) => {
+                self.state = Suspending(SuspendingState {
+                    next_state: StateAfterSuspension::Paused(PausedState {
+                        pos: s.pos as usize,
+                    }),
+                    ..s
+                });
+            }
+        }
+    }
+
+    pub fn seek(&mut self, desired_pos: UnitValue, supplier_chain: &SupplierChain) {
+        let frame_count = supplier_chain.reaper_source().frame_count();
+        let desired_frame = adjust_proportionally_positive(frame_count as f64, desired_pos.get());
+        use ReadySubState::*;
+        match self.state {
+            Stopped | Suspending(_) => {}
+            Playing(s) => {
+                if let Some(pos) = s.pos {
+                    if pos >= 0 {
+                        let up_cycled_frame = self.up_cycle_frame(
+                            desired_frame,
+                            pos as usize,
+                            frame_count,
+                            supplier_chain,
+                        );
+                        self.state = Playing(PlayingState {
+                            seek_pos: Some(up_cycled_frame),
+                            ..s
+                        });
+                    }
+                }
+            }
+            Paused(s) => {
+                let up_cycled_frame =
+                    self.up_cycle_frame(desired_frame, s.pos, frame_count, supplier_chain);
+                self.state = Paused(PausedState {
+                    pos: up_cycled_frame,
+                });
+            }
+        }
+    }
+
+    fn up_cycle_frame(
+        &self,
+        frame: usize,
+        offset_pos: usize,
+        frame_count: usize,
+        supplier_chain: &SupplierChain,
+    ) -> usize {
+        let current_cycle = supplier_chain.looper().get_cycle_at_frame(offset_pos);
+        current_cycle * frame_count + frame
+    }
+
+    pub fn play_state(&self) -> ClipPlayState {
+        use ReadySubState::*;
+        match self.state {
+            Stopped => ClipPlayState::Stopped,
+            Playing(s) => {
+                if s.overdubbing {
+                    ClipPlayState::Recording
+                } else if s.scheduled_for_stop {
+                    ClipPlayState::ScheduledForStop
+                } else if let Some(pos) = s.pos {
+                    if pos < 0 {
+                        ClipPlayState::ScheduledForPlay
+                    } else {
+                        ClipPlayState::Playing
+                    }
+                } else {
+                    ClipPlayState::ScheduledForPlay
+                }
+            }
+            Suspending(s) => match s.next_state {
+                StateAfterSuspension::Playing(_) => ClipPlayState::Playing,
+                StateAfterSuspension::Paused(_) => ClipPlayState::Paused,
+                StateAfterSuspension::Stopped => ClipPlayState::Stopped,
+                StateAfterSuspension::Recording(_) => ClipPlayState::Recording,
+            },
+            Paused(_) => ClipPlayState::Paused,
+        }
+    }
+
+    fn schedule_play_internal(&mut self, args: ClipPlayArgs) {
+        self.state = ReadySubState::Playing(PlayingState {
+            start_bar: args.from_bar,
+            ..Default::default()
+        });
+    }
+}
+
+impl RecordingState {
+    pub fn set_play_after(&mut self, play_after: bool) {
+        self.play_after = play_after;
+    }
+
+    pub fn stop(
+        &mut self,
+        args: ClipStopArgs,
+        supplier_chain: &SupplierChain,
+        project: Option<Project>,
+    ) -> Option<ReadyState> {
+        use RecordTiming::*;
+        match self.timing {
+            Unsynced => Some(self.finish_recording(self.play_after, None, supplier_chain, project)),
+            Synced { start_bar, end_bar } => {
+                // TODO-high If start bar in future, discard recording.
+                use ClipState::*;
+                if end_bar.is_some() {
+                    // End already scheduled. Take care of stopping after recording.
+                    self.play_after = false;
+                } else {
+                    // End not scheduled yet. Schedule end.
+                    let next_bar = args.timeline.next_bar_at(args.timeline_cursor_pos);
+                    self.timing = Synced {
+                        start_bar,
+                        end_bar: Some(next_bar),
+                    };
+                }
+                None
+            }
+        }
+    }
+
+    fn process(
+        &mut self,
+        args: &mut ClipProcessArgs<impl Timeline>,
+        supplier_chain: &SupplierChain,
+        project: Option<Project>,
+    ) -> Option<ReadyState> {
         if let RecordTiming::Synced {
             end_bar: Some(end_bar),
             ..
-        } = s.timing
+        } = self.timing
         {
             if args.timeline.next_bar_at(args.timeline_cursor_pos) >= end_bar {
                 // Close to scheduled recording end.
@@ -1137,64 +1376,45 @@ impl Clip {
                 let record_end_pos = args.timeline.pos_of_bar(end_bar);
                 if block_end_pos >= record_end_pos {
                     // We have recorded the last block.
-                    self.finish_recording(s.play_after, Some(end_bar));
-                    if s.play_after {
-                        self.process(args);
-                    }
+                    let ready_state = self.finish_recording(
+                        self.play_after,
+                        Some(end_bar),
+                        supplier_chain,
+                        project,
+                    );
+                    Some(ready_state)
+                } else {
+                    None
                 }
+            } else {
+                None
             }
+        } else {
+            None
         }
     }
 
-    fn finish_recording(&mut self, play_after: bool, start_bar: Option<i32>) {
+    fn finish_recording(
+        self,
+        play_after: bool,
+        start_bar: Option<i32>,
+        supplier_chain: &SupplierChain,
+        project: Option<Project>,
+    ) -> ReadyState {
         // Set source data
-        let source_data =
-            SourceData::from_source(self.supplier_chain.reaper_source(), self.project);
-        dbg!(&source_data);
-        self.source_data = Some(source_data);
+        let source_data = SourceData::from_source(supplier_chain.reaper_source(), project);
         // Change state
-        self.state = if play_after {
-            self.repeated = true;
-            ClipState::Playing(PlayingState {
-                start_bar,
-                ..Default::default()
-            })
-        } else {
-            ClipState::Stopped
-        };
-    }
-
-    fn prepare_playing(
-        &mut self,
-        args: &ClipProcessArgs<impl Timeline>,
-    ) -> SupplyRequestGeneralInfo {
-        let final_tempo_factor = self.calc_final_tempo_factor(args.timeline_tempo);
-        let general_info = SupplyRequestGeneralInfo {
-            audio_block_timeline_cursor_pos: args.timeline_cursor_pos,
-            audio_block_length: args.block.length() as usize,
-            output_frame_rate: args.block.sample_rate(),
-            timeline_tempo: args.timeline_tempo,
-            clip_tempo_factor: final_tempo_factor,
-        };
-        self.supplier_chain
-            .time_stretcher_mut()
-            .set_tempo_factor(final_tempo_factor);
-        general_info
-    }
-
-    fn schedule_play_internal(&mut self, args: ClipPlayArgs) {
-        self.state = ClipState::Playing(PlayingState {
-            start_bar: args.from_bar,
-            ..Default::default()
-        });
-    }
-
-    fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
-        if let Some(d) = &self.source_data {
-            let timeline_tempo_factor = timeline_tempo.get() / d.tempo.get();
-            timeline_tempo_factor.max(MIN_TEMPO_FACTOR)
-        } else {
-            1.0
+        ReadyState {
+            state: if play_after {
+                ReadySubState::Playing(PlayingState {
+                    start_bar,
+                    ..Default::default()
+                })
+            } else {
+                ReadySubState::Stopped
+            },
+            source_data,
+            repeated: play_after,
         }
     }
 }
