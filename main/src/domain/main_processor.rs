@@ -440,9 +440,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             for id in self.poll_control_mappings[compartment].iter() {
                 let (control_result, group_interaction) =
                     if let Some(m) = self.collections.mappings[compartment].get_mut(id) {
-                        if !m.control_is_effectively_on() {
-                            continue;
-                        }
+                        // We poll even if control is effectively off because it might have been
+                        // on before and user might have pressed a button which started some
+                        // timer - and we still want that timer to fire. This is practical e.g.
+                        // when having a single-press button with a modifier. It's not uncommon
+                        // to shortly press the modifier, press the single-press button and
+                        // release the modifier. If we wouldn't poll anymore in that case, the
+                        // single press would be discarded - or worse, fired when the mapping
+                        // is enabled again.
                         let control_context = self.basics.control_context();
                         let mut control_result = m.poll_control(
                             control_context,
@@ -471,11 +476,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // We only do target-value based group interaction after polling
                 // (makes sense because control-value based one has been done at control
                 // time already).
-                let needs_group_interaction = control_result.successful
-                    && matches!(
-                        group_interaction,
-                        GroupInteraction::SameTargetValue | GroupInteraction::InverseTargetValue
-                    );
+                let needs_group_interaction =
+                    control_result.successful && group_interaction.is_target_based();
                 control_mapping_stage_three(
                     &self.basics,
                     &mut self.collections,
