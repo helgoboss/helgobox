@@ -471,6 +471,9 @@ impl MainMapping {
         if now_is_active == was_active_before {
             return None;
         }
+        if !now_is_active {
+            self.core.mode.mapping_deactivated();
+        }
         let update = ActivationChange {
             id: self.id(),
             is_active: now_is_active,
