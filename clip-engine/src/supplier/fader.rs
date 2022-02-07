@@ -71,12 +71,43 @@ impl<S> Fader<S> {
         &mut self.supplier
     }
 
+    /// When interacting with an already running fade-out, the assumption is that the given start
+    /// frame is the current frame.
     pub fn start_fade_in(&mut self, start_frame: isize) {
-        self.fade = Some(Fade::new(start_frame, FadeDirection::FadeIn));
+        self.start_fade(FadeDirection::FadeIn, start_frame);
     }
 
+    /// When interacting with an already running fade-in, the assumption is that the given start
+    /// frame is the current frame.
     pub fn start_fade_out(&mut self, start_frame: isize) {
-        self.fade = Some(Fade::new(start_frame, FadeDirection::FadeOut));
+        self.start_fade(FadeDirection::FadeOut, start_frame);
+    }
+
+    fn start_fade(&mut self, direction: FadeDirection, start_frame: isize) {
+        if let Some(start_frame) = self.calc_actual_start_frame(direction, start_frame) {
+            self.fade = Some(Fade::new(start_frame, direction));
+        }
+    }
+
+    fn calc_actual_start_frame(
+        &self,
+        direction: FadeDirection,
+        requested_start_frame: isize,
+    ) -> Option<isize> {
+        match self.fade {
+            None => Some(requested_start_frame),
+            Some(f) => {
+                if f.direction == direction {
+                    // Already fading.
+                    return None;
+                }
+                let current_pos_in_fade = requested_start_frame - f.start_frame;
+                // If current_pos_in_fade is zero, I should skip the fade (move it completely to left).
+                // If it's FADE_LENGTH, I should apply the complete fade
+                let adjustment = current_pos_in_fade - FADE_LENGTH as isize;
+                Some(requested_start_frame + adjustment)
+            }
+        }
     }
 }
 
@@ -101,6 +132,7 @@ impl<S: AudioSupplier> AudioSupplier for Fader<S> {
             // as soon as fade phase ended).
             match fade.direction {
                 FadeIn => {
+                    self.fade = None;
                     return self.supplier.supply_audio(request, dest_buffer);
                 }
                 FadeOut => {
@@ -185,4 +217,4 @@ impl<S: MidiSupplier> MidiSupplier for Fader<S> {
 }
 
 // 0.01s = 10ms at 48 kHz
-const FADE_LENGTH: usize = 480;
+const FADE_LENGTH: usize = 4800;
