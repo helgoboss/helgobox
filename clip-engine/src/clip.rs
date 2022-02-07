@@ -3,11 +3,11 @@ use crate::tempo_util::detect_tempo;
 use crate::{
     adjust_proportionally_positive, clip_timeline, convert_duration_in_frames_to_other_frame_rate,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
-    get_empty_midi_source, AudioBufMut, AudioSupplier, ClipContent, ClipRecordTiming,
-    CreateClipContentMode, ExactDuration, ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier,
-    RecordKind, SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
-    SupplyRequestInfo, Timeline, WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest,
+    convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames, AudioBufMut,
+    AudioSupplier, ClipContent, ClipRecordTiming, CreateClipContentMode, ExactDuration,
+    ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier, RecordKind, Recorder, SupplierChain,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, Timeline,
+    WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest,
 };
 use helgoboss_learn::UnitValue;
 use reaper_high::{OwnedSource, Project, ReaperSource};
@@ -36,14 +36,14 @@ pub struct Clip {
 //  can mutate freely without having to worry about the borrow checker (which would otherwise
 //  always get in the way if we want to call a method on self).
 #[derive(Copy, Clone, Debug)]
-struct SourceData {
+pub struct SourceData {
     tempo: Bpm,
     beat_count: u32,
     is_midi: bool,
 }
 
 impl SourceData {
-    fn from_source(source: &OwnedPcmSource, project: Option<Project>) -> Self {
+    pub fn from_source(source: &OwnedPcmSource, project: Option<Project>) -> Self {
         let is_midi = pcm_source_is_midi(source);
         let tempo = source
             .tempo()
@@ -206,7 +206,7 @@ impl Clip {
             repeated: false,
         };
         Self {
-            supplier_chain: SupplierChain::new(Some(source)),
+            supplier_chain: SupplierChain::new(Recorder::ready(source)),
             state: ClipState::Ready(ready_state),
             project,
             volume: Default::default(),
@@ -222,7 +222,7 @@ impl Clip {
             rollback_data: None,
         };
         Self {
-            supplier_chain: SupplierChain::new(None),
+            supplier_chain: SupplierChain::new(Recorder::recording(args.input, project)),
             state: ClipState::Recording(recording_state),
             project,
             volume: Default::default(),
@@ -376,16 +376,7 @@ impl Clip {
     }
 
     pub fn info_legacy(&self) -> Option<ClipInfo> {
-        let source = self.supplier_chain.source()?;
-        let info = ClipInfo {
-            r#type: source.get_type(|t| t.to_string()),
-            file_name: source.get_file_name(|p| Some(p?.to_owned())),
-            length: {
-                // TODO-low Doesn't need to be optional
-                Some(source.duration())
-            },
-        };
-        Some(info)
+        self.supplier_chain.clip_info()
     }
 
     pub fn descriptor_legacy(&self) -> Option<LegacyClip> {
@@ -398,15 +389,7 @@ impl Clip {
     }
 
     fn content(&self) -> Option<ClipContent> {
-        let source = self.supplier_chain.source()?;
-        let source = ReaperSource::new(source.as_ptr());
-        let content = ClipContent::from_reaper_source(
-            &source,
-            CreateClipContentMode::AllowEmbeddedData,
-            self.project,
-        )
-        .unwrap();
-        Some(content)
+        self.supplier_chain.clip_content(self.project)
     }
 
     pub fn toggle_repeated(&mut self) -> ClipChangedEvent {
@@ -483,7 +466,7 @@ impl ReadyState {
         if frame < 0 {
             None
         } else {
-            let frame_count = supplier_chain.source_in_ready_state().frame_count();
+            let frame_count = supplier_chain.source_frame_count_in_ready_state();
             if frame_count == 0 {
                 Some(UnitValue::MIN)
             } else {
@@ -515,7 +498,7 @@ impl ReadyState {
     }
 
     fn modulo_frame(&self, frame: usize, supplier_chain: &SupplierChain) -> usize {
-        frame % supplier_chain.source_in_ready_state().frame_count()
+        frame % supplier_chain.source_frame_count_in_ready_state()
     }
 
     pub fn set_repeated(&mut self, repeated: bool, supplier_chain: &mut SupplierChain) {
@@ -728,7 +711,7 @@ impl ReadyState {
                         let seek_pos = if pos < seek_pos {
                             seek_pos
                         } else {
-                            seek_pos + supplier_chain.source_in_ready_state().frame_count()
+                            seek_pos + supplier_chain.source_frame_count_in_ready_state()
                         };
                         // We might need to fast-forward.
                         let real_distance = seek_pos - pos;
@@ -1080,13 +1063,13 @@ impl ReadyState {
             args.source_frame_rate,
         );
         // Source cycle length
-        let source_cycle_length_in_secs = supplier_chain.source_in_ready_state().duration();
+        let source_cycle_length_in_secs = supplier_chain.source_duration_in_ready_state();
         let source_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
             source_cycle_length_in_secs,
             args.timeline_frame_rate,
         );
         let source_cycle_length_in_source_frames =
-            supplier_chain.source_in_ready_state().frame_count();
+            supplier_chain.source_frame_count_in_ready_state();
         // Block length
         let block_length_in_timeline_frames = args.block.length() as usize;
         let block_length_in_secs = convert_duration_in_frames_to_seconds(
@@ -1262,7 +1245,7 @@ impl ReadyState {
     }
 
     pub fn seek(&mut self, desired_pos: UnitValue, supplier_chain: &SupplierChain) {
-        let frame_count = supplier_chain.source_in_ready_state().frame_count();
+        let frame_count = supplier_chain.source_frame_count_in_ready_state();
         let desired_frame = adjust_proportionally_positive(frame_count as f64, desired_pos.get());
         use ReadySubState::*;
         match self.state {
@@ -1444,8 +1427,7 @@ impl RecordingState {
         supplier_chain: &mut SupplierChain,
         project: Option<Project>,
     ) -> ReadyState {
-        let source = supplier_chain.recorder_mut().commit_recording();
-        let source_data = SourceData::from_source(source, project);
+        let source_data = supplier_chain.recorder_mut().commit_recording().unwrap();
         // Change state
         ReadyState {
             state: if play_after {

@@ -1,6 +1,10 @@
 use crate::supplier::{Fader, Looper};
-use crate::{Recorder, Resampler, TimeStretcher, WithFrameRate};
-use reaper_medium::{Hz, OwnedPcmSource};
+use crate::{
+    ClipContent, ClipInfo, ExactDuration, ExactFrameCount, Recorder, Resampler, TimeStretcher,
+    WithFrameRate,
+};
+use reaper_high::Project;
+use reaper_medium::{DurationInSeconds, Hz, OwnedPcmSource};
 
 type Head = FaderTail;
 type FaderTail = Fader<ResamplerTail>;
@@ -16,13 +20,9 @@ pub struct SupplierChain {
 }
 
 impl SupplierChain {
-    pub fn new(reaper_source: Option<OwnedPcmSource>) -> Self {
+    pub fn new(recorder: Recorder) -> Self {
         let mut chain = Self {
-            head: {
-                Fader::new(Resampler::new(TimeStretcher::new(Looper::new(
-                    Recorder::new(reaper_source),
-                ))))
-            },
+            head: { Fader::new(Resampler::new(TimeStretcher::new(Looper::new(recorder)))) },
         };
         // Configure resampler
         let resampler = chain.resampler_mut();
@@ -84,18 +84,25 @@ impl SupplierChain {
         self.looper_mut().supplier_mut()
     }
 
-    pub fn source(&self) -> Option<&SourceTail> {
-        self.recorder().source()
-    }
-
-    pub fn source_in_ready_state(&self) -> &SourceTail {
-        self.source()
-            .expect("in ready state, REAPER source must be available")
-    }
-
     pub fn source_frame_rate_in_ready_state(&self) -> Hz {
-        self.source_in_ready_state()
+        self.recorder()
             .frame_rate()
-            .expect("source didn't report frame rate in ready state")
+            .expect("recorder couldn't provide frame rate even though clip is in ready state")
+    }
+
+    pub fn source_frame_count_in_ready_state(&self) -> usize {
+        self.recorder().frame_count()
+    }
+
+    pub fn source_duration_in_ready_state(&self) -> DurationInSeconds {
+        self.recorder().duration()
+    }
+
+    pub fn clip_info(&self) -> Option<ClipInfo> {
+        self.recorder().clip_info()
+    }
+
+    pub fn clip_content(&self, project: Option<Project>) -> Option<ClipContent> {
+        self.recorder().clip_content(project)
     }
 }
