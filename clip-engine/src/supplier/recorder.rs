@@ -1,19 +1,28 @@
 use crate::buffer::AudioBufMut;
+use crate::file_util::get_path_for_new_media_file;
 use crate::{
-    clip_timeline, AudioBuf, AudioSupplier, ExactFrameCount, MidiSupplier, OwnedAudioBuffer,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
+    clip_timeline, AudioBuf, AudioSupplier, ClipRecordInput, ExactFrameCount, MidiSupplier,
+    OwnedAudioBuffer, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
-use reaper_high::OwnedSource;
-use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
-use reaper_medium::{BorrowedMidiEventList, Hz, OwnedPcmSource, PositionInSeconds};
-use std::ptr::null_mut;
+use reaper_high::{OwnedSource, Project, Reaper};
+use reaper_low::raw::{
+    midi_realtime_write_struct_t, PCM_SINK_EXT_CREATESOURCE, PCM_SOURCE_EXT_ADDMIDIEVENTS,
+};
+use reaper_low::{raw, PCM_source};
+use reaper_medium::{
+    BorrowedMidiEventList, Hz, OwnedPcmSink, OwnedPcmSource, PcmSource, PositionInSeconds,
+    ReaperString,
+};
+use std::ffi::CString;
+use std::ptr::{null, null_mut, NonNull};
 use std::{cmp, mem};
 
 #[derive(Debug)]
 pub struct Recorder {
-    supplier: OwnedPcmSource,
-    old_supplier: Option<OwnedPcmSource>,
+    source: Option<OwnedPcmSource>,
+    old_source: Option<OwnedPcmSource>,
     temporary_audio_buffer: OwnedAudioBuffer,
+    sink: Option<OwnedPcmSink>,
     next_record_start_frame: usize,
 }
 
@@ -33,37 +42,72 @@ pub struct WriteAudioRequest<'a> {
 }
 
 impl Recorder {
-    pub fn new(source: OwnedPcmSource) -> Self {
+    pub fn new(source: Option<OwnedPcmSource>) -> Self {
         Self {
-            supplier: source,
-            old_supplier: None,
+            source,
+            old_source: None,
             temporary_audio_buffer: OwnedAudioBuffer::new(2, 48000 * 2),
+            sink: None,
             next_record_start_frame: 0,
         }
     }
 
-    pub fn supplier(&self) -> &OwnedPcmSource {
-        &self.supplier
+    pub fn source(&self) -> Option<&OwnedPcmSource> {
+        self.source.as_ref()
     }
 
-    pub fn supplier_mut(&mut self) -> &mut OwnedPcmSource {
-        &mut self.supplier
+    pub fn source_mut(&mut self) -> Option<&mut OwnedPcmSource> {
+        self.source.as_mut()
     }
 
-    pub fn prepare_recording(&mut self) {
+    pub fn prepare_recording(&mut self, input: ClipRecordInput, project: Option<Project>) {
+        use ClipRecordInput::*;
+        let new_supplier = match input {
+            Midi => get_empty_midi_source(),
+            Audio => {
+                let proj_ptr = project.map(|p| p.raw().as_ptr()).unwrap_or(null_mut());
+                let file_name = get_path_for_new_media_file("clip-audio", "wav", project);
+                let file_name_str = file_name.to_str().unwrap();
+                let file_name_c_string = CString::new(file_name_str).unwrap();
+                unsafe {
+                    let sink = Reaper::get().medium_reaper().low().PCM_Sink_CreateEx(
+                        proj_ptr,
+                        file_name_c_string.as_ptr(),
+                        null(),
+                        0,
+                        2,
+                        48000,
+                        false,
+                    );
+                    let sink = NonNull::new(sink).expect("PCM_Sink_CreateEx returned null");
+                    let sink = OwnedPcmSink::from_raw(sink);
+                    let mut pcm_source: *mut raw::PCM_source = null_mut();
+                    sink.as_ref().as_ref().Extended(
+                        PCM_SINK_EXT_CREATESOURCE,
+                        &mut pcm_source as *mut _ as *mut _,
+                        null_mut(),
+                        null_mut(),
+                    );
+                    let pcm_source =
+                        NonNull::new(pcm_source).expect("PCM sink didn't create a source");
+                    let pcm_source = OwnedPcmSource::from_raw(pcm_source);
+                    self.sink = Some(sink);
+                    pcm_source
+                }
+            }
+        };
         // TODO-high Just replacing is not a good idea. Fade outs?
-        let old_supplier = mem::replace(&mut self.supplier, get_empty_midi_source());
-        self.old_supplier = Some(old_supplier);
+        self.old_source = self.source.replace(new_supplier);
     }
 
-    pub fn commit_recording(&mut self) {
-        self.old_supplier = None;
+    pub fn commit_recording(&mut self) -> &OwnedPcmSource {
+        self.old_source = None;
+        // TODO-high
+        self.source().unwrap()
     }
 
     pub fn rollback_recording(&mut self) {
-        if let Some(old_supplier) = self.old_supplier.take() {
-            self.supplier = old_supplier;
-        }
+        self.source = self.old_source.take();
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
@@ -91,6 +135,10 @@ impl Recorder {
     }
 
     pub fn write_midi(&mut self, request: WriteMidiRequest, pos: PositionInSeconds) {
+        let source = match self.source_mut() {
+            None => return,
+            Some(s) => s,
+        };
         let mut write_struct = midi_realtime_write_struct_t {
             global_time: pos.get(),
             srate: request.input_sample_rate.get(),
@@ -105,7 +153,7 @@ impl Recorder {
             overwrite_actives: null_mut(),
         };
         unsafe {
-            self.supplier.extended(
+            source.extended(
                 PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
                 &mut write_struct as *mut _ as _,
                 null_mut(),
@@ -141,7 +189,18 @@ impl AudioSupplier for Recorder {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        return self.supplier.supply_audio(request, dest_buffer);
+        let source = match self.source_mut() {
+            // Not called when recording.
+            None => {
+                return SupplyResponse {
+                    num_frames_written: 0,
+                    num_frames_consumed: 0,
+                    next_inner_frame: None,
+                }
+            }
+            Some(s) => s,
+        };
+        return source.supply_audio(request, dest_buffer);
         // // TODO-high Obviously just some experiments.
         // let temp_buf = self.temporary_audio_buffer.to_buf();
         // if request.start_frame < 0 {
@@ -164,7 +223,7 @@ impl AudioSupplier for Recorder {
     }
 
     fn channel_count(&self) -> usize {
-        self.supplier.channel_count()
+        self.source.as_ref().map(|s| s.channel_count()).unwrap_or(0)
     }
 }
 
@@ -174,18 +233,28 @@ impl MidiSupplier for Recorder {
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {
-        self.supplier.supply_midi(request, event_list)
+        let source = match self.source_mut() {
+            None => {
+                return SupplyResponse {
+                    num_frames_written: 0,
+                    num_frames_consumed: 0,
+                    next_inner_frame: None,
+                }
+            }
+            Some(s) => s,
+        };
+        source.supply_midi(request, event_list)
     }
 }
 
 impl ExactFrameCount for Recorder {
     fn frame_count(&self) -> usize {
-        self.supplier.frame_count()
+        self.source().map(|s| s.frame_count()).unwrap_or(0)
     }
 }
 
 impl WithFrameRate for Recorder {
-    fn frame_rate(&self) -> Hz {
-        self.supplier.frame_rate()
+    fn frame_rate(&self) -> Option<Hz> {
+        self.source.as_ref().and_then(|s| s.frame_rate())
     }
 }

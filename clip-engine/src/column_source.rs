@@ -1,5 +1,5 @@
 use crate::{
-    clip_timeline, Clip, ClipChangedEvent, ClipPlayArgs, ClipProcessArgs, ClipRecordSourceType,
+    clip_timeline, Clip, ClipChangedEvent, ClipPlayArgs, ClipProcessArgs, ClipRecordInput,
     ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, Slot, SlotPollArgs,
     SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange, WriteAudioRequest,
     WriteMidiRequest,
@@ -96,7 +96,11 @@ impl ColumnSource {
         index: usize,
         behavior: RecordBehavior,
     ) -> Result<(), &'static str> {
-        get_slot_mut(&mut self.slots, index).record_clip(behavior, self.project)
+        get_slot_mut(&mut self.slots, index).record_clip(
+            behavior,
+            ClipRecordInput::Audio,
+            self.project,
+        )
     }
 
     pub fn pause_clip(&mut self, index: usize) -> Result<(), &'static str> {
@@ -107,8 +111,8 @@ impl ColumnSource {
         get_slot_mut(&mut self.slots, index).seek_clip(desired_pos)
     }
 
-    pub fn clip_record_source_type(&self, index: usize) -> Option<ClipRecordSourceType> {
-        get_slot(&self.slots, index).ok()?.clip_record_source_type()
+    pub fn clip_record_input(&self, index: usize) -> Option<ClipRecordInput> {
+        get_slot(&self.slots, index).ok()?.clip_record_input()
     }
 
     pub fn write_clip_midi(

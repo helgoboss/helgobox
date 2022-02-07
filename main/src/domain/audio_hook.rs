@@ -6,7 +6,7 @@ use assert_no_alloc::*;
 use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
 use playtime_clip_engine::{
-    clip_timeline, global_steady_timeline, AudioBuf, ClipRecordSourceType, ClipRecordTask,
+    clip_timeline, global_steady_timeline, AudioBuf, ClipRecordInput, ClipRecordTask,
     ClipRecordTiming, SharedRegister, Timeline, WriteAudioRequest, WriteMidiRequest,
 };
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Project, Reaper};
@@ -387,12 +387,12 @@ impl RealTimeProcessorLocker for SharedRealTimeProcessor {
 /// Returns whether task still relevant.
 fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipRecordTask) -> bool {
     let mut src = record_task.column_source.lock();
-    let mode = match src.clip_record_source_type(record_task.slot_index) {
+    let input = match src.clip_record_input(record_task.slot_index) {
         None => return false,
         Some(m) => m,
     };
-    match mode {
-        ClipRecordSourceType::Midi => {
+    match input {
+        ClipRecordInput::Midi => {
             for dev_id in 0..MidiInputDeviceId::MAX_DEVICE_COUNT {
                 let dev_id = MidiInputDeviceId::new(dev_id);
                 MidiInputDevice::new(dev_id).with_midi_input(|mi| {
@@ -415,7 +415,7 @@ fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipReco
                 });
             }
         }
-        ClipRecordSourceType::Audio => unsafe {
+        ClipRecordInput::Audio => unsafe {
             let reg = args.reg.get().as_ref();
             let get_buffer = match reg.GetBuffer {
                 None => return true,

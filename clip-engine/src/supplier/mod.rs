@@ -67,7 +67,12 @@ pub trait WithTempo {
 
 pub trait WithFrameRate {
     /// Native (preferred) sample rate of the material.
-    fn frame_rate(&self) -> Hz;
+    ///
+    /// Even for MIDI we report a certain constant frame rate.
+    ///
+    /// `None` means there's no perfect frame rate at the moment, maybe because the supplier doesn't
+    /// have audio material.
+    fn frame_rate(&self) -> Option<Hz>;
 }
 
 pub trait ExactDuration {

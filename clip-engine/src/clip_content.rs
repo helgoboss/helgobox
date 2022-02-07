@@ -1,3 +1,4 @@
+use crate::file_util::get_path_for_new_media_file;
 use reaper_high::{Item, OwnedSource, Project, Reaper, ReaperSource};
 use reaper_medium::MidiImportBehavior;
 use serde::{Deserialize, Serialize};
@@ -53,16 +54,11 @@ impl ClipContent {
             match mode {
                 AllowEmbeddedData => Self::from_midi_chunk(source.state_chunk()),
                 ForceExportToFile { file_base_name } => {
-                    let project = project.unwrap_or_else(|| Reaper::get().current_project());
-                    let recording_path = project.recording_path();
-                    let name_slug = slug::slugify(file_base_name);
-                    let unique_id = nanoid::nanoid!(8);
-                    let file_name = format!("{}-{}.mid", name_slug, unique_id);
-                    let source_file = recording_path.join(file_name);
+                    let file_name = get_path_for_new_media_file(&file_base_name, "mid", project);
                     source
-                        .export_to_file(&source_file)
+                        .export_to_file(&file_name)
                         .map_err(|_| "couldn't export MIDI source to file")?;
-                    Self::from_file(Some(project), source_file)
+                    Self::from_file(project, file_name)
                 }
             }
         } else {

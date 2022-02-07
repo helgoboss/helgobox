@@ -61,9 +61,15 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
         if !self.enabled {
             return self.supplier.supply_audio(&request, dest_buffer);
         }
+        let source_frame_rate = match self.supplier.frame_rate() {
+            None => {
+                // Nothing to stretch at the moment.
+                return self.supplier.supply_audio(&request, dest_buffer);
+            }
+            Some(r) => r,
+        };
         let mut total_num_frames_consumed = 0usize;
         let mut total_num_frames_written = 0usize;
-        let source_frame_rate = self.supplier.frame_rate();
         // I think it makes sense to set both the output and the input sample rate to the sample
         // rate of the source. Then the result can be even cached and sample rate & play-rate
         // changes don't need to invalidate the cache.
@@ -172,7 +178,7 @@ impl<S: MidiSupplier> MidiSupplier for TimeStretcher<S> {
 }
 
 impl<S: WithFrameRate> WithFrameRate for TimeStretcher<S> {
-    fn frame_rate(&self) -> Hz {
+    fn frame_rate(&self) -> Option<Hz> {
         self.supplier.frame_rate()
     }
 }

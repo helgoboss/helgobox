@@ -45,9 +45,15 @@ impl<S: AudioSupplier + ExactFrameCount + WithFrameRate> Cache<S> {
             // Already cached.
             return;
         }
+        let original_sample_rate = match self.supplier.frame_rate() {
+            None => {
+                // Nothing to cache.
+                return;
+            }
+            Some(r) => r,
+        };
         let mut content =
             OwnedAudioBuffer::new(self.supplier.channel_count(), self.supplier.frame_count());
-        let original_sample_rate = self.supplier.frame_rate();
         let request = SupplyAudioRequest {
             start_frame: 0,
             dest_sample_rate: original_sample_rate,
@@ -102,9 +108,9 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Cache<S> {
 }
 
 impl<S: WithFrameRate> WithFrameRate for Cache<S> {
-    fn frame_rate(&self) -> Hz {
+    fn frame_rate(&self) -> Option<Hz> {
         if let Some(d) = &self.cached_data {
-            d.sample_rate
+            Some(d.sample_rate)
         } else {
             self.supplier.frame_rate()
         }

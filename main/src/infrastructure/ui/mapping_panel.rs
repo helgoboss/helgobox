@@ -613,7 +613,7 @@ impl MappingPanel {
                     let mapping = self.mapping();
                     let mapping = mapping.borrow();
                     let slot_index = mapping.target_model.slot_index();
-                    if let Ok((descriptor, clip_info)) = instance_state
+                    if let Ok((Some(descriptor), Some(clip_info))) = instance_state
                         .clip_matrix()
                         .with_slot_legacy(slot_index, |slot| {
                             let clip = slot.clip()?;
@@ -4191,7 +4191,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                         .clip_matrix()
                         .with_slot_legacy(self.target.slot_index(), |slot| {
                             let clip = slot.clip()?;
-                            Ok(clip.descriptor_legacy())
+                            Ok(clip.descriptor_legacy().ok_or("recording")?)
                         })
                         .ok();
                     let (label, enabled) = if let Some(descriptor) = descriptor {

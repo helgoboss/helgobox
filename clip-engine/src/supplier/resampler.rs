@@ -51,8 +51,14 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
         if !self.enabled {
             return self.supplier.supply_audio(&request, dest_buffer);
         }
+        let source_frame_rate = match self.supplier.frame_rate() {
+            None => {
+                // Nothing to resample at the moment.
+                return self.supplier.supply_audio(&request, dest_buffer);
+            }
+            Some(r) => r,
+        };
         let dest_frame_rate = request.dest_sample_rate;
-        let source_frame_rate = self.supplier.frame_rate();
         if source_frame_rate == dest_frame_rate {
             return self.supplier.supply_audio(&request, dest_buffer);
         }
@@ -166,7 +172,7 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
 }
 
 impl<S: WithFrameRate> WithFrameRate for Resampler<S> {
-    fn frame_rate(&self) -> Hz {
+    fn frame_rate(&self) -> Option<Hz> {
         self.supplier.frame_rate()
     }
 }

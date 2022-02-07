@@ -84,7 +84,12 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
                 Some(QualifiedSlotDescriptor {
                     index: i,
                     descriptor: column
-                        .with_slot(0, |slot| Ok(slot.clip()?.descriptor_legacy()))
+                        .with_slot(0, |slot| {
+                            Ok(slot
+                                .clip()?
+                                .descriptor_legacy()
+                                .ok_or("clip didn't deliver descriptor")?)
+                        })
                         .ok()?,
                 })
             })

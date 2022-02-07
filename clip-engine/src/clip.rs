@@ -170,7 +170,7 @@ struct RecordingState {
     /// Implies repeat.
     pub play_after: bool,
     pub timing: RecordTiming,
-    pub is_midi: bool,
+    pub input: ClipRecordInput,
     pub rollback_data: Option<RollbackData>,
 }
 
@@ -206,28 +206,23 @@ impl Clip {
             repeated: false,
         };
         Self {
-            supplier_chain: SupplierChain::new(source),
+            supplier_chain: SupplierChain::new(Some(source)),
             state: ClipState::Ready(ready_state),
             project,
             volume: Default::default(),
         }
     }
 
-    pub fn from_recording(
-        play_after: bool,
-        timing: RecordTiming,
-        project: Option<Project>,
-    ) -> Self {
+    pub fn from_recording(args: ClipRecordArgs, project: Option<Project>) -> Self {
         let recording_state = RecordingState {
             timeline_start_pos: clip_timeline(project, false).cursor_pos(),
-            play_after,
-            timing,
-            // TODO-high Support audio
-            is_midi: true,
+            play_after: args.play_after,
+            timing: args.timing,
+            input: args.input,
             rollback_data: None,
         };
         Self {
-            supplier_chain: SupplierChain::new(get_empty_midi_source()),
+            supplier_chain: SupplierChain::new(None),
             state: ClipState::Recording(recording_state),
             project,
             volume: Default::default(),
@@ -295,12 +290,14 @@ impl Clip {
         }
     }
 
-    pub fn record(&mut self, play_after: bool, timing: RecordTiming) {
-        self.supplier_chain.recorder_mut().prepare_recording();
+    pub fn record(&mut self, args: ClipRecordArgs) {
+        self.supplier_chain
+            .recorder_mut()
+            .prepare_recording(args.input, self.project);
         use ClipState::*;
         match &mut self.state {
             Ready(s) => {
-                if let Some(recording_state) = s.record(play_after, timing, self.project) {
+                if let Some(recording_state) = s.record(args, self.project) {
                     self.state = Recording(recording_state);
                 }
             }
@@ -324,7 +321,7 @@ impl Clip {
         }
     }
 
-    pub fn record_source_type(&self) -> Option<ClipRecordSourceType> {
+    pub fn record_input(&self) -> Option<ClipRecordInput> {
         use ClipState::*;
         match &self.state {
             Ready(s) => {
@@ -333,7 +330,7 @@ impl Clip {
                     Stopped | Suspending(_) | Paused(_) => None,
                     Playing(s) => {
                         if s.overdubbing {
-                            Some(ClipRecordSourceType::Midi)
+                            Some(ClipRecordInput::Midi)
                         } else {
                             None
                         }
@@ -341,13 +338,7 @@ impl Clip {
                 }
             }
             // TODO-medium When recording past end, return None (should usually not happen)
-            Recording(s) => {
-                if s.is_midi {
-                    Some(ClipRecordSourceType::Midi)
-                } else {
-                    Some(ClipRecordSourceType::Audio)
-                }
-            }
+            Recording(s) => Some(s.input),
         }
     }
 
@@ -384,35 +375,38 @@ impl Clip {
         ClipChangedEvent::ClipVolume(volume)
     }
 
-    pub fn info_legacy(&self) -> ClipInfo {
-        let source = self.supplier_chain.reaper_source();
-        ClipInfo {
+    pub fn info_legacy(&self) -> Option<ClipInfo> {
+        let source = self.supplier_chain.source()?;
+        let info = ClipInfo {
             r#type: source.get_type(|t| t.to_string()),
             file_name: source.get_file_name(|p| Some(p?.to_owned())),
             length: {
                 // TODO-low Doesn't need to be optional
                 Some(source.duration())
             },
-        }
+        };
+        Some(info)
     }
 
-    pub fn descriptor_legacy(&self) -> LegacyClip {
-        LegacyClip {
+    pub fn descriptor_legacy(&self) -> Option<LegacyClip> {
+        let clip = LegacyClip {
             volume: self.volume,
             repeat: self.repeated(),
-            content: Some(self.content()),
-        }
+            content: Some(self.content()?),
+        };
+        Some(clip)
     }
 
-    fn content(&self) -> ClipContent {
-        let source = self.supplier_chain.reaper_source();
+    fn content(&self) -> Option<ClipContent> {
+        let source = self.supplier_chain.source()?;
         let source = ReaperSource::new(source.as_ptr());
-        ClipContent::from_reaper_source(
+        let content = ClipContent::from_reaper_source(
             &source,
             CreateClipContentMode::AllowEmbeddedData,
             self.project,
         )
-        .unwrap()
+        .unwrap();
+        Some(content)
     }
 
     pub fn toggle_repeated(&mut self) -> ClipChangedEvent {
@@ -477,7 +471,7 @@ impl ReadyState {
         let source_pos_in_source_frames = self.frame_within_reaper_source(supplier_chain)?;
         let source_pos_in_secs = convert_position_in_frames_to_seconds(
             source_pos_in_source_frames,
-            supplier_chain.reaper_source().frame_rate(),
+            supplier_chain.source_frame_rate_in_ready_state(),
         );
         let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo);
         let source_pos_in_secs_tempo_adjusted = source_pos_in_secs.get() / final_tempo_factor;
@@ -489,7 +483,7 @@ impl ReadyState {
         if frame < 0 {
             None
         } else {
-            let frame_count = supplier_chain.reaper_source().frame_count();
+            let frame_count = supplier_chain.source_in_ready_state().frame_count();
             if frame_count == 0 {
                 Some(UnitValue::MIN)
             } else {
@@ -521,7 +515,7 @@ impl ReadyState {
     }
 
     fn modulo_frame(&self, frame: usize, supplier_chain: &SupplierChain) -> usize {
-        frame % supplier_chain.reaper_source().frame_count()
+        frame % supplier_chain.source_in_ready_state().frame_count()
     }
 
     pub fn set_repeated(&mut self, repeated: bool, supplier_chain: &mut SupplierChain) {
@@ -734,12 +728,12 @@ impl ReadyState {
                         let seek_pos = if pos < seek_pos {
                             seek_pos
                         } else {
-                            seek_pos + supplier_chain.reaper_source().frame_count()
+                            seek_pos + supplier_chain.source_in_ready_state().frame_count()
                         };
                         // We might need to fast-forward.
                         let real_distance = seek_pos - pos;
                         let desired_distance_in_secs = DurationInSeconds::new(0.300);
-                        let source_frame_rate = supplier_chain.reaper_source().frame_rate();
+                        let source_frame_rate = supplier_chain.source_frame_rate_in_ready_state();
                         let desired_distance = convert_duration_in_seconds_to_frames(
                             desired_distance_in_secs,
                             source_frame_rate,
@@ -954,14 +948,14 @@ impl ReadyState {
     ) -> isize {
         // Basics
         let block_length_in_timeline_frames = args.block.length() as usize;
-        let source_frame_rate = supplier_chain.reaper_source().frame_rate();
+        let source_frame_rate = supplier_chain.source_frame_rate_in_ready_state();
         let timeline_frame_rate = args.block.sample_rate();
         // Essential calculation
         let start_bar_timeline_pos = args.timeline.pos_of_bar(start_bar);
         let rel_pos_from_bar_in_secs = args.timeline_cursor_pos - start_bar_timeline_pos;
         let rel_pos_from_bar_in_source_frames = convert_position_in_seconds_to_frames(
             rel_pos_from_bar_in_secs,
-            supplier_chain.reaper_source().frame_rate(),
+            supplier_chain.source_frame_rate_in_ready_state(),
         );
         {
             let args = LogNaturalDeviationArgs {
@@ -1086,12 +1080,13 @@ impl ReadyState {
             args.source_frame_rate,
         );
         // Source cycle length
-        let source_cycle_length_in_secs = supplier_chain.reaper_source().duration();
+        let source_cycle_length_in_secs = supplier_chain.source_in_ready_state().duration();
         let source_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
             source_cycle_length_in_secs,
             args.timeline_frame_rate,
         );
-        let source_cycle_length_in_source_frames = supplier_chain.reaper_source().frame_count();
+        let source_cycle_length_in_source_frames =
+            supplier_chain.source_in_ready_state().frame_count();
         // Block length
         let block_length_in_timeline_frames = args.block.length() as usize;
         let block_length_in_secs = convert_duration_in_frames_to_seconds(
@@ -1189,16 +1184,14 @@ impl ReadyState {
 
     pub fn record(
         &mut self,
-        play_after: bool,
-        timing: RecordTiming,
+        args: ClipRecordArgs,
         project: Option<Project>,
     ) -> Option<RecordingState> {
         let recording_state = RecordingState {
             timeline_start_pos: clip_timeline(project, false).cursor_pos(),
-            play_after,
-            timing,
-            // TODO-high Support audio
-            is_midi: true,
+            play_after: args.play_after,
+            timing: args.timing,
+            input: args.input,
             rollback_data: {
                 let data = RollbackData {
                     repeated: self.repeated,
@@ -1269,7 +1262,7 @@ impl ReadyState {
     }
 
     pub fn seek(&mut self, desired_pos: UnitValue, supplier_chain: &SupplierChain) {
-        let frame_count = supplier_chain.reaper_source().frame_count();
+        let frame_count = supplier_chain.source_in_ready_state().frame_count();
         let desired_frame = adjust_proportionally_positive(frame_count as f64, desired_pos.get());
         use ReadySubState::*;
         match self.state {
@@ -1451,8 +1444,8 @@ impl RecordingState {
         supplier_chain: &mut SupplierChain,
         project: Option<Project>,
     ) -> ReadyState {
-        supplier_chain.recorder_mut().commit_recording();
-        let source_data = SourceData::from_source(supplier_chain.reaper_source(), project);
+        let source = supplier_chain.recorder_mut().commit_recording();
+        let source_data = SourceData::from_source(source, project);
         // Change state
         ReadyState {
             state: if play_after {
@@ -1500,6 +1493,18 @@ pub struct ClipPlayArgs {
     pub from_bar: Option<i32>,
 }
 
+pub struct ClipRecordArgs {
+    pub play_after: bool,
+    pub input: ClipRecordInput,
+    pub timing: RecordTiming,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum ClipRecordInput {
+    Midi,
+    Audio,
+}
+
 pub struct ClipStopArgs<'a> {
     pub stop_behavior: ClipStopBehavior,
     pub timeline_cursor_pos: PositionInSeconds,
@@ -1532,12 +1537,6 @@ struct LogNaturalDeviationArgs<'a, T: Timeline> {
 }
 
 const MIN_TEMPO_FACTOR: f64 = 0.0000000001;
-
-#[derive(Debug)]
-pub enum ClipRecordSourceType {
-    Midi,
-    Audio,
-}
 
 /// Contains static information about a clip.
 pub struct ClipInfo {

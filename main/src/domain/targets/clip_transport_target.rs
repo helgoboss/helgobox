@@ -7,8 +7,8 @@ use crate::domain::{
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_clip_engine::{
-    clip_timeline, ClipChangedEvent, ClipRecordSourceType, ClipRecordTiming, RecordArgs,
-    RecordKind, SlotPlayOptions, SlotStopBehavior, Timeline,
+    clip_timeline, ClipChangedEvent, ClipRecordTiming, RecordArgs, RecordKind, SlotPlayOptions,
+    SlotStopBehavior, Timeline,
 };
 use reaper_high::{Project, Track};
 

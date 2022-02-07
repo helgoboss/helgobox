@@ -20,8 +20,8 @@ use crate::domain::{
 };
 use playtime_clip_engine::{
     clip_timeline, ClipChangedEvent, ClipContent, ClipMatrix, ClipMatrixHandler, ClipPlayState,
-    ClipRecordSourceType, ClipRecordTask, ClipRecordTiming, LegacyClip, RecordArgs, RecordKind,
-    SlotPlayOptions, SlotStopBehavior, Timeline, TimelineMoment, TransportChange,
+    ClipRecordTask, ClipRecordTiming, LegacyClip, RecordArgs, RecordKind, SlotPlayOptions,
+    SlotStopBehavior, Timeline, TimelineMoment, TransportChange,
 };
 use playtime_clip_engine::{keep_stretching, StretchWorkerRequest};
 

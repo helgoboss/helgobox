@@ -1,6 +1,6 @@
 use crate::supplier::{Fader, Looper};
-use crate::{Recorder, Resampler, TimeStretcher};
-use reaper_medium::OwnedPcmSource;
+use crate::{Recorder, Resampler, TimeStretcher, WithFrameRate};
+use reaper_medium::{Hz, OwnedPcmSource};
 
 type Head = FaderTail;
 type FaderTail = Fader<ResamplerTail>;
@@ -8,7 +8,7 @@ type ResamplerTail = Resampler<TimeStretcherTail>;
 type TimeStretcherTail = TimeStretcher<LooperTail>;
 type LooperTail = Looper<RecorderTail>;
 type RecorderTail = Recorder;
-type ReaperSourceTail = OwnedPcmSource;
+type SourceTail = OwnedPcmSource;
 
 #[derive(Debug)]
 pub struct SupplierChain {
@@ -16,7 +16,7 @@ pub struct SupplierChain {
 }
 
 impl SupplierChain {
-    pub fn new(reaper_source: OwnedPcmSource) -> Self {
+    pub fn new(reaper_source: Option<OwnedPcmSource>) -> Self {
         let mut chain = Self {
             head: {
                 Fader::new(Resampler::new(TimeStretcher::new(Looper::new(
@@ -84,11 +84,18 @@ impl SupplierChain {
         self.looper_mut().supplier_mut()
     }
 
-    pub fn reaper_source(&self) -> &ReaperSourceTail {
-        self.recorder().supplier()
+    pub fn source(&self) -> Option<&SourceTail> {
+        self.recorder().source()
     }
 
-    pub fn reaper_source_mut(&mut self) -> &mut ReaperSourceTail {
-        self.recorder_mut().supplier_mut()
+    pub fn source_in_ready_state(&self) -> &SourceTail {
+        self.source()
+            .expect("in ready state, REAPER source must be available")
+    }
+
+    pub fn source_frame_rate_in_ready_state(&self) -> Hz {
+        self.source_in_ready_state()
+            .frame_rate()
+            .expect("source didn't report frame rate in ready state")
     }
 }

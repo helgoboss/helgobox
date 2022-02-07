@@ -1,8 +1,8 @@
 use crate::SlotInstruction::KeepSlot;
 use crate::{
-    Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordSourceType,
-    ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, SlotInstruction, Timeline,
-    TimelineMoment, WriteAudioRequest, WriteMidiRequest,
+    Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs,
+    ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, SlotInstruction,
+    Timeline, TimelineMoment, WriteAudioRequest, WriteMidiRequest,
 };
 use helgoboss_learn::UnitValue;
 use reaper_high::{OwnedSource, Project};
@@ -64,16 +64,22 @@ impl Slot {
     pub fn record_clip(
         &mut self,
         behavior: RecordBehavior,
+        input: ClipRecordInput,
         project: Option<Project>,
     ) -> Result<(), &'static str> {
         use RecordBehavior::*;
         match behavior {
-            Normal { play_after, timing } => match &mut self.clip {
-                None => self.clip = Some(Clip::from_recording(play_after, timing, project)),
-                Some(clip) => {
-                    clip.record(play_after, timing);
+            Normal { play_after, timing } => {
+                let args = ClipRecordArgs {
+                    play_after,
+                    input,
+                    timing,
+                };
+                match &mut self.clip {
+                    None => self.clip = Some(Clip::from_recording(args, project)),
+                    Some(clip) => clip.record(args),
                 }
-            },
+            }
             MidiOverdub => {
                 self.get_clip_mut()?.midi_overdub();
             }
@@ -91,8 +97,8 @@ impl Slot {
         Ok(())
     }
 
-    pub fn clip_record_source_type(&self) -> Option<ClipRecordSourceType> {
-        self.get_clip().ok()?.record_source_type()
+    pub fn clip_record_input(&self) -> Option<ClipRecordInput> {
+        self.get_clip().ok()?.record_input()
     }
 
     pub fn write_clip_midi(&mut self, request: WriteMidiRequest) -> Result<(), &'static str> {

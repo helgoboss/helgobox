@@ -240,7 +240,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
 }
 
 impl<S: WithFrameRate> WithFrameRate for Looper<S> {
-    fn frame_rate(&self) -> Hz {
+    fn frame_rate(&self) -> Option<Hz> {
         self.supplier.frame_rate()
     }
 }

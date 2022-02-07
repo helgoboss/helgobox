@@ -179,7 +179,7 @@ impl<S: AudioSupplier> AudioSupplier for Fader<S> {
 }
 
 impl<S: WithFrameRate> WithFrameRate for Fader<S> {
-    fn frame_rate(&self) -> Hz {
+    fn frame_rate(&self) -> Option<Hz> {
         self.supplier.frame_rate()
     }
 }
