@@ -731,27 +731,27 @@ impl ReadyState {
                     let (sample_rate_factor, new_seek_pos) = if pos >= 0 {
                         // Playing.
                         let pos = pos as usize;
-                        if pos < seek_pos {
-                            // We might need to fast-forward.
-                            let real_distance = seek_pos - pos;
-                            let desired_distance_in_secs = DurationInSeconds::new(0.100);
-                            let source_frame_rate = supplier_chain.reaper_source().frame_rate();
-                            let desired_distance = convert_duration_in_seconds_to_frames(
-                                desired_distance_in_secs,
-                                source_frame_rate,
-                            );
-                            if desired_distance < real_distance {
-                                // We need to fast-forward.
-                                let playback_speed_factor =
-                                    32.0f64.min(real_distance as f64 / desired_distance as f64);
-                                let sample_rate_factor = 1.0 / playback_speed_factor;
-                                (sample_rate_factor, Some(seek_pos))
-                            } else {
-                                // We are almost there anyway, so no.
-                                (1.0, None)
-                            }
+                        let seek_pos = if pos < seek_pos {
+                            seek_pos
                         } else {
-                            // We need to rewind. But we reject this at the moment.
+                            seek_pos + supplier_chain.reaper_source().frame_count()
+                        };
+                        // We might need to fast-forward.
+                        let real_distance = seek_pos - pos;
+                        let desired_distance_in_secs = DurationInSeconds::new(0.300);
+                        let source_frame_rate = supplier_chain.reaper_source().frame_rate();
+                        let desired_distance = convert_duration_in_seconds_to_frames(
+                            desired_distance_in_secs,
+                            source_frame_rate,
+                        );
+                        if desired_distance < real_distance {
+                            // We need to fast-forward.
+                            let playback_speed_factor =
+                                16.0f64.min(real_distance as f64 / desired_distance as f64);
+                            let sample_rate_factor = 1.0 / playback_speed_factor;
+                            (sample_rate_factor, Some(seek_pos))
+                        } else {
+                            // We are almost there anyway, so no.
                             (1.0, None)
                         }
                     } else {
