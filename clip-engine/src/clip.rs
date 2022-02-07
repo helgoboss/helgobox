@@ -502,6 +502,10 @@ impl ReadyState {
     fn frame_within_reaper_source(&self, supplier_chain: &SupplierChain) -> Option<isize> {
         use ReadySubState::*;
         match self.state {
+            Playing(PlayingState {
+                seek_pos: Some(pos),
+                ..
+            }) => Some(self.modulo_frame(pos as usize, supplier_chain) as isize),
             Playing(PlayingState { pos: Some(pos), .. })
             | Suspending(SuspendingState { pos, .. }) => {
                 if pos < 0 {

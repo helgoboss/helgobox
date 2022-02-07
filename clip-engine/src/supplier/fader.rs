@@ -217,4 +217,4 @@ impl<S: MidiSupplier> MidiSupplier for Fader<S> {
 }
 
 // 0.01s = 10ms at 48 kHz
-const FADE_LENGTH: usize = 4800;
+const FADE_LENGTH: usize = 480;
