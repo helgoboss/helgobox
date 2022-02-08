@@ -466,7 +466,7 @@ impl ReadyState {
         if frame < 0 {
             None
         } else {
-            let frame_count = supplier_chain.source_frame_count_in_ready_state();
+            let frame_count = supplier_chain.section_frame_count_in_ready_state();
             if frame_count == 0 {
                 Some(UnitValue::MIN)
             } else {
@@ -498,7 +498,7 @@ impl ReadyState {
     }
 
     fn modulo_frame(&self, frame: usize, supplier_chain: &SupplierChain) -> usize {
-        frame % supplier_chain.source_frame_count_in_ready_state()
+        frame % supplier_chain.section_frame_count_in_ready_state()
     }
 
     pub fn set_repeated(&mut self, repeated: bool, supplier_chain: &mut SupplierChain) {
@@ -711,7 +711,7 @@ impl ReadyState {
                         let seek_pos = if pos < seek_pos {
                             seek_pos
                         } else {
-                            seek_pos + supplier_chain.source_frame_count_in_ready_state()
+                            seek_pos + supplier_chain.section_frame_count_in_ready_state()
                         };
                         // We might need to fast-forward.
                         let real_distance = seek_pos - pos;
@@ -1063,13 +1063,13 @@ impl ReadyState {
             args.source_frame_rate,
         );
         // Source cycle length
-        let source_cycle_length_in_secs = supplier_chain.source_duration_in_ready_state();
+        let source_cycle_length_in_secs = supplier_chain.section_duration_in_ready_state();
         let source_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
             source_cycle_length_in_secs,
             args.timeline_frame_rate,
         );
         let source_cycle_length_in_source_frames =
-            supplier_chain.source_frame_count_in_ready_state();
+            supplier_chain.section_frame_count_in_ready_state();
         // Block length
         let block_length_in_timeline_frames = args.block.length() as usize;
         let block_length_in_secs = convert_duration_in_frames_to_seconds(
@@ -1245,7 +1245,7 @@ impl ReadyState {
     }
 
     pub fn seek(&mut self, desired_pos: UnitValue, supplier_chain: &SupplierChain) {
-        let frame_count = supplier_chain.source_frame_count_in_ready_state();
+        let frame_count = supplier_chain.section_frame_count_in_ready_state();
         let desired_frame = adjust_proportionally_positive(frame_count as f64, desired_pos.get());
         use ReadySubState::*;
         match self.state {

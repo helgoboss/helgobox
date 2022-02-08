@@ -1,5 +1,5 @@
 use crate::buffer::{AudioBufMut, OwnedAudioBuffer};
-use crate::supplier::midi_util::silence_midi;
+use crate::midi_util;
 use crate::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
     ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
@@ -207,7 +207,7 @@ impl<S: MidiSupplier> MidiSupplier for Fader<S> {
             return self.supplier.supply_midi(request, event_list);
         }
         // With MIDI it's simple. No fade necessary, just a plain "Shut up!".
-        silence_midi(event_list);
+        midi_util::silence_midi(event_list);
         SupplyResponse {
             num_frames_written: 0,
             num_frames_consumed: 0,

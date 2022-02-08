@@ -1,8 +1,8 @@
 use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds};
 use std::cmp;
 
-mod reaper_source;
-pub use reaper_source::*;
+mod source;
+pub use source::*;
 
 mod cache;
 use crate::buffer::AudioBufMut;
@@ -29,7 +29,8 @@ mod fader;
 use crate::clip_timeline;
 pub use fader::*;
 
-mod midi_util;
+mod section;
+pub use section::*;
 
 pub trait AudioSupplier {
     /// Writes a portion of audio material into the given destination buffer so that it completely

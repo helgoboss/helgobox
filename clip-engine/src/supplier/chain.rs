@@ -1,7 +1,7 @@
 use crate::supplier::{Fader, Looper};
 use crate::{
-    ClipContent, ClipInfo, ExactDuration, ExactFrameCount, Recorder, Resampler, TimeStretcher,
-    WithFrameRate,
+    ClipContent, ClipInfo, ExactDuration, ExactFrameCount, Recorder, Resampler, Section,
+    TimeStretcher, WithFrameRate,
 };
 use reaper_high::Project;
 use reaper_medium::{DurationInSeconds, Hz, OwnedPcmSource};
@@ -10,7 +10,8 @@ type Head = FaderTail;
 type FaderTail = Fader<ResamplerTail>;
 type ResamplerTail = Resampler<TimeStretcherTail>;
 type TimeStretcherTail = TimeStretcher<LooperTail>;
-type LooperTail = Looper<RecorderTail>;
+type LooperTail = Looper<SectionTail>;
+type SectionTail = Section<RecorderTail>;
 type RecorderTail = Recorder;
 type SourceTail = OwnedPcmSource;
 
@@ -22,7 +23,11 @@ pub struct SupplierChain {
 impl SupplierChain {
     pub fn new(recorder: Recorder) -> Self {
         let mut chain = Self {
-            head: { Fader::new(Resampler::new(TimeStretcher::new(Looper::new(recorder)))) },
+            head: {
+                Fader::new(Resampler::new(TimeStretcher::new(Looper::new(
+                    Section::new(recorder),
+                ))))
+            },
         };
         // Configure resampler
         let resampler = chain.resampler_mut();
@@ -76,12 +81,20 @@ impl SupplierChain {
         self.time_stretcher_mut().supplier_mut()
     }
 
-    pub fn recorder(&self) -> &RecorderTail {
+    pub fn section(&self) -> &SectionTail {
         self.looper().supplier()
     }
 
-    pub fn recorder_mut(&mut self) -> &mut RecorderTail {
+    pub fn section_mut(&mut self) -> &mut SectionTail {
         self.looper_mut().supplier_mut()
+    }
+
+    pub fn recorder(&self) -> &RecorderTail {
+        self.section().supplier()
+    }
+
+    pub fn recorder_mut(&mut self) -> &mut RecorderTail {
+        self.section_mut().supplier_mut()
     }
 
     pub fn source_frame_rate_in_ready_state(&self) -> Hz {
@@ -90,12 +103,12 @@ impl SupplierChain {
             .expect("recorder couldn't provide frame rate even though clip is in ready state")
     }
 
-    pub fn source_frame_count_in_ready_state(&self) -> usize {
-        self.recorder().frame_count()
+    pub fn section_frame_count_in_ready_state(&self) -> usize {
+        self.section().frame_count()
     }
 
-    pub fn source_duration_in_ready_state(&self) -> DurationInSeconds {
-        self.recorder().duration()
+    pub fn section_duration_in_ready_state(&self) -> DurationInSeconds {
+        self.section().duration()
     }
 
     pub fn clip_info(&self) -> Option<ClipInfo> {
