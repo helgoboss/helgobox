@@ -1481,7 +1481,6 @@ impl RecordingState {
                 (positive_start_pos, Some(positive_length), source_data)
             }
         };
-        dbg!(section_start_pos, section_length, &source_data);
         // Set section boundaries for perfect timing.
         let section_start_frame =
             convert_duration_in_seconds_to_frames(section_start_pos, outcome.frame_rate);
