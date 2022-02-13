@@ -39,6 +39,7 @@ pub struct Clip {
 #[derive(Copy, Clone, Debug)]
 pub struct SourceData {
     tempo: Bpm,
+    /// Only used for deviation logging at the moment.
     beat_count: u32,
     is_midi: bool,
 }
@@ -1449,8 +1450,8 @@ impl RecordingState {
     ) -> ReadyState {
         let outcome = supplier_chain.recorder_mut().commit_recording().unwrap();
         // Calculate section boundaries
-        let (section_start_pos, section_length, source_data) = match start_and_end_bar {
-            None => (DurationInSeconds::ZERO, None, outcome.source_data),
+        let (section_start_frame, section_frame_count, source_data) = match start_and_end_bar {
+            None => (0, None, outcome.source_data),
             Some((start_bar, end_bar)) => {
                 // Determine start pos
                 let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
@@ -1469,23 +1470,49 @@ impl RecordingState {
                 let quantized_record_end_timeline_pos = timeline.pos_of_bar(end_bar);
                 let length =
                     quantized_record_end_timeline_pos - quantized_record_start_timeline_pos;
-                let positive_length = length.try_into().expect("end bar pos < start bar pos");
+                let positive_length: DurationInSeconds =
+                    length.try_into().expect("end bar pos < start bar pos");
                 // Determine source data based on section, not on recorded source
-                let tempo = timeline.tempo_at(timeline_cursor_pos);
-                let source_data = SourceData {
-                    // We recorded the source with the current project tempo.
-                    tempo,
-                    beat_count: calculate_beat_count(tempo, positive_length),
-                    is_midi: outcome.source_data.is_midi,
+                let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
+                let (section_start_pos, section_length, source_data) = if outcome
+                    .source_data
+                    .is_midi
+                {
+                    // MIDI has a constant normalized tempo.
+                    let normalized_tempo = outcome.source_data.tempo;
+                    let tempo_factor = timeline_tempo.get() / normalized_tempo.get();
+                    let adjusted_start_pos =
+                        DurationInSeconds::new(positive_start_pos.get() * tempo_factor);
+                    let adjusted_positive_length =
+                        DurationInSeconds::new(positive_length.get() * tempo_factor);
+                    let source_data = SourceData {
+                        tempo: normalized_tempo,
+                        beat_count: calculate_beat_count(timeline_tempo, adjusted_positive_length),
+                        is_midi: true,
+                    };
+                    (
+                        adjusted_start_pos,
+                        Some(adjusted_positive_length),
+                        source_data,
+                    )
+                } else {
+                    let source_data = SourceData {
+                        // We recorded the source with the current project tempo.
+                        tempo: timeline_tempo,
+                        beat_count: calculate_beat_count(timeline_tempo, positive_length),
+                        is_midi: false,
+                    };
+                    (positive_start_pos, Some(positive_length), source_data)
                 };
-                (positive_start_pos, Some(positive_length), source_data)
+                dbg!(section_start_pos, section_length, source_data);
+                let section_start_frame =
+                    convert_duration_in_seconds_to_frames(section_start_pos, outcome.frame_rate);
+                let section_frame_count = section_length
+                    .map(|l| convert_duration_in_seconds_to_frames(l, outcome.frame_rate));
+                (section_start_frame, section_frame_count, source_data)
             }
         };
         // Set section boundaries for perfect timing.
-        let section_start_frame =
-            convert_duration_in_seconds_to_frames(section_start_pos, outcome.frame_rate);
-        let section_frame_count =
-            section_length.map(|l| convert_duration_in_seconds_to_frames(l, outcome.frame_rate));
         supplier_chain
             .section_mut()
             .set_start_frame(section_start_frame);
