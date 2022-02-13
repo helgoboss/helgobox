@@ -339,7 +339,12 @@ fn unmodulo_next_inner_frame(
     let next_inner_frame = next_inner_frame.unwrap_or(0);
     assert!(next_inner_frame >= 0);
     let next_inner_frame = next_inner_frame as usize;
-    assert!(next_inner_frame < frame_count);
+    assert!(
+        next_inner_frame < frame_count,
+        "next_inner_frame {} < frame_count {}",
+        next_inner_frame,
+        frame_count
+    );
     let previous_cycle = previous_start_frame / frame_count;
     let previous_modulo_start_frame = previous_start_frame % frame_count;
     let next_cycle = if previous_modulo_start_frame <= next_inner_frame {

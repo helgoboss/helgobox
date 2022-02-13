@@ -53,24 +53,32 @@ struct RecordingAudioState {
     sink: OwnedPcmSink,
     temporary_audio_buffer: OwnedAudioBuffer,
     next_record_start_frame: usize,
+    source_start_timeline_pos: Option<PositionInSeconds>,
 }
 
 #[derive(Debug)]
 struct RecordingMidiState {
     new_source: OwnedPcmSource,
+    source_start_timeline_pos: PositionInSeconds,
 }
 
 impl RecordingSubState {
-    fn new(input: ClipRecordInput, project: Option<Project>) -> Self {
+    fn new(
+        input: ClipRecordInput,
+        project: Option<Project>,
+        trigger_timeline_pos: PositionInSeconds,
+    ) -> Self {
         use ClipRecordInput::*;
         match input {
             Midi => Self::Midi(RecordingMidiState {
                 new_source: create_empty_midi_source(),
+                source_start_timeline_pos: trigger_timeline_pos,
             }),
             Audio => Self::Audio(RecordingAudioState {
                 sink: create_audio_sink(project),
                 temporary_audio_buffer: OwnedAudioBuffer::new(2, 48000 * 2),
                 next_record_start_frame: 0,
+                source_start_timeline_pos: None,
             }),
         }
     }
@@ -99,9 +107,13 @@ impl Recorder {
         }
     }
 
-    pub fn recording(input: ClipRecordInput, project: Option<Project>) -> Self {
+    pub fn recording(
+        input: ClipRecordInput,
+        project: Option<Project>,
+        trigger_timeline_pos: PositionInSeconds,
+    ) -> Self {
         let recording_state = RecordingState {
-            sub_state: RecordingSubState::new(input, project),
+            sub_state: RecordingSubState::new(input, project, trigger_timeline_pos),
             old_source: None,
             project,
         };
@@ -145,14 +157,19 @@ impl Recorder {
         Some(info)
     }
 
-    pub fn prepare_recording(&mut self, input: ClipRecordInput, project: Option<Project>) {
+    pub fn prepare_recording(
+        &mut self,
+        input: ClipRecordInput,
+        project: Option<Project>,
+        trigger_timeline_pos: PositionInSeconds,
+    ) {
         use State::*;
         let old_source = match self.state.take().unwrap() {
             Ready(s) => Some(s.source),
             Recording(s) => s.old_source,
         };
         let recording_state = RecordingState {
-            sub_state: RecordingSubState::new(input, project),
+            sub_state: RecordingSubState::new(input, project, trigger_timeline_pos),
             old_source,
             project,
         };
@@ -160,7 +177,7 @@ impl Recorder {
         // TODO-high Just replacing is not a good idea. Fade outs?
     }
 
-    pub fn commit_recording(&mut self) -> Result<SourceData, &'static str> {
+    pub fn commit_recording(&mut self) -> Result<RecordingOutcome, &'static str> {
         use State::*;
         let (res, next_state) = match self.state.take().unwrap() {
             Ready(s) => (Err("not recording"), Ready(s)),
@@ -175,12 +192,19 @@ impl Recorder {
                         };
                         (Err("TODO implement"), Recording(recording_state))
                     }
-                    Midi(ss) => (
-                        Ok(SourceData::from_source(&ss.new_source, s.project)),
-                        Ready(ReadyState {
-                            source: ss.new_source,
-                        }),
-                    ),
+                    Midi(ss) => {
+                        let outcome = RecordingOutcome {
+                            source_start_timeline_pos: ss.source_start_timeline_pos,
+                            source_data: SourceData::from_source(&ss.new_source, s.project),
+                            frame_rate: ss.new_source.frame_rate().unwrap(),
+                        };
+                        (
+                            Ok(outcome),
+                            Ready(ReadyState {
+                                source: ss.new_source,
+                            }),
+                        )
+                    }
                 }
             }
         };
@@ -239,7 +263,10 @@ impl Recorder {
     pub fn write_midi(&mut self, request: WriteMidiRequest, pos: PositionInSeconds) {
         let source = match self.state.as_mut().unwrap() {
             State::Recording(RecordingState {
-                sub_state: RecordingSubState::Midi(RecordingMidiState { new_source: source }),
+                sub_state:
+                    RecordingSubState::Midi(RecordingMidiState {
+                        new_source: source, ..
+                    }),
                 ..
             })
             | State::Ready(ReadyState { source }) => source,
@@ -408,4 +435,10 @@ impl WithFrameRate for Recorder {
             State::Recording(_) => None,
         }
     }
+}
+
+pub struct RecordingOutcome {
+    pub source_start_timeline_pos: PositionInSeconds,
+    pub source_data: SourceData,
+    pub frame_rate: Hz,
 }

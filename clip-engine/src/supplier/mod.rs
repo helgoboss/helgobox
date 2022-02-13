@@ -193,6 +193,7 @@ impl<'a> SupplyRequest for SupplyMidiRequest<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct SupplyResponse {
     /// The number of frames that were actually written to the destination block.
     ///
@@ -261,11 +262,6 @@ pub fn convert_duration_in_frames_to_other_frame_rate(
     let ratio = out_sample_rate.get() / in_sample_rate.get();
     (ratio * frame_count as f64).round() as usize
 }
-
-/// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
-/// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample
-/// rate. Plus, we can use the same time stretching supplier. Fewer special cases, nice!
-pub const MIDI_BASE_BPM: f64 = 120.0;
 
 /// Helper function for suppliers that read from sources and don't want to deal with
 /// negative start frames themselves.

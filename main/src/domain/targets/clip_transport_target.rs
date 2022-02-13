@@ -140,7 +140,7 @@ impl RealearnTarget for ClipTransportTarget {
             }
             RecordStop => {
                 if on {
-                    let timing = if self.play_options.next_bar {
+                    let timing = if true {
                         let timeline = clip_timeline(Some(self.project), false);
                         let next_bar = timeline.next_bar_at(timeline.cursor_pos());
                         ClipRecordTiming::StartOnBarStopOnDemand {

@@ -98,7 +98,7 @@ impl ColumnSource {
     ) -> Result<(), &'static str> {
         get_slot_mut(&mut self.slots, index).record_clip(
             behavior,
-            ClipRecordInput::Audio,
+            ClipRecordInput::Midi,
             self.project,
         )
     }

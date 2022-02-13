@@ -5,7 +5,7 @@ use crate::supplier::{
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
     print_distance_from_beat_start_at, supply_source_material, AudioSupplier, ExactDuration,
     ExactFrameCount, MidiSupplier, SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyResponse, WithFrameRate, MIDI_BASE_BPM,
+    SupplyResponse, WithFrameRate,
 };
 use crate::{adjust_proportionally, adjust_proportionally_positive, WithTempo};
 use reaper_medium::{
@@ -186,3 +186,8 @@ fn transfer_audio(source: &OwnedPcmSource, mut req: SourceMaterialRequest) -> Su
 /// is used in REAPER's MIDI events, so this corresponds nicely to the audio world where one sample
 /// frame is the smallest possible unit.
 const MIDI_FRAME_RATE: f64 = 1_024_000.0;
+
+/// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
+/// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample
+/// rate. Plus, we can use the same time stretching supplier. Fewer special cases, nice!
+const MIDI_BASE_BPM: f64 = 120.0;

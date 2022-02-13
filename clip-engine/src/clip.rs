@@ -16,6 +16,7 @@ use reaper_medium::{
     Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds,
     ReaperVolumeValue,
 };
+use std::convert::TryInto;
 use std::fs::read;
 use std::path::PathBuf;
 use std::ptr::null_mut;
@@ -55,8 +56,7 @@ impl SourceData {
                 .get()
                 .round() as u32
         } else {
-            let beats_per_sec = tempo.get() / 60.0;
-            (source.duration().get() * beats_per_sec).round() as u32
+            calculate_beat_count(tempo, source.duration())
         };
         assert_ne!(beat_count, 0, "source reported beat count of zero");
         Self {
@@ -70,6 +70,11 @@ impl SourceData {
         // TODO-high Respect different time signatures
         (self.beat_count as f64 / 4.0).ceil() as u32
     }
+}
+
+fn calculate_beat_count(tempo: Bpm, duration: DurationInSeconds) -> u32 {
+    let beats_per_sec = tempo.get() / 60.0;
+    (duration.get() * beats_per_sec).round() as u32
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -166,7 +171,7 @@ enum StateAfterSuspension {
 #[derive(Copy, Clone, Debug)]
 struct RecordingState {
     /// Timeline position at which recording was triggered.
-    pub timeline_start_pos: PositionInSeconds,
+    pub trigger_timeline_pos: PositionInSeconds,
     /// Implies repeat.
     pub play_after: bool,
     pub timing: RecordTiming,
@@ -214,15 +219,20 @@ impl Clip {
     }
 
     pub fn from_recording(args: ClipRecordArgs, project: Option<Project>) -> Self {
+        let trigger_timeline_pos = clip_timeline(project, false).cursor_pos();
         let recording_state = RecordingState {
-            timeline_start_pos: clip_timeline(project, false).cursor_pos(),
+            trigger_timeline_pos,
             play_after: args.play_after,
             timing: args.timing,
             input: args.input,
             rollback_data: None,
         };
         Self {
-            supplier_chain: SupplierChain::new(Recorder::recording(args.input, project)),
+            supplier_chain: SupplierChain::new(Recorder::recording(
+                args.input,
+                project,
+                trigger_timeline_pos,
+            )),
             state: ClipState::Recording(recording_state),
             project,
             volume: Default::default(),
@@ -248,7 +258,7 @@ impl Clip {
                 s.stop(args, &mut self.supplier_chain);
                 KeepState
             }
-            Recording(s) => s.stop(args, &mut self.supplier_chain, self.project),
+            Recording(s) => s.stop(args, &mut self.supplier_chain),
         };
         match outcome {
             KeepState => SlotInstruction::KeepSlot,
@@ -291,13 +301,12 @@ impl Clip {
     }
 
     pub fn record(&mut self, args: ClipRecordArgs) {
-        self.supplier_chain
-            .recorder_mut()
-            .prepare_recording(args.input, self.project);
         use ClipState::*;
         match &mut self.state {
             Ready(s) => {
-                if let Some(recording_state) = s.record(args, self.project) {
+                if let Some(recording_state) =
+                    s.record(args, self.project, &mut self.supplier_chain)
+                {
                     self.state = Recording(recording_state);
                 }
             }
@@ -359,7 +368,7 @@ impl Clip {
                     return;
                 }
             }
-            Recording(s) => timeline_cursor_pos - s.timeline_start_pos,
+            Recording(s) => timeline_cursor_pos - s.trigger_timeline_pos,
         };
         self.supplier_chain
             .recorder_mut()
@@ -1169,9 +1178,14 @@ impl ReadyState {
         &mut self,
         args: ClipRecordArgs,
         project: Option<Project>,
+        supplier_chain: &mut SupplierChain,
     ) -> Option<RecordingState> {
+        let trigger_timeline_pos = clip_timeline(project, false).cursor_pos();
+        supplier_chain
+            .recorder_mut()
+            .prepare_recording(args.input, project, trigger_timeline_pos);
         let recording_state = RecordingState {
-            timeline_start_pos: clip_timeline(project, false).cursor_pos(),
+            trigger_timeline_pos,
             play_after: args.play_after,
             timing: args.timing,
             input: args.input,
@@ -1333,14 +1347,18 @@ impl RecordingState {
         &mut self,
         args: ClipStopArgs,
         supplier_chain: &mut SupplierChain,
-        project: Option<Project>,
     ) -> RecordingStopOutcome {
         use RecordTiming::*;
         use RecordingStopOutcome::*;
         match self.timing {
             Unsynced => {
-                let ready_state =
-                    self.finish_recording(self.play_after, None, supplier_chain, project);
+                let ready_state = self.finish_recording(
+                    self.play_after,
+                    None,
+                    supplier_chain,
+                    args.timeline,
+                    args.timeline_cursor_pos,
+                );
                 TransitionToReady(ready_state)
             }
             Synced { start_bar, end_bar } => {
@@ -1386,8 +1404,8 @@ impl RecordingState {
         project: Option<Project>,
     ) -> Option<ReadyState> {
         if let RecordTiming::Synced {
+            start_bar,
             end_bar: Some(end_bar),
-            ..
         } = self.timing
         {
             if args.timeline.next_bar_at(args.timeline_cursor_pos) >= end_bar {
@@ -1404,9 +1422,10 @@ impl RecordingState {
                     // We have recorded the last block.
                     let ready_state = self.finish_recording(
                         self.play_after,
-                        Some(end_bar),
+                        Some((start_bar, end_bar)),
                         supplier_chain,
-                        project,
+                        &args.timeline,
+                        args.timeline_cursor_pos,
                     );
                     Some(ready_state)
                 } else {
@@ -1423,16 +1442,60 @@ impl RecordingState {
     fn finish_recording(
         self,
         play_after: bool,
-        start_bar: Option<i32>,
+        start_and_end_bar: Option<(i32, i32)>,
         supplier_chain: &mut SupplierChain,
-        project: Option<Project>,
+        timeline: &dyn Timeline,
+        timeline_cursor_pos: PositionInSeconds,
     ) -> ReadyState {
-        let source_data = supplier_chain.recorder_mut().commit_recording().unwrap();
+        let outcome = supplier_chain.recorder_mut().commit_recording().unwrap();
+        // Calculate section boundaries
+        let (section_start_pos, section_length, source_data) = match start_and_end_bar {
+            None => (DurationInSeconds::ZERO, None, outcome.source_data),
+            Some((start_bar, end_bar)) => {
+                // Determine start pos
+                let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
+                let start_pos =
+                    quantized_record_start_timeline_pos - outcome.source_start_timeline_pos;
+                let positive_start_pos = if start_pos.get() >= 0.0 {
+                    DurationInSeconds::new(start_pos.get())
+                } else {
+                    // Recorder started recording material after quantized. This can only happen
+                    // if the preparation of the PCM sink was not fast enough. In future we should
+                    // probably set the position of the section on the canvas by exactly the
+                    // abs() of that negative start position, to keep at least the timing perfect.
+                    DurationInSeconds::ZERO
+                };
+                // Determine length
+                let quantized_record_end_timeline_pos = timeline.pos_of_bar(end_bar);
+                let length =
+                    quantized_record_end_timeline_pos - quantized_record_start_timeline_pos;
+                let positive_length = length.try_into().expect("end bar pos < start bar pos");
+                // Determine source data based on section, not on recorded source
+                let tempo = timeline.tempo_at(timeline_cursor_pos);
+                let source_data = SourceData {
+                    // We recorded the source with the current project tempo.
+                    tempo,
+                    beat_count: calculate_beat_count(tempo, positive_length),
+                    is_midi: outcome.source_data.is_midi,
+                };
+                (positive_start_pos, Some(positive_length), source_data)
+            }
+        };
+        dbg!(section_start_pos, section_length, &source_data);
+        // Set section boundaries for perfect timing.
+        let section_start_frame =
+            convert_duration_in_seconds_to_frames(section_start_pos, outcome.frame_rate);
+        let section_frame_count =
+            section_length.map(|l| convert_duration_in_seconds_to_frames(l, outcome.frame_rate));
+        supplier_chain
+            .section_mut()
+            .set_start_frame(section_start_frame);
+        supplier_chain.section_mut().set_length(section_frame_count);
         // Change state
         ReadyState {
             state: if play_after {
                 ReadySubState::Playing(PlayingState {
-                    start_bar,
+                    start_bar: start_and_end_bar.map(|(_, end_bar)| end_bar),
                     ..Default::default()
                 })
             } else {
