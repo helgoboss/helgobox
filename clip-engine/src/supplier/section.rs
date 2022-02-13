@@ -32,11 +32,7 @@ impl<S> Section<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             supplier,
-            // boundary: Default::default(),
-            boundary: Boundary {
-                start_frame: 0,
-                length: Some(48000),
-            },
+            boundary: Default::default(),
         }
     }
 
@@ -58,21 +54,6 @@ impl<S> Section<S> {
 
     pub fn supplier_mut(&mut self) -> &mut S {
         &mut self.supplier
-    }
-
-    // Supply logic which is common to MIDI and audio.
-    fn supply<R: SupplyRequest>(
-        &mut self,
-        request: &R,
-        dest_frame_count: usize,
-        supply_inner: impl FnOnce(&mut S, Option<SectionRequestData>) -> SupplyResponse,
-    ) -> SupplyResponse {
-        if self.boundary.is_default() {
-            return supply_inner(&mut self.supplier, None);
-        }
-        let section_request_data = self.create_section_request_data(request, dest_frame_count);
-        let section_response = supply_inner(&mut self.supplier, Some(section_request_data));
-        section_request_data.generate_outer_response(section_response)
     }
 
     fn create_section_request_data(
@@ -111,44 +92,19 @@ impl<S: AudioSupplier> AudioSupplier for Section<S> {
         if self.boundary.is_default() {
             return self.supplier.supply_audio(request, dest_buffer);
         }
-        let inner_start_frame = request.start_frame + self.boundary.start_frame as isize;
+        let data = self.create_section_request_data(request, dest_buffer.frame_count());
         let section_request = SupplyAudioRequest {
-            start_frame: inner_start_frame,
+            start_frame: data.start_frame,
             dest_sample_rate: request.dest_sample_rate,
-            info: SupplyRequestInfo {
-                audio_block_frame_offset: request.info.audio_block_frame_offset,
-                requester: "section-audio-request",
-                note: "",
-            },
+            info: data.info,
             parent_request: Some(request),
             general_info: request.general_info,
         };
-        let inner_end_frame = inner_start_frame + dest_buffer.frame_count() as isize;
-        let boundary_end_frame = self.boundary.end_frame().map(|f| f as isize);
-        let inner_end_frame = if let Some(end_frame) = boundary_end_frame {
-            cmp::min(end_frame, inner_end_frame)
-        } else {
-            inner_end_frame
-        };
-        let inner_block_length = (inner_end_frame - inner_start_frame) as usize;
-        let mut inner_dest_buffer = dest_buffer.slice_mut(0..inner_block_length);
+        let mut inner_dest_buffer = dest_buffer.slice_mut(0..data.inner_block_length);
         let section_response = self
             .supplier
             .supply_audio(&section_request, &mut inner_dest_buffer);
-        SupplyResponse {
-            next_inner_frame: if let (Some(next_inner_frame), Some(boundary_end_frame)) =
-                (section_response.next_inner_frame, boundary_end_frame)
-            {
-                if next_inner_frame < boundary_end_frame as isize {
-                    Some(next_inner_frame)
-                } else {
-                    None
-                }
-            } else {
-                section_response.next_inner_frame
-            },
-            ..section_response
-        }
+        generate_outer_response(section_response, data.boundary_end_frame)
     }
 
     fn channel_count(&self) -> usize {
@@ -162,21 +118,20 @@ impl<S: MidiSupplier> MidiSupplier for Section<S> {
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {
-        self.supply(request, request.dest_frame_count, |supplier, req| {
-            if let Some(req) = req {
-                let req = SupplyMidiRequest {
-                    start_frame: req.start_frame,
-                    dest_frame_count: req.inner_block_length,
-                    info: req.info,
-                    dest_sample_rate: request.dest_sample_rate,
-                    parent_request: request.parent_request,
-                    general_info: request.general_info,
-                };
-                supplier.supply_midi(&req, event_list)
-            } else {
-                supplier.supply_midi(request, event_list)
-            }
-        })
+        if self.boundary.is_default() {
+            return self.supplier.supply_midi(request, event_list);
+        }
+        let data = self.create_section_request_data(request, request.dest_frame_count);
+        let section_request = SupplyMidiRequest {
+            start_frame: data.start_frame,
+            dest_frame_count: data.inner_block_length,
+            info: data.info.clone(),
+            dest_sample_rate: request.dest_sample_rate,
+            parent_request: request.parent_request,
+            general_info: request.general_info,
+        };
+        let section_response = self.supplier.supply_midi(&section_request, event_list);
+        generate_outer_response(section_response, data.boundary_end_frame)
     }
 }
 
@@ -218,21 +173,22 @@ struct SectionRequestData {
     boundary_end_frame: Option<isize>,
 }
 
-impl SectionRequestData {
-    fn generate_outer_response(&self, section_response: SupplyResponse) -> SupplyResponse {
-        SupplyResponse {
-            next_inner_frame: if let (Some(next_inner_frame), Some(boundary_end_frame)) =
-                (section_response.next_inner_frame, self.boundary_end_frame)
-            {
-                if next_inner_frame < boundary_end_frame as isize {
-                    Some(next_inner_frame)
-                } else {
-                    None
-                }
+fn generate_outer_response(
+    section_response: SupplyResponse,
+    boundary_end_frame: Option<isize>,
+) -> SupplyResponse {
+    SupplyResponse {
+        next_inner_frame: if let (Some(next_inner_frame), Some(boundary_end_frame)) =
+            (section_response.next_inner_frame, boundary_end_frame)
+        {
+            if next_inner_frame < boundary_end_frame as isize {
+                Some(next_inner_frame)
             } else {
-                section_response.next_inner_frame
-            },
-            ..section_response
-        }
+                None
+            }
+        } else {
+            section_response.next_inner_frame
+        },
+        ..section_response
     }
 }
