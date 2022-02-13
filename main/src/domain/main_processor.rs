@@ -1516,25 +1516,11 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 self.basics.feedback_output
             {
                 if payload.output_devices.contains(&dev_id) {
-                    let sender = self.basics.channels.self_normal_sender.clone();
-                    let _ = Global::task_support().do_later_in_main_thread_from_main_thread(
-                        // Wait a bit. Some devices need some time to get ready.
-                        Duration::from_secs(3),
-                        move || {
-                            // TODO-medium Make it work on Windows.
-                            //  At least on Windows, it's currently necessary to reset the MIDI
-                            //  device before sending the feedback. However, until now, REAPER API
-                            //  doesn't provide a function to reset one specific device only.
-                            //  Resetting all devices works but might have bad side effects (e.g.
-                            //  stopping notes when using external synths). I asked REAPER devs to
-                            //  create such a function. Let's see.
-                            // TODO-medium As soon as resetting one specific device is possible,
-                            //  also do the reset whenever the control input matches, not just the
-                            //  feedback output!
-                            // Reaper::get().medium_reaper().midi_reinit();
-                            let _ = sender.try_send(NormalMainTask::SendAllFeedback);
-                        },
-                    );
+                    let _ = self
+                        .basics
+                        .channels
+                        .self_normal_sender
+                        .try_send(NormalMainTask::SendAllFeedback);
                 }
             }
         }

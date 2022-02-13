@@ -16,14 +16,15 @@ use reaper_high::{
 use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
 
+use itertools::{EitherOrBoth, Itertools};
 use reaper_medium::{
-    CommandId, ExtSupportsExtendedTouchArgs, GetTouchStateArgs, MediaTrack, PositionInSeconds,
-    ReaProject, ReaperNormalizedFxParamValue,
+    CommandId, ExtSupportsExtendedTouchArgs, GetTouchStateArgs, MediaTrack, MidiInputDeviceId,
+    MidiOutputDeviceId, PositionInSeconds, ReaProject, ReaperNormalizedFxParamValue,
 };
 use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
 
@@ -469,6 +470,11 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             let midi_out_diff = self
                 .device_change_detector
                 .poll_for_midi_output_device_changes();
+            // Resetting MIDI devices is necessary especially on Windows.
+            reset_midi_devices(
+                midi_in_diff.added_devices.iter().copied(),
+                midi_out_diff.added_devices.iter().copied(),
+            );
             let mut msgs = Vec::with_capacity(2);
             if !midi_in_diff.added_devices.is_empty() || !midi_out_diff.added_devices.is_empty() {
                 let payload = MidiDeviceChangePayload {
@@ -696,5 +702,24 @@ impl GarbageBin {
         let mode_garbage = m.core.mode.recycle();
         self.dispose(Garbage::Mode(mode_garbage));
         self.dispose(Garbage::MappingSource(m.core.source));
+    }
+}
+
+fn reset_midi_devices(
+    in_devs: impl Iterator<Item = MidiInputDeviceId>,
+    out_devs: impl Iterator<Item = MidiOutputDeviceId>,
+) {
+    let reaper_low = Reaper::get().medium_reaper().low();
+    if reaper_low.pointers().midi_init.is_none() {
+        // REAPER version < 6.47
+        return;
+    }
+    for res in in_devs.zip_longest(out_devs) {
+        let (input_arg, output_arg) = match res {
+            EitherOrBoth::Both(i, o) => (i.get() as i32, o.get() as i32),
+            EitherOrBoth::Left(i) => (i.get() as i32, -1),
+            EitherOrBoth::Right(o) => (-1, o.get() as i32),
+        };
+        reaper_low.midi_init(input_arg, output_arg);
     }
 }
