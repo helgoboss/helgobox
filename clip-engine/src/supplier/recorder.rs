@@ -4,7 +4,7 @@ use crate::ClipPlayState::Recording;
 use crate::{
     clip_timeline, AudioBuf, AudioSupplier, ClipContent, ClipInfo, ClipRecordInput,
     CreateClipContentMode, ExactDuration, ExactFrameCount, MidiSupplier, OwnedAudioBuffer,
-    SourceData, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
+    SourceData, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, Timeline, WithFrameRate,
 };
 use reaper_high::{OwnedSource, Project, Reaper, ReaperSource};
 use reaper_low::raw::{
@@ -12,10 +12,11 @@ use reaper_low::raw::{
 };
 use reaper_low::{raw, PCM_source};
 use reaper_medium::{
-    BorrowedMidiEventList, DurationInSeconds, Hz, OwnedPcmSink, OwnedPcmSource, PcmSource,
-    PositionInSeconds, ReaperString,
+    BorrowedMidiEventList, DurationInSeconds, Hz, MidiImportBehavior, OwnedPcmSink, OwnedPcmSource,
+    PcmSource, PositionInSeconds, ReaperString,
 };
 use std::ffi::CString;
+use std::path::PathBuf;
 use std::ptr::{null, null_mut, NonNull};
 use std::{cmp, mem};
 
@@ -50,6 +51,7 @@ enum RecordingSubState {
 
 #[derive(Debug)]
 struct RecordingAudioState {
+    file: PathBuf,
     sink: OwnedPcmSink,
     temporary_audio_buffer: OwnedAudioBuffer,
     next_record_start_frame: usize,
@@ -74,12 +76,16 @@ impl RecordingSubState {
                 new_source: create_empty_midi_source(),
                 source_start_timeline_pos: trigger_timeline_pos,
             }),
-            Audio => Self::Audio(RecordingAudioState {
-                sink: create_audio_sink(project),
-                temporary_audio_buffer: OwnedAudioBuffer::new(2, 48000 * 2),
-                next_record_start_frame: 0,
-                source_start_timeline_pos: None,
-            }),
+            Audio => {
+                let outcome = create_audio_sink(project);
+                Self::Audio(RecordingAudioState {
+                    file: outcome.file,
+                    sink: outcome.sink,
+                    temporary_audio_buffer: OwnedAudioBuffer::new(2, 48000 * 2),
+                    next_record_start_frame: 0,
+                    source_start_timeline_pos: None,
+                })
+            }
         }
     }
 }
@@ -185,12 +191,25 @@ impl Recorder {
                 use RecordingSubState::*;
                 match s.sub_state {
                     Audio(ss) => {
-                        let recording_state = RecordingState {
-                            sub_state: Audio(ss),
-                            old_source: s.old_source,
-                            project: s.project,
+                        // TODO-high We shouldn't drop the PCM sink and create the PCM source
+                        //  in the audio thread.
+                        // TODO-high We should probably record a bit longer to have some
+                        //  crossfade material for the future.
+                        std::mem::drop(ss.sink);
+                        let source = OwnedSource::from_file(
+                            &ss.file,
+                            MidiImportBehavior::ForceNoMidiImport,
+                        )?
+                        .into_raw();
+                        let outcome = RecordingOutcome {
+                            source_start_timeline_pos: ss
+                                .source_start_timeline_pos
+                                .ok_or("haven't written any sample yet")?,
+                            source_data: SourceData::from_source(&source, s.project),
+                            frame_rate: source.frame_rate().unwrap(),
                         };
-                        (Err("TODO implement"), Recording(recording_state))
+                        let ready_state = ReadyState { source };
+                        (Ok(outcome), Ready(ready_state))
                     }
                     Midi(ss) => {
                         let outcome = RecordingOutcome {
@@ -230,14 +249,35 @@ impl Recorder {
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
-        // // TODO-high Obviously just some experiments.
-        let state = match self.state.as_mut().unwrap() {
+        let (state, project) = match self.state.as_mut().unwrap() {
             State::Recording(RecordingState {
                 sub_state: RecordingSubState::Audio(s),
+                project,
                 ..
-            }) => s,
+            }) => (s, project),
             _ => return,
         };
+        // Write into sink
+        if state.source_start_timeline_pos.is_none() {
+            let timeline = clip_timeline(*project, false);
+            state.source_start_timeline_pos = Some(timeline.cursor_pos());
+        }
+        let sink = state.sink.as_ref().as_ref();
+        const NCH: usize = 2;
+        let mut channels: [*mut f64; NCH] = [
+            request.left_buffer.data_as_slice().as_ptr() as _,
+            request.right_buffer.data_as_slice().as_ptr() as _,
+        ];
+        sink.WriteDoubles(
+            &mut channels as *mut _,
+            request.block_length as _,
+            NCH as _,
+            0,
+            1,
+        );
+
+        // Write into temporary buffer
+        // // TODO-high Obviously just some experiments.
         let start_frame = state.next_record_start_frame;
         let mut out_buf = state.temporary_audio_buffer.to_buf_mut();
         let out_channel_count = out_buf.channel_count();
@@ -298,11 +338,7 @@ impl Recorder {
 
 /// Returns an empty MIDI source prepared for recording.
 fn create_empty_midi_source() -> OwnedPcmSource {
-    // TODO-high Also implement for audio recording.
     let mut source = OwnedSource::from_type("MIDI").unwrap();
-    // TODO-high We absolutely need the permanent section supplier, then we can play the
-    //  source correctly positioned and with correct length even the source is too long
-    //  and starts too early.
     // The following seems to be the absolute minimum to create the shortest possible MIDI clip
     // (which still is longer than zero).
     let chunk = "\
@@ -316,12 +352,12 @@ fn create_empty_midi_source() -> OwnedPcmSource {
     source.into_raw()
 }
 
-fn create_audio_sink(project: Option<Project>) -> OwnedPcmSink {
+fn create_audio_sink(project: Option<Project>) -> AudioSinkOutcome {
     let proj_ptr = project.map(|p| p.raw().as_ptr()).unwrap_or(null_mut());
     let file_name = get_path_for_new_media_file("clip-audio", "wav", project);
     let file_name_str = file_name.to_str().unwrap();
     let file_name_c_string = CString::new(file_name_str).unwrap();
-    unsafe {
+    let sink = unsafe {
         let sink = Reaper::get().medium_reaper().low().PCM_Sink_CreateEx(
             proj_ptr,
             file_name_c_string.as_ptr(),
@@ -333,7 +369,16 @@ fn create_audio_sink(project: Option<Project>) -> OwnedPcmSink {
         );
         let sink = NonNull::new(sink).expect("PCM_Sink_CreateEx returned null");
         OwnedPcmSink::from_raw(sink)
+    };
+    AudioSinkOutcome {
+        sink,
+        file: file_name,
     }
+}
+
+struct AudioSinkOutcome {
+    sink: OwnedPcmSink,
+    file: PathBuf,
 }
 
 impl AudioSupplier for Recorder {

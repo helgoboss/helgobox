@@ -99,11 +99,8 @@ impl ClipContent {
                 } else {
                     file.clone()
                 };
-                // TODO-high This is very preference-dependent. I guess we should make this stable
-                //  and not allow too many options, for the sake of sanity. In-project MIDI only?
-                //  Latest when we do overdub, we probably want in-project MIDI. Plus, clips are
-                //  short mostly, so why not.
-                OwnedSource::from_file(&absolute_file, MidiImportBehavior::UsePreference)
+                // TODO-high Maybe we should force in-project MIDI?
+                OwnedSource::from_file(&absolute_file, MidiImportBehavior::ForceNoMidiImport)
             }
             ClipContent::MidiChunk { chunk } => {
                 let mut source = OwnedSource::from_type("MIDI")?;
