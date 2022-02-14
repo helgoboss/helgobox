@@ -5,6 +5,7 @@ use crate::{
     clip_timeline, AudioBuf, AudioSupplier, ClipContent, ClipInfo, ClipRecordInput,
     CreateClipContentMode, ExactDuration, ExactFrameCount, MidiSupplier, OwnedAudioBuffer,
     SourceData, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, Timeline, WithFrameRate,
+    WithTempo,
 };
 use reaper_high::{OwnedSource, Project, Reaper, ReaperSource};
 use reaper_low::raw::{
@@ -12,8 +13,8 @@ use reaper_low::raw::{
 };
 use reaper_low::{raw, PCM_source};
 use reaper_medium::{
-    BorrowedMidiEventList, DurationInSeconds, Hz, MidiImportBehavior, OwnedPcmSink, OwnedPcmSource,
-    PcmSource, PositionInSeconds, ReaperString,
+    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, MidiImportBehavior, OwnedPcmSink,
+    OwnedPcmSource, PcmSource, PositionInSeconds, ReaperString,
 };
 use std::ffi::CString;
 use std::path::PathBuf;
@@ -41,6 +42,7 @@ struct RecordingState {
     sub_state: RecordingSubState,
     old_source: Option<OwnedPcmSource>,
     project: Option<Project>,
+    initial_tempo: Bpm,
 }
 
 #[derive(Debug)]
@@ -55,7 +57,13 @@ struct RecordingAudioState {
     sink: OwnedPcmSink,
     temporary_audio_buffer: OwnedAudioBuffer,
     next_record_start_frame: usize,
-    source_start_timeline_pos: Option<PositionInSeconds>,
+    material_data: Option<AudioMaterialData>,
+}
+
+#[derive(Debug)]
+struct AudioMaterialData {
+    source_start_timeline_pos: PositionInSeconds,
+    frame_rate: Hz,
 }
 
 #[derive(Debug)]
@@ -83,7 +91,7 @@ impl RecordingSubState {
                     sink: outcome.sink,
                     temporary_audio_buffer: OwnedAudioBuffer::new(2, 48000 * 2),
                     next_record_start_frame: 0,
-                    source_start_timeline_pos: None,
+                    material_data: None,
                 })
             }
         }
@@ -117,11 +125,13 @@ impl Recorder {
         input: ClipRecordInput,
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
+        current_tempo: Bpm,
     ) -> Self {
         let recording_state = RecordingState {
             sub_state: RecordingSubState::new(input, project, trigger_timeline_pos),
             old_source: None,
             project,
+            initial_tempo: current_tempo,
         };
         Self {
             state: Some(State::Recording(recording_state)),
@@ -168,6 +178,7 @@ impl Recorder {
         input: ClipRecordInput,
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
+        current_tempo: Bpm,
     ) {
         use State::*;
         let old_source = match self.state.take().unwrap() {
@@ -178,6 +189,7 @@ impl Recorder {
             sub_state: RecordingSubState::new(input, project, trigger_timeline_pos),
             old_source,
             project,
+            initial_tempo: current_tempo,
         };
         self.state = Some(Recording(recording_state));
         // TODO-high Just replacing is not a good idea. Fade outs?
@@ -201,12 +213,12 @@ impl Recorder {
                             MidiImportBehavior::ForceNoMidiImport,
                         )?
                         .into_raw();
+                        let material_data = ss.material_data.ok_or("no material data available")?;
                         let outcome = RecordingOutcome {
-                            source_start_timeline_pos: ss
-                                .source_start_timeline_pos
-                                .ok_or("haven't written any sample yet")?,
-                            source_data: SourceData::from_source(&source, s.project),
-                            frame_rate: source.frame_rate().unwrap(),
+                            source_start_timeline_pos: material_data.source_start_timeline_pos,
+                            frame_rate: material_data.frame_rate,
+                            tempo: s.initial_tempo,
+                            is_midi: false,
                         };
                         let ready_state = ReadyState { source };
                         (Ok(outcome), Ready(ready_state))
@@ -214,8 +226,9 @@ impl Recorder {
                     Midi(ss) => {
                         let outcome = RecordingOutcome {
                             source_start_timeline_pos: ss.source_start_timeline_pos,
-                            source_data: SourceData::from_source(&ss.new_source, s.project),
                             frame_rate: ss.new_source.frame_rate().unwrap(),
+                            tempo: s.initial_tempo,
+                            is_midi: true,
                         };
                         (
                             Ok(outcome),
@@ -258,9 +271,13 @@ impl Recorder {
             _ => return,
         };
         // Write into sink
-        if state.source_start_timeline_pos.is_none() {
+        if state.material_data.is_none() {
             let timeline = clip_timeline(*project, false);
-            state.source_start_timeline_pos = Some(timeline.cursor_pos());
+            let material_data = AudioMaterialData {
+                source_start_timeline_pos: timeline.cursor_pos(),
+                frame_rate: request.input_sample_rate,
+            };
+            state.material_data = Some(material_data);
         }
         let sink = state.sink.as_ref().as_ref();
         const NCH: usize = 2;
@@ -484,6 +501,7 @@ impl WithFrameRate for Recorder {
 
 pub struct RecordingOutcome {
     pub source_start_timeline_pos: PositionInSeconds,
-    pub source_data: SourceData,
     pub frame_rate: Hz,
+    pub tempo: Bpm,
+    pub is_midi: bool,
 }

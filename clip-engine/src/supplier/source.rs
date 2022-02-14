@@ -190,4 +190,4 @@ const MIDI_FRAME_RATE: f64 = 1_024_000.0;
 /// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
 /// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample
 /// rate. Plus, we can use the same time stretching supplier. Fewer special cases, nice!
-const MIDI_BASE_BPM: f64 = 120.0;
+pub const MIDI_BASE_BPM: f64 = 120.0;

@@ -7,7 +7,7 @@ use crate::{
     AudioSupplier, ClipContent, ClipRecordTiming, CreateClipContentMode, ExactDuration,
     ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier, RecordKind, Recorder, SupplierChain,
     SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, Timeline,
-    WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest,
+    WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
 };
 use helgoboss_learn::UnitValue;
 use reaper_high::{OwnedSource, Project, ReaperSource};
@@ -46,24 +46,30 @@ pub struct SourceData {
 
 impl SourceData {
     pub fn from_source(source: &OwnedPcmSource, project: Option<Project>) -> Self {
-        let is_midi = pcm_source_is_midi(source);
-        let tempo = source
-            .tempo()
-            .unwrap_or_else(|| detect_tempo(source.duration(), project));
-        let beat_count = if is_midi {
-            source
-                .get_length_beats()
-                .expect("MIDI source should report beats")
-                .get()
-                .round() as u32
+        if pcm_source_is_midi(source) {
+            Self::from_midi(source.duration())
         } else {
-            calculate_beat_count(tempo, source.duration())
-        };
-        assert_ne!(beat_count, 0, "source reported beat count of zero");
+            let tempo = source
+                .tempo()
+                .unwrap_or_else(|| detect_tempo(source.duration(), project));
+            Self::from_audio(tempo, source.duration())
+        }
+    }
+
+    pub fn from_audio(tempo: Bpm, duration: DurationInSeconds) -> Self {
         Self {
             tempo,
-            beat_count,
-            is_midi,
+            beat_count: calculate_beat_count(tempo, duration),
+            is_midi: false,
+        }
+    }
+
+    pub fn from_midi(duration: DurationInSeconds) -> Self {
+        let tempo = Bpm::new(MIDI_BASE_BPM);
+        Self {
+            tempo,
+            beat_count: calculate_beat_count(tempo, duration),
+            is_midi: true,
         }
     }
 
@@ -220,7 +226,9 @@ impl Clip {
     }
 
     pub fn from_recording(args: ClipRecordArgs, project: Option<Project>) -> Self {
-        let trigger_timeline_pos = clip_timeline(project, false).cursor_pos();
+        let timeline = clip_timeline(project, false);
+        let trigger_timeline_pos = timeline.cursor_pos();
+        let tempo = timeline.tempo_at(trigger_timeline_pos);
         let recording_state = RecordingState {
             trigger_timeline_pos,
             play_after: args.play_after,
@@ -228,12 +236,9 @@ impl Clip {
             input: args.input,
             rollback_data: None,
         };
+        let recorder = Recorder::recording(args.input, project, trigger_timeline_pos, tempo);
         Self {
-            supplier_chain: SupplierChain::new(Recorder::recording(
-                args.input,
-                project,
-                trigger_timeline_pos,
-            )),
+            supplier_chain: SupplierChain::new(recorder),
             state: ClipState::Recording(recording_state),
             project,
             volume: Default::default(),
@@ -1181,10 +1186,15 @@ impl ReadyState {
         project: Option<Project>,
         supplier_chain: &mut SupplierChain,
     ) -> Option<RecordingState> {
-        let trigger_timeline_pos = clip_timeline(project, false).cursor_pos();
-        supplier_chain
-            .recorder_mut()
-            .prepare_recording(args.input, project, trigger_timeline_pos);
+        let timeline = clip_timeline(project, false);
+        let trigger_timeline_pos = timeline.cursor_pos();
+        let tempo = timeline.tempo_at(trigger_timeline_pos);
+        supplier_chain.recorder_mut().prepare_recording(
+            args.input,
+            project,
+            trigger_timeline_pos,
+            tempo,
+        );
         let recording_state = RecordingState {
             trigger_timeline_pos,
             play_after: args.play_after,
@@ -1450,8 +1460,22 @@ impl RecordingState {
     ) -> ReadyState {
         let outcome = supplier_chain.recorder_mut().commit_recording().unwrap();
         // Calculate section boundaries
-        let (section_start_frame, section_frame_count, source_data) = match start_and_end_bar {
-            None => (0, None, outcome.source_data),
+        struct R {
+            section_start_frame: usize,
+            section_frame_count: Option<usize>,
+            duration: DurationInSeconds,
+        }
+        let r = match start_and_end_bar {
+            None => {
+                let duration = DurationInSeconds::new(
+                    timeline_cursor_pos.get() - outcome.source_start_timeline_pos.get(),
+                );
+                R {
+                    section_start_frame: 0,
+                    section_frame_count: None,
+                    duration,
+                }
+            }
             Some((start_bar, end_bar)) => {
                 // Determine start pos
                 let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
@@ -1473,50 +1497,35 @@ impl RecordingState {
                 let positive_length: DurationInSeconds =
                     length.try_into().expect("end bar pos < start bar pos");
                 // Determine source data based on section, not on recorded source
-                let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
-                let (section_start_pos, section_length, source_data) = if outcome
-                    .source_data
-                    .is_midi
-                {
+                let (section_start_pos, duration) = if outcome.is_midi {
                     // MIDI has a constant normalized tempo.
-                    let normalized_tempo = outcome.source_data.tempo;
-                    let tempo_factor = timeline_tempo.get() / normalized_tempo.get();
+                    let tempo_factor = outcome.tempo.get() / MIDI_BASE_BPM;
                     let adjusted_start_pos =
                         DurationInSeconds::new(positive_start_pos.get() * tempo_factor);
                     let adjusted_positive_length =
                         DurationInSeconds::new(positive_length.get() * tempo_factor);
-                    let source_data = SourceData {
-                        tempo: normalized_tempo,
-                        beat_count: calculate_beat_count(timeline_tempo, adjusted_positive_length),
-                        is_midi: true,
-                    };
-                    (
-                        adjusted_start_pos,
-                        Some(adjusted_positive_length),
-                        source_data,
-                    )
+                    (adjusted_start_pos, adjusted_positive_length)
                 } else {
-                    let source_data = SourceData {
-                        // We recorded the source with the current project tempo.
-                        tempo: timeline_tempo,
-                        beat_count: calculate_beat_count(timeline_tempo, positive_length),
-                        is_midi: false,
-                    };
-                    (positive_start_pos, Some(positive_length), source_data)
+                    (positive_start_pos, positive_length)
                 };
-                dbg!(section_start_pos, section_length, source_data);
                 let section_start_frame =
                     convert_duration_in_seconds_to_frames(section_start_pos, outcome.frame_rate);
-                let section_frame_count = section_length
-                    .map(|l| convert_duration_in_seconds_to_frames(l, outcome.frame_rate));
-                (section_start_frame, section_frame_count, source_data)
+                let section_frame_count =
+                    convert_duration_in_seconds_to_frames(duration, outcome.frame_rate);
+                R {
+                    section_start_frame,
+                    section_frame_count: Some(section_frame_count),
+                    duration,
+                }
             }
         };
         // Set section boundaries for perfect timing.
         supplier_chain
             .section_mut()
-            .set_start_frame(section_start_frame);
-        supplier_chain.section_mut().set_length(section_frame_count);
+            .set_start_frame(r.section_start_frame);
+        supplier_chain
+            .section_mut()
+            .set_length(r.section_frame_count);
         // Change state
         ReadyState {
             state: if play_after {
@@ -1527,7 +1536,11 @@ impl RecordingState {
             } else {
                 ReadySubState::Stopped
             },
-            source_data,
+            source_data: if outcome.is_midi {
+                SourceData::from_midi(r.duration)
+            } else {
+                SourceData::from_audio(outcome.tempo, r.duration)
+            },
             repeated: play_after,
         }
     }
