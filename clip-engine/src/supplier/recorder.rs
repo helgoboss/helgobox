@@ -312,7 +312,6 @@ impl Recorder {
         &mut self,
         start_and_end_bar: Option<(i32, i32)>,
         timeline: &dyn Timeline,
-        timeline_cursor_pos: PositionInSeconds,
     ) -> Result<RecordingOutcome, &'static str> {
         use State::*;
         let (res, next_state) = match self.state.take().unwrap() {
@@ -327,6 +326,7 @@ impl Recorder {
                         };
                         // TODO-medium We should probably record a bit longer to have some
                         //  crossfade material for the future.
+                        let source_duration = sss.sink.as_ref().as_ref().GetLength();
                         let request =
                             RecorderRequest::FinishAudioRecording(FinishAudioRecordingRequest {
                                 sink: sss.sink,
@@ -345,7 +345,7 @@ impl Recorder {
                             false,
                             start_and_end_bar,
                             timeline,
-                            timeline_cursor_pos,
+                            DurationInSeconds::new(source_duration),
                         );
                         let finishing_state = RecordingAudioFinishingState {
                             temporary_audio_buffer: sss.temporary_audio_buffer,
@@ -360,6 +360,7 @@ impl Recorder {
                         (Ok(outcome), Recording(recording_state))
                     }
                     Midi(ss) => {
+                        let source_duration = ss.new_source.get_length().unwrap();
                         let outcome = RecordingOutcome::new(
                             ss.source_start_timeline_pos,
                             ss.new_source.frame_rate().unwrap(),
@@ -367,7 +368,7 @@ impl Recorder {
                             true,
                             start_and_end_bar,
                             timeline,
-                            timeline_cursor_pos,
+                            source_duration,
                         );
                         (
                             Ok(outcome),
@@ -753,15 +754,13 @@ impl RecordingOutcome {
         is_midi: bool,
         start_and_end_bar: Option<(i32, i32)>,
         timeline: &dyn Timeline,
-        timeline_cursor_pos: PositionInSeconds,
+        source_duration: DurationInSeconds,
     ) -> Self {
         struct R {
             section_start_frame: usize,
             section_frame_count: Option<usize>,
             effective_duration: DurationInSeconds,
         }
-        let source_duration =
-            DurationInSeconds::new(timeline_cursor_pos.get() - source_start_timeline_pos.get());
         let r = match start_and_end_bar {
             None => R {
                 section_start_frame: 0,

@@ -1386,13 +1386,8 @@ impl RecordingState {
         use RecordingStopOutcome::*;
         match self.timing {
             Unsynced => {
-                let ready_state = self.finish_recording(
-                    self.play_after,
-                    None,
-                    supplier_chain,
-                    args.timeline,
-                    args.timeline_cursor_pos,
-                );
+                let ready_state =
+                    self.finish_recording(self.play_after, None, supplier_chain, args.timeline);
                 TransitionToReady(ready_state)
             }
             Synced { start_bar, end_bar } => {
@@ -1459,7 +1454,6 @@ impl RecordingState {
                         Some((start_bar, end_bar)),
                         supplier_chain,
                         &args.timeline,
-                        args.timeline_cursor_pos,
                     );
                     Some(ready_state)
                 } else {
@@ -1479,11 +1473,10 @@ impl RecordingState {
         start_and_end_bar: Option<(i32, i32)>,
         supplier_chain: &mut SupplierChain,
         timeline: &dyn Timeline,
-        timeline_cursor_pos: PositionInSeconds,
     ) -> ReadyState {
         let outcome = supplier_chain
             .recorder_mut()
-            .commit_recording(start_and_end_bar, timeline, timeline_cursor_pos)
+            .commit_recording(start_and_end_bar, timeline)
             .unwrap();
         // Calculate section boundaries
         // Set section boundaries for perfect timing.
