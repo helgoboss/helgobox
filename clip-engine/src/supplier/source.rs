@@ -145,6 +145,9 @@ impl WithTempo for OwnedPcmSource {
 }
 
 fn transfer_audio(source: &OwnedPcmSource, mut req: SourceMaterialRequest) -> SupplyResponse {
+    // We never let the PCM source do the resampling itself. Our higher-level resampler takes care
+    // of it.
+    assert_eq!(req.dest_sample_rate, req.source_sample_rate);
     let time_s = convert_duration_in_frames_to_seconds(req.start_frame, req.source_sample_rate);
     let num_frames_written = unsafe {
         let mut transfer = PcmSourceTransfer::default();
@@ -158,12 +161,8 @@ fn transfer_audio(source: &OwnedPcmSource, mut req: SourceMaterialRequest) -> Su
     };
     // The lower the sample rate, the higher the tempo, the more inner source material we
     // effectively grabbed.
-    let consumed_time_in_seconds =
-        DurationInSeconds::new(num_frames_written as f64 / req.dest_sample_rate.get());
-    let num_frames_consumed =
-        convert_duration_in_seconds_to_frames(consumed_time_in_seconds, req.source_sample_rate);
     SupplyResponse::limited_by_total_frame_count(
-        num_frames_consumed,
+        num_frames_written,
         num_frames_written,
         req.start_frame as isize,
         source.frame_count(),

@@ -34,10 +34,6 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
         Self {
             supplier,
             boundary: Default::default(),
-            // boundary: Boundary {
-            //     start_frame: 1_024_000,
-            //     length: None,
-            // },
         }
     }
 
@@ -66,6 +62,7 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
         request: &impl SupplyRequest,
         dest_frame_count: usize,
         dest_frame_rate: Hz,
+        is_midi: bool,
     ) -> Instruction {
         if self.boundary.is_default() {
             return Instruction::PassThrough;
@@ -74,12 +71,19 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
             .supplier
             .frame_rate()
             .expect("supplier doesn't have frame rate yet");
-        let hypothetical_num_source_frames_to_be_consumed =
+        if !is_midi {
+            assert_eq!(source_frame_rate, dest_frame_rate);
+        }
+        // For audio, the source and destination frame rate are always equal in our chain setup.
+        let hypothetical_num_source_frames_to_be_consumed = if is_midi {
             convert_duration_in_frames_to_other_frame_rate(
                 dest_frame_count,
                 dest_frame_rate,
                 source_frame_rate,
-            );
+            )
+        } else {
+            dest_frame_count
+        };
         let hypothetical_end_frame_in_section =
             request.start_frame() + hypothetical_num_source_frames_to_be_consumed as isize;
         if hypothetical_end_frame_in_section < 0 {
@@ -105,11 +109,16 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
         };
         let num_source_frames_to_be_consumed =
             (end_frame_in_source - start_frame_in_source) as usize;
-        let num_dest_frames_to_be_written = convert_duration_in_frames_to_other_frame_rate(
-            num_source_frames_to_be_consumed,
-            source_frame_rate,
-            dest_frame_rate,
-        );
+        // For audio, the source and destination frame rate are always equal in our chain setup.
+        let num_dest_frames_to_be_written = if is_midi {
+            convert_duration_in_frames_to_other_frame_rate(
+                num_source_frames_to_be_consumed,
+                source_frame_rate,
+                dest_frame_rate,
+            )
+        } else {
+            num_source_frames_to_be_consumed
+        };
         let phase_two = PhaseTwo {
             boundary_end_frame,
             hypothetical_end_frame_in_section,
@@ -167,6 +176,7 @@ impl<S: AudioSupplier + WithFrameRate + ExactFrameCount> AudioSupplier for Secti
             request,
             dest_buffer.frame_count(),
             request.dest_sample_rate,
+            false,
         ) {
             Instruction::PassThrough => {
                 return self.supplier.supply_audio(request, dest_buffer);
@@ -199,15 +209,18 @@ impl<S: MidiSupplier + WithFrameRate + ExactFrameCount> MidiSupplier for Section
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {
-        let data =
-            match self.get_instruction(request, request.dest_frame_count, request.dest_sample_rate)
-            {
-                Instruction::PassThrough => {
-                    return self.supplier.supply_midi(request, event_list);
-                }
-                Instruction::Return(r) => return r,
-                Instruction::QueryInner(d) => d,
-            };
+        let data = match self.get_instruction(
+            request,
+            request.dest_frame_count,
+            request.dest_sample_rate,
+            true,
+        ) {
+            Instruction::PassThrough => {
+                return self.supplier.supply_midi(request, event_list);
+            }
+            Instruction::Return(r) => return r,
+            Instruction::QueryInner(d) => d,
+        };
         let section_request = SupplyMidiRequest {
             start_frame: data.phase_one.start_frame,
             dest_frame_count: data.phase_one.inner_block_length,

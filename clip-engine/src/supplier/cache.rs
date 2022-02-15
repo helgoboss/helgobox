@@ -139,9 +139,7 @@ impl<S: ExactFrameCount> ExactFrameCount for Cache<S> {
 }
 
 fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> SupplyResponse {
-    // TODO-high Respect the requested sample rate (we need to resample manually).
-    //  Or well, we can also assert that the input and output frame rate is the same, which should
-    //  be the case now because we resample multiple layers up.
+    assert_eq!(req.dest_sample_rate, req.source_sample_rate);
     let num_remaining_frames_in_source = buf.frame_count() - req.start_frame;
     let num_frames_written = cmp::min(
         num_remaining_frames_in_source,

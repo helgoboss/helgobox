@@ -73,7 +73,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
         let mut total_num_frames_consumed = 0usize;
         let mut total_num_frames_written = 0usize;
         // I think it makes sense to set both the output and the input sample rate to the sample
-        // rate of the source. Then the result can be even cached and sample rate & play-rate
+        // rate of the source. Then the result could be even cached and sample rate & play-rate
         // changes don't need to invalidate the cache.
         // TODO-medium Setting this right at the beginning should be enough.
         let api = self.api.as_mut().as_mut();

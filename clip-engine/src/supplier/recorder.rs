@@ -613,10 +613,7 @@ impl AudioSupplier for Recorder {
                         // gives us the material we need.
                         // We know that the frame rates should be equal because this is audio and we
                         // do resampling in upper layers.
-                        assert_eq!(
-                            s.frame_rate, request.dest_sample_rate,
-                            "frame rate of recorded material != requested frame rate"
-                        );
+                        assert_eq!(s.frame_rate, request.dest_sample_rate);
                         if request.start_frame < 0 {
                             // TODO-high This skips the first few frames. We should rather use
                             //  supply_material() helper.
