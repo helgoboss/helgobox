@@ -2,9 +2,9 @@ use crate::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     print_distance_from_beat_start_at, AudioSupplier, ExactFrameCount, MidiSupplier,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
+    NewSupplyResponse, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
-use crate::{clip_timeline, SupplyRequestInfo};
+use crate::{clip_timeline, SupplyRequestInfo, SupplyResponseStatus};
 use core::cmp;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
@@ -14,6 +14,7 @@ use reaper_medium::{
 #[derive(Debug)]
 pub struct Looper<S> {
     loop_behavior: LoopBehavior,
+    enabled: bool,
     fades_enabled: bool,
     supplier: S,
 }
@@ -76,9 +77,14 @@ impl<S: ExactFrameCount> Looper<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             loop_behavior: Default::default(),
+            enabled: false,
             fades_enabled: false,
             supplier,
         }
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
     }
 
     pub fn supplier(&self) -> &S {
@@ -113,6 +119,9 @@ impl<S: ExactFrameCount> Looper<S> {
     }
 
     fn check_relevance(&self, start_frame: isize) -> Option<RelevantData> {
+        if !self.enabled {
+            return None;
+        }
         if start_frame < 0 {
             return None;
         }
@@ -151,7 +160,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> SupplyResponse {
+    ) -> NewSupplyResponse {
         let data = match self.check_relevance(request.start_frame) {
             None => {
                 return self.supplier.supply_audio(&request, dest_buffer);
@@ -174,56 +183,37 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
             general_info: request.general_info,
         };
         let modulo_response = self.supplier.supply_audio(&modulo_request, dest_buffer);
-        let final_response = if modulo_response.num_frames_written == dest_buffer.frame_count() {
-            // Didn't cross the end yet. But maybe reached the end.
-            if modulo_response.next_inner_frame.is_none() && self.is_last_cycle(data.current_cycle)
-            {
-                // Reached end of last cycle.
-                modulo_response
-            } else {
-                // Didn't reach end of last cycle (either right in the middle of source material or
-                // reached end shortly before starting next cycle).
-                SupplyResponse {
-                    num_frames_written: modulo_response.num_frames_written,
-                    num_frames_consumed: modulo_response.num_frames_consumed,
-                    next_inner_frame: unmodulo_next_inner_frame(
-                        modulo_response.next_inner_frame,
-                        start_frame,
-                        supplier_frame_count,
-                    ),
-                }
-            }
-        } else {
-            // Crossed the end.
-            if self.is_last_cycle(data.current_cycle) {
-                modulo_response
-            } else {
-                // We need to fill the rest with material from the beginning of the source.
-                let start_request = SupplyAudioRequest {
-                    start_frame: 0,
-                    dest_sample_rate: request.dest_sample_rate,
-                    info: SupplyRequestInfo {
-                        audio_block_frame_offset: request.info.audio_block_frame_offset
-                            + modulo_response.num_frames_written,
-                        requester: "looper-audio-start-request",
-                        note: "",
-                    },
-                    parent_request: Some(request),
-                    general_info: request.general_info,
-                };
-                let start_response = self.supplier.supply_audio(
-                    &start_request,
-                    &mut dest_buffer.slice_mut(modulo_response.num_frames_written..),
-                );
-                SupplyResponse {
-                    num_frames_written: dest_buffer.frame_count(),
-                    num_frames_consumed: modulo_response.num_frames_consumed
-                        + start_response.num_frames_consumed,
-                    next_inner_frame: unmodulo_next_inner_frame(
-                        start_response.next_inner_frame,
-                        start_frame,
-                        supplier_frame_count,
-                    ),
+        let final_response = match modulo_response.status {
+            SupplyResponseStatus::PleaseContinue => modulo_response,
+            SupplyResponseStatus::ReachedEnd { num_frames_written } => {
+                if self.is_last_cycle(data.current_cycle) {
+                    // Time to stop.
+                    modulo_response
+                } else if num_frames_written == dest_buffer.frame_count() {
+                    // Perfect landing, source completely consumed. Start next cycle.
+                    NewSupplyResponse::please_continue(modulo_response.num_frames_consumed)
+                } else {
+                    // Exceeded end of source.
+                    // We need to fill the rest with material from the beginning of the source.
+                    let start_request = SupplyAudioRequest {
+                        start_frame: 0,
+                        dest_sample_rate: request.dest_sample_rate,
+                        info: SupplyRequestInfo {
+                            audio_block_frame_offset: request.info.audio_block_frame_offset
+                                + num_frames_written,
+                            requester: "looper-audio-start-request",
+                            note: "",
+                        },
+                        parent_request: Some(request),
+                        general_info: request.general_info,
+                    };
+                    let start_response = self.supplier.supply_audio(
+                        &start_request,
+                        &mut dest_buffer.slice_mut(num_frames_written..),
+                    );
+                    NewSupplyResponse::please_continue(
+                        modulo_response.num_frames_consumed + start_response.num_frames_consumed,
+                    )
                 }
             }
         };
@@ -252,7 +242,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> SupplyResponse {
+    ) -> NewSupplyResponse {
         let data = match self.check_relevance(request.start_frame) {
             None => {
                 return self.supplier.supply_midi(&request, event_list);
@@ -276,88 +266,44 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
             general_info: request.general_info,
         };
         let modulo_response = self.supplier.supply_midi(&modulo_request, event_list);
-        if modulo_response.num_frames_written == request.dest_frame_count {
-            // Didn't cross the end yet. But maybe reached the end.
-            if modulo_response.next_inner_frame.is_none() && self.is_last_cycle(data.current_cycle)
-            {
-                // Reached the end of last cycle.
-                modulo_response
-            } else {
-                SupplyResponse {
-                    num_frames_written: modulo_response.num_frames_written,
-                    num_frames_consumed: modulo_response.num_frames_consumed,
-                    next_inner_frame: unmodulo_next_inner_frame(
-                        modulo_response.next_inner_frame,
-                        start_frame,
-                        supplier_frame_count,
-                    ),
-                }
-            }
-        } else {
-            // Crossed the end.
-            if self.is_last_cycle(data.current_cycle) {
-                modulo_response
-            } else {
-                // We need to fill the rest with material from the beginning of the source.
-                // Repeat. Fill rest of buffer with beginning of source.
-                // We need to start from negative position so the frame
-                // offset of the *added* MIDI events is correctly written.
-                // The negative position should be as long as the duration of
-                // samples already written.
-                let start_request = SupplyMidiRequest {
-                    start_frame: -(modulo_response.num_frames_consumed as isize),
-                    dest_sample_rate: request.dest_sample_rate,
-                    dest_frame_count: request.dest_frame_count,
-                    info: SupplyRequestInfo {
-                        audio_block_frame_offset: request.info.audio_block_frame_offset
-                            + modulo_response.num_frames_written,
-                        requester: "looper-midi-start-request",
-                        note: "",
-                    },
-                    parent_request: Some(request),
-                    general_info: request.general_info,
-                };
-                let start_response = self.supplier.supply_midi(&start_request, event_list);
-                SupplyResponse {
-                    num_frames_written: request.dest_frame_count,
-                    num_frames_consumed: modulo_response.num_frames_consumed
-                        + start_response.num_frames_consumed,
-                    next_inner_frame: unmodulo_next_inner_frame(
-                        start_response.next_inner_frame,
-                        start_frame,
-                        supplier_frame_count,
-                    ),
+        match modulo_response.status {
+            SupplyResponseStatus::PleaseContinue => modulo_response,
+            SupplyResponseStatus::ReachedEnd { num_frames_written } => {
+                if self.is_last_cycle(data.current_cycle) {
+                    // Time to stop.
+                    modulo_response
+                } else if num_frames_written == request.dest_frame_count {
+                    // Perfect landing, source completely consumed. Start next cycle.
+                    NewSupplyResponse::please_continue(modulo_response.num_frames_consumed)
+                } else {
+                    // We need to fill the rest with material from the beginning of the source.
+                    // Repeat. Fill rest of buffer with beginning of source.
+                    // We need to start from negative position so the frame
+                    // offset of the *added* MIDI events is correctly written.
+                    // The negative position should be as long as the duration of
+                    // samples already written.
+                    let start_request = SupplyMidiRequest {
+                        start_frame: -(modulo_response.num_frames_consumed as isize),
+                        dest_sample_rate: request.dest_sample_rate,
+                        dest_frame_count: request.dest_frame_count,
+                        info: SupplyRequestInfo {
+                            audio_block_frame_offset: request.info.audio_block_frame_offset
+                                + num_frames_written,
+                            requester: "looper-midi-start-request",
+                            note: "",
+                        },
+                        parent_request: Some(request),
+                        general_info: request.general_info,
+                    };
+                    let start_response = self.supplier.supply_midi(&start_request, event_list);
+                    // We don't add modulo_response.num_frames_consumed because that number of
+                    // consumed frames is already contained in the number returned in the start
+                    // response (because we started at a negative start position).
+                    NewSupplyResponse::please_continue(start_response.num_frames_consumed)
                 }
             }
         }
     }
-}
-
-/// Takes the given `next_inner_frame` (which is expected to be within the boundaries of the inner
-/// source) and "migrates" it to the same loop cycle as the given `previous_start_frame`.
-fn unmodulo_next_inner_frame(
-    next_inner_frame: Option<isize>,
-    previous_start_frame: usize,
-    inner_frame_count: usize,
-) -> Option<isize> {
-    let next_inner_frame = next_inner_frame.unwrap_or(0);
-    assert!(next_inner_frame >= 0);
-    let next_inner_frame = next_inner_frame as usize;
-    assert!(
-        next_inner_frame < inner_frame_count,
-        "next_inner_frame {} < inner_frame_count {}",
-        next_inner_frame,
-        inner_frame_count
-    );
-    let previous_cycle = previous_start_frame / inner_frame_count;
-    let previous_modulo_start_frame = previous_start_frame % inner_frame_count;
-    let next_cycle = if previous_modulo_start_frame <= next_inner_frame {
-        // We are still in the same cycle.
-        previous_cycle
-    } else {
-        previous_cycle + 1
-    };
-    Some((next_cycle * inner_frame_count + next_inner_frame) as isize)
 }
 
 fn calc_volume_factor_at(frame: usize, frame_count: usize) -> f64 {

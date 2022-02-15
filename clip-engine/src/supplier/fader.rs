@@ -2,8 +2,8 @@ use crate::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::midi_util;
 use crate::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
-    ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
-    WithFrameRate,
+    ExactFrameCount, MidiSupplier, NewSupplyResponse, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyResponse, SupplyResponseStatus, WithFrameRate,
 };
 use core::cmp;
 use reaper_medium::{
@@ -116,7 +116,7 @@ impl<S: AudioSupplier> AudioSupplier for Fader<S> {
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> SupplyResponse {
+    ) -> NewSupplyResponse {
         use FadeDirection::*;
         let fade = match self.fade {
             // No fade request.
@@ -136,7 +136,7 @@ impl<S: AudioSupplier> AudioSupplier for Fader<S> {
                     return self.supplier.supply_audio(request, dest_buffer);
                 }
                 FadeOut => {
-                    return SupplyResponse::empty();
+                    return NewSupplyResponse::exceeded_end();
                 }
             }
         }
@@ -150,15 +150,21 @@ impl<S: AudioSupplier> AudioSupplier for Fader<S> {
             let factor = (counter + frame) as f64 / FADE_LENGTH as f64;
             sample * factor
         });
-        let fade_finished = inner_response
-            .next_inner_frame
-            .map(|f| f >= fade.end_frame)
-            .unwrap_or(true);
+        let fade_finished = match inner_response.status {
+            SupplyResponseStatus::PleaseContinue => {
+                let end_frame = request.start_frame + inner_response.num_frames_consumed as isize;
+                end_frame >= fade.end_frame
+            }
+            SupplyResponseStatus::ReachedEnd { .. } => true,
+        };
         if fade_finished {
             self.fade = None;
             match fade.direction {
                 FadeIn => inner_response,
-                FadeOut => inner_response.with_end_reached(),
+                FadeOut => NewSupplyResponse::reached_end(
+                    inner_response.num_frames_consumed,
+                    dest_buffer.frame_count(),
+                ),
             }
         } else {
             inner_response
@@ -181,7 +187,7 @@ impl<S: MidiSupplier> MidiSupplier for Fader<S> {
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> SupplyResponse {
+    ) -> NewSupplyResponse {
         let fade = match self.fade {
             Some(
                 f
@@ -200,7 +206,7 @@ impl<S: MidiSupplier> MidiSupplier for Fader<S> {
         }
         // With MIDI it's simple. No fade necessary, just a plain "Shut up!".
         midi_util::silence_midi(event_list);
-        SupplyResponse::empty()
+        NewSupplyResponse::exceeded_end()
     }
 }
 

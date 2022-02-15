@@ -1,3 +1,4 @@
+use crate::supplier::{NewSupplyResponse, SupplyResponseStatus};
 use crate::{
     convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
     AudioBufMut, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, SupplyAudioRequest,
@@ -144,16 +145,14 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
 
     fn generate_outer_response(
         &self,
-        inner_response: SupplyResponse,
+        inner_response: NewSupplyResponse,
         phase_two: PhaseTwo,
-    ) -> SupplyResponse {
+    ) -> NewSupplyResponse {
         match phase_two.boundary_end_frame {
-            None => SupplyResponse {
-                next_inner_frame: inner_response
-                    .next_inner_frame
-                    .map(|f| f - self.boundary.start_frame as isize),
-                ..inner_response
-            },
+            None => {
+                // Section has open end.
+                inner_response
+            }
             Some(boundary_end_frame) => phase_two.generate_bounded_response(boundary_end_frame),
         }
     }
@@ -164,7 +163,7 @@ impl<S: AudioSupplier + WithFrameRate + ExactFrameCount> AudioSupplier for Secti
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> SupplyResponse {
+    ) -> NewSupplyResponse {
         let data = match self.get_instruction(
             request,
             dest_buffer.frame_count(),
@@ -200,7 +199,7 @@ impl<S: MidiSupplier + WithFrameRate + ExactFrameCount> MidiSupplier for Section
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> SupplyResponse {
+    ) -> NewSupplyResponse {
         let data =
             match self.get_instruction(request, request.dest_frame_count, request.dest_sample_rate)
             {
@@ -231,6 +230,9 @@ impl<S: WithFrameRate> WithFrameRate for Section<S> {
 
 impl<S: ExactFrameCount> ExactFrameCount for Section<S> {
     fn frame_count(&self) -> usize {
+        if self.boundary.is_default() {
+            return self.supplier.frame_count();
+        }
         if let Some(length) = self.boundary.length {
             length
         } else {
@@ -256,7 +258,7 @@ impl<S: ExactDuration + WithFrameRate + ExactFrameCount> ExactDuration for Secti
 enum Instruction {
     PassThrough,
     QueryInner(SectionRequestData),
-    Return(SupplyResponse),
+    Return(NewSupplyResponse),
 }
 
 struct SectionRequestData {
@@ -278,15 +280,14 @@ struct PhaseTwo {
 }
 
 impl PhaseTwo {
-    fn generate_bounded_response(&self, boundary_end_frame: isize) -> SupplyResponse {
-        SupplyResponse {
-            num_frames_written: self.num_dest_frames_to_be_written,
+    fn generate_bounded_response(&self, boundary_end_frame: isize) -> NewSupplyResponse {
+        NewSupplyResponse {
             num_frames_consumed: self.num_source_frames_to_be_consumed,
-            next_inner_frame: {
-                if self.hypothetical_end_frame_in_section < boundary_end_frame {
-                    Some(self.hypothetical_end_frame_in_section)
-                } else {
-                    None
+            status: if self.hypothetical_end_frame_in_section < boundary_end_frame {
+                SupplyResponseStatus::PleaseContinue
+            } else {
+                SupplyResponseStatus::ReachedEnd {
+                    num_frames_written: self.num_dest_frames_to_be_written,
                 }
             },
         }

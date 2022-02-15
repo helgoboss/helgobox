@@ -1,8 +1,8 @@
 use crate::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use crate::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    supply_source_material, AudioSupplier, ExactFrameCount, MidiSupplier, SourceMaterialRequest,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
+    supply_source_material, AudioSupplier, ExactFrameCount, MidiSupplier, NewSupplyResponse,
+    SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
 use crate::SupplyRequestInfo;
 use core::cmp;
@@ -87,7 +87,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Cache<S> {
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> SupplyResponse {
+    ) -> NewSupplyResponse {
         let d = match &self.cached_data {
             None => return self.supplier.supply_audio(request, dest_buffer),
             Some(d) => d,
@@ -122,7 +122,7 @@ impl<S: MidiSupplier> MidiSupplier for Cache<S> {
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> SupplyResponse {
+    ) -> NewSupplyResponse {
         // MIDI doesn't need caching.
         self.supplier.supply_midi(request, event_list)
     }
@@ -138,8 +138,10 @@ impl<S: ExactFrameCount> ExactFrameCount for Cache<S> {
     }
 }
 
-fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> SupplyResponse {
+fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> NewSupplyResponse {
     // TODO-high Respect the requested sample rate (we need to resample manually).
+    //  Or well, we can also assert that the input and output frame rate is the same, which should
+    //  be the case now because we resample multiple layers up.
     let num_remaining_frames_in_source = buf.frame_count() - req.start_frame;
     let num_frames_written = cmp::min(
         num_remaining_frames_in_source,
@@ -147,10 +149,10 @@ fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> SupplyResp
     );
     buf.slice(req.start_frame..)
         .copy_to(&mut req.dest_buffer.slice_mut(0..num_frames_written));
-    SupplyResponse::limited_by_total_frame_count(
+    NewSupplyResponse::limited_by_total_frame_count(
         num_frames_written,
         num_frames_written,
         req.start_frame as isize,
-        Some(buf.frame_count()),
+        buf.frame_count(),
     )
 }

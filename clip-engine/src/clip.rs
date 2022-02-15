@@ -5,10 +5,10 @@ use crate::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames, AudioBufMut,
     AudioSupplier, ClipContent, ClipRecordTiming, CreateClipContentMode, ExactDuration,
-    ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier, RecordKind, Recorder, RecorderRequest,
-    SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
-    SupplyRequestInfo, Timeline, WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest,
-    MIDI_BASE_BPM,
+    ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier, NewSupplyResponse, RecordKind,
+    Recorder, RecorderRequest, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponseStatus, Timeline, WithFrameRate,
+    WithTempo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -830,6 +830,9 @@ impl ReadyState {
         };
     }
 
+    /// Returns the next frame to be queried.
+    ///
+    /// Returns `None` if end of material.
     fn fill_samples(
         &mut self,
         args: &mut ClipProcessArgs<impl Timeline>,
@@ -839,10 +842,16 @@ impl ReadyState {
         supplier_chain: &mut SupplierChain,
     ) -> Option<isize> {
         let dest_sample_rate = Hz::new(args.block.sample_rate().get() * sample_rate_factor);
-        if self.source_data.is_midi {
+        let response = if self.source_data.is_midi {
             self.fill_samples_midi(args, start_frame, info, dest_sample_rate, supplier_chain)
         } else {
             self.fill_samples_audio(args, start_frame, info, dest_sample_rate, supplier_chain)
+        };
+        match response.status {
+            SupplyResponseStatus::PleaseContinue => {
+                Some(start_frame + response.num_frames_consumed as isize)
+            }
+            SupplyResponseStatus::ReachedEnd { .. } => None,
         }
     }
 
@@ -853,7 +862,7 @@ impl ReadyState {
         info: &SupplyRequestGeneralInfo,
         dest_sample_rate: Hz,
         supplier_chain: &mut SupplierChain,
-    ) -> Option<isize> {
+    ) -> NewSupplyResponse {
         let request = SupplyAudioRequest {
             start_frame,
             dest_sample_rate,
@@ -872,12 +881,11 @@ impl ReadyState {
                 args.block.length() as _,
             )
         };
-        let response = supplier_chain
-            .head_mut()
-            .supply_audio(&request, &mut dest_buffer);
         // TODO-high There's an issue e.g. when playing the piano audio clip that makes
         //  the clip not stop for a long time when it's not looped. Check that!
-        response.next_inner_frame
+        supplier_chain
+            .head_mut()
+            .supply_audio(&request, &mut dest_buffer)
     }
 
     fn fill_samples_midi(
@@ -887,7 +895,7 @@ impl ReadyState {
         info: &SupplyRequestGeneralInfo,
         dest_sample_rate: Hz,
         supplier_chain: &mut SupplierChain,
-    ) -> Option<isize> {
+    ) -> NewSupplyResponse {
         let request = SupplyMidiRequest {
             start_frame,
             dest_frame_count: args.block.length() as _,
@@ -900,11 +908,10 @@ impl ReadyState {
             parent_request: None,
             general_info: info,
         };
-        let response = supplier_chain.head_mut().supply_midi(
+        supplier_chain.head_mut().supply_midi(
             &request,
             args.block.midi_event_list().expect("no MIDI event list"),
-        );
-        response.next_inner_frame
+        )
     }
 
     fn prepare_playing(

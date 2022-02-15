@@ -1,5 +1,6 @@
 use crate::buffer::AudioBufMut;
 use crate::file_util::get_path_for_new_media_file;
+use crate::supplier::NewSupplyResponse;
 use crate::ClipPlayState::Recording;
 use crate::{
     clip_timeline, convert_duration_in_seconds_to_frames, AudioBuf, AudioSupplier, ClipContent,
@@ -504,7 +505,7 @@ impl Recorder {
         }
     }
 
-    fn process_response(&mut self) {
+    fn process_worker_response(&mut self) {
         let response = match self.response_channel.receiver.try_recv() {
             Ok(r) => r,
             Err(_) => return,
@@ -601,8 +602,8 @@ impl AudioSupplier for Recorder {
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> SupplyResponse {
-        self.process_response();
+    ) -> NewSupplyResponse {
+        self.process_worker_response();
         let source = match self.state.as_mut().unwrap() {
             State::Ready(s) => &mut s.source,
             State::Recording(s) => {
@@ -617,14 +618,10 @@ impl AudioSupplier for Recorder {
                             "frame rate of recorded material != requested frame rate"
                         );
                         if request.start_frame < 0 {
-                            // TODO-high This skips the first few frames.
+                            // TODO-high This skips the first few frames. We should rather use
+                            //  supply_material() helper.
                             let num_frames_written = dest_buffer.frame_count();
-                            return SupplyResponse::limited(
-                                num_frames_written,
-                                num_frames_written,
-                                request.start_frame,
-                                false,
-                            );
+                            return NewSupplyResponse::please_continue(num_frames_written);
                         }
                         println!("Using temporary buffer");
                         let start_frame = request.start_frame as usize;
@@ -637,14 +634,9 @@ impl AudioSupplier for Recorder {
                             .copy_to(&mut dest_buffer.slice_mut(..num_frames_to_write))
                             .unwrap();
                         let num_frames_written = dest_buffer.frame_count();
-                        // Under the assumption that the frame rates are equal (which they should),
+                        // Under the assumption that the frame rates are equal (which we asserted),
                         // the number of consumed frames is the number of written frames.
-                        return SupplyResponse::limited_by_total_frame_count(
-                            num_frames_written,
-                            num_frames_written,
-                            request.start_frame,
-                            None,
-                        );
+                        return NewSupplyResponse::please_continue(num_frames_written);
                     }
                     _ => {
                         if let Some(s) = &mut s.old_source {
@@ -681,7 +673,7 @@ impl MidiSupplier for Recorder {
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> SupplyResponse {
+    ) -> NewSupplyResponse {
         let source = self
             .current_or_old_source_mut()
             .expect("attempt to play back MIDI without source");

@@ -37,6 +37,7 @@ impl SupplierChain {
         time_stretcher.set_enabled(true);
         // Configure looper
         let looper = chain.looper_mut();
+        looper.set_enabled(true);
         looper.set_fades_enabled(true);
         chain
     }

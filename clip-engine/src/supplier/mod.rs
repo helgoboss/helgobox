@@ -39,7 +39,7 @@ pub trait AudioSupplier {
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> SupplyResponse;
+    ) -> NewSupplyResponse;
 
     /// How many channels the supplied audio material consists of.
     fn channel_count(&self) -> usize;
@@ -52,7 +52,7 @@ pub trait MidiSupplier {
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> SupplyResponse;
+    ) -> NewSupplyResponse;
 }
 
 pub trait ExactFrameCount {
@@ -216,6 +216,55 @@ pub struct SupplyResponse {
     pub next_inner_frame: Option<isize>,
 }
 
+#[derive(Debug)]
+pub struct NewSupplyResponse {
+    pub num_frames_consumed: usize,
+    pub status: SupplyResponseStatus,
+}
+
+#[derive(Debug)]
+pub enum SupplyResponseStatus {
+    PleaseContinue,
+    ReachedEnd { num_frames_written: usize },
+}
+
+impl NewSupplyResponse {
+    pub fn reached_end(num_frames_consumed: usize, num_frames_written: usize) -> Self {
+        Self {
+            num_frames_consumed,
+            status: SupplyResponseStatus::ReachedEnd { num_frames_written },
+        }
+    }
+
+    pub fn exceeded_end() -> Self {
+        Self::reached_end(0, 0)
+    }
+
+    pub fn please_continue(num_frames_consumed: usize) -> Self {
+        Self {
+            num_frames_consumed,
+            status: SupplyResponseStatus::PleaseContinue,
+        }
+    }
+
+    pub fn limited_by_total_frame_count(
+        num_frames_consumed: usize,
+        num_frames_written: usize,
+        start_frame: isize,
+        total_frame_count: usize,
+    ) -> Self {
+        let next_frame = start_frame + num_frames_consumed as isize;
+        Self {
+            num_frames_consumed,
+            status: if next_frame < total_frame_count as isize {
+                SupplyResponseStatus::PleaseContinue
+            } else {
+                SupplyResponseStatus::ReachedEnd { num_frames_written }
+            },
+        }
+    }
+}
+
 impl SupplyResponse {
     pub fn empty() -> Self {
         Self::default()
@@ -326,8 +375,8 @@ fn supply_source_material(
     request: &SupplyAudioRequest,
     dest_buffer: &mut AudioBufMut,
     source_sample_rate: Hz,
-    supply_inner: impl FnOnce(SourceMaterialRequest) -> SupplyResponse,
-) -> SupplyResponse {
+    supply_inner: impl FnOnce(SourceMaterialRequest) -> NewSupplyResponse,
+) -> NewSupplyResponse {
     // The lower the destination sample rate in relation to the source sample rate, the
     // higher the tempo.
     let tempo_factor = source_sample_rate.get() / request.dest_sample_rate.get();
@@ -344,20 +393,15 @@ fn supply_source_material(
         // We haven't reached the end of the source, so still tell the caller that we
         // wrote all frames.
         // And advance the count-in phase.
-        SupplyResponse::limited_by_total_frame_count(
-            ideal_num_consumed_frames,
-            dest_buffer.frame_count(),
-            request.start_frame,
-            None,
-        )
+        NewSupplyResponse::please_continue(ideal_num_consumed_frames)
     } else {
-        // Requested portion overlaps with playable material.
+        // Requested portion contains playable material.
         if request.start_frame < 0 {
             // println!(
             //     "overlap: start_frame = {}, ideal_end_frame = {}",
             //     request.start_frame, ideal_end_frame
             // );
-            // Left part of the portion is located before and right part after start of material.
+            // Portion overlaps start of material.
             let num_skipped_frames_in_source = -request.start_frame as usize;
             let proportion_skipped =
                 num_skipped_frames_in_source as f64 / ideal_num_consumed_frames as f64;
@@ -382,10 +426,18 @@ fn supply_source_material(
             //     req.start_frame, req.source_sample_rate, req.dest_sample_rate
             // );
             let res = supply_inner(req);
-            SupplyResponse {
-                num_frames_written: num_skipped_frames_in_dest + res.num_frames_written,
+            use SupplyResponseStatus::*;
+            NewSupplyResponse {
                 num_frames_consumed: num_skipped_frames_in_source + res.num_frames_consumed,
-                next_inner_frame: res.next_inner_frame,
+                status: match res.status {
+                    PleaseContinue => PleaseContinue,
+                    ReachedEnd { num_frames_written } => {
+                        // Oh, that's short material.
+                        ReachedEnd {
+                            num_frames_written: num_skipped_frames_in_dest + num_frames_written,
+                        }
+                    }
+                },
             }
         } else {
             // Requested portion is located on or after start of the actual source material.

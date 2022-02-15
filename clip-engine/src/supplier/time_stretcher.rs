@@ -1,5 +1,8 @@
 use crate::buffer::AudioBufMut;
-use crate::supplier::{AudioSupplier, SupplyAudioRequest, SupplyResponse, WithFrameRate};
+use crate::supplier::{
+    AudioSupplier, NewSupplyResponse, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus,
+    WithFrameRate,
+};
 use crate::{
     adjust_anti_proportionally_positive, adjust_proportionally_positive, ExactFrameCount,
     MidiSupplier, SupplyMidiRequest, SupplyRequestInfo,
@@ -57,7 +60,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> SupplyResponse {
+    ) -> NewSupplyResponse {
         if !self.enabled {
             return self.supplier.supply_audio(&request, dest_buffer);
         }
@@ -117,7 +120,12 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
                 break true;
             }
             total_num_frames_consumed += inner_response.num_frames_consumed;
-            api.BufferDone(inner_response.num_frames_written as _);
+            use SupplyResponseStatus::*;
+            let num_inner_frames_written = match inner_response.status {
+                PleaseContinue => stretch_buffer.frame_count(),
+                ReachedEnd { num_frames_written } => num_frames_written,
+            };
+            api.BufferDone(num_inner_frames_written as _);
             // Get output material.
             let mut offset_buffer = dest_buffer.slice_mut(total_num_frames_written..);
             let num_frames_written = unsafe {
@@ -136,12 +144,16 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
                 break false;
             }
         };
-        SupplyResponse::limited(
-            total_num_frames_consumed,
-            total_num_frames_written,
-            request.start_frame,
-            reached_end,
-        )
+        NewSupplyResponse {
+            num_frames_consumed: total_num_frames_consumed,
+            status: if reached_end {
+                SupplyResponseStatus::ReachedEnd {
+                    num_frames_written: total_num_frames_written,
+                }
+            } else {
+                SupplyResponseStatus::PleaseContinue
+            },
+        }
     }
 
     fn channel_count(&self) -> usize {
@@ -154,7 +166,7 @@ impl<S: MidiSupplier> MidiSupplier for TimeStretcher<S> {
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> SupplyResponse {
+    ) -> NewSupplyResponse {
         if !self.enabled {
             return self.supplier.supply_midi(&request, event_list);
         }
