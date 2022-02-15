@@ -1,8 +1,9 @@
 use crate::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use crate::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    supply_source_material, AudioSupplier, ExactFrameCount, MidiSupplier, SourceMaterialRequest,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
+    supply_source_material, transfer_samples_from_buffer, AudioSupplier, ExactFrameCount,
+    MidiSupplier, SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
+    WithFrameRate,
 };
 use crate::SupplyRequestInfo;
 use core::cmp;
@@ -94,7 +95,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Cache<S> {
         };
         let buf = d.content.to_buf();
         supply_source_material(request, dest_buffer, d.sample_rate, |input| {
-            transfer_samples(buf, input)
+            transfer_samples_from_buffer(buf, input)
         })
     }
 
@@ -136,21 +137,4 @@ impl<S: ExactFrameCount> ExactFrameCount for Cache<S> {
             self.supplier.frame_count()
         }
     }
-}
-
-fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> SupplyResponse {
-    assert_eq!(req.dest_sample_rate, req.source_sample_rate);
-    let num_remaining_frames_in_source = buf.frame_count() - req.start_frame;
-    let num_frames_written = cmp::min(
-        num_remaining_frames_in_source,
-        req.dest_buffer.frame_count(),
-    );
-    buf.slice(req.start_frame..)
-        .copy_to(&mut req.dest_buffer.slice_mut(0..num_frames_written));
-    SupplyResponse::limited_by_total_frame_count(
-        num_frames_written,
-        num_frames_written,
-        req.start_frame as isize,
-        buf.frame_count(),
-    )
 }

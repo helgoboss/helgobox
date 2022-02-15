@@ -204,7 +204,11 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         args: RecordArgs,
     ) -> Result<(), &'static str> {
         let behavior = match args.kind {
-            RecordKind::Normal { play_after, timing } => RecordBehavior::Normal {
+            RecordKind::Normal {
+                play_after,
+                timing,
+                detect_downbeat,
+            } => RecordBehavior::Normal {
                 play_after,
                 timing: match timing {
                     ClipRecordTiming::StartImmediatelyStopOnDemand => RecordTiming::Unsynced,
@@ -222,6 +226,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
                         end_bar: Some(start_bar + bar_count as i32),
                     },
                 },
+                detect_downbeat,
             },
             RecordKind::MidiOverdub => RecordBehavior::MidiOverdub,
         };
@@ -364,6 +369,7 @@ pub enum RecordKind {
     Normal {
         play_after: bool,
         timing: ClipRecordTiming,
+        detect_downbeat: bool,
     },
     MidiOverdub,
 }

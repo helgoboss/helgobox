@@ -119,10 +119,7 @@ impl<S: ExactFrameCount> Looper<S> {
     }
 
     fn check_relevance(&self, start_frame: isize) -> Option<RelevantData> {
-        if !self.enabled {
-            return None;
-        }
-        if start_frame < 0 {
+        if !self.enabled || start_frame < 0 {
             return None;
         }
         let start_frame = start_frame as usize;

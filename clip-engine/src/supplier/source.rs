@@ -174,7 +174,7 @@ fn transfer_audio(source: &OwnedPcmSource, mut req: SourceMaterialRequest) -> Su
 /// audio, which results in fewer special cases. The frame rate of 1,024,000 is also the unit which
 /// is used in REAPER's MIDI events, so this corresponds nicely to the audio world where one sample
 /// frame is the smallest possible unit.
-const MIDI_FRAME_RATE: f64 = 1_024_000.0;
+pub const MIDI_FRAME_RATE: f64 = 1_024_000.0;
 
 /// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
 /// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample

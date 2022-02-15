@@ -1,14 +1,15 @@
 use crate::buffer::AudioBufMut;
 use crate::file_util::get_path_for_new_media_file;
-use crate::supplier::SupplyResponse;
+use crate::supplier::{supply_source_material, transfer_samples_from_buffer, SupplyResponse};
 use crate::ClipPlayState::Recording;
 use crate::{
-    clip_timeline, convert_duration_in_seconds_to_frames, AudioBuf, AudioSupplier, ClipContent,
-    ClipInfo, ClipRecordInput, CreateClipContentMode, ExactDuration, ExactFrameCount, MidiSupplier,
-    OwnedAudioBuffer, SourceData, SupplyAudioRequest, SupplyMidiRequest, Timeline, WithFrameRate,
-    WithTempo, MIDI_BASE_BPM,
+    clip_timeline, convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
+    AudioBuf, AudioSupplier, ClipContent, ClipInfo, ClipRecordInput, CreateClipContentMode,
+    ExactDuration, ExactFrameCount, MidiSupplier, OwnedAudioBuffer, SourceData, SupplyAudioRequest,
+    SupplyMidiRequest, Timeline, WithFrameRate, WithTempo, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
+use helgoboss_midi::ShortMessage;
 use reaper_high::{OwnedSource, Project, Reaper, ReaperSource};
 use reaper_low::raw::{
     midi_realtime_write_struct_t, PCM_SINK_EXT_CREATESOURCE, PCM_SOURCE_EXT_ADDMIDIEVENTS,
@@ -127,6 +128,8 @@ struct RecordingState {
     old_source: Option<OwnedPcmSource>,
     project: Option<Project>,
     initial_tempo: Bpm,
+    detect_downbeat: bool,
+    first_frame_for_downbeat_detection: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -231,12 +234,15 @@ impl Recorder {
         trigger_timeline_pos: PositionInSeconds,
         current_tempo: Bpm,
         request_sender: Sender<RecorderRequest>,
+        detect_downbeat: bool,
     ) -> Self {
         let recording_state = RecordingState {
             sub_state: RecordingSubState::new(input, project, trigger_timeline_pos),
             old_source: None,
             project,
             initial_tempo: current_tempo,
+            detect_downbeat,
+            first_frame_for_downbeat_detection: None,
         };
         Self::new(State::Recording(recording_state), request_sender)
     }
@@ -292,6 +298,7 @@ impl Recorder {
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
         current_tempo: Bpm,
+        detect_downbeat: bool,
     ) {
         use State::*;
         let old_source = match self.state.take().unwrap() {
@@ -303,6 +310,8 @@ impl Recorder {
             old_source,
             project,
             initial_tempo: current_tempo,
+            detect_downbeat,
+            first_frame_for_downbeat_detection: None,
         };
         self.state = Some(Recording(recording_state));
     }
@@ -346,6 +355,7 @@ impl Recorder {
                             start_and_end_bar,
                             timeline,
                             DurationInSeconds::new(source_duration),
+                            s.first_frame_for_downbeat_detection,
                         );
                         let finishing_state = RecordingAudioFinishingState {
                             temporary_audio_buffer: sss.temporary_audio_buffer,
@@ -369,6 +379,7 @@ impl Recorder {
                             start_and_end_bar,
                             timeline,
                             source_duration,
+                            s.first_frame_for_downbeat_detection,
                         );
                         (
                             Ok(outcome),
@@ -451,16 +462,33 @@ impl Recorder {
         state.next_record_start_frame += num_frames_written;
     }
 
-    pub fn write_midi(&mut self, request: WriteMidiRequest, pos: PositionInSeconds) {
+    pub fn write_midi(&mut self, request: WriteMidiRequest, pos: DurationInSeconds) {
         let source = match self.state.as_mut().unwrap() {
             State::Recording(RecordingState {
                 sub_state:
                     RecordingSubState::Midi(RecordingMidiState {
                         new_source: source, ..
                     }),
+                detect_downbeat,
+                first_frame_for_downbeat_detection,
                 ..
-            })
-            | State::Ready(ReadyState { source }) => source,
+            }) => {
+                if *detect_downbeat && first_frame_for_downbeat_detection.is_none() {
+                    if let Some(evt) = request
+                        .events
+                        .into_iter()
+                        .find(|e| e.message().is_note_on())
+                    {
+                        let block_frame =
+                            convert_duration_in_seconds_to_frames(pos, Hz::new(MIDI_FRAME_RATE));
+                        let event_frame = block_frame + evt.frame_offset().get() as usize;
+                        *first_frame_for_downbeat_detection = Some(event_frame);
+                    }
+                }
+                source
+            }
+            // Overdubbing existing clip
+            State::Ready(ReadyState { source }) => source,
             _ => return,
         };
         let mut write_struct = midi_realtime_write_struct_t {
@@ -614,27 +642,13 @@ impl AudioSupplier for Recorder {
                         // gives us the material we need.
                         // We know that the frame rates should be equal because this is audio and we
                         // do resampling in upper layers.
-                        assert_eq!(s.frame_rate, request.dest_sample_rate);
-                        if request.start_frame < 0 {
-                            // TODO-high This skips the first few frames. We should rather use
-                            //  supply_material() helper.
-                            let num_frames_written = dest_buffer.frame_count();
-                            return SupplyResponse::please_continue(num_frames_written);
-                        }
                         println!("Using temporary buffer");
-                        let start_frame = request.start_frame as usize;
-                        let temp_buf = s.temporary_audio_buffer.to_buf();
-                        let ideal_end_frame = start_frame + dest_buffer.frame_count();
-                        let end_frame = cmp::min(ideal_end_frame, temp_buf.frame_count());
-                        let num_frames_to_write = end_frame - start_frame;
-                        temp_buf
-                            .slice(start_frame..end_frame)
-                            .copy_to(&mut dest_buffer.slice_mut(..num_frames_to_write))
-                            .unwrap();
-                        let num_frames_written = dest_buffer.frame_count();
+                        supply_source_material(request, dest_buffer, s.frame_rate, |input| {
+                            transfer_samples_from_buffer(s.temporary_audio_buffer.to_buf(), input)
+                        });
                         // Under the assumption that the frame rates are equal (which we asserted),
                         // the number of consumed frames is the number of written frames.
-                        return SupplyResponse::please_continue(num_frames_written);
+                        return SupplyResponse::please_continue(dest_buffer.frame_count());
                     }
                     _ => {
                         if let Some(s) = &mut s.old_source {
@@ -741,6 +755,7 @@ pub struct RecordingOutcome {
     pub source_duration: DurationInSeconds,
     pub section_start_frame: usize,
     pub section_frame_count: Option<usize>,
+    pub downbeat_frame: usize,
     /// If we have a section, then this corresponds to the duration of the section. If not,
     /// this corresponds to the duration of the source material.
     pub effective_duration: DurationInSeconds,
@@ -755,22 +770,28 @@ impl RecordingOutcome {
         start_and_end_bar: Option<(i32, i32)>,
         timeline: &dyn Timeline,
         source_duration: DurationInSeconds,
+        first_frame_for_downbeat_detection: Option<usize>,
     ) -> Self {
         #[derive(Debug)]
         struct R {
             section_start_frame: usize,
             section_frame_count: Option<usize>,
             effective_duration: DurationInSeconds,
+            downbeat_frame: usize,
         }
         let r = match start_and_end_bar {
             None => R {
                 section_start_frame: 0,
                 section_frame_count: None,
                 effective_duration: source_duration,
+                downbeat_frame: 0,
             },
             Some((start_bar, end_bar)) => {
                 // Determine start pos
                 let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
+                // TODO-high Depending on source_start_timeline_pos doesn't work when tempo changed
+                //  during recording. It would be better to advance frames just like we do it
+                //  when counting in (e.g. provide advance() function that's called in process()).
                 let start_pos = quantized_record_start_timeline_pos - source_start_timeline_pos;
                 let positive_start_pos = if start_pos.get() >= 0.0 {
                     DurationInSeconds::new(start_pos.get())
@@ -785,28 +806,40 @@ impl RecordingOutcome {
                 let quantized_record_end_timeline_pos = timeline.pos_of_bar(end_bar);
                 let length =
                     quantized_record_end_timeline_pos - quantized_record_start_timeline_pos;
-                let positive_length: DurationInSeconds =
+                let length: DurationInSeconds =
                     length.try_into().expect("end bar pos < start bar pos");
-                // Determine source data based on section, not on recorded source
-                let (section_start_pos, effective_duration) = if is_midi {
+                // Determine section data
+                let (effective_start_pos, effective_duration) = if is_midi {
                     // MIDI has a constant normalized tempo.
                     let tempo_factor = tempo.get() / MIDI_BASE_BPM;
                     let adjusted_start_pos =
                         DurationInSeconds::new(positive_start_pos.get() * tempo_factor);
                     let adjusted_positive_length =
-                        DurationInSeconds::new(positive_length.get() * tempo_factor);
+                        DurationInSeconds::new(length.get() * tempo_factor);
                     (adjusted_start_pos, adjusted_positive_length)
                 } else {
-                    (positive_start_pos, positive_length)
+                    (positive_start_pos, length)
                 };
-                let section_start_frame =
-                    convert_duration_in_seconds_to_frames(section_start_pos, frame_rate);
-                let section_frame_count =
+                let effective_start_frame =
+                    convert_duration_in_seconds_to_frames(effective_start_pos, frame_rate);
+                let effective_frame_count =
                     convert_duration_in_seconds_to_frames(effective_duration, frame_rate);
-                R {
-                    section_start_frame,
-                    section_frame_count: Some(section_frame_count),
-                    effective_duration,
+                match first_frame_for_downbeat_detection {
+                    Some(first_frame) if first_frame < effective_start_frame => {
+                        let downbeat_frame = effective_start_frame - first_frame;
+                        R {
+                            section_start_frame: first_frame,
+                            section_frame_count: Some(effective_frame_count),
+                            effective_duration,
+                            downbeat_frame,
+                        }
+                    }
+                    _ => R {
+                        section_start_frame: effective_start_frame,
+                        section_frame_count: Some(effective_frame_count),
+                        effective_duration,
+                        downbeat_frame: 0,
+                    },
                 }
             }
         };
@@ -819,6 +852,7 @@ impl RecordingOutcome {
             section_start_frame: r.section_start_frame,
             section_frame_count: r.section_frame_count,
             effective_duration: r.effective_duration,
+            downbeat_frame: r.downbeat_frame,
         }
     }
 }

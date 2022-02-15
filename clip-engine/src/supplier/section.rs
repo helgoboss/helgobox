@@ -29,12 +29,12 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             supplier,
-            // boundary: Default::default(),
-            boundary: Boundary {
-                start_frame: 1_024_000,
-                length: Some(1_024_000),
-                // length: None,
-            },
+            boundary: Default::default(),
+            // boundary: Boundary {
+            //     start_frame: 1_024_000,
+            //     length: Some(1_024_000),
+            //     // length: None,
+            // },
         }
     }
 
@@ -88,11 +88,11 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
         };
         let ideal_end_frame_in_section =
             request.start_frame() + ideal_num_frames_to_be_consumed as isize;
-        if ideal_end_frame_in_section < 0 {
+        if ideal_end_frame_in_section <= 0 {
             // Pure count-in phase. Pass through for now.
             return Instruction::PassThrough;
         }
-        // TODO-high If the start frame is < 0 and the end frame is > 0, we currently play
+        // TODO-high-downbeat If the start frame is < 0 and the end frame is > 0, we currently play
         //  some material which is shortly before the section start. I think one effect of this is
         //  that the MIDI piano clip sometimes plays the F note when using this boundary:
         //             boundary: Boundary {

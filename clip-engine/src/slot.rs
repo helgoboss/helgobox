@@ -71,11 +71,16 @@ impl Slot {
     ) -> Result<(), &'static str> {
         use RecordBehavior::*;
         match behavior {
-            Normal { play_after, timing } => {
+            Normal {
+                play_after,
+                timing,
+                detect_downbeat,
+            } => {
                 let args = ClipRecordArgs {
                     play_after,
                     input,
                     timing,
+                    detect_downbeat,
                 };
                 match &mut self.clip {
                     None => self.clip = Some(Clip::from_recording(args, project, request_sender)),

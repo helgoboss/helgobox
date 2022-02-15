@@ -199,6 +199,7 @@ pub enum RecordBehavior {
     Normal {
         play_after: bool,
         timing: RecordTiming,
+        detect_downbeat: bool,
     },
     MidiOverdub,
 }
@@ -252,6 +253,7 @@ impl Clip {
             trigger_timeline_pos,
             tempo,
             request_sender,
+            args.detect_downbeat,
         );
         Self {
             supplier_chain: SupplierChain::new(recorder),
@@ -390,11 +392,15 @@ impl Clip {
                     return;
                 }
             }
+            // TODO-high Depending on the trigger timeline pos is not good with tempo changes.
             Recording(s) => timeline_cursor_pos - s.trigger_timeline_pos,
         };
+        if record_pos < PositionInSeconds::ZERO {
+            return;
+        }
         self.supplier_chain
             .recorder_mut()
-            .write_midi(request, record_pos);
+            .write_midi(request, DurationInSeconds::new(record_pos.get()));
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
@@ -1217,6 +1223,7 @@ impl ReadyState {
             project,
             trigger_timeline_pos,
             tempo,
+            args.detect_downbeat,
         );
         let recording_state = RecordingState {
             trigger_timeline_pos,
@@ -1486,6 +1493,10 @@ impl RecordingState {
         supplier_chain
             .section_mut()
             .set_length(outcome.section_frame_count);
+        // Set downbeat.
+        supplier_chain
+            .downbeat_mut()
+            .set_downbeat_frame(outcome.downbeat_frame);
         // Change state
         ReadyState {
             state: if play_after {
@@ -1541,6 +1552,7 @@ pub struct ClipRecordArgs {
     pub play_after: bool,
     pub input: ClipRecordInput,
     pub timing: RecordTiming,
+    pub detect_downbeat: bool,
 }
 
 #[derive(Copy, Clone, Debug)]

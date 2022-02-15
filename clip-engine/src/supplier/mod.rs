@@ -20,7 +20,7 @@ pub use time_stretcher::*;
 pub mod resampler;
 pub use resampler::*;
 
-use crate::Timeline;
+use crate::{AudioBuf, Timeline};
 
 mod chain;
 pub use chain::*;
@@ -31,6 +31,9 @@ pub use fader::*;
 
 mod section;
 pub use section::*;
+
+mod downbeat;
+pub use downbeat::*;
 
 pub trait AudioSupplier {
     /// Writes a portion of audio material into the given destination buffer so that it completely
@@ -385,6 +388,23 @@ fn supply_source_material(
             supply_inner(req)
         }
     }
+}
+
+fn transfer_samples_from_buffer(buf: AudioBuf, mut req: SourceMaterialRequest) -> SupplyResponse {
+    assert_eq!(req.dest_sample_rate, req.source_sample_rate);
+    let num_remaining_frames_in_source = buf.frame_count() - req.start_frame;
+    let num_frames_written = cmp::min(
+        num_remaining_frames_in_source,
+        req.dest_buffer.frame_count(),
+    );
+    buf.slice(req.start_frame..)
+        .copy_to(&mut req.dest_buffer.slice_mut(0..num_frames_written));
+    SupplyResponse::limited_by_total_frame_count(
+        num_frames_written,
+        num_frames_written,
+        req.start_frame as isize,
+        buf.frame_count(),
+    )
 }
 
 struct SourceMaterialRequest<'a, 'b> {

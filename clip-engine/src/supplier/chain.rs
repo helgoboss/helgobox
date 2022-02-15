@@ -1,6 +1,6 @@
 use crate::supplier::{Fader, Looper};
 use crate::{
-    ClipContent, ClipInfo, ExactDuration, ExactFrameCount, Recorder, Resampler, Section,
+    ClipContent, ClipInfo, Downbeat, ExactDuration, ExactFrameCount, Recorder, Resampler, Section,
     TimeStretcher, WithFrameRate,
 };
 use reaper_high::Project;
@@ -9,7 +9,8 @@ use reaper_medium::{DurationInSeconds, Hz, OwnedPcmSource};
 type Head = FaderTail;
 type FaderTail = Fader<ResamplerTail>;
 type ResamplerTail = Resampler<TimeStretcherTail>;
-type TimeStretcherTail = TimeStretcher<LooperTail>;
+type TimeStretcherTail = TimeStretcher<DownbeatTail>;
+type DownbeatTail = Downbeat<LooperTail>;
 type LooperTail = Looper<SectionTail>;
 type SectionTail = Section<RecorderTail>;
 type RecorderTail = Recorder;
@@ -24,8 +25,8 @@ impl SupplierChain {
     pub fn new(recorder: Recorder) -> Self {
         let mut chain = Self {
             head: {
-                Fader::new(Resampler::new(TimeStretcher::new(Looper::new(
-                    Section::new(recorder),
+                Fader::new(Resampler::new(TimeStretcher::new(Downbeat::new(
+                    Looper::new(Section::new(recorder)),
                 ))))
             },
         };
@@ -39,6 +40,9 @@ impl SupplierChain {
         let looper = chain.looper_mut();
         looper.set_enabled(true);
         looper.set_fades_enabled(true);
+        // Configure downbeat
+        let downbeat = chain.downbeat_mut();
+        downbeat.set_enabled(true);
         chain
     }
 
@@ -74,12 +78,20 @@ impl SupplierChain {
         self.resampler_mut().supplier_mut()
     }
 
-    pub fn looper(&self) -> &LooperTail {
+    pub fn downbeat(&self) -> &DownbeatTail {
         self.time_stretcher().supplier()
     }
 
-    pub fn looper_mut(&mut self) -> &mut LooperTail {
+    pub fn downbeat_mut(&mut self) -> &mut DownbeatTail {
         self.time_stretcher_mut().supplier_mut()
+    }
+
+    pub fn looper(&self) -> &LooperTail {
+        self.downbeat().supplier()
+    }
+
+    pub fn looper_mut(&mut self) -> &mut LooperTail {
+        self.downbeat_mut().supplier_mut()
     }
 
     pub fn section(&self) -> &SectionTail {

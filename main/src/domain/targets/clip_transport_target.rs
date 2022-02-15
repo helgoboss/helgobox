@@ -156,6 +156,7 @@ impl RealearnTarget for ClipTransportTarget {
                             kind: RecordKind::Normal {
                                 play_after: true,
                                 timing,
+                                detect_downbeat: true,
                             },
                         },
                     );
