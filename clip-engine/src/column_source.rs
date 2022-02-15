@@ -1,10 +1,11 @@
 use crate::{
     clip_timeline, Clip, ClipChangedEvent, ClipPlayArgs, ClipProcessArgs, ClipRecordInput,
-    ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, Slot, SlotPollArgs,
-    SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange, WriteAudioRequest,
-    WriteMidiRequest,
+    ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, RecorderRequest, Slot,
+    SlotPollArgs, SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange,
+    WriteAudioRequest, WriteMidiRequest,
 };
 use assert_no_alloc::assert_no_alloc;
+use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use num_enum::TryFromPrimitive;
 use reaper_high::{BorrowedSource, Project};
@@ -95,11 +96,13 @@ impl ColumnSource {
         &mut self,
         index: usize,
         behavior: RecordBehavior,
+        request_sender: Sender<RecorderRequest>,
     ) -> Result<(), &'static str> {
         get_slot_mut(&mut self.slots, index).record_clip(
             behavior,
-            ClipRecordInput::Midi,
+            ClipRecordInput::Audio,
             self.project,
+            request_sender,
         )
     }
 

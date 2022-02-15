@@ -1,9 +1,9 @@
 use crate::{
-    clip_timeline, keep_stretching, Clip, ClipChangedEvent, ClipContent, ClipPlayArgs,
-    ClipStopArgs, ClipStopBehavior, Column, ColumnFillSlotArgs, ColumnPlayClipArgs,
-    ColumnPollSlotArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs, LegacyClip, RecordBehavior,
-    RecordTiming, SharedColumnSource, Slot, SlotPollArgs, SlotProcessTransportChangeArgs,
-    StretchWorkerRequest, Timeline, TransportChange,
+    clip_timeline, keep_processing_recorder_requests, keep_stretching, Clip, ClipChangedEvent,
+    ClipContent, ClipPlayArgs, ClipStopArgs, ClipStopBehavior, Column, ColumnFillSlotArgs,
+    ColumnPlayClipArgs, ColumnPollSlotArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
+    LegacyClip, RecordBehavior, RecordTiming, RecorderRequest, SharedColumnSource, Slot,
+    SlotPollArgs, SlotProcessTransportChangeArgs, StretchWorkerRequest, Timeline, TransportChange,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -11,12 +11,14 @@ use reaper_high::{Guid, Item, Project, Reaper, Track};
 use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
+use std::thread;
 
 #[derive(Debug)]
 pub struct ClipMatrix<H> {
     handler: H,
     /// To communicate with the time stretching worker.
     stretch_worker_sender: Sender<StretchWorkerRequest>,
+    recorder_request_sender: Sender<RecorderRequest>,
     columns: Vec<Column>,
     containing_track: Option<Track>,
 }
@@ -24,12 +26,21 @@ pub struct ClipMatrix<H> {
 impl<H: ClipMatrixHandler> ClipMatrix<H> {
     pub fn new(handler: H, containing_track: Option<Track>) -> Self {
         let (stretch_worker_sender, stretch_worker_receiver) = crossbeam_channel::bounded(500);
-        std::thread::spawn(move || {
-            keep_stretching(stretch_worker_receiver);
-        });
+        let (recorder_request_sender, recorder_request_receiver) = crossbeam_channel::bounded(500);
+        thread::Builder::new()
+            .name(String::from("Playtime stretch worker"))
+            .spawn(move || {
+                keep_stretching(stretch_worker_receiver);
+            });
+        thread::Builder::new()
+            .name(String::from("Playtime record worker"))
+            .spawn(move || {
+                keep_processing_recorder_requests(recorder_request_receiver);
+            });
         Self {
             handler,
             stretch_worker_sender,
+            recorder_request_sender,
             columns: vec![],
             containing_track,
         }
@@ -63,7 +74,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
                 index: row,
                 clip: {
                     let source = content.create_source(project)?.into_raw();
-                    Clip::from_source(source, project)
+                    Clip::from_source(source, project, self.recorder_request_sender.clone())
                 },
             });
             column.set_clip_repeated(ColumnSetClipRepeatedArgs {
@@ -214,7 +225,11 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
             },
             RecordKind::MidiOverdub => RecordBehavior::MidiOverdub,
         };
-        let task = get_column_mut(&mut self.columns, slot_index)?.record_clip(0, behavior)?;
+        let task = get_column_mut(&mut self.columns, slot_index)?.record_clip(
+            0,
+            behavior,
+            self.recorder_request_sender.clone(),
+        )?;
         self.handler.request_recording_input(task);
         Ok(())
     }

@@ -1,9 +1,10 @@
 use crate::SlotInstruction::KeepSlot;
 use crate::{
     Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs,
-    ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, SlotInstruction,
-    Timeline, TimelineMoment, WriteAudioRequest, WriteMidiRequest,
+    ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, RecorderRequest,
+    SlotInstruction, Timeline, TimelineMoment, WriteAudioRequest, WriteMidiRequest,
 };
+use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use reaper_high::{OwnedSource, Project};
 use reaper_medium::{Bpm, PcmSourceTransfer, PlayState, PositionInSeconds, ReaperVolumeValue};
@@ -66,6 +67,7 @@ impl Slot {
         behavior: RecordBehavior,
         input: ClipRecordInput,
         project: Option<Project>,
+        request_sender: Sender<RecorderRequest>,
     ) -> Result<(), &'static str> {
         use RecordBehavior::*;
         match behavior {
@@ -76,7 +78,7 @@ impl Slot {
                     timing,
                 };
                 match &mut self.clip {
-                    None => self.clip = Some(Clip::from_recording(args, project)),
+                    None => self.clip = Some(Clip::from_recording(args, project, request_sender)),
                     Some(clip) => clip.record(args),
                 }
             }

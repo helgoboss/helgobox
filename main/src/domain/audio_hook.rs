@@ -318,6 +318,12 @@ impl OnAudioBuffer for RealearnAudioHook {
             // current thread. This operation needs an allocation at the first time it's executed
             // on a specific thread. Let's do it here, globally exactly once. Then we can
             // use assert_no_alloc() to detect real regular allocation issues.
+            // Please note that this doesn't help if
+            // "Audio => Buffering => Allow live FX multiprocessing" is enabled in the REAPER prefs.
+            // Because then worker threads will drive ReaLearn plug-in and clips. That's not an
+            // issue for actual usage because the allocation is done only once per worker
+            // thread, right at the beginning. It's only a problem for testing with
+            // assert_no_alloc(). That means we should test without live FX multiprocessing!
             let _ = std::thread::current().id();
             self.initialized = true;
         }

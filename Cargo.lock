@@ -2818,6 +2818,7 @@ dependencies = [
  "assert_no_alloc",
  "atomic_float",
  "crossbeam-channel",
+ "derivative",
  "enumflags2",
  "helgoboss-learn",
  "helgoboss-midi",

@@ -1,10 +1,14 @@
 use core::cmp;
+use derivative::Derivative;
 use reaper_medium::{BorrowedPcmSource, PcmSourceTransfer, PositionInSeconds};
 use std::collections::Bound;
+use std::fmt::{Debug, Formatter};
 use std::ops::{Index, Range, RangeBounds, RangeFrom};
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct OwnedAudioBuffer {
+    #[derivative(Debug = "ignore")]
     data: Vec<f64>,
     channel_count: usize,
     frame_count: usize,

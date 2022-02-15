@@ -48,7 +48,7 @@ impl ClipContent {
     ) -> Result<Self, Box<dyn Error>> {
         let source_type = source.r#type();
         let content = if let Some(source_file) = source.file_name() {
-            Self::from_file(project, source_file)
+            Self::from_file(project, &source_file)
         } else if matches!(source_type.as_str(), "MIDI" | "MIDIPOOL") {
             use CreateClipContentMode::*;
             match mode {
@@ -58,7 +58,7 @@ impl ClipContent {
                     source
                         .export_to_file(&file_name)
                         .map_err(|_| "couldn't export MIDI source to file")?;
-                    Self::from_file(project, file_name)
+                    Self::from_file(project, &file_name)
                 }
             }
         } else {
@@ -68,7 +68,7 @@ impl ClipContent {
     }
 
     /// Takes care of making the path project-relative (if a project is given).
-    pub fn from_file(project: Option<Project>, file: PathBuf) -> Self {
+    pub fn from_file(project: Option<Project>, file: &PathBuf) -> Self {
         Self::File {
             file: make_relative(project, file),
         }
@@ -118,8 +118,8 @@ impl ClipContent {
     }
 }
 
-fn make_relative(project: Option<Project>, file: PathBuf) -> PathBuf {
+fn make_relative(project: Option<Project>, file: &PathBuf) -> PathBuf {
     project
-        .and_then(|p| p.make_path_relative_if_in_project_directory(&file))
-        .unwrap_or(file)
+        .and_then(|p| p.make_path_relative_if_in_project_directory(file))
+        .unwrap_or(file.clone())
 }

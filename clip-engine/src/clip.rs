@@ -5,10 +5,12 @@ use crate::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames, AudioBufMut,
     AudioSupplier, ClipContent, ClipRecordTiming, CreateClipContentMode, ExactDuration,
-    ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier, RecordKind, Recorder, SupplierChain,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, Timeline,
-    WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
+    ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier, RecordKind, Recorder, RecorderRequest,
+    SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
+    SupplyRequestInfo, Timeline, WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest,
+    MIDI_BASE_BPM,
 };
+use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use reaper_high::{OwnedSource, Project, ReaperSource};
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
@@ -211,21 +213,29 @@ pub enum RecordTiming {
 }
 
 impl Clip {
-    pub fn from_source(source: OwnedPcmSource, project: Option<Project>) -> Self {
+    pub fn from_source(
+        source: OwnedPcmSource,
+        project: Option<Project>,
+        request_sender: Sender<RecorderRequest>,
+    ) -> Self {
         let ready_state = ReadyState {
             state: ReadySubState::Stopped,
             source_data: SourceData::from_source(&source, project),
             repeated: false,
         };
         Self {
-            supplier_chain: SupplierChain::new(Recorder::ready(source)),
+            supplier_chain: SupplierChain::new(Recorder::ready(source, request_sender)),
             state: ClipState::Ready(ready_state),
             project,
             volume: Default::default(),
         }
     }
 
-    pub fn from_recording(args: ClipRecordArgs, project: Option<Project>) -> Self {
+    pub fn from_recording(
+        args: ClipRecordArgs,
+        project: Option<Project>,
+        request_sender: Sender<RecorderRequest>,
+    ) -> Self {
         let timeline = clip_timeline(project, false);
         let trigger_timeline_pos = timeline.cursor_pos();
         let tempo = timeline.tempo_at(trigger_timeline_pos);
@@ -236,7 +246,13 @@ impl Clip {
             input: args.input,
             rollback_data: None,
         };
-        let recorder = Recorder::recording(args.input, project, trigger_timeline_pos, tempo);
+        let recorder = Recorder::recording(
+            args.input,
+            project,
+            trigger_timeline_pos,
+            tempo,
+            request_sender,
+        );
         Self {
             supplier_chain: SupplierChain::new(recorder),
             state: ClipState::Recording(recording_state),
