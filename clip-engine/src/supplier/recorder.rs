@@ -756,6 +756,7 @@ impl RecordingOutcome {
         timeline: &dyn Timeline,
         source_duration: DurationInSeconds,
     ) -> Self {
+        #[derive(Debug)]
         struct R {
             section_start_frame: usize,
             section_frame_count: Option<usize>,
@@ -809,6 +810,7 @@ impl RecordingOutcome {
                 }
             }
         };
+        dbg!(&r);
         Self {
             frame_rate,
             tempo,
