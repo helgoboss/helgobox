@@ -39,7 +39,7 @@ pub trait AudioSupplier {
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> NewSupplyResponse;
+    ) -> SupplyResponse;
 
     /// How many channels the supplied audio material consists of.
     fn channel_count(&self) -> usize;
@@ -52,7 +52,7 @@ pub trait MidiSupplier {
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> NewSupplyResponse;
+    ) -> SupplyResponse;
 }
 
 pub trait ExactFrameCount {
@@ -193,31 +193,13 @@ impl<'a> SupplyRequest for SupplyMidiRequest<'a> {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct SupplyResponse {
-    /// The number of frames that were actually written to the destination block.
-    ///
-    /// Can be less than requested if the end of the source has been reached.
-    pub num_frames_written: usize,
     /// The number of frames that were actually consumed from the source.
     ///
     /// Can be less than requested if the end of the source has been reached.
     /// If the start of the source has not been reached yet, still fill it with the ideal
     /// amount of consumed frames.
-    pub num_frames_consumed: usize,
-    /// The next inner frame to be requested in order to ensure smooth, consecutive playback at
-    /// all times.
-    ///
-    /// If `None`, the end has been reached.
-    ///
-    /// In many cases, this is just the requested start frame + `num_frames_consumed`. But
-    /// suppliers have the freedom to return other values, e.g. start over from the beginning.
-    // TODO-high We should make this a boolean. Even the looper doesn't jump back anymore.
-    pub next_inner_frame: Option<isize>,
-}
-
-#[derive(Debug)]
-pub struct NewSupplyResponse {
     pub num_frames_consumed: usize,
     pub status: SupplyResponseStatus,
 }
@@ -225,10 +207,13 @@ pub struct NewSupplyResponse {
 #[derive(Debug)]
 pub enum SupplyResponseStatus {
     PleaseContinue,
-    ReachedEnd { num_frames_written: usize },
+    ReachedEnd {
+        /// The number of frames that were actually written to the destination block.
+        num_frames_written: usize,
+    },
 }
 
-impl NewSupplyResponse {
+impl SupplyResponse {
     pub fn reached_end(num_frames_consumed: usize, num_frames_written: usize) -> Self {
         Self {
             num_frames_consumed,
@@ -261,63 +246,6 @@ impl NewSupplyResponse {
             } else {
                 SupplyResponseStatus::ReachedEnd { num_frames_written }
             },
-        }
-    }
-}
-
-impl SupplyResponse {
-    pub fn empty() -> Self {
-        Self::default()
-    }
-
-    pub fn limited_by_total_frame_count(
-        num_frames_consumed: usize,
-        num_frames_written: usize,
-        start_frame: isize,
-        total_frame_count: Option<usize>,
-    ) -> Self {
-        Self {
-            num_frames_written,
-            num_frames_consumed,
-            next_inner_frame: {
-                let f = start_frame + num_frames_consumed as isize;
-                if let Some(total) = total_frame_count {
-                    if f < total as isize {
-                        Some(f)
-                    } else {
-                        None
-                    }
-                } else {
-                    Some(f)
-                }
-            },
-        }
-    }
-
-    pub fn limited(
-        num_frames_consumed: usize,
-        num_frames_written: usize,
-        start_frame: isize,
-        reached_end: bool,
-    ) -> Self {
-        Self {
-            num_frames_written,
-            num_frames_consumed,
-            next_inner_frame: {
-                let f = start_frame + num_frames_consumed as isize;
-                if reached_end {
-                    None
-                } else {
-                    Some(f)
-                }
-            },
-        }
-    }
-
-    pub fn with_end_reached(&self) -> Self {
-        Self {
-            next_inner_frame: None,
-            ..*self
         }
     }
 }
@@ -375,8 +303,8 @@ fn supply_source_material(
     request: &SupplyAudioRequest,
     dest_buffer: &mut AudioBufMut,
     source_sample_rate: Hz,
-    supply_inner: impl FnOnce(SourceMaterialRequest) -> NewSupplyResponse,
-) -> NewSupplyResponse {
+    supply_inner: impl FnOnce(SourceMaterialRequest) -> SupplyResponse,
+) -> SupplyResponse {
     // The lower the destination sample rate in relation to the source sample rate, the
     // higher the tempo.
     let tempo_factor = source_sample_rate.get() / request.dest_sample_rate.get();
@@ -393,7 +321,7 @@ fn supply_source_material(
         // We haven't reached the end of the source, so still tell the caller that we
         // wrote all frames.
         // And advance the count-in phase.
-        NewSupplyResponse::please_continue(ideal_num_consumed_frames)
+        SupplyResponse::please_continue(ideal_num_consumed_frames)
     } else {
         // Requested portion contains playable material.
         if request.start_frame < 0 {
@@ -427,7 +355,7 @@ fn supply_source_material(
             // );
             let res = supply_inner(req);
             use SupplyResponseStatus::*;
-            NewSupplyResponse {
+            SupplyResponse {
                 num_frames_consumed: num_skipped_frames_in_source + res.num_frames_consumed,
                 status: match res.status {
                     PleaseContinue => PleaseContinue,

@@ -2,7 +2,7 @@ use crate::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     print_distance_from_beat_start_at, AudioSupplier, ExactFrameCount, MidiSupplier,
-    NewSupplyResponse, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
 use crate::{clip_timeline, SupplyRequestInfo, SupplyResponseStatus};
 use core::cmp;
@@ -160,7 +160,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         let data = match self.check_relevance(request.start_frame) {
             None => {
                 return self.supplier.supply_audio(&request, dest_buffer);
@@ -191,7 +191,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
                     modulo_response
                 } else if num_frames_written == dest_buffer.frame_count() {
                     // Perfect landing, source completely consumed. Start next cycle.
-                    NewSupplyResponse::please_continue(modulo_response.num_frames_consumed)
+                    SupplyResponse::please_continue(modulo_response.num_frames_consumed)
                 } else {
                     // Exceeded end of source.
                     // We need to fill the rest with material from the beginning of the source.
@@ -211,7 +211,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
                         &start_request,
                         &mut dest_buffer.slice_mut(num_frames_written..),
                     );
-                    NewSupplyResponse::please_continue(
+                    SupplyResponse::please_continue(
                         modulo_response.num_frames_consumed + start_response.num_frames_consumed,
                     )
                 }
@@ -242,7 +242,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         let data = match self.check_relevance(request.start_frame) {
             None => {
                 return self.supplier.supply_midi(&request, event_list);
@@ -274,7 +274,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
                     modulo_response
                 } else if num_frames_written == request.dest_frame_count {
                     // Perfect landing, source completely consumed. Start next cycle.
-                    NewSupplyResponse::please_continue(modulo_response.num_frames_consumed)
+                    SupplyResponse::please_continue(modulo_response.num_frames_consumed)
                 } else {
                     // We need to fill the rest with material from the beginning of the source.
                     // Repeat. Fill rest of buffer with beginning of source.
@@ -299,7 +299,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
                     // We don't add modulo_response.num_frames_consumed because that number of
                     // consumed frames is already contained in the number returned in the start
                     // response (because we started at a negative start position).
-                    NewSupplyResponse::please_continue(start_response.num_frames_consumed)
+                    SupplyResponse::please_continue(start_response.num_frames_consumed)
                 }
             }
         }

@@ -1,9 +1,8 @@
-use crate::supplier::{NewSupplyResponse, SupplyResponseStatus};
+use crate::supplier::{SupplyResponse, SupplyResponseStatus};
 use crate::{
     convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
     AudioBufMut, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
-    WithFrameRate,
+    SupplyMidiRequest, SupplyRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, WithFrameRate,
 };
 use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz};
 use std::cmp;
@@ -145,9 +144,9 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
 
     fn generate_outer_response(
         &self,
-        inner_response: NewSupplyResponse,
+        inner_response: SupplyResponse,
         phase_two: PhaseTwo,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         match phase_two.boundary_end_frame {
             None => {
                 // Section has open end.
@@ -163,7 +162,7 @@ impl<S: AudioSupplier + WithFrameRate + ExactFrameCount> AudioSupplier for Secti
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         let data = match self.get_instruction(
             request,
             dest_buffer.frame_count(),
@@ -199,7 +198,7 @@ impl<S: MidiSupplier + WithFrameRate + ExactFrameCount> MidiSupplier for Section
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         let data =
             match self.get_instruction(request, request.dest_frame_count, request.dest_sample_rate)
             {
@@ -258,7 +257,7 @@ impl<S: ExactDuration + WithFrameRate + ExactFrameCount> ExactDuration for Secti
 enum Instruction {
     PassThrough,
     QueryInner(SectionRequestData),
-    Return(NewSupplyResponse),
+    Return(SupplyResponse),
 }
 
 struct SectionRequestData {
@@ -280,8 +279,8 @@ struct PhaseTwo {
 }
 
 impl PhaseTwo {
-    fn generate_bounded_response(&self, boundary_end_frame: isize) -> NewSupplyResponse {
-        NewSupplyResponse {
+    fn generate_bounded_response(&self, boundary_end_frame: isize) -> SupplyResponse {
+        SupplyResponse {
             num_frames_consumed: self.num_source_frames_to_be_consumed,
             status: if self.hypothetical_end_frame_in_section < boundary_end_frame {
                 SupplyResponseStatus::PleaseContinue

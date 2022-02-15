@@ -2,8 +2,8 @@ use crate::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::midi_util;
 use crate::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioSupplier,
-    ExactFrameCount, MidiSupplier, NewSupplyResponse, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyResponse, SupplyResponseStatus, WithFrameRate,
+    ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
+    SupplyResponseStatus, WithFrameRate,
 };
 use core::cmp;
 use reaper_medium::{
@@ -116,7 +116,7 @@ impl<S: AudioSupplier> AudioSupplier for Fader<S> {
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         use FadeDirection::*;
         let fade = match self.fade {
             // No fade request.
@@ -136,7 +136,7 @@ impl<S: AudioSupplier> AudioSupplier for Fader<S> {
                     return self.supplier.supply_audio(request, dest_buffer);
                 }
                 FadeOut => {
-                    return NewSupplyResponse::exceeded_end();
+                    return SupplyResponse::exceeded_end();
                 }
             }
         }
@@ -161,7 +161,7 @@ impl<S: AudioSupplier> AudioSupplier for Fader<S> {
             self.fade = None;
             match fade.direction {
                 FadeIn => inner_response,
-                FadeOut => NewSupplyResponse::reached_end(
+                FadeOut => SupplyResponse::reached_end(
                     inner_response.num_frames_consumed,
                     dest_buffer.frame_count(),
                 ),
@@ -187,7 +187,7 @@ impl<S: MidiSupplier> MidiSupplier for Fader<S> {
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         let fade = match self.fade {
             Some(
                 f
@@ -206,7 +206,7 @@ impl<S: MidiSupplier> MidiSupplier for Fader<S> {
         }
         // With MIDI it's simple. No fade necessary, just a plain "Shut up!".
         midi_util::silence_midi(event_list);
-        NewSupplyResponse::exceeded_end()
+        SupplyResponse::exceeded_end()
     }
 }
 

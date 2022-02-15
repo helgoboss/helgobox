@@ -4,8 +4,8 @@ use crate::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
     print_distance_from_beat_start_at, supply_source_material, AudioSupplier, ExactDuration,
-    ExactFrameCount, MidiSupplier, NewSupplyResponse, SourceMaterialRequest, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse, WithFrameRate,
+    ExactFrameCount, MidiSupplier, SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyResponse, WithFrameRate,
 };
 use crate::{adjust_proportionally, adjust_proportionally_positive, WithTempo};
 use reaper_medium::{
@@ -18,7 +18,7 @@ impl AudioSupplier for OwnedPcmSource {
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         supply_source_material(request, dest_buffer, get_frame_rate(self), |input| {
             transfer_audio(self, input)
         })
@@ -75,7 +75,7 @@ impl MidiSupplier for OwnedPcmSource {
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         let midi_frame_rate = Hz::new(MIDI_FRAME_RATE);
         // As with audio, the ratio between output frame count and output sample rate determines
         // the playback tempo.
@@ -125,7 +125,7 @@ impl MidiSupplier for OwnedPcmSource {
         };
         // The lower the sample rate, the higher the tempo, the more inner source material we
         // effectively grabbed.
-        NewSupplyResponse::limited_by_total_frame_count(
+        SupplyResponse::limited_by_total_frame_count(
             num_midi_frames_consumed,
             num_dest_frames_written,
             request.start_frame,
@@ -144,7 +144,7 @@ impl WithTempo for OwnedPcmSource {
     }
 }
 
-fn transfer_audio(source: &OwnedPcmSource, mut req: SourceMaterialRequest) -> NewSupplyResponse {
+fn transfer_audio(source: &OwnedPcmSource, mut req: SourceMaterialRequest) -> SupplyResponse {
     let time_s = convert_duration_in_frames_to_seconds(req.start_frame, req.source_sample_rate);
     let num_frames_written = unsafe {
         let mut transfer = PcmSourceTransfer::default();
@@ -162,7 +162,7 @@ fn transfer_audio(source: &OwnedPcmSource, mut req: SourceMaterialRequest) -> Ne
         DurationInSeconds::new(num_frames_written as f64 / req.dest_sample_rate.get());
     let num_frames_consumed =
         convert_duration_in_seconds_to_frames(consumed_time_in_seconds, req.source_sample_rate);
-    NewSupplyResponse::limited_by_total_frame_count(
+    SupplyResponse::limited_by_total_frame_count(
         num_frames_consumed,
         num_frames_written,
         req.start_frame as isize,

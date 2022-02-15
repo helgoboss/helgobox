@@ -5,10 +5,10 @@ use crate::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames, AudioBufMut,
     AudioSupplier, ClipContent, ClipRecordTiming, CreateClipContentMode, ExactDuration,
-    ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier, NewSupplyResponse, RecordKind,
-    Recorder, RecorderRequest, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponseStatus, Timeline, WithFrameRate,
-    WithTempo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
+    ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier, RecordKind, Recorder, RecorderRequest,
+    SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
+    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, Timeline, WithFrameRate, WithTempo,
+    WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -862,7 +862,7 @@ impl ReadyState {
         info: &SupplyRequestGeneralInfo,
         dest_sample_rate: Hz,
         supplier_chain: &mut SupplierChain,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         let request = SupplyAudioRequest {
             start_frame,
             dest_sample_rate,
@@ -895,7 +895,7 @@ impl ReadyState {
         info: &SupplyRequestGeneralInfo,
         dest_sample_rate: Hz,
         supplier_chain: &mut SupplierChain,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         let request = SupplyMidiRequest {
             start_frame,
             dest_frame_count: args.block.length() as _,

@@ -1,7 +1,7 @@
 use crate::buffer::AudioBufMut;
 use crate::supplier::{
-    AudioSupplier, ExactFrameCount, NewSupplyResponse, SupplyAudioRequest, SupplyResponse,
-    SupplyResponseStatus, WithFrameRate,
+    AudioSupplier, ExactFrameCount, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus,
+    WithFrameRate,
 };
 use crate::{adjust_proportionally_positive, MidiSupplier, SupplyMidiRequest, SupplyRequestInfo};
 use reaper_high::Reaper;
@@ -48,7 +48,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         if !self.enabled {
             return self.supplier.supply_audio(&request, dest_buffer);
         }
@@ -133,7 +133,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
                 break false;
             }
         };
-        NewSupplyResponse {
+        SupplyResponse {
             num_frames_consumed: total_num_frames_consumed,
             status: if reached_end {
                 SupplyResponseStatus::ReachedEnd {
@@ -168,7 +168,7 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         return self.supplier.supply_midi(&request, event_list);
     }
 }

@@ -1,12 +1,12 @@
 use crate::buffer::AudioBufMut;
 use crate::file_util::get_path_for_new_media_file;
-use crate::supplier::NewSupplyResponse;
+use crate::supplier::SupplyResponse;
 use crate::ClipPlayState::Recording;
 use crate::{
     clip_timeline, convert_duration_in_seconds_to_frames, AudioBuf, AudioSupplier, ClipContent,
     ClipInfo, ClipRecordInput, CreateClipContentMode, ExactDuration, ExactFrameCount, MidiSupplier,
-    OwnedAudioBuffer, SourceData, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, Timeline,
-    WithFrameRate, WithTempo, MIDI_BASE_BPM,
+    OwnedAudioBuffer, SourceData, SupplyAudioRequest, SupplyMidiRequest, Timeline, WithFrameRate,
+    WithTempo, MIDI_BASE_BPM,
 };
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use reaper_high::{OwnedSource, Project, Reaper, ReaperSource};
@@ -602,7 +602,7 @@ impl AudioSupplier for Recorder {
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         self.process_worker_response();
         let source = match self.state.as_mut().unwrap() {
             State::Ready(s) => &mut s.source,
@@ -621,7 +621,7 @@ impl AudioSupplier for Recorder {
                             // TODO-high This skips the first few frames. We should rather use
                             //  supply_material() helper.
                             let num_frames_written = dest_buffer.frame_count();
-                            return NewSupplyResponse::please_continue(num_frames_written);
+                            return SupplyResponse::please_continue(num_frames_written);
                         }
                         println!("Using temporary buffer");
                         let start_frame = request.start_frame as usize;
@@ -636,7 +636,7 @@ impl AudioSupplier for Recorder {
                         let num_frames_written = dest_buffer.frame_count();
                         // Under the assumption that the frame rates are equal (which we asserted),
                         // the number of consumed frames is the number of written frames.
-                        return NewSupplyResponse::please_continue(num_frames_written);
+                        return SupplyResponse::please_continue(num_frames_written);
                     }
                     _ => {
                         if let Some(s) = &mut s.old_source {
@@ -673,7 +673,7 @@ impl MidiSupplier for Recorder {
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
-    ) -> NewSupplyResponse {
+    ) -> SupplyResponse {
         let source = self
             .current_or_old_source_mut()
             .expect("attempt to play back MIDI without source");
