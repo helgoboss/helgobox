@@ -147,14 +147,10 @@ fn transfer_samples(buf: AudioBuf, mut req: SourceMaterialRequest) -> SupplyResp
     );
     buf.slice(req.start_frame..)
         .copy_to(&mut req.dest_buffer.slice_mut(0..num_frames_written));
-    let next_frame = req.start_frame + num_frames_written;
-    SupplyResponse {
+    SupplyResponse::limited_by_total_frame_count(
         num_frames_written,
-        num_frames_consumed: num_frames_written,
-        next_inner_frame: if next_frame < buf.frame_count() {
-            Some(next_frame as isize)
-        } else {
-            None
-        },
-    }
+        num_frames_written,
+        req.start_frame as isize,
+        Some(buf.frame_count()),
+    )
 }

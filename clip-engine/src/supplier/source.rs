@@ -125,17 +125,12 @@ impl MidiSupplier for OwnedPcmSource {
         };
         // The lower the sample rate, the higher the tempo, the more inner source material we
         // effectively grabbed.
-        let next_midi_frame = request.start_frame + num_midi_frames_consumed as isize;
-        let midi_frame_count = self.frame_count();
-        SupplyResponse {
-            num_frames_written: num_dest_frames_written,
-            num_frames_consumed: num_midi_frames_consumed,
-            next_inner_frame: if next_midi_frame < midi_frame_count as isize {
-                Some(next_midi_frame)
-            } else {
-                None
-            },
-        }
+        SupplyResponse::limited_by_total_frame_count(
+            num_midi_frames_consumed,
+            num_dest_frames_written,
+            request.start_frame,
+            Some(self.frame_count()),
+        )
     }
 }
 
@@ -167,17 +162,12 @@ fn transfer_audio(source: &OwnedPcmSource, mut req: SourceMaterialRequest) -> Su
         DurationInSeconds::new(num_frames_written as f64 / req.dest_sample_rate.get());
     let num_frames_consumed =
         convert_duration_in_seconds_to_frames(consumed_time_in_seconds, req.source_sample_rate);
-    let next_frame = req.start_frame + num_frames_consumed;
-    let source_frame_count = source.frame_count();
-    SupplyResponse {
-        num_frames_written,
+    SupplyResponse::limited_by_total_frame_count(
         num_frames_consumed,
-        next_inner_frame: if next_frame < source_frame_count {
-            Some(next_frame as isize)
-        } else {
-            None
-        },
-    }
+        num_frames_written,
+        req.start_frame as isize,
+        Some(source.frame_count()),
+    )
 }
 
 /// We could use just any unit to represent a position within a MIDI source, but we choose frames

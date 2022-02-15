@@ -136,15 +136,12 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
                 break false;
             }
         };
-        SupplyResponse {
-            num_frames_written: total_num_frames_written,
-            num_frames_consumed: total_num_frames_consumed,
-            next_inner_frame: if reached_end {
-                None
-            } else {
-                Some(request.start_frame + total_num_frames_consumed as isize)
-            },
-        }
+        SupplyResponse::limited(
+            total_num_frames_consumed,
+            total_num_frames_written,
+            request.start_frame,
+            reached_end,
+        )
     }
 
     fn channel_count(&self) -> usize {

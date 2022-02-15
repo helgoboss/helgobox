@@ -2,10 +2,10 @@ use crate::buffer::AudioBufMut;
 use crate::file_util::get_path_for_new_media_file;
 use crate::ClipPlayState::Recording;
 use crate::{
-    clip_timeline, AudioBuf, AudioSupplier, ClipContent, ClipInfo, ClipRecordInput,
-    CreateClipContentMode, ExactDuration, ExactFrameCount, MidiSupplier, OwnedAudioBuffer,
-    SourceData, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, Timeline, WithFrameRate,
-    WithTempo,
+    clip_timeline, convert_duration_in_seconds_to_frames, AudioBuf, AudioSupplier, ClipContent,
+    ClipInfo, ClipRecordInput, CreateClipContentMode, ExactDuration, ExactFrameCount, MidiSupplier,
+    OwnedAudioBuffer, SourceData, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, Timeline,
+    WithFrameRate, WithTempo, MIDI_BASE_BPM,
 };
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use reaper_high::{OwnedSource, Project, Reaper, ReaperSource};
@@ -17,6 +17,7 @@ use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, MidiImportBehavior, OwnedPcmSink,
     OwnedPcmSource, PcmSource, PositionInSeconds, ReaperString,
 };
+use std::convert::TryInto;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut, NonNull};
@@ -145,7 +146,7 @@ struct RecordingAudioActiveState {
     file_clone: PathBuf,
     sink: OwnedPcmSink,
     /// If `None`, no material has been written yet
-    material_data: Option<AudioMaterialData>,
+    lazy_material_data: Option<AudioMaterialData>,
     temporary_audio_buffer: OwnedAudioBuffer,
     next_record_start_frame: usize,
 }
@@ -153,7 +154,8 @@ struct RecordingAudioActiveState {
 #[derive(Debug)]
 struct RecordingAudioFinishingState {
     temporary_audio_buffer: OwnedAudioBuffer,
-    material_data: AudioMaterialData,
+    frame_rate: Hz,
+    source_duration: DurationInSeconds,
     file: PathBuf,
 }
 
@@ -190,9 +192,9 @@ impl RecordingSubState {
                     file: outcome.file.clone(),
                     file_clone: outcome.file,
                     sink: outcome.sink,
-                    temporary_audio_buffer: OwnedAudioBuffer::new(2, 48000 * 2),
+                    temporary_audio_buffer: OwnedAudioBuffer::new(2, 48000 * 10),
                     next_record_start_frame: 0,
-                    material_data: None,
+                    lazy_material_data: None,
                 };
                 let recording_audio_state = RecordingAudioState::Active(active_state);
                 Self::Audio(recording_audio_state)
@@ -305,7 +307,12 @@ impl Recorder {
     }
 
     /// Can be called in a real-time thread (doesn't allocate).
-    pub fn commit_recording(&mut self) -> Result<RecordingOutcome, &'static str> {
+    pub fn commit_recording(
+        &mut self,
+        start_and_end_bar: Option<(i32, i32)>,
+        timeline: &dyn Timeline,
+        timeline_cursor_pos: PositionInSeconds,
+    ) -> Result<RecordingOutcome, &'static str> {
         use State::*;
         let (res, next_state) = match self.state.take().unwrap() {
             Ready(s) => (Err("not recording"), Ready(s)),
@@ -329,17 +336,21 @@ impl Recorder {
                             .try_send(request)
                             .map_err(|_| "couldn't send request to finish audio recording")?;
                         let material_data =
-                            sss.material_data.ok_or("no material data available")?;
-                        let outcome = RecordingOutcome {
-                            source_start_timeline_pos: material_data.source_start_timeline_pos,
-                            frame_rate: material_data.frame_rate,
-                            tempo: s.initial_tempo,
-                            is_midi: false,
-                        };
+                            sss.lazy_material_data.ok_or("no material data available")?;
+                        let outcome = RecordingOutcome::new(
+                            material_data.source_start_timeline_pos,
+                            material_data.frame_rate,
+                            s.initial_tempo,
+                            false,
+                            start_and_end_bar,
+                            timeline,
+                            timeline_cursor_pos,
+                        );
                         let finishing_state = RecordingAudioFinishingState {
                             temporary_audio_buffer: sss.temporary_audio_buffer,
-                            material_data,
+                            frame_rate: material_data.frame_rate,
                             file: sss.file_clone,
+                            source_duration: outcome.source_duration,
                         };
                         let recording_state = RecordingState {
                             sub_state: Audio(RecordingAudioState::Finishing(finishing_state)),
@@ -348,12 +359,15 @@ impl Recorder {
                         (Ok(outcome), Recording(recording_state))
                     }
                     Midi(ss) => {
-                        let outcome = RecordingOutcome {
-                            source_start_timeline_pos: ss.source_start_timeline_pos,
-                            frame_rate: ss.new_source.frame_rate().unwrap(),
-                            tempo: s.initial_tempo,
-                            is_midi: true,
-                        };
+                        let outcome = RecordingOutcome::new(
+                            ss.source_start_timeline_pos,
+                            ss.new_source.frame_rate().unwrap(),
+                            s.initial_tempo,
+                            true,
+                            start_and_end_bar,
+                            timeline,
+                            timeline_cursor_pos,
+                        );
                         (
                             Ok(outcome),
                             Ready(ReadyState {
@@ -395,13 +409,13 @@ impl Recorder {
             _ => return,
         };
         // Write into sink
-        if state.material_data.is_none() {
+        if state.lazy_material_data.is_none() {
             let timeline = clip_timeline(*project, false);
             let material_data = AudioMaterialData {
                 source_start_timeline_pos: timeline.cursor_pos(),
                 frame_rate: request.input_sample_rate,
             };
-            state.material_data = Some(material_data);
+            state.lazy_material_data = Some(material_data);
         }
         let sink = state.sink.as_ref().as_ref();
         const NCH: usize = 2;
@@ -416,9 +430,7 @@ impl Recorder {
             0,
             1,
         );
-
         // Write into temporary buffer
-        // // TODO-high Obviously just some experiments.
         let start_frame = state.next_record_start_frame;
         let mut out_buf = state.temporary_audio_buffer.to_buf_mut();
         let out_channel_count = out_buf.channel_count();
@@ -431,13 +443,9 @@ impl Recorder {
         for i in 0..num_frames_written {
             out_buf_slice[start_frame * out_channel_count + i * out_channel_count + 0] =
                 left_buf_slice[i];
-            // out_buf_slice[start_frame + i * out_channel_count + 0] = left_buf_slice[i];
-            // out_buf_slice[start_frame + i * out_channel_count + 1] = right_buf_slice[i];
+            out_buf_slice[start_frame * out_channel_count + i * out_channel_count + 1] =
+                right_buf_slice[i];
         }
-        // request
-        //     .left_buffer
-        //     .slice(..num_frames_written)
-        //     .copy_to(&mut out_buf.slice_mut(start_frame..end_frame));
         state.next_record_start_frame += num_frames_written;
     }
 
@@ -602,26 +610,41 @@ impl AudioSupplier for Recorder {
                     RecordingSubState::Audio(RecordingAudioState::Finishing(s)) => {
                         // The source is not ready yet but we have a temporary audio buffer that
                         // gives us the material we need.
-                        // // TODO-high Implement.
-                        // let temp_buf = self.temporary_audio_buffer.to_buf();
-                        // if request.start_frame < 0 {
-                        //     return self.supplier.supply_audio(request, dest_buffer);
-                        // }
-                        // let mod_start_frame = request.start_frame as usize % temp_buf.frame_count();
-                        // let ideal_end_frame = mod_start_frame + dest_buffer.frame_count();
-                        // let end_frame = cmp::min(ideal_end_frame, temp_buf.frame_count());
-                        // let num_frames_to_write = end_frame - mod_start_frame;
-                        // temp_buf
-                        //     .slice(mod_start_frame..end_frame)
-                        //     .copy_to(&mut dest_buffer.slice_mut(..num_frames_to_write))
-                        //     .unwrap();
-                        // let num_frames_written = dest_buffer.frame_count();
-                        // SupplyResponse {
-                        //     num_frames_written,
-                        //     num_frames_consumed: num_frames_written,
-                        //     next_inner_frame: Some(request.start_frame + num_frames_written as isize),
-                        // }
-                        todo!()
+                        // We know that the frame rates should be equal because this is audio and we
+                        // do resampling in upper layers.
+                        assert_eq!(
+                            s.frame_rate, request.dest_sample_rate,
+                            "frame rate of recorded material != requested frame rate"
+                        );
+                        if request.start_frame < 0 {
+                            // TODO-high This skips the first few frames.
+                            let num_frames_written = dest_buffer.frame_count();
+                            return SupplyResponse::limited(
+                                num_frames_written,
+                                num_frames_written,
+                                request.start_frame,
+                                false,
+                            );
+                        }
+                        println!("Using temporary buffer");
+                        let start_frame = request.start_frame as usize;
+                        let temp_buf = s.temporary_audio_buffer.to_buf();
+                        let ideal_end_frame = start_frame + dest_buffer.frame_count();
+                        let end_frame = cmp::min(ideal_end_frame, temp_buf.frame_count());
+                        let num_frames_to_write = end_frame - start_frame;
+                        temp_buf
+                            .slice(start_frame..end_frame)
+                            .copy_to(&mut dest_buffer.slice_mut(..num_frames_to_write))
+                            .unwrap();
+                        let num_frames_written = dest_buffer.frame_count();
+                        // Under the assumption that the frame rates are equal (which they should),
+                        // the number of consumed frames is the number of written frames.
+                        return SupplyResponse::limited_by_total_frame_count(
+                            num_frames_written,
+                            num_frames_written,
+                            request.start_frame,
+                            None,
+                        );
                     }
                     _ => {
                         if let Some(s) = &mut s.old_source {
@@ -668,20 +691,36 @@ impl MidiSupplier for Recorder {
 
 impl ExactFrameCount for Recorder {
     fn frame_count(&self) -> usize {
-        // TODO-high Maybe we need to handle the audio-recording-finishing state here!
-        let source = self
-            .current_or_old_source()
-            .expect("attempt to query frame count without source");
+        let source = match self.state.as_ref().unwrap() {
+            State::Ready(s) => &s.source,
+            State::Recording(s) => match &s.sub_state {
+                RecordingSubState::Audio(RecordingAudioState::Finishing(s)) => {
+                    return convert_duration_in_seconds_to_frames(s.source_duration, s.frame_rate);
+                }
+                _ => s
+                    .old_source
+                    .as_ref()
+                    .expect("attempt to query frame count without source"),
+            },
+        };
         source.frame_count()
     }
 }
 
 impl ExactDuration for Recorder {
     fn duration(&self) -> DurationInSeconds {
-        // TODO-high Maybe we need to handle the audio-recording-finishing state here!
-        let source = self
-            .current_or_old_source()
-            .expect("attempt to query duration without source");
+        let source = match self.state.as_ref().unwrap() {
+            State::Ready(s) => &s.source,
+            State::Recording(s) => match &s.sub_state {
+                RecordingSubState::Audio(RecordingAudioState::Finishing(s)) => {
+                    return s.source_duration
+                }
+                _ => s
+                    .old_source
+                    .as_ref()
+                    .expect("attempt to query duration without source"),
+            },
+        };
         source.duration()
     }
 }
@@ -692,7 +731,7 @@ impl WithFrameRate for Recorder {
             State::Ready(s) => &s.source,
             State::Recording(s) => match &s.sub_state {
                 RecordingSubState::Audio(RecordingAudioState::Finishing(s)) => {
-                    return Some(s.material_data.frame_rate)
+                    return Some(s.frame_rate)
                 }
                 _ => s
                     .old_source
@@ -705,8 +744,91 @@ impl WithFrameRate for Recorder {
 }
 
 pub struct RecordingOutcome {
-    pub source_start_timeline_pos: PositionInSeconds,
     pub frame_rate: Hz,
     pub tempo: Bpm,
     pub is_midi: bool,
+    /// Duration of the source material.
+    pub source_duration: DurationInSeconds,
+    pub section_start_frame: usize,
+    pub section_frame_count: Option<usize>,
+    /// If we have a section, then this corresponds to the duration of the section. If not,
+    /// this corresponds to the duration of the source material.
+    pub effective_duration: DurationInSeconds,
+}
+
+impl RecordingOutcome {
+    fn new(
+        source_start_timeline_pos: PositionInSeconds,
+        frame_rate: Hz,
+        tempo: Bpm,
+        is_midi: bool,
+        start_and_end_bar: Option<(i32, i32)>,
+        timeline: &dyn Timeline,
+        timeline_cursor_pos: PositionInSeconds,
+    ) -> Self {
+        struct R {
+            section_start_frame: usize,
+            section_frame_count: Option<usize>,
+            effective_duration: DurationInSeconds,
+        }
+        let source_duration =
+            DurationInSeconds::new(timeline_cursor_pos.get() - source_start_timeline_pos.get());
+        let r = match start_and_end_bar {
+            None => R {
+                section_start_frame: 0,
+                section_frame_count: None,
+                effective_duration: source_duration,
+            },
+            Some((start_bar, end_bar)) => {
+                // Determine start pos
+                let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
+                let start_pos = quantized_record_start_timeline_pos - source_start_timeline_pos;
+                let positive_start_pos = if start_pos.get() >= 0.0 {
+                    DurationInSeconds::new(start_pos.get())
+                } else {
+                    // Recorder started recording material after quantized. This can only happen
+                    // if the preparation of the PCM sink was not fast enough. In future we should
+                    // probably set the position of the section on the canvas by exactly the
+                    // abs() of that negative start position, to keep at least the timing perfect.
+                    DurationInSeconds::ZERO
+                };
+                // Determine length
+                let quantized_record_end_timeline_pos = timeline.pos_of_bar(end_bar);
+                let length =
+                    quantized_record_end_timeline_pos - quantized_record_start_timeline_pos;
+                let positive_length: DurationInSeconds =
+                    length.try_into().expect("end bar pos < start bar pos");
+                // Determine source data based on section, not on recorded source
+                let (section_start_pos, effective_duration) = if is_midi {
+                    // MIDI has a constant normalized tempo.
+                    let tempo_factor = tempo.get() / MIDI_BASE_BPM;
+                    let adjusted_start_pos =
+                        DurationInSeconds::new(positive_start_pos.get() * tempo_factor);
+                    let adjusted_positive_length =
+                        DurationInSeconds::new(positive_length.get() * tempo_factor);
+                    (adjusted_start_pos, adjusted_positive_length)
+                } else {
+                    (positive_start_pos, positive_length)
+                };
+                let section_start_frame =
+                    convert_duration_in_seconds_to_frames(section_start_pos, frame_rate);
+                let section_frame_count =
+                    convert_duration_in_seconds_to_frames(effective_duration, frame_rate);
+                R {
+                    section_start_frame,
+                    section_frame_count: Some(section_frame_count),
+                    effective_duration,
+                }
+            }
+        };
+        Self {
+            frame_rate,
+            tempo,
+            is_midi,
+            source_duration,
+            section_start_frame: r.section_start_frame,
+            section_frame_count: r.section_frame_count,
+            effective_duration: r.effective_duration,
+        }
+    }
 }

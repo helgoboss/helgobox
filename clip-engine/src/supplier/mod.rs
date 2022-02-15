@@ -193,7 +193,7 @@ impl<'a> SupplyRequest for SupplyMidiRequest<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SupplyResponse {
     /// The number of frames that were actually written to the destination block.
     ///
@@ -214,6 +214,63 @@ pub struct SupplyResponse {
     /// suppliers have the freedom to return other values, e.g. start over from the beginning.
     // TODO-high We should make this a boolean. Even the looper doesn't jump back anymore.
     pub next_inner_frame: Option<isize>,
+}
+
+impl SupplyResponse {
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    pub fn limited_by_total_frame_count(
+        num_frames_consumed: usize,
+        num_frames_written: usize,
+        start_frame: isize,
+        total_frame_count: Option<usize>,
+    ) -> Self {
+        Self {
+            num_frames_written,
+            num_frames_consumed,
+            next_inner_frame: {
+                let f = start_frame + num_frames_consumed as isize;
+                if let Some(total) = total_frame_count {
+                    if f < total as isize {
+                        Some(f)
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(f)
+                }
+            },
+        }
+    }
+
+    pub fn limited(
+        num_frames_consumed: usize,
+        num_frames_written: usize,
+        start_frame: isize,
+        reached_end: bool,
+    ) -> Self {
+        Self {
+            num_frames_written,
+            num_frames_consumed,
+            next_inner_frame: {
+                let f = start_frame + num_frames_consumed as isize;
+                if reached_end {
+                    None
+                } else {
+                    Some(f)
+                }
+            },
+        }
+    }
+
+    pub fn with_end_reached(&self) -> Self {
+        Self {
+            next_inner_frame: None,
+            ..*self
+        }
+    }
 }
 
 pub fn convert_duration_in_seconds_to_frames(seconds: DurationInSeconds, sample_rate: Hz) -> usize {
@@ -284,14 +341,15 @@ fn supply_source_material(
         //     "ideal end frame {} ({})",
         //     ideal_end_frame, ideal_num_consumed_frames
         // );
-        SupplyResponse {
-            // We haven't reached the end of the source, so still tell the caller that we
-            // wrote all frames.
-            num_frames_written: dest_buffer.frame_count(),
-            num_frames_consumed: ideal_num_consumed_frames,
-            // And advance the count-in phase.
-            next_inner_frame: Some(ideal_end_frame),
-        }
+        // We haven't reached the end of the source, so still tell the caller that we
+        // wrote all frames.
+        // And advance the count-in phase.
+        SupplyResponse::limited_by_total_frame_count(
+            ideal_num_consumed_frames,
+            dest_buffer.frame_count(),
+            request.start_frame,
+            None,
+        )
     } else {
         // Requested portion overlaps with playable material.
         if request.start_frame < 0 {

@@ -132,15 +132,12 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
                 break false;
             }
         };
-        SupplyResponse {
-            num_frames_written: total_num_frames_written,
-            num_frames_consumed: total_num_frames_consumed,
-            next_inner_frame: if reached_end {
-                None
-            } else {
-                Some(request.start_frame + total_num_frames_consumed as isize)
-            },
-        }
+        SupplyResponse::limited(
+            total_num_frames_consumed,
+            total_num_frames_written,
+            request.start_frame,
+            reached_end,
+        )
         // // TODO-high At lower sample rates there are sometimes clicks. Rounding errors?
         // let request = SupplyAudioRequest {
         //     start_frame: request.start_frame,

@@ -121,6 +121,8 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
             if start_frame_in_source > source_frame_count as isize {
                 // We are behind the end of the source but still before the boundary end.
                 // Return silence.
+                // TODO-medium We could also let lower suppliers handle this (make sure that silence
+                //  is returned if out of material bounds).
                 let response = phase_two.generate_bounded_response(boundary_end_frame);
                 return Instruction::Return(response);
             }

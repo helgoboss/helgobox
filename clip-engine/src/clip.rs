@@ -1474,74 +1474,18 @@ impl RecordingState {
         timeline: &dyn Timeline,
         timeline_cursor_pos: PositionInSeconds,
     ) -> ReadyState {
-        let outcome = supplier_chain.recorder_mut().commit_recording().unwrap();
+        let outcome = supplier_chain
+            .recorder_mut()
+            .commit_recording(start_and_end_bar, timeline, timeline_cursor_pos)
+            .unwrap();
         // Calculate section boundaries
-        struct R {
-            section_start_frame: usize,
-            section_frame_count: Option<usize>,
-            duration: DurationInSeconds,
-        }
-        let r = match start_and_end_bar {
-            None => {
-                let duration = DurationInSeconds::new(
-                    timeline_cursor_pos.get() - outcome.source_start_timeline_pos.get(),
-                );
-                R {
-                    section_start_frame: 0,
-                    section_frame_count: None,
-                    duration,
-                }
-            }
-            Some((start_bar, end_bar)) => {
-                // Determine start pos
-                let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
-                let start_pos =
-                    quantized_record_start_timeline_pos - outcome.source_start_timeline_pos;
-                let positive_start_pos = if start_pos.get() >= 0.0 {
-                    DurationInSeconds::new(start_pos.get())
-                } else {
-                    // Recorder started recording material after quantized. This can only happen
-                    // if the preparation of the PCM sink was not fast enough. In future we should
-                    // probably set the position of the section on the canvas by exactly the
-                    // abs() of that negative start position, to keep at least the timing perfect.
-                    DurationInSeconds::ZERO
-                };
-                // Determine length
-                let quantized_record_end_timeline_pos = timeline.pos_of_bar(end_bar);
-                let length =
-                    quantized_record_end_timeline_pos - quantized_record_start_timeline_pos;
-                let positive_length: DurationInSeconds =
-                    length.try_into().expect("end bar pos < start bar pos");
-                // Determine source data based on section, not on recorded source
-                let (section_start_pos, duration) = if outcome.is_midi {
-                    // MIDI has a constant normalized tempo.
-                    let tempo_factor = outcome.tempo.get() / MIDI_BASE_BPM;
-                    let adjusted_start_pos =
-                        DurationInSeconds::new(positive_start_pos.get() * tempo_factor);
-                    let adjusted_positive_length =
-                        DurationInSeconds::new(positive_length.get() * tempo_factor);
-                    (adjusted_start_pos, adjusted_positive_length)
-                } else {
-                    (positive_start_pos, positive_length)
-                };
-                let section_start_frame =
-                    convert_duration_in_seconds_to_frames(section_start_pos, outcome.frame_rate);
-                let section_frame_count =
-                    convert_duration_in_seconds_to_frames(duration, outcome.frame_rate);
-                R {
-                    section_start_frame,
-                    section_frame_count: Some(section_frame_count),
-                    duration,
-                }
-            }
-        };
         // Set section boundaries for perfect timing.
         supplier_chain
             .section_mut()
-            .set_start_frame(r.section_start_frame);
+            .set_start_frame(outcome.section_start_frame);
         supplier_chain
             .section_mut()
-            .set_length(r.section_frame_count);
+            .set_length(outcome.section_frame_count);
         // Change state
         ReadyState {
             state: if play_after {
@@ -1553,9 +1497,9 @@ impl RecordingState {
                 ReadySubState::Stopped
             },
             source_data: if outcome.is_midi {
-                SourceData::from_midi(r.duration)
+                SourceData::from_midi(outcome.effective_duration)
             } else {
-                SourceData::from_audio(outcome.tempo, r.duration)
+                SourceData::from_audio(outcome.tempo, outcome.effective_duration)
             },
             repeated: play_after,
         }

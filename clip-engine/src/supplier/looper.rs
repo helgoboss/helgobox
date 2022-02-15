@@ -178,9 +178,11 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
             // Didn't cross the end yet. But maybe reached the end.
             if modulo_response.next_inner_frame.is_none() && self.is_last_cycle(data.current_cycle)
             {
-                // Reached the end of last cycle.
+                // Reached end of last cycle.
                 modulo_response
             } else {
+                // Didn't reach end of last cycle (either right in the middle of source material or
+                // reached end shortly before starting next cycle).
                 SupplyResponse {
                     num_frames_written: modulo_response.num_frames_written,
                     num_frames_consumed: modulo_response.num_frames_consumed,
@@ -331,29 +333,31 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
     }
 }
 
+/// Takes the given `next_inner_frame` (which is expected to be within the boundaries of the inner
+/// source) and "migrates" it to the same loop cycle as the given `previous_start_frame`.
 fn unmodulo_next_inner_frame(
     next_inner_frame: Option<isize>,
     previous_start_frame: usize,
-    frame_count: usize,
+    inner_frame_count: usize,
 ) -> Option<isize> {
     let next_inner_frame = next_inner_frame.unwrap_or(0);
     assert!(next_inner_frame >= 0);
     let next_inner_frame = next_inner_frame as usize;
     assert!(
-        next_inner_frame < frame_count,
-        "next_inner_frame {} < frame_count {}",
+        next_inner_frame < inner_frame_count,
+        "next_inner_frame {} < inner_frame_count {}",
         next_inner_frame,
-        frame_count
+        inner_frame_count
     );
-    let previous_cycle = previous_start_frame / frame_count;
-    let previous_modulo_start_frame = previous_start_frame % frame_count;
+    let previous_cycle = previous_start_frame / inner_frame_count;
+    let previous_modulo_start_frame = previous_start_frame % inner_frame_count;
     let next_cycle = if previous_modulo_start_frame <= next_inner_frame {
         // We are still in the same cycle.
         previous_cycle
     } else {
         previous_cycle + 1
     };
-    Some((next_cycle * frame_count + next_inner_frame) as isize)
+    Some((next_cycle * inner_frame_count + next_inner_frame) as isize)
 }
 
 fn calc_volume_factor_at(frame: usize, frame_count: usize) -> f64 {

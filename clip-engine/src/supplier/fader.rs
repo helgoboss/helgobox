@@ -136,11 +136,7 @@ impl<S: AudioSupplier> AudioSupplier for Fader<S> {
                     return self.supplier.supply_audio(request, dest_buffer);
                 }
                 FadeOut => {
-                    return SupplyResponse {
-                        num_frames_written: 0,
-                        num_frames_consumed: 0,
-                        next_inner_frame: None,
-                    };
+                    return SupplyResponse::empty();
                 }
             }
         }
@@ -154,22 +150,18 @@ impl<S: AudioSupplier> AudioSupplier for Fader<S> {
             let factor = (counter + frame) as f64 / FADE_LENGTH as f64;
             sample * factor
         });
-        let request_end_frame = request.start_frame + dest_buffer.frame_count() as isize;
-        SupplyResponse {
-            num_frames_written: inner_response.num_frames_written,
-            num_frames_consumed: inner_response.num_frames_consumed,
-            next_inner_frame: {
-                if request_end_frame < fade.end_frame {
-                    inner_response.next_inner_frame
-                } else {
-                    // Fade finished.
-                    self.fade = None;
-                    match fade.direction {
-                        FadeIn => inner_response.next_inner_frame,
-                        FadeOut => None,
-                    }
-                }
-            },
+        let fade_finished = inner_response
+            .next_inner_frame
+            .map(|f| f >= fade.end_frame)
+            .unwrap_or(true);
+        if fade_finished {
+            self.fade = None;
+            match fade.direction {
+                FadeIn => inner_response,
+                FadeOut => inner_response.with_end_reached(),
+            }
+        } else {
+            inner_response
         }
     }
 
@@ -208,11 +200,7 @@ impl<S: MidiSupplier> MidiSupplier for Fader<S> {
         }
         // With MIDI it's simple. No fade necessary, just a plain "Shut up!".
         midi_util::silence_midi(event_list);
-        SupplyResponse {
-            num_frames_written: 0,
-            num_frames_consumed: 0,
-            next_inner_frame: None,
-        }
+        SupplyResponse::empty()
     }
 }
 
