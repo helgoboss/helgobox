@@ -3,9 +3,10 @@ use crate::file_util::get_path_for_new_media_file;
 use crate::supplier::{supply_source_material, transfer_samples_from_buffer, SupplyResponse};
 use crate::ClipPlayState::Recording;
 use crate::{
-    clip_timeline, convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    AudioBuf, AudioSupplier, ClipContent, ClipInfo, ClipRecordInput, CreateClipContentMode,
-    ExactDuration, ExactFrameCount, MidiSupplier, OwnedAudioBuffer, SourceData, SupplyAudioRequest,
+    adjust_proportionally, adjust_proportionally_positive, clip_timeline,
+    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioBuf,
+    AudioSupplier, ClipContent, ClipInfo, ClipRecordInput, CreateClipContentMode, ExactDuration,
+    ExactFrameCount, MidiSupplier, OwnedAudioBuffer, SourceData, SupplyAudioRequest,
     SupplyMidiRequest, Timeline, WithFrameRate, WithTempo, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
@@ -793,7 +794,7 @@ impl RecordingOutcome {
                 //  during recording. It would be better to advance frames just like we do it
                 //  when counting in (e.g. provide advance() function that's called in process()).
                 let start_pos = quantized_record_start_timeline_pos - source_start_timeline_pos;
-                let positive_start_pos = if start_pos.get() >= 0.0 {
+                let start_pos = if start_pos.get() >= 0.0 {
                     DurationInSeconds::new(start_pos.get())
                 } else {
                     // Recorder started recording material after quantized. This can only happen
@@ -804,27 +805,27 @@ impl RecordingOutcome {
                 };
                 // Determine length
                 let quantized_record_end_timeline_pos = timeline.pos_of_bar(end_bar);
-                let length =
+                let duration =
                     quantized_record_end_timeline_pos - quantized_record_start_timeline_pos;
-                let length: DurationInSeconds =
-                    length.try_into().expect("end bar pos < start bar pos");
+                let duration: DurationInSeconds =
+                    duration.try_into().expect("end bar pos < start bar pos");
                 // Determine section data
-                let (effective_start_pos, effective_duration) = if is_midi {
+                let (effective_start_pos, effective_duration, effective_ff_for_dd) = if is_midi {
                     // MIDI has a constant normalized tempo.
                     let tempo_factor = tempo.get() / MIDI_BASE_BPM;
-                    let adjusted_start_pos =
-                        DurationInSeconds::new(positive_start_pos.get() * tempo_factor);
-                    let adjusted_positive_length =
-                        DurationInSeconds::new(length.get() * tempo_factor);
-                    (adjusted_start_pos, adjusted_positive_length)
+                    let adjusted_start_pos = DurationInSeconds::new(start_pos.get() * tempo_factor);
+                    let adjusted_length = DurationInSeconds::new(duration.get() * tempo_factor);
+                    let adjusted_first_frame = first_frame_for_downbeat_detection
+                        .map(|ff| adjust_proportionally_positive(ff as f64, tempo_factor));
+                    (adjusted_start_pos, adjusted_length, adjusted_first_frame)
                 } else {
-                    (positive_start_pos, length)
+                    (start_pos, duration, first_frame_for_downbeat_detection)
                 };
                 let effective_start_frame =
                     convert_duration_in_seconds_to_frames(effective_start_pos, frame_rate);
                 let effective_frame_count =
                     convert_duration_in_seconds_to_frames(effective_duration, frame_rate);
-                match first_frame_for_downbeat_detection {
+                match effective_ff_for_dd {
                     Some(first_frame) if first_frame < effective_start_frame => {
                         let downbeat_frame = effective_start_frame - first_frame;
                         R {
