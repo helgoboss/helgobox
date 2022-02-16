@@ -37,8 +37,6 @@ mod tempo_util;
 
 mod file_util;
 
-mod midi_util;
-
 /// Delivers the timeline to be used for clips.
 pub fn clip_timeline(project: Option<Project>, force_project_timeline: bool) -> impl Timeline {
     HybridTimeline::new(project, force_project_timeline)

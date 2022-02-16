@@ -1,5 +1,5 @@
 use crate::supplier::fade_util::{apply_fade_in, apply_fade_out};
-use crate::supplier::{SupplyResponse, SupplyResponseStatus};
+use crate::supplier::{midi_util, SupplyResponse, SupplyResponseStatus};
 use crate::{
     convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
     AudioBufMut, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, SupplyAudioRequest,
@@ -280,6 +280,14 @@ impl<S: MidiSupplier + WithFrameRate + ExactFrameCount> MidiSupplier for Section
             general_info: request.general_info,
         };
         let inner_response = self.supplier.supply_midi(&inner_request, event_list);
+        if let PhaseTwo::Bounded {
+            reached_bound: true,
+            ..
+        } = &data.phase_two
+        {
+            println!("Silence MIDI at section end");
+            midi_util::silence_midi(event_list);
+        }
         self.generate_outer_response(inner_response, data.phase_two)
     }
 }
