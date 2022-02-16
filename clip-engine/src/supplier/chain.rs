@@ -1,18 +1,19 @@
-use crate::supplier::{Fader, Looper};
+use crate::supplier::{AdHocFader, Looper};
 use crate::{
     ClipContent, ClipInfo, Downbeat, ExactDuration, ExactFrameCount, Recorder, Resampler, Section,
-    TimeStretcher, WithFrameRate,
+    StartEndFader, TimeStretcher, WithFrameRate,
 };
 use reaper_high::Project;
 use reaper_medium::{DurationInSeconds, Hz, OwnedPcmSource};
 
-type Head = FaderTail;
-type FaderTail = Fader<ResamplerTail>;
+type Head = AdHocFaderTail;
+type AdHocFaderTail = AdHocFader<ResamplerTail>;
 type ResamplerTail = Resampler<TimeStretcherTail>;
 type TimeStretcherTail = TimeStretcher<DownbeatTail>;
 type DownbeatTail = Downbeat<LooperTail>;
 type LooperTail = Looper<SectionTail>;
-type SectionTail = Section<RecorderTail>;
+type SectionTail = Section<StartEndFaderTail>;
+type StartEndFaderTail = StartEndFader<RecorderTail>;
 type RecorderTail = Recorder;
 type SourceTail = OwnedPcmSource;
 
@@ -25,8 +26,8 @@ impl SupplierChain {
     pub fn new(recorder: Recorder) -> Self {
         let mut chain = Self {
             head: {
-                Fader::new(Resampler::new(TimeStretcher::new(Downbeat::new(
-                    Looper::new(Section::new(recorder)),
+                AdHocFader::new(Resampler::new(TimeStretcher::new(Downbeat::new(
+                    Looper::new(Section::new(StartEndFader::new(recorder))),
                 ))))
             },
         };
@@ -45,6 +46,18 @@ impl SupplierChain {
         chain
     }
 
+    pub fn prepare_supply(&mut self, auto_fades_enabled: bool) {
+        let (fade_in_enabled, fade_out_enabled) = if auto_fades_enabled {
+            let section = self.section();
+            (section.start_frame() == 0, section.length().is_none())
+        } else {
+            (false, false)
+        };
+        let start_end_fader = self.start_end_fader_mut();
+        start_end_fader.set_fade_in_enabled(fade_in_enabled);
+        start_end_fader.set_fade_out_enabled(fade_out_enabled);
+    }
+
     pub fn head(&self) -> &Head {
         &self.head
     }
@@ -53,11 +66,11 @@ impl SupplierChain {
         &mut self.head
     }
 
-    pub fn fader(&self) -> &FaderTail {
+    pub fn ad_hoc_fader(&self) -> &AdHocFaderTail {
         &self.head
     }
 
-    pub fn fader_mut(&mut self) -> &mut FaderTail {
+    pub fn ad_hoc_fader_mut(&mut self) -> &mut AdHocFaderTail {
         &mut self.head
     }
 
@@ -101,12 +114,20 @@ impl SupplierChain {
         self.looper_mut().supplier_mut()
     }
 
-    pub fn recorder(&self) -> &RecorderTail {
+    pub fn start_end_fader(&self) -> &StartEndFaderTail {
         self.section().supplier()
     }
 
-    pub fn recorder_mut(&mut self) -> &mut RecorderTail {
+    pub fn start_end_fader_mut(&mut self) -> &mut StartEndFaderTail {
         self.section_mut().supplier_mut()
+    }
+
+    pub fn recorder(&self) -> &RecorderTail {
+        self.start_end_fader().supplier()
+    }
+
+    pub fn recorder_mut(&mut self) -> &mut RecorderTail {
+        self.start_end_fader_mut().supplier_mut()
     }
 
     pub fn source_frame_rate_in_ready_state(&self) -> Hz {

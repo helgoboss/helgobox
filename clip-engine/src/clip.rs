@@ -606,7 +606,7 @@ impl ReadyState {
             Paused(s) => {
                 // Resume
                 let pos = s.pos as isize;
-                supplier_chain.fader_mut().start_fade_in(pos);
+                supplier_chain.ad_hoc_fader_mut().start_fade_in(pos);
                 self.state = ReadySubState::Playing(PlayingState {
                     pos: Some(pos),
                     ..Default::default()
@@ -848,6 +848,7 @@ impl ReadyState {
         sample_rate_factor: f64,
         supplier_chain: &mut SupplierChain,
     ) -> Option<isize> {
+        supplier_chain.prepare_supply(true);
         let dest_sample_rate = Hz::new(args.block.sample_rate().get() * sample_rate_factor);
         let response = if self.source_data.is_midi {
             self.fill_samples_midi(args, start_frame, info, dest_sample_rate, supplier_chain)
@@ -1036,7 +1037,7 @@ impl ReadyState {
         supplier_chain: &mut SupplierChain,
     ) -> Option<RecordingState> {
         let general_info = self.prepare_playing(&args, supplier_chain);
-        let fader = supplier_chain.fader_mut();
+        let fader = supplier_chain.ad_hoc_fader_mut();
         if !fader.is_fading_out() {
             fader.start_fade_out(s.pos);
         }
@@ -1070,7 +1071,7 @@ impl ReadyState {
     }
 
     fn reset_for_play(&mut self, supplier_chain: &mut SupplierChain) {
-        supplier_chain.fader_mut().reset();
+        supplier_chain.ad_hoc_fader_mut().reset();
         supplier_chain.resampler_mut().reset_buffers_and_latency();
         supplier_chain
             .time_stretcher_mut()

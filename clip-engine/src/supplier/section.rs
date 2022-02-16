@@ -30,18 +30,26 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             supplier,
-            // boundary: Default::default(),
+            boundary: Default::default(),
             // boundary: Boundary {
             //     start_frame: 1_024_000,
             //     length: Some(1_024_000),
             //     // length: None,
             // },
-            boundary: Boundary {
-                start_frame: 48000 * 1,
-                length: Some(48000 * 3),
-                // length: None,
-            },
+            // boundary: Boundary {
+            //     start_frame: 48000 * 1,
+            //     length: Some(48000 * 3),
+            //     // length: None,
+            // },
         }
+    }
+
+    pub fn start_frame(&self) -> usize {
+        self.boundary.start_frame
+    }
+
+    pub fn length(&self) -> Option<usize> {
+        self.boundary.length
     }
 
     pub fn set_start_frame(&mut self, start_frame: usize) {

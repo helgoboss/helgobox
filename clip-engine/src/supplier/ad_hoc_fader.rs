@@ -10,7 +10,7 @@ use reaper_medium::{
 };
 
 #[derive(Debug)]
-pub struct Fader<S> {
+pub struct AdHocFader<S> {
     fade: Option<Fade>,
     supplier: S,
 }
@@ -38,7 +38,7 @@ enum FadeDirection {
     FadeOut,
 }
 
-impl<S> Fader<S> {
+impl<S> AdHocFader<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             fade: None,
@@ -110,7 +110,7 @@ impl<S> Fader<S> {
     }
 }
 
-impl<S: AudioSupplier> AudioSupplier for Fader<S> {
+impl<S: AudioSupplier> AudioSupplier for AdHocFader<S> {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -175,13 +175,13 @@ impl<S: AudioSupplier> AudioSupplier for Fader<S> {
     }
 }
 
-impl<S: WithFrameRate> WithFrameRate for Fader<S> {
+impl<S: WithFrameRate> WithFrameRate for AdHocFader<S> {
     fn frame_rate(&self) -> Option<Hz> {
         self.supplier.frame_rate()
     }
 }
 
-impl<S: MidiSupplier> MidiSupplier for Fader<S> {
+impl<S: MidiSupplier> MidiSupplier for AdHocFader<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,

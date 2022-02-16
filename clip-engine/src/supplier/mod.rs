@@ -25,9 +25,12 @@ use crate::{AudioBuf, Timeline};
 mod chain;
 pub use chain::*;
 
-mod fader;
+mod ad_hoc_fader;
 use crate::clip_timeline;
-pub use fader::*;
+pub use ad_hoc_fader::*;
+
+mod start_end_fader;
+pub use start_end_fader::*;
 
 mod section;
 pub use section::*;
@@ -218,6 +221,12 @@ pub enum SupplyResponseStatus {
         /// The number of frames that were actually written to the destination block.
         num_frames_written: usize,
     },
+}
+
+impl SupplyResponseStatus {
+    pub fn reached_end(&self) -> bool {
+        matches!(self, SupplyResponseStatus::ReachedEnd { .. })
+    }
 }
 
 impl SupplyResponse {
