@@ -6,7 +6,7 @@ use crate::{
     adjust_proportionally, adjust_proportionally_positive, clip_timeline,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioBuf,
     AudioSupplier, ClipContent, ClipInfo, ClipRecordInput, CreateClipContentMode, ExactDuration,
-    ExactFrameCount, MidiSupplier, OwnedAudioBuffer, SourceData, SupplyAudioRequest,
+    ExactFrameCount, MidiSupplier, OwnedAudioBuffer, RecordTiming, SourceData, SupplyAudioRequest,
     SupplyMidiRequest, Timeline, WithFrameRate, WithTempo, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
@@ -125,16 +125,15 @@ struct ReadyState {
 
 #[derive(Debug)]
 struct RecordingState {
-    sub_state: RecordingSubState,
+    kind_state: KindSpecificRecordingState,
     old_source: Option<OwnedPcmSource>,
     project: Option<Project>,
-    initial_tempo: Bpm,
     detect_downbeat: bool,
-    first_frame_for_downbeat_detection: Option<usize>,
+    phase: Option<RecordingPhase>,
 }
 
 #[derive(Debug)]
-enum RecordingSubState {
+enum KindSpecificRecordingState {
     Audio(RecordingAudioState),
     Midi(RecordingMidiState),
 }
@@ -150,8 +149,6 @@ struct RecordingAudioActiveState {
     file: PathBuf,
     file_clone: PathBuf,
     sink: OwnedPcmSink,
-    /// If `None`, no material has been written yet
-    lazy_material_data: Option<AudioMaterialData>,
     temporary_audio_buffer: OwnedAudioBuffer,
     next_record_start_frame: usize,
 }
@@ -165,18 +162,12 @@ struct RecordingAudioFinishingState {
 }
 
 #[derive(Debug)]
-struct AudioMaterialData {
-    source_start_timeline_pos: PositionInSeconds,
-    frame_rate: Hz,
-}
-
-#[derive(Debug)]
 struct RecordingMidiState {
     new_source: OwnedPcmSource,
     source_start_timeline_pos: PositionInSeconds,
 }
 
-impl RecordingSubState {
+impl KindSpecificRecordingState {
     fn new(
         input: ClipRecordInput,
         project: Option<Project>,
@@ -199,7 +190,6 @@ impl RecordingSubState {
                     sink: outcome.sink,
                     temporary_audio_buffer: OwnedAudioBuffer::new(2, 48000 * 10),
                     next_record_start_frame: 0,
-                    lazy_material_data: None,
                 };
                 let recording_audio_state = RecordingAudioState::Active(active_state);
                 Self::Audio(recording_audio_state)
@@ -233,17 +223,20 @@ impl Recorder {
         input: ClipRecordInput,
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
-        current_tempo: Bpm,
+        tempo: Bpm,
         request_sender: Sender<RecorderRequest>,
         detect_downbeat: bool,
+        timing: RecordTiming,
     ) -> Self {
+        let kind_state = KindSpecificRecordingState::new(input, project, trigger_timeline_pos);
+        let initial_phase =
+            RecordingPhase::initial_phase(timing, tempo, input, trigger_timeline_pos);
         let recording_state = RecordingState {
-            sub_state: RecordingSubState::new(input, project, trigger_timeline_pos),
+            kind_state,
             old_source: None,
             project,
-            initial_tempo: current_tempo,
             detect_downbeat,
-            first_frame_for_downbeat_detection: None,
+            phase: Some(initial_phase),
         };
         Self::new(State::Recording(recording_state), request_sender)
     }
@@ -253,6 +246,45 @@ impl Recorder {
             state: Some(state),
             request_sender,
             response_channel: Default::default(),
+        }
+    }
+
+    pub fn downbeat_pos_during_recording(&self, timeline: &dyn Timeline) -> DurationInSeconds {
+        match self.state.as_ref().unwrap() {
+            State::Ready(_) => Default::default(),
+            State::Recording(s) => {
+                use RecordingPhase::*;
+                let (frame, frame_rate) = match s.phase.as_ref().unwrap() {
+                    Empty(_) => {
+                        panic!("attempt to query downbeat position in empty recording phase")
+                    }
+                    // Should usually not be called here. But we can provide a current snapshot.
+                    OpenEnd(p) => (p.snapshot(timeline).downbeat_frame, p.frame_rate),
+                    EndScheduled(p) => (p.downbeat_frame, p.prev_phase.frame_rate),
+                    Committed => panic!(
+                        "attempt to query downbeat position when recording already committed"
+                    ),
+                };
+                convert_duration_in_frames_to_seconds(frame, frame_rate)
+            }
+        }
+    }
+
+    pub fn schedule_end(&mut self, end_bar: i32, timeline: &dyn Timeline) {
+        match self.state.as_mut().unwrap() {
+            State::Ready(s) => panic!("attempt to schedule recording end while recorder ready"),
+            State::Recording(s) => {
+                use RecordingPhase::*;
+                let next_phase = match s.phase.take().unwrap() {
+                    RecordingPhase::Empty(_) => {
+                        panic!("attempt to schedule recording end although no audio material arrived yet")
+                    }
+                    RecordingPhase::OpenEnd(p) => EndScheduled(p.schedule_end(end_bar, timeline)),
+                    // Idempotence
+                    p => p,
+                };
+                s.phase = Some(next_phase);
+            }
         }
     }
 
@@ -276,8 +308,8 @@ impl Recorder {
     pub fn clip_content(&self, project: Option<Project>) -> Option<ClipContent> {
         let source = match self.state.as_ref().unwrap() {
             State::Ready(s) => &s.source,
-            State::Recording(s) => match &s.sub_state {
-                RecordingSubState::Audio(RecordingAudioState::Finishing(s)) => {
+            State::Recording(s) => match &s.kind_state {
+                KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
                     return Some(ClipContent::from_file(project, &s.file))
                 }
                 _ => s.old_source.as_ref()?,
@@ -298,21 +330,23 @@ impl Recorder {
         input: ClipRecordInput,
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
-        current_tempo: Bpm,
+        tempo: Bpm,
         detect_downbeat: bool,
+        timing: RecordTiming,
     ) {
         use State::*;
         let old_source = match self.state.take().unwrap() {
             Ready(s) => Some(s.source),
             Recording(s) => s.old_source,
         };
+        let initial_phase =
+            RecordingPhase::initial_phase(timing, tempo, input, trigger_timeline_pos);
         let recording_state = RecordingState {
-            sub_state: RecordingSubState::new(input, project, trigger_timeline_pos),
+            kind_state: KindSpecificRecordingState::new(input, project, trigger_timeline_pos),
             old_source,
             project,
-            initial_tempo: current_tempo,
             detect_downbeat,
-            first_frame_for_downbeat_detection: None,
+            phase: Some(initial_phase),
         };
         self.state = Some(Recording(recording_state));
     }
@@ -327,16 +361,18 @@ impl Recorder {
         let (res, next_state) = match self.state.take().unwrap() {
             Ready(s) => (Err("not recording"), Ready(s)),
             Recording(s) => {
-                use RecordingSubState::*;
-                match s.sub_state {
+                use KindSpecificRecordingState::*;
+                let (next_state, source_duration) = match s.kind_state {
                     Audio(ss) => {
                         let sss = match ss {
                             RecordingAudioState::Active(s) => s,
+                            // TODO-high This destroys the state.
                             RecordingAudioState::Finishing(_) => return Err("already committed"),
                         };
                         // TODO-medium We should probably record a bit longer to have some
                         //  crossfade material for the future.
-                        let source_duration = sss.sink.as_ref().as_ref().GetLength();
+                        let source_duration =
+                            DurationInSeconds::new(sss.sink.as_ref().as_ref().GetLength());
                         let request =
                             RecorderRequest::FinishAudioRecording(FinishAudioRecordingRequest {
                                 sink: sss.sink,
@@ -346,50 +382,43 @@ impl Recorder {
                         self.request_sender
                             .try_send(request)
                             .map_err(|_| "couldn't send request to finish audio recording")?;
-                        let material_data =
-                            sss.lazy_material_data.ok_or("no material data available")?;
-                        let outcome = RecordingOutcome::new(
-                            material_data.source_start_timeline_pos,
-                            material_data.frame_rate,
-                            s.initial_tempo,
-                            false,
-                            start_and_end_bar,
-                            timeline,
-                            DurationInSeconds::new(source_duration),
-                            s.first_frame_for_downbeat_detection,
-                        );
                         let finishing_state = RecordingAudioFinishingState {
                             temporary_audio_buffer: sss.temporary_audio_buffer,
-                            frame_rate: material_data.frame_rate,
+                            frame_rate: s
+                                .phase
+                                .as_ref()
+                                .unwrap()
+                                .frame_rate()
+                                .expect("frame rate not available yet"),
                             file: sss.file_clone,
-                            source_duration: outcome.source_duration,
+                            source_duration,
                         };
                         let recording_state = RecordingState {
-                            sub_state: Audio(RecordingAudioState::Finishing(finishing_state)),
+                            kind_state: Audio(RecordingAudioState::Finishing(finishing_state)),
+                            phase: Some(RecordingPhase::Committed),
                             ..s
                         };
-                        (Ok(outcome), Recording(recording_state))
+                        (Recording(recording_state), source_duration)
                     }
                     Midi(ss) => {
                         let source_duration = ss.new_source.get_length().unwrap();
-                        let outcome = RecordingOutcome::new(
-                            ss.source_start_timeline_pos,
-                            ss.new_source.frame_rate().unwrap(),
-                            s.initial_tempo,
-                            true,
-                            start_and_end_bar,
-                            timeline,
-                            source_duration,
-                            s.first_frame_for_downbeat_detection,
-                        );
                         (
-                            Ok(outcome),
                             Ready(ReadyState {
                                 source: ss.new_source,
                             }),
+                            source_duration,
                         )
                     }
-                }
+                };
+                let outcome = match s.phase.unwrap() {
+                    RecordingPhase::Empty(_) => {
+                        Err("attempt to commit recording although no material arrived yet")
+                    }
+                    RecordingPhase::OpenEnd(p) => Ok(p.commit(source_duration, timeline)),
+                    RecordingPhase::EndScheduled(p) => Ok(p.commit(source_duration)),
+                    RecordingPhase::Committed => Err("already committed"),
+                };
+                (outcome, next_state)
             }
         };
         self.state = Some(next_state);
@@ -414,23 +443,26 @@ impl Recorder {
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
-        let (state, project) = match self.state.as_mut().unwrap() {
+        let (state, project, phase) = match self.state.as_mut().unwrap() {
             State::Recording(RecordingState {
-                sub_state: RecordingSubState::Audio(RecordingAudioState::Active(s)),
+                kind_state: KindSpecificRecordingState::Audio(RecordingAudioState::Active(s)),
                 project,
+                phase,
                 ..
-            }) => (s, project),
+            }) => (s, project, phase),
             _ => return,
         };
+        // Advance phase
+        use RecordingPhase::*;
+        let next_phase = match phase.take().unwrap() {
+            Empty(p) => {
+                let timeline = clip_timeline(*project, false);
+                p.advance(timeline.cursor_pos(), request.input_sample_rate)
+            }
+            p => p,
+        };
+        *phase = Some(next_phase);
         // Write into sink
-        if state.lazy_material_data.is_none() {
-            let timeline = clip_timeline(*project, false);
-            let material_data = AudioMaterialData {
-                source_start_timeline_pos: timeline.cursor_pos(),
-                frame_rate: request.input_sample_rate,
-            };
-            state.lazy_material_data = Some(material_data);
-        }
         let sink = state.sink.as_ref().as_ref();
         const NCH: usize = 2;
         let mut channels: [*mut f64; NCH] = [
@@ -466,26 +498,35 @@ impl Recorder {
     pub fn write_midi(&mut self, request: WriteMidiRequest, pos: DurationInSeconds) {
         let source = match self.state.as_mut().unwrap() {
             State::Recording(RecordingState {
-                sub_state:
-                    RecordingSubState::Midi(RecordingMidiState {
+                kind_state:
+                    KindSpecificRecordingState::Midi(RecordingMidiState {
                         new_source: source, ..
                     }),
                 detect_downbeat,
-                first_frame_for_downbeat_detection,
+                phase,
                 ..
             }) => {
-                if *detect_downbeat && first_frame_for_downbeat_detection.is_none() {
-                    if let Some(evt) = request
-                        .events
-                        .into_iter()
-                        .find(|e| e.message().is_note_on())
-                    {
-                        let block_frame =
-                            convert_duration_in_seconds_to_frames(pos, Hz::new(MIDI_FRAME_RATE));
-                        let event_frame = block_frame + evt.frame_offset().get() as usize;
-                        *first_frame_for_downbeat_detection = Some(event_frame);
+                use RecordingPhase::*;
+                match phase.as_mut().unwrap() {
+                    Empty(_) => unreachable!("MIDI shouldn't start in empty phase"),
+                    OpenEnd(p) => {
+                        if *detect_downbeat && p.first_play_frame.is_none() {
+                            if let Some(evt) = request
+                                .events
+                                .into_iter()
+                                .find(|e| e.message().is_note_on())
+                            {
+                                let block_frame = convert_duration_in_seconds_to_frames(
+                                    pos,
+                                    Hz::new(MIDI_FRAME_RATE),
+                                );
+                                let event_frame = block_frame + evt.frame_offset().get() as usize;
+                                p.first_play_frame = Some(event_frame);
+                            }
+                        }
                     }
-                }
+                    _ => {}
+                };
                 source
             }
             // Overdubbing existing clip
@@ -518,8 +559,8 @@ impl Recorder {
     fn current_or_old_source(&self) -> Option<&OwnedPcmSource> {
         match self.state.as_ref().unwrap() {
             State::Ready(s) => Some(&s.source),
-            State::Recording(s) => match &s.sub_state {
-                RecordingSubState::Audio(RecordingAudioState::Finishing(_)) => None,
+            State::Recording(s) => match &s.kind_state {
+                KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(_)) => None,
                 _ => s.old_source.as_ref(),
             },
         }
@@ -528,8 +569,8 @@ impl Recorder {
     fn current_or_old_source_mut(&mut self) -> Option<&mut OwnedPcmSource> {
         match self.state.as_mut().unwrap() {
             State::Ready(s) => Some(&mut s.source),
-            State::Recording(s) => match &s.sub_state {
-                RecordingSubState::Audio(RecordingAudioState::Finishing(_)) => None,
+            State::Recording(s) => match &s.kind_state {
+                KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(_)) => None,
                 _ => s.old_source.as_mut(),
             },
         }
@@ -546,7 +587,8 @@ impl Recorder {
                 use State::*;
                 let next_state = match self.state.take().unwrap() {
                     Recording(RecordingState {
-                        sub_state: RecordingSubState::Audio(RecordingAudioState::Finishing(s)),
+                        kind_state:
+                            KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)),
                         ..
                     }) => match r.source {
                         Ok(source) => {
@@ -637,8 +679,8 @@ impl AudioSupplier for Recorder {
         let source = match self.state.as_mut().unwrap() {
             State::Ready(s) => &mut s.source,
             State::Recording(s) => {
-                match &s.sub_state {
-                    RecordingSubState::Audio(RecordingAudioState::Finishing(s)) => {
+                match &s.kind_state {
+                    KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
                         // The source is not ready yet but we have a temporary audio buffer that
                         // gives us the material we need.
                         // We know that the frame rates should be equal because this is audio and we
@@ -667,8 +709,8 @@ impl AudioSupplier for Recorder {
     fn channel_count(&self) -> usize {
         let source = match self.state.as_ref().unwrap() {
             State::Ready(s) => &s.source,
-            State::Recording(s) => match &s.sub_state {
-                RecordingSubState::Audio(RecordingAudioState::Finishing(s)) => {
+            State::Recording(s) => match &s.kind_state {
+                KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
                     return s.temporary_audio_buffer.to_buf().channel_count();
                 }
                 _ => s
@@ -698,8 +740,8 @@ impl ExactFrameCount for Recorder {
     fn frame_count(&self) -> usize {
         let source = match self.state.as_ref().unwrap() {
             State::Ready(s) => &s.source,
-            State::Recording(s) => match &s.sub_state {
-                RecordingSubState::Audio(RecordingAudioState::Finishing(s)) => {
+            State::Recording(s) => match &s.kind_state {
+                KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
                     return convert_duration_in_seconds_to_frames(s.source_duration, s.frame_rate);
                 }
                 _ => s
@@ -716,8 +758,8 @@ impl ExactDuration for Recorder {
     fn duration(&self) -> DurationInSeconds {
         let source = match self.state.as_ref().unwrap() {
             State::Ready(s) => &s.source,
-            State::Recording(s) => match &s.sub_state {
-                RecordingSubState::Audio(RecordingAudioState::Finishing(s)) => {
+            State::Recording(s) => match &s.kind_state {
+                KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
                     return s.source_duration
                 }
                 _ => s
@@ -734,8 +776,8 @@ impl WithFrameRate for Recorder {
     fn frame_rate(&self) -> Option<Hz> {
         let source = match self.state.as_ref().unwrap() {
             State::Ready(s) => &s.source,
-            State::Recording(s) => match &s.sub_state {
-                RecordingSubState::Audio(RecordingAudioState::Finishing(s)) => {
+            State::Recording(s) => match &s.kind_state {
+                KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
                     return Some(s.frame_rate)
                 }
                 _ => s
@@ -748,6 +790,240 @@ impl WithFrameRate for Recorder {
     }
 }
 
+#[derive(Debug)]
+enum RecordingPhase {
+    /// We have a provisional section start position already but some important material info is
+    /// not available yet (audio only).
+    Empty(EmptyPhase),
+    /// Frame rate and source start position are clear.
+    ///
+    /// This phase might be enriched with a non-zero downbeat position if downbeat detection is
+    /// enabled. In this case, the provisional section start position will change.
+    OpenEnd(OpenEndPhase),
+    /// Section frame count is clear.
+    EndScheduled(EndScheduledPhase),
+    /// Source duration is clear.
+    Committed,
+}
+
+impl RecordingPhase {
+    fn initial_phase(
+        timing: RecordTiming,
+        tempo: Bpm,
+        input: ClipRecordInput,
+        trigger_timeline_pos: PositionInSeconds,
+    ) -> Self {
+        let empty = EmptyPhase {
+            tempo,
+            timing,
+            is_midi: input.is_midi(),
+        };
+        match input {
+            ClipRecordInput::Midi => {
+                // MIDI starts in phase two because source start position and frame rate are clear
+                // right from he start.
+                empty.advance(trigger_timeline_pos, Hz::new(MIDI_FRAME_RATE))
+            }
+            ClipRecordInput::Audio => RecordingPhase::Empty(empty),
+        }
+    }
+
+    fn frame_rate(&self) -> Option<Hz> {
+        use RecordingPhase::*;
+        match self {
+            Empty(_) => None,
+            OpenEnd(s) => Some(s.frame_rate),
+            EndScheduled(s) => Some(s.prev_phase.frame_rate),
+            Committed => None,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct EmptyPhase {
+    tempo: Bpm,
+    timing: RecordTiming,
+    is_midi: bool,
+}
+
+impl EmptyPhase {
+    fn advance(
+        self,
+        source_start_timeline_pos: PositionInSeconds,
+        frame_rate: Hz,
+    ) -> RecordingPhase {
+        let end_bar = match &self.timing {
+            RecordTiming::Unsynced => None,
+            RecordTiming::Synced { end_bar, .. } => *end_bar,
+        };
+        let open_end_phase = OpenEndPhase {
+            prev_phase: self,
+            source_start_timeline_pos,
+            frame_rate,
+            first_play_frame: None,
+        };
+        if let Some(end_bar) = end_bar {
+            RecordingPhase::EndScheduled(open_end_phase.schedule_end(end_bar, todo!()))
+        } else {
+            RecordingPhase::OpenEnd(open_end_phase)
+        }
+    }
+
+    /// MIDI has a constant normalized tempo.
+    ///
+    /// This tempo factor must be used to adjust positions and durations that are measured using the
+    /// actual recording tempo in order to conform to the normalized tempo.
+    fn midi_tempo_factor(&self) -> f64 {
+        self.tempo.get() / MIDI_BASE_BPM
+    }
+}
+
+#[derive(Debug)]
+struct OpenEndPhase {
+    prev_phase: EmptyPhase,
+    source_start_timeline_pos: PositionInSeconds,
+    frame_rate: Hz,
+    first_play_frame: Option<usize>,
+}
+
+struct PhaseTwoSnapshot {
+    downbeat_frame: usize,
+    section_start_frame: usize,
+}
+
+impl OpenEndPhase {
+    pub fn commit(
+        self,
+        source_duration: DurationInSeconds,
+        timeline: &dyn Timeline,
+    ) -> RecordingOutcome {
+        let snapshot = self.snapshot(timeline);
+        RecordingOutcome {
+            frame_rate: self.frame_rate,
+            tempo: self.prev_phase.tempo,
+            is_midi: self.prev_phase.is_midi,
+            source_duration,
+            section_start_frame: snapshot.section_start_frame,
+            downbeat_frame: snapshot.downbeat_frame,
+            section_frame_count: None,
+            effective_duration: todo!(),
+        }
+    }
+
+    pub fn schedule_end(self, end_bar: i32, timeline: &dyn Timeline) -> EndScheduledPhase {
+        let start_bar = match self.prev_phase.timing {
+            RecordTiming::Unsynced => {
+                unimplemented!("scheduled end without scheduled start not supported")
+            }
+            RecordTiming::Synced { start_bar, .. } => start_bar,
+        };
+        let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
+        let quantized_record_end_timeline_pos = timeline.pos_of_bar(end_bar);
+        let duration = quantized_record_end_timeline_pos - quantized_record_start_timeline_pos;
+        let duration: DurationInSeconds = duration.try_into().expect("end bar pos < start bar pos");
+        // Determine section data
+        let effective_duration = if self.prev_phase.is_midi {
+            // MIDI has a constant normalized tempo.
+            let tempo_factor = self.prev_phase.midi_tempo_factor();
+            DurationInSeconds::new(duration.get() * tempo_factor)
+        } else {
+            duration
+        };
+        let effective_frame_count =
+            convert_duration_in_seconds_to_frames(effective_duration, self.frame_rate);
+        let snapshot = self.snapshot(timeline);
+        EndScheduledPhase {
+            prev_phase: self,
+            section_frame_count: Some(effective_frame_count),
+            downbeat_frame: snapshot.downbeat_frame,
+            section_start_frame: snapshot.section_start_frame,
+            effective_duration,
+        }
+    }
+
+    pub fn snapshot(&self, timeline: &dyn Timeline) -> PhaseTwoSnapshot {
+        match self.prev_phase.timing {
+            RecordTiming::Unsynced => PhaseTwoSnapshot {
+                // When recording not scheduled, downbeat detection doesn't make sense.
+                downbeat_frame: 0,
+                section_start_frame: 0,
+            },
+            RecordTiming::Synced { start_bar, end_bar } => {
+                let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
+                // TODO-high Depending on source_start_timeline_pos doesn't work when tempo changed
+                //  during recording. It would be better to advance frames just like we do it
+                //  when counting in (e.g. provide advance() function that's called in process()).
+                let start_pos =
+                    quantized_record_start_timeline_pos - self.source_start_timeline_pos;
+                let start_pos: DurationInSeconds = start_pos
+                    .try_into()
+                    // Recorder started recording material after quantized. This can only happen
+                    // if the preparation of the PCM sink was not fast enough. In future we should
+                    // probably set the position of the section on the canvas by exactly the
+                    // abs() of that negative start position, to keep at least the timing perfect.
+                    .unwrap_or(DurationInSeconds::ZERO);
+                let (effective_start_pos, effective_first_play_frame) = if self.prev_phase.is_midi {
+                    let tempo_factor = self.prev_phase.midi_tempo_factor();
+                    let adjusted_start_pos = DurationInSeconds::new(start_pos.get() * tempo_factor);
+                    let adjusted_first_play_frame = self
+                        .first_play_frame
+                        .map(|frame| adjust_proportionally_positive(frame as f64, tempo_factor));
+                    (adjusted_start_pos, adjusted_first_play_frame)
+                } else {
+                    (start_pos, self.first_play_frame)
+                };
+                let effective_start_frame =
+                    convert_duration_in_seconds_to_frames(effective_start_pos, self.frame_rate);
+                match effective_first_play_frame {
+                    Some(f) if f < effective_start_frame => {
+                        // We detected material that should play at count-in phase
+                        // (also called pick-up beat or anacrusis). So the position of the downbeat in
+                        // the material is greater than zero.
+                        let downbeat_frame = effective_start_frame - f;
+                        PhaseTwoSnapshot {
+                            downbeat_frame,
+                            section_start_frame: f,
+                        }
+                    }
+                    _ => {
+                        // Either no play material arrived or too late, right of the scheduled start
+                        // position. This is not a pick-up beat. Ignore it.
+                        PhaseTwoSnapshot {
+                            downbeat_frame: 0,
+                            section_start_frame: effective_start_frame,
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct EndScheduledPhase {
+    prev_phase: OpenEndPhase,
+    section_frame_count: Option<usize>,
+    downbeat_frame: usize,
+    section_start_frame: usize,
+    effective_duration: DurationInSeconds,
+}
+
+impl EndScheduledPhase {
+    pub fn commit(self, source_duration: DurationInSeconds) -> RecordingOutcome {
+        RecordingOutcome {
+            frame_rate: self.prev_phase.frame_rate,
+            tempo: self.prev_phase.prev_phase.tempo,
+            is_midi: self.prev_phase.prev_phase.is_midi,
+            source_duration,
+            section_start_frame: self.section_start_frame,
+            downbeat_frame: self.downbeat_frame,
+            section_frame_count: self.section_frame_count,
+            effective_duration: self.effective_duration,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct RecordingOutcome {
     pub frame_rate: Hz,
     pub tempo: Bpm,
@@ -760,100 +1036,4 @@ pub struct RecordingOutcome {
     /// If we have a section, then this corresponds to the duration of the section. If not,
     /// this corresponds to the duration of the source material.
     pub effective_duration: DurationInSeconds,
-}
-
-impl RecordingOutcome {
-    fn new(
-        source_start_timeline_pos: PositionInSeconds,
-        frame_rate: Hz,
-        tempo: Bpm,
-        is_midi: bool,
-        start_and_end_bar: Option<(i32, i32)>,
-        timeline: &dyn Timeline,
-        source_duration: DurationInSeconds,
-        first_frame_for_downbeat_detection: Option<usize>,
-    ) -> Self {
-        #[derive(Debug)]
-        struct R {
-            section_start_frame: usize,
-            section_frame_count: Option<usize>,
-            effective_duration: DurationInSeconds,
-            downbeat_frame: usize,
-        }
-        let r = match start_and_end_bar {
-            None => R {
-                section_start_frame: 0,
-                section_frame_count: None,
-                effective_duration: source_duration,
-                downbeat_frame: 0,
-            },
-            Some((start_bar, end_bar)) => {
-                // Determine start pos
-                let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
-                // TODO-high Depending on source_start_timeline_pos doesn't work when tempo changed
-                //  during recording. It would be better to advance frames just like we do it
-                //  when counting in (e.g. provide advance() function that's called in process()).
-                let start_pos = quantized_record_start_timeline_pos - source_start_timeline_pos;
-                let start_pos = if start_pos.get() >= 0.0 {
-                    DurationInSeconds::new(start_pos.get())
-                } else {
-                    // Recorder started recording material after quantized. This can only happen
-                    // if the preparation of the PCM sink was not fast enough. In future we should
-                    // probably set the position of the section on the canvas by exactly the
-                    // abs() of that negative start position, to keep at least the timing perfect.
-                    DurationInSeconds::ZERO
-                };
-                // Determine length
-                let quantized_record_end_timeline_pos = timeline.pos_of_bar(end_bar);
-                let duration =
-                    quantized_record_end_timeline_pos - quantized_record_start_timeline_pos;
-                let duration: DurationInSeconds =
-                    duration.try_into().expect("end bar pos < start bar pos");
-                // Determine section data
-                let (effective_start_pos, effective_duration, effective_ff_for_dd) = if is_midi {
-                    // MIDI has a constant normalized tempo.
-                    let tempo_factor = tempo.get() / MIDI_BASE_BPM;
-                    let adjusted_start_pos = DurationInSeconds::new(start_pos.get() * tempo_factor);
-                    let adjusted_length = DurationInSeconds::new(duration.get() * tempo_factor);
-                    let adjusted_first_frame = first_frame_for_downbeat_detection
-                        .map(|ff| adjust_proportionally_positive(ff as f64, tempo_factor));
-                    (adjusted_start_pos, adjusted_length, adjusted_first_frame)
-                } else {
-                    (start_pos, duration, first_frame_for_downbeat_detection)
-                };
-                let effective_start_frame =
-                    convert_duration_in_seconds_to_frames(effective_start_pos, frame_rate);
-                let effective_frame_count =
-                    convert_duration_in_seconds_to_frames(effective_duration, frame_rate);
-                match effective_ff_for_dd {
-                    Some(first_frame) if first_frame < effective_start_frame => {
-                        let downbeat_frame = effective_start_frame - first_frame;
-                        R {
-                            section_start_frame: first_frame,
-                            section_frame_count: Some(effective_frame_count),
-                            effective_duration,
-                            downbeat_frame,
-                        }
-                    }
-                    _ => R {
-                        section_start_frame: effective_start_frame,
-                        section_frame_count: Some(effective_frame_count),
-                        effective_duration,
-                        downbeat_frame: 0,
-                    },
-                }
-            }
-        };
-        dbg!(&r);
-        Self {
-            frame_rate,
-            tempo,
-            is_midi,
-            source_duration,
-            section_start_frame: r.section_start_frame,
-            section_frame_count: r.section_frame_count,
-            effective_duration: r.effective_duration,
-            downbeat_frame: r.downbeat_frame,
-        }
-    }
 }

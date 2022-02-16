@@ -254,6 +254,7 @@ impl Clip {
             tempo,
             request_sender,
             args.detect_downbeat,
+            args.timing,
         );
         Self {
             supplier_chain: SupplierChain::new(recorder),
@@ -1224,6 +1225,7 @@ impl ReadyState {
             trigger_timeline_pos,
             tempo,
             args.detect_downbeat,
+            args.timing,
         );
         let recording_state = RecordingState {
             trigger_timeline_pos,
@@ -1422,6 +1424,9 @@ impl RecordingState {
                         self.play_after = false;
                     } else {
                         // End not scheduled yet. Schedule end.
+                        supplier_chain
+                            .recorder_mut()
+                            .schedule_end(next_bar, args.timeline);
                         self.timing = Synced {
                             start_bar,
                             end_bar: Some(next_bar),
@@ -1453,7 +1458,10 @@ impl RecordingState {
                     timeline_frame_rate,
                 );
                 let block_end_pos = args.timeline_cursor_pos + block_length_in_secs;
-                let record_end_pos = args.timeline.pos_of_bar(end_bar);
+                let downbeat_pos = supplier_chain
+                    .recorder()
+                    .downbeat_pos_during_recording(&args.timeline);
+                let record_end_pos = args.timeline.pos_of_bar(end_bar) - downbeat_pos;
                 if block_end_pos >= record_end_pos {
                     // We have recorded the last block.
                     let ready_state = self.finish_recording(
@@ -1559,6 +1567,12 @@ pub struct ClipRecordArgs {
 pub enum ClipRecordInput {
     Midi,
     Audio,
+}
+
+impl ClipRecordInput {
+    pub fn is_midi(&self) -> bool {
+        matches!(self, Self::Midi)
+    }
 }
 
 pub struct ClipStopArgs<'a> {
