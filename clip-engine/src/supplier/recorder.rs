@@ -3,11 +3,12 @@ use crate::file_util::get_path_for_new_media_file;
 use crate::supplier::{supply_source_material, transfer_samples_from_buffer, SupplyResponse};
 use crate::ClipPlayState::Recording;
 use crate::{
-    adjust_proportionally, adjust_proportionally_positive, clip_timeline,
-    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, AudioBuf,
-    AudioSupplier, ClipContent, ClipInfo, ClipRecordInput, CreateClipContentMode, ExactDuration,
-    ExactFrameCount, MidiSupplier, OwnedAudioBuffer, RecordTiming, SourceData, SupplyAudioRequest,
-    SupplyMidiRequest, Timeline, WithFrameRate, WithTempo, MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    adjust_anti_proportionally_positive, adjust_proportionally, adjust_proportionally_positive,
+    clip_timeline, convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
+    AudioBuf, AudioSupplier, ClipContent, ClipInfo, ClipRecordInput, CreateClipContentMode,
+    ExactDuration, ExactFrameCount, MidiSupplier, OwnedAudioBuffer, RecordTiming, SourceData,
+    SupplyAudioRequest, SupplyMidiRequest, Timeline, WithFrameRate, WithTempo, MIDI_BASE_BPM,
+    MIDI_FRAME_RATE,
 };
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use helgoboss_midi::ShortMessage;
@@ -254,18 +255,17 @@ impl Recorder {
             State::Ready(_) => Default::default(),
             State::Recording(s) => {
                 use RecordingPhase::*;
-                let (frame, frame_rate) = match s.phase.as_ref().unwrap() {
+                match s.phase.as_ref().unwrap() {
                     Empty(_) => {
                         panic!("attempt to query downbeat position in empty recording phase")
                     }
                     // Should usually not be called here. But we can provide a current snapshot.
-                    OpenEnd(p) => (p.snapshot(timeline).downbeat_frame, p.frame_rate),
-                    EndScheduled(p) => (p.downbeat_frame, p.prev_phase.frame_rate),
+                    OpenEnd(p) => p.snapshot(timeline).non_normalized_downbeat_pos,
+                    EndScheduled(p) => p.non_normalized_downbeat_pos,
                     Committed => panic!(
                         "attempt to query downbeat position when recording already committed"
                     ),
-                };
-                convert_duration_in_frames_to_seconds(frame, frame_rate)
+                }
             }
         }
     }
@@ -887,7 +887,8 @@ struct OpenEndPhase {
 }
 
 struct PhaseTwoSnapshot {
-    downbeat_frame: usize,
+    normalized_downbeat_frame: usize,
+    non_normalized_downbeat_pos: DurationInSeconds,
     section_start_frame: usize,
 }
 
@@ -904,7 +905,7 @@ impl OpenEndPhase {
             is_midi: self.prev_phase.is_midi,
             source_duration,
             section_start_frame: snapshot.section_start_frame,
-            downbeat_frame: snapshot.downbeat_frame,
+            normalized_downbeat_frame: snapshot.normalized_downbeat_frame,
             section_frame_count: None,
             effective_duration: todo!(),
         }
@@ -935,7 +936,8 @@ impl OpenEndPhase {
         EndScheduledPhase {
             prev_phase: self,
             section_frame_count: Some(effective_frame_count),
-            downbeat_frame: snapshot.downbeat_frame,
+            normalized_downbeat_frame: snapshot.normalized_downbeat_frame,
+            non_normalized_downbeat_pos: snapshot.non_normalized_downbeat_pos,
             section_start_frame: snapshot.section_start_frame,
             effective_duration,
         }
@@ -945,7 +947,8 @@ impl OpenEndPhase {
         match self.prev_phase.timing {
             RecordTiming::Unsynced => PhaseTwoSnapshot {
                 // When recording not scheduled, downbeat detection doesn't make sense.
-                downbeat_frame: 0,
+                normalized_downbeat_frame: 0,
+                non_normalized_downbeat_pos: DurationInSeconds::ZERO,
                 section_start_frame: 0,
             },
             RecordTiming::Synced { start_bar, end_bar } => {
@@ -962,7 +965,8 @@ impl OpenEndPhase {
                     // probably set the position of the section on the canvas by exactly the
                     // abs() of that negative start position, to keep at least the timing perfect.
                     .unwrap_or(DurationInSeconds::ZERO);
-                let (effective_start_pos, effective_first_play_frame) = if self.prev_phase.is_midi {
+                let (effective_start_pos, normalized_first_play_frame) = if self.prev_phase.is_midi
+                {
                     let tempo_factor = self.prev_phase.midi_tempo_factor();
                     let adjusted_start_pos = DurationInSeconds::new(start_pos.get() * tempo_factor);
                     let adjusted_first_play_frame = self
@@ -974,14 +978,25 @@ impl OpenEndPhase {
                 };
                 let effective_start_frame =
                     convert_duration_in_seconds_to_frames(effective_start_pos, self.frame_rate);
-                match effective_first_play_frame {
+                match normalized_first_play_frame {
                     Some(f) if f < effective_start_frame => {
                         // We detected material that should play at count-in phase
                         // (also called pick-up beat or anacrusis). So the position of the downbeat in
                         // the material is greater than zero.
                         let downbeat_frame = effective_start_frame - f;
                         PhaseTwoSnapshot {
-                            downbeat_frame,
+                            normalized_downbeat_frame: downbeat_frame,
+                            non_normalized_downbeat_pos: {
+                                let nn_frame = if self.prev_phase.is_midi {
+                                    adjust_anti_proportionally_positive(
+                                        downbeat_frame as f64,
+                                        self.prev_phase.midi_tempo_factor(),
+                                    )
+                                } else {
+                                    downbeat_frame
+                                };
+                                convert_duration_in_frames_to_seconds(nn_frame, self.frame_rate)
+                            },
                             section_start_frame: f,
                         }
                     }
@@ -989,7 +1004,8 @@ impl OpenEndPhase {
                         // Either no play material arrived or too late, right of the scheduled start
                         // position. This is not a pick-up beat. Ignore it.
                         PhaseTwoSnapshot {
-                            downbeat_frame: 0,
+                            normalized_downbeat_frame: 0,
+                            non_normalized_downbeat_pos: DurationInSeconds::ZERO,
                             section_start_frame: effective_start_frame,
                         }
                     }
@@ -1003,7 +1019,8 @@ impl OpenEndPhase {
 struct EndScheduledPhase {
     prev_phase: OpenEndPhase,
     section_frame_count: Option<usize>,
-    downbeat_frame: usize,
+    normalized_downbeat_frame: usize,
+    non_normalized_downbeat_pos: DurationInSeconds,
     section_start_frame: usize,
     effective_duration: DurationInSeconds,
 }
@@ -1016,7 +1033,7 @@ impl EndScheduledPhase {
             is_midi: self.prev_phase.prev_phase.is_midi,
             source_duration,
             section_start_frame: self.section_start_frame,
-            downbeat_frame: self.downbeat_frame,
+            normalized_downbeat_frame: self.normalized_downbeat_frame,
             section_frame_count: self.section_frame_count,
             effective_duration: self.effective_duration,
         }
@@ -1032,7 +1049,7 @@ pub struct RecordingOutcome {
     pub source_duration: DurationInSeconds,
     pub section_start_frame: usize,
     pub section_frame_count: Option<usize>,
-    pub downbeat_frame: usize,
+    pub normalized_downbeat_frame: usize,
     /// If we have a section, then this corresponds to the duration of the section. If not,
     /// this corresponds to the duration of the source material.
     pub effective_duration: DurationInSeconds,

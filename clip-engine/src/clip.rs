@@ -1504,7 +1504,7 @@ impl RecordingState {
         // Set downbeat.
         supplier_chain
             .downbeat_mut()
-            .set_downbeat_frame(outcome.downbeat_frame);
+            .set_downbeat_frame(outcome.normalized_downbeat_frame);
         // Change state
         ReadyState {
             state: if play_after {
