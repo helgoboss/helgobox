@@ -15,7 +15,6 @@ use reaper_medium::{
 pub struct Looper<S> {
     loop_behavior: LoopBehavior,
     enabled: bool,
-    fades_enabled: bool,
     supplier: S,
 }
 
@@ -78,7 +77,6 @@ impl<S: ExactFrameCount> Looper<S> {
         Self {
             loop_behavior: Default::default(),
             enabled: false,
-            fades_enabled: false,
             supplier,
         }
     }
@@ -108,10 +106,6 @@ impl<S: ExactFrameCount> Looper<S> {
             self.get_cycle_at_frame(pos as usize)
         };
         self.loop_behavior = LoopBehavior::UntilEndOfCycle(last_cycle);
-    }
-
-    pub fn set_fades_enabled(&mut self, fades_enabled: bool) {
-        self.fades_enabled = fades_enabled;
     }
 
     pub fn get_cycle_at_frame(&self, frame: usize) -> usize {
@@ -180,7 +174,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
             general_info: request.general_info,
         };
         let modulo_response = self.supplier.supply_audio(&modulo_request, dest_buffer);
-        let final_response = match modulo_response.status {
+        match modulo_response.status {
             SupplyResponseStatus::PleaseContinue => modulo_response,
             SupplyResponseStatus::ReachedEnd { num_frames_written } => {
                 if self.is_last_cycle(data.current_cycle) {
@@ -213,14 +207,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
                     )
                 }
             }
-        };
-        if self.fades_enabled {
-            dest_buffer.modify_frames(|frame, sample| {
-                let factor = calc_volume_factor_at(start_frame + frame, supplier_frame_count);
-                sample * factor
-            });
         }
-        final_response
     }
 
     fn channel_count(&self) -> usize {
@@ -302,20 +289,3 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
         }
     }
 }
-
-fn calc_volume_factor_at(frame: usize, frame_count: usize) -> f64 {
-    let modulo_frame = frame % frame_count;
-    let distance_to_end = frame_count - modulo_frame;
-    if distance_to_end < FADE_LENGTH {
-        // Approaching loop end: Fade out
-        return distance_to_end as f64 / FADE_LENGTH as f64;
-    }
-    if frame >= frame_count && modulo_frame < FADE_LENGTH {
-        // Continuing at loop start: Fade in
-        return modulo_frame as f64 / FADE_LENGTH as f64;
-    }
-    return 1.0;
-}
-
-// 0.01s = 10ms at 48 kHz
-const FADE_LENGTH: usize = 480;

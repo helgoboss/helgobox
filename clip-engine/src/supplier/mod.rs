@@ -35,6 +35,8 @@ pub use section::*;
 mod downbeat;
 pub use downbeat::*;
 
+mod fade_util;
+
 pub trait AudioSupplier {
     /// Writes a portion of audio material into the given destination buffer so that it completely
     /// fills that buffer.

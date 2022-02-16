@@ -1,3 +1,4 @@
+use crate::supplier::fade_util::{apply_fade_in, apply_fade_out};
 use crate::supplier::{SupplyResponse, SupplyResponseStatus};
 use crate::{
     convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
@@ -29,12 +30,17 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             supplier,
-            boundary: Default::default(),
+            // boundary: Default::default(),
             // boundary: Boundary {
             //     start_frame: 1_024_000,
             //     length: Some(1_024_000),
             //     // length: None,
             // },
+            boundary: Boundary {
+                start_frame: 48000 * 1,
+                length: Some(48000 * 3),
+                // length: None,
+            },
         }
     }
 
@@ -229,10 +235,17 @@ impl<S: AudioSupplier + WithFrameRate + ExactFrameCount> AudioSupplier for Secti
         };
         let mut inner_dest_buffer =
             dest_buffer.slice_mut(0..data.phase_one.num_frames_to_be_written);
-        let section_response = self
+        let inner_response = self
             .supplier
             .supply_audio(&inner_request, &mut inner_dest_buffer);
-        self.generate_outer_response(section_response, data.phase_two)
+        if self.boundary.start_frame > 0 {
+            // We need a fade in.
+            apply_fade_in(dest_buffer, request.start_frame);
+        }
+        if let Some(length) = self.boundary.length {
+            apply_fade_out(dest_buffer, request.start_frame, length);
+        }
+        self.generate_outer_response(inner_response, data.phase_two)
     }
 
     fn channel_count(&self) -> usize {
@@ -258,7 +271,7 @@ impl<S: MidiSupplier + WithFrameRate + ExactFrameCount> MidiSupplier for Section
             Instruction::Return(r) => return r,
             Instruction::QueryInner(d) => d,
         };
-        let section_request = SupplyMidiRequest {
+        let inner_request = SupplyMidiRequest {
             start_frame: data.phase_one.start_frame,
             dest_frame_count: data.phase_one.num_frames_to_be_written,
             info: data.phase_one.info.clone(),
@@ -266,8 +279,8 @@ impl<S: MidiSupplier + WithFrameRate + ExactFrameCount> MidiSupplier for Section
             parent_request: request.parent_request,
             general_info: request.general_info,
         };
-        let section_response = self.supplier.supply_midi(&section_request, event_list);
-        self.generate_outer_response(section_response, data.phase_two)
+        let inner_response = self.supplier.supply_midi(&inner_request, event_list);
+        self.generate_outer_response(inner_response, data.phase_two)
     }
 }
 

@@ -39,7 +39,6 @@ impl SupplierChain {
         // Configure looper
         let looper = chain.looper_mut();
         looper.set_enabled(true);
-        looper.set_fades_enabled(true);
         // Configure downbeat
         let downbeat = chain.downbeat_mut();
         downbeat.set_enabled(true);
