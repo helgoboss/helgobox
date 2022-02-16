@@ -68,7 +68,6 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
         let source_channel_count = self.supplier.channel_count();
         let api = self.api.as_mut().as_mut();
         api.SetRates(source_frame_rate.get(), dest_frame_rate.get());
-        // TODO-high Fix the count-in beeeep (also in time stretching).
         // Set ResamplePrepare's out_samples to refer to request a specific number of input samples.
         // const RESAMPLE_EXT_SETFEEDMODE: i32 = 0x1001;
         // let ext_result = unsafe {

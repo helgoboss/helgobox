@@ -334,6 +334,9 @@ fn supply_source_material(
         //     "ideal end frame {} ({})",
         //     ideal_end_frame, ideal_num_consumed_frames
         // );
+        // We should fille the buffer with zero samples. The preview register pre-zeroes buffers
+        // but the time stretcher and resampler doesn't, which results in beeps.
+        dest_buffer.clear();
         // We haven't reached the end of the source, so still tell the caller that we
         // wrote all frames.
         // And advance the count-in phase.
@@ -353,6 +356,7 @@ fn supply_source_material(
                 dest_buffer.frame_count() as f64,
                 proportion_skipped,
             );
+            dest_buffer.slice_mut(..num_skipped_frames_in_dest).clear();
             print_distance_from_beat_start_at(
                 request,
                 num_skipped_frames_in_dest,

@@ -206,6 +206,10 @@ impl<T: AsRef<[f64]> + AsMut<[f64]>> AbstractAudioBuf<T> {
             }
         }
     }
+
+    pub fn clear(&mut self) {
+        self.data.as_mut().fill(0.0);
+    }
 }
 
 /// Material to be stretched.
