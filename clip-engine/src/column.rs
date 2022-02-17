@@ -1,8 +1,8 @@
 use crate::{
-    ClipChangedEvent, ClipRecordTask, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnPollSlotArgs,
-    ColumnSetClipRepeatedArgs, ColumnSource, ColumnStopClipArgs, RecordBehavior, RecordKind,
-    RecorderRequest, SharedColumnSource, Slot, SlotProcessTransportChangeArgs, Timeline,
-    TimelineMoment, TransportChange,
+    CacheRequest, ClipChangedEvent, ClipRecordTask, ColumnFillSlotArgs, ColumnPlayClipArgs,
+    ColumnPollSlotArgs, ColumnSetClipRepeatedArgs, ColumnSource, ColumnStopClipArgs,
+    RecordBehavior, RecordKind, RecorderRequest, SharedColumnSource, Slot,
+    SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange,
 };
 use crossbeam_channel::Sender;
 use enumflags2::BitFlags;
@@ -84,9 +84,17 @@ impl Column {
         &mut self,
         index: usize,
         behavior: RecordBehavior,
-        request_sender: Sender<RecorderRequest>,
+        recorder_request_sender: Sender<RecorderRequest>,
+        cache_request_sender: Sender<CacheRequest>,
     ) -> Result<ClipRecordTask, &'static str> {
-        self.with_source_mut(|s| s.record_clip(index, behavior, request_sender))?;
+        self.with_source_mut(|s| {
+            s.record_clip(
+                index,
+                behavior,
+                recorder_request_sender,
+                cache_request_sender,
+            )
+        })?;
         let task = ClipRecordTask {
             column_source: self.column_source.clone(),
             slot_index: index,

@@ -114,15 +114,14 @@ impl<T: AsRef<[f64]>> AbstractAudioBuf<T> {
     }
 
     /// Destination buffer must have the same number of channels and frames.
-    pub fn copy_to(&self, dest: &mut AudioBufMut) -> Result<(), &'static str> {
+    pub fn copy_to(&self, dest: &mut AudioBufMut) {
         if dest.channel_count() != self.channel_count() {
-            return Err("different channel counts");
+            panic!("different channel counts");
         }
         if dest.frame_count() != self.frame_count() {
-            return Err("different frame counts");
+            panic!("different frame counts");
         }
         dest.data_as_mut_slice().copy_from_slice(self.data.as_ref());
-        Ok(())
     }
 
     pub fn channel_count(&self) -> usize {

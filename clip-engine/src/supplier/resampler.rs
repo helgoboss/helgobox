@@ -105,6 +105,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
                         + total_num_frames_written,
                     requester: "active-resampler",
                     note: "",
+                    is_realtime: false,
                 },
                 parent_request: Some(request),
                 general_info: request.general_info,

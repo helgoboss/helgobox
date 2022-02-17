@@ -1,96 +1,165 @@
 use crate::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
+use crate::source_util::pcm_source_is_midi;
 use crate::supplier::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     supply_source_material, transfer_samples_from_buffer, AudioSupplier, ExactFrameCount,
     MidiSupplier, SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
     WithFrameRate,
 };
-use crate::SupplyRequestInfo;
+use crate::{get_source_frame_rate, ExactDuration, SupplyRequestInfo};
 use core::cmp;
+use crossbeam_channel::{Receiver, Sender};
 use reaper_medium::{
-    BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
+    BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, OwnedPcmSource,
+    PcmSourceTransfer,
 };
 
-pub struct Cache<S> {
+#[derive(Debug)]
+pub struct Cache {
     cached_data: Option<CachedData>,
-    supplier: S,
+    request_sender: Sender<CacheRequest>,
+    response_channel: CacheResponseChannel,
+    source: OwnedPcmSource,
 }
 
-struct CachedData {
+#[derive(Debug)]
+pub struct CacheResponseChannel {
+    sender: Sender<CacheResponse>,
+    receiver: Receiver<CacheResponse>,
+}
+
+impl CacheResponseChannel {
+    pub fn new() -> Self {
+        let (sender, receiver) = crossbeam_channel::bounded(10);
+        Self { sender, receiver }
+    }
+}
+
+#[derive(Debug)]
+pub enum CacheRequest {
+    CacheSource {
+        source: OwnedPcmSource,
+        response_sender: Sender<CacheResponse>,
+    },
+    DiscardCachedData(CachedData),
+}
+
+#[derive(Debug)]
+pub enum CacheResponse {
+    CachedSource(CachedData),
+}
+
+#[derive(Debug)]
+pub struct CachedData {
     sample_rate: Hz,
     content: OwnedAudioBuffer,
 }
 
-impl<S: AudioSupplier + ExactFrameCount + WithFrameRate> Cache<S> {
-    pub fn new(supplier: S) -> Self {
+impl Cache {
+    pub fn new(
+        source: OwnedPcmSource,
+        request_sender: Sender<CacheRequest>,
+        response_channel: CacheResponseChannel,
+    ) -> Self {
         Self {
             cached_data: None,
-            supplier,
+            request_sender,
+            response_channel,
+            source,
         }
     }
 
-    pub fn supplier(&self) -> &S {
-        &self.supplier
+    pub fn source(&self) -> &OwnedPcmSource {
+        &self.source
     }
 
-    pub fn supplier_mut(&mut self) -> &mut S {
-        &mut self.supplier
+    pub fn source_mut(&mut self) -> &mut OwnedPcmSource {
+        &mut self.source
     }
 
-    /// Enables the cache and builds it, caching all supplied audio data in memory if it hasn't
-    /// been cached already.
+    /// If not cached already, triggers building the cache asynchronously, caching all supplied
+    /// audio data in memory.
     ///
-    /// Shouldn't be called in a real-time thread.
+    /// Don't call in real-time thread. If this is necessary one day, no problem: Clone the source
+    /// in advance.
     pub fn enable(&mut self) {
-        if self.cached_data.is_some() {
-            // Already cached.
+        if self.cached_data.is_some() || pcm_source_is_midi(&self.source) {
             return;
         }
-        let original_sample_rate = match self.supplier.frame_rate() {
-            None => {
-                // Nothing to cache.
-                return;
-            }
-            Some(r) => r,
+        let request = CacheRequest::CacheSource {
+            source: self.source.clone(),
+            response_sender: self.response_channel.sender.clone(),
         };
-        let mut content =
-            OwnedAudioBuffer::new(self.supplier.channel_count(), self.supplier.frame_count());
-        let request = SupplyAudioRequest {
-            start_frame: 0,
-            dest_sample_rate: original_sample_rate,
-            info: SupplyRequestInfo {
-                audio_block_frame_offset: 0,
-                requester: "cache",
-                note: "",
-            },
-            parent_request: None,
-            general_info: &Default::default(),
-        };
-        self.supplier
-            .supply_audio(&request, &mut content.to_buf_mut());
-        let cached_data = CachedData {
-            sample_rate: original_sample_rate,
-            content,
-        };
-        self.cached_data = Some(cached_data);
+        self.request_sender
+            .try_send(request)
+            .expect("couldn't send request to finish audio recording");
     }
 
     /// Disables the cache and clears it, releasing the consumed memory.
-    ///
-    /// Shouldn't be called in a real-time thread.
     pub fn disable(&mut self) {
-        self.cached_data = None;
+        if let Some(cached_data) = self.cached_data.take() {
+            let request = CacheRequest::DiscardCachedData(cached_data);
+            self.request_sender.try_send(request).unwrap();
+        }
+    }
+
+    fn process_worker_response(&mut self) {
+        let response = match self.response_channel.receiver.try_recv() {
+            Ok(r) => r,
+            Err(_) => return,
+        };
+        match response {
+            CacheResponse::CachedSource(cache_data) => {
+                self.cached_data = Some(cache_data);
+            }
+        }
+    }
+}
+pub fn keep_processing_cache_requests(receiver: Receiver<CacheRequest>) {
+    while let Ok(request) = receiver.recv() {
+        use CacheRequest::*;
+        match request {
+            CacheSource {
+                mut source,
+                response_sender,
+            } => {
+                let original_sample_rate = get_source_frame_rate(&source);
+                let mut content =
+                    OwnedAudioBuffer::new(source.channel_count(), source.frame_count());
+                let request = SupplyAudioRequest {
+                    start_frame: 0,
+                    dest_sample_rate: original_sample_rate,
+                    info: SupplyRequestInfo {
+                        audio_block_frame_offset: 0,
+                        requester: "cache",
+                        note: "",
+                        is_realtime: false,
+                    },
+                    parent_request: None,
+                    general_info: &Default::default(),
+                };
+                source.supply_audio(&request, &mut content.to_buf_mut());
+                let cached_data = CachedData {
+                    sample_rate: original_sample_rate,
+                    content,
+                };
+                // If the clip is not interested in the cached data anymore, so what.
+                let _ = response_sender.try_send(CacheResponse::CachedSource(cached_data));
+            }
+            DiscardCachedData(_) => {}
+        }
     }
 }
 
-impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Cache<S> {
+impl AudioSupplier for Cache {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
+        self.process_worker_response();
         let d = match &self.cached_data {
-            None => return self.supplier.supply_audio(request, dest_buffer),
+            None => return self.source.supply_audio(request, dest_buffer),
             Some(d) => d,
         };
         let buf = d.content.to_buf();
@@ -103,38 +172,43 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Cache<S> {
         if let Some(d) = &self.cached_data {
             d.content.to_buf().channel_count()
         } else {
-            self.supplier.channel_count()
+            self.source.channel_count()
         }
     }
 }
 
-impl<S: WithFrameRate> WithFrameRate for Cache<S> {
+impl WithFrameRate for Cache {
     fn frame_rate(&self) -> Option<Hz> {
         if let Some(d) = &self.cached_data {
             Some(d.sample_rate)
         } else {
-            self.supplier.frame_rate()
+            self.source.frame_rate()
         }
     }
 }
 
-impl<S: MidiSupplier> MidiSupplier for Cache<S> {
+impl MidiSupplier for Cache {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {
         // MIDI doesn't need caching.
-        self.supplier.supply_midi(request, event_list)
+        self.source.supply_midi(request, event_list)
     }
 }
 
-impl<S: ExactFrameCount> ExactFrameCount for Cache<S> {
+impl ExactFrameCount for Cache {
     fn frame_count(&self) -> usize {
         if let Some(d) = &self.cached_data {
             d.content.to_buf().frame_count()
         } else {
-            self.supplier.frame_count()
+            self.source.frame_count()
         }
+    }
+}
+impl ExactDuration for Cache {
+    fn duration(&self) -> DurationInSeconds {
+        self.source.duration()
     }
 }

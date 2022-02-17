@@ -4,7 +4,7 @@ use crate::supplier::{
     print_distance_from_beat_start_at, AudioSupplier, ExactFrameCount, MidiSupplier,
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
-use crate::{clip_timeline, SupplyRequestInfo, SupplyResponseStatus};
+use crate::{clip_timeline, SupplyRequest, SupplyRequestInfo, SupplyResponseStatus};
 use core::cmp;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
@@ -169,6 +169,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
                 audio_block_frame_offset: request.info.audio_block_frame_offset,
                 requester: "looper-audio-modulo-request",
                 note: "",
+                is_realtime: request.info().is_realtime,
             },
             parent_request: Some(request),
             general_info: request.general_info,
@@ -194,6 +195,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
                                 + num_frames_written,
                             requester: "looper-audio-start-request",
                             note: "",
+                            is_realtime: request.info().is_realtime,
                         },
                         parent_request: Some(request),
                         general_info: request.general_info,
@@ -245,6 +247,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
                 audio_block_frame_offset: request.info.audio_block_frame_offset,
                 requester: "looper-midi-modulo-request",
                 note: "",
+                is_realtime: request.info().is_realtime,
             },
             parent_request: Some(request),
             general_info: request.general_info,
@@ -275,6 +278,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
                                 + num_frames_written,
                             requester: "looper-midi-start-request",
                             note: "",
+                            is_realtime: request.info().is_realtime,
                         },
                         parent_request: Some(request),
                         general_info: request.general_info,

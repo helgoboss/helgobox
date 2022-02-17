@@ -4,11 +4,11 @@ use crate::{
     adjust_proportionally_positive, clip_timeline, convert_duration_in_frames_to_other_frame_rate,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames, AudioBufMut,
-    AudioSupplier, ClipContent, ClipRecordTiming, CreateClipContentMode, ExactDuration,
-    ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier, RecordKind, Recorder, RecorderRequest,
-    SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
-    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, Timeline, WithFrameRate, WithTempo,
-    WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
+    AudioSupplier, CacheRequest, ClipContent, ClipRecordTiming, CreateClipContentMode,
+    ExactDuration, ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier, RecordKind, Recorder,
+    RecorderRequest, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, Timeline,
+    WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -217,7 +217,8 @@ impl Clip {
     pub fn from_source(
         source: OwnedPcmSource,
         project: Option<Project>,
-        request_sender: Sender<RecorderRequest>,
+        recorder_request_sender: Sender<RecorderRequest>,
+        cache_request_sender: Sender<CacheRequest>,
     ) -> Self {
         let ready_state = ReadyState {
             state: ReadySubState::Stopped,
@@ -225,7 +226,11 @@ impl Clip {
             repeated: false,
         };
         Self {
-            supplier_chain: SupplierChain::new(Recorder::ready(source, request_sender)),
+            supplier_chain: SupplierChain::new(Recorder::ready(
+                source,
+                recorder_request_sender,
+                cache_request_sender,
+            )),
             state: ClipState::Ready(ready_state),
             project,
             volume: Default::default(),
@@ -235,7 +240,8 @@ impl Clip {
     pub fn from_recording(
         args: ClipRecordArgs,
         project: Option<Project>,
-        request_sender: Sender<RecorderRequest>,
+        recorder_request_sender: Sender<RecorderRequest>,
+        cache_request_sender: Sender<CacheRequest>,
     ) -> Self {
         let timeline = clip_timeline(project, false);
         let trigger_timeline_pos = timeline.cursor_pos();
@@ -252,7 +258,8 @@ impl Clip {
             project,
             trigger_timeline_pos,
             tempo,
-            request_sender,
+            recorder_request_sender,
+            cache_request_sender,
             args.detect_downbeat,
             args.timing,
         );
@@ -878,6 +885,7 @@ impl ReadyState {
                 audio_block_frame_offset: 0,
                 requester: "root-audio",
                 note: "",
+                is_realtime: true,
             },
             parent_request: None,
             general_info: info,
@@ -912,6 +920,7 @@ impl ReadyState {
                 audio_block_frame_offset: 0,
                 requester: "root-midi",
                 note: "",
+                is_realtime: true,
             },
             parent_request: None,
             general_info: info,
@@ -1492,7 +1501,7 @@ impl RecordingState {
     ) -> ReadyState {
         let outcome = supplier_chain
             .recorder_mut()
-            .commit_recording(start_and_end_bar, timeline)
+            .commit_recording(timeline)
             .unwrap();
         // Calculate section boundaries
         // Set section boundaries for perfect timing.

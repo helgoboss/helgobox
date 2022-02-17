@@ -167,6 +167,7 @@ pub struct SupplyRequestInfo {
     pub requester: &'static str,
     /// An optional note.
     pub note: &'static str,
+    pub is_realtime: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -357,11 +358,13 @@ fn supply_source_material(
                 proportion_skipped,
             );
             dest_buffer.slice_mut(..num_skipped_frames_in_dest).clear();
-            print_distance_from_beat_start_at(
-                request,
-                num_skipped_frames_in_dest,
-                "audio, start_frame < 0",
-            );
+            if request.info.is_realtime {
+                print_distance_from_beat_start_at(
+                    request,
+                    num_skipped_frames_in_dest,
+                    "audio, start_frame < 0",
+                );
+            }
             let mut shifted_dest_buffer = dest_buffer.slice_mut(num_skipped_frames_in_dest..);
             let req = SourceMaterialRequest {
                 start_frame: 0,
@@ -389,7 +392,7 @@ fn supply_source_material(
             }
         } else {
             // Requested portion is located on or after start of the actual source material.
-            if request.start_frame == 0 {
+            if request.start_frame == 0 && request.info.is_realtime {
                 print_distance_from_beat_start_at(request, 0, "audio, start_frame == 0");
             }
             let req = SourceMaterialRequest {
@@ -414,7 +417,8 @@ fn transfer_samples_from_buffer(buf: AudioBuf, mut req: SourceMaterialRequest) -
         num_remaining_frames_in_source,
         req.dest_buffer.frame_count(),
     );
-    buf.slice(req.start_frame..)
+    let end_frame = req.start_frame + num_frames_written;
+    buf.slice(req.start_frame..end_frame)
         .copy_to(&mut req.dest_buffer.slice_mut(0..num_frames_written));
     SupplyResponse::limited_by_total_frame_count(
         num_frames_written,

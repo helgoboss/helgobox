@@ -1,8 +1,9 @@
 use crate::SlotInstruction::KeepSlot;
 use crate::{
-    Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs,
-    ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, RecorderRequest,
-    SlotInstruction, Timeline, TimelineMoment, WriteAudioRequest, WriteMidiRequest,
+    CacheRequest, Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
+    ClipRecordArgs, ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind,
+    RecorderRequest, SlotInstruction, Timeline, TimelineMoment, WriteAudioRequest,
+    WriteMidiRequest,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -67,7 +68,8 @@ impl Slot {
         behavior: RecordBehavior,
         input: ClipRecordInput,
         project: Option<Project>,
-        request_sender: Sender<RecorderRequest>,
+        recorder_request_sender: Sender<RecorderRequest>,
+        cache_request_sender: Sender<CacheRequest>,
     ) -> Result<(), &'static str> {
         use RecordBehavior::*;
         match behavior {
@@ -83,7 +85,14 @@ impl Slot {
                     detect_downbeat,
                 };
                 match &mut self.clip {
-                    None => self.clip = Some(Clip::from_recording(args, project, request_sender)),
+                    None => {
+                        self.clip = Some(Clip::from_recording(
+                            args,
+                            project,
+                            recorder_request_sender,
+                            cache_request_sender,
+                        ))
+                    }
                     Some(clip) => clip.record(args),
                 }
             }

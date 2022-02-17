@@ -48,6 +48,7 @@ impl<S> Downbeat<S> {
                 audio_block_frame_offset: request.info().audio_block_frame_offset,
                 requester: "downbeat-request",
                 note: "",
+                is_realtime: request.info().is_realtime,
             },
         };
         Some(data)

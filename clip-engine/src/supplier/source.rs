@@ -19,7 +19,7 @@ impl AudioSupplier for OwnedPcmSource {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        supply_source_material(request, dest_buffer, get_frame_rate(self), |input| {
+        supply_source_material(request, dest_buffer, get_source_frame_rate(self), |input| {
             transfer_audio(self, input)
         })
     }
@@ -32,7 +32,7 @@ impl AudioSupplier for OwnedPcmSource {
 
 impl WithFrameRate for OwnedPcmSource {
     fn frame_rate(&self) -> Option<Hz> {
-        Some(get_frame_rate(self))
+        Some(get_source_frame_rate(self))
     }
 }
 
@@ -56,11 +56,11 @@ impl ExactDuration for OwnedPcmSource {
 
 impl ExactFrameCount for OwnedPcmSource {
     fn frame_count(&self) -> usize {
-        convert_duration_in_seconds_to_frames(self.duration(), get_frame_rate(self))
+        convert_duration_in_seconds_to_frames(self.duration(), get_source_frame_rate(self))
     }
 }
 
-fn get_frame_rate(source: &BorrowedPcmSource) -> Hz {
+pub fn get_source_frame_rate(source: &BorrowedPcmSource) -> Hz {
     if pcm_source_is_midi(source) {
         Hz::new(MIDI_FRAME_RATE)
     } else {

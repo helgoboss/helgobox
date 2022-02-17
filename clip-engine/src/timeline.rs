@@ -223,6 +223,7 @@ fn calc_bar_at(
     current_tempo: Bpm,
     current_sample_rate: Hz,
 ) -> f64 {
+    assert!(sample_count >= sample_count_at_last_tempo_change);
     let beats_per_sec = current_tempo.get() / 60.0;
     // TODO-high Respect time signature.
     let bars_per_sec = beats_per_sec / 4.0;
@@ -260,9 +261,14 @@ impl Timeline for SteadyTimeline {
     fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
         let sample_rate = self.sample_rate();
         let timeline_frame = convert_position_in_seconds_to_frames(timeline_pos, sample_rate);
+        let sample_count_at_last_tempo_change = self.sample_count_at_last_tempo_change();
+        let sample_count = timeline_frame as u64;
+        if sample_count < sample_count_at_last_tempo_change {
+            panic!("attempt to query next bar from a position in the past");
+        }
         let bar = calc_bar_at(
-            timeline_frame as u64,
-            self.sample_count_at_last_tempo_change(),
+            sample_count,
+            sample_count_at_last_tempo_change,
             self.bar_at_last_tempo_change(),
             self.tempo(),
             sample_rate,

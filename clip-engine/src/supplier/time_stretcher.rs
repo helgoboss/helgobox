@@ -107,7 +107,8 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
                     audio_block_frame_offset: request.info.audio_block_frame_offset
                         + total_num_frames_written,
                     requester: "time-stretcher-audio",
-                    note: "Attention: Using serious time stretching. Analysis results usually have a negative offset (due to input buffering)."
+                    note: "Attention: Using serious time stretching. Analysis results usually have a negative offset (due to input buffering).",
+                    is_realtime: false
                 },
                 parent_request: Some(request),
                 general_info: &request.general_info,
@@ -177,6 +178,7 @@ impl<S: MidiSupplier> MidiSupplier for TimeStretcher<S> {
                 audio_block_frame_offset: request.info.audio_block_frame_offset,
                 requester: "time-stretcher-midi",
                 note: "",
+                is_realtime: false,
             },
             parent_request: Some(request),
             general_info: request.general_info,

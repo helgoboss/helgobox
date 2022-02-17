@@ -165,6 +165,7 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
                     audio_block_frame_offset: request.info().audio_block_frame_offset,
                     requester: "section-request",
                     note: "",
+                    is_realtime: request.info().is_realtime,
                 },
                 num_frames_to_be_written,
             },

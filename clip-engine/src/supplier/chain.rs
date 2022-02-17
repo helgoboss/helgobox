@@ -1,7 +1,7 @@
 use crate::supplier::{AdHocFader, Looper};
 use crate::{
-    ClipContent, ClipInfo, Downbeat, ExactDuration, ExactFrameCount, Recorder, Resampler, Section,
-    StartEndFader, TimeStretcher, WithFrameRate,
+    Cache, ClipContent, ClipInfo, Downbeat, ExactDuration, ExactFrameCount, Recorder, Resampler,
+    Section, StartEndFader, TimeStretcher, WithFrameRate,
 };
 use reaper_high::Project;
 use reaper_medium::{DurationInSeconds, Hz, OwnedPcmSource};
@@ -15,7 +15,6 @@ type LooperTail = Looper<SectionTail>;
 type SectionTail = Section<StartEndFaderTail>;
 type StartEndFaderTail = StartEndFader<RecorderTail>;
 type RecorderTail = Recorder;
-type SourceTail = OwnedPcmSource;
 
 #[derive(Debug)]
 pub struct SupplierChain {
@@ -43,6 +42,9 @@ impl SupplierChain {
         // Configure downbeat
         let downbeat = chain.downbeat_mut();
         downbeat.set_enabled(true);
+        // Configure recorder
+        let recorder = chain.recorder_mut();
+        recorder.enable_cache();
         chain
     }
 
