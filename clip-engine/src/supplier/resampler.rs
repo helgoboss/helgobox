@@ -3,7 +3,7 @@ use crate::supplier::{
     AudioSupplier, ExactFrameCount, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus,
     WithFrameRate,
 };
-use crate::{adjust_proportionally_positive, MidiSupplier, SupplyMidiRequest, SupplyRequestInfo};
+use crate::{MidiSupplier, SupplyMidiRequest, SupplyRequestInfo};
 use reaper_high::Reaper;
 use reaper_low::raw::REAPER_Resample_Interface;
 use reaper_medium::{BorrowedMidiEventList, Hz, OwnedReaperResample};

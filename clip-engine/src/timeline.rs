@@ -1,4 +1,6 @@
-use crate::{convert_duration_in_frames_to_seconds, convert_position_in_seconds_to_frames};
+use crate::conversion_util::{
+    convert_duration_in_frames_to_seconds, convert_position_in_seconds_to_frames,
+};
 use atomic_float::AtomicF64;
 use helgoboss_learn::BASE_EPSILON;
 use reaper_high::{Project, Reaper};
@@ -6,6 +8,15 @@ use reaper_medium::{
     Bpm, Hz, MeasureMode, PlayState, PositionInBeats, PositionInSeconds, ProjectContext,
 };
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+
+/// Delivers the timeline to be used for clips.
+pub fn clip_timeline(project: Option<Project>, force_project_timeline: bool) -> impl Timeline {
+    HybridTimeline::new(project, force_project_timeline)
+}
+
+pub fn clip_timeline_cursor_pos(project: Option<Project>) -> PositionInSeconds {
+    clip_timeline(project, false).cursor_pos()
+}
 
 #[derive(Clone, Copy)]
 pub struct TimelineMoment {

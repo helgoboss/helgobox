@@ -1,10 +1,9 @@
 use crate::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use crate::source_util::pcm_source_is_midi;
+use crate::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::supplier::{
-    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    supply_source_material, transfer_samples_from_buffer, AudioSupplier, ExactFrameCount,
-    MidiSupplier, SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
-    WithFrameRate,
+    AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyResponse, WithFrameRate,
 };
 use crate::{get_source_frame_rate, ExactDuration, SupplyRequestInfo};
 use core::cmp;
@@ -163,7 +162,7 @@ impl AudioSupplier for Cache {
             Some(d) => d,
         };
         let buf = d.content.to_buf();
-        supply_source_material(request, dest_buffer, d.sample_rate, |input| {
+        supply_audio_material(request, dest_buffer, d.sample_rate, |input| {
             transfer_samples_from_buffer(buf, input)
         })
     }

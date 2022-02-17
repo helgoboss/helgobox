@@ -1,7 +1,6 @@
 use crate::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::supplier::{
-    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames, midi_util,
-    AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
+    midi_util, AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
     SupplyResponse, SupplyResponseStatus, WithFrameRate,
 };
 use core::cmp;

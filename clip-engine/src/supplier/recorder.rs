@@ -1,12 +1,15 @@
 use crate::buffer::AudioBufMut;
+use crate::conversion_util::{
+    adjust_anti_proportionally_positive, adjust_proportionally_positive,
+    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
+};
 use crate::file_util::get_path_for_new_media_file;
-use crate::supplier::{supply_source_material, transfer_samples_from_buffer, SupplyResponse};
+use crate::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
+use crate::supplier::SupplyResponse;
 use crate::ClipPlayState::Recording;
 use crate::{
-    adjust_anti_proportionally_positive, adjust_proportionally, adjust_proportionally_positive,
-    clip_timeline, convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    AudioBuf, AudioSupplier, Cache, CacheRequest, CacheResponseChannel, ClipContent, ClipInfo,
-    ClipRecordInput, CreateClipContentMode, ExactDuration, ExactFrameCount, MidiSupplier,
+    clip_timeline, AudioBuf, AudioSupplier, Cache, CacheRequest, CacheResponseChannel, ClipContent,
+    ClipInfo, ClipRecordInput, CreateClipContentMode, ExactDuration, ExactFrameCount, MidiSupplier,
     OwnedAudioBuffer, RecordTiming, SourceData, SupplyAudioRequest, SupplyMidiRequest, Timeline,
     WithFrameRate, WithTempo, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
@@ -706,7 +709,7 @@ impl AudioSupplier for Recorder {
                         // We know that the frame rates should be equal because this is audio and we
                         // do resampling in upper layers.
                         println!("Using temporary buffer");
-                        supply_source_material(request, dest_buffer, s.frame_rate, |input| {
+                        supply_audio_material(request, dest_buffer, s.frame_rate, |input| {
                             transfer_samples_from_buffer(s.temporary_audio_buffer.to_buf(), input)
                         });
                         // Under the assumption that the frame rates are equal (which we asserted),

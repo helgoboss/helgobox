@@ -37,13 +37,6 @@ mod tempo_util;
 
 mod file_util;
 
-/// Delivers the timeline to be used for clips.
-pub fn clip_timeline(project: Option<Project>, force_project_timeline: bool) -> impl Timeline {
-    HybridTimeline::new(project, force_project_timeline)
-}
-
-pub fn clip_timeline_cursor_pos(project: Option<Project>) -> PositionInSeconds {
-    clip_timeline(project, false).cursor_pos()
-}
+mod conversion_util;
 
 pub type ClipEngineResult<T> = Result<T, &'static str>;

@@ -2,10 +2,7 @@ use crate::buffer::AudioBufMut;
 use crate::supplier::{
     AudioSupplier, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus, WithFrameRate,
 };
-use crate::{
-    adjust_anti_proportionally_positive, adjust_proportionally_positive, ExactFrameCount,
-    MidiSupplier, SupplyMidiRequest, SupplyRequestInfo,
-};
+use crate::{ExactFrameCount, MidiSupplier, SupplyMidiRequest, SupplyRequestInfo};
 use crossbeam_channel::Receiver;
 use reaper_high::Reaper;
 use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};

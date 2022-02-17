@@ -1,13 +1,16 @@
 use crate::buffer::AudioBufMut;
-use crate::source_util::pcm_source_is_midi;
-use crate::supplier::{
-    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
-    print_distance_from_beat_start_at, supply_source_material, AudioSupplier, ExactDuration,
-    ExactFrameCount, MidiSupplier, SourceMaterialRequest, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyResponse, WithFrameRate,
+use crate::conversion_util::{
+    adjust_proportionally_positive, convert_duration_in_frames_to_seconds,
+    convert_duration_in_seconds_to_frames, convert_position_in_frames_to_seconds,
 };
-use crate::{adjust_proportionally, adjust_proportionally_positive, WithTempo};
+use crate::source_util::pcm_source_is_midi;
+use crate::supplier::audio_util::{supply_audio_material, SourceMaterialRequest};
+use crate::supplier::log_util::print_distance_from_beat_start_at;
+use crate::supplier::{
+    AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyResponse, WithFrameRate,
+};
+use crate::WithTempo;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
     PcmSourceTransfer, PositionInSeconds,
@@ -19,7 +22,7 @@ impl AudioSupplier for OwnedPcmSource {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        supply_source_material(request, dest_buffer, get_source_frame_rate(self), |input| {
+        supply_audio_material(request, dest_buffer, get_source_frame_rate(self), |input| {
             transfer_audio(self, input)
         })
     }
