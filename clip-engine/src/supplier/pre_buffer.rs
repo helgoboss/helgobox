@@ -127,7 +127,7 @@ impl MatchError {
             BlockContainsOnlyPastMaterial => {
                 // TODO-high Experimental. Not sure yet if it's good to discard blocks
                 //  here or to keep them. For now we keep them.
-                false
+                true
             }
         }
     }
@@ -183,8 +183,10 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
             supplier,
             consumer,
             last_args: None,
-            // TODO-high Set to `true`.
-            skip_count_in_phase_material: false,
+            // We know we sit right above the source and this one can't deliver material in the
+            // count-in phase. This is good for performance, especially when crossing the
+            // zero boundary.
+            skip_count_in_phase_material: true,
         }
     }
 
