@@ -5,6 +5,7 @@ use crate::supplier::{
     AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
     SupplyResponse, WithFrameRate,
 };
+use crate::SupplyResponseStatus::PleaseContinue;
 use crate::{
     get_source_frame_rate, ExactDuration, SupplyRequestInfo, SupplyResponseStatus, WithSource,
 };
@@ -20,6 +21,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::BuildHasherDefault;
 use std::iter;
+use std::ops::Range;
 use std::sync::atomic;
 use std::sync::atomic::AtomicUsize;
 use twox_hash::XxHash64;
@@ -32,58 +34,102 @@ pub struct PreBuffer<S> {
     supplier: S,
     consumer: Consumer<PreBufferedBlock>,
     last_args: Option<PreBufferFillArgs>,
+    /// If we know the underlying supplier doesn't deliver count-in material, we should set this
+    /// to `true`. An important optimization that saves supplier queries.
+    skip_count_in_phase_material: bool,
 }
 
 #[derive(Debug)]
 pub struct PreBufferedBlock {
     start_frame: isize,
+    frame_rate: Hz,
     buffer: OwnedAudioBuffer,
     response: SupplyResponse,
 }
 
+struct MatchCriteria {
+    start_frame: isize,
+    channel_count: usize,
+    frame_rate: Hz,
+    /// This is just a wish. We are also satisfied if the block offers less frames.
+    desired_frame_count: usize,
+}
+
 impl PreBufferedBlock {
-    fn new(props: &BlockProps) -> Self {
+    fn new(channel_count: usize) -> Self {
         Self {
             start_frame: 0,
-            buffer: OwnedAudioBuffer::new(props.channel_count, props.frame_count),
+            frame_rate: Default::default(),
+            buffer: OwnedAudioBuffer::new(channel_count, PRE_BUFFERED_BLOCK_LENGTH),
             response: SupplyResponse::default(),
         }
     }
 
-    fn has_props(&self, props: &BlockProps) -> bool {
-        let buf = self.buffer.to_buf();
-        buf.frame_count() == props.frame_count && buf.channel_count() == props.channel_count
-    }
-
-    fn validate(&self, criteria: &PreBufferFillArgs) -> ValidationOutcome {
-        if !self.has_props(&criteria.block_props) {
-            // The block length or channel count is different. That means the block is old and can be discarded.
-            // We know it's old because the preview register always queries using the current block
-            // length and channel count.
-            return ValidationOutcome::Discard;
+    /// Checks whether this block contains at least the given start position and hopefully more.
+    ///
+    /// It returns the range of this block which can be used to fill the
+    fn matches(&self, criteria: &MatchCriteria) -> Result<Range<usize>, MatchError> {
+        let self_buffer = self.buffer.to_buf();
+        if self_buffer.channel_count() != criteria.channel_count {
+            return Err(MatchError::WrongChannelCount);
         }
-        use Ordering::*;
-        match self.start_frame.cmp(&criteria.start_frame) {
-            Less => ValidationOutcome::Discard,
-            Equal => ValidationOutcome::Matches,
-            Greater => ValidationOutcome::Keep,
+        if self.frame_rate != criteria.frame_rate {
+            return Err(MatchError::WrongFrameRate);
         }
+        // At this point we know the channel count is correct.
+        let offset = criteria.start_frame - self.start_frame;
+        if offset < 0 {
+            // Start frame is in the future.
+            let block_end = offset + criteria.desired_frame_count as isize;
+            let err = if block_end < self_buffer.frame_count() as isize {
+                MatchError::BlockContainsFutureMaterial
+            } else {
+                MatchError::BlockContainsOnlyRelevantMaterialButStartFrameIsInFuture
+            };
+            return Err(err);
+        }
+        let offset = offset as usize;
+        // At this point we know the start frame is in the past or spot-on.
+        let num_available_frames = self_buffer.frame_count() as isize - offset as isize;
+        if num_available_frames < 0 {
+            return Err(MatchError::BlockContainsOnlyPastMaterial);
+        }
+        let num_available_frames = num_available_frames as usize;
+        // At this point we know we have usable material.
+        let length = cmp::min(criteria.desired_frame_count, num_available_frames);
+        Ok(offset..offset + length)
     }
 }
 
-#[derive(Debug)]
-enum ValidationOutcome {
-    /// Block matches perfectly.
-    Matches,
-    /// Block can be discarded because it's not relevant anymore.
-    Discard,
-    /// Block might be relevant for subsequent requests.
-    Keep,
+#[derive(Copy, Clone, Debug)]
+enum MatchError {
+    /// Channel count of the pre-buffered block doesn't match the requested channel count.
+    WrongChannelCount,
+    /// Frame rate of the pre-buffered block doesn't match the requested frame rate.
+    WrongFrameRate,
+    /// Start frame of the pre-buffered block is in the future but all of its material would
+    /// belong into the requested block.
+    BlockContainsOnlyRelevantMaterialButStartFrameIsInFuture,
+    /// Start frame of the pre-buffered block is in the future and it contains material that
+    /// doesn't belong into the requested block.
+    BlockContainsFutureMaterial,
+    /// All material in the pre-buffered block is in the past.
+    BlockContainsOnlyPastMaterial,
 }
 
-impl ValidationOutcome {
-    fn matches(&self) -> bool {
-        matches!(self, Self::Matches)
+impl MatchError {
+    fn should_consume_block(&self) -> bool {
+        use MatchError::*;
+        match self {
+            WrongChannelCount | WrongFrameRate => true,
+            BlockContainsOnlyRelevantMaterialButStartFrameIsInFuture => true,
+            BlockContainsFutureMaterial => false,
+            BlockContainsOnlyPastMaterial => {
+                // TODO-high Experimental. Not sure yet if it's good to discard blocks
+                //  here or to keep them. For now we keep them.
+                false
+            }
+        }
     }
 }
 
@@ -91,12 +137,6 @@ impl ValidationOutcome {
 pub struct PreBufferFillArgs {
     pub start_frame: isize,
     pub frame_rate: Hz,
-    pub block_props: BlockProps,
-}
-
-#[derive(Clone, PartialEq, Debug)]
-pub struct BlockProps {
-    pub frame_count: usize,
     pub channel_count: usize,
 }
 
@@ -127,9 +167,7 @@ impl PreBufferInstanceId {
 impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
     /// Don't call in real-time thread.
     pub fn new(supplier: S, request_sender: Sender<PreBufferRequest>) -> Self {
-        // At this point, we probably mostly have requests for blocks of 128 frames each
-        // (initiated by the time stretcher). So we pre-buffer 16 * 128 = 2048 frames.
-        // TODO-high We don't necessarily start at zero. It can be negative and overlap zero.
+        // We pre-buffer 16 * 128 = 2048 frames.
         let (producer, consumer) = RingBuffer::new(16);
         let id = PreBufferInstanceId::next();
         let request = PreBufferRequest::RegisterInstance {
@@ -145,6 +183,8 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
             supplier,
             consumer,
             last_args: None,
+            // TODO-high Set to `true`.
+            skip_count_in_phase_material: false,
         }
     }
 
@@ -169,7 +209,8 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         self.enabled = enabled;
     }
 
-    fn recycle(&self, block: PreBufferedBlock) {
+    fn recycle_next_pre_buffered_block(&mut self) {
+        let block = self.consumer.pop().unwrap();
         let request = PreBufferRequest::Recycle(block);
         self.request_sender.try_send(request).unwrap();
     }
@@ -181,40 +222,188 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
+        // Below logic is built upon assumption that in/out frame rates equal and
+        // therefore number of consumed frames == number of written frames.
+        // TODO-high Maybe build in some assertions.
         if !self.enabled {
             return self.supplier.supply_audio(request, dest_buffer);
         }
-        let criteria = PreBufferFillArgs {
-            start_frame: request.start_frame,
-            frame_rate: request.dest_sample_rate,
-            block_props: BlockProps {
-                frame_count: dest_buffer.frame_count(),
-                channel_count: dest_buffer.channel_count(),
-            },
-        };
-        let matching_block = loop {
-            // At first validate the next available block.
-            let outcome = match self.consumer.peek() {
-                Ok(b) => b.validate(&criteria),
-                Err(_) => return self.supplier.supply_audio(request, dest_buffer),
-            };
-            // Use, discard or keep the block.
-            use ValidationOutcome::*;
-            dbg!(&outcome);
-            match outcome {
-                Matches => break self.consumer.pop().unwrap(),
-                Discard => {
-                    // TODO-high Mmh, but this makes the other thread produce more blocks.
-                    let block = self.consumer.pop().unwrap();
-                    self.recycle(block);
-                }
-                Keep => return self.supplier.supply_audio(request, dest_buffer),
+        let requested_channel_count = dest_buffer.channel_count();
+        let mut frame_offset = 0usize;
+        // Return silence until frame 0 reached, if allowed.
+        if self.skip_count_in_phase_material && request.start_frame < 0 {
+            // This is an optimization we *can* (and should) apply only because we know we sit right
+            // above the source, which by definition doesn't have any material in the count-in phase.
+            let num_frames_until_zero = -request.start_frame as usize;
+            let num_frames_to_be_silenced =
+                cmp::min(num_frames_until_zero, dest_buffer.frame_count());
+            dest_buffer.slice_mut(0..num_frames_to_be_silenced).clear();
+            if num_frames_to_be_silenced == dest_buffer.frame_count() {
+                // Pure count-in.
+                return SupplyResponse::please_continue(num_frames_to_be_silenced);
             }
-        };
-        matching_block.buffer.to_buf().copy_to(dest_buffer);
-        let response = matching_block.response;
-        self.recycle(matching_block);
-        response
+            frame_offset = num_frames_to_be_silenced;
+        }
+        // Get material
+        loop {
+            let mut remaining_dest_buffer = dest_buffer.slice_mut(frame_offset..);
+            let criteria = MatchCriteria {
+                start_frame: request.start_frame + frame_offset as isize,
+                channel_count: requested_channel_count,
+                frame_rate: request.dest_sample_rate,
+                desired_frame_count: remaining_dest_buffer.frame_count(),
+            };
+            // Try to fill at least the beginning of the remaining portion of the requested material
+            // with a pre-buffered block.
+            enum Outcome {
+                /// Pre-buffered block matched (completely or partially).
+                Hit {
+                    partial_response: SupplyResponse,
+                    /// If not exhausted, the pre-buffered block still holds future material.
+                    block_exhausted: bool,
+                },
+                /// No pre-buffered block found or match error.
+                Miss { match_error: Option<MatchError> },
+            }
+            let outcome = match self.consumer.peek() {
+                Ok(block) => {
+                    let pre_buf = block.buffer.to_buf();
+                    match block.matches(&criteria) {
+                        // Pre-buffered block available and matches.
+                        Ok(range) => {
+                            assert!(range.end <= pre_buf.frame_count());
+                            // Check if we reached end.
+                            let (clamped_range_end, reached_end) = match block.response.status {
+                                PleaseContinue => {
+                                    // Pre-buffered block doesn't contain end.
+                                    (range.end, false)
+                                }
+                                SupplyResponseStatus::ReachedEnd { num_frames_written } => {
+                                    // Pre-buffered block contains end.
+                                    if range.end < num_frames_written {
+                                        // But requested block is not there yet.
+                                        (range.end, false)
+                                    } else {
+                                        // Requested block reached end.
+                                        (num_frames_written, true)
+                                    }
+                                }
+                            };
+                            // Copy material from pre-buffered block to destination buffer
+                            let range = range.start..clamped_range_end;
+                            let sliced_src_buffer = pre_buf.slice(range.clone());
+                            let mut sliced_dest_buffer =
+                                remaining_dest_buffer.slice_mut(0..range.len());
+                            sliced_src_buffer.copy_to(&mut sliced_dest_buffer);
+                            // Express outcome
+                            Outcome::Hit {
+                                partial_response: SupplyResponse {
+                                    num_frames_consumed: range.len(),
+                                    status: if reached_end {
+                                        ReachedEnd {
+                                            num_frames_written: range.len(),
+                                        }
+                                    } else {
+                                        PleaseContinue
+                                    },
+                                },
+                                block_exhausted: reached_end || range.end == pre_buf.frame_count(),
+                            }
+                        }
+                        // Pre-buffered block available but doesn't match.
+                        Err(e) => Outcome::Miss {
+                            match_error: Some(e),
+                        },
+                    }
+                }
+                // No pre-buffered block available.
+                Err(_) => Outcome::Miss { match_error: None },
+            };
+            // Evaluate outcome
+            let partial_pre_buffer_response = match outcome {
+                // It's a match!
+                Outcome::Hit {
+                    partial_response: partial_response,
+                    block_exhausted,
+                } => {
+                    // Consume block if exhausted.
+                    if block_exhausted {
+                        self.recycle_next_pre_buffered_block();
+                    }
+                    partial_response
+                }
+                // No matching pre-buffered block available.
+                Outcome::Miss { mut match_error } => {
+                    // Keep consuming this block if not relevant and all non-relevant subsequent blocks.
+                    while match_error
+                        .map(|e| e.should_consume_block())
+                        .unwrap_or(false)
+                    {
+                        dbg!(match_error);
+                        self.recycle_next_pre_buffered_block();
+                        match_error = match self.consumer.peek() {
+                            Ok(block) => block.matches(&criteria).err(),
+                            Err(_) => None,
+                        };
+                    }
+                    // Query supplier for the complete remaining portion and return early.
+                    let inner_request = SupplyAudioRequest {
+                        start_frame: criteria.start_frame,
+                        dest_sample_rate: request.dest_sample_rate,
+                        info: SupplyRequestInfo {
+                            audio_block_frame_offset: request.info.audio_block_frame_offset
+                                + frame_offset,
+                            requester: "pre-buffer",
+                            note: "",
+                            is_realtime: false,
+                        },
+                        parent_request: Some(request),
+                        general_info: request.general_info,
+                    };
+                    let inner_response = self
+                        .supplier
+                        .supply_audio(&inner_request, &mut remaining_dest_buffer);
+                    use SupplyResponseStatus::*;
+                    let num_frames_consumed = frame_offset + inner_response.num_frames_consumed;
+                    println!("pre-buffer: fallback");
+                    return SupplyResponse {
+                        num_frames_consumed,
+                        status: match inner_response.status {
+                            PleaseContinue => PleaseContinue,
+                            ReachedEnd { .. } => ReachedEnd {
+                                num_frames_written: num_frames_consumed,
+                            },
+                        },
+                    };
+                }
+            };
+            // Advance offset
+            frame_offset += partial_pre_buffer_response.num_frames_consumed;
+            // Return early if end of material reached.
+            use SupplyResponseStatus::*;
+            if partial_pre_buffer_response.status.reached_end() {
+                println!("pre-buffer: COMPLETE end!");
+                return SupplyResponse {
+                    num_frames_consumed: frame_offset,
+                    status: ReachedEnd {
+                        num_frames_written: frame_offset,
+                    },
+                };
+            }
+            // Return if block filled to satisfaction.
+            assert!(frame_offset <= dest_buffer.frame_count());
+            if frame_offset == dest_buffer.frame_count() {
+                // println!(
+                //     "Finished with frame offset = frame count = num_frames_consumed {}",
+                //     frame_offset
+                // );
+                // Satisfied complete block and supplier still has material.
+                return SupplyResponse {
+                    num_frames_consumed: dest_buffer.frame_count(),
+                    status: PleaseContinue,
+                };
+            }
+        }
     }
 
     fn channel_count(&self) -> usize {
@@ -263,7 +452,7 @@ impl<S: WithSource> WithSource for PreBuffer<S> {
 #[derive(Default)]
 struct PreBufferWorker {
     instances: HashMap<PreBufferInstanceId, Instance, BuildHasherDefault<XxHash64>>,
-    spare_blocks: Vec<PreBufferedBlock>,
+    spare_buffers: Vec<OwnedAudioBuffer>,
 }
 
 impl PreBufferWorker {
@@ -292,16 +481,16 @@ impl PreBufferWorker {
     }
 
     pub fn fill_all(&mut self) {
-        let spare_blocks = &mut self.spare_blocks;
-        let mut get_spare_block = |props: &BlockProps| {
-            iter::repeat_with(|| spare_blocks.pop())
-                .take_while(|block| block.is_some())
+        let spare_buffers = &mut self.spare_buffers;
+        let mut get_spare_buffer = |channel_count: usize| {
+            iter::repeat_with(|| spare_buffers.pop())
+                .take_while(|buffer| buffer.is_some())
                 .flatten()
-                .find(|block| block.has_props(props))
-                .unwrap_or_else(|| PreBufferedBlock::new(props))
+                .find(|buffer| buffer.to_buf().channel_count() == channel_count)
+                .unwrap_or_else(|| OwnedAudioBuffer::new(channel_count, PRE_BUFFERED_BLOCK_LENGTH))
         };
         self.instances.retain(|_, instance| {
-            let outcome = instance.fill(&mut get_spare_block);
+            let outcome = instance.fill(&mut get_spare_buffer);
             // Unregister instance if consumer gone.
             !matches!(outcome, Err(FillError::ConsumerGone))
         });
@@ -312,7 +501,7 @@ impl PreBufferWorker {
     }
 
     fn recycle(&mut self, block: PreBufferedBlock) {
-        self.spare_blocks.push(block);
+        self.spare_buffers.push(block.buffer);
     }
 
     fn keep_filling_from(
@@ -327,7 +516,7 @@ impl PreBufferWorker {
         let filling_state = FillingState {
             next_start_frame: args.start_frame,
             required_frame_rate: args.frame_rate,
-            required_block_props: args.block_props,
+            required_channel_count: args.channel_count,
         };
         instance.state = InstanceState::Filling(filling_state);
         Ok(())
@@ -343,7 +532,7 @@ struct Instance {
 impl Instance {
     pub fn fill(
         &mut self,
-        mut get_spare_block: impl FnMut(&BlockProps) -> PreBufferedBlock,
+        mut get_spare_buffer: impl FnMut(usize) -> OwnedAudioBuffer,
     ) -> Result<(), FillError> {
         if self.producer.is_abandoned() {
             return Err(FillError::ConsumerGone);
@@ -356,8 +545,7 @@ impl Instance {
             Initialized => return Err(FillError::NotFilling),
             Filling(s) => s,
         };
-        let mut block = get_spare_block(&state.required_block_props);
-        block.start_frame = state.next_start_frame;
+        let mut buffer = get_spare_buffer(state.required_channel_count);
         let request = SupplyAudioRequest {
             start_frame: state.next_start_frame,
             dest_sample_rate: state.required_frame_rate,
@@ -372,14 +560,19 @@ impl Instance {
         };
         let response = self
             .supplier
-            .supply_audio(&request, &mut block.buffer.to_buf_mut());
+            .supply_audio(&request, &mut buffer.to_buf_mut());
+        let block = PreBufferedBlock {
+            start_frame: state.next_start_frame,
+            frame_rate: state.required_frame_rate,
+            buffer,
+            response,
+        };
         use SupplyResponseStatus::*;
         state.next_start_frame = match response.status {
             PleaseContinue => state.next_start_frame + response.num_frames_consumed as isize,
             ReachedEnd { .. } => 0,
         };
-        block.response = response;
-        dbg!(&block);
+        // dbg!(&block);
         self.producer
             .push(block)
             .expect("ring buffer should not be full");
@@ -401,7 +594,7 @@ enum InstanceState {
 struct FillingState {
     next_start_frame: isize,
     required_frame_rate: Hz,
-    required_block_props: BlockProps,
+    required_channel_count: usize,
 }
 
 pub fn keep_processing_pre_buffer_requests(receiver: Receiver<PreBufferRequest>) {
@@ -426,3 +619,5 @@ pub fn keep_processing_pre_buffer_requests(receiver: Receiver<PreBufferRequest>)
         worker.fill_all();
     }
 }
+
+const PRE_BUFFERED_BLOCK_LENGTH: usize = 128;

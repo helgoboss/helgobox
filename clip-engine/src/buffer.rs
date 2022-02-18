@@ -206,6 +206,11 @@ impl<T: AsRef<[f64]> + AsMut<[f64]>> AbstractAudioBuf<T> {
         }
     }
 
+    /// Fills the buffer with zero samples.
+    ///
+    /// This is not always necessary, it depends on the situation. The preview register pre-zeroes
+    /// buffers but the time stretcher and resampler doesn't, which results in beeps if we don't
+    /// clear it.
     pub fn clear(&mut self) {
         self.data.as_mut().fill(0.0);
     }

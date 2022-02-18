@@ -6,13 +6,12 @@ use crate::conversion_util::{
 use crate::source_util::pcm_source_is_midi;
 use crate::tempo_util::detect_tempo;
 use crate::{
-    clip_timeline, AudioBufMut, AudioSupplier, BlockProps, CacheRequest, ClipContent,
-    ClipRecordTiming, CreateClipContentMode, ExactDuration, ExactFrameCount, LegacyClip,
-    LoopBehavior, MidiSupplier, PreBufferFillArgs, PreBufferRequest, PreBufferedBlock, RecordKind,
-    Recorder, RecorderEquipment, RecorderRequest, SupplierChain, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, Timeline, WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest,
-    MIDI_BASE_BPM,
+    clip_timeline, AudioBufMut, AudioSupplier, CacheRequest, ClipContent, ClipRecordTiming,
+    CreateClipContentMode, ExactDuration, ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier,
+    PreBufferFillArgs, PreBufferRequest, PreBufferedBlock, RecordKind, Recorder, RecorderEquipment,
+    RecorderRequest, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, Timeline,
+    WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -707,12 +706,10 @@ impl ReadyState {
         match self.state {
             Stopped => {
                 let fill_args = PreBufferFillArgs {
+                    // TODO-high CONTINUE This is not correct. It must be fixed by the section.
                     start_frame: 0,
                     frame_rate: args.block.sample_rate(),
-                    block_props: BlockProps {
-                        frame_count: args.block.length() as _,
-                        channel_count: args.block.nch() as _,
-                    },
+                    channel_count: args.block.nch() as _,
                 };
                 if !self.source_data.is_midi {
                     supplier_chain

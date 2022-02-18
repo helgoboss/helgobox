@@ -28,8 +28,6 @@ pub fn supply_audio_material(
         //     "ideal end frame {} ({})",
         //     ideal_end_frame, ideal_num_consumed_frames
         // );
-        // We should fille the buffer with zero samples. The preview register pre-zeroes buffers
-        // but the time stretcher and resampler doesn't, which results in beeps.
         dest_buffer.clear();
         // We haven't reached the end of the source, so still tell the caller that we
         // wrote all frames.
