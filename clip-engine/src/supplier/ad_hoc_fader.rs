@@ -3,6 +3,7 @@ use crate::supplier::{
     midi_util, AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
     SupplyResponse, SupplyResponseStatus, WithFrameRate,
 };
+use crate::{PreBufferFillRequest, PreBufferSourceSkill};
 use core::cmp;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
@@ -205,6 +206,12 @@ impl<S: MidiSupplier> MidiSupplier for AdHocFader<S> {
         // With MIDI it's simple. No fade necessary, just a plain "Shut up!".
         midi_util::silence_midi(event_list);
         SupplyResponse::exceeded_end()
+    }
+}
+
+impl<S: PreBufferSourceSkill> PreBufferSourceSkill for AdHocFader<S> {
+    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+        self.supplier.pre_buffer_next_source_block(request);
     }
 }
 

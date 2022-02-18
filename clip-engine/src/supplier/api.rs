@@ -17,6 +17,16 @@ pub trait AudioSupplier: Debug {
     fn channel_count(&self) -> usize;
 }
 
+pub trait PreBufferSourceSkill: Debug {
+    /// Does its best to make sure that the next source block is pre-buffered with the given
+    /// criteria.
+    ///
+    /// Contract:
+    /// - Asynchronous and cheap enough to call from a real-time thread.
+    /// - Even cheaper to call if the last request had equal criteria (idempotence).
+    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest);
+}
+
 pub trait MidiSupplier: Debug {
     /// Writes a portion of MIDI material into the given destination buffer so that it completely
     /// fills that buffer.
@@ -136,6 +146,13 @@ pub struct SupplyRequestInfo {
     /// An optional note.
     pub note: &'static str,
     pub is_realtime: bool,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct PreBufferFillRequest {
+    pub start_frame: isize,
+    pub frame_rate: Hz,
+    pub channel_count: usize,
 }
 
 #[derive(Clone, Debug)]

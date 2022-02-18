@@ -8,10 +8,11 @@ use crate::tempo_util::detect_tempo;
 use crate::{
     clip_timeline, AudioBufMut, AudioSupplier, CacheRequest, ClipContent, ClipRecordTiming,
     CreateClipContentMode, ExactDuration, ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier,
-    PreBufferFillArgs, PreBufferRequest, PreBufferedBlock, RecordKind, Recorder, RecorderEquipment,
-    RecorderRequest, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, Timeline,
-    WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
+    PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill, PreBufferedBlock, RecordKind,
+    Recorder, RecorderEquipment, RecorderRequest, SupplierChain, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
+    SupplyResponseStatus, Timeline, WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest,
+    MIDI_BASE_BPM,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -705,16 +706,14 @@ impl ReadyState {
         use ReadySubState::*;
         match self.state {
             Stopped => {
-                let fill_args = PreBufferFillArgs {
+                let req = PreBufferFillRequest {
                     // TODO-high CONTINUE This is not correct. It must be fixed by the section.
                     start_frame: 0,
                     frame_rate: args.block.sample_rate(),
                     channel_count: args.block.nch() as _,
                 };
                 if !self.source_data.is_midi {
-                    supplier_chain
-                        .recorder_mut()
-                        .ensure_next_block_is_pre_buffered(fill_args);
+                    supplier_chain.head_mut().pre_buffer_next_source_block(req);
                 }
                 None
             }

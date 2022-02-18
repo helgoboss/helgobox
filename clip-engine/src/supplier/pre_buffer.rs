@@ -7,7 +7,8 @@ use crate::supplier::{
 };
 use crate::SupplyResponseStatus::PleaseContinue;
 use crate::{
-    get_source_frame_rate, ExactDuration, SupplyRequestInfo, SupplyResponseStatus, WithSource,
+    get_source_frame_rate, ExactDuration, PreBufferFillRequest, PreBufferSourceSkill,
+    SupplyRequestInfo, SupplyResponseStatus, WithSource,
 };
 use core::cmp;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
@@ -34,7 +35,7 @@ pub struct PreBuffer<S> {
     request_sender: Sender<PreBufferRequest>,
     supplier: S,
     consumer: Consumer<PreBufferedBlock>,
-    last_args: Option<PreBufferFillArgs>,
+    last_args: Option<PreBufferFillRequest>,
     /// If we know the underlying supplier doesn't deliver count-in material, we should set this
     /// to `true`. An important optimization that saves supplier queries.
     skip_count_in_phase_material: bool,
@@ -134,13 +135,6 @@ impl MatchError {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
-pub struct PreBufferFillArgs {
-    pub start_frame: isize,
-    pub frame_rate: Hz,
-    pub channel_count: usize,
-}
-
 #[derive(Debug)]
 pub enum PreBufferRequest {
     RegisterInstance {
@@ -151,7 +145,7 @@ pub enum PreBufferRequest {
     Recycle(PreBufferedBlock),
     KeepFillingFrom {
         id: PreBufferInstanceId,
-        args: PreBufferFillArgs,
+        args: PreBufferFillRequest,
     },
 }
 
@@ -191,19 +185,12 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         }
     }
 
-    /// Does its best to make sure that the next block in the ring buffer fulfills the given
-    /// criteria.
-    pub fn ensure_next_block_is_pre_buffered(&mut self, args: PreBufferFillArgs) {
-        if let Some(last_args) = self.last_args.as_ref() {
-            if &args == last_args {
-                return;
-            }
-        }
-        self.keep_filling_from(args);
-    }
-
-    fn keep_filling_from(&mut self, args: PreBufferFillArgs) {
+    fn keep_filling_from(&mut self, args: PreBufferFillRequest) {
+        // Not sufficiently thought about what to do if consumer wants to pre-buffer from a negative
+        // start frame. Probably normalization to 0 because we know we sit on the source. Let's see.
+        debug_assert!(args.start_frame >= 0);
         self.last_args = Some(args.clone());
+        dbg!(&args);
         let request = PreBufferRequest::KeepFillingFrom { id: self.id, args };
         self.request_sender.try_send(request).unwrap();
     }
@@ -216,6 +203,24 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         let block = self.consumer.pop().unwrap();
         let request = PreBufferRequest::Recycle(block);
         self.request_sender.try_send(request).unwrap();
+    }
+}
+
+impl<S: AudioSupplier + Clone + Send + 'static> PreBufferSourceSkill for PreBuffer<S> {
+    fn pre_buffer_next_source_block(&mut self, args: PreBufferFillRequest) {
+        if let Some(last_args) = self.last_args.as_ref() {
+            if &args == last_args {
+                return;
+            }
+        }
+        self.keep_filling_from(args);
+        // TODO-high This would only make sure the block is actually available for the next
+        //  supply_audio call if the supply_audio call consumes all non-matching block up until
+        //  that one - which it doesn't at the moment. We don't do it because the pre-buffered
+        //  blocks might contain material that's relevant for the next, 2nd-next etc. request.
+        //  But let's see how that turns out in practice. We could use slots() and read_chunk()
+        //  in supply_audio() to look ahead (further than just the first available block) and check
+        //  if one of the next ones contains the desired material.
     }
 }
 
@@ -513,7 +518,7 @@ impl PreBufferWorker {
     fn keep_filling_from(
         &mut self,
         id: PreBufferInstanceId,
-        args: PreBufferFillArgs,
+        args: PreBufferFillRequest,
     ) -> Result<(), &'static str> {
         let instance = self
             .instances
@@ -576,6 +581,7 @@ impl Instance {
         use SupplyResponseStatus::*;
         state.next_start_frame = match response.status {
             PleaseContinue => state.next_start_frame + response.num_frames_consumed as isize,
+            // Starting over pre-buffering the start is a good default because we do looping mostly.
             ReachedEnd { .. } => 0,
         };
         // dbg!(&block);

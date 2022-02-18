@@ -3,7 +3,10 @@ use crate::supplier::{
     AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
     SupplyResponse, WithFrameRate,
 };
-use crate::{clip_timeline, SupplyRequest, SupplyRequestInfo, SupplyResponseStatus};
+use crate::{
+    clip_timeline, PreBufferFillRequest, PreBufferSourceSkill, SupplyRequest, SupplyRequestInfo,
+    SupplyResponseStatus,
+};
 use core::cmp;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
@@ -145,6 +148,13 @@ struct RelevantData {
     current_cycle: usize,
 }
 
+impl RelevantData {
+    /// Start from beginning if we encounter a start frame after the end (modulo).
+    fn modulo_start_frame(&self, total_frame_count: usize) -> usize {
+        self.start_frame % total_frame_count
+    }
+}
+
 impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
     fn supply_audio(
         &mut self,
@@ -157,10 +167,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
             }
             Some(d) => d,
         };
-        let start_frame = data.start_frame;
-        let supplier_frame_count = self.supplier.frame_count();
-        // Start from beginning if we encounter a start frame after the end (modulo).
-        let modulo_start_frame = start_frame % supplier_frame_count;
+        let modulo_start_frame = data.modulo_start_frame(self.supplier.frame_count());
         let modulo_request = SupplyAudioRequest {
             start_frame: modulo_start_frame as isize,
             dest_sample_rate: request.dest_sample_rate,
@@ -234,10 +241,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
             }
             Some(d) => d,
         };
-        let start_frame = data.start_frame;
-        let supplier_frame_count = self.supplier.frame_count();
-        // Start from beginning if we encounter a start frame after the end (modulo).
-        let modulo_start_frame = start_frame % supplier_frame_count;
+        let modulo_start_frame = data.modulo_start_frame(self.supplier.frame_count());
         let modulo_request = SupplyMidiRequest {
             start_frame: modulo_start_frame as isize,
             dest_frame_count: request.dest_frame_count,
@@ -290,5 +294,22 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
                 }
             }
         }
+    }
+}
+
+impl<S: PreBufferSourceSkill + ExactFrameCount> PreBufferSourceSkill for Looper<S> {
+    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+        let data = match self.check_relevance(request.start_frame) {
+            None => {
+                return self.supplier.pre_buffer_next_source_block(request);
+            }
+            Some(d) => d,
+        };
+        let modulo_start_frame = data.modulo_start_frame(self.supplier.frame_count());
+        let inner_request = PreBufferFillRequest {
+            start_frame: modulo_start_frame as isize,
+            ..request
+        };
+        self.supplier.pre_buffer_next_source_block(inner_request);
     }
 }

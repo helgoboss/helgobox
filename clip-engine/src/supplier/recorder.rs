@@ -10,9 +10,9 @@ use crate::ClipPlayState::Recording;
 use crate::{
     clip_timeline, AudioBuf, AudioSupplier, Cache, CacheRequest, CacheResponseChannel, ClipContent,
     ClipInfo, ClipRecordInput, CreateClipContentMode, ExactDuration, ExactFrameCount, MidiSupplier,
-    OwnedAudioBuffer, PreBuffer, PreBufferFillArgs, PreBufferRequest, PreBufferedBlock,
-    RecordTiming, SourceData, SupplyAudioRequest, SupplyMidiRequest, Timeline, WithFrameRate,
-    WithSource, WithTempo, MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    OwnedAudioBuffer, PreBuffer, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
+    PreBufferedBlock, RecordTiming, SourceData, SupplyAudioRequest, SupplyMidiRequest, Timeline,
+    WithFrameRate, WithSource, WithTempo, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use helgoboss_midi::ShortMessage;
@@ -292,16 +292,6 @@ impl Recorder {
     pub fn set_pre_buffering_enabled(&mut self, enabled: bool) {
         match self.state.as_mut().unwrap() {
             State::Ready(s) => s.cache.supplier_mut().set_enabled(enabled),
-            State::Recording(_) => {}
-        }
-    }
-
-    pub fn ensure_next_block_is_pre_buffered(&mut self, args: PreBufferFillArgs) {
-        match self.state.as_mut().unwrap() {
-            State::Ready(s) => s
-                .cache
-                .supplier_mut()
-                .ensure_next_block_is_pre_buffered(args),
             State::Recording(_) => {}
         }
     }
@@ -785,6 +775,14 @@ impl MidiSupplier for Recorder {
                 .expect("attempt to play back MIDI without source"),
         };
         cache.supply_midi(request, event_list)
+    }
+}
+impl PreBufferSourceSkill for Recorder {
+    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+        match self.state.as_mut().unwrap() {
+            State::Ready(s) => s.cache.pre_buffer_next_source_block(request),
+            State::Recording(_) => {}
+        }
     }
 }
 

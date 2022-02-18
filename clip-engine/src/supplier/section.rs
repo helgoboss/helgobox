@@ -4,8 +4,9 @@ use crate::conversion_util::{
 use crate::supplier::fade_util::{apply_fade_in, apply_fade_out};
 use crate::supplier::{midi_util, SupplyResponse, SupplyResponseStatus};
 use crate::{
-    AudioBufMut, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, WithFrameRate,
+    AudioBufMut, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
+    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, WithFrameRate,
 };
 use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz};
 use std::cmp;
@@ -300,6 +301,20 @@ impl<S: MidiSupplier + WithFrameRate + ExactFrameCount> MidiSupplier for Section
             midi_util::silence_midi(event_list);
         }
         self.generate_outer_response(inner_response, data.phase_two)
+    }
+}
+
+impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Section<S> {
+    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+        if self.boundary.is_default() {
+            self.supplier.pre_buffer_next_source_block(request);
+            return;
+        }
+        let inner_request = PreBufferFillRequest {
+            start_frame: request.start_frame + self.boundary.start_frame as isize,
+            ..request
+        };
+        self.supplier.pre_buffer_next_source_block(inner_request);
     }
 }
 

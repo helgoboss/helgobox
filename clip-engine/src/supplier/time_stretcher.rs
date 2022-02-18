@@ -2,7 +2,10 @@ use crate::buffer::AudioBufMut;
 use crate::supplier::{
     AudioSupplier, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus, WithFrameRate,
 };
-use crate::{ExactFrameCount, MidiSupplier, SupplyMidiRequest, SupplyRequestInfo};
+use crate::{
+    ExactFrameCount, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest,
+    SupplyRequestInfo,
+};
 use crossbeam_channel::Receiver;
 use reaper_high::Reaper;
 use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};
@@ -67,6 +70,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
             }
             Some(r) => r,
         };
+        debug_assert_eq!(request.dest_sample_rate, source_frame_rate);
         let mut total_num_frames_consumed = 0usize;
         let mut total_num_frames_written = 0usize;
         // I think it makes sense to set both the output and the input sample rate to the sample
@@ -181,6 +185,12 @@ impl<S: MidiSupplier> MidiSupplier for TimeStretcher<S> {
             general_info: request.general_info,
         };
         self.supplier.supply_midi(&request, event_list)
+    }
+}
+
+impl<S: PreBufferSourceSkill> PreBufferSourceSkill for TimeStretcher<S> {
+    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+        self.supplier.pre_buffer_next_source_block(request);
     }
 }
 

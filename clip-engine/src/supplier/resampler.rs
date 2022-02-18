@@ -3,7 +3,9 @@ use crate::supplier::{
     AudioSupplier, ExactFrameCount, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus,
     WithFrameRate,
 };
-use crate::{MidiSupplier, SupplyMidiRequest, SupplyRequestInfo};
+use crate::{
+    MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
+};
 use reaper_high::Reaper;
 use reaper_low::raw::REAPER_Resample_Interface;
 use reaper_medium::{BorrowedMidiEventList, Hz, OwnedReaperResample};
@@ -157,6 +159,24 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {
         return self.supplier.supply_midi(&request, event_list);
+    }
+}
+
+impl<S: PreBufferSourceSkill + WithFrameRate> PreBufferSourceSkill for Resampler<S> {
+    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+        if !self.enabled {
+            self.supplier.pre_buffer_next_source_block(request);
+            return;
+        }
+        let source_frame_rate = match self.supplier.frame_rate() {
+            None => return self.supplier.pre_buffer_next_source_block(request),
+            Some(r) => r,
+        };
+        let inner_request = PreBufferFillRequest {
+            frame_rate: source_frame_rate,
+            ..request
+        };
+        self.supplier.pre_buffer_next_source_block(inner_request);
     }
 }
 

@@ -5,13 +5,17 @@ use crate::supplier::{
     AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
     SupplyResponse, WithFrameRate,
 };
-use crate::{get_source_frame_rate, ExactDuration, SupplyRequestInfo, WithSource};
+use crate::{
+    get_source_frame_rate, ExactDuration, PreBufferFillRequest, PreBufferSourceSkill,
+    SupplyRequestInfo, WithSource,
+};
 use core::cmp;
 use crossbeam_channel::{Receiver, Sender};
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, OwnedPcmSource,
     PcmSourceTransfer,
 };
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct Cache<S> {
@@ -219,5 +223,15 @@ impl<S: WithSource> WithSource for Cache<S> {
 
     fn source_mut(&mut self) -> &mut OwnedPcmSource {
         self.supplier.source_mut()
+    }
+}
+
+impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Cache<S> {
+    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+        if self.cached_data.is_some() {
+            // No need to pre-buffer anything if we have everything cached in-memory anyway.
+            return;
+        }
+        self.supplier.pre_buffer_next_source_block(request);
     }
 }

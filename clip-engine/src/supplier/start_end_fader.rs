@@ -1,8 +1,9 @@
 use crate::supplier::fade_util::{apply_fade_in, apply_fade_out};
 use crate::supplier::{midi_util, SupplyResponse, SupplyResponseStatus};
 use crate::{
-    AudioBufMut, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, WithFrameRate,
+    AudioBufMut, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
+    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, WithFrameRate,
 };
 use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz};
 use std::cmp;
@@ -79,6 +80,12 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for StartEndFader<S> {
             }
         }
         response
+    }
+}
+
+impl<S: PreBufferSourceSkill> PreBufferSourceSkill for StartEndFader<S> {
+    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+        self.supplier.pre_buffer_next_source_block(request);
     }
 }
 
