@@ -218,7 +218,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
     }
 }
 
-impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
+impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -226,7 +226,10 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
     ) -> SupplyResponse {
         // Below logic is built upon assumption that in/out frame rates equal and
         // therefore number of consumed frames == number of written frames.
-        // TODO-high Maybe build in some assertions.
+        debug_assert_eq!(
+            request.dest_sample_rate,
+            self.supplier.frame_rate().unwrap()
+        );
         if !self.enabled {
             return self.supplier.supply_audio(request, dest_buffer);
         }
@@ -273,7 +276,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
                     match block.matches(&criteria) {
                         // Pre-buffered block available and matches.
                         Ok(range) => {
-                            assert!(range.end <= pre_buf.frame_count());
+                            debug_assert!(range.end <= pre_buf.frame_count());
                             // Check if we reached end.
                             let (clamped_range_end, reached_end) = match block.response.status {
                                 PleaseContinue => {
@@ -393,7 +396,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
                 };
             }
             // Return if block filled to satisfaction.
-            assert!(frame_offset <= dest_buffer.frame_count());
+            debug_assert!(frame_offset <= dest_buffer.frame_count());
             if frame_offset == dest_buffer.frame_count() {
                 // println!(
                 //     "Finished with frame offset = frame count = num_frames_consumed {}",

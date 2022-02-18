@@ -234,7 +234,7 @@ fn calc_bar_at(
     current_tempo: Bpm,
     current_sample_rate: Hz,
 ) -> f64 {
-    assert!(sample_count >= sample_count_at_last_tempo_change);
+    debug_assert!(sample_count >= sample_count_at_last_tempo_change);
     let beats_per_sec = current_tempo.get() / 60.0;
     // TODO-high Respect time signature.
     let bars_per_sec = beats_per_sec / 4.0;

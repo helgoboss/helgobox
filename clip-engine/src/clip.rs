@@ -1111,7 +1111,7 @@ impl ReadyState {
         let end_bar = args.start_bar + bar_count as i32;
         let bar_count = end_bar - args.start_bar;
         let end_bar_timeline_pos = args.timeline.pos_of_bar(end_bar);
-        assert!(
+        debug_assert!(
             end_bar_timeline_pos > args.start_bar_timeline_pos,
             "end_bar_timeline_pos {} <= start_bar_timeline_pos {}",
             end_bar_timeline_pos,

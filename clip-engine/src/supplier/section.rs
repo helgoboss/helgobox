@@ -90,7 +90,7 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
             .frame_rate()
             .expect("supplier doesn't have frame rate yet");
         if !is_midi {
-            assert_eq!(source_frame_rate, dest_frame_rate);
+            debug_assert_eq!(source_frame_rate, dest_frame_rate);
         }
         let ideal_num_frames_to_be_consumed = if is_midi {
             convert_duration_in_frames_to_other_frame_rate(

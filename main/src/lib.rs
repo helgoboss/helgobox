@@ -7,6 +7,6 @@ mod application;
 mod domain;
 mod infrastructure;
 
-// #[cfg(debug_assertions)]
-// #[global_allocator]
-// static A: assert_no_alloc::AllocDisabler = assert_no_alloc::AllocDisabler;
+#[cfg(debug_assertions)]
+#[global_allocator]
+static A: assert_no_alloc::AllocDisabler = assert_no_alloc::AllocDisabler;
