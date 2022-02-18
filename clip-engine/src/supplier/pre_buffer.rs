@@ -20,10 +20,11 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::BuildHasherDefault;
-use std::iter;
 use std::ops::Range;
 use std::sync::atomic;
 use std::sync::atomic::AtomicUsize;
+use std::time::Duration;
+use std::{iter, thread};
 use twox_hash::XxHash64;
 
 #[derive(Debug)]
@@ -622,6 +623,8 @@ pub fn keep_processing_pre_buffer_requests(receiver: Receiver<PreBufferRequest>)
         }
         // Then write more audio into ring buffers.
         worker.fill_all();
+        // Don't spin like crazy
+        thread::sleep(Duration::from_millis(1));
     }
 }
 
