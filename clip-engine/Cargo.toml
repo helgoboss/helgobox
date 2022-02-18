@@ -32,3 +32,5 @@ slug = "0.1.4"
 num_enum = "0.5.0"
 # For being able to exclude fields from the derived Debug implementation
 derivative = "2.2.0"
+# For fast non-cryptographic hashing
+twox-hash = "1.6.1"

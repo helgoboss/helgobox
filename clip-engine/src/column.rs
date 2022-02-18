@@ -1,7 +1,7 @@
 use crate::{
     CacheRequest, ClipChangedEvent, ClipRecordTask, ColumnFillSlotArgs, ColumnPlayClipArgs,
     ColumnPollSlotArgs, ColumnSetClipRepeatedArgs, ColumnSource, ColumnStopClipArgs,
-    RecordBehavior, RecordKind, RecorderRequest, SharedColumnSource, Slot,
+    RecordBehavior, RecordKind, RecorderEquipment, RecorderRequest, SharedColumnSource, Slot,
     SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange,
 };
 use crossbeam_channel::Sender;
@@ -84,17 +84,9 @@ impl Column {
         &mut self,
         index: usize,
         behavior: RecordBehavior,
-        recorder_request_sender: Sender<RecorderRequest>,
-        cache_request_sender: Sender<CacheRequest>,
+        equipment: RecorderEquipment,
     ) -> Result<ClipRecordTask, &'static str> {
-        self.with_source_mut(|s| {
-            s.record_clip(
-                index,
-                behavior,
-                recorder_request_sender,
-                cache_request_sender,
-            )
-        })?;
+        self.with_source_mut(|s| s.record_clip(index, behavior, equipment))?;
         let task = ClipRecordTask {
             column_source: self.column_source.clone(),
             slot_index: index,

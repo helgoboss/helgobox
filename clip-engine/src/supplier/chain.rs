@@ -14,6 +14,7 @@ type DownbeatTail = Downbeat<LooperTail>;
 type LooperTail = Looper<SectionTail>;
 type SectionTail = Section<StartEndFaderTail>;
 type StartEndFaderTail = StartEndFader<RecorderTail>;
+// Recorder is hard-coded to sit on top of Cache<PreBuffer<OwnedPcmSource>>.
 type RecorderTail = Recorder;
 
 #[derive(Debug)]
@@ -44,7 +45,8 @@ impl SupplierChain {
         downbeat.set_enabled(true);
         // Configure recorder
         let recorder = chain.recorder_mut();
-        recorder.enable_cache();
+        // recorder.enable_cache();
+        recorder.set_pre_buffering_enabled(true);
         chain
     }
 

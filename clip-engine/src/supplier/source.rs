@@ -10,7 +10,7 @@ use crate::supplier::{
     AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, SupplyAudioRequest,
     SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
-use crate::WithTempo;
+use crate::{WithSource, WithTempo};
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
     PcmSourceTransfer, PositionInSeconds,
@@ -144,6 +144,16 @@ impl WithTempo for OwnedPcmSource {
         } else {
             None
         }
+    }
+}
+
+impl WithSource for OwnedPcmSource {
+    fn source(&self) -> &OwnedPcmSource {
+        self
+    }
+
+    fn source_mut(&mut self) -> &mut OwnedPcmSource {
+        self
     }
 }
 

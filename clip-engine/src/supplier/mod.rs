@@ -4,6 +4,9 @@ pub use source::*;
 mod cache;
 pub use cache::*;
 
+mod pre_buffer;
+pub use pre_buffer::*;
+
 mod looper;
 pub use looper::*;
 

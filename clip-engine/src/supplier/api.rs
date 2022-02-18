@@ -1,7 +1,10 @@
 use crate::AudioBufMut;
-use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds};
+use reaper_medium::{
+    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OwnedPcmSource, PositionInSeconds,
+};
+use std::fmt::Debug;
 
-pub trait AudioSupplier {
+pub trait AudioSupplier: Debug {
     /// Writes a portion of audio material into the given destination buffer so that it completely
     /// fills that buffer.
     fn supply_audio(
@@ -14,7 +17,7 @@ pub trait AudioSupplier {
     fn channel_count(&self) -> usize;
 }
 
-pub trait MidiSupplier {
+pub trait MidiSupplier: Debug {
     /// Writes a portion of MIDI material into the given destination buffer so that it completely
     /// fills that buffer.
     fn supply_midi(
@@ -47,6 +50,12 @@ pub trait WithFrameRate {
 
 pub trait ExactDuration {
     fn duration(&self) -> DurationInSeconds;
+}
+
+pub trait WithSource {
+    fn source(&self) -> &OwnedPcmSource;
+
+    fn source_mut(&mut self) -> &mut OwnedPcmSource;
 }
 
 pub trait SupplyRequest {
@@ -163,7 +172,7 @@ impl<'a> SupplyRequest for SupplyMidiRequest<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct SupplyResponse {
     /// The number of frames that were actually consumed from the source.
     ///
@@ -174,13 +183,21 @@ pub struct SupplyResponse {
     pub status: SupplyResponseStatus,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum SupplyResponseStatus {
     PleaseContinue,
     ReachedEnd {
         /// The number of frames that were actually written to the destination block.
         num_frames_written: usize,
     },
+}
+
+impl Default for SupplyResponseStatus {
+    fn default() -> Self {
+        Self::ReachedEnd {
+            num_frames_written: 0,
+        }
+    }
 }
 
 impl SupplyResponseStatus {

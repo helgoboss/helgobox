@@ -6,11 +6,13 @@ use crate::conversion_util::{
 use crate::source_util::pcm_source_is_midi;
 use crate::tempo_util::detect_tempo;
 use crate::{
-    clip_timeline, AudioBufMut, AudioSupplier, CacheRequest, ClipContent, ClipRecordTiming,
-    CreateClipContentMode, ExactDuration, ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier,
-    RecordKind, Recorder, RecorderRequest, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, Timeline,
-    WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
+    clip_timeline, AudioBufMut, AudioSupplier, BlockProps, CacheRequest, ClipContent,
+    ClipRecordTiming, CreateClipContentMode, ExactDuration, ExactFrameCount, LegacyClip,
+    LoopBehavior, MidiSupplier, PreBufferFillArgs, PreBufferRequest, PreBufferedBlock, RecordKind,
+    Recorder, RecorderEquipment, RecorderRequest, SupplierChain, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
+    SupplyResponseStatus, Timeline, WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest,
+    MIDI_BASE_BPM,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -20,6 +22,7 @@ use reaper_medium::{
     Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds,
     ReaperVolumeValue,
 };
+use rtrb::Consumer;
 use std::convert::TryInto;
 use std::fs::read;
 use std::path::PathBuf;
@@ -219,8 +222,7 @@ impl Clip {
     pub fn from_source(
         source: OwnedPcmSource,
         project: Option<Project>,
-        recorder_request_sender: Sender<RecorderRequest>,
-        cache_request_sender: Sender<CacheRequest>,
+        recorder_equipment: RecorderEquipment,
     ) -> Self {
         let ready_state = ReadyState {
             state: ReadySubState::Stopped,
@@ -228,11 +230,7 @@ impl Clip {
             repeated: false,
         };
         Self {
-            supplier_chain: SupplierChain::new(Recorder::ready(
-                source,
-                recorder_request_sender,
-                cache_request_sender,
-            )),
+            supplier_chain: SupplierChain::new(Recorder::ready(source, recorder_equipment)),
             state: ClipState::Ready(ready_state),
             project,
             volume: Default::default(),
@@ -242,8 +240,7 @@ impl Clip {
     pub fn from_recording(
         args: ClipRecordArgs,
         project: Option<Project>,
-        recorder_request_sender: Sender<RecorderRequest>,
-        cache_request_sender: Sender<CacheRequest>,
+        equipment: RecorderEquipment,
     ) -> Self {
         let timeline = clip_timeline(project, false);
         let trigger_timeline_pos = timeline.cursor_pos();
@@ -260,8 +257,7 @@ impl Clip {
             project,
             trigger_timeline_pos,
             tempo,
-            recorder_request_sender,
-            cache_request_sender,
+            equipment,
             args.detect_downbeat,
             args.timing,
         );
@@ -709,7 +705,23 @@ impl ReadyState {
     ) -> Option<RecordingState> {
         use ReadySubState::*;
         match self.state {
-            Stopped | Paused(_) => None,
+            Stopped => {
+                let fill_args = PreBufferFillArgs {
+                    start_frame: 0,
+                    frame_rate: args.block.sample_rate(),
+                    block_props: BlockProps {
+                        frame_count: args.block.length() as _,
+                        channel_count: args.block.nch() as _,
+                    },
+                };
+                if !self.source_data.is_midi {
+                    supplier_chain
+                        .recorder_mut()
+                        .ensure_next_block_is_pre_buffered(fill_args);
+                }
+                None
+            }
+            Paused(_) => None,
             Playing(s) => {
                 self.process_playing(s, args, supplier_chain);
                 None

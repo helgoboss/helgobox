@@ -5,7 +5,7 @@ use crate::supplier::{
     AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
     SupplyResponse, WithFrameRate,
 };
-use crate::{get_source_frame_rate, ExactDuration, SupplyRequestInfo};
+use crate::{get_source_frame_rate, ExactDuration, SupplyRequestInfo, WithSource};
 use core::cmp;
 use crossbeam_channel::{Receiver, Sender};
 use reaper_medium::{
@@ -14,11 +14,11 @@ use reaper_medium::{
 };
 
 #[derive(Debug)]
-pub struct Cache {
+pub struct Cache<S> {
     cached_data: Option<CachedData>,
     request_sender: Sender<CacheRequest>,
     response_channel: CacheResponseChannel,
-    source: OwnedPcmSource,
+    supplier: S,
 }
 
 #[derive(Debug)]
@@ -54,9 +54,9 @@ pub struct CachedData {
     content: OwnedAudioBuffer,
 }
 
-impl Cache {
+impl<S: WithSource> Cache<S> {
     pub fn new(
-        source: OwnedPcmSource,
+        supplier: S,
         request_sender: Sender<CacheRequest>,
         response_channel: CacheResponseChannel,
     ) -> Self {
@@ -64,16 +64,16 @@ impl Cache {
             cached_data: None,
             request_sender,
             response_channel,
-            source,
+            supplier,
         }
     }
 
-    pub fn source(&self) -> &OwnedPcmSource {
-        &self.source
+    pub fn supplier(&self) -> &S {
+        &self.supplier
     }
 
-    pub fn source_mut(&mut self) -> &mut OwnedPcmSource {
-        &mut self.source
+    pub fn supplier_mut(&mut self) -> &mut S {
+        &mut self.supplier
     }
 
     /// If not cached already, triggers building the cache asynchronously, caching all supplied
@@ -82,11 +82,11 @@ impl Cache {
     /// Don't call in real-time thread. If this is necessary one day, no problem: Clone the source
     /// in advance.
     pub fn enable(&mut self) {
-        if self.cached_data.is_some() || pcm_source_is_midi(&self.source) {
+        if self.cached_data.is_some() || pcm_source_is_midi(self.supplier.source()) {
             return;
         }
         let request = CacheRequest::CacheSource {
-            source: self.source.clone(),
+            source: self.supplier.source().clone(),
             response_sender: self.response_channel.sender.clone(),
         };
         self.request_sender
@@ -150,7 +150,7 @@ pub fn keep_processing_cache_requests(receiver: Receiver<CacheRequest>) {
     }
 }
 
-impl AudioSupplier for Cache {
+impl<S: AudioSupplier + WithSource> AudioSupplier for Cache<S> {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -158,7 +158,7 @@ impl AudioSupplier for Cache {
     ) -> SupplyResponse {
         self.process_worker_response();
         let d = match &self.cached_data {
-            None => return self.source.supply_audio(request, dest_buffer),
+            None => return self.supplier.supply_audio(request, dest_buffer),
             Some(d) => d,
         };
         let buf = d.content.to_buf();
@@ -171,43 +171,53 @@ impl AudioSupplier for Cache {
         if let Some(d) = &self.cached_data {
             d.content.to_buf().channel_count()
         } else {
-            self.source.channel_count()
+            self.supplier.channel_count()
         }
     }
 }
 
-impl WithFrameRate for Cache {
+impl<S: WithFrameRate> WithFrameRate for Cache<S> {
     fn frame_rate(&self) -> Option<Hz> {
         if let Some(d) = &self.cached_data {
             Some(d.sample_rate)
         } else {
-            self.source.frame_rate()
+            self.supplier.frame_rate()
         }
     }
 }
 
-impl MidiSupplier for Cache {
+impl<S: MidiSupplier> MidiSupplier for Cache<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {
         // MIDI doesn't need caching.
-        self.source.supply_midi(request, event_list)
+        self.supplier.supply_midi(request, event_list)
     }
 }
 
-impl ExactFrameCount for Cache {
+impl<S: ExactFrameCount> ExactFrameCount for Cache<S> {
     fn frame_count(&self) -> usize {
         if let Some(d) = &self.cached_data {
             d.content.to_buf().frame_count()
         } else {
-            self.source.frame_count()
+            self.supplier.frame_count()
         }
     }
 }
-impl ExactDuration for Cache {
+impl<S: ExactDuration> ExactDuration for Cache<S> {
     fn duration(&self) -> DurationInSeconds {
-        self.source.duration()
+        self.supplier.duration()
+    }
+}
+
+impl<S: WithSource> WithSource for Cache<S> {
+    fn source(&self) -> &OwnedPcmSource {
+        self.supplier.source()
+    }
+
+    fn source_mut(&mut self) -> &mut OwnedPcmSource {
+        self.supplier.source_mut()
     }
 }

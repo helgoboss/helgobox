@@ -10,8 +10,9 @@ use crate::ClipPlayState::Recording;
 use crate::{
     clip_timeline, AudioBuf, AudioSupplier, Cache, CacheRequest, CacheResponseChannel, ClipContent,
     ClipInfo, ClipRecordInput, CreateClipContentMode, ExactDuration, ExactFrameCount, MidiSupplier,
-    OwnedAudioBuffer, RecordTiming, SourceData, SupplyAudioRequest, SupplyMidiRequest, Timeline,
-    WithFrameRate, WithTempo, MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    OwnedAudioBuffer, PreBuffer, PreBufferFillArgs, PreBufferRequest, PreBufferedBlock,
+    RecordTiming, SourceData, SupplyAudioRequest, SupplyMidiRequest, Timeline, WithFrameRate,
+    WithSource, WithTempo, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use helgoboss_midi::ShortMessage;
@@ -24,11 +25,14 @@ use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, MidiImportBehavior, OwnedPcmSink,
     OwnedPcmSource, PcmSource, PositionInSeconds, ReaperString,
 };
+use rtrb::Consumer;
 use std::convert::TryInto;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut, NonNull};
 use std::{cmp, mem};
+
+type RecorderCache = Cache<PreBuffer<OwnedPcmSource>>;
 
 #[derive(Debug)]
 pub struct Recorder {
@@ -36,6 +40,7 @@ pub struct Recorder {
     request_sender: Sender<RecorderRequest>,
     response_channel: ResponseChannel,
     cache_request_sender: Sender<CacheRequest>,
+    pre_buffer_request_sender: Sender<PreBufferRequest>,
 }
 
 #[derive(Debug)]
@@ -58,7 +63,7 @@ pub enum RecorderRequest {
     DiscardAudioRecordingFinishingData {
         temporary_audio_buffer: OwnedAudioBuffer,
         file: PathBuf,
-        old_cache: Option<Cache>,
+        old_cache: Option<RecorderCache>,
     },
 }
 
@@ -118,13 +123,13 @@ enum State {
 
 #[derive(Debug)]
 struct ReadyState {
-    cache: Cache,
+    cache: RecorderCache,
 }
 
 #[derive(Debug)]
 struct RecordingState {
     kind_state: KindSpecificRecordingState,
-    old_cache: Option<Cache>,
+    old_cache: Option<RecorderCache>,
     project: Option<Project>,
     detect_downbeat: bool,
     phase: Option<RecordingPhase>,
@@ -212,25 +217,36 @@ pub struct WriteAudioRequest<'a> {
     pub right_buffer: AudioBuf<'a>,
 }
 
+fn create_recorder_cache(
+    source: OwnedPcmSource,
+    cache_request_sender: Sender<CacheRequest>,
+    pre_buffer_request_sender: Sender<PreBufferRequest>,
+) -> RecorderCache {
+    Cache::new(
+        PreBuffer::new(source, pre_buffer_request_sender),
+        cache_request_sender.clone(),
+        CacheResponseChannel::new(),
+    )
+}
+
+#[derive(Clone, Debug)]
+pub struct RecorderEquipment {
+    pub recorder_request_sender: Sender<RecorderRequest>,
+    pub cache_request_sender: Sender<CacheRequest>,
+    pub pre_buffer_request_sender: Sender<PreBufferRequest>,
+}
+
 impl Recorder {
-    /// Don't call in real-time thread.
-    pub fn ready(
-        source: OwnedPcmSource,
-        recorder_request_sender: Sender<RecorderRequest>,
-        cache_request_sender: Sender<CacheRequest>,
-    ) -> Self {
+    /// Okay to call in real-time thread.
+    pub fn ready(source: OwnedPcmSource, equipment: RecorderEquipment) -> Self {
         let ready_state = ReadyState {
-            cache: Cache::new(
+            cache: create_recorder_cache(
                 source,
-                cache_request_sender.clone(),
-                CacheResponseChannel::new(),
+                equipment.cache_request_sender.clone(),
+                equipment.pre_buffer_request_sender.clone(),
             ),
         };
-        Self::new(
-            State::Ready(ready_state),
-            recorder_request_sender,
-            cache_request_sender,
-        )
+        Self::new(State::Ready(ready_state), equipment)
     }
 
     pub fn recording(
@@ -238,8 +254,7 @@ impl Recorder {
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
         tempo: Bpm,
-        recorder_request_sender: Sender<RecorderRequest>,
-        cache_request_sender: Sender<CacheRequest>,
+        equipment: RecorderEquipment,
         detect_downbeat: bool,
         timing: RecordTiming,
     ) -> Self {
@@ -254,22 +269,15 @@ impl Recorder {
             phase: Some(initial_phase),
             cache_response_channel: CacheResponseChannel::new(),
         };
-        Self::new(
-            State::Recording(recording_state),
-            recorder_request_sender,
-            cache_request_sender,
-        )
+        Self::new(State::Recording(recording_state), equipment)
     }
 
-    fn new(
-        state: State,
-        request_sender: Sender<RecorderRequest>,
-        cache_request_sender: Sender<CacheRequest>,
-    ) -> Self {
+    fn new(state: State, equipment: RecorderEquipment) -> Self {
         Self {
             state: Some(state),
-            request_sender,
-            cache_request_sender,
+            request_sender: equipment.recorder_request_sender,
+            cache_request_sender: equipment.cache_request_sender,
+            pre_buffer_request_sender: equipment.pre_buffer_request_sender,
             response_channel: ResponseChannel::new(),
         }
     }
@@ -277,6 +285,23 @@ impl Recorder {
     pub fn enable_cache(&mut self) {
         match self.state.as_mut().unwrap() {
             State::Ready(s) => s.cache.enable(),
+            State::Recording(_) => {}
+        }
+    }
+
+    pub fn set_pre_buffering_enabled(&mut self, enabled: bool) {
+        match self.state.as_mut().unwrap() {
+            State::Ready(s) => s.cache.supplier_mut().set_enabled(enabled),
+            State::Recording(_) => {}
+        }
+    }
+
+    pub fn ensure_next_block_is_pre_buffered(&mut self, args: PreBufferFillArgs) {
+        match self.state.as_mut().unwrap() {
+            State::Ready(s) => s
+                .cache
+                .supplier_mut()
+                .ensure_next_block_is_pre_buffered(args),
             State::Recording(_) => {}
         }
     }
@@ -435,10 +460,10 @@ impl Recorder {
                     Midi(ss) => {
                         let source_duration = ss.new_source.get_length().unwrap();
                         let ready_state = ReadyState {
-                            cache: Cache::new(
+                            cache: create_recorder_cache(
                                 ss.new_source,
                                 self.cache_request_sender.clone(),
-                                s.cache_response_channel,
+                                self.pre_buffer_request_sender.clone(),
                             ),
                         };
                         (Ready(ready_state), source_duration)
@@ -615,10 +640,10 @@ impl Recorder {
                             };
                             let _ = self.request_sender.try_send(request);
                             let ready_state = ReadyState {
-                                cache: Cache::new(
+                                cache: create_recorder_cache(
                                     source,
                                     self.cache_request_sender.clone(),
-                                    cache_response_channel,
+                                    self.pre_buffer_request_sender.clone(),
                                 ),
                             };
                             Ready(ready_state)
@@ -890,6 +915,7 @@ impl EmptyPhase {
             first_play_frame: None,
         };
         if let Some(end_bar) = end_bar {
+            // TODO-high Deal with end schulding when no audio material arrived yet
             RecordingPhase::EndScheduled(open_end_phase.schedule_end(end_bar, todo!()))
         } else {
             RecordingPhase::OpenEnd(open_end_phase)
@@ -934,6 +960,7 @@ impl OpenEndPhase {
             section_start_frame: snapshot.section_start_frame,
             normalized_downbeat_frame: snapshot.normalized_downbeat_frame,
             section_frame_count: None,
+            // TODO-high Deal with immediate recording stop
             effective_duration: todo!(),
         }
     }

@@ -13,6 +13,8 @@ pub fn supply_audio_material(
     source_sample_rate: Hz,
     supply_inner: impl FnOnce(SourceMaterialRequest) -> SupplyResponse,
 ) -> SupplyResponse {
+    // TODO-high I think we can throw this tempo factor logic away because this is being taken
+    //  care of in upper-layer suppliers (source and dest sample rate must be the same).
     // The lower the destination sample rate in relation to the source sample rate, the
     // higher the tempo.
     let tempo_factor = source_sample_rate.get() / request.dest_sample_rate.get();
