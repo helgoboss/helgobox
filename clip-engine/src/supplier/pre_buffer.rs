@@ -126,11 +126,7 @@ impl MatchError {
             WrongChannelCount | WrongFrameRate => true,
             BlockContainsOnlyRelevantMaterialButStartFrameIsInFuture => true,
             BlockContainsFutureMaterial => false,
-            BlockContainsOnlyPastMaterial => {
-                // TODO-high Experimental. Not sure yet if it's good to discard blocks
-                //  here or to keep them. For now we keep them.
-                true
-            }
+            BlockContainsOnlyPastMaterial => true,
         }
     }
 }
@@ -162,8 +158,7 @@ impl PreBufferInstanceId {
 impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
     /// Don't call in real-time thread.
     pub fn new(supplier: S, request_sender: Sender<PreBufferRequest>) -> Self {
-        // We pre-buffer 16 * 128 = 2048 frames.
-        let (producer, consumer) = RingBuffer::new(16);
+        let (producer, consumer) = RingBuffer::new(RING_BUFFER_BLOCK_COUNT);
         let id = PreBufferInstanceId::next();
         let request = PreBufferRequest::RegisterInstance {
             id,
@@ -208,6 +203,8 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
 
 impl<S: AudioSupplier + Clone + Send + 'static> PreBufferSourceSkill for PreBuffer<S> {
     fn pre_buffer_next_source_block(&mut self, args: PreBufferFillRequest) {
+        // TODO-high Problem: This won't reset to zero if the pre-buffer worker already advanced
+        //  and now should go back!
         if let Some(last_args) = self.last_args.as_ref() {
             if &args == last_args {
                 return;
@@ -276,6 +273,9 @@ impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier fo
                 /// No pre-buffered block found or match error.
                 Miss { match_error: Option<MatchError> },
             }
+            // TODO-high This is not greedy enough. We should fast-forward, popping all non-matching
+            //  blocks. Otherwise we always fall back to supplier query although we could easily
+            //  get what we wish for.
             let outcome = match self.consumer.peek() {
                 Ok(block) => {
                     let pre_buf = block.buffer.to_buf();
@@ -635,3 +635,4 @@ pub fn keep_processing_pre_buffer_requests(receiver: Receiver<PreBufferRequest>)
 }
 
 const PRE_BUFFERED_BLOCK_LENGTH: usize = 128;
+const RING_BUFFER_BLOCK_COUNT: usize = 375;
