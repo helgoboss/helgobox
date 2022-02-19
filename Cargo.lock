@@ -2819,6 +2819,7 @@ dependencies = [
  "atomic_float",
  "crossbeam-channel",
  "derivative",
+ "derive_more",
  "enumflags2",
  "helgoboss-learn",
  "helgoboss-midi",

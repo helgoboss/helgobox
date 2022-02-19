@@ -12,6 +12,7 @@ use crate::{
 };
 use core::cmp;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
+use derive_more::Display;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, OwnedPcmSource,
     PcmSourceTransfer,
@@ -102,13 +103,13 @@ impl PreBufferedBlock {
         let offset = offset as usize;
         // At this point we know the start frame is in the past or spot-on.
         let num_available_frames = self_buffer.frame_count() as isize - offset as isize;
-        if num_available_frames < 0 {
+        if num_available_frames <= 0 {
             return Err(MatchError::BlockContainsOnlyPastMaterial);
         }
         let num_available_frames = num_available_frames as usize;
         // At this point we know we have usable material.
         let length = cmp::min(criteria.desired_frame_count, num_available_frames);
-        Ok(offset..offset + length)
+        Ok(offset..(offset + length))
     }
 
     fn copy_range_to(
@@ -200,7 +201,7 @@ pub enum PreBufferRequest {
     },
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Display)]
 pub struct PreBufferInstanceId(usize);
 
 impl PreBufferInstanceId {
@@ -238,7 +239,6 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         // Not sufficiently thought about what to do if consumer wants to pre-buffer from a negative
         // start frame. Probably normalization to 0 because we know we sit on the source. Let's see.
         debug_assert!(args.start_frame >= 0);
-        dbg!(&args);
         let request = PreBufferRequest::KeepFillingFrom { id: self.id, args };
         self.request_sender.try_send(request).unwrap();
     }
@@ -306,7 +306,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
             .supply_audio(&inner_request, &mut remaining_dest_buffer);
         use SupplyResponseStatus::*;
         let num_frames_consumed = frame_offset + inner_response.num_frames_consumed;
-        println!("pre-buffer: fallback");
+        // println!("pre-buffer: fallback");
         SupplyResponse {
             num_frames_consumed,
             status: match inner_response.status {
@@ -401,7 +401,8 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
                     });
                 match outcome {
                     None => {
-                        // No block matched.
+                        // No block matched. Sad path.
+                        println!("No block matched.");
                         let failure = StepFailure {
                             frame_offset,
                             non_matching_block_count: slots,
@@ -410,6 +411,11 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
                     }
                     Some((i, outcome)) => {
                         // Found a matching block and applied it!
+                        println!(
+                            "Found matching block after searching {} of {} additional slot(s).",
+                            i,
+                            slots - 1
+                        );
                         // At first recycle blocks.
                         let num_blocks_to_be_consumed = if outcome.block_exhausted {
                             // Including the matched one
@@ -516,7 +522,8 @@ impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier fo
                         frame_rate: request.dest_sample_rate,
                         channel_count: dest_buffer.channel_count(),
                     };
-                    self.pre_buffer_internal(fill_request);
+                    // TODO-high
+                    // self.pre_buffer_internal(fill_request);
                     // Second, let's drain all non-matching blocks. Not useful!
                     self.recycle_next_n_blocks(step_failure.non_matching_block_count);
                 }
@@ -628,6 +635,7 @@ impl PreBufferWorker {
         id: PreBufferInstanceId,
         args: PreBufferFillRequest,
     ) -> Result<(), &'static str> {
+        println!("Pre-buffer request for instance {}: {:?}", id, &args);
         let instance = self
             .instances
             .get_mut(&id)
@@ -781,5 +789,23 @@ fn process_pre_buffered_response(
     StepSuccess::ContinueWithFrameOffset(next_frame_offset)
 }
 
-const PRE_BUFFERED_BLOCK_LENGTH: usize = 128;
-const RING_BUFFER_BLOCK_COUNT: usize = 375;
+// Unusable. Misses start at 1x 150 bpm or so.
+// const PRE_BUFFERED_BLOCK_LENGTH: usize = 128;
+// const RING_BUFFER_BLOCK_COUNT: usize = 375;
+
+// Quite stable. Misses start at 2x 960 bpm.
+// Double block count doesn't help.
+// const PRE_BUFFERED_BLOCK_LENGTH: usize = 2048;
+// const RING_BUFFER_BLOCK_COUNT: usize = 4;
+
+// Quite stable. No misses.
+// const PRE_BUFFERED_BLOCK_LENGTH: usize = 4096;
+// const RING_BUFFER_BLOCK_COUNT: usize = 4;
+
+// Quite stable. No misses. THIS IS THE BEST!
+const PRE_BUFFERED_BLOCK_LENGTH: usize = 4096;
+const RING_BUFFER_BLOCK_COUNT: usize = 2;
+
+// Quite stable. Misses start at 3x 960 bpm.
+// const PRE_BUFFERED_BLOCK_LENGTH: usize = 4096;
+// const RING_BUFFER_BLOCK_COUNT: usize = 1;
