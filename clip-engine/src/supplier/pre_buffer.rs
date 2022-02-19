@@ -356,15 +356,10 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         };
         // Try to fill at least the beginning of the remaining portion of the requested material
         // with the next available pre-buffered block.
-        let peek_result = match self.consumer.peek() {
-            Ok(block) => block
-                .try_apply_to(&mut remaining_dest_buffer, &criteria)
-                .map_err(|e| Some(e)),
-            // No pre-buffered block available.
-            Err(_) => Err(None),
-        };
+        let block = self.consumer.peek().map_err(|_| frame_offset)?;
+        let apply_result = block.try_apply_to(&mut remaining_dest_buffer, &criteria);
         // Evaluate peek result
-        match peek_result {
+        match apply_result {
             Ok(apply_outcome) => {
                 // Consume block if exhausted.
                 if apply_outcome.block_exhausted {
@@ -376,7 +371,8 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
                     frame_offset,
                 )
             }
-            Err(mut match_error) => {
+            Err(match_error) => {
+                let mut match_error = Some(match_error);
                 // Keep consuming this block if not relevant and all non-relevant subsequent blocks.
                 while match_error
                     .map(|e| e.should_consume_block())
@@ -389,7 +385,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
                         Err(_) => None,
                     };
                 }
-                return Err(frame_offset);
+                Err(frame_offset)
             }
         }
     }
