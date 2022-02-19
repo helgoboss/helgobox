@@ -282,8 +282,8 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
     fn query_supplier_for_remaining_portion(
         &mut self,
         request: &SupplyAudioRequest,
+        dest_buffer: &mut AudioBufMut,
         frame_offset: usize,
-        remaining_dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
         let inner_request = SupplyAudioRequest {
             start_frame: request.start_frame + frame_offset as isize,
@@ -297,9 +297,10 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
             parent_request: Some(request),
             general_info: request.general_info,
         };
+        let mut remaining_dest_buffer = dest_buffer.slice_mut(frame_offset..);
         let inner_response = self
             .supplier
-            .supply_audio(&inner_request, remaining_dest_buffer);
+            .supply_audio(&inner_request, &mut remaining_dest_buffer);
         use SupplyResponseStatus::*;
         let num_frames_consumed = frame_offset + inner_response.num_frames_consumed;
         println!("pre-buffer: fallback");
@@ -313,6 +314,90 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
             },
         }
     }
+
+    /// A successful result means that the complete request could be satisfied using pre-buffered
+    /// blocks. An error means that some frames are left to be filled. It contains the frame offset.
+    fn use_pre_buffers_as_far_as_possible(
+        &mut self,
+        request: &SupplyAudioRequest,
+        dest_buffer: &mut AudioBufMut,
+        initial_frame_offset: usize,
+    ) -> Result<SupplyResponse, usize> {
+        let mut frame_offset = initial_frame_offset;
+        loop {
+            let outcome = self.step(request, dest_buffer, frame_offset)?;
+            use StepOutcome::*;
+            match outcome {
+                Finished(response) => {
+                    return Ok(response);
+                }
+                ContinueWithFrameOffset(new_offset) => {
+                    frame_offset = new_offset;
+                }
+            }
+        }
+    }
+
+    /// A successful result means that a matching pre-buffered block was found and fulfilled at
+    /// least a part of the request.
+    fn step(
+        &mut self,
+        request: &SupplyAudioRequest,
+        dest_buffer: &mut AudioBufMut,
+        frame_offset: usize,
+    ) -> Result<StepOutcome, usize> {
+        let requested_channel_count = dest_buffer.channel_count();
+        let mut remaining_dest_buffer = dest_buffer.slice_mut(frame_offset..);
+        let criteria = MatchCriteria {
+            start_frame: request.start_frame + frame_offset as isize,
+            channel_count: requested_channel_count,
+            frame_rate: request.dest_sample_rate,
+            desired_frame_count: remaining_dest_buffer.frame_count(),
+        };
+        // Try to fill at least the beginning of the remaining portion of the requested material
+        // with the next available pre-buffered block.
+        let peek_result = match self.consumer.peek() {
+            Ok(block) => block
+                .try_apply_to(&mut remaining_dest_buffer, &criteria)
+                .map_err(|e| Some(e)),
+            // No pre-buffered block available.
+            Err(_) => Err(None),
+        };
+        // Evaluate peek result
+        match peek_result {
+            Ok(apply_outcome) => {
+                // Consume block if exhausted.
+                if apply_outcome.block_exhausted {
+                    self.recycle_next_pre_buffered_block();
+                }
+                process_pre_buffered_response(
+                    dest_buffer,
+                    apply_outcome.partial_response,
+                    frame_offset,
+                )
+            }
+            Err(mut match_error) => {
+                // Keep consuming this block if not relevant and all non-relevant subsequent blocks.
+                while match_error
+                    .map(|e| e.should_consume_block())
+                    .unwrap_or(false)
+                {
+                    dbg!(match_error);
+                    self.recycle_next_pre_buffered_block();
+                    match_error = match self.consumer.peek() {
+                        Ok(block) => block.matches(&criteria).err(),
+                        Err(_) => None,
+                    };
+                }
+                return Err(frame_offset);
+            }
+        }
+    }
+}
+
+enum StepOutcome {
+    Finished(SupplyResponse),
+    ContinueWithFrameOffset(usize),
 }
 
 enum SkipCountInPhaseOutcome {
@@ -364,7 +449,7 @@ impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier fo
         }
         let requested_channel_count = dest_buffer.channel_count();
         // Return silence until frame 0 reached, if allowed.
-        let mut frame_offset = if self.skip_count_in_phase_material {
+        let initial_frame_offset = if self.skip_count_in_phase_material {
             use SkipCountInPhaseOutcome::*;
             match self.skip_count_in_phase(request.start_frame, dest_buffer) {
                 PureCountIn(response) => return response,
@@ -373,83 +458,19 @@ impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier fo
         } else {
             0
         };
-        // Get material
-        loop {
-            let mut remaining_dest_buffer = dest_buffer.slice_mut(frame_offset..);
-            let criteria = MatchCriteria {
-                start_frame: request.start_frame + frame_offset as isize,
-                channel_count: requested_channel_count,
-                frame_rate: request.dest_sample_rate,
-                desired_frame_count: remaining_dest_buffer.frame_count(),
-            };
-            // Try to fill at least the beginning of the remaining portion of the requested material
-            // with a pre-buffered block.
-            // TODO-high This is not greedy enough. We should fast-forward, popping all non-matching
-            //  blocks. Otherwise we always fall back to supplier query although we could easily
-            //  get what we wish for.
-            let peek_result = match self.consumer.peek() {
-                Ok(block) => block
-                    .try_apply_to(&mut remaining_dest_buffer, &criteria)
-                    .map_err(|e| Some(e)),
-                // No pre-buffered block available.
-                Err(_) => Err(None),
-            };
-            // Evaluate outcome
-            let partial_pre_buffer_response = match peek_result {
-                // It's a match!
-                Ok(apply_outcome) => {
-                    // Consume block if exhausted.
-                    if apply_outcome.block_exhausted {
-                        self.recycle_next_pre_buffered_block();
-                    }
-                    apply_outcome.partial_response
-                }
-                // No matching pre-buffered block available.
-                Err(mut match_error) => {
-                    // Keep consuming this block if not relevant and all non-relevant subsequent blocks.
-                    while match_error
-                        .map(|e| e.should_consume_block())
-                        .unwrap_or(false)
-                    {
-                        dbg!(match_error);
-                        self.recycle_next_pre_buffered_block();
-                        match_error = match self.consumer.peek() {
-                            Ok(block) => block.matches(&criteria).err(),
-                            Err(_) => None,
-                        };
-                    }
-                    return self.query_supplier_for_remaining_portion(
-                        request,
-                        frame_offset,
-                        &mut remaining_dest_buffer,
-                    );
-                }
-            };
-            // Advance offset
-            frame_offset += partial_pre_buffer_response.num_frames_consumed;
-            // Return early if end of material reached.
-            use SupplyResponseStatus::*;
-            if partial_pre_buffer_response.status.reached_end() {
-                println!("pre-buffer: COMPLETE end!");
-                return SupplyResponse {
-                    num_frames_consumed: frame_offset,
-                    status: ReachedEnd {
-                        num_frames_written: frame_offset,
-                    },
-                };
-            }
-            // Return if block filled to satisfaction.
-            debug_assert!(frame_offset <= dest_buffer.frame_count());
-            if frame_offset == dest_buffer.frame_count() {
-                // println!(
-                //     "Finished with frame offset = frame count = num_frames_consumed {}",
-                //     frame_offset
-                // );
-                // Satisfied complete block and supplier still has material.
-                return SupplyResponse {
-                    num_frames_consumed: dest_buffer.frame_count(),
-                    status: PleaseContinue,
-                };
+        // Get the material.
+        // - Happy path: The next pre-buffered blocks match and we consume them if fully exhausted.
+        // - Almost happy path: There are some non-matching pre-buffered blocks in the way and we
+        //   need to get rid of them until we finally reach matching blocks again that satisfy our
+        //   request.
+        // - Sad path: Not enough matching pre-buffered blocks are there to satisfy our request.
+        //   When we realize it, we fill up the remaining material by querying the supplier.
+        //   In addition, we send a new pre-buffer request to hopefully can go the happy path next
+        //   time. Also, we consume all blocks because they are useless.
+        match self.use_pre_buffers_as_far_as_possible(request, dest_buffer, initial_frame_offset) {
+            Ok(response) => response,
+            Err(frame_offset) => {
+                self.query_supplier_for_remaining_portion(request, dest_buffer, frame_offset)
             }
         }
     }
@@ -669,6 +690,41 @@ pub fn keep_processing_pre_buffer_requests(receiver: Receiver<PreBufferRequest>)
         // Don't spin like crazy
         thread::sleep(Duration::from_millis(1));
     }
+}
+
+fn process_pre_buffered_response(
+    dest_buffer: &mut AudioBufMut,
+    step_response: SupplyResponse,
+    frame_offset: usize,
+) -> Result<StepOutcome, usize> {
+    use SupplyResponseStatus::*;
+    let next_frame_offset = frame_offset + step_response.num_frames_consumed;
+    // Finish if end of source material reached.
+    if step_response.status.reached_end() {
+        println!("pre-buffer: COMPLETE end!");
+        let finished_response = SupplyResponse {
+            num_frames_consumed: next_frame_offset,
+            status: ReachedEnd {
+                num_frames_written: next_frame_offset,
+            },
+        };
+        return Ok(StepOutcome::Finished(finished_response));
+    }
+    // Finish if block filled to satisfaction.
+    debug_assert!(next_frame_offset <= dest_buffer.frame_count());
+    if next_frame_offset == dest_buffer.frame_count() {
+        // println!(
+        //     "Finished with frame offset = frame count = num_frames_consumed {}",
+        //     frame_offset
+        // );
+        // Satisfied complete block and supplier still has material.
+        let finished_response = SupplyResponse {
+            num_frames_consumed: dest_buffer.frame_count(),
+            status: PleaseContinue,
+        };
+        return Ok(StepOutcome::Finished(finished_response));
+    }
+    Ok(StepOutcome::ContinueWithFrameOffset(next_frame_offset))
 }
 
 const PRE_BUFFERED_BLOCK_LENGTH: usize = 128;
