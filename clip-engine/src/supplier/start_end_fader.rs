@@ -84,8 +84,8 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for StartEndFader<S> {
 }
 
 impl<S: PreBufferSourceSkill> PreBufferSourceSkill for StartEndFader<S> {
-    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
-        self.supplier.pre_buffer_next_source_block(request);
+    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
+        self.supplier.pre_buffer(request);
     }
 }
 

@@ -778,9 +778,9 @@ impl MidiSupplier for Recorder {
     }
 }
 impl PreBufferSourceSkill for Recorder {
-    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         match self.state.as_mut().unwrap() {
-            State::Ready(s) => s.cache.pre_buffer_next_source_block(request),
+            State::Ready(s) => s.cache.pre_buffer(request),
             State::Recording(_) => {}
         }
     }

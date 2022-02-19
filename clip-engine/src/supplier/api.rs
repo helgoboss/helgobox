@@ -21,10 +21,8 @@ pub trait PreBufferSourceSkill: Debug {
     /// Does its best to make sure that the next source block is pre-buffered with the given
     /// criteria.
     ///
-    /// Contract:
-    /// - Asynchronous and cheap enough to call from a real-time thread.
-    /// - Even cheaper to call if the last request had equal criteria (idempotence).
-    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest);
+    /// It must be asynchronous and cheap enough to call from a real-time thread.
+    fn pre_buffer(&mut self, request: PreBufferFillRequest);
 }
 
 pub trait MidiSupplier: Debug {

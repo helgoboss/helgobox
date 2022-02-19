@@ -227,11 +227,11 @@ impl<S: WithSource> WithSource for Cache<S> {
 }
 
 impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Cache<S> {
-    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         if self.cached_data.is_some() {
             // No need to pre-buffer anything if we have everything cached in-memory anyway.
             return;
         }
-        self.supplier.pre_buffer_next_source_block(request);
+        self.supplier.pre_buffer(request);
     }
 }

@@ -305,16 +305,16 @@ impl<S: MidiSupplier + WithFrameRate + ExactFrameCount> MidiSupplier for Section
 }
 
 impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Section<S> {
-    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         if self.boundary.is_default() {
-            self.supplier.pre_buffer_next_source_block(request);
+            self.supplier.pre_buffer(request);
             return;
         }
         let inner_request = PreBufferFillRequest {
             start_frame: request.start_frame + self.boundary.start_frame as isize,
             ..request
         };
-        self.supplier.pre_buffer_next_source_block(inner_request);
+        self.supplier.pre_buffer(inner_request);
     }
 }
 

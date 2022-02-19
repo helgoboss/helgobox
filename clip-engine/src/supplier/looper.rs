@@ -298,10 +298,10 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
 }
 
 impl<S: PreBufferSourceSkill + ExactFrameCount> PreBufferSourceSkill for Looper<S> {
-    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         let data = match self.check_relevance(request.start_frame) {
             None => {
-                return self.supplier.pre_buffer_next_source_block(request);
+                return self.supplier.pre_buffer(request);
             }
             Some(d) => d,
         };
@@ -310,6 +310,6 @@ impl<S: PreBufferSourceSkill + ExactFrameCount> PreBufferSourceSkill for Looper<
             start_frame: modulo_start_frame as isize,
             ..request
         };
-        self.supplier.pre_buffer_next_source_block(inner_request);
+        self.supplier.pre_buffer(inner_request);
     }
 }

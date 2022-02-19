@@ -224,13 +224,15 @@ impl Clip {
         project: Option<Project>,
         recorder_equipment: RecorderEquipment,
     ) -> Self {
-        let ready_state = ReadyState {
+        let mut ready_state = ReadyState {
             state: ReadySubState::Stopped,
             source_data: SourceData::from_source(&source, project),
             repeated: false,
         };
+        let mut supplier_chain = SupplierChain::new(Recorder::ready(source, recorder_equipment));
+        ready_state.pre_buffer(&mut supplier_chain, 0);
         Self {
-            supplier_chain: SupplierChain::new(Recorder::ready(source, recorder_equipment)),
+            supplier_chain,
             state: ClipState::Ready(ready_state),
             project,
             volume: Default::default(),
@@ -705,19 +707,7 @@ impl ReadyState {
     ) -> Option<RecordingState> {
         use ReadySubState::*;
         match self.state {
-            Stopped => {
-                let req = PreBufferFillRequest {
-                    // TODO-high CONTINUE This is not correct. It must be fixed by the section.
-                    start_frame: 0,
-                    frame_rate: args.block.sample_rate(),
-                    channel_count: args.block.nch() as _,
-                };
-                if !self.source_data.is_midi {
-                    supplier_chain.head_mut().pre_buffer_next_source_block(req);
-                }
-                None
-            }
-            Paused(_) => None,
+            Stopped | Paused(_) => None,
             Playing(s) => {
                 self.process_playing(s, args, supplier_chain);
                 None
@@ -849,6 +839,7 @@ impl ReadyState {
             // We have reached the natural or scheduled end. Everything that needed to be
             // played has been played in previous blocks. Audio fade outs have been applied
             // as well, so no need to go to suspending state first. Go right to stop!
+            self.pre_buffer(supplier_chain, 0);
             self.reset_for_play(supplier_chain);
             ReadySubState::Stopped
         };
@@ -1080,13 +1071,27 @@ impl ReadyState {
                     ReadySubState::Paused(s)
                 }
                 Stopped => {
-                    self.reset_for_play(supplier_chain);
+                    self.pre_buffer(supplier_chain, 0);
                     ReadySubState::Stopped
                 }
                 Recording(s) => return Some(s),
             }
         };
         None
+    }
+
+    fn pre_buffer(&mut self, supplier_chain: &mut SupplierChain, next_expected_pos: isize) {
+        if self.source_data.is_midi {
+            return;
+        }
+        let req = PreBufferFillRequest {
+            start_frame: next_expected_pos,
+            // TODO-high These shouldn't be fixed values. If pre-buffering turns out to work nicely,
+            //  we must somehow
+            frame_rate: Hz::new(48000.0),
+            channel_count: 2,
+        };
+        supplier_chain.head_mut().pre_buffer(req);
     }
 
     fn reset_for_play(&mut self, supplier_chain: &mut SupplierChain) {

@@ -108,15 +108,15 @@ impl<S: MidiSupplier> MidiSupplier for Downbeat<S> {
 }
 
 impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Downbeat<S> {
-    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         if !self.enabled || self.downbeat_frame == 0 {
-            return self.supplier.pre_buffer_next_source_block(request);
+            return self.supplier.pre_buffer(request);
         }
         let inner_request = PreBufferFillRequest {
             start_frame: request.start_frame + self.downbeat_frame as isize,
             ..request
         };
-        self.supplier.pre_buffer_next_source_block(inner_request);
+        self.supplier.pre_buffer(inner_request);
     }
 }
 

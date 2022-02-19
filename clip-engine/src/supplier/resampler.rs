@@ -163,20 +163,20 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
 }
 
 impl<S: PreBufferSourceSkill + WithFrameRate> PreBufferSourceSkill for Resampler<S> {
-    fn pre_buffer_next_source_block(&mut self, request: PreBufferFillRequest) {
+    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         if !self.enabled {
-            self.supplier.pre_buffer_next_source_block(request);
+            self.supplier.pre_buffer(request);
             return;
         }
         let source_frame_rate = match self.supplier.frame_rate() {
-            None => return self.supplier.pre_buffer_next_source_block(request),
+            None => return self.supplier.pre_buffer(request),
             Some(r) => r,
         };
         let inner_request = PreBufferFillRequest {
             frame_rate: source_frame_rate,
             ..request
         };
-        self.supplier.pre_buffer_next_source_block(inner_request);
+        self.supplier.pre_buffer(inner_request);
     }
 }
 

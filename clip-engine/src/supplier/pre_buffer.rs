@@ -35,7 +35,6 @@ pub struct PreBuffer<S> {
     request_sender: Sender<PreBufferRequest>,
     supplier: S,
     consumer: Consumer<PreBufferedBlock>,
-    last_args: Option<PreBufferFillRequest>,
     /// If we know the underlying supplier doesn't deliver count-in material, we should set this
     /// to `true`. An important optimization that saves supplier queries.
     skip_count_in_phase_material: bool,
@@ -228,7 +227,6 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
             request_sender,
             supplier,
             consumer,
-            last_args: None,
             // We know we sit right above the source and this one can't deliver material in the
             // count-in phase. This is good for performance, especially when crossing the
             // zero boundary.
@@ -236,11 +234,10 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         }
     }
 
-    fn keep_filling_from(&mut self, args: PreBufferFillRequest) {
+    fn pre_buffer_internal(&mut self, args: PreBufferFillRequest) {
         // Not sufficiently thought about what to do if consumer wants to pre-buffer from a negative
         // start frame. Probably normalization to 0 because we know we sit on the source. Let's see.
         debug_assert!(args.start_frame >= 0);
-        self.last_args = Some(args.clone());
         dbg!(&args);
         let request = PreBufferRequest::KeepFillingFrom { id: self.id, args };
         self.request_sender.try_send(request).unwrap();
@@ -250,8 +247,14 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         self.enabled = enabled;
     }
 
-    fn recycle_next_pre_buffered_block(&mut self) {
-        let block = self.consumer.pop().unwrap();
+    fn recycle_next_n_blocks(&mut self, count: usize) {
+        for block in self.consumer.read_chunk(count).unwrap().into_iter() {
+            let request = PreBufferRequest::Recycle(block);
+            self.request_sender.try_send(request).unwrap();
+        }
+    }
+
+    fn recycle_pre_buffered_block(&mut self, block: PreBufferedBlock) {
         let request = PreBufferRequest::Recycle(block);
         self.request_sender.try_send(request).unwrap();
     }
@@ -322,11 +325,11 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
         initial_frame_offset: usize,
-    ) -> Result<SupplyResponse, usize> {
+    ) -> Result<SupplyResponse, StepFailure> {
         let mut frame_offset = initial_frame_offset;
         loop {
             let outcome = self.step(request, dest_buffer, frame_offset)?;
-            use StepOutcome::*;
+            use StepSuccess::*;
             match outcome {
                 Finished(response) => {
                     return Ok(response);
@@ -345,7 +348,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
         frame_offset: usize,
-    ) -> Result<StepOutcome, usize> {
+    ) -> Result<StepSuccess, StepFailure> {
         let requested_channel_count = dest_buffer.channel_count();
         let mut remaining_dest_buffer = dest_buffer.slice_mut(frame_offset..);
         let criteria = MatchCriteria {
@@ -356,44 +359,89 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         };
         // Try to fill at least the beginning of the remaining portion of the requested material
         // with the next available pre-buffered block.
-        let block = self.consumer.peek().map_err(|_| frame_offset)?;
+        let block = self.consumer.peek().map_err(|_| StepFailure {
+            frame_offset,
+            non_matching_block_count: 0,
+        })?;
         let apply_result = block.try_apply_to(&mut remaining_dest_buffer, &criteria);
         // Evaluate peek result
         match apply_result {
             Ok(apply_outcome) => {
                 // Consume block if exhausted.
                 if apply_outcome.block_exhausted {
-                    self.recycle_next_pre_buffered_block();
+                    let block = self.consumer.pop().unwrap();
+                    self.recycle_pre_buffered_block(block);
                 }
-                process_pre_buffered_response(
+                let success = process_pre_buffered_response(
                     dest_buffer,
                     apply_outcome.partial_response,
                     frame_offset,
-                )
+                );
+                Ok(success)
             }
-            Err(match_error) => {
-                let mut match_error = Some(match_error);
-                // Keep consuming this block if not relevant and all non-relevant subsequent blocks.
-                while match_error
-                    .map(|e| e.should_consume_block())
-                    .unwrap_or(false)
-                {
-                    dbg!(match_error);
-                    self.recycle_next_pre_buffered_block();
-                    match_error = match self.consumer.peek() {
-                        Ok(block) => block.matches(&criteria).err(),
-                        Err(_) => None,
-                    };
+            Err(_) => {
+                // We just left the super happy path.
+                // Let's check not just the next available block but all available blocks.
+                // Don't consume immediately! We might run into the situation that no block matches
+                // and consuming immediately would make the producer produce further probably
+                // unnecessary blocks. We defer consumption until we know what's going on.
+                let slots = self.consumer.slots();
+                let read_chunk = self.consumer.read_chunk(slots).unwrap();
+                let (slice_one, slice_two) = read_chunk.as_slices();
+                let outcome = slice_one
+                    .iter()
+                    .chain(slice_two.iter())
+                    .enumerate()
+                    // We already checked the first block.
+                    // Important to have the skip after the enumerate because then i starts at 1.
+                    .skip(1)
+                    .find_map(|(i, b)| {
+                        let outcome = b.try_apply_to(&mut remaining_dest_buffer, &criteria).ok()?;
+                        Some((i, outcome))
+                    });
+                match outcome {
+                    None => {
+                        // No block matched.
+                        let failure = StepFailure {
+                            frame_offset,
+                            non_matching_block_count: slots,
+                        };
+                        return Err(failure);
+                    }
+                    Some((i, outcome)) => {
+                        // Found a matching block and applied it!
+                        // At first recycle blocks.
+                        let num_blocks_to_be_consumed = if outcome.block_exhausted {
+                            // Including the matched one
+                            i + 1
+                        } else {
+                            // Not including the matched one
+                            i
+                        };
+                        self.recycle_next_n_blocks(num_blocks_to_be_consumed);
+                        let success = process_pre_buffered_response(
+                            dest_buffer,
+                            outcome.partial_response,
+                            frame_offset,
+                        );
+                        Ok(success)
+                    }
                 }
-                Err(frame_offset)
             }
         }
     }
 }
 
-enum StepOutcome {
+enum StepSuccess {
     Finished(SupplyResponse),
     ContinueWithFrameOffset(usize),
+}
+
+struct StepFailure {
+    /// Position in the block until which material was filled so far.
+    frame_offset: usize,
+    /// If this > 0, this means that blocks were available but none of them matched.
+    non_matching_block_count: usize,
 }
 
 enum SkipCountInPhaseOutcome {
@@ -409,22 +457,8 @@ struct ApplyOutcome {
 }
 
 impl<S: AudioSupplier + Clone + Send + 'static> PreBufferSourceSkill for PreBuffer<S> {
-    fn pre_buffer_next_source_block(&mut self, args: PreBufferFillRequest) {
-        // TODO-high Problem: This won't reset to zero if the pre-buffer worker already advanced
-        //  and now should go back!
-        if let Some(last_args) = self.last_args.as_ref() {
-            if &args == last_args {
-                return;
-            }
-        }
-        self.keep_filling_from(args);
-        // TODO-high This would only make sure the block is actually available for the next
-        //  supply_audio call if the supply_audio call consumes all non-matching block up until
-        //  that one - which it doesn't at the moment. We don't do it because the pre-buffered
-        //  blocks might contain material that's relevant for the next, 2nd-next etc. request.
-        //  But let's see how that turns out in practice. We could use slots() and read_chunk()
-        //  in supply_audio() to look ahead (further than just the first available block) and check
-        //  if one of the next ones contains the desired material.
+    fn pre_buffer(&mut self, args: PreBufferFillRequest) {
+        self.pre_buffer_internal(args);
     }
 }
 
@@ -443,7 +477,6 @@ impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier fo
         if !self.enabled {
             return self.supplier.supply_audio(request, dest_buffer);
         }
-        let requested_channel_count = dest_buffer.channel_count();
         // Return silence until frame 0 reached, if allowed.
         let initial_frame_offset = if self.skip_count_in_phase_material {
             use SkipCountInPhaseOutcome::*;
@@ -465,8 +498,29 @@ impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier fo
         //   time. Also, we consume all blocks because they are useless.
         match self.use_pre_buffers_as_far_as_possible(request, dest_buffer, initial_frame_offset) {
             Ok(response) => response,
-            Err(frame_offset) => {
-                self.query_supplier_for_remaining_portion(request, dest_buffer, frame_offset)
+            Err(step_failure) => {
+                let response = self.query_supplier_for_remaining_portion(
+                    request,
+                    dest_buffer,
+                    step_failure.frame_offset,
+                );
+                if step_failure.non_matching_block_count > 0 {
+                    // We found non-matching blocks.
+                    // First, we can assume that the pre-buffer worker somehow is somehow on the
+                    // wrong track. "Recalibrate" it.
+                    let fill_request = PreBufferFillRequest {
+                        start_frame: calculate_next_reasonable_frame(
+                            request.start_frame,
+                            &response,
+                        ),
+                        frame_rate: request.dest_sample_rate,
+                        channel_count: dest_buffer.channel_count(),
+                    };
+                    self.pre_buffer_internal(fill_request);
+                    // Second, let's drain all non-matching blocks. Not useful!
+                    self.recycle_next_n_blocks(step_failure.non_matching_block_count);
+                }
+                response
             }
         }
     }
@@ -632,17 +686,21 @@ impl Instance {
             buffer,
             response,
         };
-        use SupplyResponseStatus::*;
-        state.next_start_frame = match response.status {
-            PleaseContinue => state.next_start_frame + response.num_frames_consumed as isize,
-            // Starting over pre-buffering the start is a good default because we do looping mostly.
-            ReachedEnd { .. } => 0,
-        };
+        state.next_start_frame = calculate_next_reasonable_frame(state.next_start_frame, &response);
         // dbg!(&block);
         self.producer
             .push(block)
             .expect("ring buffer should not be full");
         Ok(())
+    }
+}
+
+fn calculate_next_reasonable_frame(current_frame: isize, response: &SupplyResponse) -> isize {
+    use SupplyResponseStatus::*;
+    match response.status {
+        PleaseContinue => current_frame + response.num_frames_consumed as isize,
+        // Starting over pre-buffering the start is a good default because we do looping mostly.
+        ReachedEnd { .. } => 0,
     }
 }
 
@@ -692,7 +750,7 @@ fn process_pre_buffered_response(
     dest_buffer: &mut AudioBufMut,
     step_response: SupplyResponse,
     frame_offset: usize,
-) -> Result<StepOutcome, usize> {
+) -> StepSuccess {
     use SupplyResponseStatus::*;
     let next_frame_offset = frame_offset + step_response.num_frames_consumed;
     // Finish if end of source material reached.
@@ -704,7 +762,7 @@ fn process_pre_buffered_response(
                 num_frames_written: next_frame_offset,
             },
         };
-        return Ok(StepOutcome::Finished(finished_response));
+        return StepSuccess::Finished(finished_response);
     }
     // Finish if block filled to satisfaction.
     debug_assert!(next_frame_offset <= dest_buffer.frame_count());
@@ -718,9 +776,9 @@ fn process_pre_buffered_response(
             num_frames_consumed: dest_buffer.frame_count(),
             status: PleaseContinue,
         };
-        return Ok(StepOutcome::Finished(finished_response));
+        return StepSuccess::Finished(finished_response);
     }
-    Ok(StepOutcome::ContinueWithFrameOffset(next_frame_offset))
+    StepSuccess::ContinueWithFrameOffset(next_frame_offset)
 }
 
 const PRE_BUFFERED_BLOCK_LENGTH: usize = 128;
