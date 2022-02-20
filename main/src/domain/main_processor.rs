@@ -678,53 +678,50 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let timeline = clip_timeline(self.basics.context.project(), false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
-        for i in 0..CLIP_SLOT_COUNT {
-            for event in instance_state
-                .clip_matrix_mut()
-                .poll_slot_legacy(i, timeline_cursor_pos, timeline_tempo)
-                .into_iter()
-            {
-                let is_position_change = matches!(&event, ClipChangedEvent::ClipPosition(_));
-                let instance_event = InstanceStateChanged::Clip {
-                    slot_index: i,
-                    event,
-                };
-                if is_position_change {
-                    // Position changed. This happens very frequently when a clip is playing.
-                    // Mappings with slot seek targets are in the beat-dependent feedback
-                    // mapping set, not in the milli-dependent one (because we don't want to
-                    // query their feedback value more than once in one main loop cycle).
-                    // So we don't want to iterate over all mappings but just the beat-dependent
-                    // ones.
-                    for compartment in MappingCompartment::enum_iter() {
-                        for mapping_id in
-                            self.collections.beat_dependent_feedback_mappings[compartment].iter()
-                        {
-                            if let Some(m) = self.collections.mappings[compartment].get(mapping_id)
-                            {
-                                self.process_feedback_related_reaper_event_for_mapping(
-                                    m,
-                                    &mut |m, target| {
-                                        m.process_change_event(
-                                            target,
-                                            CompoundChangeEvent::Instance(&instance_event),
-                                            self.basics.control_context(),
-                                        )
-                                    },
-                                );
-                            }
+        for (location, event) in instance_state
+            .clip_matrix_mut()
+            .poll(timeline_tempo)
+            .into_iter()
+        {
+            let is_position_change = matches!(&event, ClipChangedEvent::ClipPosition(_));
+            let instance_event = InstanceStateChanged::Clip {
+                slot_index: location.column,
+                event,
+            };
+            if is_position_change {
+                // Position changed. This happens very frequently when a clip is playing.
+                // Mappings with slot seek targets are in the beat-dependent feedback
+                // mapping set, not in the milli-dependent one (because we don't want to
+                // query their feedback value more than once in one main loop cycle).
+                // So we don't want to iterate over all mappings but just the beat-dependent
+                // ones.
+                for compartment in MappingCompartment::enum_iter() {
+                    for mapping_id in
+                        self.collections.beat_dependent_feedback_mappings[compartment].iter()
+                    {
+                        if let Some(m) = self.collections.mappings[compartment].get(mapping_id) {
+                            self.process_feedback_related_reaper_event_for_mapping(
+                                m,
+                                &mut |m, target| {
+                                    m.process_change_event(
+                                        target,
+                                        CompoundChangeEvent::Instance(&instance_event),
+                                        self.basics.control_context(),
+                                    )
+                                },
+                            );
                         }
                     }
-                } else {
-                    // Other property of clip changed.
-                    self.process_feedback_related_reaper_event(|mapping, target| {
-                        mapping.process_change_event(
-                            target,
-                            CompoundChangeEvent::Instance(&instance_event),
-                            self.basics.control_context(),
-                        )
-                    });
                 }
+            } else {
+                // Other property of clip changed.
+                self.process_feedback_related_reaper_event(|mapping, target| {
+                    mapping.process_change_event(
+                        target,
+                        CompoundChangeEvent::Instance(&instance_event),
+                        self.basics.control_context(),
+                    )
+                });
             }
         }
     }

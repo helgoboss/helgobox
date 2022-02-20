@@ -142,10 +142,7 @@ impl<'a> Target<'a> for ClipSeekTarget {
         let instance_state = context.instance_state.borrow();
         let val = instance_state
             .clip_matrix()
-            .with_slot_legacy(self.slot_index, |slot| {
-                Ok(slot.clip()?.proportional_position())
-            })
-            .ok()??;
+            .proportional_clip_position_legacy(self.slot_index)?;
         Some(AbsoluteValue::Continuous(val))
     }
 

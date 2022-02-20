@@ -27,6 +27,8 @@ use std::convert::TryInto;
 use std::fs::read;
 use std::path::PathBuf;
 use std::ptr::null_mut;
+use std::sync::atomic::{AtomicIsize, Ordering};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct Clip {
@@ -36,6 +38,7 @@ pub struct Clip {
     // TODO-high Not yet implemented. This must also be implemented for MIDI, so we better choose
     //  a more neutral unit.
     volume: ReaperVolumeValue,
+    shared_pos: SharedPos,
 }
 
 // TODO-medium It's a bit strange that this is copied on some state changes that happen within
@@ -169,6 +172,19 @@ struct PausedState {
 //endregion
 type InnerPos = isize;
 
+#[derive(Clone, Debug, Default)]
+pub struct SharedPos(Arc<AtomicIsize>);
+
+impl SharedPos {
+    pub fn get(&self) -> InnerPos {
+        self.0.load(Ordering::Relaxed)
+    }
+
+    pub fn set(&self, pos: isize) {
+        self.0.store(pos, Ordering::Relaxed);
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 enum StateAfterSuspension {
     /// Play was suspended for initiating a retriggering, so the next state will be  
@@ -236,6 +252,7 @@ impl Clip {
             state: ClipState::Ready(ready_state),
             project,
             volume: Default::default(),
+            shared_pos: Default::default(),
         }
     }
 
@@ -268,6 +285,7 @@ impl Clip {
             state: ClipState::Recording(recording_state),
             project,
             volume: Default::default(),
+            shared_pos: Default::default(),
         }
     }
 
@@ -442,6 +460,10 @@ impl Clip {
         ClipChangedEvent::ClipRepeat(self.repeated())
     }
 
+    pub fn shared_pos(&self) -> SharedPos {
+        self.shared_pos.clone()
+    }
+
     pub fn play_state(&self) -> ClipPlayState {
         use ClipState::*;
         match &self.state {
@@ -458,23 +480,21 @@ impl Clip {
         }
     }
 
-    pub fn proportional_position(&self) -> Option<UnitValue> {
-        use ClipState::*;
-        match &self.state {
-            Ready(s) => s.proportional_position(&self.supplier_chain),
-            Recording(_) => None,
-        }
+    pub fn effective_frame_count(&self) -> usize {
+        self.supplier_chain.section_frame_count_in_ready_state()
     }
 
     pub fn process(&mut self, args: &mut ClipProcessArgs<impl Timeline>) {
         use ClipState::*;
-        let next_state = match &mut self.state {
-            Ready(s) => s.process(args, &mut self.supplier_chain).map(Recording),
+        let changed_state = match &mut self.state {
+            Ready(s) => s
+                .process(args, &mut self.supplier_chain, &mut self.shared_pos)
+                .map(Recording),
             Recording(s) => s
                 .process(args, &mut self.supplier_chain, self.project)
                 .map(Ready),
         };
-        if let Some(s) = next_state {
+        if let Some(s) = changed_state {
             self.state = s;
             if matches!(
                 s,
@@ -504,21 +524,6 @@ impl ReadyState {
         let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo);
         let source_pos_in_secs_tempo_adjusted = source_pos_in_secs.get() / final_tempo_factor;
         Some(PositionInSeconds::new(source_pos_in_secs_tempo_adjusted))
-    }
-
-    pub fn proportional_position(&self, supplier_chain: &SupplierChain) -> Option<UnitValue> {
-        let frame = self.frame_within_reaper_source(supplier_chain)?;
-        if frame < 0 {
-            None
-        } else {
-            let frame_count = supplier_chain.section_frame_count_in_ready_state();
-            if frame_count == 0 {
-                Some(UnitValue::MIN)
-            } else {
-                let proportional = UnitValue::new_clamped(frame as f64 / frame_count as f64);
-                Some(proportional)
-            }
-        }
     }
 
     fn frame_within_reaper_source(&self, supplier_chain: &SupplierChain) -> Option<isize> {
@@ -704,16 +709,19 @@ impl ReadyState {
         &mut self,
         args: &mut ClipProcessArgs<impl Timeline>,
         supplier_chain: &mut SupplierChain,
+        shared_pos: &mut SharedPos,
     ) -> Option<RecordingState> {
         use ReadySubState::*;
-        match self.state {
-            Stopped | Paused(_) => None,
+        let (changed_state, pos) = match self.state {
+            Stopped | Paused(_) => return None,
             Playing(s) => {
                 self.process_playing(s, args, supplier_chain);
-                None
+                (None, s.pos.unwrap_or_default())
             }
-            Suspending(s) => self.process_suspending(s, args, supplier_chain),
-        }
+            Suspending(s) => (self.process_suspending(s, args, supplier_chain), s.pos),
+        };
+        shared_pos.set(pos);
+        changed_state
     }
 
     fn process_playing(
@@ -1665,6 +1673,11 @@ impl ClipPlayState {
             ScheduledForStop => UnitValue::new(0.25),
             Recording => UnitValue::new(0.60),
         }
+    }
+
+    pub fn is_advancing(&self) -> bool {
+        use ClipPlayState::*;
+        matches!(self, ScheduledForPlay | Playing | ScheduledForStop)
     }
 }
 

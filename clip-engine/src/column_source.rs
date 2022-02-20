@@ -1,8 +1,8 @@
 use crate::{
-    clip_timeline, CacheRequest, Clip, ClipChangedEvent, ClipPlayArgs, ClipProcessArgs,
-    ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind, RecorderEquipment,
-    RecorderRequest, Slot, SlotPollArgs, SlotProcessTransportChangeArgs, Timeline, TimelineMoment,
-    TransportChange, WriteAudioRequest, WriteMidiRequest,
+    clip_timeline, CacheRequest, Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState,
+    ClipProcessArgs, ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind,
+    RecorderEquipment, RecorderRequest, Slot, SlotPollArgs, SlotProcessTransportChangeArgs,
+    Timeline, TimelineMoment, TransportChange, WriteAudioRequest, WriteMidiRequest,
 };
 use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
@@ -20,6 +20,7 @@ use std::convert::{TryFrom, TryInto};
 use std::error::Error;
 use std::mem::ManuallyDrop;
 use std::ptr;
+use std::sync::atomic::AtomicIsize;
 use std::sync::{Arc, LockResult, Mutex, MutexGuard};
 
 #[derive(Clone, Debug)]
@@ -39,7 +40,7 @@ impl SharedColumnSource {
 }
 
 #[derive(Debug)]
-pub enum ColumnSourceTask {
+pub enum ColumnSourceCommand {
     FillSlot(ColumnFillSlotArgs),
     PlayClip(ColumnPlayClipArgs),
     StopClip(ColumnStopClipArgs),
@@ -56,11 +57,16 @@ pub struct ColumnSource {
     slots: Vec<Slot>,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
-    task_receiver: Receiver<ColumnSourceTask>,
+    command_receiver: Receiver<ColumnSourceCommand>,
+    event_sender: Sender<ColumnSourceEvent>,
 }
 
 impl ColumnSource {
-    pub fn new(project: Option<Project>, task_receiver: Receiver<ColumnSourceTask>) -> Self {
+    pub fn new(
+        project: Option<Project>,
+        command_receiver: Receiver<ColumnSourceCommand>,
+        event_sender: Sender<ColumnSourceEvent>,
+    ) -> Self {
         Self {
             mode: Default::default(),
             // TODO-high We should probably make this higher so we don't need to allocate in the
@@ -70,7 +76,8 @@ impl ColumnSource {
             //  ready.
             slots: Vec::with_capacity(8),
             project,
-            task_receiver,
+            command_receiver,
+            event_sender,
         }
     }
 
@@ -153,11 +160,6 @@ impl ColumnSource {
         get_slot_mut(&mut self.slots, index).set_clip_volume(volume)
     }
 
-    pub fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {
-        let slot = get_slot_mut(&mut self.slots, args.index);
-        slot.poll(args.slot_args)
-    }
-
     fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
         for slot in &mut self.slots {
             slot.process_transport_change(args);
@@ -175,9 +177,9 @@ impl ColumnSource {
         DurationInSeconds::MAX
     }
 
-    fn process_tasks(&mut self) {
-        while let Ok(task) = self.task_receiver.try_recv() {
-            use ColumnSourceTask::*;
+    fn process_commands(&mut self) {
+        while let Ok(task) = self.command_receiver.try_recv() {
+            use ColumnSourceCommand::*;
             match task {
                 FillSlot(args) => {
                     self.fill_slot(args);
@@ -211,7 +213,7 @@ impl ColumnSource {
 
     fn get_samples(&mut self, mut args: GetSamplesArgs) {
         assert_no_alloc(|| {
-            self.process_tasks();
+            self.process_commands();
             // Make sure that in any case, we are only queried once per time, without retries.
             // TODO-medium This mechanism of advancing the position on every call by
             //  the block duration relies on the fact that the preview
@@ -237,7 +239,7 @@ impl ColumnSource {
             let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
             // println!("block sr = {}, block length = {}, block time = {}, timeline cursor pos = {}, timeline cursor frame = {}",
             //          sample_rate, args.block.length(), args.block.time_s(), timeline_cursor_pos, timeline_cursor_frame);
-            for slot in &mut self.slots {
+            for (row, slot) in self.slots.iter_mut().enumerate() {
                 let mut inner_args = ClipProcessArgs {
                     block: args.block,
                     timeline: &timeline,
@@ -245,7 +247,13 @@ impl ColumnSource {
                     timeline_tempo,
                 };
                 // TODO-high Take care of mixing as soon as we implement Free mode.
-                let _ = slot.process(&mut inner_args);
+                if let Ok(Some(changed_play_state)) = slot.process(&mut inner_args) {
+                    let event = ColumnSourceEvent::ClipPlayStateChanged {
+                        index: row,
+                        play_state: changed_play_state,
+                    };
+                    self.event_sender.try_send(event).unwrap();
+                }
             }
         });
         debug_assert_eq!(args.block.samples_out(), args.block.length());
@@ -419,11 +427,6 @@ pub struct ColumnSetClipRepeatedArgs {
     pub repeated: bool,
 }
 
-pub struct ColumnPollSlotArgs {
-    pub index: usize,
-    pub slot_args: SlotPollArgs,
-}
-
 pub struct ColumnWithSlotArgs<'a> {
     pub index: usize,
     pub use_slot: &'a dyn Fn(),
@@ -438,4 +441,12 @@ fn get_slot_mut(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
         slots.resize_with(index + 1, Default::default);
     }
     slots.get_mut(index).unwrap()
+}
+
+#[derive(Clone, Debug)]
+pub enum ColumnSourceEvent {
+    ClipPlayStateChanged {
+        index: usize,
+        play_state: ClipPlayState,
+    },
 }

@@ -128,24 +128,6 @@ impl Slot {
         Ok(self.get_clip_mut()?.set_volume(volume))
     }
 
-    pub fn poll(&mut self, args: SlotPollArgs) -> Option<ClipChangedEvent> {
-        let last_play_state = self.runtime_data.last_play_state;
-        let clip = self.get_clip_mut().ok()?;
-        let play_state = clip.play_state();
-        let next_event = if play_state == last_play_state {
-            // Play state has not changed. The position might or might not have changed. Even if
-            // not, we are already being polled anyway. So just emit it!
-            let prop_pos = clip.proportional_position().unwrap_or(UnitValue::MIN);
-            Some(ClipChangedEvent::ClipPosition(prop_pos))
-        } else {
-            // Play state has changed. Emit this instead of a position change.
-            println!("Clip state changed: {:?}", play_state);
-            Some(ClipChangedEvent::PlayState(play_state))
-        };
-        self.runtime_data.last_play_state = play_state;
-        next_event
-    }
-
     pub fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
         let slot_instruction = {
             let clip = match &mut self.clip {
@@ -230,10 +212,20 @@ impl Slot {
     pub fn process(
         &mut self,
         args: &mut ClipProcessArgs<impl Timeline>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<Option<ClipPlayState>, &'static str> {
         measure_time("slot.process.time", || {
-            self.get_clip_mut()?.process(args);
-            Ok(())
+            let clip = self.get_clip_mut()?;
+            clip.process(args);
+            let play_state = clip.play_state();
+            let last_play_state = self.runtime_data.last_play_state;
+            let changed_play_state = if play_state == last_play_state {
+                None
+            } else {
+                println!("Clip state changed: {:?}", play_state);
+                self.runtime_data.last_play_state = play_state;
+                Some(play_state)
+            };
+            Ok(changed_play_state)
         })
     }
 

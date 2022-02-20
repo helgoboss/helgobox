@@ -1,23 +1,24 @@
 use crate::{
-    CacheRequest, ClipChangedEvent, ClipData, ClipRecordTask, ColumnFillSlotArgs,
-    ColumnPauseClipArgs, ColumnPlayClipArgs, ColumnPollSlotArgs, ColumnSeekClipArgs,
-    ColumnSetClipRepeatedArgs, ColumnSetClipVolumeArgs, ColumnSource, ColumnSourceTask,
+    CacheRequest, ClipChangedEvent, ClipData, ClipPlayState, ClipRecordTask, ColumnFillSlotArgs,
+    ColumnPauseClipArgs, ColumnPlayClipArgs, ColumnSeekClipArgs, ColumnSetClipRepeatedArgs,
+    ColumnSetClipVolumeArgs, ColumnSource, ColumnSourceCommand, ColumnSourceEvent,
     ColumnStopClipArgs, RecordBehavior, RecordKind, RecorderEquipment, RecorderRequest,
-    SharedColumnSource, Slot, SlotProcessTransportChangeArgs, Timeline, TimelineMoment,
+    SharedColumnSource, SharedPos, Slot, SlotProcessTransportChangeArgs, Timeline, TimelineMoment,
     TransportChange,
 };
-use crossbeam_channel::Sender;
+use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use reaper_high::{BorrowedSource, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
-    create_custom_owned_pcm_source, BorrowedPcmSource, CustomPcmSource, FlexibleOwnedPcmSource,
-    MeasureAlignment, OwnedPreviewRegister, PositionInSeconds, ReaperMutex, ReaperMutexGuard,
-    ReaperVolumeValue,
+    create_custom_owned_pcm_source, BorrowedPcmSource, Bpm, CustomPcmSource,
+    FlexibleOwnedPcmSource, MeasureAlignment, OwnedPreviewRegister, PositionInSeconds, ReaperMutex,
+    ReaperMutexGuard, ReaperVolumeValue,
 };
 use std::collections::HashMap;
 use std::ptr::NonNull;
+use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
 
 pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
@@ -27,11 +28,12 @@ pub struct Column {
     track: Option<Track>,
     column_source: SharedColumnSource,
     preview_register: PlayingPreviewRegister,
-    task_sender: Sender<ColumnSourceTask>,
+    command_sender: Sender<ColumnSourceCommand>,
     slots: Vec<SlotDesc>,
+    event_receiver: Receiver<ColumnSourceEvent>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct SlotDesc {
     clip: Option<ClipDesc>,
 }
@@ -40,18 +42,45 @@ struct SlotDesc {
 struct ClipDesc {
     persistent_data: ClipData,
     runtime_data: ClipRuntimeData,
+    derived_data: ClipDerivedData,
 }
 
 #[derive(Clone, Debug)]
 struct ClipRuntimeData {
+    play_state: ClipPlayState,
+    pos: SharedPos,
     // TODO-high Current position in seconds
-// TODO-high Proportional position
-// TODO-high Play state
+    // TODO-high Proportional position
+}
+
+#[derive(Clone, Debug)]
+struct ClipDerivedData {
+    frame_count: usize,
+}
+
+impl ClipRuntimeData {
+    fn pos(&self) -> isize {
+        self.pos.get()
+    }
 }
 
 impl ClipDesc {
     // TODO-high type (MIDI, WAVE, ...)
     // TODO-high length
+
+    fn proportional_pos(&self) -> Option<UnitValue> {
+        let pos = self.runtime_data.pos.get();
+        if pos < 0 {
+            return None;
+        }
+        let frame_count = self.derived_data.frame_count;
+        if frame_count == 0 {
+            return None;
+        }
+        let mod_pos = pos as usize % self.derived_data.frame_count;
+        let proportional = UnitValue::new_clamped(mod_pos as f64 / frame_count as f64);
+        Some(proportional)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -62,8 +91,13 @@ struct PlayingPreviewRegister {
 
 impl Column {
     pub fn new(track: Option<Track>) -> Self {
-        let (task_sender, task_receiver) = crossbeam_channel::bounded(500);
-        let source = ColumnSource::new(track.as_ref().map(|t| t.project()), task_receiver);
+        let (command_sender, command_receiver) = crossbeam_channel::bounded(500);
+        let (event_sender, event_receiver) = crossbeam_channel::bounded(500);
+        let source = ColumnSource::new(
+            track.as_ref().map(|t| t.project()),
+            command_receiver,
+            event_sender,
+        );
         let shared_source = SharedColumnSource::new(source);
         Self {
             preview_register: {
@@ -71,17 +105,65 @@ impl Column {
             },
             track,
             column_source: shared_source,
-            task_sender,
+            command_sender,
             slots: vec![],
+            event_receiver,
         }
     }
 
     pub fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
-        self.send_source_task(ColumnSourceTask::FillSlot(args));
+        // TODO-high Implement correctly
+        let clip_desc = ClipDesc {
+            persistent_data: ClipData {
+                volume: Default::default(),
+                repeat: false,
+                content: args.clip.descriptor_legacy().unwrap().content.clone(),
+            },
+            runtime_data: ClipRuntimeData {
+                play_state: Default::default(),
+                pos: args.clip.shared_pos(),
+            },
+            derived_data: ClipDerivedData {
+                // TODO-high We need to update things like the frame count or in future derive
+                //  it from section data!
+                frame_count: args.clip.effective_frame_count(),
+            },
+        };
+        get_slot_mut(&mut self.slots, 0).clip = Some(clip_desc);
+        self.send_source_task(ColumnSourceCommand::FillSlot(args));
     }
 
-    pub fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {
-        self.with_source_mut(|s| s.poll_slot(args))
+    pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<(usize, ClipChangedEvent)> {
+        // Process source events and generate clip change events
+        let mut change_events = vec![];
+        while let Ok(evt) = self.event_receiver.try_recv() {
+            use ColumnSourceEvent::*;
+            let change_event = match evt {
+                ClipPlayStateChanged { index, play_state } => {
+                    get_slot_mut(&mut self.slots, index)
+                        .clip
+                        .as_mut()
+                        .expect("slot not filled")
+                        .runtime_data
+                        .play_state = play_state;
+                    (index, ClipChangedEvent::PlayState(play_state))
+                }
+            };
+            change_events.push(change_event);
+        }
+        // Add position updates
+        let pos_change_events = self.slots.iter().enumerate().filter_map(|(row, slot)| {
+            let clip = slot.clip.as_ref()?;
+            if clip.runtime_data.play_state.is_advancing() {
+                let proportional_pos = clip.proportional_pos().unwrap_or(UnitValue::MIN);
+                let event = ClipChangedEvent::ClipPosition(proportional_pos);
+                Some((row, event))
+            } else {
+                None
+            }
+        });
+        change_events.extend(pos_change_events);
+        change_events
     }
 
     pub fn with_slot<R>(
@@ -93,19 +175,27 @@ impl Column {
     }
 
     pub fn play_clip(&mut self, args: ColumnPlayClipArgs) {
-        self.send_source_task(ColumnSourceTask::PlayClip(args));
+        self.send_source_task(ColumnSourceCommand::PlayClip(args));
     }
 
     pub fn stop_clip(&mut self, args: ColumnStopClipArgs) {
-        self.send_source_task(ColumnSourceTask::StopClip(args));
+        self.send_source_task(ColumnSourceCommand::StopClip(args));
     }
 
     pub fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) {
-        self.send_source_task(ColumnSourceTask::SetClipRepeated(args));
+        self.send_source_task(ColumnSourceCommand::SetClipRepeated(args));
     }
 
     pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
         self.with_source_mut(|s| s.toggle_clip_repeated(index))
+    }
+
+    pub fn proportional_clip_position(&self, row: usize) -> Option<UnitValue> {
+        get_slot(&self.slots, row)
+            .ok()?
+            .clip
+            .as_ref()?
+            .proportional_pos()
     }
 
     pub fn record_clip(
@@ -124,23 +214,23 @@ impl Column {
 
     pub fn pause_clip(&mut self, index: usize) {
         let args = ColumnPauseClipArgs { index };
-        self.send_source_task(ColumnSourceTask::PauseClip(args));
+        self.send_source_task(ColumnSourceCommand::PauseClip(args));
     }
 
     pub fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) {
         let args = ColumnSeekClipArgs { index, desired_pos };
-        self.send_source_task(ColumnSourceTask::SeekClip(args));
+        self.send_source_task(ColumnSourceCommand::SeekClip(args));
     }
 
     pub fn set_clip_volume(&mut self, index: usize, volume: ReaperVolumeValue) {
         let args = ColumnSetClipVolumeArgs { index, volume };
-        self.send_source_task(ColumnSourceTask::SetClipVolume(args));
+        self.send_source_task(ColumnSourceCommand::SetClipVolume(args));
     }
 
     /// This method should be called whenever REAPER's play state changes. It will make the clip
     /// start/stop synchronized with REAPER's transport.
     pub fn process_transport_change(&mut self, args: SlotProcessTransportChangeArgs) {
-        self.send_source_task(ColumnSourceTask::ProcessTransportChange(args));
+        self.send_source_task(ColumnSourceCommand::ProcessTransportChange(args));
     }
 
     fn with_source<R>(&self, f: impl FnOnce(&ColumnSource) -> R) -> R {
@@ -153,8 +243,8 @@ impl Column {
         f(&mut guard)
     }
 
-    fn send_source_task(&self, task: ColumnSourceTask) {
-        self.task_sender.try_send(task).unwrap();
+    fn send_source_task(&self, task: ColumnSourceCommand) {
+        self.command_sender.try_send(task).unwrap();
     }
 }
 
@@ -229,4 +319,15 @@ fn start_playing_preview(
         )
     };
     result.unwrap()
+}
+
+fn get_slot(slots: &Vec<SlotDesc>, index: usize) -> Result<&SlotDesc, &'static str> {
+    slots.get(index).ok_or("slot doesn't exist")
+}
+
+fn get_slot_mut(slots: &mut Vec<SlotDesc>, index: usize) -> &mut SlotDesc {
+    if index >= slots.len() {
+        slots.resize_with(index + 1, Default::default);
+    }
+    slots.get_mut(index).unwrap()
 }

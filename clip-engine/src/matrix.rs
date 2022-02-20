@@ -2,10 +2,10 @@ use crate::{
     clip_timeline, keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, keep_stretching, CacheRequest, Clip, ClipChangedEvent,
     ClipContent, ClipData, ClipPlayArgs, ClipStopArgs, ClipStopBehavior, Column,
-    ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnPollSlotArgs, ColumnSetClipRepeatedArgs,
-    ColumnStopClipArgs, PreBufferRequest, RecordBehavior, RecordTiming, RecorderEquipment,
-    RecorderRequest, SharedColumnSource, Slot, SlotPollArgs, SlotProcessTransportChangeArgs,
-    StretchWorkerRequest, Timeline, TransportChange,
+    ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
+    PreBufferRequest, RecordBehavior, RecordTiming, RecorderEquipment, RecorderRequest,
+    SharedColumnSource, Slot, SlotPollArgs, SlotProcessTransportChangeArgs, StretchWorkerRequest,
+    Timeline, TransportChange,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -168,20 +168,17 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         Ok(())
     }
 
-    /// Detects clips that are finished playing and invokes a stop feedback event if not looped.
-    pub fn poll_slot_legacy(
-        &mut self,
-        slot_index: usize,
-        timeline_cursor_pos: PositionInSeconds,
-        timeline_tempo: Bpm,
-    ) -> Option<ClipChangedEvent> {
-        let args = ColumnPollSlotArgs {
-            index: 0,
-            slot_args: SlotPollArgs { timeline_tempo },
-        };
-        get_column_mut(&mut self.columns, slot_index)
-            .ok()?
-            .poll_slot(args)
+    pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<(ClipLocation, ClipChangedEvent)> {
+        self.columns
+            .iter_mut()
+            .enumerate()
+            .flat_map(|(i, column)| {
+                column
+                    .poll(timeline_tempo)
+                    .into_iter()
+                    .map(move |(row, event)| (ClipLocation::new(i, row), event))
+            })
+            .collect()
     }
 
     pub fn toggle_repeat_legacy(&mut self, slot_index: usize) -> Result<(), &'static str> {
@@ -274,6 +271,12 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
     ) -> Result<(), &'static str> {
         get_column_mut(&mut self.columns, slot_index)?.set_clip_volume(0, volume);
         Ok(())
+    }
+
+    pub fn proportional_clip_position_legacy(&self, slot_index: usize) -> Option<UnitValue> {
+        get_column(&self.columns, slot_index)
+            .ok()?
+            .proportional_clip_position(0)
     }
 
     pub fn fill_slot_with_item_source(
@@ -395,4 +398,15 @@ pub struct QualifiedSlotDescriptor {
     pub index: usize,
     #[serde(flatten)]
     pub descriptor: ClipData,
+}
+
+pub struct ClipLocation {
+    pub column: usize,
+    pub row: usize,
+}
+
+impl ClipLocation {
+    pub fn new(column: usize, row: usize) -> Self {
+        Self { column, row }
+    }
 }
