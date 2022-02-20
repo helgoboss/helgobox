@@ -1,3 +1,5 @@
+mod metrics_util;
+
 mod matrix;
 pub use matrix::*;
 

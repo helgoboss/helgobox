@@ -45,7 +45,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
     additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
     instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
-    #[cfg(feature = "realearn-meter")]
+    #[cfg(feature = "realearn-metrics")]
     meter_middleware: reaper_high::MeterMiddleware,
     main_task_middleware: MainTaskMiddleware,
     future_middleware: FutureMiddleware,
@@ -177,7 +177,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
         instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
         garbage_receiver: crossbeam_channel::Receiver<Garbage>,
-        metrics_enabled: bool,
+        control_surface_metrics_enabled: bool,
     ) -> Self {
         let logger = parent_logger.new(slog::o!("struct" => "RealearnControlSurfaceMiddleware"));
         let mut device_change_detector = DeviceChangeDetector::new();
@@ -193,7 +193,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             server_task_receiver,
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
-            #[cfg(feature = "realearn-meter")]
+            #[cfg(feature = "realearn-metrics")]
             meter_middleware: reaper_high::MeterMiddleware::new(logger.clone()),
             main_task_middleware: MainTaskMiddleware::new(
                 logger.clone(),
@@ -207,7 +207,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             ),
             counter: 0,
             full_beats: Default::default(),
-            metrics_enabled,
+            metrics_enabled: control_surface_metrics_enabled,
             state: State::Normal,
             osc_input_devices: vec![],
             garbage_receiver,
@@ -258,7 +258,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         //     let vol = t.volume();
         //     let _ = BackboneState::server_event_sender().send(vol.soft_normalized_value());
         // }
-        #[cfg(feature = "realearn-meter")]
+        #[cfg(feature = "realearn-metrics")]
         if self.metrics_enabled {
             self.process_metrics();
         }
@@ -279,7 +279,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
                 }
                 LogDebugInfo => {
                     self.log_debug_info();
-                    #[cfg(feature = "realearn-meter")]
+                    #[cfg(feature = "realearn-metrics")]
                     self.meter_middleware.log_metrics();
                 }
                 StartLearningTargets(sender) => {
@@ -309,14 +309,14 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             use RealearnControlSurfaceServerTask::*;
             match t {
                 ProvidePrometheusMetrics(sender) => {
-                    #[cfg(feature = "realearn-meter")]
+                    #[cfg(feature = "realearn-metrics")]
                     let text = serde_prometheus::to_string(
                         self.meter_middleware.metrics(),
                         Some("realearn"),
                         HashMap::new(),
                     )
                     .unwrap();
-                    #[cfg(not(feature = "realearn-meter"))]
+                    #[cfg(not(feature = "realearn-metrics"))]
                     let text = String::new();
                     let _ = sender.send(text);
                 }
@@ -330,7 +330,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
-    #[cfg(feature = "realearn-meter")]
+    #[cfg(feature = "realearn-metrics")]
     fn process_metrics(&mut self) {
         // Roughly every 10 seconds
         if self.counter % (30 * 10) == 0 {
@@ -596,7 +596,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
 
 impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurfaceMiddleware<EH> {
     fn run(&mut self) {
-        #[cfg(feature = "realearn-meter")]
+        #[cfg(feature = "realearn-metrics")]
         if self.metrics_enabled {
             let elapsed = reaper_high::MeterMiddleware::measure(|| {
                 self.run_internal();
@@ -605,14 +605,14 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
         } else {
             self.run_internal();
         }
-        #[cfg(not(feature = "realearn-meter"))]
+        #[cfg(not(feature = "realearn-metrics"))]
         {
             self.run_internal();
         }
     }
 
     fn handle_event(&self, event: ControlSurfaceEvent) -> bool {
-        #[cfg(feature = "realearn-meter")]
+        #[cfg(feature = "realearn-metrics")]
         if self.metrics_enabled {
             let elapsed = reaper_high::MeterMiddleware::measure(|| {
                 self.handle_event_internal(event);
@@ -621,7 +621,7 @@ impl<EH: DomainEventHandler> ControlSurfaceMiddleware for RealearnControlSurface
         } else {
             self.handle_event_internal(event)
         }
-        #[cfg(not(feature = "realearn-meter"))]
+        #[cfg(not(feature = "realearn-metrics"))]
         self.handle_event_internal(event)
     }
 

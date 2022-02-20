@@ -1,3 +1,4 @@
+use crate::metrics_util::measure_time;
 use crate::SlotInstruction::KeepSlot;
 use crate::{
     CacheRequest, Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
@@ -9,6 +10,7 @@ use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use reaper_high::{OwnedSource, Project};
 use reaper_medium::{Bpm, PcmSourceTransfer, PlayState, PositionInSeconds, ReaperVolumeValue};
+use std::time::Instant;
 
 #[derive(Debug, Default)]
 pub struct Slot {
@@ -229,8 +231,10 @@ impl Slot {
         &mut self,
         args: &mut ClipProcessArgs<impl Timeline>,
     ) -> Result<(), &'static str> {
-        self.get_clip_mut()?.process(args);
-        Ok(())
+        measure_time("slot.process.time", || {
+            self.get_clip_mut()?.process(args);
+            Ok(())
+        })
     }
 
     fn get_clip(&self) -> Result<&Clip, &'static str> {

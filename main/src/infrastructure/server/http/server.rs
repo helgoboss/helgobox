@@ -7,6 +7,7 @@ use axum::http::Method;
 use axum::routing::{get, patch};
 use axum::Router;
 use axum_server::Handle;
+use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
 use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -25,8 +26,20 @@ pub async fn start_http_server(
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
     mut http_shutdown_receiver: broadcast::Receiver<()>,
     mut https_shutdown_receiver: broadcast::Receiver<()>,
+    control_surface_metrics_enabled: bool,
 ) -> Result<(), io::Error> {
-    let router = create_router(cert.clone(), control_surface_task_sender, clients);
+    // Prometheus metrics
+    let prometheus_builder = PrometheusBuilder::new();
+    let prometheus_handle = prometheus_builder.install_recorder().unwrap();
+    // Router
+    let router = create_router(
+        cert.clone(),
+        control_surface_task_sender,
+        clients,
+        prometheus_handle,
+        control_surface_metrics_enabled,
+    );
+    // Binding
     let http_future = {
         let addr = SocketAddr::from(([0, 0, 0, 0], http_port));
         let handle = Handle::new();
@@ -55,11 +68,13 @@ pub async fn start_http_server(
             .handle(handle)
             .serve(router.into_make_service())
     };
+    // Notify UI
     Global::task_support()
         .do_later_in_main_thread_asap(|| {
             App::get().server().borrow_mut().notify_started();
         })
         .unwrap();
+    // Actually await the bind futures
     let (http_result, https_result) = futures::future::join(http_future, https_future).await;
     http_result?;
     https_result?;
@@ -70,6 +85,8 @@ fn create_router(
     cert: String,
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
     clients: ServerClients,
+    prometheus_handle: PrometheusHandle,
+    control_surface_metrics_enabled: bool,
 ) -> Router {
     let router = Router::new()
         .route("/", get(welcome_handler))
@@ -93,10 +110,17 @@ fn create_router(
             "/realearn/controller/:id",
             patch(patch_controller_handler.layer(MainThreadLayer)),
         );
-    #[cfg(feature = "realearn-meter")]
+    #[cfg(feature = "realearn-metrics")]
     let router = router.route(
         "/realearn/metrics",
-        get(|| async move { create_metrics_response(control_surface_task_sender.clone()).await }),
+        get(move || async move {
+            create_metrics_response(
+                control_surface_task_sender.clone(),
+                prometheus_handle,
+                control_surface_metrics_enabled,
+            )
+            .await
+        }),
     );
     router
         .layer(

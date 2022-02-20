@@ -93,8 +93,8 @@ pub fn get_controller_preset_data(session_id: String) -> Result<ControllerPreset
     Ok(ControllerPresetData::from_model(&controller))
 }
 
-#[cfg(feature = "realearn-meter")]
-pub async fn obtain_metrics_snapshot(
+#[cfg(feature = "realearn-metrics")]
+pub async fn obtain_control_surface_metrics_snapshot(
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
 ) -> Result<Result<String, String>, tokio::sync::oneshot::error::RecvError> {
     let (sender, receiver) = tokio::sync::oneshot::channel();

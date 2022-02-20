@@ -36,6 +36,7 @@ pub struct RealearnServer {
     changed_subject: LocalSubject<'static, (), ()>,
     local_ip: Option<IpAddr>,
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
+    control_surface_metrics_enabled: bool,
 }
 
 #[derive(Debug)]
@@ -70,6 +71,7 @@ impl RealearnServer {
         https_port: u16,
         certs_dir_path: PathBuf,
         control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
+        control_surface_metrics_enabled: bool,
     ) -> RealearnServer {
         RealearnServer {
             http_port,
@@ -79,6 +81,7 @@ impl RealearnServer {
             changed_subject: Default::default(),
             local_ip: get_local_ip(),
             control_surface_task_sender,
+            control_surface_metrics_enabled,
         }
     }
 
@@ -99,6 +102,7 @@ impl RealearnServer {
         let (shutdown_sender, http_shutdown_receiver) = broadcast::channel(5);
         let https_shutdown_receiver = shutdown_sender.subscribe();
         let grpc_shutdown_receiver = shutdown_sender.subscribe();
+        let control_surface_metrics_enabled = self.control_surface_metrics_enabled;
         let server_thread_join_handle = std::thread::Builder::new()
             .name("ReaLearn server".to_string())
             .spawn(move || {
@@ -115,6 +119,7 @@ impl RealearnServer {
                     http_shutdown_receiver,
                     https_shutdown_receiver,
                     grpc_shutdown_receiver,
+                    control_surface_metrics_enabled,
                 ));
                 runtime.shutdown_timeout(Duration::from_secs(1));
             })
@@ -262,6 +267,7 @@ async fn start_servers(
     http_shutdown_receiver: broadcast::Receiver<()>,
     https_shutdown_receiver: broadcast::Receiver<()>,
     _grpc_shutdown_receiver: broadcast::Receiver<()>,
+    control_surface_metrics_enabled: bool,
 ) {
     let http_server_future = start_http_server(
         http_port,
@@ -271,6 +277,7 @@ async fn start_servers(
         control_surface_task_sender,
         http_shutdown_receiver,
         https_shutdown_receiver,
+        control_surface_metrics_enabled,
     );
     http_server_future.await.expect("HTTP server error");
     // let grpc_server_future = start_grpc_server(

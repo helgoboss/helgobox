@@ -23,6 +23,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use crate::infrastructure::ui::MessagePanel;
 
+use once_cell::sync::Lazy;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
 use reaper_medium::{
@@ -231,6 +232,7 @@ impl App {
                 config.main.server_https_port,
                 App::server_resource_dir_path().join("certificates"),
                 server_sender,
+                Self::control_surface_metrics_enabled(),
             ))),
             config: RefCell::new(config),
             changed_subject: Default::default(),
@@ -301,7 +303,7 @@ impl App {
             uninit_state.additional_feedback_event_receiver,
             uninit_state.instance_orchestration_event_receiver,
             Self::garbage_channel().1.clone(),
-            std::env::var("REALEARN_METER").is_ok(),
+            Self::control_surface_metrics_enabled(),
         ));
         let audio_hook = RealearnAudioHook::new(
             uninit_state.normal_audio_hook_task_receiver,
@@ -313,6 +315,11 @@ impl App {
             audio_hook: Box::new(audio_hook),
         };
         self.state.replace(AppState::Sleeping(sleeping_state));
+    }
+
+    fn control_surface_metrics_enabled() -> bool {
+        static ENABLED: Lazy<bool> = Lazy::new(|| std::env::var("CONTROL_SURFACE_METRICS").is_ok());
+        *ENABLED
     }
 
     fn reconnect_osc_devices(&self) {
