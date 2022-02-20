@@ -66,7 +66,6 @@ pub struct MainProcessor<EH: DomainEventHandler> {
     collections: Collections,
     /// Contains IDs of those mappings who need to be polled as frequently as possible.
     poll_control_mappings: EnumMap<MappingCompartment, OrderedMappingIdSet>,
-    last_play_state: Cell<PlayState>,
 }
 
 #[derive(Debug)]
@@ -260,7 +259,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let (self_feedback_sender, feedback_task_receiver) =
             crossbeam_channel::bounded(FEEDBACK_TASK_QUEUE_SIZE);
         let logger = parent_logger.new(slog::o!("struct" => "MainProcessor"));
-        let last_play_state = context.project_or_current_project().play_state();
         MainProcessor {
             basics: Basics {
                 instance_id,
@@ -305,7 +303,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 previous_target_values: Default::default(),
             },
             poll_control_mappings: Default::default(),
-            last_play_state: Cell::new(last_play_state),
         }
     }
 
@@ -1431,26 +1428,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .self_normal_sender
                 .try_send(NormalMainTask::RefreshAllTargets)
                 .unwrap();
-        }
-        if let ChangeEvent::PlayStateChanged(e) = event {
-            // Feedback handled from instance-scoped feedback events.
-            let mut instance_state = self.basics.instance_state.borrow_mut();
-            let project = self.basics.context.project();
-            if let Some(p) = project {
-                if !p.is_available() {
-                    // When closing a project, a play state change event is sent although the
-                    // project could be gone.
-                    return;
-                }
-            }
-            let last_play_state = self.last_play_state.replace(e.new_value);
-            if let Some(relevant) =
-                RelevantPlayStateChange::from_play_state_change(last_play_state, e.new_value)
-            {
-                instance_state
-                    .clip_matrix_mut()
-                    .process_transport_change(TransportChange::PlayState(relevant), project);
-            }
         }
         self.process_feedback_related_reaper_event(|mapping, target| {
             mapping.process_change_event(

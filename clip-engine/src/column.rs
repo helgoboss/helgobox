@@ -63,9 +63,6 @@ impl ClipRuntimeData {
 }
 
 impl ClipDesc {
-    // TODO-high type (MIDI, WAVE, ...)
-    // TODO-high length
-
     fn proportional_pos(&self) -> Option<UnitValue> {
         let pos = self.runtime_data.pos.get();
         if pos < 0 {
@@ -81,10 +78,15 @@ impl ClipDesc {
     }
 
     fn position_in_seconds(&self, timeline_tempo: Bpm) -> Option<PositionInSeconds> {
+        // TODO-high At the moment we don't use this anyway. But we should implement it as soon
+        //  as we do. Relies on having the current section length, source frame rate, source tempo.
         todo!()
     }
 
     fn info(&self) -> ClipInfo {
+        // TODO-high This should be implemented as soon as we hold more derived info here.
+        //  - type (MIDI, WAVE, ...)
+        //  - original length
         todo!()
     }
 }

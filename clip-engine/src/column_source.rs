@@ -1,27 +1,29 @@
 use crate::{
     clip_timeline, CacheRequest, Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState,
-    ClipProcessArgs, ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind,
-    RecorderEquipment, RecorderRequest, Slot, SlotPollArgs, SlotProcessTransportChangeArgs,
-    Timeline, TimelineMoment, TransportChange, WriteAudioRequest, WriteMidiRequest,
+    ClipProcessArgs, ClipRecordInput, ClipStopArgs, ClipStopBehavior, HybridTimeline,
+    RecordBehavior, RecordKind, RecorderEquipment, RecorderRequest, RelevantPlayStateChange, Slot,
+    SlotPollArgs, SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange,
+    WriteAudioRequest, WriteMidiRequest,
 };
 use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use num_enum::TryFromPrimitive;
-use reaper_high::{BorrowedSource, Project};
+use reaper_high::{BorrowedSource, Project, Reaper};
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
     reaper_str, BorrowedPcmSource, CustomPcmSource, DurationInBeats, DurationInSeconds,
     ExtendedArgs, GetPeakInfoArgs, GetSamplesArgs, Hz, LoadStateArgs, OwnedPcmSource,
-    OwnedPreviewRegister, PcmSource, PeaksClearArgs, PositionInSeconds, PropertiesWindowArgs,
-    ReaperStr, ReaperVolumeValue, SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
+    OwnedPreviewRegister, PcmSource, PeaksClearArgs, PlayState, PositionInSeconds, ProjectContext,
+    PropertiesWindowArgs, ReaperStr, ReaperVolumeValue, SaveStateArgs, SetAvailableArgs,
+    SetFileNameArgs, SetSourceArgs,
 };
 use std::convert::{TryFrom, TryInto};
 use std::error::Error;
 use std::mem::ManuallyDrop;
-use std::ptr;
 use std::sync::atomic::AtomicIsize;
 use std::sync::{Arc, LockResult, Mutex, MutexGuard};
+use std::{mem, ptr};
 
 #[derive(Clone, Debug)]
 pub struct SharedColumnSource(Arc<Mutex<ColumnSource>>);
@@ -59,6 +61,7 @@ pub struct ColumnSource {
     project: Option<Project>,
     command_receiver: Receiver<ColumnSourceCommand>,
     event_sender: Sender<ColumnSourceEvent>,
+    last_project_play_state: PlayState,
 }
 
 impl ColumnSource {
@@ -78,6 +81,7 @@ impl ColumnSource {
             project,
             command_receiver,
             event_sender,
+            last_project_play_state: get_project_play_state(project),
         }
     }
 
@@ -173,6 +177,27 @@ impl ColumnSource {
         DurationInSeconds::MAX
     }
 
+    fn detect_and_process_transport_change(
+        &mut self,
+        timeline: HybridTimeline,
+        moment: TimelineMoment,
+    ) {
+        let new_play_state = get_project_play_state(self.project);
+        let last_play_state = mem::replace(&mut self.last_project_play_state, new_play_state);
+        if let Some(relevant) =
+            RelevantPlayStateChange::from_play_state_change(last_play_state, new_play_state)
+        {
+            // TODO-high We should detect this in the RealTimeClipMatrix, next to the jump detection
+            //  (which also doesn't need the main thread detour!).
+            let args = SlotProcessTransportChangeArgs {
+                change: TransportChange::PlayState(relevant),
+                moment,
+                timeline,
+            };
+            self.process_transport_change(&args);
+        }
+    }
+
     fn process_commands(&mut self) {
         while let Ok(task) = self.command_receiver.try_recv() {
             use ColumnSourceCommand::*;
@@ -231,16 +256,16 @@ impl ColumnSource {
                 return;
             }
             // Get samples
-            let timeline_cursor_pos = timeline.cursor_pos();
-            let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
+            let moment = timeline.capture_moment();
+            self.detect_and_process_transport_change(timeline.clone(), moment);
             // println!("block sr = {}, block length = {}, block time = {}, timeline cursor pos = {}, timeline cursor frame = {}",
             //          sample_rate, args.block.length(), args.block.time_s(), timeline_cursor_pos, timeline_cursor_frame);
             for (row, slot) in self.slots.iter_mut().enumerate() {
                 let mut inner_args = ClipProcessArgs {
                     block: args.block,
                     timeline: &timeline,
-                    timeline_cursor_pos,
-                    timeline_tempo,
+                    timeline_cursor_pos: moment.cursor_pos(),
+                    timeline_tempo: moment.tempo(),
                 };
                 // TODO-high Take care of mixing as soon as we implement Free mode.
                 if let Ok(Some(changed_play_state)) = slot.process(&mut inner_args) {
@@ -445,4 +470,19 @@ pub enum ColumnSourceEvent {
         index: usize,
         play_state: ClipPlayState,
     },
+}
+
+fn get_project_play_state(project: Option<Project>) -> PlayState {
+    let project_context = get_project_context(project);
+    Reaper::get()
+        .medium_reaper()
+        .get_play_state_ex(project_context)
+}
+
+fn get_project_context(project: Option<Project>) -> ProjectContext {
+    if let Some(p) = project {
+        p.context()
+    } else {
+        ProjectContext::CurrentProject
+    }
 }
