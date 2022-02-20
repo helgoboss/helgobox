@@ -1,7 +1,8 @@
 use crate::{
-    CacheRequest, ClipChangedEvent, ClipRecordTask, ColumnFillSlotArgs, ColumnPlayClipArgs,
-    ColumnPollSlotArgs, ColumnSetClipRepeatedArgs, ColumnSource, ColumnStopClipArgs,
-    RecordBehavior, RecordKind, RecorderEquipment, RecorderRequest, SharedColumnSource, Slot,
+    CacheRequest, ClipChangedEvent, ClipRecordTask, ColumnFillSlotArgs, ColumnPauseClipArgs,
+    ColumnPlayClipArgs, ColumnPollSlotArgs, ColumnSeekClipArgs, ColumnSetClipRepeatedArgs,
+    ColumnSetClipVolumeArgs, ColumnSource, ColumnSourceTask, ColumnStopClipArgs, RecordBehavior,
+    RecordKind, RecorderEquipment, RecorderRequest, SharedColumnSource, Slot,
     SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange,
 };
 use crossbeam_channel::Sender;
@@ -24,6 +25,7 @@ pub struct Column {
     track: Option<Track>,
     column_source: SharedColumnSource,
     preview_register: PlayingPreviewRegister,
+    task_sender: Sender<ColumnSourceTask>,
 }
 
 #[derive(Clone, Debug)]
@@ -34,7 +36,8 @@ struct PlayingPreviewRegister {
 
 impl Column {
     pub fn new(track: Option<Track>) -> Self {
-        let source = ColumnSource::new(track.as_ref().map(|t| t.project()));
+        let (task_sender, task_receiver) = crossbeam_channel::bounded(500);
+        let source = ColumnSource::new(track.as_ref().map(|t| t.project()), task_receiver);
         let shared_source = SharedColumnSource::new(source);
         Self {
             preview_register: {
@@ -42,6 +45,7 @@ impl Column {
             },
             track,
             column_source: shared_source,
+            task_sender,
         }
     }
 
@@ -61,19 +65,16 @@ impl Column {
         self.with_source(|s| s.with_slot(index, f))
     }
 
-    pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
-        self.with_source_mut(|s| s.play_clip(args))
+    pub fn play_clip(&mut self, args: ColumnPlayClipArgs) {
+        self.send_source_task(ColumnSourceTask::PlayClip(args));
     }
 
-    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
-        self.with_source_mut(|s| s.stop_clip(args))
+    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) {
+        self.send_source_task(ColumnSourceTask::StopClip(args));
     }
 
-    pub fn set_clip_repeated(
-        &mut self,
-        args: ColumnSetClipRepeatedArgs,
-    ) -> Result<(), &'static str> {
-        self.with_source_mut(|s| s.set_clip_repeated(args))
+    pub fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) {
+        self.send_source_task(ColumnSourceTask::SetClipRepeated(args));
     }
 
     pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
@@ -94,20 +95,19 @@ impl Column {
         Ok(task)
     }
 
-    pub fn pause_clip(&mut self, index: usize) -> Result<(), &'static str> {
-        self.with_source_mut(|s| s.pause_clip(index))
+    pub fn pause_clip(&mut self, index: usize) {
+        let args = ColumnPauseClipArgs { index };
+        self.send_source_task(ColumnSourceTask::PauseClip(args));
     }
 
-    pub fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) -> Result<(), &'static str> {
-        self.with_source_mut(|s| s.seek_clip(index, desired_pos))
+    pub fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) {
+        let args = ColumnSeekClipArgs { index, desired_pos };
+        self.send_source_task(ColumnSourceTask::SeekClip(args));
     }
 
-    pub fn set_clip_volume(
-        &mut self,
-        index: usize,
-        volume: ReaperVolumeValue,
-    ) -> Result<ClipChangedEvent, &'static str> {
-        self.with_source_mut(|s| s.set_clip_volume(index, volume))
+    pub fn set_clip_volume(&mut self, index: usize, volume: ReaperVolumeValue) {
+        let args = ColumnSetClipVolumeArgs { index, volume };
+        self.send_source_task(ColumnSourceTask::SetClipVolume(args));
     }
 
     /// This method should be called whenever REAPER's play state changes. It will make the clip
@@ -124,6 +124,10 @@ impl Column {
     fn with_source_mut<R>(&mut self, f: impl FnOnce(&mut ColumnSource) -> R) -> R {
         let mut guard = self.column_source.lock();
         f(&mut guard)
+    }
+
+    fn send_source_task(&self, task: ColumnSourceTask) {
+        self.task_sender.try_send(task).unwrap();
     }
 }
 

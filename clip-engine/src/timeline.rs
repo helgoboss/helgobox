@@ -10,7 +10,10 @@ use reaper_medium::{
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
 /// Delivers the timeline to be used for clips.
-pub fn clip_timeline(project: Option<Project>, force_project_timeline: bool) -> impl Timeline {
+// TODO-high We expect this timeline sometimes as argument. The initial idea here was to not change
+//  behavior even if stopping/starting transport. But not this doesn't work anymore. The
+//  HybridTimeline switches dynamically. So we probably need to make this an enum.
+pub fn clip_timeline(project: Option<Project>, force_project_timeline: bool) -> HybridTimeline {
     HybridTimeline::new(project, force_project_timeline)
 }
 
@@ -73,6 +76,7 @@ impl TimelineMoment {
 ///       to keep the clips in sync (by scheduling them on start of bar). We need the bars/beats
 ///       structure to be fluent and adjust to tempo changes dynamically, much as a playing project
 ///       would do.
+#[derive(Clone, Debug)]
 pub struct ReaperProjectTimeline {
     project_context: ProjectContext,
 }
@@ -367,6 +371,7 @@ pub fn global_steady_timeline() -> &'static SteadyTimeline {
     &GLOBAL_STEADY_TIMELINE
 }
 
+#[derive(Clone, Debug)]
 pub struct HybridTimeline {
     project_timeline: ReaperProjectTimeline,
     force_project_timeline: bool,

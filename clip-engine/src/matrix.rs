@@ -144,7 +144,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
                 },
             },
         };
-        column.play_clip(args)?;
+        column.play_clip(args);
         Ok(())
     }
 
@@ -165,10 +165,10 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
                     SlotStopBehavior::EndOfClip => ClipStopBehavior::EndOfClip,
                 },
                 timeline_cursor_pos: timeline.cursor_pos(),
-                timeline: &timeline,
+                timeline,
             },
         };
-        column.stop_clip(args)?;
+        column.stop_clip(args);
         Ok(())
     }
 
@@ -208,7 +208,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         let args = SlotProcessTransportChangeArgs {
             change,
             moment,
-            timeline: &timeline,
+            timeline,
         };
         for column in &mut self.columns {
             column.process_transport_change(&args);
@@ -258,7 +258,8 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
     }
 
     pub fn pause_clip_legacy(&mut self, slot_index: usize) -> Result<(), &'static str> {
-        get_column_mut(&mut self.columns, slot_index)?.pause_clip(0)
+        get_column_mut(&mut self.columns, slot_index)?.pause_clip(0);
+        Ok(())
     }
 
     pub fn seek_clip_legacy(
@@ -266,7 +267,8 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         slot_index: usize,
         position: UnitValue,
     ) -> Result<(), &'static str> {
-        get_column_mut(&mut self.columns, slot_index)?.seek_clip(0, position)
+        get_column_mut(&mut self.columns, slot_index)?.seek_clip(0, position);
+        Ok(())
     }
 
     pub fn set_clip_volume_legacy(
@@ -274,8 +276,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         slot_index: usize,
         volume: ReaperVolumeValue,
     ) -> Result<(), &'static str> {
-        let event = get_column_mut(&mut self.columns, slot_index)?.set_clip_volume(0, volume)?;
-        self.handler.notify_clip_changed(slot_index, event);
+        get_column_mut(&mut self.columns, slot_index)?.set_clip_volume(0, volume);
         Ok(())
     }
 

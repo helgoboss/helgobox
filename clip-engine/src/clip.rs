@@ -7,12 +7,12 @@ use crate::source_util::pcm_source_is_midi;
 use crate::tempo_util::detect_tempo;
 use crate::{
     clip_timeline, AudioBufMut, AudioSupplier, CacheRequest, ClipContent, ClipRecordTiming,
-    CreateClipContentMode, ExactDuration, ExactFrameCount, LegacyClip, LoopBehavior, MidiSupplier,
-    PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill, PreBufferedBlock, RecordKind,
-    Recorder, RecorderEquipment, RecorderRequest, SupplierChain, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, Timeline, WithFrameRate, WithTempo, WriteAudioRequest, WriteMidiRequest,
-    MIDI_BASE_BPM,
+    CreateClipContentMode, ExactDuration, ExactFrameCount, HybridTimeline, LegacyClip,
+    LoopBehavior, MidiSupplier, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
+    PreBufferedBlock, RecordKind, Recorder, RecorderEquipment, RecorderRequest, SupplierChain,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo,
+    SupplyResponse, SupplyResponseStatus, Timeline, WithFrameRate, WithTempo, WriteAudioRequest,
+    WriteMidiRequest, MIDI_BASE_BPM,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -1421,7 +1421,7 @@ impl RecordingState {
         match self.timing {
             Unsynced => {
                 let ready_state =
-                    self.finish_recording(self.play_after, None, supplier_chain, args.timeline);
+                    self.finish_recording(self.play_after, None, supplier_chain, &args.timeline);
                 TransitionToReady(ready_state)
             }
             Synced { start_bar, end_bar } => {
@@ -1451,7 +1451,7 @@ impl RecordingState {
                         // End not scheduled yet. Schedule end.
                         supplier_chain
                             .recorder_mut()
-                            .schedule_end(next_bar, args.timeline);
+                            .schedule_end(next_bar, &args.timeline);
                         self.timing = Synced {
                             start_bar,
                             end_bar: Some(next_bar),
@@ -1577,6 +1577,7 @@ fn adjust_proportionally_in_blocks(value: isize, factor: f64, block_length: usiz
     total as isize * value.signum()
 }
 
+#[derive(Debug)]
 pub struct ClipPlayArgs {
     pub from_bar: Option<i32>,
 }
@@ -1600,13 +1601,14 @@ impl ClipRecordInput {
     }
 }
 
-pub struct ClipStopArgs<'a> {
+#[derive(Debug)]
+pub struct ClipStopArgs {
     pub stop_behavior: ClipStopBehavior,
     pub timeline_cursor_pos: PositionInSeconds,
-    pub timeline: &'a dyn Timeline,
+    pub timeline: HybridTimeline,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum ClipStopBehavior {
     Immediately,
     EndOfClip,

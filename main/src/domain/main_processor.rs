@@ -388,6 +388,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// they would be learned although not touched via mouse, that's not good.
     fn run_control(&mut self) {
         // Collect control tasks (we do that in any case to not let get channels full).
+        // TODO-high Collecting into a vec is actually not necessary because we can just use
+        //  self.receiver.try_recv().ok() (just like the iterator itself).
         let control_tasks: SmallVec<[ControlMainTask; CONTROL_TASK_BULK_SIZE]> = self
             .basics
             .channels

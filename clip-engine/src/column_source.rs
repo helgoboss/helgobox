@@ -5,7 +5,7 @@ use crate::{
     TransportChange, WriteAudioRequest, WriteMidiRequest,
 };
 use assert_no_alloc::assert_no_alloc;
-use crossbeam_channel::Sender;
+use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use num_enum::TryFromPrimitive;
 use reaper_high::{BorrowedSource, Project};
@@ -39,15 +39,26 @@ impl SharedColumnSource {
 }
 
 #[derive(Debug)]
+pub enum ColumnSourceTask {
+    PlayClip(ColumnPlayClipArgs),
+    StopClip(ColumnStopClipArgs),
+    PauseClip(ColumnPauseClipArgs),
+    SeekClip(ColumnSeekClipArgs),
+    SetClipVolume(ColumnSetClipVolumeArgs),
+    SetClipRepeated(ColumnSetClipRepeatedArgs),
+}
+
+#[derive(Debug)]
 pub struct ColumnSource {
     mode: ClipColumnMode,
     slots: Vec<Slot>,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
+    task_receiver: Receiver<ColumnSourceTask>,
 }
 
 impl ColumnSource {
-    pub fn new(project: Option<Project>) -> Self {
+    pub fn new(project: Option<Project>, task_receiver: Receiver<ColumnSourceTask>) -> Self {
         Self {
             mode: Default::default(),
             // TODO-high We should probably make this higher so we don't need to allocate in the
@@ -57,6 +68,7 @@ impl ColumnSource {
             //  ready.
             slots: Vec::with_capacity(8),
             project,
+            task_receiver,
         }
     }
 
@@ -72,19 +84,16 @@ impl ColumnSource {
         f(get_slot(&self.slots, index)?)
     }
 
-    pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
+    fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
         // TODO-high If column mode Song, suspend all other clips first.
         get_slot_mut(&mut self.slots, args.index).play_clip(args.clip_args)
     }
 
-    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
+    fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
         get_slot_mut(&mut self.slots, args.index).stop_clip(args.clip_args)
     }
 
-    pub fn set_clip_repeated(
-        &mut self,
-        args: ColumnSetClipRepeatedArgs,
-    ) -> Result<(), &'static str> {
+    fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> Result<(), &'static str> {
         get_slot_mut(&mut self.slots, args.index).set_clip_repeated(args.repeated)
     }
 
@@ -106,11 +115,11 @@ impl ColumnSource {
         )
     }
 
-    pub fn pause_clip(&mut self, index: usize) -> Result<(), &'static str> {
+    fn pause_clip(&mut self, index: usize) -> Result<(), &'static str> {
         get_slot_mut(&mut self.slots, index).pause_clip()
     }
 
-    pub fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) -> Result<(), &'static str> {
+    fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) -> Result<(), &'static str> {
         get_slot_mut(&mut self.slots, index).seek_clip(desired_pos)
     }
 
@@ -134,7 +143,7 @@ impl ColumnSource {
         get_slot_mut(&mut self.slots, index).write_clip_audio(request)
     }
 
-    pub fn set_clip_volume(
+    fn set_clip_volume(
         &mut self,
         index: usize,
         volume: ReaperVolumeValue,
@@ -164,8 +173,35 @@ impl ColumnSource {
         DurationInSeconds::MAX
     }
 
+    fn process_tasks(&mut self) {
+        while let Ok(task) = self.task_receiver.try_recv() {
+            use ColumnSourceTask::*;
+            match task {
+                PlayClip(args) => {
+                    let _ = self.play_clip(args);
+                }
+                StopClip(args) => {
+                    let _ = self.stop_clip(args);
+                }
+                PauseClip(args) => {
+                    let _ = self.pause_clip(args.index);
+                }
+                SetClipVolume(args) => {
+                    let _ = self.set_clip_volume(args.index, args.volume);
+                }
+                SeekClip(args) => {
+                    let _ = self.seek_clip(args.index, args.desired_pos);
+                }
+                SetClipRepeated(args) => {
+                    let _ = self.set_clip_repeated(args);
+                }
+            }
+        }
+    }
+
     fn get_samples(&mut self, mut args: GetSamplesArgs) {
         assert_no_alloc(|| {
+            self.process_tasks();
             // Make sure that in any case, we are only queried once per time, without retries.
             // TODO-medium This mechanism of advancing the position on every call by
             //  the block duration relies on the fact that the preview
@@ -337,16 +373,36 @@ pub struct ColumnFillSlotArgs {
     pub clip: Clip,
 }
 
+#[derive(Debug)]
 pub struct ColumnPlayClipArgs {
     pub index: usize,
     pub clip_args: ClipPlayArgs,
 }
 
-pub struct ColumnStopClipArgs<'a> {
+#[derive(Debug)]
+pub struct ColumnStopClipArgs {
     pub index: usize,
-    pub clip_args: ClipStopArgs<'a>,
+    pub clip_args: ClipStopArgs,
 }
 
+#[derive(Debug)]
+pub struct ColumnPauseClipArgs {
+    pub index: usize,
+}
+
+#[derive(Debug)]
+pub struct ColumnSeekClipArgs {
+    pub index: usize,
+    pub desired_pos: UnitValue,
+}
+
+#[derive(Debug)]
+pub struct ColumnSetClipVolumeArgs {
+    pub index: usize,
+    pub volume: ReaperVolumeValue,
+}
+
+#[derive(Debug)]
 pub struct ColumnSetClipRepeatedArgs {
     pub index: usize,
     pub repeated: bool,

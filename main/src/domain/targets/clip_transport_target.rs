@@ -135,7 +135,7 @@ impl RealearnTarget for ClipTransportTarget {
             }
             Pause => {
                 if on {
-                    clip_matrix.pause_clip_legacy(self.slot_index)?;
+                    clip_matrix.pause_clip_legacy(self.slot_index);
                 }
             }
             RecordStop => {

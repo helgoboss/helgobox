@@ -2,9 +2,9 @@ use crate::metrics_util::measure_time;
 use crate::SlotInstruction::KeepSlot;
 use crate::{
     CacheRequest, Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
-    ClipRecordArgs, ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, RecordKind,
-    RecorderEquipment, RecorderRequest, SlotInstruction, Timeline, TimelineMoment,
-    WriteAudioRequest, WriteMidiRequest,
+    ClipRecordArgs, ClipRecordInput, ClipStopArgs, ClipStopBehavior, HybridTimeline,
+    RecordBehavior, RecordKind, RecorderEquipment, RecorderRequest, SlotInstruction, Timeline,
+    TimelineMoment, WriteAudioRequest, WriteMidiRequest,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -257,7 +257,7 @@ impl RuntimeData {
         clip.stop(ClipStopArgs {
             stop_behavior: ClipStopBehavior::Immediately,
             timeline_cursor_pos: args.moment.cursor_pos(),
-            timeline: args.timeline,
+            timeline: args.timeline.clone(),
         })
     }
 }
@@ -266,10 +266,10 @@ pub struct SlotPollArgs {
     pub timeline_tempo: Bpm,
 }
 
-pub struct SlotProcessTransportChangeArgs<'a> {
+pub struct SlotProcessTransportChangeArgs {
     pub change: TransportChange,
     pub moment: TimelineMoment,
-    pub timeline: &'a dyn Timeline,
+    pub timeline: HybridTimeline,
 }
 
 const SLOT_NOT_FILLED: &str = "slot not filled";
