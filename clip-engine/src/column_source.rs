@@ -40,6 +40,7 @@ impl SharedColumnSource {
 
 #[derive(Debug)]
 pub enum ColumnSourceTask {
+    FillSlot(ColumnFillSlotArgs),
     PlayClip(ColumnPlayClipArgs),
     StopClip(ColumnStopClipArgs),
     PauseClip(ColumnPauseClipArgs),
@@ -73,7 +74,7 @@ impl ColumnSource {
         }
     }
 
-    pub fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
+    fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
         get_slot_mut(&mut self.slots, args.index).fill(args.clip);
     }
 
@@ -178,6 +179,9 @@ impl ColumnSource {
         while let Ok(task) = self.task_receiver.try_recv() {
             use ColumnSourceTask::*;
             match task {
+                FillSlot(args) => {
+                    self.fill_slot(args);
+                }
                 PlayClip(args) => {
                     let _ = self.play_clip(args);
                 }
@@ -374,6 +378,7 @@ impl CustomPcmSource for SharedColumnSource {
     }
 }
 
+#[derive(Debug)]
 pub struct ColumnFillSlotArgs {
     pub index: usize,
     pub clip: Clip,

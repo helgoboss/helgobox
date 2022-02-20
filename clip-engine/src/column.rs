@@ -50,7 +50,7 @@ impl Column {
     }
 
     pub fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
-        self.with_source_mut(|s| s.fill_slot(args));
+        self.send_source_task(ColumnSourceTask::FillSlot(args));
     }
 
     pub fn poll_slot(&mut self, args: ColumnPollSlotArgs) -> Option<ClipChangedEvent> {
