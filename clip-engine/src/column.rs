@@ -1,9 +1,10 @@
 use crate::{
-    CacheRequest, ClipChangedEvent, ClipRecordTask, ColumnFillSlotArgs, ColumnPauseClipArgs,
-    ColumnPlayClipArgs, ColumnPollSlotArgs, ColumnSeekClipArgs, ColumnSetClipRepeatedArgs,
-    ColumnSetClipVolumeArgs, ColumnSource, ColumnSourceTask, ColumnStopClipArgs, RecordBehavior,
-    RecordKind, RecorderEquipment, RecorderRequest, SharedColumnSource, Slot,
-    SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange,
+    CacheRequest, ClipChangedEvent, ClipData, ClipRecordTask, ColumnFillSlotArgs,
+    ColumnPauseClipArgs, ColumnPlayClipArgs, ColumnPollSlotArgs, ColumnSeekClipArgs,
+    ColumnSetClipRepeatedArgs, ColumnSetClipVolumeArgs, ColumnSource, ColumnSourceTask,
+    ColumnStopClipArgs, RecordBehavior, RecordKind, RecorderEquipment, RecorderRequest,
+    SharedColumnSource, Slot, SlotProcessTransportChangeArgs, Timeline, TimelineMoment,
+    TransportChange,
 };
 use crossbeam_channel::Sender;
 use enumflags2::BitFlags;
@@ -15,6 +16,7 @@ use reaper_medium::{
     MeasureAlignment, OwnedPreviewRegister, PositionInSeconds, ReaperMutex, ReaperMutexGuard,
     ReaperVolumeValue,
 };
+use std::collections::HashMap;
 use std::ptr::NonNull;
 use std::sync::Arc;
 
@@ -26,6 +28,30 @@ pub struct Column {
     column_source: SharedColumnSource,
     preview_register: PlayingPreviewRegister,
     task_sender: Sender<ColumnSourceTask>,
+    slots: Vec<SlotDesc>,
+}
+
+#[derive(Clone, Debug)]
+struct SlotDesc {
+    clip: Option<ClipDesc>,
+}
+
+#[derive(Clone, Debug)]
+struct ClipDesc {
+    persistent_data: ClipData,
+    runtime_data: ClipRuntimeData,
+}
+
+#[derive(Clone, Debug)]
+struct ClipRuntimeData {
+    // TODO-high Current position in seconds
+// TODO-high Proportional position
+// TODO-high Play state
+}
+
+impl ClipDesc {
+    // TODO-high type (MIDI, WAVE, ...)
+    // TODO-high length
 }
 
 #[derive(Clone, Debug)]
@@ -46,6 +72,7 @@ impl Column {
             track,
             column_source: shared_source,
             task_sender,
+            slots: vec![],
         }
     }
 

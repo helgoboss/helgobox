@@ -6,8 +6,8 @@ pub use matrix::*;
 mod timeline;
 pub use timeline::*;
 
-mod legacy_clip;
-pub use legacy_clip::*;
+mod clip_data;
+pub use clip_data::*;
 
 use reaper_high::{Project, Reaper};
 use reaper_medium::{MeasureMode, PositionInBeats, PositionInSeconds};

@@ -6,8 +6,8 @@ use crate::conversion_util::{
 use crate::source_util::pcm_source_is_midi;
 use crate::tempo_util::detect_tempo;
 use crate::{
-    clip_timeline, AudioBufMut, AudioSupplier, CacheRequest, ClipContent, ClipRecordTiming,
-    CreateClipContentMode, ExactDuration, ExactFrameCount, HybridTimeline, LegacyClip,
+    clip_timeline, AudioBufMut, AudioSupplier, CacheRequest, ClipContent, ClipData,
+    ClipRecordTiming, CreateClipContentMode, ExactDuration, ExactFrameCount, HybridTimeline,
     LoopBehavior, MidiSupplier, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
     PreBufferedBlock, RecordKind, Recorder, RecorderEquipment, RecorderRequest, SupplierChain,
     SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo,
@@ -424,11 +424,11 @@ impl Clip {
         self.supplier_chain.clip_info()
     }
 
-    pub fn descriptor_legacy(&self) -> Option<LegacyClip> {
-        let clip = LegacyClip {
+    pub fn descriptor_legacy(&self) -> Option<ClipData> {
+        let clip = ClipData {
             volume: self.volume,
             repeat: self.repeated(),
-            content: Some(self.content()?),
+            content: self.content()?,
         };
         Some(clip)
     }

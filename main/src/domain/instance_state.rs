@@ -19,8 +19,8 @@ use crate::domain::{
     RealTimeSender, Tag,
 };
 use playtime_clip_engine::{
-    clip_timeline, ClipChangedEvent, ClipContent, ClipMatrix, ClipMatrixHandler, ClipPlayState,
-    ClipRecordTask, ClipRecordTiming, LegacyClip, RecordArgs, RecordKind, SlotPlayOptions,
+    clip_timeline, ClipChangedEvent, ClipContent, ClipData, ClipMatrix, ClipMatrixHandler,
+    ClipPlayState, ClipRecordTask, ClipRecordTiming, RecordArgs, RecordKind, SlotPlayOptions,
     SlotStopBehavior, Timeline, TimelineMoment, TransportChange,
 };
 use playtime_clip_engine::{keep_stretching, StretchWorkerRequest};

@@ -18,7 +18,7 @@ use crate::infrastructure::plugin::App;
 use crate::base::notification;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
 use playtime_clip_engine::{
-    LegacyClip, LegacyClipOutput, LegacySlotDescriptor, QualifiedSlotDescriptor,
+    ClipData, LegacyClipOutput, LegacySlotDescriptor, QualifiedSlotDescriptor,
 };
 use reaper_high::{Reaper, Track};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};

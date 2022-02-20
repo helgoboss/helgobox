@@ -14,27 +14,11 @@ fn is_default<T: Default + PartialEq>(v: &T) -> bool {
 
 /// Describes settings and contents of one clip slot.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct LegacyClip {
+pub struct ClipData {
     #[serde(rename = "volume", default, skip_serializing_if = "is_default")]
     pub volume: ReaperVolumeValue,
     #[serde(rename = "repeat", default, skip_serializing_if = "is_default")]
     pub repeat: bool,
-    #[serde(rename = "content", default, skip_serializing_if = "is_default")]
-    pub content: Option<ClipContent>,
-}
-
-impl Default for LegacyClip {
-    fn default() -> Self {
-        Self {
-            volume: ReaperVolumeValue::ZERO_DB,
-            repeat: false,
-            content: None,
-        }
-    }
-}
-
-impl LegacyClip {
-    pub fn is_filled(&self) -> bool {
-        self.content.is_some()
-    }
+    #[serde(rename = "content")]
+    pub content: ClipContent,
 }

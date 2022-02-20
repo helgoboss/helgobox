@@ -623,7 +623,6 @@ impl MappingPanel {
                         let info = SlotInfo {
                             file_name: descriptor
                                 .content
-                                .unwrap()
                                 .file()
                                 .map(|p| p.to_string_lossy().to_string())
                                 .unwrap_or_default(),
@@ -4195,17 +4194,13 @@ impl<'a> ImmutableMappingPanel<'a> {
                         })
                         .ok();
                     let (label, enabled) = if let Some(descriptor) = descriptor {
-                        if let Some(content) = &descriptor.content {
-                            let label = match content {
-                                ClipContent::File { file } => file.to_string_lossy().to_string(),
-                                ClipContent::MidiChunk { .. } => String::from("<In-memory MIDI>"),
-                            };
-                            (label, true)
-                        } else {
-                            ("<Slot empty>".to_owned(), false)
-                        }
+                        let label = match &descriptor.content {
+                            ClipContent::File { file } => file.to_string_lossy().to_string(),
+                            ClipContent::MidiChunk { .. } => String::from("<In-memory MIDI>"),
+                        };
+                        (label, true)
                     } else {
-                        ("<Invalid slot>".to_owned(), false)
+                        ("<Slot empty>".to_owned(), false)
                     };
                     Some((label, enabled))
                 }

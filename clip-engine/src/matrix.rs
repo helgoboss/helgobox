@@ -1,11 +1,11 @@
 use crate::{
     clip_timeline, keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, keep_stretching, CacheRequest, Clip, ClipChangedEvent,
-    ClipContent, ClipPlayArgs, ClipStopArgs, ClipStopBehavior, Column, ColumnFillSlotArgs,
-    ColumnPlayClipArgs, ColumnPollSlotArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
-    LegacyClip, PreBufferRequest, RecordBehavior, RecordTiming, RecorderEquipment, RecorderRequest,
-    SharedColumnSource, Slot, SlotPollArgs, SlotProcessTransportChangeArgs, StretchWorkerRequest,
-    Timeline, TransportChange,
+    ClipContent, ClipData, ClipPlayArgs, ClipStopArgs, ClipStopBehavior, Column,
+    ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnPollSlotArgs, ColumnSetClipRepeatedArgs,
+    ColumnStopClipArgs, PreBufferRequest, RecordBehavior, RecordTiming, RecorderEquipment,
+    RecorderRequest, SharedColumnSource, Slot, SlotPollArgs, SlotProcessTransportChangeArgs,
+    StretchWorkerRequest, Timeline, TransportChange,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -77,10 +77,6 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
     ) -> Result<(), &'static str> {
         self.clear();
         for desc in descriptors {
-            let content = match desc.clip.content {
-                None => continue,
-                Some(c) => c,
-            };
             let resolved_track = if let Some(track) = self.containing_track.as_ref() {
                 desc.output.resolve_track(track.clone())
             } else {
@@ -91,7 +87,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
             column.fill_slot(ColumnFillSlotArgs {
                 index: row,
                 clip: {
-                    let source = content.create_source(project)?.into_raw();
+                    let source = desc.clip.content.create_source(project)?.into_raw();
                     Clip::from_source(source, project, self.recorder_equipment.clone())
                 },
             });
@@ -308,7 +304,7 @@ const NO_SUCH_COLUMN: &str = "no such column";
 pub struct LegacySlotDescriptor {
     pub output: LegacyClipOutput,
     pub index: usize,
-    pub clip: LegacyClip,
+    pub clip: ClipData,
 }
 
 pub enum LegacyClipOutput {
@@ -398,5 +394,5 @@ pub struct QualifiedSlotDescriptor {
     #[serde(rename = "index")]
     pub index: usize,
     #[serde(flatten)]
-    pub descriptor: LegacyClip,
+    pub descriptor: ClipData,
 }
