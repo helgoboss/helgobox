@@ -46,6 +46,7 @@ pub enum ColumnSourceTask {
     SeekClip(ColumnSeekClipArgs),
     SetClipVolume(ColumnSetClipVolumeArgs),
     SetClipRepeated(ColumnSetClipRepeatedArgs),
+    ProcessTransportChange(SlotProcessTransportChangeArgs),
 }
 
 #[derive(Debug)]
@@ -156,7 +157,7 @@ impl ColumnSource {
         slot.poll(args.slot_args)
     }
 
-    pub fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
+    fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
         for slot in &mut self.slots {
             slot.process_transport_change(args);
         }
@@ -194,6 +195,11 @@ impl ColumnSource {
                 }
                 SetClipRepeated(args) => {
                     let _ = self.set_clip_repeated(args);
+                }
+                // TODO-high This is something that we could detect in the column source itself.
+                //  Then we would stay in the audio thread and not have to take main thread detour.
+                ProcessTransportChange(args) => {
+                    let _ = self.process_transport_change(&args);
                 }
             }
         }

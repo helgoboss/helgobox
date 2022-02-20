@@ -21,7 +21,7 @@ pub fn clip_timeline_cursor_pos(project: Option<Project>) -> PositionInSeconds {
     clip_timeline(project, false).cursor_pos()
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct TimelineMoment {
     cursor_pos: PositionInSeconds,
     tempo: Bpm,

@@ -112,8 +112,8 @@ impl Column {
 
     /// This method should be called whenever REAPER's play state changes. It will make the clip
     /// start/stop synchronized with REAPER's transport.
-    pub fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
-        self.with_source_mut(|s| s.process_transport_change(args));
+    pub fn process_transport_change(&mut self, args: SlotProcessTransportChangeArgs) {
+        self.send_source_task(ColumnSourceTask::ProcessTransportChange(args));
     }
 
     fn with_source<R>(&self, f: impl FnOnce(&ColumnSource) -> R) -> R {

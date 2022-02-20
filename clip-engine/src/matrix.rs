@@ -211,7 +211,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
             timeline,
         };
         for column in &mut self.columns {
-            column.process_transport_change(&args);
+            column.process_transport_change(args.clone());
         }
     }
 

@@ -266,6 +266,7 @@ pub struct SlotPollArgs {
     pub timeline_tempo: Bpm,
 }
 
+#[derive(Clone, Debug)]
 pub struct SlotProcessTransportChangeArgs {
     pub change: TransportChange,
     pub moment: TimelineMoment,
@@ -274,7 +275,7 @@ pub struct SlotProcessTransportChangeArgs {
 
 const SLOT_NOT_FILLED: &str = "slot not filled";
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum TransportChange {
     PlayState(RelevantPlayStateChange),
     PlayCursorJump,
