@@ -1,8 +1,8 @@
 use crate::{
     clip_timeline, keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, keep_stretching, CacheRequest, Clip, ClipChangedEvent,
-    ClipContent, ClipData, ClipPlayArgs, ClipStopArgs, ClipStopBehavior, Column,
-    ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
+    ClipContent, ClipData, ClipInfo, ClipPlayArgs, ClipPlayState, ClipStopArgs, ClipStopBehavior,
+    Column, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
     PreBufferRequest, RecordBehavior, RecordTiming, RecorderEquipment, RecorderRequest,
     SharedColumnSource, Slot, SlotPollArgs, SlotProcessTransportChangeArgs, StretchWorkerRequest,
     Timeline, TransportChange,
@@ -108,14 +108,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
             .filter_map(|(i, column)| {
                 Some(QualifiedSlotDescriptor {
                     index: i,
-                    descriptor: column
-                        .with_slot(0, |slot| {
-                            Ok(slot
-                                .clip()?
-                                .descriptor_legacy()
-                                .ok_or("clip didn't deliver descriptor")?)
-                        })
-                        .ok()?,
+                    descriptor: column.clip_data(0)?,
                 })
             })
             .collect()
@@ -187,12 +180,36 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
         Ok(())
     }
 
-    pub fn with_slot_legacy<R>(
+    pub fn clip_position_in_seconds(
         &self,
         slot_index: usize,
-        f: impl FnOnce(&Slot) -> Result<R, &'static str>,
-    ) -> Result<R, &'static str> {
-        get_column(&self.columns, slot_index)?.with_slot(0, f)
+        timeline_tempo: Bpm,
+    ) -> Option<PositionInSeconds> {
+        get_column(&self.columns, slot_index)
+            .ok()?
+            .clip_position_in_seconds(0, timeline_tempo)
+    }
+
+    pub fn clip_play_state(&self, slot_index: usize) -> Option<ClipPlayState> {
+        get_column(&self.columns, slot_index)
+            .ok()?
+            .clip_play_state(0)
+    }
+
+    pub fn clip_repeated(&self, slot_index: usize) -> Option<bool> {
+        get_column(&self.columns, slot_index).ok()?.clip_repeated(0)
+    }
+
+    pub fn clip_volume(&self, slot_index: usize) -> Option<ReaperVolumeValue> {
+        get_column(&self.columns, slot_index).ok()?.clip_volume(0)
+    }
+
+    pub fn clip_data(&self, slot_index: usize) -> Option<ClipData> {
+        get_column(&self.columns, slot_index).ok()?.clip_data(0)
+    }
+
+    pub fn clip_info(&self, slot_index: usize) -> Option<ClipInfo> {
+        get_column(&self.columns, slot_index).ok()?.clip_info(0)
     }
 
     pub fn process_transport_change(&mut self, change: TransportChange, project: Option<Project>) {

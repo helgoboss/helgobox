@@ -1,10 +1,10 @@
 use crate::{
-    CacheRequest, ClipChangedEvent, ClipData, ClipPlayState, ClipRecordTask, ColumnFillSlotArgs,
-    ColumnPauseClipArgs, ColumnPlayClipArgs, ColumnSeekClipArgs, ColumnSetClipRepeatedArgs,
-    ColumnSetClipVolumeArgs, ColumnSource, ColumnSourceCommand, ColumnSourceEvent,
-    ColumnStopClipArgs, RecordBehavior, RecordKind, RecorderEquipment, RecorderRequest,
-    SharedColumnSource, SharedPos, Slot, SlotProcessTransportChangeArgs, Timeline, TimelineMoment,
-    TransportChange,
+    CacheRequest, ClipChangedEvent, ClipData, ClipInfo, ClipPlayState, ClipRecordTask,
+    ColumnFillSlotArgs, ColumnPauseClipArgs, ColumnPlayClipArgs, ColumnSeekClipArgs,
+    ColumnSetClipRepeatedArgs, ColumnSetClipVolumeArgs, ColumnSource, ColumnSourceCommand,
+    ColumnSourceEvent, ColumnStopClipArgs, RecordBehavior, RecordKind, RecorderEquipment,
+    RecorderRequest, SharedColumnSource, SharedPos, Slot, SlotProcessTransportChangeArgs, Timeline,
+    TimelineMoment, TransportChange,
 };
 use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
@@ -49,8 +49,6 @@ struct ClipDesc {
 struct ClipRuntimeData {
     play_state: ClipPlayState,
     pos: SharedPos,
-    // TODO-high Current position in seconds
-    // TODO-high Proportional position
 }
 
 #[derive(Clone, Debug)]
@@ -80,6 +78,14 @@ impl ClipDesc {
         let mod_pos = pos as usize % self.derived_data.frame_count;
         let proportional = UnitValue::new_clamped(mod_pos as f64 / frame_count as f64);
         Some(proportional)
+    }
+
+    fn position_in_seconds(&self, timeline_tempo: Bpm) -> Option<PositionInSeconds> {
+        todo!()
+    }
+
+    fn info(&self) -> ClipInfo {
+        todo!()
     }
 }
 
@@ -114,11 +120,7 @@ impl Column {
     pub fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
         // TODO-high Implement correctly
         let clip_desc = ClipDesc {
-            persistent_data: ClipData {
-                volume: Default::default(),
-                repeat: false,
-                content: args.clip.descriptor_legacy().unwrap().content.clone(),
-            },
+            persistent_data: args.clip.persistent_data().unwrap().clone(),
             runtime_data: ClipRuntimeData {
                 play_state: Default::default(),
                 pos: args.clip.shared_pos(),
@@ -166,14 +168,6 @@ impl Column {
         change_events
     }
 
-    pub fn with_slot<R>(
-        &self,
-        index: usize,
-        f: impl FnOnce(&Slot) -> Result<R, &'static str>,
-    ) -> Result<R, &'static str> {
-        self.with_source(|s| s.with_slot(index, f))
-    }
-
     pub fn play_clip(&mut self, args: ColumnPlayClipArgs) {
         self.send_source_task(ColumnSourceCommand::PlayClip(args));
     }
@@ -187,7 +181,52 @@ impl Column {
     }
 
     pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
-        self.with_source_mut(|s| s.toggle_clip_repeated(index))
+        let clip = get_slot_mut(&mut self.slots, index)
+            .clip
+            .as_mut()
+            .ok_or("no clip")?;
+        let new_repeated = !clip.persistent_data.repeat;
+        clip.persistent_data.repeat = new_repeated;
+        let args = ColumnSetClipRepeatedArgs {
+            index,
+            repeated: new_repeated,
+        };
+        self.set_clip_repeated(args);
+        Ok(ClipChangedEvent::ClipRepeat(new_repeated))
+    }
+
+    pub fn clip_data(&self, index: usize) -> Option<ClipData> {
+        let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+        Some(clip.persistent_data.clone())
+    }
+
+    pub fn clip_info(&self, index: usize) -> Option<ClipInfo> {
+        let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+        Some(clip.info())
+    }
+
+    pub fn clip_position_in_seconds(
+        &self,
+        index: usize,
+        timeline_tempo: Bpm,
+    ) -> Option<PositionInSeconds> {
+        let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+        clip.position_in_seconds(timeline_tempo)
+    }
+
+    pub fn clip_play_state(&self, index: usize) -> Option<ClipPlayState> {
+        let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+        Some(clip.runtime_data.play_state)
+    }
+
+    pub fn clip_repeated(&self, index: usize) -> Option<bool> {
+        let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+        Some(clip.persistent_data.repeat)
+    }
+
+    pub fn clip_volume(&self, index: usize) -> Option<ReaperVolumeValue> {
+        let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+        Some(clip.persistent_data.volume)
     }
 
     pub fn proportional_clip_position(&self, row: usize) -> Option<UnitValue> {
@@ -233,11 +272,6 @@ impl Column {
         self.send_source_task(ColumnSourceCommand::ProcessTransportChange(args));
     }
 
-    fn with_source<R>(&self, f: impl FnOnce(&ColumnSource) -> R) -> R {
-        let guard = self.column_source.lock();
-        f(&guard)
-    }
-
     fn with_source_mut<R>(&mut self, f: impl FnOnce(&mut ColumnSource) -> R) -> R {
         let mut guard = self.column_source.lock();
         f(&mut guard)
@@ -246,10 +280,6 @@ impl Column {
     fn send_source_task(&self, task: ColumnSourceCommand) {
         self.command_sender.try_send(task).unwrap();
     }
-}
-
-fn lock(reg: &SharedRegister) -> ReaperMutexGuard<OwnedPreviewRegister> {
-    reg.lock().expect("couldn't acquire lock")
 }
 
 impl Drop for Column {

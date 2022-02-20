@@ -247,15 +247,13 @@ impl<'a> Target<'a> for ClipTransportTarget {
             PlayStop | PlayPause | Stop | Pause | RecordStop => {
                 let play_state = instance_state
                     .clip_matrix()
-                    .with_slot_legacy(self.slot_index, |slot| Ok(slot.clip()?.play_state()))
-                    .ok()?;
+                    .clip_play_state(self.slot_index)?;
                 clip_play_state_unit_value(self.action, play_state)
             }
             Repeat => {
                 let is_looped = instance_state
                     .clip_matrix()
-                    .with_slot_legacy(self.slot_index, |slot| Ok(slot.clip()?.repeated()))
-                    .ok()?;
+                    .clip_repeated(self.slot_index)?;
                 transport_is_enabled_unit_value(is_looped)
             }
         };

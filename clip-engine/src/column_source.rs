@@ -106,10 +106,6 @@ impl ColumnSource {
         get_slot_mut(&mut self.slots, args.index).set_clip_repeated(args.repeated)
     }
 
-    pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
-        get_slot_mut(&mut self.slots, index).toggle_clip_repeated()
-    }
-
     pub fn record_clip(
         &mut self,
         index: usize,

@@ -128,10 +128,7 @@ impl ClipSeekTarget {
         let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
         instance_state
             .clip_matrix()
-            .with_slot_legacy(self.slot_index, |slot| {
-                Ok(slot.clip()?.position_in_seconds(timeline_tempo))
-            })
-            .ok()?
+            .clip_position_in_seconds(self.slot_index, timeline_tempo)
     }
 }
 

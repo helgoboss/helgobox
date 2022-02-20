@@ -61,10 +61,6 @@ impl Slot {
         Ok(())
     }
 
-    pub fn toggle_clip_repeated(&mut self) -> Result<ClipChangedEvent, &'static str> {
-        Ok(self.get_clip_mut()?.toggle_repeated())
-    }
-
     pub fn record_clip(
         &mut self,
         behavior: RecordBehavior,

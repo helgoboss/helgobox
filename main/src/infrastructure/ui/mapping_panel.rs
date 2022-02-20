@@ -613,15 +613,13 @@ impl MappingPanel {
                     let mapping = self.mapping();
                     let mapping = mapping.borrow();
                     let slot_index = mapping.target_model.slot_index();
-                    if let Ok((Some(descriptor), Some(clip_info))) = instance_state
-                        .clip_matrix()
-                        .with_slot_legacy(slot_index, |slot| {
-                            let clip = slot.clip()?;
-                            Ok((clip.descriptor_legacy(), clip.info_legacy()))
-                        })
-                    {
+                    let clip_matrix = instance_state.clip_matrix();
+                    if let (Some(clip_data), Some(clip_info)) = (
+                        clip_matrix.clip_data(slot_index),
+                        clip_matrix.clip_info(slot_index),
+                    ) {
                         let info = SlotInfo {
-                            file_name: descriptor
+                            file_name: clip_data
                                 .content
                                 .file()
                                 .map(|p| p.to_string_lossy().to_string())
@@ -4188,11 +4186,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                     let instance_state = self.session.instance_state().borrow();
                     let descriptor = instance_state
                         .clip_matrix()
-                        .with_slot_legacy(self.target.slot_index(), |slot| {
-                            let clip = slot.clip()?;
-                            Ok(clip.descriptor_legacy().ok_or("recording")?)
-                        })
-                        .ok();
+                        .clip_data(self.target.slot_index());
                     let (label, enabled) = if let Some(descriptor) = descriptor {
                         let label = match &descriptor.content {
                             ClipContent::File { file } => file.to_string_lossy().to_string(),

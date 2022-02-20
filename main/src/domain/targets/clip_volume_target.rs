@@ -109,10 +109,7 @@ impl RealearnTarget for ClipVolumeTarget {
 impl ClipVolumeTarget {
     fn volume(&self, context: ControlContext) -> Option<Volume> {
         let instance_state = context.instance_state.borrow();
-        let reaper_volume = instance_state
-            .clip_matrix()
-            .with_slot_legacy(self.slot_index, |slot| Ok(slot.clip()?.volume()))
-            .ok()?;
+        let reaper_volume = instance_state.clip_matrix().clip_volume(self.slot_index)?;
         Some(Volume::from_reaper_value(reaper_volume))
     }
 }

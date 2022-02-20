@@ -442,7 +442,7 @@ impl Clip {
         self.supplier_chain.clip_info()
     }
 
-    pub fn descriptor_legacy(&self) -> Option<ClipData> {
+    pub fn persistent_data(&self) -> Option<ClipData> {
         let clip = ClipData {
             volume: self.volume,
             repeat: self.repeated(),
@@ -453,11 +453,6 @@ impl Clip {
 
     fn content(&self) -> Option<ClipContent> {
         self.supplier_chain.clip_content(self.project)
-    }
-
-    pub fn toggle_repeated(&mut self) -> ClipChangedEvent {
-        self.set_repeated(!self.repeated());
-        ClipChangedEvent::ClipRepeat(self.repeated())
     }
 
     pub fn shared_pos(&self) -> SharedPos {
