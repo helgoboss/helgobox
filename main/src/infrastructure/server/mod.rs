@@ -18,6 +18,8 @@ use url::Url;
 
 use crate::infrastructure::server::http::start_http_server;
 use crate::infrastructure::server::http::ServerClients;
+use derivative::Derivative;
+use metrics_exporter_prometheus::PrometheusHandle;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -27,7 +29,8 @@ pub mod grpc;
 pub mod http;
 mod layers;
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct RealearnServer {
     http_port: u16,
     https_port: u16,
@@ -37,6 +40,8 @@ pub struct RealearnServer {
     local_ip: Option<IpAddr>,
     control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
     control_surface_metrics_enabled: bool,
+    #[derivative(Debug = "ignore")]
+    prometheus_handle: PrometheusHandle,
 }
 
 #[derive(Debug)]
@@ -72,6 +77,7 @@ impl RealearnServer {
         certs_dir_path: PathBuf,
         control_surface_task_sender: RealearnControlSurfaceServerTaskSender,
         control_surface_metrics_enabled: bool,
+        prometheus_handle: PrometheusHandle,
     ) -> RealearnServer {
         RealearnServer {
             http_port,
@@ -82,6 +88,7 @@ impl RealearnServer {
             local_ip: get_local_ip(),
             control_surface_task_sender,
             control_surface_metrics_enabled,
+            prometheus_handle,
         }
     }
 
@@ -103,6 +110,7 @@ impl RealearnServer {
         let https_shutdown_receiver = shutdown_sender.subscribe();
         let grpc_shutdown_receiver = shutdown_sender.subscribe();
         let control_surface_metrics_enabled = self.control_surface_metrics_enabled;
+        let prometheus_handle = self.prometheus_handle.clone();
         let server_thread_join_handle = std::thread::Builder::new()
             .name("ReaLearn server".to_string())
             .spawn(move || {
@@ -120,6 +128,7 @@ impl RealearnServer {
                     https_shutdown_receiver,
                     grpc_shutdown_receiver,
                     control_surface_metrics_enabled,
+                    prometheus_handle,
                 ));
                 runtime.shutdown_timeout(Duration::from_secs(1));
             })
@@ -268,6 +277,7 @@ async fn start_servers(
     https_shutdown_receiver: broadcast::Receiver<()>,
     _grpc_shutdown_receiver: broadcast::Receiver<()>,
     control_surface_metrics_enabled: bool,
+    prometheus_handle: PrometheusHandle,
 ) {
     let http_server_future = start_http_server(
         http_port,
@@ -278,6 +288,7 @@ async fn start_servers(
         http_shutdown_receiver,
         https_shutdown_receiver,
         control_surface_metrics_enabled,
+        prometheus_handle,
     );
     http_server_future.await.expect("HTTP server error");
     // let grpc_server_future = start_grpc_server(

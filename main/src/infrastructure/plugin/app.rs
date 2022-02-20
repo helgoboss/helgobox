@@ -23,6 +23,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use crate::infrastructure::ui::MessagePanel;
 
+use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
 use reaper_low::{PluginContext, Swell};
@@ -211,6 +212,8 @@ impl App {
             normal_audio_hook_task_receiver: audio_receiver,
             feedback_audio_hook_task_receiver,
         };
+        let prometheus_builder = PrometheusBuilder::new();
+        let prometheus_handle = prometheus_builder.install_recorder().unwrap();
         App {
             state: RefCell::new(AppState::Uninitialized(uninitialized_state)),
             controller_preset_manager: Rc::new(RefCell::new(
@@ -233,6 +236,7 @@ impl App {
                 App::server_resource_dir_path().join("certificates"),
                 server_sender,
                 Self::control_surface_metrics_enabled(),
+                prometheus_handle,
             ))),
             config: RefCell::new(config),
             changed_subject: Default::default(),
@@ -272,6 +276,7 @@ impl App {
 
     /// Executed globally just once as soon as we have access to global REAPER instance.
     pub fn init(&self) {
+        playtime_clip_engine::init();
         let prev_state = self.state.replace(AppState::Initializing);
         let uninit_state = if let AppState::Uninitialized(s) = prev_state {
             s

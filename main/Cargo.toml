@@ -155,7 +155,7 @@ twox-hash = "1.6.1"
 strum = "0.23"
 strum_macros = "0.23"
 metrics = "0.18.0"
-metrics-exporter-prometheus = "0.8.0"
+metrics-exporter-prometheus = { version = "0.8.0", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 # For detecting the Windows version (to determine whether special charactes can be displayed)

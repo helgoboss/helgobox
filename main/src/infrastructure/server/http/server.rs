@@ -27,10 +27,8 @@ pub async fn start_http_server(
     mut http_shutdown_receiver: broadcast::Receiver<()>,
     mut https_shutdown_receiver: broadcast::Receiver<()>,
     control_surface_metrics_enabled: bool,
+    prometheus_handle: PrometheusHandle,
 ) -> Result<(), io::Error> {
-    // Prometheus metrics
-    let prometheus_builder = PrometheusBuilder::new();
-    let prometheus_handle = prometheus_builder.install_recorder().unwrap();
     // Router
     let router = create_router(
         cert.clone(),

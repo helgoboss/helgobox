@@ -33,6 +33,7 @@ mod slot;
 pub use slot::*;
 
 mod clip;
+use crate::metrics_util::init_metrics;
 pub use clip::*;
 
 mod tempo_util;
@@ -42,3 +43,11 @@ mod file_util;
 mod conversion_util;
 
 pub type ClipEngineResult<T> = Result<T, &'static str>;
+
+/// Must be called as early as possible.
+///
+/// - before creating a matrix
+/// - preferably in the main thread
+pub fn init() {
+    init_metrics();
+}
