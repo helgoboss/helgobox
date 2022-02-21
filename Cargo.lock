@@ -3475,7 +3475,6 @@ dependencies = [
  "tower",
  "tower-http",
  "tracing",
- "tracing-core",
  "tracing-subscriber",
  "twox-hash",
  "url",

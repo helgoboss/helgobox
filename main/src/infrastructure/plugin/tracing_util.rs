@@ -1,86 +1,76 @@
-use assert_no_alloc::permit_alloc;
-use std::any::TypeId;
-use std::{fs, io};
-use tracing::level_filters::LevelFilter;
-use tracing::span::{Attributes, Record};
-use tracing::subscriber::Interest;
-use tracing::{Event, Id, Metadata};
-use tracing_subscriber::fmt::FormatEvent;
-use tracing_subscriber::layer::{Context, SubscriberExt};
-use tracing_subscriber::{EnvFilter, FmtSubscriber, Layer};
+use crossbeam_channel::{Receiver, Sender};
+use reaper_high::Reaper;
+use std::fmt::Arguments;
+use std::io::{BufWriter, IoSlice, LineWriter, Write};
+use std::thread::JoinHandle;
+use std::{mem, thread};
+use tracing_subscriber::{EnvFilter, FmtSubscriber};
 
 pub fn setup_tracing() {
+    // At the beginning, I wrapped the subscriber in one that calls permit_alloc() in on_event()
+    // in order to prevent assert_no_alloc() from aborting because of logging. However, this was
+    // not enough. Some tracing-core stuff also did allocations and it was not possible to wrap it.
+    // The approach now is that we wrap the log macros (see example in playtime-clip-matrix crate).
+    let (sender, receiver) = crossbeam_channel::unbounded();
+    thread::Builder::new()
+        .name(String::from("ReaLearn async logger"))
+        .spawn(move || keep_logging(receiver, std::io::stdout()))
+        .unwrap();
     let subscriber = FmtSubscriber::builder()
         .with_env_filter(EnvFilter::from_env("REALEARN_LOG"))
+        .with_writer(move || AsyncWriter::new(std::io::stdout(), sender.clone()))
         .finish();
-    let subscriber = PermitAllocSubscriber::new(subscriber);
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 }
 
-struct PermitAllocSubscriber<S> {
-    inner: S,
+struct AsyncWriter<W> {
+    sender: Sender<Vec<u8>>,
+    inner: W,
+    data: Vec<u8>,
 }
 
-impl<S> PermitAllocSubscriber<S> {
-    pub fn new(inner: S) -> Self {
-        PermitAllocSubscriber { inner }
+impl<W: Write> AsyncWriter<W> {
+    pub fn new(inner: W, sender: Sender<Vec<u8>>) -> Self {
+        Self {
+            sender,
+            inner,
+            data: vec![],
+        }
     }
 }
 
-impl<S: tracing::Subscriber> tracing::Subscriber for PermitAllocSubscriber<S> {
-    fn register_callsite(&self, metadata: &'static Metadata<'static>) -> Interest {
-        self.inner.register_callsite(metadata)
+fn keep_logging(receiver: Receiver<Vec<u8>>, mut inner: impl Write) {
+    while let Ok(msg) = receiver.recv() {
+        inner.write(&msg).unwrap();
+        inner.flush().unwrap();
+    }
+}
+
+impl<W: Write> Write for AsyncWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        unimplemented!()
     }
 
-    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        self.inner.enabled(metadata)
+    fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> std::io::Result<usize> {
+        unimplemented!()
     }
 
-    fn max_level_hint(&self) -> Option<LevelFilter> {
-        self.inner.max_level_hint()
+    fn flush(&mut self) -> std::io::Result<()> {
+        unimplemented!()
     }
 
-    fn new_span(&self, span: &Attributes<'_>) -> Id {
-        self.inner.new_span(span)
+    fn write_all(&mut self, buf: &[u8]) -> std::io::Result<()> {
+        if Reaper::get().medium_reaper().is_in_real_time_audio() {
+            self.data.write_all(buf)?;
+            let data = mem::take(&mut self.data);
+            let _ = self.sender.try_send(data);
+            Ok(())
+        } else {
+            self.inner.write_all(buf)
+        }
     }
 
-    fn record(&self, span: &Id, values: &Record<'_>) {
-        self.inner.record(span, values)
-    }
-
-    fn record_follows_from(&self, span: &Id, follows: &Id) {
-        self.inner.record_follows_from(span, follows)
-    }
-
-    fn event(&self, event: &Event<'_>) {
-        permit_alloc(|| self.inner.event(event))
-    }
-
-    fn enter(&self, span: &Id) {
-        self.inner.enter(span)
-    }
-
-    fn exit(&self, span: &Id) {
-        self.inner.exit(span)
-    }
-
-    fn clone_span(&self, id: &Id) -> Id {
-        self.inner.clone_span(id)
-    }
-
-    fn drop_span(&self, id: Id) {
-        self.inner.drop_span(id)
-    }
-
-    fn try_close(&self, id: Id) -> bool {
-        self.inner.try_close(id)
-    }
-
-    fn current_span(&self) -> tracing_core::span::Current {
-        self.inner.current_span()
-    }
-
-    unsafe fn downcast_raw(&self, id: TypeId) -> Option<*const ()> {
-        self.inner.downcast_raw(id)
+    fn write_fmt(&mut self, fmt: Arguments<'_>) -> std::io::Result<()> {
+        unimplemented!()
     }
 }
