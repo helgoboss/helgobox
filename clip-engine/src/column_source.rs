@@ -41,6 +41,58 @@ impl SharedColumnSource {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct ColumnSourceCommandSender {
+    command_sender: Sender<ColumnSourceCommand>,
+}
+
+impl ColumnSourceCommandSender {
+    pub fn new(command_sender: Sender<ColumnSourceCommand>) -> Self {
+        Self { command_sender }
+    }
+
+    pub fn fill_slot(&self, args: ColumnFillSlotArgs) {
+        self.send_source_task(ColumnSourceCommand::FillSlot(args));
+    }
+
+    pub fn play_clip(&self, args: ColumnPlayClipArgs) {
+        self.send_source_task(ColumnSourceCommand::PlayClip(args));
+    }
+
+    pub fn stop_clip(&self, args: ColumnStopClipArgs) {
+        self.send_source_task(ColumnSourceCommand::StopClip(args));
+    }
+
+    pub fn set_clip_repeated(&self, args: ColumnSetClipRepeatedArgs) {
+        self.send_source_task(ColumnSourceCommand::SetClipRepeated(args));
+    }
+
+    pub fn pause_clip(&self, index: usize) {
+        let args = ColumnPauseClipArgs { index };
+        self.send_source_task(ColumnSourceCommand::PauseClip(args));
+    }
+
+    pub fn seek_clip(&self, index: usize, desired_pos: UnitValue) {
+        let args = ColumnSeekClipArgs { index, desired_pos };
+        self.send_source_task(ColumnSourceCommand::SeekClip(args));
+    }
+
+    pub fn set_clip_volume(&self, index: usize, volume: ReaperVolumeValue) {
+        let args = ColumnSetClipVolumeArgs { index, volume };
+        self.send_source_task(ColumnSourceCommand::SetClipVolume(args));
+    }
+
+    /// This method should be called whenever REAPER's play state changes. It will make the clip
+    /// start/stop synchronized with REAPER's transport.
+    pub fn process_transport_change(&self, args: SlotProcessTransportChangeArgs) {
+        self.send_source_task(ColumnSourceCommand::ProcessTransportChange(args));
+    }
+
+    fn send_source_task(&self, task: ColumnSourceCommand) {
+        self.command_sender.try_send(task).unwrap();
+    }
+}
+
 #[derive(Debug)]
 pub enum ColumnSourceCommand {
     FillSlot(ColumnFillSlotArgs),

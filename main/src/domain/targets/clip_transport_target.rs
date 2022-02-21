@@ -2,8 +2,8 @@ use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, get_effective_tracks,
     transport_is_enabled_unit_value, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     HitInstructionReturnValue, InstanceStateChanged, MappingCompartment, MappingControlContext,
-    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
-    TrackDescriptor, TransportAction, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, TrackDescriptor, TransportAction, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_clip_engine::{
@@ -234,6 +234,10 @@ impl RealearnTarget for ClipTransportTarget {
 
     fn reaper_target_type(&self) -> Option<ReaperTargetType> {
         Some(ReaperTargetType::ClipTransport)
+    }
+
+    fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
+        Some(RealTimeReaperTarget::ClipTransport(self.clone()))
     }
 }
 

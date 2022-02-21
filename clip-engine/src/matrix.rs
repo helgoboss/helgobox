@@ -3,9 +3,9 @@ use crate::{
     keep_processing_recorder_requests, keep_stretching, CacheRequest, Clip, ClipChangedEvent,
     ClipContent, ClipData, ClipInfo, ClipPlayArgs, ClipPlayState, ClipStopArgs, ClipStopBehavior,
     Column, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
-    PreBufferRequest, RecordBehavior, RecordTiming, RecorderEquipment, RecorderRequest,
-    SharedColumnSource, Slot, SlotPollArgs, SlotProcessTransportChangeArgs, StretchWorkerRequest,
-    Timeline, TransportChange,
+    PreBufferRequest, RealTimeClipMatrix, RealTimeClipMatrixCommand, RecordBehavior, RecordTiming,
+    RecorderEquipment, RecorderRequest, SharedColumnSource, Slot, SlotPollArgs,
+    SlotProcessTransportChangeArgs, StretchWorkerRequest, Timeline, TransportChange,
 };
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -22,14 +22,17 @@ pub struct ClipMatrix<H> {
     recorder_equipment: RecorderEquipment,
     columns: Vec<Column>,
     containing_track: Option<Track>,
+    real_time_command_sender: Sender<RealTimeClipMatrixCommand>,
 }
 
 impl<H: ClipMatrixHandler> ClipMatrix<H> {
-    pub fn new(handler: H, containing_track: Option<Track>) -> Self {
+    pub fn new(handler: H, containing_track: Option<Track>) -> (Self, RealTimeClipMatrix) {
         let (stretch_worker_sender, stretch_worker_receiver) = crossbeam_channel::bounded(500);
         let (recorder_request_sender, recorder_request_receiver) = crossbeam_channel::bounded(500);
         let (cache_request_sender, cache_request_receiver) = crossbeam_channel::bounded(500);
         let (pre_buffer_request_sender, pre_buffer_request_receiver) =
+            crossbeam_channel::bounded(500);
+        let (real_time_command_sender, real_time_command_receiver) =
             crossbeam_channel::bounded(500);
         thread::Builder::new()
             .name(String::from("Playtime stretch worker"))
@@ -51,7 +54,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
             .spawn(move || {
                 keep_processing_pre_buffer_requests(pre_buffer_request_receiver);
             });
-        Self {
+        let matrix = Self {
             handler,
             stretch_worker_sender,
             recorder_equipment: RecorderEquipment {
@@ -61,12 +64,20 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
             },
             columns: vec![],
             containing_track,
-        }
+            real_time_command_sender,
+        };
+        let real_time_matrix = RealTimeClipMatrix::new(real_time_command_receiver);
+        (matrix, real_time_matrix)
     }
 
     pub fn clear(&mut self) {
         // TODO-medium How about suspension?
         self.columns.clear();
+        self.send_command_to_real_time_matrix(RealTimeClipMatrixCommand::Clear);
+    }
+
+    fn send_command_to_real_time_matrix(&self, command: RealTimeClipMatrixCommand) {
+        self.real_time_command_sender.try_send(command).unwrap();
     }
 
     /// This is for loading slots the legacy way.
@@ -95,6 +106,10 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
                 index: row,
                 repeated: desc.clip.repeat,
             });
+            self.send_command_to_real_time_matrix(RealTimeClipMatrixCommand::InsertColumn(
+                desc.index,
+                column.clone_command_sender(),
+            ));
             self.columns.push(column);
         }
         self.handler.notify_slot_contents_changed();

@@ -1,13 +1,14 @@
 use crate::domain::{
-    classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
-    Event, FeedbackSendBehavior, Garbage, GarbageBin, InputMatchResult, InstanceId,
-    LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator,
-    MidiMessageClassification, MidiScanResult, MidiScanner, NormalRealTimeToMainThreadTask,
-    OrderedMappingMap, OwnedIncomingMidiMessage, PartialControlMatch,
-    PersistentMappingProcessingState, QualifiedMappingId, RealTimeCompoundMappingTarget,
-    RealTimeMapping, RealTimeReaperTarget, SampleOffset, SendMidiDestination, VirtualSourceValue,
+    classify_midi_message, ClipTransportTarget, CompoundMappingSource, ControlMainTask,
+    ControlMode, ControlOptions, Event, FeedbackSendBehavior, Garbage, GarbageBin,
+    InputMatchResult, InstanceId, LifecycleMidiMessage, LifecyclePhase, MappingCompartment,
+    MappingId, MidiClockCalculator, MidiMessageClassification, MidiScanResult, MidiScanner,
+    MidiSendTarget, NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
+    PartialControlMatch, PersistentMappingProcessingState, QualifiedMappingId,
+    RealTimeCompoundMappingTarget, RealTimeMapping, RealTimeReaperTarget, SampleOffset,
+    SendMidiDestination, TransportAction, VirtualSourceValue,
 };
-use helgoboss_learn::{ControlValue, MidiSourceValue};
+use helgoboss_learn::{AbsoluteMode, AbsoluteValue, ControlValue, MidiSourceValue};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
@@ -23,6 +24,10 @@ use slog::{debug, trace};
 use crate::base::Global;
 use assert_no_alloc::permit_alloc;
 use enum_map::{enum_map, EnumMap};
+use playtime_clip_engine::{
+    clip_timeline, ClipPlayArgs, ClipStopArgs, ClipStopBehavior, ColumnPlayClipArgs,
+    ColumnStopClipArgs, RealTimeClipMatrix, Timeline,
+};
 use std::convert::TryInto;
 use std::ptr::null_mut;
 use std::time::Duration;
@@ -65,6 +70,7 @@ pub struct RealTimeProcessor {
     sample_rate: Hz,
     input_logging_enabled: bool,
     output_logging_enabled: bool,
+    clip_matrix: Option<RealTimeClipMatrix>,
 }
 
 /// Detects play position discontinuity while the project is playing, ignoring tempo changes.
@@ -155,6 +161,7 @@ impl RealTimeProcessor {
             input_logging_enabled: false,
             output_logging_enabled: false,
             sample_rate: Hz::new(1.0),
+            clip_matrix: None,
         }
     }
 
@@ -257,6 +264,9 @@ impl RealTimeProcessor {
     /// downtime of the audio device. It could also be just a downtime related to opening the
     /// project itself, which we detect to some degree. See the code that reacts to this parameter.
     pub fn run_from_audio_hook_essential(&mut self, sample_count: usize, might_be_rebirth: bool) {
+        if let Some(clip_matrix) = &mut self.clip_matrix {
+            clip_matrix.poll();
+        }
         // Detect change of next audio block position
         if self.play_position_jump_detector.detect_play_jump() {
             self.normal_main_task_sender
@@ -500,6 +510,9 @@ impl RealTimeProcessor {
                     }
                     self.garbage_bin
                         .dispose(Garbage::ActivationChanges(activation_updates));
+                }
+                SetClipMatrix(m) => {
+                    self.clip_matrix = Some(m);
                 }
             }
         }
@@ -968,6 +981,7 @@ impl RealTimeProcessor {
                 caller,
                 self.midi_feedback_output,
                 self.output_logging_enabled,
+                self.clip_matrix.as_ref(),
             )
         } else {
             unreachable!()
@@ -1003,6 +1017,7 @@ impl RealTimeProcessor {
                         caller,
                         self.midi_feedback_output,
                         self.output_logging_enabled,
+                        self.clip_matrix.as_ref(),
                     );
                     matched = true;
                 }
@@ -1270,6 +1285,7 @@ impl<T> RealTimeSender<T> {
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
+    SetClipMatrix(RealTimeClipMatrix),
     UpdateAllMappings(MappingCompartment, Vec<RealTimeMapping>),
     UpdateSingleMapping(MappingCompartment, Box<Option<RealTimeMapping>>),
     UpdatePersistentMappingProcessingState {
@@ -1386,6 +1402,7 @@ fn control_controller_mappings_midi(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
+    matrix: Option<&RealTimeClipMatrix>,
 ) -> bool {
     let mut matched = false;
     let mut enforce_target_refresh = false;
@@ -1417,6 +1434,7 @@ fn control_controller_mappings_midi(
                     caller,
                     midi_feedback_output,
                     output_logging_enabled,
+                    matrix,
                 ),
                 ProcessDirect(control_value) => {
                     let _ = process_real_mapping(
@@ -1431,6 +1449,7 @@ fn control_controller_mappings_midi(
                         caller,
                         midi_feedback_output,
                         output_logging_enabled,
+                        matrix,
                     );
                     // We do this only for transactions of *real* targets matches.
                     enforce_target_refresh = true;
@@ -1455,6 +1474,7 @@ fn process_real_mapping(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
+    matrix: Option<&RealTimeClipMatrix>,
 ) -> Result<(), &'static str> {
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
         mapping.resolved_target.as_mut()
@@ -1475,67 +1495,16 @@ fn process_real_mapping(
             .ok_or("target already has desired value")?
             .to_absolute_value()?;
         match reaper_target {
-            RealTimeReaperTarget::SendMidi(t) => {
-                // This is a type of mapping that we should process right here because we want to
-                // send a MIDI message and this needs to happen in the audio thread.
-                // Going to the main thread and back would be such a waste!
-                let raw_midi_event = t.pattern().to_concrete_midi_event(v);
-                let midi_destination = match caller {
-                    Caller::Vst(_) => match t.destination() {
-                        SendMidiDestination::FxOutput => Some(MidiDestination::FxOutput),
-                        SendMidiDestination::FeedbackOutput => {
-                            Some(midi_feedback_output.ok_or("no feedback output set")?)
-                        }
-                    },
-                    Caller::AudioHook => {
-                        match t.destination() {
-                            SendMidiDestination::FxOutput => {
-                                // Control input = Device | Destination = FX output.
-                                // Not supported currently. It could be by introducing a new
-                                // `FxOutputTask` with a SendMidiToFxOutput variant, tasks being
-                                // processed by `run_from_vst()` only no matter the feedback driver.
-                                None
-                            }
-                            SendMidiDestination::FeedbackOutput => {
-                                Some(midi_feedback_output.ok_or("no feedback output set")?)
-                            }
-                        }
-                    }
-                };
-                if output_logging_enabled && midi_destination.is_some() {
-                    permit_alloc(|| {
-                        sender
-                            .try_send(ControlMainTask::LogTargetOutput {
-                                event: Box::new(raw_midi_event),
-                            })
-                            .unwrap();
-                    });
-                }
-                let successful = match midi_destination {
-                    Some(MidiDestination::FxOutput) => {
-                        send_raw_midi_to_fx_output(
-                            raw_midi_event.bytes(),
-                            value_event.offset(),
-                            caller,
-                        );
-                        true
-                    }
-                    Some(MidiDestination::Device(dev_id)) => MidiOutputDevice::new(dev_id)
-                        .with_midi_output(|mo| {
-                            if let Some(mo) = mo {
-                                mo.send_msg(&raw_midi_event, SendMidiTime::Instantly);
-                                true
-                            } else {
-                                false
-                            }
-                        }),
-                    _ => false,
-                };
-                if successful {
-                    t.set_artificial_value(v);
-                }
-                Ok(())
-            }
+            RealTimeReaperTarget::SendMidi(t) => real_time_target_send_midi(
+                t,
+                caller,
+                v,
+                midi_feedback_output,
+                output_logging_enabled,
+                sender,
+                value_event,
+            ),
+            RealTimeReaperTarget::ClipTransport(t) => real_time_target_clip_transport(t, matrix, v),
         }
     } else {
         forward_control_to_main_processor(
@@ -1547,6 +1516,119 @@ fn process_real_mapping(
         );
         Ok(())
     }
+}
+
+fn real_time_target_clip_transport(
+    target: &mut ClipTransportTarget,
+    matrix: Option<&RealTimeClipMatrix>,
+    v: AbsoluteValue,
+) -> Result<(), &'static str> {
+    let matrix = matrix.ok_or("real-time clip matrix not initialized")?;
+    let column = matrix
+        .column(target.slot_index)
+        .ok_or("column doesn't exist")?;
+    use TransportAction::*;
+    let timeline = clip_timeline(Some(target.project), false);
+    // TODO-high Implement correctly
+    match target.action {
+        PlayStop => {
+            if v.is_on() {
+                column.play_clip(ColumnPlayClipArgs {
+                    index: 0,
+                    clip_args: ClipPlayArgs { from_bar: None },
+                })
+            } else {
+                column.stop_clip(ColumnStopClipArgs {
+                    index: 0,
+                    clip_args: ClipStopArgs {
+                        stop_behavior: ClipStopBehavior::Immediately,
+                        timeline_cursor_pos: timeline.cursor_pos(),
+                        timeline,
+                    },
+                })
+            }
+        }
+        PlayPause => {}
+        Stop => column.stop_clip(ColumnStopClipArgs {
+            index: 0,
+            clip_args: ClipStopArgs {
+                stop_behavior: ClipStopBehavior::Immediately,
+                timeline_cursor_pos: timeline.cursor_pos(),
+                timeline,
+            },
+        }),
+        Pause => {}
+        RecordStop => {}
+        Repeat => {}
+    }
+    Ok(())
+}
+
+fn real_time_target_send_midi(
+    t: &mut MidiSendTarget,
+    caller: Caller,
+    v: AbsoluteValue,
+    midi_feedback_output: Option<MidiDestination>,
+    output_logging_enabled: bool,
+    sender: &crossbeam_channel::Sender<ControlMainTask>,
+    value_event: Event<ControlValue>,
+) -> Result<(), &'static str> {
+    // This is a type of mapping that we should process right here because we want to
+    // send a MIDI message and this needs to happen in the audio thread.
+    // Going to the main thread and back would be such a waste!
+    let raw_midi_event = t.pattern().to_concrete_midi_event(v);
+    let midi_destination = match caller {
+        Caller::Vst(_) => match t.destination() {
+            SendMidiDestination::FxOutput => Some(MidiDestination::FxOutput),
+            SendMidiDestination::FeedbackOutput => {
+                Some(midi_feedback_output.ok_or("no feedback output set")?)
+            }
+        },
+        Caller::AudioHook => {
+            match t.destination() {
+                SendMidiDestination::FxOutput => {
+                    // Control input = Device | Destination = FX output.
+                    // Not supported currently. It could be by introducing a new
+                    // `FxOutputTask` with a SendMidiToFxOutput variant, tasks being
+                    // processed by `run_from_vst()` only no matter the feedback driver.
+                    None
+                }
+                SendMidiDestination::FeedbackOutput => {
+                    Some(midi_feedback_output.ok_or("no feedback output set")?)
+                }
+            }
+        }
+    };
+    if output_logging_enabled && midi_destination.is_some() {
+        permit_alloc(|| {
+            sender
+                .try_send(ControlMainTask::LogTargetOutput {
+                    event: Box::new(raw_midi_event),
+                })
+                .unwrap();
+        });
+    }
+    let successful = match midi_destination {
+        Some(MidiDestination::FxOutput) => {
+            send_raw_midi_to_fx_output(raw_midi_event.bytes(), value_event.offset(), caller);
+            true
+        }
+        Some(MidiDestination::Device(dev_id)) => {
+            MidiOutputDevice::new(dev_id).with_midi_output(|mo| {
+                if let Some(mo) = mo {
+                    mo.send_msg(&raw_midi_event, SendMidiTime::Instantly);
+                    true
+                } else {
+                    false
+                }
+            })
+        }
+        _ => false,
+    };
+    if successful {
+        t.set_artificial_value(v);
+    }
+    Ok(())
 }
 
 fn forward_control_to_main_processor(
@@ -1576,6 +1658,7 @@ fn control_main_mappings_virtual(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
+    matrix: Option<&RealTimeClipMatrix>,
 ) -> bool {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.
@@ -1598,6 +1681,7 @@ fn control_main_mappings_virtual(
                     caller,
                     midi_feedback_output,
                     output_logging_enabled,
+                    matrix,
                 );
                 matched = true;
             }

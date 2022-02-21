@@ -344,6 +344,7 @@ impl RealearnPlugin {
                 let instance_state = Rc::new(RefCell::new(InstanceState::new(
                     instance_feedback_event_sender,
                     App::get().normal_audio_hook_task_sender().clone(),
+                    normal_real_time_task_sender.clone(),
                     processor_context.track().cloned(),
                 )));
                 // Session (application - shared)

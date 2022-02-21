@@ -5,6 +5,8 @@ use std::rc::Rc;
 
 use crossbeam_channel::Sender;
 use enum_map::EnumMap;
+use lazycell::LazyCell;
+use once_cell::unsync::Lazy;
 use reaper_high::{Item, OwnedSource, Project, Track};
 use reaper_medium::{Bpm, PlayState, PositionInSeconds, ReaperVolumeValue};
 use rxrust::prelude::*;
@@ -15,8 +17,8 @@ use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
 use crate::domain::{
-    GroupId, MappingCompartment, MappingId, NormalAudioHookTask, QualifiedMappingId,
-    RealTimeSender, Tag,
+    GroupId, MappingCompartment, MappingId, NormalAudioHookTask, NormalRealTimeTask,
+    QualifiedMappingId, RealTimeSender, Tag,
 };
 use playtime_clip_engine::{
     clip_timeline, ClipChangedEvent, ClipContent, ClipData, ClipMatrix, ClipMatrixHandler,
@@ -35,8 +37,11 @@ pub type RealearnClipMatrix = ClipMatrix<RealearnClipMatrixHandler>;
 /// processing layer (otherwise it could reside in the main processor).
 #[derive(Debug)]
 pub struct InstanceState {
-    clip_matrix: RealearnClipMatrix,
+    clip_matrix: LazyCell<RealearnClipMatrix>,
     instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
+    audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
+    real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
+    this_track: Option<Track>,
     slot_contents_changed_subject: LocalSubject<'static, (), ()>,
     /// Which mappings are in which group.
     ///
@@ -120,15 +125,15 @@ impl InstanceState {
     pub fn new(
         instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
         audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
+        real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
         this_track: Option<Track>,
     ) -> Self {
-        let clip_matrix_handler = RealearnClipMatrixHandler::new(
-            audio_hook_task_sender,
-            instance_feedback_event_sender.clone(),
-        );
         Self {
-            clip_matrix: ClipMatrix::new(clip_matrix_handler, this_track),
+            clip_matrix: LazyCell::new(),
             instance_feedback_event_sender,
+            audio_hook_task_sender,
+            real_time_processor_sender,
+            this_track,
             slot_contents_changed_subject: Default::default(),
             mappings_by_group: Default::default(),
             active_mapping_by_group: Default::default(),
@@ -140,11 +145,26 @@ impl InstanceState {
     }
 
     pub fn clip_matrix(&self) -> &RealearnClipMatrix {
-        &self.clip_matrix
+        self.init_clip_matrix_if_necessary();
+        self.clip_matrix.borrow().expect(CLIP_MATRIX_NOT_FILLED)
     }
 
     pub fn clip_matrix_mut(&mut self) -> &mut RealearnClipMatrix {
-        &mut self.clip_matrix
+        self.init_clip_matrix_if_necessary();
+        self.clip_matrix.borrow_mut().expect(CLIP_MATRIX_NOT_FILLED)
+    }
+
+    fn init_clip_matrix_if_necessary(&self) {
+        if self.clip_matrix.filled() {
+            return;
+        }
+        let clip_matrix = init_clip_matrix(
+            self.audio_hook_task_sender.clone(),
+            self.real_time_processor_sender.clone(),
+            self.instance_feedback_event_sender.clone(),
+            self.this_track.clone(),
+        );
+        self.clip_matrix.fill(clip_matrix);
     }
 
     pub fn slot_contents_changed(
@@ -367,3 +387,20 @@ pub enum InstanceStateChanged {
     },
     ActiveInstanceTags,
 }
+
+fn init_clip_matrix(
+    audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
+    real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
+    instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
+    this_track: Option<Track>,
+) -> RealearnClipMatrix {
+    let clip_matrix_handler =
+        RealearnClipMatrixHandler::new(audio_hook_task_sender, instance_feedback_event_sender);
+    let (matrix, real_time_matrix) = ClipMatrix::new(clip_matrix_handler, this_track);
+    real_time_processor_sender
+        .send(NormalRealTimeTask::SetClipMatrix(real_time_matrix))
+        .unwrap();
+    matrix
+}
+
+const CLIP_MATRIX_NOT_FILLED: &str = "clip matrix not filled yet";

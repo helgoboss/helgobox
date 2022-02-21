@@ -2,9 +2,9 @@ use crate::{
     CacheRequest, ClipChangedEvent, ClipData, ClipInfo, ClipPlayState, ClipRecordTask,
     ColumnFillSlotArgs, ColumnPauseClipArgs, ColumnPlayClipArgs, ColumnSeekClipArgs,
     ColumnSetClipRepeatedArgs, ColumnSetClipVolumeArgs, ColumnSource, ColumnSourceCommand,
-    ColumnSourceEvent, ColumnStopClipArgs, RecordBehavior, RecordKind, RecorderEquipment,
-    RecorderRequest, SharedColumnSource, SharedPos, Slot, SlotProcessTransportChangeArgs, Timeline,
-    TimelineMoment, TransportChange,
+    ColumnSourceCommandSender, ColumnSourceEvent, ColumnStopClipArgs, RecordBehavior, RecordKind,
+    RecorderEquipment, RecorderRequest, SharedColumnSource, SharedPos, Slot,
+    SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange,
 };
 use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
@@ -28,7 +28,7 @@ pub struct Column {
     track: Option<Track>,
     column_source: SharedColumnSource,
     preview_register: PlayingPreviewRegister,
-    command_sender: Sender<ColumnSourceCommand>,
+    command_sender: ColumnSourceCommandSender,
     slots: Vec<SlotDesc>,
     event_receiver: Receiver<ColumnSourceEvent>,
 }
@@ -113,10 +113,14 @@ impl Column {
             },
             track,
             column_source: shared_source,
-            command_sender,
+            command_sender: ColumnSourceCommandSender::new(command_sender),
             slots: vec![],
             event_receiver,
         }
+    }
+
+    pub fn clone_command_sender(&self) -> ColumnSourceCommandSender {
+        self.command_sender.clone()
     }
 
     pub fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
@@ -134,7 +138,7 @@ impl Column {
             },
         };
         get_slot_mut(&mut self.slots, 0).clip = Some(clip_desc);
-        self.send_source_task(ColumnSourceCommand::FillSlot(args));
+        self.command_sender.fill_slot(args);
     }
 
     pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<(usize, ClipChangedEvent)> {
@@ -171,15 +175,33 @@ impl Column {
     }
 
     pub fn play_clip(&mut self, args: ColumnPlayClipArgs) {
-        self.send_source_task(ColumnSourceCommand::PlayClip(args));
+        self.command_sender.play_clip(args);
     }
 
     pub fn stop_clip(&mut self, args: ColumnStopClipArgs) {
-        self.send_source_task(ColumnSourceCommand::StopClip(args));
+        self.command_sender.stop_clip(args);
     }
 
     pub fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) {
-        self.send_source_task(ColumnSourceCommand::SetClipRepeated(args));
+        self.command_sender.set_clip_repeated(args);
+    }
+
+    pub fn pause_clip(&mut self, index: usize) {
+        self.command_sender.pause_clip(index);
+    }
+
+    pub fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) {
+        self.command_sender.seek_clip(index, desired_pos);
+    }
+
+    pub fn set_clip_volume(&mut self, index: usize, volume: ReaperVolumeValue) {
+        self.command_sender.set_clip_volume(index, volume);
+    }
+
+    /// This method should be called whenever REAPER's play state changes. It will make the clip
+    /// start/stop synchronized with REAPER's transport.
+    pub fn process_transport_change(&mut self, args: SlotProcessTransportChangeArgs) {
+        self.command_sender.process_transport_change(args);
     }
 
     pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
@@ -253,34 +275,9 @@ impl Column {
         Ok(task)
     }
 
-    pub fn pause_clip(&mut self, index: usize) {
-        let args = ColumnPauseClipArgs { index };
-        self.send_source_task(ColumnSourceCommand::PauseClip(args));
-    }
-
-    pub fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) {
-        let args = ColumnSeekClipArgs { index, desired_pos };
-        self.send_source_task(ColumnSourceCommand::SeekClip(args));
-    }
-
-    pub fn set_clip_volume(&mut self, index: usize, volume: ReaperVolumeValue) {
-        let args = ColumnSetClipVolumeArgs { index, volume };
-        self.send_source_task(ColumnSourceCommand::SetClipVolume(args));
-    }
-
-    /// This method should be called whenever REAPER's play state changes. It will make the clip
-    /// start/stop synchronized with REAPER's transport.
-    pub fn process_transport_change(&mut self, args: SlotProcessTransportChangeArgs) {
-        self.send_source_task(ColumnSourceCommand::ProcessTransportChange(args));
-    }
-
     fn with_source_mut<R>(&mut self, f: impl FnOnce(&mut ColumnSource) -> R) -> R {
         let mut guard = self.column_source.lock();
         f(&mut guard)
-    }
-
-    fn send_source_task(&self, task: ColumnSourceCommand) {
-        self.command_sender.try_send(task).unwrap();
     }
 }
 

@@ -3,6 +3,9 @@ mod metrics_util;
 mod matrix;
 pub use matrix::*;
 
+mod real_time_matrix;
+pub use real_time_matrix::*;
+
 mod timeline;
 pub use timeline::*;
 

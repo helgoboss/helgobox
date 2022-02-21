@@ -598,6 +598,12 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.current_value(()),
+            // If we need the current value for control, we need to lock a mutex, something we
+            // decided against. We use a sender instead. We could safely use a mutex (without
+            // contention) if we could be sure that preview registers get_samples() and this code
+            // here is called in the same real-time thread. But if live FX multiprocessing is
+            // enabled, this is not the case. So we better take the channel approach.
+            ClipTransport(_) => None,
         }
     }
 
@@ -605,6 +611,10 @@ impl<'a> Target<'a> for RealTimeReaperTarget {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.control_type(()),
+            // We can't simply get the current transport value because we decided not to use mutex
+            // to access the column source state. Adding "retriggerable" makes the glue section
+            // basically dumb and leaves everything to the target.
+            ClipTransport(_) => ControlType::AbsoluteContinuousRetriggerable,
         }
     }
 }
@@ -1333,6 +1343,7 @@ pub fn change_track_prop(
 #[derive(Clone, Debug, PartialEq)]
 pub enum RealTimeReaperTarget {
     SendMidi(MidiSendTarget),
+    ClipTransport(ClipTransportTarget),
 }
 
 pub fn get_control_type_and_character_for_track_exclusivity(
