@@ -221,7 +221,7 @@ impl Slot {
             let changed_play_state = if play_state == last_play_state {
                 None
             } else {
-                println!("Clip state changed: {:?}", play_state);
+                debug!("Clip state changed: {:?}", play_state);
                 self.runtime_data.last_play_state = play_state;
                 Some(play_state)
             };

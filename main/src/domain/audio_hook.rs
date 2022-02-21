@@ -325,6 +325,9 @@ impl OnAudioBuffer for RealearnAudioHook {
             // thread, right at the beginning. It's only a problem for testing with
             // assert_no_alloc(). That means we should test without live FX multiprocessing!
             let _ = std::thread::current().id();
+            // The tracing library also does some allocation per thread (independent from the
+            // allocations that a subscriber does anyway).
+            tracing::info!("Initializing real-time logging");
             self.initialized = true;
         }
         assert_no_alloc(|| {

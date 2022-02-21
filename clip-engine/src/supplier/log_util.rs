@@ -45,7 +45,7 @@ pub fn print_distance_from_beat_start_at(
     );
     let block_index = (request.general_info().audio_block_timeline_cursor_pos.get()
         / block_duration.get()) as isize;
-    println!(
+    debug!(
         "\n\
         # New loop cycle\n\
         Block index: {}\n\

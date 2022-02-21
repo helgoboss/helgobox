@@ -23,6 +23,7 @@ use crate::infrastructure::server;
 use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPANION_WEB_APP_URL};
 use crate::infrastructure::ui::MessagePanel;
 
+use crate::infrastructure::plugin::tracing_util::setup_tracing;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
@@ -259,6 +260,7 @@ impl App {
 
     /// Executed globally just once when module loaded.
     pub fn init_static(logger: Logger, context: PluginContext) {
+        setup_tracing();
         Swell::make_available_globally(Swell::load(context));
         // TODO-medium This needs around 10 MB of RAM. Of course only once, not per instance,
         //  so not a big deal. Still, maybe could be improved?

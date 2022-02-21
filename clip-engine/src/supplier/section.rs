@@ -297,7 +297,7 @@ impl<S: MidiSupplier + WithFrameRate + ExactFrameCount> MidiSupplier for Section
             ..
         } = &data.phase_two
         {
-            println!("Silence MIDI at section end");
+            debug!("Silence MIDI at section end");
             midi_util::silence_midi(event_list);
         }
         self.generate_outer_response(inner_response, data.phase_two)

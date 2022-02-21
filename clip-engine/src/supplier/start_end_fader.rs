@@ -75,7 +75,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for StartEndFader<S> {
         let response = self.supplier.supply_midi(request, event_list);
         if self.fade_out_enabled {
             if response.status.reached_end() {
-                println!("Silence MIDI at source end");
+                debug!("Silence MIDI at source end");
                 midi_util::silence_midi(event_list);
             }
         }

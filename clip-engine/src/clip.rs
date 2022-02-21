@@ -1188,7 +1188,7 @@ impl ReadyState {
             args.source_frame_rate,
         );
         let block_index = (args.timeline_cursor_pos.get() / block_length_in_secs.get()) as isize;
-        print!(
+        debug!(
             "\n\
             # Natural deviation report\n\
             Block index: {},\n\

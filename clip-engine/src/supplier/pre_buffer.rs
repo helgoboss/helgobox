@@ -306,7 +306,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
             .supply_audio(&inner_request, &mut remaining_dest_buffer);
         use SupplyResponseStatus::*;
         let num_frames_consumed = frame_offset + inner_response.num_frames_consumed;
-        // println!("pre-buffer: fallback");
+        // rt_debug!("pre-buffer: fallback");
         SupplyResponse {
             num_frames_consumed,
             status: match inner_response.status {
@@ -402,7 +402,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
                 match outcome {
                     None => {
                         // No block matched. Sad path.
-                        println!("No block matched.");
+                        debug!("No block matched.");
                         let failure = StepFailure {
                             frame_offset,
                             non_matching_block_count: slots,
@@ -411,7 +411,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
                     }
                     Some((i, outcome)) => {
                         // Found a matching block and applied it!
-                        println!(
+                        debug!(
                             "Found matching block after searching {} of {} additional slot(s).",
                             i,
                             slots - 1
@@ -635,7 +635,7 @@ impl PreBufferWorker {
         id: PreBufferInstanceId,
         args: PreBufferFillRequest,
     ) -> Result<(), &'static str> {
-        println!("Pre-buffer request for instance {}: {:?}", id, &args);
+        debug!("Pre-buffer request for instance {}: {:?}", id, &args);
         let instance = self
             .instances
             .get_mut(&id)
@@ -763,7 +763,7 @@ fn process_pre_buffered_response(
     let next_frame_offset = frame_offset + step_response.num_frames_consumed;
     // Finish if end of source material reached.
     if step_response.status.reached_end() {
-        println!("pre-buffer: COMPLETE end!");
+        debug!("pre-buffer: COMPLETE end!");
         let finished_response = SupplyResponse {
             num_frames_consumed: next_frame_offset,
             status: ReachedEnd {

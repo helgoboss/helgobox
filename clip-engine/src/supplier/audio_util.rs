@@ -24,7 +24,7 @@ pub fn supply_audio_material(
     let ideal_end_frame = request.start_frame + ideal_num_consumed_frames as isize;
     if ideal_end_frame <= 0 {
         // Requested portion is located entirely before the actual source material.
-        // println!(
+        // rt_debug!(
         //     "ideal end frame {} ({})",
         //     ideal_end_frame, ideal_num_consumed_frames
         // );
@@ -36,7 +36,7 @@ pub fn supply_audio_material(
     } else {
         // Requested portion contains playable material.
         if request.start_frame < 0 {
-            // println!(
+            // rt_debug!(
             //     "overlap: start_frame = {}, ideal_end_frame = {}",
             //     request.start_frame, ideal_end_frame
             // );
@@ -63,7 +63,7 @@ pub fn supply_audio_material(
                 source_sample_rate,
                 dest_sample_rate: request.dest_sample_rate,
             };
-            // println!(
+            // rt_debug!(
             //     "Before source: start = {}, source sr = {}, dest sr = {}",
             //     req.start_frame, req.source_sample_rate, req.dest_sample_rate
             // );
@@ -92,7 +92,7 @@ pub fn supply_audio_material(
                 source_sample_rate,
                 dest_sample_rate: request.dest_sample_rate,
             };
-            // println!(
+            // rt_debug!(
             //     "In source: start = {}, source sr = {}, dest sr = {}",
             //     req.start_frame, req.source_sample_rate, req.dest_sample_rate
             // );

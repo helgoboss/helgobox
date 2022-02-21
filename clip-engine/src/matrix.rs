@@ -54,7 +54,7 @@ impl Drop for Worker {
     fn drop(&mut self) {
         if let Some(join_handle) = self.join_handle.take() {
             let name = join_handle.thread().name().unwrap();
-            println!("Shutting down clip matrix worker \"{}\"...", name);
+            debug!("Shutting down clip matrix worker \"{}\"...", name);
             join_handle.join().unwrap();
         }
     }

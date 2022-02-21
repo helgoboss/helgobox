@@ -40,3 +40,5 @@ derive_more = "0.99.5"
 metrics = "0.18.0"
 # For lazy-loading whether metrics enabled
 once_cell = "1.4.0"
+# For logging
+tracing = "0.1.31"

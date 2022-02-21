@@ -283,14 +283,14 @@ impl Column {
 
 impl Drop for Column {
     fn drop(&mut self) {
-        println!("Dropping column, stopping column source preview...");
-        println!(
+        debug!("Dropping column, stopping column source preview...");
+        debug!(
             "Initial strong count of column source: {}",
             self.column_source.strong_count()
         );
         self.preview_register
             .stop_playing_preview(self.track.as_ref());
-        println!(
+        debug!(
             "Remaining strong count of column source: {}",
             self.column_source.strong_count()
         );

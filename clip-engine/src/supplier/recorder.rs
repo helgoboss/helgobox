@@ -238,7 +238,7 @@ pub struct RecorderEquipment {
 
 impl Drop for Recorder {
     fn drop(&mut self) {
-        println!("Dropping recorder...");
+        debug!("Dropping recorder...");
     }
 }
 
@@ -729,7 +729,7 @@ impl AudioSupplier for Recorder {
                         // gives us the material we need.
                         // We know that the frame rates should be equal because this is audio and we
                         // do resampling in upper layers.
-                        println!("Using temporary buffer");
+                        debug!("Using temporary buffer");
                         supply_audio_material(request, dest_buffer, s.frame_rate, |input| {
                             transfer_samples_from_buffer(s.temporary_audio_buffer.to_buf(), input)
                         });

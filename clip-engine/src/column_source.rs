@@ -334,7 +334,7 @@ impl ColumnSource {
             // Get samples
             let moment = timeline.capture_moment();
             self.detect_and_process_transport_change(timeline.clone(), moment);
-            // println!("block sr = {}, block length = {}, block time = {}, timeline cursor pos = {}, timeline cursor frame = {}",
+            // rt_debug!("block sr = {}, block length = {}, block time = {}, timeline cursor pos = {}, timeline cursor frame = {}",
             //          sample_rate, args.block.length(), args.block.time_s(), timeline_cursor_pos, timeline_cursor_frame);
             for (row, slot) in self.slots.iter_mut().enumerate() {
                 let mut inner_args = ClipProcessArgs {

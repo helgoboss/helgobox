@@ -1,3 +1,6 @@
+#[macro_use]
+mod tracing_util;
+
 mod metrics_util;
 
 mod matrix;
