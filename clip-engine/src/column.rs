@@ -4,7 +4,7 @@ use crate::{
     ColumnSetClipRepeatedArgs, ColumnSetClipVolumeArgs, ColumnSource, ColumnSourceCommand,
     ColumnSourceCommandSender, ColumnSourceEvent, ColumnStopClipArgs, RecordBehavior, RecordKind,
     RecorderEquipment, RecorderRequest, SharedColumnSource, SharedPos, Slot,
-    SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange,
+    SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange, WeakColumnSource,
 };
 use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
@@ -119,8 +119,8 @@ impl Column {
         }
     }
 
-    pub fn source(&self) -> SharedColumnSource {
-        self.column_source.clone()
+    pub fn source(&self) -> WeakColumnSource {
+        self.column_source.downgrade()
     }
 
     pub fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
@@ -283,8 +283,17 @@ impl Column {
 
 impl Drop for Column {
     fn drop(&mut self) {
+        println!("Dropping column, stopping column source preview...");
+        println!(
+            "Initial strong count of column source: {}",
+            self.column_source.strong_count()
+        );
         self.preview_register
             .stop_playing_preview(self.track.as_ref());
+        println!(
+            "Remaining strong count of column source: {}",
+            self.column_source.strong_count()
+        );
     }
 }
 impl PlayingPreviewRegister {
@@ -312,12 +321,10 @@ impl PlayingPreviewRegister {
         if let Some(track) = track {
             // Check prevents error message on project close.
             let project = track.project();
-            if project.is_available() {
-                // If not successful this probably means it was stopped already, so okay.
-                let _ = Reaper::get()
-                    .medium_session()
-                    .stop_track_preview_2(project.context(), self.play_handle);
-            }
+            // If not successful this probably means it was stopped already, so okay.
+            let _ = Reaper::get()
+                .medium_session()
+                .stop_track_preview_2(project.context(), self.play_handle);
         } else {
             // If not successful this probably means it was stopped already, so okay.
             let _ = Reaper::get()

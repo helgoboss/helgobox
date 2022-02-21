@@ -1,9 +1,9 @@
-use crate::{ColumnSourceCommandSender, SharedColumnSource};
+use crate::{ColumnSourceCommandSender, SharedColumnSource, WeakColumnSource};
 use crossbeam_channel::Receiver;
 
 #[derive(Debug)]
 pub struct RealTimeClipMatrix {
-    column: Vec<SharedColumnSource>,
+    column: Vec<WeakColumnSource>,
     command_receiver: Receiver<RealTimeClipMatrixCommand>,
 }
 
@@ -33,13 +33,13 @@ impl RealTimeClipMatrix {
         }
     }
 
-    pub fn column(&self, index: usize) -> Option<&SharedColumnSource> {
+    pub fn column(&self, index: usize) -> Option<&WeakColumnSource> {
         self.column.get(index)
     }
 }
 
 pub enum RealTimeClipMatrixCommand {
-    InsertColumn(usize, SharedColumnSource),
+    InsertColumn(usize, WeakColumnSource),
     RemoveColumn(usize),
     Clear,
 }

@@ -14,6 +14,7 @@ use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::thread;
+use std::thread::JoinHandle;
 
 #[derive(Debug)]
 pub struct ClipMatrix<H> {
@@ -23,6 +24,40 @@ pub struct ClipMatrix<H> {
     columns: Vec<Column>,
     containing_track: Option<Track>,
     real_time_command_sender: Sender<RealTimeClipMatrixCommand>,
+    worker_pool: WorkerPool,
+}
+
+#[derive(Debug, Default)]
+struct WorkerPool {
+    workers: Vec<Worker>,
+}
+
+#[derive(Debug)]
+struct Worker {
+    join_handle: Option<JoinHandle<()>>,
+}
+
+impl WorkerPool {
+    pub fn add_worker(&mut self, name: &str, f: impl FnOnce() + Send + 'static) {
+        let join_handle = thread::Builder::new()
+            .name(String::from(name))
+            .spawn(f)
+            .unwrap();
+        let worker = Worker {
+            join_handle: Some(join_handle),
+        };
+        self.workers.push(worker);
+    }
+}
+
+impl Drop for Worker {
+    fn drop(&mut self) {
+        if let Some(join_handle) = self.join_handle.take() {
+            let name = join_handle.thread().name().unwrap();
+            println!("Shutting down clip matrix worker \"{}\"...", name);
+            join_handle.join().unwrap();
+        }
+    }
 }
 
 impl<H: ClipMatrixHandler> ClipMatrix<H> {
@@ -34,26 +69,19 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
             crossbeam_channel::bounded(500);
         let (real_time_command_sender, real_time_command_receiver) =
             crossbeam_channel::bounded(500);
-        thread::Builder::new()
-            .name(String::from("Playtime stretch worker"))
-            .spawn(move || {
-                keep_stretching(stretch_worker_receiver);
-            });
-        thread::Builder::new()
-            .name(String::from("Playtime recording worker"))
-            .spawn(move || {
-                keep_processing_recorder_requests(recorder_request_receiver);
-            });
-        thread::Builder::new()
-            .name(String::from("Playtime cache worker"))
-            .spawn(move || {
-                keep_processing_cache_requests(cache_request_receiver);
-            });
-        thread::Builder::new()
-            .name(String::from("Playtime pre-buffer worker"))
-            .spawn(move || {
-                keep_processing_pre_buffer_requests(pre_buffer_request_receiver);
-            });
+        let mut worker_pool = WorkerPool::default();
+        worker_pool.add_worker("Playtime stretch worker", move || {
+            keep_stretching(stretch_worker_receiver);
+        });
+        worker_pool.add_worker("Playtime recording worker", move || {
+            keep_processing_recorder_requests(recorder_request_receiver);
+        });
+        worker_pool.add_worker("Playtime cache worker", move || {
+            keep_processing_cache_requests(cache_request_receiver);
+        });
+        worker_pool.add_worker("Playtime pre-buffer worker", move || {
+            keep_processing_pre_buffer_requests(pre_buffer_request_receiver);
+        });
         let matrix = Self {
             handler,
             stretch_worker_sender,
@@ -65,6 +93,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
             columns: vec![],
             containing_track,
             real_time_command_sender,
+            worker_pool,
         };
         let real_time_matrix = RealTimeClipMatrix::new(real_time_command_receiver);
         (matrix, real_time_matrix)

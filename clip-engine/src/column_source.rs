@@ -22,11 +22,14 @@ use std::convert::{TryFrom, TryInto};
 use std::error::Error;
 use std::mem::ManuallyDrop;
 use std::sync::atomic::AtomicIsize;
-use std::sync::{Arc, LockResult, Mutex, MutexGuard};
+use std::sync::{Arc, LockResult, Mutex, MutexGuard, Weak};
 use std::{mem, ptr};
 
 #[derive(Clone, Debug)]
 pub struct SharedColumnSource(Arc<Mutex<ColumnSource>>);
+
+#[derive(Clone, Debug)]
+pub struct WeakColumnSource(Weak<Mutex<ColumnSource>>);
 
 impl SharedColumnSource {
     pub fn new(column_source: ColumnSource) -> Self {
@@ -38,6 +41,20 @@ impl SharedColumnSource {
             Ok(g) => g,
             Err(e) => e.into_inner(),
         }
+    }
+
+    pub fn downgrade(&self) -> WeakColumnSource {
+        WeakColumnSource(Arc::downgrade(&self.0))
+    }
+
+    pub fn strong_count(&self) -> usize {
+        Arc::strong_count(&self.0)
+    }
+}
+
+impl WeakColumnSource {
+    pub fn upgrade(&self) -> Option<SharedColumnSource> {
+        self.0.upgrade().map(SharedColumnSource)
     }
 }
 

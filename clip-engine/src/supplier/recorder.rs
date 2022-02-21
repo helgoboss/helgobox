@@ -236,6 +236,12 @@ pub struct RecorderEquipment {
     pub pre_buffer_request_sender: Sender<PreBufferRequest>,
 }
 
+impl Drop for Recorder {
+    fn drop(&mut self) {
+        println!("Dropping recorder...");
+    }
+}
+
 impl Recorder {
     /// Okay to call in real-time thread.
     pub fn ready(source: OwnedPcmSource, equipment: RecorderEquipment) -> Self {
@@ -275,9 +281,9 @@ impl Recorder {
     fn new(state: State, equipment: RecorderEquipment) -> Self {
         Self {
             state: Some(state),
-            request_sender: equipment.recorder_request_sender,
-            cache_request_sender: equipment.cache_request_sender,
-            pre_buffer_request_sender: equipment.pre_buffer_request_sender,
+            request_sender: equipment.recorder_request_sender.clone(),
+            cache_request_sender: equipment.cache_request_sender.clone(),
+            pre_buffer_request_sender: equipment.pre_buffer_request_sender.clone(),
             response_channel: ResponseChannel::new(),
         }
     }

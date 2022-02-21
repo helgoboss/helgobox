@@ -296,7 +296,8 @@ impl RealTimeClipTransportTarget {
     ) -> Result<(), &'static str> {
         use TransportAction::*;
         let on = value.is_on();
-        let mut column = self.get_column(context)?;
+        let column = self.get_column(context)?;
+        let mut column = column.lock();
         let slot = column.slot_mut(0)?;
         match self.basics.action {
             PlayStop => {
@@ -377,14 +378,14 @@ impl RealTimeClipTransportTarget {
     fn get_column<'a>(
         &'a self,
         context: RealTimeControlContext<'a>,
-    ) -> Result<MutexGuard<ColumnSource>, &'static str> {
+    ) -> Result<SharedColumnSource, &'static str> {
         let clip_matrix = context
             .clip_matrix
             .ok_or("real-time clip matrix not initialized")?;
         let column = clip_matrix
             .column(self.basics.slot_index)
             .ok_or("column doesn't exist")?;
-        Ok(column.lock())
+        column.upgrade().ok_or("column doesn't exist anymore")
     }
 }
 
@@ -393,6 +394,7 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
 
     fn current_value(&self, context: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {
         let column = self.get_column(context).ok()?;
+        let column = column.lock();
         let clip = column.slot(0).ok()?.clip().ok()?;
         use TransportAction::*;
         let val = match self.basics.action {
