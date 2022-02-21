@@ -108,7 +108,7 @@ impl<H: ClipMatrixHandler> ClipMatrix<H> {
             });
             self.send_command_to_real_time_matrix(RealTimeClipMatrixCommand::InsertColumn(
                 desc.index,
-                column.clone_command_sender(),
+                column.source(),
             ));
             self.columns.push(column);
         }

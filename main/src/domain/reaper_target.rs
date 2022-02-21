@@ -30,10 +30,11 @@ use crate::domain::{
     ControlContext, FxEnableTarget, FxNavigateTarget, FxOpenTarget, FxParameterTarget,
     FxPresetTarget, GoToBookmarkTarget, HierarchyEntry, HierarchyEntryProvider,
     LoadFxSnapshotTarget, MappingControlContext, MidiSendTarget, OscSendTarget, PlayrateTarget,
-    RouteMuteTarget, RoutePanTarget, RouteVolumeTarget, SeekTarget, SelectedTrackTarget,
-    TempoTarget, TrackArmTarget, TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget,
-    TrackPeakTarget, TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget,
-    TrackWidthTarget, TransportTarget,
+    RealTimeClipTransportTarget, RealTimeControlContext, RouteMuteTarget, RoutePanTarget,
+    RouteVolumeTarget, SeekTarget, SelectedTrackTarget, TempoTarget, TrackArmTarget,
+    TrackAutomationModeTarget, TrackMuteTarget, TrackPanTarget, TrackPeakTarget,
+    TrackSelectionTarget, TrackShowTarget, TrackSoloTarget, TrackVolumeTarget, TrackWidthTarget,
+    TransportTarget,
 };
 use crate::domain::{
     AnyOnTarget, CompoundChangeEvent, EnableInstancesTarget, EnableMappingsTarget,
@@ -592,29 +593,27 @@ impl<'a> Target<'a> for ReaperTarget {
     }
 }
 impl<'a> Target<'a> for RealTimeReaperTarget {
-    type Context = ();
+    type Context = RealTimeControlContext<'a>;
 
-    fn current_value(&self, _: ()) -> Option<AbsoluteValue> {
+    fn current_value(&self, ctx: RealTimeControlContext) -> Option<AbsoluteValue> {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.current_value(()),
-            // If we need the current value for control, we need to lock a mutex, something we
-            // decided against. We use a sender instead. We could safely use a mutex (without
-            // contention) if we could be sure that preview registers get_samples() and this code
-            // here is called in the same real-time thread. But if live FX multiprocessing is
-            // enabled, this is not the case. So we better take the channel approach.
-            ClipTransport(_) => None,
+            // We can safely use a mutex (without contention) if the preview registers get_samples()
+            // and this code here is called in the same real-time thread. If live FX multiprocessing
+            // is enabled, this is not the case and then we can have contention and dropouts! If we
+            // need to support that one day, we can alternatively use senders. The downside is that
+            // we have fire-and-forget then. We can't query the current value (at least not without
+            // more complex logic). So the target itself should support toggle play/stop etc.
+            ClipTransport(t) => t.current_value(ctx),
         }
     }
 
-    fn control_type(&self, _: ()) -> ControlType {
+    fn control_type(&self, ctx: RealTimeControlContext) -> ControlType {
         use RealTimeReaperTarget::*;
         match self {
             SendMidi(t) => t.control_type(()),
-            // We can't simply get the current transport value because we decided not to use mutex
-            // to access the column source state. Adding "retriggerable" makes the glue section
-            // basically dumb and leaves everything to the target.
-            ClipTransport(_) => ControlType::AbsoluteContinuousRetriggerable,
+            ClipTransport(t) => t.control_type(ctx),
         }
     }
 }
@@ -1343,7 +1342,7 @@ pub fn change_track_prop(
 #[derive(Clone, Debug, PartialEq)]
 pub enum RealTimeReaperTarget {
     SendMidi(MidiSendTarget),
-    ClipTransport(ClipTransportTarget),
+    ClipTransport(RealTimeClipTransportTarget),
 }
 
 pub fn get_control_type_and_character_for_track_exclusivity(

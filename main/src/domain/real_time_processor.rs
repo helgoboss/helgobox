@@ -5,8 +5,8 @@ use crate::domain::{
     MappingId, MidiClockCalculator, MidiMessageClassification, MidiScanResult, MidiScanner,
     MidiSendTarget, NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
     PartialControlMatch, PersistentMappingProcessingState, QualifiedMappingId,
-    RealTimeCompoundMappingTarget, RealTimeMapping, RealTimeReaperTarget, SampleOffset,
-    SendMidiDestination, TransportAction, VirtualSourceValue,
+    RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
+    SampleOffset, SendMidiDestination, TransportAction, VirtualSourceValue,
 };
 use helgoboss_learn::{AbsoluteMode, AbsoluteValue, ControlValue, MidiSourceValue};
 use helgoboss_midi::{
@@ -1474,37 +1474,36 @@ fn process_real_mapping(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
-    matrix: Option<&RealTimeClipMatrix>,
+    clip_matrix: Option<&RealTimeClipMatrix>,
 ) -> Result<(), &'static str> {
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
         mapping.resolved_target.as_mut()
     {
         // Must be processed here in real-time processor.
+        let control_context = RealTimeControlContext { clip_matrix };
         let control_value: Option<ControlValue> = mapping
             .core
             .mode
             .control_with_options(
                 value_event.payload(),
                 reaper_target,
-                (),
+                control_context,
                 options.mode_control_options,
             )
             .ok_or("mode didn't return control value")?
             .into();
-        let v = control_value
-            .ok_or("target already has desired value")?
-            .to_absolute_value()?;
+        let control_value = control_value.ok_or("target already has desired value")?;
         match reaper_target {
             RealTimeReaperTarget::SendMidi(t) => real_time_target_send_midi(
                 t,
                 caller,
-                v,
+                control_value,
                 midi_feedback_output,
                 output_logging_enabled,
                 sender,
                 value_event,
             ),
-            RealTimeReaperTarget::ClipTransport(t) => real_time_target_clip_transport(t, matrix, v),
+            RealTimeReaperTarget::ClipTransport(t) => t.hit(control_value, control_context),
         }
     } else {
         forward_control_to_main_processor(
@@ -1518,61 +1517,17 @@ fn process_real_mapping(
     }
 }
 
-fn real_time_target_clip_transport(
-    target: &mut ClipTransportTarget,
-    matrix: Option<&RealTimeClipMatrix>,
-    v: AbsoluteValue,
-) -> Result<(), &'static str> {
-    let matrix = matrix.ok_or("real-time clip matrix not initialized")?;
-    let column = matrix
-        .column(target.slot_index)
-        .ok_or("column doesn't exist")?;
-    use TransportAction::*;
-    let timeline = clip_timeline(Some(target.project), false);
-    // TODO-high Implement correctly
-    match target.action {
-        PlayStop => {
-            if v.is_on() {
-                column.play_clip(ColumnPlayClipArgs {
-                    index: 0,
-                    clip_args: ClipPlayArgs { from_bar: None },
-                })
-            } else {
-                column.stop_clip(ColumnStopClipArgs {
-                    index: 0,
-                    clip_args: ClipStopArgs {
-                        stop_behavior: ClipStopBehavior::Immediately,
-                        timeline_cursor_pos: timeline.cursor_pos(),
-                        timeline,
-                    },
-                })
-            }
-        }
-        PlayPause => {}
-        Stop => column.stop_clip(ColumnStopClipArgs {
-            index: 0,
-            clip_args: ClipStopArgs {
-                stop_behavior: ClipStopBehavior::Immediately,
-                timeline_cursor_pos: timeline.cursor_pos(),
-                timeline,
-            },
-        }),
-        Pause => {}
-        RecordStop => {}
-        Repeat => {}
-    }
-    Ok(())
-}
-
+// TODO-medium Also keep this more local to SendMidiTarget, just like ClipTransportTarget.
 fn real_time_target_send_midi(
     t: &mut MidiSendTarget,
     caller: Caller,
-    v: AbsoluteValue,
+    control_value: ControlValue,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     value_event: Event<ControlValue>,
 ) -> Result<(), &'static str> {
+    let v = control_value.to_absolute_value()?;
     // This is a type of mapping that we should process right here because we want to
     // send a MIDI message and this needs to happen in the audio thread.
     // Going to the main thread and back would be such a waste!

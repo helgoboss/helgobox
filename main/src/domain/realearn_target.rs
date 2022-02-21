@@ -27,6 +27,7 @@ use helgoboss_learn::{
     TransformationInputProvider, UnitValue,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use playtime_clip_engine::RealTimeClipMatrix;
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
 use reaper_medium::{CommandId, MidiOutputDeviceId};
 use serde_repr::*;
@@ -368,6 +369,19 @@ pub struct ControlContext<'a> {
     pub instance_id: &'a InstanceId,
     pub output_logging_enabled: bool,
     pub processor_context: &'a ProcessorContext,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct RealTimeControlContext<'a> {
+    pub clip_matrix: Option<&'a RealTimeClipMatrix>,
+}
+
+impl<'a> TransformationInputProvider<AdditionalEelTransformationInput>
+    for RealTimeControlContext<'a>
+{
+    fn additional_input(&self) -> AdditionalEelTransformationInput {
+        AdditionalEelTransformationInput::default()
+    }
 }
 
 impl<'a> ControlContext<'a> {

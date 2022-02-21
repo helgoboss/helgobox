@@ -138,28 +138,35 @@ impl ColumnSource {
     }
 
     fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
-        get_slot_mut(&mut self.slots, args.index).fill(args.clip);
+        get_slot_mut_insert(&mut self.slots, args.index).fill(args.clip);
     }
 
-    pub fn with_slot<R>(
-        &self,
-        index: usize,
-        f: impl FnOnce(&Slot) -> Result<R, &'static str>,
-    ) -> Result<R, &'static str> {
-        f(get_slot(&self.slots, index)?)
+    pub fn slot(&self, index: usize) -> Result<&Slot, &'static str> {
+        get_slot(&self.slots, index)
     }
 
-    fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
+    pub fn slot_mut(&mut self, index: usize) -> Result<&mut Slot, &'static str> {
+        self.slots.get_mut(index).ok_or(SLOT_DOESNT_EXIST)
+    }
+
+    pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
         // TODO-high If column mode Song, suspend all other clips first.
-        get_slot_mut(&mut self.slots, args.index).play_clip(args.clip_args)
+        get_slot_mut_insert(&mut self.slots, args.index).play_clip(args.clip_args)
     }
 
-    fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
-        get_slot_mut(&mut self.slots, args.index).stop_clip(args.clip_args)
+    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
+        get_slot_mut_insert(&mut self.slots, args.index).stop_clip(args.clip_args)
     }
 
-    fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> Result<(), &'static str> {
-        get_slot_mut(&mut self.slots, args.index).set_clip_repeated(args.repeated)
+    pub fn set_clip_repeated(
+        &mut self,
+        args: ColumnSetClipRepeatedArgs,
+    ) -> Result<(), &'static str> {
+        get_slot_mut_insert(&mut self.slots, args.index).set_clip_repeated(args.repeated)
+    }
+
+    pub fn clip_play_state(&self, index: usize) -> Result<ClipPlayState, &'static str> {
+        Ok(get_slot(&self.slots, index)?.clip()?.play_state())
     }
 
     pub fn record_clip(
@@ -168,7 +175,7 @@ impl ColumnSource {
         behavior: RecordBehavior,
         equipment: RecorderEquipment,
     ) -> Result<(), &'static str> {
-        get_slot_mut(&mut self.slots, index).record_clip(
+        get_slot_mut_insert(&mut self.slots, index).record_clip(
             behavior,
             ClipRecordInput::Audio,
             self.project,
@@ -177,11 +184,11 @@ impl ColumnSource {
     }
 
     fn pause_clip(&mut self, index: usize) -> Result<(), &'static str> {
-        get_slot_mut(&mut self.slots, index).pause_clip()
+        get_slot_mut_insert(&mut self.slots, index).pause_clip()
     }
 
     fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) -> Result<(), &'static str> {
-        get_slot_mut(&mut self.slots, index).seek_clip(desired_pos)
+        get_slot_mut_insert(&mut self.slots, index).seek_clip(desired_pos)
     }
 
     pub fn clip_record_input(&self, index: usize) -> Option<ClipRecordInput> {
@@ -193,7 +200,7 @@ impl ColumnSource {
         index: usize,
         request: WriteMidiRequest,
     ) -> Result<(), &'static str> {
-        get_slot_mut(&mut self.slots, index).write_clip_midi(request)
+        get_slot_mut_insert(&mut self.slots, index).write_clip_midi(request)
     }
 
     pub fn write_clip_audio(
@@ -201,7 +208,7 @@ impl ColumnSource {
         index: usize,
         request: WriteAudioRequest,
     ) -> Result<(), &'static str> {
-        get_slot_mut(&mut self.slots, index).write_clip_audio(request)
+        get_slot_mut_insert(&mut self.slots, index).write_clip_audio(request)
     }
 
     fn set_clip_volume(
@@ -209,7 +216,7 @@ impl ColumnSource {
         index: usize,
         volume: ReaperVolumeValue,
     ) -> Result<ClipChangedEvent, &'static str> {
-        get_slot_mut(&mut self.slots, index).set_clip_volume(volume)
+        get_slot_mut_insert(&mut self.slots, index).set_clip_volume(volume)
     }
 
     fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
@@ -506,10 +513,12 @@ pub struct ColumnWithSlotArgs<'a> {
 }
 
 fn get_slot(slots: &Vec<Slot>, index: usize) -> Result<&Slot, &'static str> {
-    slots.get(index).ok_or("slot doesn't exist")
+    slots.get(index).ok_or(SLOT_DOESNT_EXIST)
 }
 
-fn get_slot_mut(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
+const SLOT_DOESNT_EXIST: &str = "slot doesn't exist";
+
+fn get_slot_mut_insert(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
     if index >= slots.len() {
         slots.resize_with(index + 1, Default::default);
     }

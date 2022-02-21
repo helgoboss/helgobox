@@ -119,8 +119,8 @@ impl Column {
         }
     }
 
-    pub fn clone_command_sender(&self) -> ColumnSourceCommandSender {
-        self.command_sender.clone()
+    pub fn source(&self) -> SharedColumnSource {
+        self.column_source.clone()
     }
 
     pub fn fill_slot(&mut self, args: ColumnFillSlotArgs) {

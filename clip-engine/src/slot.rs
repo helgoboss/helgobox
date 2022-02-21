@@ -40,6 +40,10 @@ impl Slot {
         self.get_clip()
     }
 
+    pub fn clip_mut(&mut self) -> Result<&mut Clip, &'static str> {
+        self.get_clip_mut()
+    }
+
     pub fn play_clip(&mut self, args: ClipPlayArgs) -> Result<(), &'static str> {
         self.runtime_data.last_play = Some(LastPlay {
             was_synced_to_bar: args.from_bar.is_some(),
