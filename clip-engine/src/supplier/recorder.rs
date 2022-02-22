@@ -32,6 +32,20 @@ use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut, NonNull};
 use std::{cmp, mem};
 
+// TODO-high The PreBuffer sitting on top of the source is maybe not the best idea because once
+//  completely played, it will jump back to source-zero, not section-zero, so we will run into a
+//  cache miss when repeated. But even that is not perfect, just think of loops that don't start
+//  from the start again ... maybe it should sit above looper then. The obvious downside is that
+//  instant changes of permanent-section/loop/start-end-fade settings will not take effect
+//  immediately. Since all those are not intended for real-time changes though, a cache miss would
+//  be acceptable.
+// TODO-high In addition we should deploy a start-buffer that always keeps the start completely in
+//  memory. Because sudden restarts (e.g. retriggers) are the main reason why we could still run
+//  into a cache miss. That start-buffer should take the downbeat setting into account. It must
+//  cache everything up to the downbeat + the usual start-buffer samples. It should probably sit
+//  on top of the pre-buffer and serve samples at the beginning by itself, leaving the pre-buffer
+//  out of the equation. It should forward pre-buffer requests to the pre-buffer but modify them
+//  by using the end of the start-buffer cache as the minimum pre-buffer position.
 type RecorderCache = Cache<PreBuffer<OwnedPcmSource>>;
 
 #[derive(Debug)]

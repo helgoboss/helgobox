@@ -41,6 +41,17 @@ pub struct PreBuffer<S> {
     skip_count_in_phase_material: bool,
 }
 
+trait PreBufferSender {
+    fn recycle_block(&self, block: PreBufferedBlock);
+}
+
+impl PreBufferSender for Sender<PreBufferRequest> {
+    fn recycle_block(&self, block: PreBufferedBlock) {
+        let request = PreBufferRequest::Recycle(block);
+        self.try_send(request).unwrap();
+    }
+}
+
 #[derive(Debug)]
 pub struct PreBufferedBlock {
     start_frame: isize,
@@ -241,6 +252,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         debug_assert!(args.start_frame >= 0);
         let request = PreBufferRequest::KeepFillingFrom { id: self.id, args };
         self.request_sender.try_send(request).unwrap();
+        self.recycle_next_n_blocks(self.consumer.slots());
     }
 
     pub fn set_enabled(&mut self, enabled: bool) {
@@ -249,14 +261,8 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
 
     fn recycle_next_n_blocks(&mut self, count: usize) {
         for block in self.consumer.read_chunk(count).unwrap().into_iter() {
-            let request = PreBufferRequest::Recycle(block);
-            self.request_sender.try_send(request).unwrap();
+            self.request_sender.recycle_block(block);
         }
-    }
-
-    fn recycle_pre_buffered_block(&mut self, block: PreBufferedBlock) {
-        let request = PreBufferRequest::Recycle(block);
-        self.request_sender.try_send(request).unwrap();
     }
 
     /// This is an optimization we *can* (and should) apply only because we know we sit right
@@ -370,7 +376,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
                 // Consume block if exhausted.
                 if apply_outcome.block_exhausted {
                     let block = self.consumer.pop().unwrap();
-                    self.recycle_pre_buffered_block(block);
+                    self.request_sender.recycle_block(block);
                 }
                 let success = process_pre_buffered_response(
                     dest_buffer,
