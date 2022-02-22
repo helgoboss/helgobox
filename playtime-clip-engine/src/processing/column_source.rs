@@ -5,6 +5,7 @@ use crate::processing::{
     TransportChange,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline, TimelineMoment};
+use crate::ClipEngineResult;
 use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
@@ -152,31 +153,28 @@ impl ColumnSource {
         get_slot_mut_insert(&mut self.slots, args.index).fill(args.clip);
     }
 
-    pub fn slot(&self, index: usize) -> Result<&Slot, &'static str> {
+    pub fn slot(&self, index: usize) -> ClipEngineResult<&Slot> {
         get_slot(&self.slots, index)
     }
 
-    pub fn slot_mut(&mut self, index: usize) -> Result<&mut Slot, &'static str> {
+    pub fn slot_mut(&mut self, index: usize) -> ClipEngineResult<&mut Slot> {
         self.slots.get_mut(index).ok_or(SLOT_DOESNT_EXIST)
     }
 
-    pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> Result<(), &'static str> {
+    pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> ClipEngineResult<()> {
         // TODO-high If column mode Song, suspend all other clips first.
         get_slot_mut_insert(&mut self.slots, args.index).play_clip(args.clip_args)
     }
 
-    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> Result<(), &'static str> {
+    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> ClipEngineResult<()> {
         get_slot_mut_insert(&mut self.slots, args.index).stop_clip(args.clip_args)
     }
 
-    pub fn set_clip_repeated(
-        &mut self,
-        args: ColumnSetClipRepeatedArgs,
-    ) -> Result<(), &'static str> {
+    pub fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> ClipEngineResult<()> {
         get_slot_mut_insert(&mut self.slots, args.index).set_clip_repeated(args.repeated)
     }
 
-    pub fn clip_play_state(&self, index: usize) -> Result<ClipPlayState, &'static str> {
+    pub fn clip_play_state(&self, index: usize) -> ClipEngineResult<ClipPlayState> {
         Ok(get_slot(&self.slots, index)?.clip()?.play_state())
     }
 
@@ -185,7 +183,7 @@ impl ColumnSource {
         index: usize,
         behavior: RecordBehavior,
         equipment: RecorderEquipment,
-    ) -> Result<(), &'static str> {
+    ) -> ClipEngineResult<()> {
         get_slot_mut_insert(&mut self.slots, index).record_clip(
             behavior,
             ClipRecordInput::Audio,
@@ -194,11 +192,11 @@ impl ColumnSource {
         )
     }
 
-    fn pause_clip(&mut self, index: usize) -> Result<(), &'static str> {
+    fn pause_clip(&mut self, index: usize) -> ClipEngineResult<()> {
         get_slot_mut_insert(&mut self.slots, index).pause_clip()
     }
 
-    fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) -> Result<(), &'static str> {
+    fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) -> ClipEngineResult<()> {
         get_slot_mut_insert(&mut self.slots, index).seek_clip(desired_pos)
     }
 
@@ -210,7 +208,7 @@ impl ColumnSource {
         &mut self,
         index: usize,
         request: WriteMidiRequest,
-    ) -> Result<(), &'static str> {
+    ) -> ClipEngineResult<()> {
         get_slot_mut_insert(&mut self.slots, index).write_clip_midi(request)
     }
 
@@ -218,7 +216,7 @@ impl ColumnSource {
         &mut self,
         index: usize,
         request: WriteAudioRequest,
-    ) -> Result<(), &'static str> {
+    ) -> ClipEngineResult<()> {
         get_slot_mut_insert(&mut self.slots, index).write_clip_audio(request)
     }
 
@@ -226,7 +224,7 @@ impl ColumnSource {
         &mut self,
         index: usize,
         volume: ReaperVolumeValue,
-    ) -> Result<ClipChangedEvent, &'static str> {
+    ) -> ClipEngineResult<ClipChangedEvent> {
         get_slot_mut_insert(&mut self.slots, index).set_clip_volume(volume)
     }
 
@@ -523,7 +521,7 @@ pub struct ColumnWithSlotArgs<'a> {
     pub use_slot: &'a dyn Fn(),
 }
 
-fn get_slot(slots: &Vec<Slot>, index: usize) -> Result<&Slot, &'static str> {
+fn get_slot(slots: &Vec<Slot>, index: usize) -> ClipEngineResult<&Slot> {
     slots.get(index).ok_or(SLOT_DOESNT_EXIST)
 }
 

@@ -6,6 +6,7 @@ use crate::processing::{
     ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, SlotInstruction,
 };
 use crate::timeline::{HybridTimeline, Timeline, TimelineMoment};
+use crate::ClipEngineResult;
 use helgoboss_learn::UnitValue;
 use reaper_high::Project;
 use reaper_medium::{Bpm, PlayState, ReaperVolumeValue};
@@ -34,15 +35,15 @@ impl Slot {
         self.clip = Some(clip);
     }
 
-    pub fn clip(&self) -> Result<&Clip, &'static str> {
+    pub fn clip(&self) -> ClipEngineResult<&Clip> {
         self.get_clip()
     }
 
-    pub fn clip_mut(&mut self) -> Result<&mut Clip, &'static str> {
+    pub fn clip_mut(&mut self) -> ClipEngineResult<&mut Clip> {
         self.get_clip_mut()
     }
 
-    pub fn play_clip(&mut self, args: ClipPlayArgs) -> Result<(), &'static str> {
+    pub fn play_clip(&mut self, args: ClipPlayArgs) -> ClipEngineResult<()> {
         self.runtime_data.last_play = Some(LastPlay {
             was_synced_to_bar: args.from_bar.is_some(),
         });
@@ -50,7 +51,7 @@ impl Slot {
         Ok(())
     }
 
-    pub fn stop_clip(&mut self, args: ClipStopArgs) -> Result<(), &'static str> {
+    pub fn stop_clip(&mut self, args: ClipStopArgs) -> ClipEngineResult<()> {
         self.runtime_data.stop_was_caused_by_transport_change = false;
         if self.get_clip_mut()?.stop(args) == SlotInstruction::ClearSlot {
             self.clip = None;
@@ -58,7 +59,7 @@ impl Slot {
         Ok(())
     }
 
-    pub fn set_clip_repeated(&mut self, repeated: bool) -> Result<(), &'static str> {
+    pub fn set_clip_repeated(&mut self, repeated: bool) -> ClipEngineResult<()> {
         self.get_clip_mut()?.set_repeated(repeated);
         Ok(())
     }
@@ -69,7 +70,7 @@ impl Slot {
         input: ClipRecordInput,
         project: Option<Project>,
         equipment: RecorderEquipment,
-    ) -> Result<(), &'static str> {
+    ) -> ClipEngineResult<()> {
         use RecordBehavior::*;
         match behavior {
             Normal {
@@ -95,12 +96,12 @@ impl Slot {
         Ok(())
     }
 
-    pub fn pause_clip(&mut self) -> Result<(), &'static str> {
+    pub fn pause_clip(&mut self) -> ClipEngineResult<()> {
         self.get_clip_mut()?.pause();
         Ok(())
     }
 
-    pub fn seek_clip(&mut self, desired_pos: UnitValue) -> Result<(), &'static str> {
+    pub fn seek_clip(&mut self, desired_pos: UnitValue) -> ClipEngineResult<()> {
         self.get_clip_mut()?.seek(desired_pos);
         Ok(())
     }
@@ -109,12 +110,12 @@ impl Slot {
         self.get_clip().ok()?.record_input()
     }
 
-    pub fn write_clip_midi(&mut self, request: WriteMidiRequest) -> Result<(), &'static str> {
+    pub fn write_clip_midi(&mut self, request: WriteMidiRequest) -> ClipEngineResult<()> {
         self.get_clip_mut()?.write_midi(request);
         Ok(())
     }
 
-    pub fn write_clip_audio(&mut self, request: WriteAudioRequest) -> Result<(), &'static str> {
+    pub fn write_clip_audio(&mut self, request: WriteAudioRequest) -> ClipEngineResult<()> {
         self.get_clip_mut()?.write_audio(request);
         Ok(())
     }
@@ -122,7 +123,7 @@ impl Slot {
     pub fn set_clip_volume(
         &mut self,
         volume: ReaperVolumeValue,
-    ) -> Result<ClipChangedEvent, &'static str> {
+    ) -> ClipEngineResult<ClipChangedEvent> {
         Ok(self.get_clip_mut()?.set_volume(volume))
     }
 
@@ -210,7 +211,7 @@ impl Slot {
     pub fn process(
         &mut self,
         args: &mut ClipProcessArgs<impl Timeline>,
-    ) -> Result<Option<ClipPlayState>, &'static str> {
+    ) -> ClipEngineResult<Option<ClipPlayState>> {
         measure_time("slot.process.time", || {
             let clip = self.get_clip_mut()?;
             clip.process(args);
@@ -227,11 +228,11 @@ impl Slot {
         })
     }
 
-    fn get_clip(&self) -> Result<&Clip, &'static str> {
+    fn get_clip(&self) -> ClipEngineResult<&Clip> {
         self.clip.as_ref().ok_or(SLOT_NOT_FILLED)
     }
 
-    fn get_clip_mut(&mut self) -> Result<&mut Clip, &'static str> {
+    fn get_clip_mut(&mut self) -> ClipEngineResult<&mut Clip> {
         self.clip.as_mut().ok_or(SLOT_NOT_FILLED)
     }
 }

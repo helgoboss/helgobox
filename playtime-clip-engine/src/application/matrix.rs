@@ -10,6 +10,7 @@ use crate::processing::{
     SharedColumnSource, SlotProcessTransportChangeArgs, TransportChange,
 };
 use crate::timeline::{clip_timeline, Timeline};
+use crate::ClipEngineResult;
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use reaper_high::{Guid, Item, Project, Track};
@@ -117,7 +118,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         &mut self,
         descriptors: Vec<LegacySlotDescriptor>,
         project: Option<Project>,
-    ) -> Result<(), &'static str> {
+    ) -> ClipEngineResult<()> {
         self.clear();
         for desc in descriptors {
             let resolved_track = if let Some(track) = self.containing_track.as_ref() {
@@ -167,7 +168,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         slot_index: usize,
         track: Option<Track>,
         options: SlotPlayOptions,
-    ) -> Result<(), &'static str> {
+    ) -> ClipEngineResult<()> {
         let column = get_column_mut(&mut self.columns, slot_index)?;
         let args = ColumnPlayClipArgs {
             index: 0,
@@ -190,7 +191,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         slot_index: usize,
         stop_behavior: SlotStopBehavior,
         project: Project,
-    ) -> Result<(), &'static str> {
+    ) -> ClipEngineResult<()> {
         let column = get_column_mut(&mut self.columns, slot_index)?;
         let timeline = clip_timeline(Some(project), false);
         let args = ColumnStopClipArgs {
@@ -221,7 +222,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .collect()
     }
 
-    pub fn toggle_repeat_legacy(&mut self, slot_index: usize) -> Result<(), &'static str> {
+    pub fn toggle_repeat_legacy(&mut self, slot_index: usize) -> ClipEngineResult<()> {
         let event = get_column_mut(&mut self.columns, slot_index)?.toggle_clip_repeated(0)?;
         self.handler.notify_clip_changed(slot_index, event);
         Ok(())
@@ -277,7 +278,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         slot_index: usize,
         project: Project,
         args: RecordArgs,
-    ) -> Result<(), &'static str> {
+    ) -> ClipEngineResult<()> {
         let behavior = match args.kind {
             RecordKind::Normal {
                 play_after,
@@ -314,7 +315,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn pause_clip_legacy(&mut self, slot_index: usize) -> Result<(), &'static str> {
+    pub fn pause_clip_legacy(&mut self, slot_index: usize) -> ClipEngineResult<()> {
         get_column_mut(&mut self.columns, slot_index)?.pause_clip(0);
         Ok(())
     }
@@ -323,7 +324,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         &mut self,
         slot_index: usize,
         position: UnitValue,
-    ) -> Result<(), &'static str> {
+    ) -> ClipEngineResult<()> {
         get_column_mut(&mut self.columns, slot_index)?.seek_clip(0, position);
         Ok(())
     }
@@ -332,7 +333,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         &mut self,
         slot_index: usize,
         volume: ReaperVolumeValue,
-    ) -> Result<(), &'static str> {
+    ) -> ClipEngineResult<()> {
         get_column_mut(&mut self.columns, slot_index)?.set_clip_volume(0, volume);
         Ok(())
     }
@@ -358,11 +359,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 }
 
-fn get_column(columns: &[Column], index: usize) -> Result<&Column, &'static str> {
+fn get_column(columns: &[Column], index: usize) -> ClipEngineResult<&Column> {
     columns.get(index).ok_or(NO_SUCH_COLUMN)
 }
 
-fn get_column_mut(columns: &mut [Column], index: usize) -> Result<&mut Column, &'static str> {
+fn get_column_mut(columns: &mut [Column], index: usize) -> ClipEngineResult<&mut Column> {
     columns.get_mut(index).ok_or(NO_SUCH_COLUMN)
 }
 

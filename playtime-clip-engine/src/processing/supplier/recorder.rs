@@ -16,6 +16,7 @@ use crate::processing::supplier::{
 };
 use crate::processing::{ClipInfo, ClipRecordInput, RecordTiming};
 use crate::timeline::{clip_timeline, Timeline};
+use crate::ClipEngineResult;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_midi::ShortMessage;
 use reaper_high::{OwnedSource, Project, Reaper, ReaperSource};
@@ -421,7 +422,7 @@ impl Recorder {
     pub fn commit_recording(
         &mut self,
         timeline: &dyn Timeline,
-    ) -> Result<RecordingOutcome, &'static str> {
+    ) -> ClipEngineResult<RecordingOutcome> {
         use State::*;
         let (res, next_state) = match self.state.take().unwrap() {
             Ready(s) => (Err("not recording"), Ready(s)),
@@ -492,7 +493,7 @@ impl Recorder {
         res
     }
 
-    pub fn rollback_recording(&mut self) -> Result<(), &'static str> {
+    pub fn rollback_recording(&mut self) -> ClipEngineResult<()> {
         use State::*;
         let (res, next_state) = match self.state.take().unwrap() {
             Ready(s) => (Ok(()), Ready(s)),

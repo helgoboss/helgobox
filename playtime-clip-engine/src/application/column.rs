@@ -6,6 +6,7 @@ use crate::processing::{
     RecordBehavior, SharedColumnSource, SharedPos, SlotProcessTransportChangeArgs,
     WeakColumnSource,
 };
+use crate::ClipEngineResult;
 use crossbeam_channel::Receiver;
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
@@ -201,7 +202,7 @@ impl Column {
         self.command_sender.process_transport_change(args);
     }
 
-    pub fn toggle_clip_repeated(&mut self, index: usize) -> Result<ClipChangedEvent, &'static str> {
+    pub fn toggle_clip_repeated(&mut self, index: usize) -> ClipEngineResult<ClipChangedEvent> {
         let clip = get_slot_mut(&mut self.slots, index)
             .clip
             .as_mut()
@@ -263,7 +264,7 @@ impl Column {
         index: usize,
         behavior: RecordBehavior,
         equipment: RecorderEquipment,
-    ) -> Result<ClipRecordTask, &'static str> {
+    ) -> ClipEngineResult<ClipRecordTask> {
         self.with_source_mut(|s| s.record_clip(index, behavior, equipment))?;
         let task = ClipRecordTask {
             column_source: self.column_source.clone(),
@@ -354,7 +355,7 @@ fn start_playing_preview(
     result.unwrap()
 }
 
-fn get_slot(slots: &Vec<SlotDesc>, index: usize) -> Result<&SlotDesc, &'static str> {
+fn get_slot(slots: &Vec<SlotDesc>, index: usize) -> ClipEngineResult<&SlotDesc> {
     slots.get(index).ok_or("slot doesn't exist")
 }
 

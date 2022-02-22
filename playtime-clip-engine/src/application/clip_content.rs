@@ -1,4 +1,5 @@
 use crate::file_util::get_path_for_new_media_file;
+use crate::ClipEngineResult;
 use reaper_high::{Item, OwnedSource, Project, ReaperSource};
 use reaper_medium::MidiImportBehavior;
 use serde::{Deserialize, Serialize};
@@ -88,7 +89,7 @@ impl ClipContent {
     }
 
     /// Creates a REAPER PCM source from this content.
-    pub fn create_source(&self, project: Option<Project>) -> Result<OwnedSource, &'static str> {
+    pub fn create_source(&self, project: Option<Project>) -> ClipEngineResult<OwnedSource> {
         match self {
             ClipContent::File { file } => {
                 let absolute_file = if file.is_relative() {

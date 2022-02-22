@@ -1,3 +1,4 @@
+use crate::ClipEngineResult;
 use derivative::Derivative;
 use reaper_medium::{BorrowedPcmSource, PcmSourceTransfer, PositionInSeconds};
 use std::collections::Bound;
@@ -46,7 +47,7 @@ impl OwnedAudioBuffer {
         mut data: Vec<f64>,
         channel_count: usize,
         frame_count: usize,
-    ) -> Result<Self, &'static str> {
+    ) -> ClipEngineResult<Self> {
         let min_capacity = channel_count * frame_count;
         if data.capacity() < min_capacity {
             return Err("given vector doesn't have enough capacity");
@@ -219,7 +220,7 @@ pub trait CopyToAudioBuffer {
         &self,
         start_frame: usize,
         dest_buffer: AudioBufMut,
-    ) -> Result<usize, &'static str>;
+    ) -> ClipEngineResult<usize>;
 }
 
 impl<'a> CopyToAudioBuffer for &'a BorrowedPcmSource {
@@ -227,7 +228,7 @@ impl<'a> CopyToAudioBuffer for &'a BorrowedPcmSource {
         &self,
         start_frame: usize,
         mut dest_buffer: AudioBufMut,
-    ) -> Result<usize, &'static str> {
+    ) -> ClipEngineResult<usize> {
         let mut transfer = PcmSourceTransfer::default();
         let sample_rate = self.get_sample_rate().ok_or("source without sample rate")?;
         let start_time =

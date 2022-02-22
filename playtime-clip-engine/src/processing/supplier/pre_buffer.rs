@@ -4,6 +4,7 @@ use crate::processing::supplier::{
     PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse,
     SupplyResponseStatus, WithFrameRate, WithSource,
 };
+use crate::ClipEngineResult;
 use core::cmp;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use derive_more::Display;
@@ -630,7 +631,7 @@ impl PreBufferWorker {
         &mut self,
         id: PreBufferInstanceId,
         args: PreBufferFillRequest,
-    ) -> Result<(), &'static str> {
+    ) -> ClipEngineResult<()> {
         debug!("Pre-buffer request for instance {}: {:?}", id, &args);
         let instance = self
             .instances
