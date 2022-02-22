@@ -1,4 +1,4 @@
-use crate::processing::WeakColumnSource;
+use crate::rt::WeakColumnSource;
 use crossbeam_channel::Receiver;
 
 #[derive(Debug)]

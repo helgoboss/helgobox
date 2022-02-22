@@ -5,10 +5,10 @@ use crate::domain::{
 use assert_no_alloc::*;
 use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
-use playtime_clip_engine::application::ClipRecordTask;
 use playtime_clip_engine::global_steady_timeline;
-use playtime_clip_engine::processing::supplier::{WriteAudioRequest, WriteMidiRequest};
-use playtime_clip_engine::processing::{AudioBuf, ClipRecordInput};
+use playtime_clip_engine::main::ClipRecordTask;
+use playtime_clip_engine::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
+use playtime_clip_engine::rt::{AudioBuf, ClipRecordInput};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,

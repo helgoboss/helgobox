@@ -1,7 +1,7 @@
 use crate::metrics_util::measure_time;
-use crate::processing::supplier::{RecorderEquipment, WriteAudioRequest, WriteMidiRequest};
-use crate::processing::SlotInstruction::KeepSlot;
-use crate::processing::{
+use crate::rt::supplier::{RecorderEquipment, WriteAudioRequest, WriteMidiRequest};
+use crate::rt::SlotInstruction::KeepSlot;
+use crate::rt::{
     Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs,
     ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, SlotInstruction,
 };

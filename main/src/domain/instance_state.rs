@@ -14,8 +14,8 @@ use crate::domain::{
     GroupId, MappingCompartment, MappingId, NormalAudioHookTask, NormalRealTimeTask,
     QualifiedMappingId, RealTimeSender, Tag,
 };
-use playtime_clip_engine::application::{ClipMatrixHandler, ClipRecordTask, Matrix};
-use playtime_clip_engine::processing::ClipChangedEvent;
+use playtime_clip_engine::main::{ClipMatrixHandler, ClipRecordTask, Matrix};
+use playtime_clip_engine::rt::ClipChangedEvent;
 
 pub const CLIP_SLOT_COUNT: usize = 8;
 

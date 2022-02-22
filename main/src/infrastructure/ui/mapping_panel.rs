@@ -25,8 +25,8 @@ use helgoboss_learn::{
     RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
     ValueSequence, VirtualColor,
 };
-use playtime_clip_engine::application::ClipContent;
-use playtime_clip_engine::processing::ClipInfo;
+use playtime_clip_engine::main::ClipContent;
+use playtime_clip_engine::rt::ClipInfo;
 use swell_ui::{
     DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };

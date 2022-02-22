@@ -1,5 +1,5 @@
-use crate::processing::buffer::{AudioBufMut, OwnedAudioBuffer};
-use crate::processing::supplier::{
+use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
+use crate::rt::supplier::{
     AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
     PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse,
     SupplyResponseStatus, WithFrameRate, WithSource,
@@ -199,7 +199,7 @@ pub enum PreBufferRequest {
     Recycle(PreBufferedBlock),
     KeepFillingFrom {
         id: PreBufferInstanceId,
-        args: crate::processing::supplier::PreBufferFillRequest,
+        args: crate::rt::supplier::PreBufferFillRequest,
     },
 }
 

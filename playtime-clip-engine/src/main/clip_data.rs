@@ -1,7 +1,7 @@
 use reaper_medium::ReaperVolumeValue;
 use serde::{Deserialize, Serialize};
 
-use crate::application::ClipContent;
+use crate::main::ClipContent;
 
 fn is_default<T: Default + PartialEq>(v: &T) -> bool {
     v == &T::default()

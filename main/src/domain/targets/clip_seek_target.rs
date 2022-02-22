@@ -8,7 +8,7 @@ use crate::domain::{
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
-use playtime_clip_engine::processing::{ClipChangedEvent, ClipPlayState};
+use playtime_clip_engine::rt::{ClipChangedEvent, ClipPlayState};
 use playtime_clip_engine::{clip_timeline, Timeline};
 
 #[derive(Debug)]

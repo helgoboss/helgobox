@@ -1,6 +1,6 @@
-use crate::application::{ClipData, ClipRecordTask};
-use crate::processing::supplier::RecorderEquipment;
-use crate::processing::{
+use crate::main::{ClipData, ClipRecordTask};
+use crate::rt::supplier::RecorderEquipment;
+use crate::rt::{
     ClipChangedEvent, ClipInfo, ClipPlayState, ColumnFillSlotArgs, ColumnPlayClipArgs,
     ColumnSetClipRepeatedArgs, ColumnSource, ColumnSourceCommandSender, ColumnSourceEvent,
     RecordBehavior, SharedColumnSource, SharedPos, SlotProcessTransportChangeArgs,
@@ -176,7 +176,7 @@ impl Column {
         self.command_sender.play_clip(args);
     }
 
-    pub fn stop_clip(&mut self, args: crate::processing::ColumnStopClipArgs) {
+    pub fn stop_clip(&mut self, args: crate::rt::ColumnStopClipArgs) {
         self.command_sender.stop_clip(args);
     }
 

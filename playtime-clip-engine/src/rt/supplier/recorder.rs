@@ -1,20 +1,18 @@
-use crate::application::{ClipContent, CreateClipContentMode};
 use crate::conversion_util::{
     adjust_anti_proportionally_positive, adjust_proportionally_positive,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
 };
 use crate::file_util::get_path_for_new_media_file;
-use crate::processing::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
-use crate::processing::supplier::audio_util::{
-    supply_audio_material, transfer_samples_from_buffer,
-};
-use crate::processing::supplier::{
+use crate::main::{ClipContent, CreateClipContentMode};
+use crate::rt::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
+use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
+use crate::rt::supplier::{
     AudioSupplier, Cache, CacheRequest, CacheResponseChannel, ExactDuration, ExactFrameCount,
     MidiSupplier, PreBuffer, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate, WithSource,
     MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
-use crate::processing::{ClipInfo, ClipRecordInput, RecordTiming};
+use crate::rt::{ClipInfo, ClipRecordInput, RecordTiming};
 use crate::timeline::{clip_timeline, Timeline};
 use crate::ClipEngineResult;
 use crossbeam_channel::{Receiver, Sender};

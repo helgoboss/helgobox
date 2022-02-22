@@ -23,7 +23,7 @@ use slog::{debug, trace};
 use crate::base::Global;
 use assert_no_alloc::permit_alloc;
 use enum_map::{enum_map, EnumMap};
-use playtime_clip_engine::processing::RealTimeClipMatrix;
+use playtime_clip_engine::rt::RealTimeClipMatrix;
 use std::convert::TryInto;
 use std::ptr::null_mut;
 use std::time::Duration;

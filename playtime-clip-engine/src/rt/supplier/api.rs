@@ -1,4 +1,4 @@
-use crate::processing::buffer::AudioBufMut;
+use crate::rt::buffer::AudioBufMut;
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OwnedPcmSource, PositionInSeconds,
 };

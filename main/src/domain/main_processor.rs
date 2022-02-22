@@ -31,7 +31,7 @@ use crate::domain::ui_util::{
 };
 use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
-use playtime_clip_engine::processing::{ClipChangedEvent, TransportChange};
+use playtime_clip_engine::rt::{ClipChangedEvent, TransportChange};
 use playtime_clip_engine::{clip_timeline, Timeline};
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;

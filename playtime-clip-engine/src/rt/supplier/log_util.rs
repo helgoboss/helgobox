@@ -1,7 +1,7 @@
 use crate::conversion_util::{
     convert_duration_in_frames_to_seconds, convert_position_in_seconds_to_frames,
 };
-use crate::processing::supplier::SupplyRequest;
+use crate::rt::supplier::SupplyRequest;
 use crate::timeline::{clip_timeline, Timeline};
 use reaper_medium::PositionInSeconds;
 use std::cmp;

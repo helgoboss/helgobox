@@ -1,9 +1,9 @@
-use crate::application::ClipContent;
-use crate::processing::supplier::{
+use crate::main::ClipContent;
+use crate::rt::supplier::{
     AdHocFader, Downbeat, ExactDuration, ExactFrameCount, Looper, Recorder, Resampler, Section,
     StartEndFader, TimeStretcher, WithFrameRate,
 };
-use crate::processing::ClipInfo;
+use crate::rt::ClipInfo;
 use reaper_high::Project;
 use reaper_medium::{DurationInSeconds, Hz};
 

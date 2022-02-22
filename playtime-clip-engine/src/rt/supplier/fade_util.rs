@@ -1,4 +1,4 @@
-use crate::processing::buffer::AudioBufMut;
+use crate::rt::buffer::AudioBufMut;
 
 /// Takes care of applying a fade-in to the first few frames of a larger audio portion.
 ///

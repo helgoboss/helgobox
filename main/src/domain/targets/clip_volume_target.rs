@@ -8,7 +8,7 @@ use crate::domain::{
     ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
-use playtime_clip_engine::processing::ClipChangedEvent;
+use playtime_clip_engine::rt::ClipChangedEvent;
 use reaper_high::Volume;
 
 #[derive(Debug)]

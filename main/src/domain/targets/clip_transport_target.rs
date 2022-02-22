@@ -7,10 +7,10 @@ use crate::domain::{
     DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use playtime_clip_engine::application::{
+use playtime_clip_engine::main::{
     ClipRecordTiming, RecordArgs, RecordKind, SlotPlayOptions, SlotStopBehavior,
 };
-use playtime_clip_engine::processing::{
+use playtime_clip_engine::rt::{
     ClipChangedEvent, ClipPlayArgs, ClipStopArgs, ClipStopBehavior, SharedColumnSource,
 };
 use playtime_clip_engine::{clip_timeline, Timeline};
