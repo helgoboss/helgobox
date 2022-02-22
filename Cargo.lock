@@ -2929,7 +2929,7 @@ dependencies = [
  "nanoid",
  "num_enum 0.5.4",
  "once_cell",
- "realearn-api",
+ "playtime-api",
  "reaper-high",
  "reaper-low",
  "reaper-medium",

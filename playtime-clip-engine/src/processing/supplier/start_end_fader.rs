@@ -1,5 +1,5 @@
-use crate::supplier::fade_util::{apply_fade_in, apply_fade_out};
-use crate::supplier::{midi_util, SupplyResponse, SupplyResponseStatus};
+use crate::processing::supplier::fade_util::{apply_fade_in, apply_fade_out};
+use crate::processing::supplier::{midi_util, SupplyResponse, SupplyResponseStatus};
 use crate::{
     AudioBufMut, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
     PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest,

@@ -1,5 +1,5 @@
-use crate::buffer::{AudioBufMut, OwnedAudioBuffer};
-use crate::supplier::{
+use crate::processing::buffer::{AudioBufMut, OwnedAudioBuffer};
+use crate::processing::supplier::{
     AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
     SupplyResponse, WithFrameRate,
 };

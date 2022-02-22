@@ -3,8 +3,8 @@ use crate::conversion_util::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
 };
-use crate::source_util::pcm_source_is_midi;
-use crate::tempo_util::detect_tempo;
+use crate::processing::source_util::pcm_source_is_midi;
+use crate::processing::tempo_util::detect_tempo;
 use crate::{
     clip_timeline, AudioBufMut, AudioSupplier, CacheRequest, ClipContent, ClipData,
     ClipRecordTiming, CreateClipContentMode, ExactDuration, ExactFrameCount, HybridTimeline,

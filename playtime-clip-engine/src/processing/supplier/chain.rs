@@ -1,4 +1,4 @@
-use crate::supplier::{AdHocFader, Looper};
+use crate::processing::supplier::{AdHocFader, Looper};
 use crate::{
     Cache, ClipContent, ClipInfo, Downbeat, ExactDuration, ExactFrameCount, Recorder, Resampler,
     Section, StartEndFader, TimeStretcher, WithFrameRate,

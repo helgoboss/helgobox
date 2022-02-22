@@ -1,11 +1,13 @@
-use crate::buffer::AudioBufMut;
 use crate::conversion_util::{
     adjust_anti_proportionally_positive, adjust_proportionally_positive,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
 };
 use crate::file_util::get_path_for_new_media_file;
-use crate::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
-use crate::supplier::SupplyResponse;
+use crate::processing::buffer::AudioBufMut;
+use crate::processing::supplier::audio_util::{
+    supply_audio_material, transfer_samples_from_buffer,
+};
+use crate::processing::supplier::SupplyResponse;
 use crate::ClipPlayState::Recording;
 use crate::{
     clip_timeline, AudioBuf, AudioSupplier, Cache, CacheRequest, CacheResponseChannel, ClipContent,

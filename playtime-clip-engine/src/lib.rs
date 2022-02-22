@@ -1,48 +1,37 @@
 #[macro_use]
 mod tracing_util;
 
+mod application;
+mod processing;
+
 mod metrics_util;
 
-mod matrix;
-pub use matrix::*;
+pub use application::matrix::*;
 
-mod real_time_matrix;
-pub use real_time_matrix::*;
+pub use processing::real_time_matrix::*;
 
 mod timeline;
 pub use timeline::*;
 
-mod clip_data;
-pub use clip_data::*;
+pub use application::clip_data::*;
 
 use reaper_high::{Project, Reaper};
 use reaper_medium::{MeasureMode, PositionInBeats, PositionInSeconds};
 
-mod clip_content;
-pub use clip_content::*;
+pub use application::clip_content::*;
 
-mod source_util;
+pub use processing::buffer::*;
 
-mod buffer;
-pub use buffer::*;
+pub use processing::supplier::*;
 
-mod supplier;
-pub use supplier::*;
+pub use application::column::*;
 
-mod column;
-pub use column::*;
+pub use processing::column_source::*;
 
-mod column_source;
-pub use column_source::*;
+pub use processing::slot::*;
 
-mod slot;
-pub use slot::*;
-
-mod clip;
 use crate::metrics_util::init_metrics;
-pub use clip::*;
-
-mod tempo_util;
+pub use processing::clip::*;
 
 mod file_util;
 
