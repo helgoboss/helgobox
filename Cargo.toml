@@ -2,6 +2,7 @@
 members = [
     "api",
     "clip-engine",
+    "clip-engine-api",
     "csi",
     "main",
     "rx-util",

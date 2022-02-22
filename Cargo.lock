@@ -2932,6 +2932,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "playtime-clip-engine-api"
+version = "0.1.0"
+dependencies = [
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "png"
 version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -28,6 +28,7 @@ See link:ARCHITECTURE.adoc[here].
 |`/` |Workspace root 
 |`/api` |Data structures of ReaLearn's preset API (which is e.g. used in the Lua-based ReaLearn Script) 
 |`/clip-engine` |Clip engine for playing/recording clips
+|`/clip-engine-api` |Data structures for describing clip engine presets
 |`/csi` |Code for interfacing with the ControlSurfaceIntegrator (CSI) project
 |`/doc` |Documentation
 |`/main` |Main crate (`realearn`) 
