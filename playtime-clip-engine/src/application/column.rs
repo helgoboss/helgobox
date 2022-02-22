@@ -1,24 +1,21 @@
-use crate::{
-    CacheRequest, ClipChangedEvent, ClipData, ClipInfo, ClipPlayState, ClipRecordTask,
-    ColumnFillSlotArgs, ColumnPauseClipArgs, ColumnPlayClipArgs, ColumnSeekClipArgs,
-    ColumnSetClipRepeatedArgs, ColumnSetClipVolumeArgs, ColumnSource, ColumnSourceCommand,
-    ColumnSourceCommandSender, ColumnSourceEvent, ColumnStopClipArgs, RecordBehavior, RecordKind,
-    RecorderEquipment, RecorderRequest, SharedColumnSource, SharedPos, Slot,
-    SlotProcessTransportChangeArgs, Timeline, TimelineMoment, TransportChange, WeakColumnSource,
+use crate::application::{ClipData, ClipRecordTask};
+use crate::processing::supplier::RecorderEquipment;
+use crate::processing::{
+    ClipChangedEvent, ClipInfo, ClipPlayState, ColumnFillSlotArgs, ColumnPlayClipArgs,
+    ColumnSetClipRepeatedArgs, ColumnSource, ColumnSourceCommandSender, ColumnSourceEvent,
+    RecordBehavior, SharedColumnSource, SharedPos, SlotProcessTransportChangeArgs,
+    WeakColumnSource,
 };
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::Receiver;
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
-use reaper_high::{BorrowedSource, Project, Reaper, Track};
+use reaper_high::{Reaper, Track};
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
-    create_custom_owned_pcm_source, BorrowedPcmSource, Bpm, CustomPcmSource,
-    FlexibleOwnedPcmSource, MeasureAlignment, OwnedPreviewRegister, PositionInSeconds, ReaperMutex,
-    ReaperMutexGuard, ReaperVolumeValue,
+    create_custom_owned_pcm_source, Bpm, CustomPcmSource, FlexibleOwnedPcmSource, MeasureAlignment,
+    OwnedPreviewRegister, PositionInSeconds, ReaperMutex, ReaperVolumeValue,
 };
-use std::collections::HashMap;
 use std::ptr::NonNull;
-use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
 
 pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
@@ -178,7 +175,7 @@ impl Column {
         self.command_sender.play_clip(args);
     }
 
-    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) {
+    pub fn stop_clip(&mut self, args: crate::processing::ColumnStopClipArgs) {
         self.command_sender.stop_clip(args);
     }
 

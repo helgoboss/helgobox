@@ -1,12 +1,10 @@
+use crate::processing::buffer::AudioBufMut;
 use crate::processing::supplier::fade_util::{apply_fade_in, apply_fade_out};
-use crate::processing::supplier::{midi_util, SupplyResponse, SupplyResponseStatus};
-use crate::{
-    AudioBufMut, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
-    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest,
-    SupplyRequestGeneralInfo, SupplyRequestInfo, WithFrameRate,
+use crate::processing::supplier::{
+    midi_util, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
+    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
 use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz};
-use std::cmp;
 
 #[derive(Debug)]
 pub struct StartEndFader<S> {

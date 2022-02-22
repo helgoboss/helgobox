@@ -7,7 +7,7 @@ use axum::http::Method;
 use axum::routing::{get, patch};
 use axum::Router;
 use axum_server::Handle;
-use metrics_exporter_prometheus::{PrometheusBuilder, PrometheusHandle};
+use metrics_exporter_prometheus::PrometheusHandle;
 use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;

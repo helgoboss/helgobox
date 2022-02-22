@@ -1,14 +1,14 @@
 use crate::domain::{
-    classify_midi_message, ClipTransportTarget, CompoundMappingSource, ControlMainTask,
-    ControlMode, ControlOptions, Event, FeedbackSendBehavior, Garbage, GarbageBin,
-    InputMatchResult, InstanceId, LifecycleMidiMessage, LifecyclePhase, MappingCompartment,
-    MappingId, MidiClockCalculator, MidiMessageClassification, MidiScanResult, MidiScanner,
-    MidiSendTarget, NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
+    classify_midi_message, CompoundMappingSource, ControlMainTask, ControlMode, ControlOptions,
+    Event, FeedbackSendBehavior, Garbage, GarbageBin, InputMatchResult, InstanceId,
+    LifecycleMidiMessage, LifecyclePhase, MappingCompartment, MappingId, MidiClockCalculator,
+    MidiMessageClassification, MidiScanResult, MidiScanner, MidiSendTarget,
+    NormalRealTimeToMainThreadTask, OrderedMappingMap, OwnedIncomingMidiMessage,
     PartialControlMatch, PersistentMappingProcessingState, QualifiedMappingId,
     RealTimeCompoundMappingTarget, RealTimeControlContext, RealTimeMapping, RealTimeReaperTarget,
-    SampleOffset, SendMidiDestination, TransportAction, VirtualSourceValue,
+    SampleOffset, SendMidiDestination, VirtualSourceValue,
 };
-use helgoboss_learn::{AbsoluteMode, AbsoluteValue, ControlValue, MidiSourceValue};
+use helgoboss_learn::{ControlValue, MidiSourceValue};
 use helgoboss_midi::{
     Channel, ControlChange14BitMessage, ControlChange14BitMessageScanner, DataEntryByteOrder,
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
@@ -16,18 +16,14 @@ use helgoboss_midi::{
 };
 use reaper_high::{MidiOutputDevice, Project, Reaper};
 use reaper_medium::{
-    Hz, MidiInputDeviceId, MidiOutputDeviceId, PositionInSeconds, ProjectContext, ReaperPointer,
-    SendMidiTime,
+    Hz, MidiInputDeviceId, MidiOutputDeviceId, ProjectContext, ReaperPointer, SendMidiTime,
 };
 use slog::{debug, trace};
 
 use crate::base::Global;
 use assert_no_alloc::permit_alloc;
 use enum_map::{enum_map, EnumMap};
-use playtime_clip_engine::{
-    clip_timeline, ClipPlayArgs, ClipStopArgs, ClipStopBehavior, ColumnPlayClipArgs,
-    ColumnStopClipArgs, RealTimeClipMatrix, Timeline,
-};
+use playtime_clip_engine::processing::RealTimeClipMatrix;
 use std::convert::TryInto;
 use std::ptr::null_mut;
 use std::time::Duration;

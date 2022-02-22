@@ -1,17 +1,10 @@
-use crate::processing::buffer::{AudioBufMut, OwnedAudioBuffer};
+use crate::processing::buffer::AudioBufMut;
 use crate::processing::supplier::{
-    AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyResponse, WithFrameRate,
+    AudioSupplier, ExactFrameCount, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo, SupplyResponse,
+    SupplyResponseStatus, WithFrameRate,
 };
-use crate::{
-    clip_timeline, PreBufferFillRequest, PreBufferSourceSkill, SupplyRequest, SupplyRequestInfo,
-    SupplyResponseStatus,
-};
-use core::cmp;
-use reaper_medium::{
-    BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
-    PositionInSeconds,
-};
+use reaper_medium::{BorrowedMidiEventList, Hz};
 
 #[derive(Debug)]
 pub struct Looper<S> {

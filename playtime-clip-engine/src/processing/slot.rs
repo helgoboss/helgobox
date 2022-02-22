@@ -1,16 +1,14 @@
 use crate::metrics_util::measure_time;
-use crate::SlotInstruction::KeepSlot;
-use crate::{
-    CacheRequest, Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
-    ClipRecordArgs, ClipRecordInput, ClipStopArgs, ClipStopBehavior, HybridTimeline,
-    RecordBehavior, RecordKind, RecorderEquipment, RecorderRequest, SlotInstruction, Timeline,
-    TimelineMoment, WriteAudioRequest, WriteMidiRequest,
+use crate::processing::supplier::{RecorderEquipment, WriteAudioRequest, WriteMidiRequest};
+use crate::processing::SlotInstruction::KeepSlot;
+use crate::processing::{
+    Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs,
+    ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, SlotInstruction,
 };
-use crossbeam_channel::Sender;
+use crate::timeline::{HybridTimeline, Timeline, TimelineMoment};
 use helgoboss_learn::UnitValue;
-use reaper_high::{OwnedSource, Project};
-use reaper_medium::{Bpm, PcmSourceTransfer, PlayState, PositionInSeconds, ReaperVolumeValue};
-use std::time::Instant;
+use reaper_high::Project;
+use reaper_medium::{Bpm, PlayState, ReaperVolumeValue};
 
 #[derive(Debug, Default)]
 pub struct Slot {

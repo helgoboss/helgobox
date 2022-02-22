@@ -25,6 +25,8 @@ use helgoboss_learn::{
     RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
     ValueSequence, VirtualColor,
 };
+use playtime_clip_engine::application::ClipContent;
+use playtime_clip_engine::processing::ClipInfo;
 use swell_ui::{
     DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
@@ -65,7 +67,6 @@ use crate::infrastructure::ui::util::{
 use crate::infrastructure::ui::{
     EelEditorPanel, ItemProp, MainPanel, MappingHeaderPanel, YamlEditorPanel,
 };
-use playtime_clip_engine::{ClipContent, ClipInfo};
 
 #[derive(Debug)]
 pub struct MappingPanel {

@@ -1,13 +1,9 @@
-use crate::processing::buffer::{AudioBufMut, OwnedAudioBuffer};
+use crate::processing::buffer::AudioBufMut;
 use crate::processing::supplier::{
-    midi_util, AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyResponse, SupplyResponseStatus, WithFrameRate,
+    midi_util, AudioSupplier, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, SupplyResponseStatus, WithFrameRate,
 };
-use crate::{PreBufferFillRequest, PreBufferSourceSkill};
-use core::cmp;
-use reaper_medium::{
-    BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, PcmSourceTransfer,
-};
+use reaper_medium::{BorrowedMidiEventList, Hz};
 
 #[derive(Debug)]
 pub struct AdHocFader<S> {

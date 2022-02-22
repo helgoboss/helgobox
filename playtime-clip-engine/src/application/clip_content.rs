@@ -1,5 +1,5 @@
 use crate::file_util::get_path_for_new_media_file;
-use reaper_high::{Item, OwnedSource, Project, Reaper, ReaperSource};
+use reaper_high::{Item, OwnedSource, Project, ReaperSource};
 use reaper_medium::MidiImportBehavior;
 use serde::{Deserialize, Serialize};
 use std::error::Error;

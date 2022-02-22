@@ -7,13 +7,14 @@ use crate::domain::{
     DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use playtime_clip_engine::{
-    clip_timeline, ClipChangedEvent, ClipPlayArgs, ClipRecordTiming, ClipStopArgs,
-    ClipStopBehavior, ColumnPlayClipArgs, ColumnSource, ColumnStopClipArgs, RecordArgs, RecordKind,
-    SharedColumnSource, SlotPlayOptions, SlotStopBehavior, Timeline,
+use playtime_clip_engine::application::{
+    ClipRecordTiming, RecordArgs, RecordKind, SlotPlayOptions, SlotStopBehavior,
 };
+use playtime_clip_engine::processing::{
+    ClipChangedEvent, ClipPlayArgs, ClipStopArgs, ClipStopBehavior, SharedColumnSource,
+};
+use playtime_clip_engine::{clip_timeline, Timeline};
 use reaper_high::{Project, Track};
-use std::sync::MutexGuard;
 
 #[derive(Debug)]
 pub struct UnresolvedClipTransportTarget {

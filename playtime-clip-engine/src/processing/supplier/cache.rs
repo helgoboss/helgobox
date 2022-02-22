@@ -1,22 +1,15 @@
-use crate::processing::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
+use crate::processing::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::processing::source_util::pcm_source_is_midi;
 use crate::processing::supplier::audio_util::{
     supply_audio_material, transfer_samples_from_buffer,
 };
 use crate::processing::supplier::{
-    AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyResponse, WithFrameRate,
+    get_source_frame_rate, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier,
+    PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestInfo, SupplyResponse, WithFrameRate, WithSource,
 };
-use crate::{
-    get_source_frame_rate, ExactDuration, PreBufferFillRequest, PreBufferSourceSkill,
-    SupplyRequestInfo, WithSource,
-};
-use core::cmp;
 use crossbeam_channel::{Receiver, Sender};
-use reaper_medium::{
-    BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, OwnedPcmSource,
-    PcmSourceTransfer,
-};
+use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz, OwnedPcmSource};
 use std::fmt::Debug;
 
 #[derive(Debug)]

@@ -1,8 +1,7 @@
 use crossbeam_channel::{Receiver, Sender};
 use reaper_high::Reaper;
 use std::fmt::Arguments;
-use std::io::{BufWriter, IoSlice, LineWriter, Write};
-use std::thread::JoinHandle;
+use std::io::{IoSlice, Write};
 use std::{mem, thread};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 

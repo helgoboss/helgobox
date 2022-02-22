@@ -177,13 +177,11 @@ impl ListOfRecentlyFocusedFx {
 
 impl App {
     pub fn detailed_version_label() -> &'static str {
-        use once_cell::sync::Lazy;
         static VALUE: Lazy<String> = Lazy::new(build_detailed_version);
         &VALUE
     }
 
     pub fn version() -> &'static Version {
-        use once_cell::sync::Lazy;
         static VALUE: Lazy<Version> = Lazy::new(|| {
             Version::parse(crate::infrastructure::plugin::built_info::PKG_VERSION).unwrap()
         });

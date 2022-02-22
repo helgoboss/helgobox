@@ -17,14 +17,12 @@ use crate::infrastructure::plugin::App;
 
 use crate::base::notification;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
-use playtime_clip_engine::{
-    ClipData, LegacyClipOutput, LegacySlotDescriptor, QualifiedSlotDescriptor,
+use playtime_clip_engine::application::{
+    LegacyClipOutput, LegacySlotDescriptor, QualifiedSlotDescriptor,
 };
-use reaper_high::{Reaper, Track};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use serde_ini::de::Trait;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::error::Error;

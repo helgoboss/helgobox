@@ -1,10 +1,11 @@
-use crate::processing::supplier::{AdHocFader, Looper};
-use crate::{
-    Cache, ClipContent, ClipInfo, Downbeat, ExactDuration, ExactFrameCount, Recorder, Resampler,
-    Section, StartEndFader, TimeStretcher, WithFrameRate,
+use crate::application::ClipContent;
+use crate::processing::supplier::{
+    AdHocFader, Downbeat, ExactDuration, ExactFrameCount, Looper, Recorder, Resampler, Section,
+    StartEndFader, TimeStretcher, WithFrameRate,
 };
+use crate::processing::ClipInfo;
 use reaper_high::Project;
-use reaper_medium::{DurationInSeconds, Hz, OwnedPcmSource};
+use reaper_medium::{DurationInSeconds, Hz};
 
 type Head = AdHocFaderTail;
 type AdHocFaderTail = AdHocFader<ResamplerTail>;

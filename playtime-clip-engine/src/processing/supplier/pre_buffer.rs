@@ -1,26 +1,14 @@
-use crate::processing::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
-use crate::processing::source_util::pcm_source_is_midi;
-use crate::processing::supplier::audio_util::{
-    supply_audio_material, transfer_samples_from_buffer,
-};
+use crate::processing::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::processing::supplier::{
-    AudioSupplier, ExactFrameCount, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyResponse, WithFrameRate,
-};
-use crate::SupplyResponseStatus::PleaseContinue;
-use crate::{
-    get_source_frame_rate, ExactDuration, PreBufferFillRequest, PreBufferSourceSkill,
-    SupplyRequestInfo, SupplyResponseStatus, WithSource,
+    AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
+    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse,
+    SupplyResponseStatus, WithFrameRate, WithSource,
 };
 use core::cmp;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use derive_more::Display;
-use reaper_medium::{
-    BorrowedMidiEventList, BorrowedPcmSource, DurationInSeconds, Hz, OwnedPcmSource,
-    PcmSourceTransfer,
-};
-use rtrb::{Consumer, PeekError, Producer, RingBuffer};
-use std::cmp::Ordering;
+use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz, OwnedPcmSource};
+use rtrb::{Consumer, Producer, RingBuffer};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::BuildHasherDefault;
@@ -210,7 +198,7 @@ pub enum PreBufferRequest {
     Recycle(PreBufferedBlock),
     KeepFillingFrom {
         id: PreBufferInstanceId,
-        args: PreBufferFillRequest,
+        args: crate::processing::supplier::PreBufferFillRequest,
     },
 }
 

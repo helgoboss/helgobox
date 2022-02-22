@@ -1,38 +1,34 @@
+use crate::application::{ClipContent, CreateClipContentMode};
 use crate::conversion_util::{
     adjust_anti_proportionally_positive, adjust_proportionally_positive,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
 };
 use crate::file_util::get_path_for_new_media_file;
-use crate::processing::buffer::AudioBufMut;
+use crate::processing::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use crate::processing::supplier::audio_util::{
     supply_audio_material, transfer_samples_from_buffer,
 };
-use crate::processing::supplier::SupplyResponse;
-use crate::ClipPlayState::Recording;
-use crate::{
-    clip_timeline, AudioBuf, AudioSupplier, Cache, CacheRequest, CacheResponseChannel, ClipContent,
-    ClipInfo, ClipRecordInput, CreateClipContentMode, ExactDuration, ExactFrameCount, MidiSupplier,
-    OwnedAudioBuffer, PreBuffer, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
-    PreBufferedBlock, RecordTiming, SourceData, SupplyAudioRequest, SupplyMidiRequest, Timeline,
-    WithFrameRate, WithSource, WithTempo, MIDI_BASE_BPM, MIDI_FRAME_RATE,
+use crate::processing::supplier::{
+    AudioSupplier, Cache, CacheRequest, CacheResponseChannel, ExactDuration, ExactFrameCount,
+    MidiSupplier, PreBuffer, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate, WithSource,
+    MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
-use crossbeam_channel::{Receiver, Sender, TryRecvError};
+use crate::processing::{ClipInfo, ClipRecordInput, RecordTiming};
+use crate::timeline::{clip_timeline, Timeline};
+use crossbeam_channel::{Receiver, Sender};
 use helgoboss_midi::ShortMessage;
 use reaper_high::{OwnedSource, Project, Reaper, ReaperSource};
-use reaper_low::raw::{
-    midi_realtime_write_struct_t, PCM_SINK_EXT_CREATESOURCE, PCM_SOURCE_EXT_ADDMIDIEVENTS,
-};
-use reaper_low::{raw, PCM_source};
+use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, MidiImportBehavior, OwnedPcmSink,
-    OwnedPcmSource, PcmSource, PositionInSeconds, ReaperString,
+    OwnedPcmSource, PositionInSeconds,
 };
-use rtrb::Consumer;
+use std::cmp;
 use std::convert::TryInto;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut, NonNull};
-use std::{cmp, mem};
 
 // TODO-high The PreBuffer sitting on top of the source is maybe not the best idea because once
 //  completely played, it will jump back to source-zero, not section-zero, so we will run into a
@@ -340,7 +336,7 @@ impl Recorder {
 
     pub fn schedule_end(&mut self, end_bar: i32, timeline: &dyn Timeline) {
         match self.state.as_mut().unwrap() {
-            State::Ready(s) => panic!("attempt to schedule recording end while recorder ready"),
+            State::Ready(_) => panic!("attempt to schedule recording end while recorder ready"),
             State::Recording(s) => {
                 use RecordingPhase::*;
                 let next_phase = match s.phase.take().unwrap() {
@@ -554,7 +550,7 @@ impl Recorder {
         let ideal_end_frame = start_frame + request.block_length;
         let end_frame = cmp::min(ideal_end_frame, out_buf.frame_count());
         let num_frames_written = end_frame - start_frame;
-        let mut out_buf_slice = out_buf.data_as_mut_slice();
+        let out_buf_slice = out_buf.data_as_mut_slice();
         let left_buf_slice = request.left_buffer.data_as_slice();
         let right_buf_slice = request.right_buffer.data_as_slice();
         for i in 0..num_frames_written {
@@ -640,7 +636,6 @@ impl Recorder {
                     Recording(RecordingState {
                         kind_state:
                             KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)),
-                        cache_response_channel,
                         old_cache,
                         ..
                     }) => match r.source {
@@ -1025,7 +1020,7 @@ impl OpenEndPhase {
                 non_normalized_downbeat_pos: DurationInSeconds::ZERO,
                 section_start_frame: 0,
             },
-            RecordTiming::Synced { start_bar, end_bar } => {
+            RecordTiming::Synced { start_bar, .. } => {
                 let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
                 // TODO-high Depending on source_start_timeline_pos doesn't work when tempo changed
                 //  during recording. It would be better to advance frames just like we do it

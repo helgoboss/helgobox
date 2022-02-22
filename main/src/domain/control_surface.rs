@@ -24,7 +24,7 @@ use reaper_medium::{
 use rxrust::prelude::*;
 use slog::debug;
 use smallvec::SmallVec;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 type OscCaptureSender = async_channel::Sender<OscScanResult>;
 

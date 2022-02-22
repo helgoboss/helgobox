@@ -13,7 +13,7 @@ use crate::domain::{
     RealFeedbackValue, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
     ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString, SourceFeedbackValue,
     SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetValueChangedEvent,
-    UpdatedSingleMappingOnStateEvent, VirtualSourceValue, CLIP_SLOT_COUNT,
+    UpdatedSingleMappingOnStateEvent, VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -21,14 +21,9 @@ use helgoboss_learn::{
     AbsoluteValue, ControlValue, GroupInteraction, MidiSourceValue, MinIsMaxBehavior,
     ModeControlOptions, RawMidiEvent, Target, BASE_EPSILON,
 };
-use playtime_clip_engine::{
-    clip_timeline, clip_timeline_cursor_pos, ClipChangedEvent, RelevantPlayStateChange, Timeline,
-    TransportChange,
-};
 use std::borrow::Cow;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 
-use crate::base::Global;
 use crate::domain::ui_util::{
     format_incoming_midi_message, format_midi_source_value, format_osc_message, format_osc_packet,
     format_raw_midi, log_control_input, log_feedback_output, log_learn_input, log_lifecycle_output,
@@ -36,8 +31,10 @@ use crate::domain::ui_util::{
 };
 use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
+use playtime_clip_engine::processing::{ClipChangedEvent, TransportChange};
+use playtime_clip_engine::{clip_timeline, Timeline};
 use reaper_high::{ChangeEvent, Reaper};
-use reaper_medium::{PlayState, ReaperNormalizedFxParamValue};
+use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket, OscType};
 use slog::{debug, trace};
 use smallvec::SmallVec;
@@ -45,7 +42,6 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::time::Duration;
 
 // This can be come pretty big when multiple track volumes are adjusted at once.
 const FEEDBACK_TASK_QUEUE_SIZE: usize = 20_000;

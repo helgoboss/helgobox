@@ -1,15 +1,18 @@
-use crate::{
-    clip_timeline, keep_processing_cache_requests, keep_processing_pre_buffer_requests,
-    keep_processing_recorder_requests, keep_stretching, CacheRequest, Clip, ClipChangedEvent,
-    ClipContent, ClipData, ClipInfo, ClipPlayArgs, ClipPlayState, ClipStopArgs, ClipStopBehavior,
-    Column, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
-    PreBufferRequest, RealTimeClipMatrix, RealTimeClipMatrixCommand, RecordBehavior, RecordTiming,
-    RecorderEquipment, RecorderRequest, SharedColumnSource, Slot, SlotPollArgs,
-    SlotProcessTransportChangeArgs, StretchWorkerRequest, Timeline, TransportChange,
+use crate::application::{ClipContent, ClipData, Column};
+use crate::processing::supplier::{
+    keep_processing_cache_requests, keep_processing_pre_buffer_requests,
+    keep_processing_recorder_requests, keep_stretching, RecorderEquipment, StretchWorkerRequest,
 };
+use crate::processing::{
+    Clip, ClipChangedEvent, ClipInfo, ClipPlayArgs, ClipPlayState, ClipStopArgs, ClipStopBehavior,
+    ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
+    RealTimeClipMatrix, RealTimeClipMatrixCommand, RecordBehavior, RecordTiming,
+    SharedColumnSource, SlotProcessTransportChangeArgs, TransportChange,
+};
+use crate::timeline::{clip_timeline, Timeline};
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
-use reaper_high::{Guid, Item, Project, Reaper, Track};
+use reaper_high::{Guid, Item, Project, Track};
 use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
 use serde::{Deserialize, Serialize};
 use std::error::Error;

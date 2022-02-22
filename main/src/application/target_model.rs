@@ -45,7 +45,7 @@ use serde_repr::*;
 use std::borrow::Cow;
 use std::error::Error;
 
-use playtime_clip_engine::SlotPlayOptions;
+use playtime_clip_engine::application::SlotPlayOptions;
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackArea, TrackLocation,
     TrackSendDirection,

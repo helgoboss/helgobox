@@ -1,12 +1,7 @@
-use std::error::Error;
-use std::path::{Path, PathBuf};
-
-use reaper_high::{Item, OwnedSource, Project, Reaper, ReaperSource};
-use reaper_medium::{MidiImportBehavior, ReaperVolumeValue};
+use reaper_medium::ReaperVolumeValue;
 use serde::{Deserialize, Serialize};
 
-use crate::ClipContent;
-use helgoboss_learn::UnitValue;
+use crate::application::ClipContent;
 
 fn is_default<T: Default + PartialEq>(v: &T) -> bool {
     v == &T::default()

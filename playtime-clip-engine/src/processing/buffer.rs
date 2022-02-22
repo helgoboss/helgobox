@@ -1,9 +1,8 @@
-use core::cmp;
 use derivative::Derivative;
 use reaper_medium::{BorrowedPcmSource, PcmSourceTransfer, PositionInSeconds};
 use std::collections::Bound;
-use std::fmt::{Debug, Formatter};
-use std::ops::{Index, Range, RangeBounds, RangeFrom};
+use std::fmt::Debug;
+use std::ops::RangeBounds;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -81,7 +80,7 @@ pub type AudioBufMut<'a> = AbstractAudioBuf<&'a mut [f64]>;
 impl<'a> AudioBuf<'a> {
     pub unsafe fn from_raw(data: *mut f64, channel_count: usize, frame_count: usize) -> Self {
         AudioBuf {
-            data: unsafe { std::slice::from_raw_parts(data, (channel_count * frame_count) as _) },
+            data: std::slice::from_raw_parts(data, (channel_count * frame_count) as _),
             frame_count,
             channel_count,
         }
@@ -99,9 +98,7 @@ impl<'a> AudioBufMut<'a> {
 
     pub unsafe fn from_raw(data: *mut f64, channel_count: usize, frame_count: usize) -> Self {
         AudioBufMut {
-            data: unsafe {
-                std::slice::from_raw_parts_mut(data, (channel_count * frame_count) as _)
-            },
+            data: std::slice::from_raw_parts_mut(data, (channel_count * frame_count) as _),
             frame_count,
             channel_count,
         }

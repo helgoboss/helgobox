@@ -2,13 +2,12 @@ use crate::processing::buffer::AudioBufMut;
 use crate::processing::supplier::{
     AudioSupplier, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus, WithFrameRate,
 };
-use crate::{
-    ExactFrameCount, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest,
-    SupplyRequestInfo,
+use crate::processing::supplier::{
+    MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
 };
 use crossbeam_channel::Receiver;
 use reaper_high::Reaper;
-use reaper_low::raw::{IReaperPitchShift, REAPER_PITCHSHIFT_API_VER};
+use reaper_low::raw::REAPER_PITCHSHIFT_API_VER;
 use reaper_medium::{BorrowedMidiEventList, Hz, OwnedReaperPitchShift};
 
 #[derive(Debug)]

@@ -1,10 +1,10 @@
-use crate::{
-    AudioBufMut, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
+use crate::processing::buffer::AudioBufMut;
+use crate::processing::supplier::{
+    AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
     PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo,
     SupplyResponse, WithFrameRate,
 };
 use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz};
-use std::ptr::eq;
 
 #[derive(Debug)]
 pub struct Downbeat<S> {

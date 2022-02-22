@@ -5,20 +5,16 @@ use crate::domain::{
 use assert_no_alloc::*;
 use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
-use playtime_clip_engine::{
-    clip_timeline, global_steady_timeline, AudioBuf, ClipRecordInput, ClipRecordTask,
-    ClipRecordTiming, SharedRegister, Timeline, WriteAudioRequest, WriteMidiRequest,
-};
-use reaper_high::{MidiInputDevice, MidiOutputDevice, Project, Reaper};
-use reaper_low::raw::midi_realtime_write_struct_t;
+use playtime_clip_engine::application::ClipRecordTask;
+use playtime_clip_engine::global_steady_timeline;
+use playtime_clip_engine::processing::supplier::{WriteAudioRequest, WriteMidiRequest};
+use playtime_clip_engine::processing::{AudioBuf, ClipRecordInput};
+use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
-    Hz, MeasureMode, MidiEvent, MidiInput, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer,
-    OnAudioBufferArgs, PositionInBeats, PositionInSeconds, ProjectContext, SendMidiTime,
+    MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
+    PositionInSeconds, ProjectContext, SendMidiTime,
 };
 use smallvec::SmallVec;
-use std::os::raw::c_int;
-use std::ptr::null_mut;
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 

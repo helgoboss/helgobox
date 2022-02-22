@@ -20,6 +20,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, NumericValue, PropValue, Target, UnitValue,
 };
+use playtime_clip_engine::processing::ClipPlayState;
 
 use crate::base::default_util::is_default;
 use crate::base::Global;
@@ -42,7 +43,6 @@ use crate::domain::{
     RealearnTarget, ReaperTargetType, RouteAutomationModeTarget, RouteMonoTarget, RoutePhaseTarget,
     TrackPhaseTarget, TrackToolTarget,
 };
-use playtime_clip_engine::ClipPlayState;
 
 /// This target character is just used for GUI and auto-correct settings! It doesn't have influence
 /// on control/feedback.

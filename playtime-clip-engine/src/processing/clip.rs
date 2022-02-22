@@ -1,32 +1,26 @@
+use crate::application::{ClipContent, ClipData};
 use crate::conversion_util::{
     adjust_proportionally_positive, convert_duration_in_frames_to_other_frame_rate,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
 };
+use crate::processing::buffer::AudioBufMut;
 use crate::processing::source_util::pcm_source_is_midi;
-use crate::processing::tempo_util::detect_tempo;
-use crate::{
-    clip_timeline, AudioBufMut, AudioSupplier, CacheRequest, ClipContent, ClipData,
-    ClipRecordTiming, CreateClipContentMode, ExactDuration, ExactFrameCount, HybridTimeline,
-    LoopBehavior, MidiSupplier, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
-    PreBufferedBlock, RecordKind, Recorder, RecorderEquipment, RecorderRequest, SupplierChain,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo,
-    SupplyResponse, SupplyResponseStatus, Timeline, WithFrameRate, WithTempo, WriteAudioRequest,
-    WriteMidiRequest, MIDI_BASE_BPM,
+use crate::processing::supplier::{
+    AudioSupplier, ExactDuration, LoopBehavior, MidiSupplier, PreBufferFillRequest,
+    PreBufferSourceSkill, Recorder, RecorderEquipment, SupplierChain, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
+    SupplyResponseStatus, WithTempo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
 };
-use crossbeam_channel::Sender;
+use crate::processing::tempo_util::detect_tempo;
+use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use helgoboss_learn::UnitValue;
-use reaper_high::{OwnedSource, Project, ReaperSource};
-use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
+use reaper_high::Project;
 use reaper_medium::{
     Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds,
     ReaperVolumeValue,
 };
-use rtrb::Consumer;
-use std::convert::TryInto;
-use std::fs::read;
 use std::path::PathBuf;
-use std::ptr::null_mut;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
 
@@ -1268,7 +1262,6 @@ impl ReadyState {
                 Some(data)
             },
         };
-        use ClipState::*;
         use ReadySubState::*;
         match self.state {
             Stopped => Some(recording_state),
@@ -1446,7 +1439,6 @@ impl RecordingState {
                     }
                 } else {
                     // We are recording already.
-                    use ClipState::*;
                     if end_bar.is_some() {
                         // End already scheduled. Take care of stopping after recording.
                         self.play_after = false;

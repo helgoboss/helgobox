@@ -59,7 +59,6 @@ enum MetricsTask {
 
 fn keep_recording_metrics(receiver: Receiver<MetricsTask>) {
     while let Ok(task) = receiver.recv() {
-        use MetricsTask::*;
         match task {
             MetricsTask::Histogram { id, delta } => {
                 metrics::histogram!(id, delta);

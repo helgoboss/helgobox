@@ -1,18 +1,12 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
 use std::rc::Rc;
 
-use crossbeam_channel::Sender;
 use enum_map::EnumMap;
 use lazycell::LazyCell;
-use once_cell::unsync::Lazy;
-use reaper_high::{Item, OwnedSource, Project, Track};
-use reaper_medium::{Bpm, PlayState, PositionInSeconds, ReaperVolumeValue};
+use reaper_high::Track;
 use rxrust::prelude::*;
-use serde::{Deserialize, Serialize};
 
-use helgoboss_learn::UnitValue;
 use rx_util::Notifier;
 
 use crate::base::{AsyncNotifier, Prop};
@@ -20,12 +14,8 @@ use crate::domain::{
     GroupId, MappingCompartment, MappingId, NormalAudioHookTask, NormalRealTimeTask,
     QualifiedMappingId, RealTimeSender, Tag,
 };
-use playtime_clip_engine::{
-    clip_timeline, ClipChangedEvent, ClipContent, ClipData, ClipMatrixHandler, ClipPlayState,
-    ClipRecordTask, ClipRecordTiming, Matrix, RecordArgs, RecordKind, SlotPlayOptions,
-    SlotStopBehavior, Timeline, TimelineMoment, TransportChange,
-};
-use playtime_clip_engine::{keep_stretching, StretchWorkerRequest};
+use playtime_clip_engine::application::{ClipMatrixHandler, ClipRecordTask, Matrix};
+use playtime_clip_engine::processing::ClipChangedEvent;
 
 pub const CLIP_SLOT_COUNT: usize = 8;
 

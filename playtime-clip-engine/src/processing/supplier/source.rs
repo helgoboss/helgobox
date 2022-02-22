@@ -8,9 +8,8 @@ use crate::processing::supplier::audio_util::{supply_audio_material, SourceMater
 use crate::processing::supplier::log_util::print_distance_from_beat_start_at;
 use crate::processing::supplier::{
     AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse, WithFrameRate,
+    SupplyMidiRequest, SupplyResponse, WithFrameRate, WithSource, WithTempo,
 };
-use crate::{WithSource, WithTempo};
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
     PcmSourceTransfer, PositionInSeconds,

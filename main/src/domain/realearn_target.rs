@@ -27,7 +27,7 @@ use helgoboss_learn::{
     TransformationInputProvider, UnitValue,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use playtime_clip_engine::RealTimeClipMatrix;
+use playtime_clip_engine::processing::RealTimeClipMatrix;
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
 use reaper_medium::{CommandId, MidiOutputDeviceId};
 use serde_repr::*;
