@@ -26,7 +26,7 @@ realearn-metrics = ["reaper-high/reaper-meter", "serde_prometheus"]
  reaper-low = { path = "../../reaper-rs/main/low" }
 swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
-playtime-clip-engine = { path = "../clip-engine" }
+playtime-clip-engine = { path = "../playtime-clip-engine" }
 realearn-api = { path = "../api" }
 realearn-csi = { path = "../csi" }
 helgoboss-midi = { version = "0.3", features = ["serde", "serde_repr"] }

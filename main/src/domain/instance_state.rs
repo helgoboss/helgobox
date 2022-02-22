@@ -21,8 +21,8 @@ use crate::domain::{
     QualifiedMappingId, RealTimeSender, Tag,
 };
 use playtime_clip_engine::{
-    clip_timeline, ClipChangedEvent, ClipContent, ClipData, ClipMatrix, ClipMatrixHandler,
-    ClipPlayState, ClipRecordTask, ClipRecordTiming, RecordArgs, RecordKind, SlotPlayOptions,
+    clip_timeline, ClipChangedEvent, ClipContent, ClipData, ClipMatrixHandler, ClipPlayState,
+    ClipRecordTask, ClipRecordTiming, Matrix, RecordArgs, RecordKind, SlotPlayOptions,
     SlotStopBehavior, Timeline, TimelineMoment, TransportChange,
 };
 use playtime_clip_engine::{keep_stretching, StretchWorkerRequest};
@@ -31,7 +31,7 @@ pub const CLIP_SLOT_COUNT: usize = 8;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 
-pub type RealearnClipMatrix = ClipMatrix<RealearnClipMatrixHandler>;
+pub type RealearnClipMatrix = Matrix<RealearnClipMatrixHandler>;
 
 /// State connected to the instance which also needs to be accessible from layers *above* the
 /// processing layer (otherwise it could reside in the main processor).
@@ -396,7 +396,7 @@ fn init_clip_matrix(
 ) -> RealearnClipMatrix {
     let clip_matrix_handler =
         RealearnClipMatrixHandler::new(audio_hook_task_sender, instance_feedback_event_sender);
-    let (matrix, real_time_matrix) = ClipMatrix::new(clip_matrix_handler, this_track);
+    let (matrix, real_time_matrix) = Matrix::new(clip_matrix_handler, this_track);
     real_time_processor_sender
         .send(NormalRealTimeTask::SetClipMatrix(real_time_matrix))
         .unwrap();

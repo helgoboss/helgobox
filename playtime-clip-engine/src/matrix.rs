@@ -17,7 +17,7 @@ use std::thread;
 use std::thread::JoinHandle;
 
 #[derive(Debug)]
-pub struct ClipMatrix<H> {
+pub struct Matrix<H> {
     handler: H,
     stretch_worker_sender: Sender<StretchWorkerRequest>,
     recorder_equipment: RecorderEquipment,
@@ -60,7 +60,7 @@ impl Drop for Worker {
     }
 }
 
-impl<H: ClipMatrixHandler> ClipMatrix<H> {
+impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn new(handler: H, containing_track: Option<Track>) -> (Self, RealTimeClipMatrix) {
         let (stretch_worker_sender, stretch_worker_receiver) = crossbeam_channel::bounded(500);
         let (recorder_request_sender, recorder_request_receiver) = crossbeam_channel::bounded(500);

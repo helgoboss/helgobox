@@ -1,8 +1,8 @@
 [workspace]
 members = [
     "api",
-    "clip-engine",
-    "clip-engine-api",
+    "playtime-clip-engine",
+    "playtime-api",
     "csi",
     "main",
     "rx-util",

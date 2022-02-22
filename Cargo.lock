@@ -2905,6 +2905,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
 
 [[package]]
+name = "playtime-api"
+version = "0.1.0"
+dependencies = [
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "playtime-clip-engine"
 version = "0.1.0"
 dependencies = [
@@ -2929,15 +2938,6 @@ dependencies = [
  "slug",
  "tracing",
  "twox-hash",
-]
-
-[[package]]
-name = "playtime-clip-engine-api"
-version = "0.1.0"
-dependencies = [
- "schemars",
- "serde",
- "serde_json",
 ]
 
 [[package]]

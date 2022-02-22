@@ -1,5 +1,5 @@
 [package]
-name = "playtime-clip-engine-api"
+name = "playtime-api"
 version = "0.1.0"
 authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
 edition = "2018"
