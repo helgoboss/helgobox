@@ -23,7 +23,7 @@ pub struct Serializer {
     output: String,
     current_indent: usize,
     has_value: bool,
-    serialize_string_as_identifier: bool,
+    serialize_string_as_map_key: bool,
     indent: &'static str,
 }
 
@@ -35,7 +35,7 @@ where
         output: String::new(),
         current_indent: 0,
         has_value: false,
-        serialize_string_as_identifier: false,
+        serialize_string_as_map_key: false,
         indent: "    ",
     };
     value.serialize(&mut serializer)?;
@@ -108,17 +108,8 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_str(self, v: &str) -> Result<()> {
-        if self.serialize_string_as_identifier {
-            fn is_identifier_char(ch: char) -> bool {
-                (ch.is_ascii_alphanumeric() && ch.is_lowercase()) || ch == '_'
-            }
-            let contains_non_identifier_chars = v.contains(|ch: char| !is_identifier_char(ch));
-            if contains_non_identifier_chars {
-                return Err(Error::Message(format!(
-                    "can't serialize string {:?} as identifier",
-                    v
-                )));
-            }
+        if self.serialize_string_as_map_key {
+            ensure_proper_identifier(v)?;
             self.output += v;
         } else {
             let contains_newlines = v.contains(&['\r', '\n'][..]);
@@ -272,6 +263,9 @@ impl<'a> ser::SerializeSeq for &'a mut Serializer {
         } else {
             // It's important to not encode an empty sequence as "{}" because this will
             // be interpreted as map on deserialization.
+            // Error message: "invalid type: map, expected a sequence".
+            // Solution: Use "nil". This requires the sequence (Vec) to be optional! So each
+            // Vec needs to be wrapped in an Optional.
             self.output += "nil";
         }
         Ok(())
@@ -308,9 +302,9 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
     {
         self.output += "\n";
         indent(&mut self.output, self.current_indent, self.indent);
-        self.serialize_string_as_identifier = true;
+        self.serialize_string_as_map_key = true;
         key.serialize(&mut **self)?;
-        self.serialize_string_as_identifier = false;
+        self.serialize_string_as_map_key = false;
         self.has_value = true;
         Ok(())
     }
@@ -344,6 +338,7 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     where
         T: ?Sized + Serialize,
     {
+        ensure_proper_identifier(key)?;
         self.output += "\n";
         indent(&mut self.output, self.current_indent, self.indent);
         self.output += key;
@@ -370,3 +365,25 @@ fn indent(wr: &mut String, n: usize, s: &str) {
         wr.push_str(s);
     }
 }
+
+fn ensure_proper_identifier(v: &str) -> Result<()> {
+    fn is_identifier_char(ch: char) -> bool {
+        (ch.is_ascii_alphanumeric() && ch.is_lowercase()) || ch == '_'
+    }
+    let contains_non_identifier_chars = v.contains(|ch: char| !is_identifier_char(ch));
+    if contains_non_identifier_chars {
+        return Err(Error::Message(format!(
+            "can't serialize string {:?} as identifier",
+            v
+        )));
+    }
+    if LUA_KEYWORDS.contains(&v) {
+        return Err(Error::Message(format!("{:?} is a Lua identifier", v)));
+    }
+    Ok(())
+}
+
+const LUA_KEYWORDS: [&str; 21] = [
+    "and", "break", "do", "else", "elseif", "end", "false", "for", "function", "if", "in", "local",
+    "nil", "not", "or", "repeat", "return", "then", "true", "until", "while",
+];
