@@ -3443,6 +3443,7 @@ dependencies = [
  "once_cell",
  "open",
  "percent-encoding",
+ "playtime-api",
  "playtime-clip-engine",
  "prost",
  "qrcode",

@@ -28,6 +28,10 @@ impl Clip {
         }
     }
 
+    pub fn save(&self) -> api::Clip {
+        self.persistent_data.clone()
+    }
+
     pub fn create_real_time_clip(
         &self,
         project: Option<Project>,

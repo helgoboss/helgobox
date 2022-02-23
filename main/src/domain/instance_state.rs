@@ -134,12 +134,16 @@ impl InstanceState {
         }
     }
 
-    pub fn clip_matrix(&self) -> &RealearnClipMatrix {
+    pub fn clip_matrix(&self) -> Option<&RealearnClipMatrix> {
+        self.clip_matrix.borrow()
+    }
+
+    pub fn require_clip_matrix(&self) -> &RealearnClipMatrix {
         self.init_clip_matrix_if_necessary();
         self.clip_matrix.borrow().expect(CLIP_MATRIX_NOT_FILLED)
     }
 
-    pub fn clip_matrix_mut(&mut self) -> &mut RealearnClipMatrix {
+    pub fn require_clip_matrix_mut(&mut self) -> &mut RealearnClipMatrix {
         self.init_clip_matrix_if_necessary();
         self.clip_matrix.borrow_mut().expect(CLIP_MATRIX_NOT_FILLED)
     }

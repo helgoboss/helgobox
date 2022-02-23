@@ -672,7 +672,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let timeline_cursor_pos = timeline.cursor_pos();
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
         for (location, event) in instance_state
-            .clip_matrix_mut()
+            .require_clip_matrix_mut()
             .poll(timeline_tempo)
             .into_iter()
         {
@@ -1267,10 +1267,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 }
                 PlayJumpDetected => {
                     let mut instance_state = self.basics.instance_state.borrow_mut();
-                    instance_state.clip_matrix_mut().process_transport_change(
-                        TransportChange::PlayCursorJump,
-                        self.basics.context.project(),
-                    );
+                    instance_state
+                        .require_clip_matrix_mut()
+                        .process_transport_change(
+                            TransportChange::PlayCursorJump,
+                            self.basics.context.project(),
+                        );
                 }
             }
         }

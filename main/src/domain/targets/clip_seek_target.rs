@@ -61,7 +61,7 @@ impl RealearnTarget for ClipSeekTarget {
         let value = value.to_unit_value()?;
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         instance_state
-            .clip_matrix_mut()
+            .require_clip_matrix_mut()
             .seek_clip_legacy(self.slot_index, value)?;
         Ok(None)
     }
@@ -128,7 +128,7 @@ impl ClipSeekTarget {
         let timeline = clip_timeline(context.processor_context.project(), false);
         let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
         instance_state
-            .clip_matrix()
+            .require_clip_matrix()
             .clip_position_in_seconds(self.slot_index, timeline_tempo)
     }
 }
@@ -139,7 +139,7 @@ impl<'a> Target<'a> for ClipSeekTarget {
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let instance_state = context.instance_state.borrow();
         let val = instance_state
-            .clip_matrix()
+            .require_clip_matrix()
             .proportional_clip_position_legacy(self.slot_index)?;
         Some(AbsoluteValue::Continuous(val))
     }

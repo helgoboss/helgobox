@@ -28,6 +28,7 @@ swell-ui = { path = "../swell-ui" }
 rx-util = { path = "../rx-util" }
 playtime-clip-engine = { path = "../playtime-clip-engine" }
 realearn-api = { path = "../api" }
+playtime-api = { path = "../playtime-api" }
 realearn-csi = { path = "../csi" }
 helgoboss-midi = { version = "0.3", features = ["serde", "serde_repr"] }
 # In future (when helgoboss-learn has matured), this will become a crates.io dependency

@@ -614,7 +614,7 @@ impl MappingPanel {
                     let mapping = self.mapping();
                     let mapping = mapping.borrow();
                     let slot_index = mapping.target_model.slot_index();
-                    let clip_matrix = instance_state.clip_matrix();
+                    let clip_matrix = instance_state.require_clip_matrix();
                     if let (Some(clip_data), Some(clip_info)) = (
                         clip_matrix.clip_data(slot_index),
                         clip_matrix.clip_info(slot_index),
@@ -660,7 +660,7 @@ impl MappingPanel {
                     let slot_index = self.mapping().borrow().target_model.slot_index();
                     let mut instance_state = session.instance_state().borrow_mut();
                     instance_state
-                        .clip_matrix_mut()
+                        .require_clip_matrix_mut()
                         .fill_slot_with_item_source(slot_index, item)
                 };
                 if let Err(e) = result {
@@ -4186,7 +4186,7 @@ impl<'a> ImmutableMappingPanel<'a> {
                 t if t.supports_slot() => {
                     let instance_state = self.session.instance_state().borrow();
                     let descriptor = instance_state
-                        .clip_matrix()
+                        .require_clip_matrix()
                         .clip_data(self.target.slot_index());
                     let (label, enabled) = if let Some(descriptor) = descriptor {
                         let label = match &descriptor.content {

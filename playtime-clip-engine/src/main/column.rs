@@ -1,3 +1,4 @@
+use crate::main::ClipContent::MidiChunk;
 use crate::main::{Clip, ClipContent, ClipData, ClipRecordTask, Slot};
 use crate::rt;
 use crate::rt::supplier::RecorderEquipment;
@@ -12,6 +13,10 @@ use crossbeam_channel::Receiver;
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
+use playtime_api::{
+    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings,
+    TrackRecordOrigin,
+};
 use reaper_high::{Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
@@ -61,6 +66,8 @@ impl Column {
         }
     }
 
+    /// Attention: Doesn't take care of clearing the slots in this column, so should only be used
+    /// after `new` right now.
     pub(crate) fn load(
         &mut self,
         api_column: api::Column,
@@ -76,8 +83,42 @@ impl Column {
         Ok(())
     }
 
-    pub(crate) fn save(&self) -> ClipEngineResult<api::Column> {
-        todo!()
+    pub fn save(&self) -> api::Column {
+        let track_id = self
+            .track
+            .as_ref()
+            .map(|t| t.guid().to_string_without_braces())
+            .map(api::TrackId);
+        api::Column {
+            clip_play_settings: ColumnClipPlaySettings {
+                track: track_id,
+                start_timing: None,
+                stop_timing: None,
+                audio_settings: ColumnClipPlayAudioSettings {
+                    time_stretch_mode: None,
+                },
+            },
+            clip_record_settings: ColumnClipRecordSettings {
+                track: None,
+                origin: TrackRecordOrigin::TrackInput,
+            },
+            slots: self
+                .slots
+                .iter()
+                .enumerate()
+                .filter_map(|(i, s)| {
+                    if let Some(clip) = &s.clip {
+                        let api_slot = api::Slot {
+                            row: i,
+                            clip: Some(clip.save()),
+                        };
+                        Some(api_slot)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        }
     }
 
     pub fn source(&self) -> WeakColumnSource {

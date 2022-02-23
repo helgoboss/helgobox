@@ -23,7 +23,7 @@ use slog::{debug, trace};
 use crate::base::Global;
 use assert_no_alloc::permit_alloc;
 use enum_map::{enum_map, EnumMap};
-use playtime_clip_engine::rt::RealTimeClipMatrix;
+use playtime_clip_engine::rt::Matrix;
 use std::convert::TryInto;
 use std::ptr::null_mut;
 use std::time::Duration;
@@ -66,7 +66,7 @@ pub struct RealTimeProcessor {
     sample_rate: Hz,
     input_logging_enabled: bool,
     output_logging_enabled: bool,
-    clip_matrix: Option<RealTimeClipMatrix>,
+    clip_matrix: Option<Matrix>,
 }
 
 /// Detects play position discontinuity while the project is playing, ignoring tempo changes.
@@ -1281,7 +1281,7 @@ impl<T> RealTimeSender<T> {
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
-    SetClipMatrix(RealTimeClipMatrix),
+    SetClipMatrix(Matrix),
     UpdateAllMappings(MappingCompartment, Vec<RealTimeMapping>),
     UpdateSingleMapping(MappingCompartment, Box<Option<RealTimeMapping>>),
     UpdatePersistentMappingProcessingState {
@@ -1398,7 +1398,7 @@ fn control_controller_mappings_midi(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
-    matrix: Option<&RealTimeClipMatrix>,
+    matrix: Option<&Matrix>,
 ) -> bool {
     let mut matched = false;
     let mut enforce_target_refresh = false;
@@ -1470,7 +1470,7 @@ fn process_real_mapping(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
-    clip_matrix: Option<&RealTimeClipMatrix>,
+    clip_matrix: Option<&Matrix>,
 ) -> Result<(), &'static str> {
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
         mapping.resolved_target.as_mut()
@@ -1609,7 +1609,7 @@ fn control_main_mappings_virtual(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
-    matrix: Option<&RealTimeClipMatrix>,
+    matrix: Option<&Matrix>,
 ) -> bool {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.

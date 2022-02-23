@@ -6,14 +6,21 @@ use crate::rt::supplier::{
 use crate::rt::{
     ClipChangedEvent, ClipInfo, ClipPlayArgs, ClipPlayState, ClipStopArgs, ClipStopBehavior,
     ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
-    RealTimeClipMatrix, RealTimeClipMatrixCommand, RecordBehavior, RecordTiming,
-    SharedColumnSource, SlotProcessTransportChangeArgs, TransportChange,
+    RecordBehavior, RecordTiming, RtMatrixCommandSender, SharedColumnSource,
+    SlotProcessTransportChangeArgs, TransportChange, WeakColumnSource,
 };
 use crate::timeline::{clip_timeline, Timeline};
-use crate::ClipEngineResult;
-use crossbeam_channel::Sender;
+use crate::{rt, ClipEngineResult};
+use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
+use playtime_api::{
+    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, ClipRecordStartTiming,
+    ClipRecordStopTiming, ClipRecordTimeBase, ClipSettingOverrideAfterRecording,
+    MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordAudioSettings,
+    MatrixClipRecordMidiSettings, MatrixClipRecordSettings, MidiClipRecordMode, RecordLength,
+    TempoRange, TimeStretchMode, VirtualTimeStretchMode,
+};
 use reaper_high::{Guid, Item, Project, Reaper, Track};
 use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
 use serde::{Deserialize, Serialize};
@@ -28,8 +35,29 @@ pub struct Matrix<H> {
     recorder_equipment: RecorderEquipment,
     columns: Vec<Column>,
     containing_track: Option<Track>,
-    real_time_command_sender: Sender<RealTimeClipMatrixCommand>,
+    command_receiver: Receiver<MatrixCommand>,
+    rt_command_sender: Sender<rt::MatrixCommand>,
     worker_pool: WorkerPool,
+}
+
+#[derive(Debug)]
+pub enum MatrixCommand {
+    ThrowAway(WeakColumnSource),
+}
+
+pub trait MainMatrixCommandSender {
+    fn throw_away(&self, source: WeakColumnSource);
+    fn send_command(&self, command: MatrixCommand);
+}
+
+impl MainMatrixCommandSender for Sender<MatrixCommand> {
+    fn throw_away(&self, source: WeakColumnSource) {
+        self.send_command(MatrixCommand::ThrowAway(source));
+    }
+
+    fn send_command(&self, command: MatrixCommand) {
+        self.try_send(command).unwrap();
+    }
 }
 
 #[derive(Debug, Default)]
@@ -66,14 +94,14 @@ impl Drop for Worker {
 }
 
 impl<H: ClipMatrixHandler> Matrix<H> {
-    pub fn new(handler: H, containing_track: Option<Track>) -> (Self, RealTimeClipMatrix) {
+    pub fn new(handler: H, containing_track: Option<Track>) -> (Self, rt::Matrix) {
         let (stretch_worker_sender, stretch_worker_receiver) = crossbeam_channel::bounded(500);
         let (recorder_request_sender, recorder_request_receiver) = crossbeam_channel::bounded(500);
         let (cache_request_sender, cache_request_receiver) = crossbeam_channel::bounded(500);
         let (pre_buffer_request_sender, pre_buffer_request_receiver) =
             crossbeam_channel::bounded(500);
-        let (real_time_command_sender, real_time_command_receiver) =
-            crossbeam_channel::bounded(500);
+        let (rt_command_sender, rt_command_receiver) = crossbeam_channel::bounded(500);
+        let (main_command_sender, main_command_receiver) = crossbeam_channel::bounded(500);
         let mut worker_pool = WorkerPool::default();
         worker_pool.add_worker("Playtime stretch worker", move || {
             keep_stretching(stretch_worker_receiver);
@@ -97,11 +125,12 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             },
             columns: vec![],
             containing_track,
-            real_time_command_sender,
+            command_receiver: main_command_receiver,
+            rt_command_sender,
             worker_pool,
         };
-        let real_time_matrix = RealTimeClipMatrix::new(real_time_command_receiver);
-        (matrix, real_time_matrix)
+        let rt_matrix = rt::Matrix::new(rt_command_receiver, main_command_sender);
+        (matrix, rt_matrix)
     }
 
     pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
@@ -116,17 +145,50 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             };
             let mut column = Column::new(track);
             column.load(api_column, Some(project), &self.recorder_equipment)?;
-            self.send_command_to_real_time_matrix(RealTimeClipMatrixCommand::InsertColumn(
-                i,
-                column.source(),
-            ));
+            self.rt_command_sender.insert_column(i, column.source());
             self.columns.push(column);
         }
         Ok(())
     }
 
-    pub fn save(&self) -> ClipEngineResult<api::Matrix> {
-        todo!()
+    pub fn save(&self) -> api::Matrix {
+        api::Matrix {
+            columns: self.columns.iter().map(|column| column.save()).collect(),
+            rows: vec![],
+            clip_play_settings: MatrixClipPlaySettings {
+                start_timing: ClipPlayStartTiming::Immediately,
+                stop_timing: ClipPlayStopTiming::LikeClipStartTiming,
+                audio_settings: MatrixClipPlayAudioSettings {
+                    time_stretch_mode: AudioTimeStretchMode::KeepingPitch(TimeStretchMode {
+                        mode: VirtualTimeStretchMode::ProjectDefault,
+                    }),
+                },
+            },
+            clip_record_settings: MatrixClipRecordSettings {
+                start_timing: ClipRecordStartTiming::LikeClipPlayStartTiming,
+                stop_timing: ClipRecordStopTiming::LikeClipRecordStartTiming,
+                duration: RecordLength::OpenEnd,
+                play_start_timing: ClipSettingOverrideAfterRecording::Inherit,
+                play_stop_timing: ClipSettingOverrideAfterRecording::Inherit,
+                time_base: ClipRecordTimeBase::Time,
+                play_after: false,
+                lead_tempo: false,
+                midi_settings: MatrixClipRecordMidiSettings {
+                    record_mode: MidiClipRecordMode::Normal,
+                    detect_downbeat: false,
+                    detect_input: false,
+                    auto_quantize: false,
+                },
+                audio_settings: MatrixClipRecordAudioSettings {
+                    detect_downbeat: false,
+                    detect_input: false,
+                },
+            },
+            common_tempo_range: TempoRange {
+                min: api::Bpm(80.0),
+                max: api::Bpm(200.0),
+            },
+        }
     }
 
     fn project(&self) -> Project {
@@ -139,11 +201,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn clear(&mut self) {
         // TODO-medium How about suspension?
         self.columns.clear();
-        self.send_command_to_real_time_matrix(RealTimeClipMatrixCommand::Clear);
-    }
-
-    fn send_command_to_real_time_matrix(&self, command: RealTimeClipMatrixCommand) {
-        self.real_time_command_sender.try_send(command).unwrap();
+        self.rt_command_sender.clear();
     }
 
     /// This is for loading slots the legacy way.
@@ -187,10 +245,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             };
             let clip = Clip::load(api_clip);
             column.fill_slot_legacy(row, clip, project, &self.recorder_equipment)?;
-            self.send_command_to_real_time_matrix(RealTimeClipMatrixCommand::InsertColumn(
-                desc.index,
-                column.source(),
-            ));
+            self.rt_command_sender
+                .insert_column(desc.index, column.source());
             self.columns.push(column);
         }
         self.handler.notify_slot_contents_changed();

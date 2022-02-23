@@ -17,6 +17,7 @@ use crate::infrastructure::plugin::App;
 
 use crate::base::notification;
 use crate::infrastructure::api::convert::to_data::ApiToDataConversionContext;
+use playtime_api::Matrix;
 use playtime_clip_engine::main::{LegacyClipOutput, LegacySlotDescriptor, QualifiedSlotDescriptor};
 use reaper_medium::{MidiInputDeviceId, MidiOutputDeviceId};
 use semver::Version;
@@ -91,6 +92,9 @@ pub struct SessionData {
     // Legacy (ReaLearn <= 2.12.0-pre.4)
     #[serde(default, skip_serializing_if = "is_default")]
     clip_slots: Vec<QualifiedSlotDescriptor>,
+    // New since 2.12.0-pre.5
+    #[serde(default, skip_serializing_if = "is_default")]
+    clip_matrix: Option<Matrix>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -161,6 +165,7 @@ impl Default for SessionData {
             parameters: Default::default(),
             controller_parameters: Default::default(),
             clip_slots: vec![],
+            clip_matrix: None,
             tags: vec![],
             controller: Default::default(),
             main: Default::default(),
@@ -243,11 +248,8 @@ impl SessionData {
                 parameters,
                 MappingCompartment::ControllerMappings,
             ),
-            clip_slots: {
-                instance_state
-                    .clip_matrix()
-                    .filled_slot_descriptors_legacy()
-            },
+            clip_slots: vec![],
+            clip_matrix: instance_state.clip_matrix().map(|m| m.save()),
             tags: session.tags.get_ref().clone(),
             controller: CompartmentState::from_instance_state(
                 &instance_state,
@@ -447,17 +449,25 @@ impl SessionData {
         // Instance state
         {
             let mut instance_state = session.instance_state().borrow_mut();
-            instance_state.clip_matrix_mut().load_slots_legacy(
-                self.clip_slots
-                    .iter()
-                    .map(|desc| LegacySlotDescriptor {
-                        output: self.determine_legacy_clip_track(desc.index),
-                        index: desc.index,
-                        clip: desc.descriptor.clone(),
-                    })
-                    .collect(),
-                Some(session.context().project_or_current_project()),
-            )?;
+            // Legacy clips
+            if !self.clip_slots.is_empty() {
+                instance_state.require_clip_matrix_mut().load_slots_legacy(
+                    self.clip_slots
+                        .iter()
+                        .map(|desc| LegacySlotDescriptor {
+                            output: self.determine_legacy_clip_track(desc.index),
+                            index: desc.index,
+                            clip: desc.descriptor.clone(),
+                        })
+                        .collect(),
+                    Some(session.context().project_or_current_project()),
+                )?;
+            }
+            if let Some(matrix) = &self.clip_matrix {
+                instance_state
+                    .require_clip_matrix_mut()
+                    .load(matrix.clone())?;
+            }
             instance_state
                 .set_active_instance_tags_without_notification(self.active_instance_tags.clone());
             // Compartment-specific
