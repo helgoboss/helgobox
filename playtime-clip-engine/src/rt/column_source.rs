@@ -9,6 +9,7 @@ use crate::ClipEngineResult;
 use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
+use playtime_api::ClipPlayStartTiming;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
     reaper_str, CustomPcmSource, DurationInBeats, DurationInSeconds, ExtendedArgs, GetPeakInfoArgs,
@@ -63,6 +64,10 @@ impl ColumnSourceCommandSender {
         Self { command_sender }
     }
 
+    pub fn update_settings(&self, settings: ColumnSettings) {
+        self.send_source_task(ColumnSourceCommand::UpdateSettings(settings));
+    }
+
     pub fn fill_slot(&self, args: ColumnFillSlotArgs) {
         self.send_source_task(ColumnSourceCommand::FillSlot(args));
     }
@@ -94,12 +99,6 @@ impl ColumnSourceCommandSender {
         self.send_source_task(ColumnSourceCommand::SetClipVolume(args));
     }
 
-    /// This method should be called whenever REAPER's play state changes. It will make the clip
-    /// start/stop synchronized with REAPER's transport.
-    pub fn process_transport_change(&self, args: SlotProcessTransportChangeArgs) {
-        self.send_source_task(ColumnSourceCommand::ProcessTransportChange(args));
-    }
-
     fn send_source_task(&self, task: ColumnSourceCommand) {
         self.command_sender.try_send(task).unwrap();
     }
@@ -107,6 +106,7 @@ impl ColumnSourceCommandSender {
 
 #[derive(Debug)]
 pub enum ColumnSourceCommand {
+    UpdateSettings(ColumnSettings),
     FillSlot(ColumnFillSlotArgs),
     PlayClip(ColumnPlayClipArgs),
     StopClip(ColumnStopClipArgs),
@@ -114,18 +114,23 @@ pub enum ColumnSourceCommand {
     SeekClip(ColumnSeekClipArgs),
     SetClipVolume(ColumnSetClipVolumeArgs),
     SetClipRepeated(ColumnSetClipRepeatedArgs),
-    ProcessTransportChange(SlotProcessTransportChangeArgs),
 }
 
 #[derive(Debug)]
 pub struct ColumnSource {
+    settings: ColumnSettings,
+    // TODO-high Integrate into API
     mode: ClipColumnMode,
     slots: Vec<Slot>,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
     command_receiver: Receiver<ColumnSourceCommand>,
     event_sender: Sender<ColumnSourceEvent>,
-    last_project_play_state: PlayState,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ColumnSettings {
+    pub clip_play_start_timing: Option<ClipPlayStartTiming>,
 }
 
 impl ColumnSource {
@@ -135,6 +140,7 @@ impl ColumnSource {
         event_sender: Sender<ColumnSourceEvent>,
     ) -> Self {
         Self {
+            settings: Default::default(),
             mode: Default::default(),
             // TODO-high We should probably make this higher so we don't need to allocate in the
             //  audio thread (or block the audio thread through allocation in the main thread).
@@ -145,7 +151,6 @@ impl ColumnSource {
             project,
             command_receiver,
             event_sender,
-            last_project_play_state: get_project_play_state(project),
         }
     }
 
@@ -163,11 +168,19 @@ impl ColumnSource {
 
     pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> ClipEngineResult<()> {
         // TODO-high If column mode Song, suspend all other clips first.
-        get_slot_mut_insert(&mut self.slots, args.index).play_clip(args.clip_args)
+        let clip_args = ClipPlayArgs {
+            parent_start_timing: self
+                .settings
+                .clip_play_start_timing
+                .unwrap_or(args.parent_start_timing),
+            timeline: &args.timeline,
+            ref_pos: args.ref_pos,
+        };
+        get_slot_mut(&mut self.slots, args.slot_index)?.play_clip(clip_args)
     }
 
     pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, args.index).stop_clip(args.clip_args)
+        get_slot_mut_insert(&mut self.slots, args.slot_index).stop_clip(args.clip_args)
     }
 
     pub fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> ClipEngineResult<()> {
@@ -192,7 +205,7 @@ impl ColumnSource {
         )
     }
 
-    fn pause_clip(&mut self, index: usize) -> ClipEngineResult<()> {
+    pub fn pause_clip(&mut self, index: usize) -> ClipEngineResult<()> {
         get_slot_mut_insert(&mut self.slots, index).pause_clip()
     }
 
@@ -228,9 +241,16 @@ impl ColumnSource {
         get_slot_mut_insert(&mut self.slots, index).set_clip_volume(volume)
     }
 
-    fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
+    pub fn process_transport_change(&mut self, args: SlotProcessTransportChangeArgs) {
+        let args = SlotProcessTransportChangeArgs {
+            parent_clip_play_start_timing: self
+                .settings
+                .clip_play_start_timing
+                .unwrap_or(args.parent_clip_play_start_timing),
+            ..args
+        };
         for slot in &mut self.slots {
-            slot.process_transport_change(args);
+            slot.process_transport_change(&args);
         }
     }
 
@@ -245,31 +265,13 @@ impl ColumnSource {
         DurationInSeconds::MAX
     }
 
-    fn detect_and_process_transport_change(
-        &mut self,
-        timeline: HybridTimeline,
-        moment: TimelineMoment,
-    ) {
-        let new_play_state = get_project_play_state(self.project);
-        let last_play_state = mem::replace(&mut self.last_project_play_state, new_play_state);
-        if let Some(relevant) =
-            RelevantPlayStateChange::from_play_state_change(last_play_state, new_play_state)
-        {
-            // TODO-high We should detect this in the RealTimeClipMatrix, next to the jump detection
-            //  (which also doesn't need the main thread detour!).
-            let args = SlotProcessTransportChangeArgs {
-                change: TransportChange::PlayState(relevant),
-                moment,
-                timeline,
-            };
-            self.process_transport_change(&args);
-        }
-    }
-
     fn process_commands(&mut self) {
         while let Ok(task) = self.command_receiver.try_recv() {
             use ColumnSourceCommand::*;
             match task {
+                UpdateSettings(s) => {
+                    self.settings = s;
+                }
                 FillSlot(args) => {
                     self.fill_slot(args);
                 }
@@ -290,11 +292,6 @@ impl ColumnSource {
                 }
                 SetClipRepeated(args) => {
                     let _ = self.set_clip_repeated(args);
-                }
-                // TODO-high This is something that we could detect in the column source itself.
-                //  Then we would stay in the audio thread and not have to take main thread detour.
-                ProcessTransportChange(args) => {
-                    let _ = self.process_transport_change(&args);
                 }
             }
         }
@@ -324,16 +321,16 @@ impl ColumnSource {
                 return;
             }
             // Get samples
-            let moment = timeline.capture_moment();
-            self.detect_and_process_transport_change(timeline.clone(), moment);
+            let timeline_cursor_pos = timeline.cursor_pos();
+            let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
             // rt_debug!("block sr = {}, block length = {}, block time = {}, timeline cursor pos = {}, timeline cursor frame = {}",
             //          sample_rate, args.block.length(), args.block.time_s(), timeline_cursor_pos, timeline_cursor_frame);
             for (row, slot) in self.slots.iter_mut().enumerate() {
                 let mut inner_args = ClipProcessArgs {
                     block: args.block,
                     timeline: &timeline,
-                    timeline_cursor_pos: moment.cursor_pos(),
-                    timeline_tempo: moment.tempo(),
+                    timeline_cursor_pos,
+                    timeline_tempo,
                 };
                 // TODO-high Take care of mixing as soon as we implement Free mode.
                 if let Ok(Some(changed_play_state)) = slot.process(&mut inner_args) {
@@ -483,13 +480,16 @@ pub struct ColumnFillSlotArgs {
 
 #[derive(Debug)]
 pub struct ColumnPlayClipArgs {
-    pub index: usize,
-    pub clip_args: ClipPlayArgs,
+    pub slot_index: usize,
+    pub parent_start_timing: ClipPlayStartTiming,
+    pub timeline: HybridTimeline,
+    /// Set this if you already have the current timeline position or want to play a batch of clips.
+    pub ref_pos: Option<PositionInSeconds>,
 }
 
 #[derive(Debug)]
 pub struct ColumnStopClipArgs {
-    pub index: usize,
+    pub slot_index: usize,
     pub clip_args: ClipStopArgs,
 }
 
@@ -525,6 +525,10 @@ fn get_slot(slots: &Vec<Slot>, index: usize) -> ClipEngineResult<&Slot> {
     slots.get(index).ok_or(SLOT_DOESNT_EXIST)
 }
 
+fn get_slot_mut(slots: &mut Vec<Slot>, index: usize) -> ClipEngineResult<&mut Slot> {
+    slots.get_mut(index).ok_or(SLOT_DOESNT_EXIST)
+}
+
 const SLOT_DOESNT_EXIST: &str = "slot doesn't exist";
 
 fn get_slot_mut_insert(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
@@ -542,17 +546,5 @@ pub enum ColumnSourceEvent {
     },
 }
 
-fn get_project_play_state(project: Option<Project>) -> PlayState {
-    let project_context = get_project_context(project);
-    Reaper::get()
-        .medium_reaper()
-        .get_play_state_ex(project_context)
-}
-
-fn get_project_context(project: Option<Project>) -> ProjectContext {
-    if let Some(p) = project {
-        p.context()
-    } else {
-        ProjectContext::CurrentProject
-    }
-}
+#[deprecated]
+pub const FAKE_ROW_INDEX: usize = 0;

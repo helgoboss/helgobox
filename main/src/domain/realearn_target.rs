@@ -376,6 +376,12 @@ pub struct RealTimeControlContext<'a> {
     pub clip_matrix: Option<&'a Matrix>,
 }
 
+impl<'a> RealTimeControlContext<'a> {
+    pub fn clip_matrix(&self) -> Result<&Matrix, &'static str> {
+        self.clip_matrix.ok_or("clip matrix not yet initialized")
+    }
+}
+
 impl<'a> TransformationInputProvider<AdditionalEelTransformationInput>
     for RealTimeControlContext<'a>
 {

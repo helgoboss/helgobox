@@ -1,14 +1,11 @@
-use crate::main::ClipContent::MidiChunk;
 use crate::main::{Clip, ClipContent, ClipData, ClipRecordTask, Slot};
-use crate::rt;
 use crate::rt::supplier::RecorderEquipment;
 use crate::rt::{
     ClipChangedEvent, ClipInfo, ClipPlayState, ColumnFillSlotArgs, ColumnPlayClipArgs,
     ColumnSetClipRepeatedArgs, ColumnSource, ColumnSourceCommandSender, ColumnSourceEvent,
-    RecordBehavior, SharedColumnSource, SharedPos, SlotProcessTransportChangeArgs,
-    WeakColumnSource,
+    RecordBehavior, SharedColumnSource, SlotProcessTransportChangeArgs, WeakColumnSource,
 };
-use crate::ClipEngineResult;
+use crate::{rt, ClipEngineResult};
 use crossbeam_channel::Receiver;
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
@@ -30,10 +27,11 @@ pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
 #[derive(Clone, Debug)]
 pub struct Column {
+    rt_settings: rt::ColumnSettings,
+    rt_command_sender: ColumnSourceCommandSender,
     track: Option<Track>,
     column_source: SharedColumnSource,
     preview_register: PlayingPreviewRegister,
-    command_sender: ColumnSourceCommandSender,
     slots: Vec<Slot>,
     event_receiver: Receiver<ColumnSourceEvent>,
 }
@@ -55,12 +53,13 @@ impl Column {
         );
         let shared_source = SharedColumnSource::new(source);
         Self {
+            rt_settings: Default::default(),
             preview_register: {
                 PlayingPreviewRegister::new(shared_source.clone(), track.as_ref())
             },
             track,
             column_source: shared_source,
-            command_sender: ColumnSourceCommandSender::new(command_sender),
+            rt_command_sender: ColumnSourceCommandSender::new(command_sender),
             slots: vec![],
             event_receiver,
         }
@@ -74,6 +73,11 @@ impl Column {
         project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
     ) -> ClipEngineResult<()> {
+        // Settings
+        self.rt_settings.clip_play_start_timing = api_column.clip_play_settings.start_timing;
+        self.rt_command_sender
+            .update_settings(self.rt_settings.clone());
+        // Slots
         for api_slot in api_column.slots.unwrap_or_default() {
             if let Some(api_clip) = api_slot.clip {
                 let clip = Clip::load(api_clip);
@@ -151,7 +155,7 @@ impl Column {
             index: row,
             clip: rt_clip,
         };
-        self.command_sender.fill_slot(args);
+        self.rt_command_sender.fill_slot(args);
         Ok(())
     }
 
@@ -188,33 +192,27 @@ impl Column {
     }
 
     pub fn play_clip(&mut self, args: ColumnPlayClipArgs) {
-        self.command_sender.play_clip(args);
+        self.rt_command_sender.play_clip(args);
     }
 
     pub fn stop_clip(&mut self, args: crate::rt::ColumnStopClipArgs) {
-        self.command_sender.stop_clip(args);
+        self.rt_command_sender.stop_clip(args);
     }
 
     pub fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) {
-        self.command_sender.set_clip_repeated(args);
+        self.rt_command_sender.set_clip_repeated(args);
     }
 
     pub fn pause_clip(&mut self, index: usize) {
-        self.command_sender.pause_clip(index);
+        self.rt_command_sender.pause_clip(index);
     }
 
     pub fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) {
-        self.command_sender.seek_clip(index, desired_pos);
+        self.rt_command_sender.seek_clip(index, desired_pos);
     }
 
     pub fn set_clip_volume(&mut self, index: usize, volume: ReaperVolumeValue) {
-        self.command_sender.set_clip_volume(index, volume);
-    }
-
-    /// This method should be called whenever REAPER's play state changes. It will make the clip
-    /// start/stop synchronized with REAPER's transport.
-    pub fn process_transport_change(&mut self, args: SlotProcessTransportChangeArgs) {
-        self.command_sender.process_transport_change(args);
+        self.rt_command_sender.set_clip_volume(index, volume);
     }
 
     pub fn toggle_clip_repeated(&mut self, index: usize) -> ClipEngineResult<ClipChangedEvent> {

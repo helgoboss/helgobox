@@ -1,8 +1,10 @@
 use crate::conversion_util::{
     convert_duration_in_frames_to_seconds, convert_position_in_seconds_to_frames,
 };
+use crate::ClipEngineResult;
 use atomic_float::AtomicF64;
 use helgoboss_learn::BASE_EPSILON;
+use playtime_api::EvenQuantization;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
     Bpm, Hz, MeasureMode, PlayState, PositionInBeats, PositionInSeconds, ProjectContext,
@@ -109,12 +111,16 @@ impl Timeline for ReaperProjectTimeline {
             .get_play_position_2_ex(self.project_context)
     }
 
-    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
-        get_next_bar_at(timeline_pos, self.project_context)
+    fn next_quantized_pos_at(
+        &self,
+        timeline_pos: PositionInSeconds,
+        quantization: EvenQuantization,
+    ) -> QuantizedPosition {
+        get_next_quantized_pos_at(timeline_pos, quantization, self.project_context)
     }
 
-    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
-        get_pos_of_bar(bar, self.project_context)
+    fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
+        get_pos_of_quantized_pos(quantized_pos, self.project_context)
     }
 
     fn is_running(&self) -> bool {
@@ -142,9 +148,22 @@ pub trait Timeline {
 
     fn cursor_pos(&self) -> PositionInSeconds;
 
-    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32;
+    fn next_quantized_pos_at(
+        &self,
+        timeline_pos: PositionInSeconds,
+        quantization: EvenQuantization,
+    ) -> QuantizedPosition;
 
-    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds;
+    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
+        self.next_quantized_pos_at(timeline_pos, EvenQuantization::ONE_BAR)
+            .position as _
+    }
+
+    fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds;
+
+    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
+        self.pos_of_quantized_pos(QuantizedPosition::bar(bar as _))
+    }
 
     fn is_running(&self) -> bool;
 
@@ -240,8 +259,7 @@ fn calc_bar_at(
 ) -> f64 {
     debug_assert!(sample_count >= sample_count_at_last_tempo_change);
     let beats_per_sec = current_tempo.get() / 60.0;
-    // TODO-high Respect time signature.
-    let bars_per_sec = beats_per_sec / 4.0;
+    let bars_per_sec = beats_per_sec / FAKE_TIME_SIG_DENOMINATOR as f64;
     let samples_since_last_tempo_change = sample_count - sample_count_at_last_tempo_change;
     let secs_since_last_tempo_change = convert_duration_in_frames_to_seconds(
         samples_since_last_tempo_change as usize,
@@ -251,16 +269,15 @@ fn calc_bar_at(
 }
 
 fn calc_pos_of_bar(
-    bar: i32,
+    bar: f64,
     current_tempo: Bpm,
     bar_at_last_tempo_change: f64,
     sample_count_at_last_tempo_change: u64,
     current_sample_rate: Hz,
 ) -> PositionInSeconds {
     let beats_per_sec = current_tempo.get() / 60.0;
-    // TODO-high Respect time signature.
-    let bars_per_sec = beats_per_sec / 4.0;
-    let secs_since_last_tempo_change = (bar as f64 - bar_at_last_tempo_change) / bars_per_sec;
+    let bars_per_sec = beats_per_sec / FAKE_TIME_SIG_DENOMINATOR as f64;
+    let secs_since_last_tempo_change = (bar - bar_at_last_tempo_change) / bars_per_sec;
     let secs_at_last_tempo_change = convert_duration_in_frames_to_seconds(
         sample_count_at_last_tempo_change as usize,
         current_sample_rate,
@@ -268,12 +285,20 @@ fn calc_pos_of_bar(
     PositionInSeconds::new(secs_at_last_tempo_change.get() + secs_since_last_tempo_change)
 }
 
+// TODO-high Respect time signature also in steady timeline.
+#[deprecated]
+const FAKE_TIME_SIG_DENOMINATOR: u32 = 4;
+
 impl Timeline for SteadyTimeline {
     fn cursor_pos(&self) -> PositionInSeconds {
         PositionInSeconds::new(self.sample_count() as f64 / self.sample_rate().get())
     }
 
-    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
+    fn next_quantized_pos_at(
+        &self,
+        timeline_pos: PositionInSeconds,
+        quantization: EvenQuantization,
+    ) -> QuantizedPosition {
         let sample_rate = self.sample_rate();
         let timeline_frame = convert_position_in_seconds_to_frames(timeline_pos, sample_rate);
         let sample_count_at_last_tempo_change = self.sample_count_at_last_tempo_change();
@@ -281,18 +306,19 @@ impl Timeline for SteadyTimeline {
         if sample_count < sample_count_at_last_tempo_change {
             panic!("attempt to query next bar from a position in the past");
         }
-        let bar = calc_bar_at(
+        let accurate_bar = calc_bar_at(
             sample_count,
             sample_count_at_last_tempo_change,
             self.bar_at_last_tempo_change(),
             self.tempo(),
             sample_rate,
         );
-        // TODO-high Use same epsilon fuzziness with REAPER project timeline
-        (bar as i32) + 1
+        let accurate_pos = accurate_bar * quantization.denominator() as f64;
+        calc_quantized_pos_from_accurate_pos(accurate_pos, quantization)
     }
 
-    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
+    fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
+        let bar = quantized_pos.position() as f64 / quantized_pos.denominator() as f64;
         calc_pos_of_bar(
             bar,
             self.tempo(),
@@ -315,23 +341,84 @@ impl Timeline for SteadyTimeline {
     }
 }
 
-pub fn get_next_bar_at(cursor_pos: PositionInSeconds, proj_context: ProjectContext) -> i32 {
+fn get_next_quantized_pos_at(
+    cursor_pos: PositionInSeconds,
+    quantization: EvenQuantization,
+    proj_context: ProjectContext,
+) -> QuantizedPosition {
     let reaper = Reaper::get().medium_reaper();
     let res = reaper.time_map_2_time_to_beats(proj_context, cursor_pos);
-    if res.beats_since_measure.get() <= BASE_EPSILON {
-        res.measure_index
+    if quantization.denominator() == 1 {
+        // We are looking for one of the next bars.
+        let next_position = next_quantized_pos_sloppy(
+            res.measure_index as i64,
+            res.beats_since_measure.get(),
+            quantization.numerator(),
+        );
+        QuantizedPosition::new(next_position, 1).unwrap()
     } else {
-        res.measure_index + 1
+        // We are looking for the next fraction of a bar (e.g. the next 16th note).
+        // The denominator of the time signature defines what 1 beat means (e.g. one quarter note).
+        // TODO-high This might lead to wrong results if we have time signature changes in the
+        //  project. Maybe use QN functions instead.
+        let beat_denominator = res.time_signature.denominator.get();
+        // Calculate ratio between our desired target unit (16th) and a beat (4th) = 4
+        let ratio = quantization.denominator() as f64 / beat_denominator as f64;
+        // Current position in desired target unit (158.4 16th's).
+        let accurate_pos = res.full_beats.get() * ratio;
+        calc_quantized_pos_from_accurate_pos(accurate_pos, quantization)
     }
 }
 
-pub fn get_pos_of_bar(bar: i32, proj_context: ProjectContext) -> PositionInSeconds {
+fn calc_quantized_pos_from_accurate_pos(
+    accurate_pos: f64,
+    quantization: EvenQuantization,
+) -> QuantizedPosition {
+    // Current position quantized (e.g. 158 16th's).
+    let quantized_pos = accurate_pos.floor() as i64;
+    // Difference (0.4 16th's).
+    let within = accurate_pos - quantized_pos as f64;
+    let next_position = next_quantized_pos_sloppy(quantized_pos, within, quantization.numerator());
+    QuantizedPosition::new(next_position, quantization.denominator()).unwrap()
+}
+
+fn next_quantized_pos_sloppy(current_quantized_pos: i64, within: f64, numerator: u32) -> i64 {
+    if within < BASE_EPSILON {
+        // Just a tiny bit away from quantized position. Pretty sure the user meant to start now.
+        return current_quantized_pos;
+    }
+    // Enough distance from quantized position.
+    current_quantized_pos + numerator as i64
+}
+
+fn get_pos_of_quantized_pos(
+    quantized_pos: QuantizedPosition,
+    proj_context: ProjectContext,
+) -> PositionInSeconds {
     let reaper = Reaper::get().medium_reaper();
-    reaper.time_map_2_beats_to_time(
-        proj_context,
-        MeasureMode::FromMeasureAtIndex(bar),
-        PositionInBeats::new(0.0),
-    )
+    if quantized_pos.denominator() == 1 {
+        // We are looking for the position of a bar.
+        reaper.time_map_2_beats_to_time(
+            proj_context,
+            // TODO-high This stops at the next tempo marker. Maybe use QN functions instead.
+            MeasureMode::FromMeasureAtIndex(quantized_pos.position as _),
+            PositionInBeats::new(0.0),
+        )
+    } else {
+        // We are looking for the position of a fraction of a bar (e.g. a 16th note).
+        let res = reaper.time_map_2_time_to_beats(proj_context, PositionInSeconds::ZERO);
+        // The denominator of the time signature defines what 1 beat means (e.g. one quarter note).
+        // TODO-high This might lead to wrong results if we have time signature changes in the
+        //  project. Maybe use QN functions instead.
+        let beat_denominator = res.time_signature.denominator.get();
+        // Calculate ratio between a beat (4th) and our desired target unit (16th) = 0.25
+        let ratio = beat_denominator as f64 / quantized_pos.denominator() as f64;
+        reaper.time_map_2_beats_to_time(
+            proj_context,
+            MeasureMode::IgnoreMeasure,
+            PositionInBeats::new(quantized_pos.position as f64 * ratio),
+        )
+    }
 }
 
 impl<T: Timeline> Timeline for &T {
@@ -343,8 +430,20 @@ impl<T: Timeline> Timeline for &T {
         (*self).cursor_pos()
     }
 
+    fn next_quantized_pos_at(
+        &self,
+        timeline_pos: PositionInSeconds,
+        quantization: EvenQuantization,
+    ) -> QuantizedPosition {
+        (*self).next_quantized_pos_at(timeline_pos, quantization)
+    }
+
     fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
         (*self).next_bar_at(timeline_pos)
+    }
+
+    fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
+        (*self).pos_of_quantized_pos(quantized_pos)
     }
 
     fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
@@ -399,19 +498,24 @@ impl Timeline for HybridTimeline {
         }
     }
 
-    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
+    fn next_quantized_pos_at(
+        &self,
+        timeline_pos: PositionInSeconds,
+        quantization: EvenQuantization,
+    ) -> QuantizedPosition {
         if self.use_project_timeline() {
-            self.project_timeline.next_bar_at(timeline_pos)
+            self.project_timeline
+                .next_quantized_pos_at(timeline_pos, quantization)
         } else {
-            global_steady_timeline().next_bar_at(timeline_pos)
+            global_steady_timeline().next_quantized_pos_at(timeline_pos, quantization)
         }
     }
 
-    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
+    fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
         if self.use_project_timeline() {
-            self.project_timeline.pos_of_bar(bar)
+            self.project_timeline.pos_of_quantized_pos(quantized_pos)
         } else {
-            global_steady_timeline().pos_of_bar(bar)
+            global_steady_timeline().pos_of_quantized_pos(quantized_pos)
         }
     }
 
@@ -437,5 +541,52 @@ impl Timeline for HybridTimeline {
         } else {
             global_steady_timeline().tempo_at(timeline_pos)
         }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct QuantizedPosition {
+    position: i64,
+    denominator: u32,
+}
+
+impl QuantizedPosition {
+    pub fn bar(position: i64) -> Self {
+        Self {
+            position,
+            denominator: 1,
+        }
+    }
+
+    pub fn new(position: i64, denominator: u32) -> ClipEngineResult<Self> {
+        if denominator == 0 {
+            return Err("denominator must be > 0");
+        }
+        let p = Self {
+            position,
+            denominator,
+        };
+        Ok(p)
+    }
+
+    pub fn from_quantization(
+        quantization: EvenQuantization,
+        timeline: &HybridTimeline,
+        ref_pos: Option<PositionInSeconds>,
+    ) -> Self {
+        let ref_pos = ref_pos.unwrap_or_else(|| timeline.cursor_pos());
+        timeline.next_quantized_pos_at(ref_pos, quantization)
+    }
+
+    /// The position, that is the number of intervals from timeline zero.
+    pub fn position(&self) -> i64 {
+        self.position
+    }
+
+    /// The quotient that divides the bar into multiple equally-sized portions.
+    ///
+    /// E.g. 16 if it's a sixteenth note or 1 if it's a whole bar.
+    pub fn denominator(&self) -> u32 {
+        self.denominator
     }
 }

@@ -1,11 +1,11 @@
-use crate::main::{load_source, ClipData};
+use crate::main::load_source;
 use crate::rt::supplier::RecorderEquipment;
 use crate::rt::{ClipInfo, ClipPlayState, SharedPos};
 use crate::{rt, ClipEngineResult};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use reaper_high::Project;
-use reaper_medium::{Bpm, Db, PositionInSeconds};
+use reaper_medium::{Bpm, PositionInSeconds};
 
 #[derive(Clone, Debug)]
 pub struct Clip {
@@ -39,6 +39,7 @@ impl Clip {
     ) -> ClipEngineResult<rt::Clip> {
         let source = load_source(&self.persistent_data.source, project)?;
         Ok(rt::Clip::from_source(
+            &self.persistent_data,
             source,
             project,
             recorder_equipment.clone(),

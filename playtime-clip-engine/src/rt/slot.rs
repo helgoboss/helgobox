@@ -8,8 +8,9 @@ use crate::rt::{
 use crate::timeline::{HybridTimeline, Timeline, TimelineMoment};
 use crate::ClipEngineResult;
 use helgoboss_learn::UnitValue;
+use playtime_api::ClipPlayStartTiming;
 use reaper_high::Project;
-use reaper_medium::{Bpm, PlayState, ReaperVolumeValue};
+use reaper_medium::{Bpm, PlayState, PositionInSeconds, ReaperVolumeValue};
 
 #[derive(Debug, Default)]
 pub struct Slot {
@@ -26,7 +27,7 @@ struct RuntimeData {
 
 #[derive(Copy, Clone, Debug)]
 pub struct LastPlay {
-    was_synced_to_bar: bool,
+    was_quantized: bool,
 }
 
 impl Slot {
@@ -44,10 +45,10 @@ impl Slot {
     }
 
     pub fn play_clip(&mut self, args: ClipPlayArgs) -> ClipEngineResult<()> {
+        let outcome = self.get_clip_mut()?.play(args)?;
         self.runtime_data.last_play = Some(LastPlay {
-            was_synced_to_bar: args.from_bar.is_some(),
+            was_quantized: outcome.virtual_pos.is_quantized(),
         });
-        self.get_clip_mut()?.play(args);
         Ok(())
     }
 
@@ -154,7 +155,9 @@ impl Slot {
                                     // as well and was put in that state due to a previous transport
                                     // stop. Play the clip!
                                     let args = ClipPlayArgs {
-                                        from_bar: Some(args.moment.next_bar()),
+                                        parent_start_timing: args.parent_clip_play_start_timing,
+                                        timeline: args.timeline,
+                                        ref_pos: Some(args.timeline_cursor_pos),
                                     };
                                     clip.play(args);
                                     SlotInstruction::KeepSlot
@@ -167,7 +170,7 @@ impl Slot {
                         }
                         StopAfterPlay => match state {
                             ScheduledForPlay | Playing | ScheduledForStop
-                                if last_play.was_synced_to_bar =>
+                                if last_play.was_quantized =>
                             {
                                 // Stop and memorize
                                 self.runtime_data.stop_clip_by_transport(clip, args, true)
@@ -188,7 +191,7 @@ impl Slot {
                         None => return,
                         Some(a) => a,
                     };
-                    if !last_play.was_synced_to_bar {
+                    if !last_play.was_quantized {
                         return;
                     }
                     let play_state = clip.play_state();
@@ -197,7 +200,9 @@ impl Slot {
                         return;
                     }
                     clip.play(ClipPlayArgs {
-                        from_bar: Some(args.moment.next_bar()),
+                        parent_start_timing: args.parent_clip_play_start_timing,
+                        timeline: args.timeline,
+                        ref_pos: Some(args.timeline_cursor_pos),
                     });
                     KeepSlot
                 }
@@ -210,7 +215,7 @@ impl Slot {
 
     pub fn process(
         &mut self,
-        args: &mut ClipProcessArgs<impl Timeline>,
+        args: &mut ClipProcessArgs,
     ) -> ClipEngineResult<Option<ClipPlayState>> {
         measure_time("slot.process.time", || {
             let clip = self.get_clip_mut()?;
@@ -247,7 +252,7 @@ impl RuntimeData {
         self.stop_was_caused_by_transport_change = keep_starting_with_transport;
         clip.stop(ClipStopArgs {
             stop_behavior: ClipStopBehavior::Immediately,
-            timeline_cursor_pos: args.moment.cursor_pos(),
+            timeline_cursor_pos: args.timeline_cursor_pos,
             timeline: args.timeline.clone(),
         })
     }
@@ -258,10 +263,11 @@ pub struct SlotPollArgs {
 }
 
 #[derive(Clone, Debug)]
-pub struct SlotProcessTransportChangeArgs {
+pub struct SlotProcessTransportChangeArgs<'a> {
     pub change: TransportChange,
-    pub moment: TimelineMoment,
-    pub timeline: HybridTimeline,
+    pub timeline: &'a HybridTimeline,
+    pub timeline_cursor_pos: PositionInSeconds,
+    pub parent_clip_play_start_timing: ClipPlayStartTiming,
 }
 
 const SLOT_NOT_FILLED: &str = "slot not filled";

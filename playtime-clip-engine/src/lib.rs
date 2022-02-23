@@ -3,11 +3,11 @@ mod tracing_util;
 
 pub mod main;
 pub mod rt;
-pub use timeline::*;
 
 mod metrics_util;
 
 mod timeline;
+pub use timeline::*;
 
 mod file_util;
 

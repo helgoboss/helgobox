@@ -144,13 +144,19 @@ pub enum MidiClipRecordMode {
     Replace,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipPlayStartTiming {
     /// Starts playing immediately.
     Immediately,
     /// Starts playing according to the given quantization.
     Quantized(EvenQuantization),
+}
+
+impl Default for ClipPlayStartTiming {
+    fn default() -> Self {
+        Self::Quantized(Default::default())
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -186,19 +192,60 @@ pub struct Override<T> {
 /// An even quantization.
 ///
 /// Even in the sense of that's it's not swing or dotted.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct EvenQuantization {
+    numerator: u32,
+    denominator: u32,
+}
+
+impl Default for EvenQuantization {
+    fn default() -> Self {
+        Self {
+            numerator: 1,
+            denominator: 1,
+        }
+    }
+}
+
+impl EvenQuantization {
+    pub const ONE_BAR: Self = EvenQuantization {
+        numerator: 1,
+        denominator: 1,
+    };
+
+    pub fn new(numerator: u32, denominator: u32) -> PlaytimeApiResult<Self> {
+        if numerator == 0 {
+            return Err("numerator must be > 0");
+        }
+        if denominator == 0 {
+            return Err("denominator must be > 0");
+        }
+        if numerator > 1 && denominator > 1 {
+            return Err("if numerator > 1, denominator must be 1");
+        }
+        let q = Self {
+            numerator,
+            denominator,
+        };
+        Ok(q)
+    }
+
     /// The number of bars.
     ///
     /// Must not be zero.
-    pub numerator: u32,
+    pub fn numerator(&self) -> u32 {
+        self.numerator
+    }
+
     /// Defines the fraction of a bar.
     ///
     /// Must not be zero.
     ///
     /// If the numerator is > 1, this must be 1.
-    pub denominator: u32,
+    pub fn denominator(&self) -> u32 {
+        self.denominator
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -584,3 +631,5 @@ pub struct Db(pub f64);
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct RgbColor(pub u8, pub u8, pub u8);
+
+type PlaytimeApiResult<T> = Result<T, &'static str>;

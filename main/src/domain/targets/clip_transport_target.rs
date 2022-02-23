@@ -108,12 +108,7 @@ impl RealearnTarget for ClipTransportTarget {
         match self.basics.action {
             PlayStop => {
                 if on {
-                    clip_matrix.play_clip_legacy(
-                        self.project,
-                        self.basics.slot_index,
-                        self.track.clone(),
-                        self.basics.play_options,
-                    )?;
+                    clip_matrix.play_clip(self.basics.slot_index)?;
                 } else {
                     clip_matrix.stop_clip_legacy(
                         self.basics.slot_index,
@@ -124,12 +119,7 @@ impl RealearnTarget for ClipTransportTarget {
             }
             PlayPause => {
                 if on {
-                    clip_matrix.play_clip_legacy(
-                        self.project,
-                        self.basics.slot_index,
-                        self.track.clone(),
-                        self.basics.play_options,
-                    )?;
+                    clip_matrix.play_clip(self.basics.slot_index)?;
                 } else {
                     clip_matrix.pause_clip_legacy(self.basics.slot_index)?;
                 }
@@ -247,6 +237,11 @@ impl RealearnTarget for ClipTransportTarget {
     }
 
     fn splinter_real_time_target(&self) -> Option<RealTimeReaperTarget> {
+        use TransportAction::*;
+        if matches!(self.basics.action, RecordStop | Repeat) {
+            // These are not for real-time usage.
+            return None;
+        }
         let t = RealTimeClipTransportTarget {
             project: self.project,
             basics: self.basics.clone(),
@@ -297,96 +292,39 @@ impl RealTimeClipTransportTarget {
     ) -> Result<(), &'static str> {
         use TransportAction::*;
         let on = value.is_on();
-        let column = self.get_column(context)?;
-        let mut column = column.lock();
-        let slot = column.slot_mut(0)?;
+        let matrix = context.clip_matrix()?;
         match self.basics.action {
             PlayStop => {
                 if on {
-                    slot.play_clip(ClipPlayArgs {
-                        from_bar: if self.basics.play_options.next_bar {
-                            let timeline = clip_timeline(Some(self.project), false);
-                            Some(timeline.next_bar_at(timeline.cursor_pos()))
-                        } else {
-                            None
-                        },
-                    })
+                    matrix.play_clip(self.basics.slot_index)
                 } else {
-                    let timeline = clip_timeline(Some(self.project), false);
-                    slot.stop_clip(ClipStopArgs {
-                        stop_behavior: {
-                            use ClipStopBehavior::*;
-                            if self.basics.play_options.next_bar {
-                                EndOfClip
-                            } else {
-                                Immediately
-                            }
-                        },
-                        timeline_cursor_pos: timeline.cursor_pos(),
-                        timeline,
-                    })
+                    matrix.stop_clip(self.basics.slot_index)
                 }
             }
             PlayPause => {
                 if on {
-                    slot.play_clip(ClipPlayArgs {
-                        from_bar: if self.basics.play_options.next_bar {
-                            let timeline = clip_timeline(Some(self.project), false);
-                            Some(timeline.next_bar_at(timeline.cursor_pos()))
-                        } else {
-                            None
-                        },
-                    })
+                    matrix.play_clip(self.basics.slot_index)
                 } else {
-                    slot.pause_clip()
+                    matrix.pause_clip(self.basics.slot_index)
                 }
             }
             Stop => {
                 if on {
-                    let timeline = clip_timeline(Some(self.project), false);
-                    slot.stop_clip(ClipStopArgs {
-                        stop_behavior: {
-                            use ClipStopBehavior::*;
-                            if self.basics.play_options.next_bar {
-                                EndOfClip
-                            } else {
-                                Immediately
-                            }
-                        },
-                        timeline_cursor_pos: timeline.cursor_pos(),
-                        timeline,
-                    })
+                    matrix.stop_clip(self.basics.slot_index)
                 } else {
                     Ok(())
                 }
             }
             Pause => {
                 if on {
-                    slot.pause_clip()
+                    matrix.pause_clip(self.basics.slot_index)
                 } else {
                     Ok(())
                 }
             }
-            RecordStop => Err("not supported for real-time target"),
-            Repeat => {
-                let clip = slot.clip_mut()?;
-                clip.set_repeated(clip.repeated());
-                Ok(())
-            }
+            RecordStop => Err("record not supported for real-time target"),
+            Repeat => Err("setting repeated not supported for real-time target"),
         }
-    }
-
-    fn get_column<'a>(
-        &'a self,
-        context: RealTimeControlContext<'a>,
-    ) -> Result<SharedColumnSource, &'static str> {
-        let clip_matrix = context
-            .clip_matrix
-            .ok_or("real-time clip matrix not initialized")?;
-        let column = clip_matrix
-            .column(self.basics.slot_index)
-            .ok_or("column doesn't exist")?;
-        column.upgrade().ok_or("column doesn't exist anymore")
     }
 }
 
@@ -394,7 +332,11 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
     type Context = RealTimeControlContext<'a>;
 
     fn current_value(&self, context: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {
-        let column = self.get_column(context).ok()?;
+        let column = context
+            .clip_matrix()
+            .ok()?
+            .column(self.basics.slot_index)
+            .ok()?;
         let column = column.lock();
         let clip = column.slot(0).ok()?.clip().ok()?;
         use TransportAction::*;

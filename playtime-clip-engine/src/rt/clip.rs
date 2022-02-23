@@ -14,7 +14,10 @@ use crate::rt::supplier::{
 };
 use crate::rt::tempo_util::detect_tempo;
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
+use crate::{ClipEngineResult, QuantizedPosition};
 use helgoboss_learn::UnitValue;
+use playtime_api as api;
+use playtime_api::{ClipPlayStartTiming, EvenQuantization};
 use reaper_high::Project;
 use reaper_medium::{
     Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds,
@@ -29,10 +32,12 @@ pub struct Clip {
     supplier_chain: SupplierChain,
     state: ClipState,
     project: Option<Project>,
-    // TODO-high Not yet implemented. This must also be implemented for MIDI, so we better choose
-    //  a more neutral unit.
-    volume: ReaperVolumeValue,
     shared_pos: SharedPos,
+}
+
+#[derive(Copy, Clone, Debug)]
+struct PersistentPlayData {
+    start_timing: Option<ClipPlayStartTiming>,
 }
 
 // TODO-medium It's a bit strange that this is copied on some state changes that happen within
@@ -100,6 +105,7 @@ struct ReadyState {
     state: ReadySubState,
     source_data: SourceData,
     repeated: bool,
+    persistent_data: PersistentPlayData,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -114,7 +120,7 @@ enum ReadySubState {
 
 #[derive(Copy, Clone, Debug, Default)]
 struct PlayingState {
-    pub start_bar: Option<i32>,
+    pub virtual_pos: VirtualPosition,
     pub pos: Option<InnerPos>,
     pub scheduled_for_stop: bool,
     pub overdubbing: bool,
@@ -230,6 +236,7 @@ pub enum RecordTiming {
 
 impl Clip {
     pub fn from_source(
+        api_clip: &api::Clip,
         source: OwnedPcmSource,
         project: Option<Project>,
         recorder_equipment: RecorderEquipment,
@@ -238,6 +245,9 @@ impl Clip {
             state: ReadySubState::Stopped,
             source_data: SourceData::from_source(&source, project),
             repeated: false,
+            persistent_data: PersistentPlayData {
+                start_timing: api_clip.start_timing,
+            },
         };
         let mut supplier_chain = SupplierChain::new(Recorder::ready(source, recorder_equipment));
         ready_state.pre_buffer(&mut supplier_chain, 0);
@@ -245,7 +255,6 @@ impl Clip {
             supplier_chain,
             state: ClipState::Ready(ready_state),
             project,
-            volume: Default::default(),
             shared_pos: Default::default(),
         }
     }
@@ -278,18 +287,18 @@ impl Clip {
             supplier_chain: SupplierChain::new(recorder),
             state: ClipState::Recording(recording_state),
             project,
-            volume: Default::default(),
             shared_pos: Default::default(),
         }
     }
 
-    pub fn play(&mut self, args: ClipPlayArgs) {
+    /// Plays the clip.
+    pub fn play(&mut self, args: ClipPlayArgs) -> ClipEngineResult<PlayOutcome> {
         use ClipState::*;
         match &mut self.state {
-            Ready(s) => s.play(args, &mut self.supplier_chain),
+            Ready(s) => Ok(s.play(args, &mut self.supplier_chain)),
             // TODO-high It would probably be good to react the same way as if we would
             //  stop recording and press play right afterwards (or auto-play).
-            Recording(_) => return,
+            Recording(_) => Err("recording"),
         }
     }
 
@@ -330,10 +339,6 @@ impl Clip {
             Ready(s) => s.repeated,
             Recording(s) => s.play_after,
         }
-    }
-
-    pub fn volume(&self) -> ReaperVolumeValue {
-        self.volume
     }
 
     pub fn midi_overdub(&mut self) {
@@ -428,7 +433,7 @@ impl Clip {
     }
 
     pub fn set_volume(&mut self, volume: ReaperVolumeValue) -> ClipChangedEvent {
-        self.volume = volume;
+        // self.volume = volume;
         ClipChangedEvent::ClipVolume(volume)
     }
 
@@ -438,7 +443,7 @@ impl Clip {
 
     pub fn persistent_data(&self) -> Option<ClipData> {
         let clip = ClipData {
-            volume: self.volume,
+            volume: Default::default(),
             repeat: self.repeated(),
             content: self.content()?,
         };
@@ -473,7 +478,7 @@ impl Clip {
         self.supplier_chain.section_frame_count_in_ready_state()
     }
 
-    pub fn process(&mut self, args: &mut ClipProcessArgs<impl Timeline>) {
+    pub fn process(&mut self, args: &mut ClipProcessArgs) {
         use ClipState::*;
         let changed_state = match &mut self.state {
             Ready(s) => s
@@ -552,11 +557,12 @@ impl ReadyState {
         looper.set_loop_behavior(LoopBehavior::from_bool(repeated));
     }
 
-    pub fn play(&mut self, args: ClipPlayArgs, supplier_chain: &mut SupplierChain) {
+    pub fn play(&mut self, args: ClipPlayArgs, supplier_chain: &mut SupplierChain) -> PlayOutcome {
+        let virtual_pos = self.calculate_virtual_play_pos(args);
         use ReadySubState::*;
         match self.state {
             // Not yet running.
-            Stopped => self.schedule_play_internal(args),
+            Stopped => self.schedule_play_internal(virtual_pos),
             Playing(s) => {
                 if s.scheduled_for_stop {
                     // Scheduled for stop. Backpedal!
@@ -576,18 +582,18 @@ impl ReadyState {
                             // Already playing. Retrigger!
                             self.state = Suspending(SuspendingState {
                                 next_state: StateAfterSuspension::Playing(PlayingState {
-                                    start_bar: args.from_bar,
+                                    virtual_pos,
                                     ..Default::default()
                                 }),
                                 pos,
                             });
                         } else {
                             // Not yet playing. Reschedule!
-                            self.schedule_play_internal(args);
+                            self.schedule_play_internal(virtual_pos);
                         }
                     } else {
                         // Not yet playing. Reschedule!
-                        self.schedule_play_internal(args);
+                        self.schedule_play_internal(virtual_pos);
                     }
                 }
             }
@@ -598,7 +604,7 @@ impl ReadyState {
                 // that clip won't play again.
                 self.state = ReadySubState::Suspending(SuspendingState {
                     next_state: StateAfterSuspension::Playing(PlayingState {
-                        start_bar: args.from_bar,
+                        virtual_pos,
                         ..Default::default()
                     }),
                     ..s
@@ -612,6 +618,23 @@ impl ReadyState {
                     pos: Some(pos),
                     ..Default::default()
                 });
+            }
+        }
+        PlayOutcome { virtual_pos }
+    }
+
+    fn calculate_virtual_play_pos(&self, play_args: ClipPlayArgs) -> VirtualPosition {
+        let start_timing = self
+            .persistent_data
+            .start_timing
+            .unwrap_or(play_args.parent_start_timing);
+        use ClipPlayStartTiming::*;
+        match start_timing {
+            Immediately => VirtualPosition::Now,
+            Quantized(q) => {
+                let quantized_pos =
+                    QuantizedPosition::from_quantization(q, &play_args.timeline, play_args.ref_pos);
+                VirtualPosition::Quantized(quantized_pos)
             }
         }
     }
@@ -696,7 +719,7 @@ impl ReadyState {
 
     pub fn process(
         &mut self,
-        args: &mut ClipProcessArgs<impl Timeline>,
+        args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
         shared_pos: &mut SharedPos,
     ) -> Option<RecordingState> {
@@ -716,7 +739,7 @@ impl ReadyState {
     fn process_playing(
         &mut self,
         s: PlayingState,
-        args: &mut ClipProcessArgs<impl Timeline>,
+        args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
     ) {
         let general_info = self.prepare_playing(&args, supplier_chain);
@@ -793,18 +816,12 @@ impl ReadyState {
             }
         } else {
             // Not counting in or playing yet.
-            let pos = if let Some(start_bar) = s.start_bar {
-                // Scheduled play. Start countdown.
-                self.calc_initial_pos_from_start_bar(
-                    start_bar,
-                    &args,
-                    general_info.clip_tempo_factor,
-                    supplier_chain,
-                )
-            } else {
-                // Immediate play.
-                0
-            };
+            let pos = self.resolve_virtual_pos(
+                s.virtual_pos,
+                args,
+                general_info.clip_tempo_factor,
+                supplier_chain,
+            );
             Go {
                 pos,
                 ..Go::default()
@@ -842,12 +859,31 @@ impl ReadyState {
         };
     }
 
+    fn resolve_virtual_pos(
+        &self,
+        virtual_pos: VirtualPosition,
+        process_args: &ClipProcessArgs,
+        clip_tempo_factor: f64,
+        supplier_chain: &SupplierChain,
+    ) -> isize {
+        use VirtualPosition::*;
+        match virtual_pos {
+            Now => 0,
+            Quantized(qp) => self.calc_initial_pos_from_quantized_pos(
+                qp,
+                process_args,
+                clip_tempo_factor,
+                supplier_chain,
+            ),
+        }
+    }
+
     /// Returns the next frame to be queried.
     ///
     /// Returns `None` if end of material.
     fn fill_samples(
         &mut self,
-        args: &mut ClipProcessArgs<impl Timeline>,
+        args: &mut ClipProcessArgs,
         start_frame: isize,
         info: &SupplyRequestGeneralInfo,
         sample_rate_factor: f64,
@@ -870,7 +906,7 @@ impl ReadyState {
 
     fn fill_samples_audio(
         &mut self,
-        args: &mut ClipProcessArgs<impl Timeline>,
+        args: &mut ClipProcessArgs,
         start_frame: isize,
         info: &SupplyRequestGeneralInfo,
         dest_sample_rate: Hz,
@@ -904,7 +940,7 @@ impl ReadyState {
 
     fn fill_samples_midi(
         &mut self,
-        args: &mut ClipProcessArgs<impl Timeline>,
+        args: &mut ClipProcessArgs,
         start_frame: isize,
         info: &SupplyRequestGeneralInfo,
         dest_sample_rate: Hz,
@@ -931,7 +967,7 @@ impl ReadyState {
 
     fn prepare_playing(
         &mut self,
-        args: &ClipProcessArgs<impl Timeline>,
+        args: &ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
     ) -> SupplyRequestGeneralInfo {
         let final_tempo_factor = self.calc_final_tempo_factor(args.timeline_tempo);
@@ -963,9 +999,9 @@ impl ReadyState {
     /// in order to respect arbitrary tempo changes during the count-in phase and
     /// still end up starting on the correct point in time. Okay, we could reach
     /// the same goal also by regularly checking whether we finally reached the
-    /// start of the bar. But first, we need the relative count-in later anyway
-    /// (for pickup beats, which start to play during count-in time). And second,
-    /// it would be also pretty much unnecessary beat-time mapping.
+    /// start of the bar. But first, we need the relative count-in anyway for pickup beats,
+    /// which start to play during count-in time. And second, just counting is cheaper
+    /// than repeatedly doing time/beat mapping.
     ///
     /// 2. We resolve the
     /// count-in length here in the real-time context, not before! In particular not
@@ -975,10 +1011,10 @@ impl ReadyState {
     /// we would start advancing the count-in cursor from a wrong initial state
     /// and therefore end up with the wrong point in time for starting the clip
     /// (too late, to be accurate, because we would start advancing too late).
-    fn calc_initial_pos_from_start_bar(
+    fn calc_initial_pos_from_quantized_pos(
         &self,
-        start_bar: i32,
-        args: &ClipProcessArgs<impl Timeline>,
+        quantized_pos: QuantizedPosition,
+        args: &ClipProcessArgs,
         clip_tempo_factor: f64,
         supplier_chain: &SupplierChain,
     ) -> isize {
@@ -987,22 +1023,22 @@ impl ReadyState {
         let source_frame_rate = supplier_chain.source_frame_rate_in_ready_state();
         let timeline_frame_rate = args.block.sample_rate();
         // Essential calculation
-        let start_bar_timeline_pos = args.timeline.pos_of_bar(start_bar);
-        let rel_pos_from_bar_in_secs = args.timeline_cursor_pos - start_bar_timeline_pos;
+        let quantized_timeline_pos = args.timeline.pos_of_quantized_pos(quantized_pos);
+        let rel_pos_from_bar_in_secs = args.timeline_cursor_pos - quantized_timeline_pos;
         let rel_pos_from_bar_in_source_frames = convert_position_in_seconds_to_frames(
             rel_pos_from_bar_in_secs,
             supplier_chain.source_frame_rate_in_ready_state(),
         );
-        {
+        if quantized_pos.denominator() == 1 {
             let args = LogNaturalDeviationArgs {
-                start_bar,
+                start_bar: quantized_pos.position() as _,
                 block: args.block,
                 timeline: &args.timeline,
                 timeline_cursor_pos: args.timeline_cursor_pos,
                 clip_tempo_factor,
                 timeline_frame_rate,
                 source_frame_rate,
-                start_bar_timeline_pos,
+                start_bar_timeline_pos: quantized_timeline_pos,
             };
             self.log_natural_deviation(args, supplier_chain);
         }
@@ -1040,7 +1076,7 @@ impl ReadyState {
     fn process_suspending(
         &mut self,
         s: SuspendingState,
-        args: &mut ClipProcessArgs<impl Timeline>,
+        args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
     ) -> Option<RecordingState> {
         let general_info = self.prepare_playing(&args, supplier_chain);
@@ -1394,9 +1430,9 @@ impl ReadyState {
         }
     }
 
-    fn schedule_play_internal(&mut self, args: ClipPlayArgs) {
+    fn schedule_play_internal(&mut self, virtual_pos: VirtualPosition) {
         self.state = ReadySubState::Playing(PlayingState {
-            start_bar: args.from_bar,
+            virtual_pos,
             ..Default::default()
         });
     }
@@ -1431,6 +1467,7 @@ impl RecordingState {
                             state: ReadySubState::Stopped,
                             source_data: rollback_data.source_data,
                             repeated: rollback_data.repeated,
+                            persistent_data: todo!(),
                         };
                         TransitionToReady(ready_state)
                     } else {
@@ -1460,7 +1497,7 @@ impl RecordingState {
 
     fn process(
         &mut self,
-        args: &mut ClipProcessArgs<impl Timeline>,
+        args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
         project: Option<Project>,
     ) -> Option<ReadyState> {
@@ -1529,7 +1566,12 @@ impl RecordingState {
         ReadyState {
             state: if play_after {
                 ReadySubState::Playing(PlayingState {
-                    start_bar: start_and_end_bar.map(|(_, end_bar)| end_bar),
+                    virtual_pos: match start_and_end_bar {
+                        None => VirtualPosition::Now,
+                        Some((_, end_bar)) => VirtualPosition::Quantized(
+                            QuantizedPosition::new(end_bar as _, 1).unwrap(),
+                        ),
+                    },
                     ..Default::default()
                 })
             } else {
@@ -1541,6 +1583,7 @@ impl RecordingState {
                 SourceData::from_audio(outcome.tempo, outcome.effective_duration)
             },
             repeated: play_after,
+            persistent_data: todo!(),
         }
     }
 }
@@ -1572,9 +1615,30 @@ fn adjust_proportionally_in_blocks(value: isize, factor: f64, block_length: usiz
     total as isize * value.signum()
 }
 
-#[derive(Debug)]
-pub struct ClipPlayArgs {
-    pub from_bar: Option<i32>,
+#[derive(Clone, Debug)]
+pub struct ClipPlayArgs<'a> {
+    pub parent_start_timing: ClipPlayStartTiming,
+    pub timeline: &'a HybridTimeline,
+    /// Set this if you already have the current timeline position or want to play a batch of clips.
+    pub ref_pos: Option<PositionInSeconds>,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum VirtualPosition {
+    Now,
+    Quantized(QuantizedPosition),
+}
+
+impl Default for VirtualPosition {
+    fn default() -> Self {
+        Self::Now
+    }
+}
+
+impl VirtualPosition {
+    pub fn is_quantized(&self) -> bool {
+        matches!(self, VirtualPosition::Quantized(_))
+    }
 }
 
 pub struct ClipRecordArgs {
@@ -1609,9 +1673,9 @@ pub enum ClipStopBehavior {
     EndOfClip,
 }
 
-pub struct ClipProcessArgs<'a, T: Timeline> {
+pub struct ClipProcessArgs<'a> {
     pub block: &'a mut PcmSourceTransfer,
-    pub timeline: T,
+    pub timeline: &'a HybridTimeline,
     pub timeline_cursor_pos: PositionInSeconds,
     pub timeline_tempo: Bpm,
 }
@@ -1680,4 +1744,8 @@ pub enum ClipChangedEvent {
     ClipVolume(ReaperVolumeValue),
     ClipRepeat(bool),
     ClipPosition(UnitValue),
+}
+
+pub struct PlayOutcome {
+    pub virtual_pos: VirtualPosition,
 }

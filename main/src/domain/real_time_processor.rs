@@ -39,7 +39,6 @@ const FEEDBACK_BULK_SIZE: usize = 100;
 pub struct RealTimeProcessor {
     instance_id: InstanceId,
     logger: slog::Logger,
-    play_position_jump_detector: PlayPositionJumpDetector,
     // Synced processing settings
     control_mode: ControlMode,
     midi_control_input: MidiControlInput,
@@ -70,53 +69,6 @@ pub struct RealTimeProcessor {
     clip_matrix: Option<Matrix>,
 }
 
-/// Detects play position discontinuity while the project is playing, ignoring tempo changes.
-#[derive(Debug)]
-struct PlayPositionJumpDetector {
-    project_context: ProjectContext,
-    previous_beat: Option<isize>,
-}
-
-impl PlayPositionJumpDetector {
-    pub fn new(project: Option<Project>) -> Self {
-        Self {
-            project_context: project
-                .map(|p| p.context())
-                .unwrap_or(ProjectContext::CurrentProject),
-            previous_beat: None,
-        }
-    }
-
-    /// Returns `true` if a jump has been detected.
-    ///
-    /// To be called in each audio block.
-    pub fn detect_play_jump(&mut self) -> bool {
-        let reaper = Reaper::get().medium_reaper();
-        if let ProjectContext::Proj(p) = self.project_context {
-            if !reaper.validate_ptr(ReaperPointer::ReaProject(p)) {
-                // Project doesn't exist anymore. Happens when closing it.
-                return false;
-            }
-        }
-        let play_state = reaper.get_play_state_ex(self.project_context);
-        if !play_state.is_playing {
-            return false;
-        }
-        let play_pos = reaper.get_play_position_2_ex(self.project_context);
-        let res = reaper.time_map_2_time_to_beats(self.project_context, play_pos);
-        // TODO-high If we skip slighly forward within the beat or just to the next beat, the
-        //  detector won't detect it as a jump. Destroys the synchronization.
-        let beat = res.full_beats.get() as isize;
-        if let Some(previous_beat) = self.previous_beat.replace(beat) {
-            let beat_diff = beat - previous_beat;
-            beat_diff < 0 || beat_diff > 1
-        } else {
-            // Don't count initial change as jump.
-            false
-        }
-    }
-}
-
 impl RealTimeProcessor {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -133,7 +85,6 @@ impl RealTimeProcessor {
         RealTimeProcessor {
             instance_id,
             logger: parent_logger.new(slog::o!("struct" => "RealTimeProcessor")),
-            play_position_jump_detector: PlayPositionJumpDetector::new(None),
             control_mode: ControlMode::Controlling,
             normal_task_receiver,
             feedback_task_receiver,
@@ -263,12 +214,6 @@ impl RealTimeProcessor {
     pub fn run_from_audio_hook_essential(&mut self, sample_count: usize, might_be_rebirth: bool) {
         if let Some(clip_matrix) = &mut self.clip_matrix {
             clip_matrix.poll();
-        }
-        // Detect change of next audio block position
-        if self.play_position_jump_detector.detect_play_jump() {
-            self.normal_main_task_sender
-                .try_send(NormalRealTimeToMainThreadTask::PlayJumpDetected)
-                .unwrap()
         }
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
@@ -437,7 +382,6 @@ impl RealTimeProcessor {
                     self.midi_feedback_output = midi_feedback_output;
                     self.input_logging_enabled = input_logging_enabled;
                     self.output_logging_enabled = output_logging_enabled;
-                    self.play_position_jump_detector = PlayPositionJumpDetector::new(project);
                     // Handle activation
                     if self.processor_feedback_is_effectively_on() && feedback_output_changing {
                         self.send_lifecycle_midi_for_all_mappings(LifecyclePhase::Activation);

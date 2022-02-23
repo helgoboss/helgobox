@@ -5,9 +5,9 @@ use crate::rt::supplier::{
 };
 use crate::rt::{
     ClipChangedEvent, ClipInfo, ClipPlayArgs, ClipPlayState, ClipStopArgs, ClipStopBehavior,
-    ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
-    RecordBehavior, RecordTiming, RtMatrixCommandSender, SharedColumnSource,
-    SlotProcessTransportChangeArgs, TransportChange, WeakColumnSource,
+    ColumnPlayClipArgs, ColumnStopClipArgs, RecordBehavior, RecordTiming, RtMatrixCommandSender,
+    SharedColumnSource, SlotProcessTransportChangeArgs, TransportChange, WeakColumnSource,
+    FAKE_ROW_INDEX,
 };
 use crate::timeline::{clip_timeline, Timeline};
 use crate::{rt, ClipEngineResult};
@@ -30,6 +30,7 @@ use std::thread::JoinHandle;
 
 #[derive(Debug)]
 pub struct Matrix<H> {
+    rt_settings: rt::MatrixSettings,
     handler: H,
     stretch_worker_sender: Sender<StretchWorkerRequest>,
     recorder_equipment: RecorderEquipment,
@@ -115,7 +116,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         worker_pool.add_worker("Playtime pre-buffer worker", move || {
             keep_processing_pre_buffer_requests(pre_buffer_request_receiver);
         });
+        let project = containing_track.as_ref().map(|t| t.project());
         let matrix = Self {
+            rt_settings: Default::default(),
             handler,
             stretch_worker_sender,
             recorder_equipment: RecorderEquipment {
@@ -129,13 +132,18 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             rt_command_sender,
             worker_pool,
         };
-        let rt_matrix = rt::Matrix::new(rt_command_receiver, main_command_sender);
+        let rt_matrix = rt::Matrix::new(rt_command_receiver, main_command_sender, project);
         (matrix, rt_matrix)
     }
 
     pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
         self.clear();
-        let project = self.project();
+        let project = self.resolved_project();
+        // Settings
+        self.rt_settings.clip_play_start_timing = api_matrix.clip_play_settings.start_timing;
+        self.rt_command_sender
+            .update_settings(self.rt_settings.clone());
+        // Columns
         for (i, api_column) in api_matrix
             .columns
             .unwrap_or_default()
@@ -161,7 +169,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             columns: Some(self.columns.iter().map(|column| column.save()).collect()),
             rows: None,
             clip_play_settings: MatrixClipPlaySettings {
-                start_timing: ClipPlayStartTiming::Immediately,
+                start_timing: self.rt_settings.clip_play_start_timing,
                 stop_timing: ClipPlayStopTiming::LikeClipStartTiming,
                 audio_settings: MatrixClipPlayAudioSettings {
                     time_stretch_mode: AudioTimeStretchMode::KeepingPitch(TimeStretchMode {
@@ -196,11 +204,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
-    fn project(&self) -> Project {
-        self.containing_track
-            .as_ref()
-            .map(|t| t.project())
+    fn resolved_project(&self) -> Project {
+        self.project()
             .unwrap_or_else(|| Reaper::get().current_project())
+    }
+
+    fn project(&self) -> Option<Project> {
+        self.containing_track.as_ref().map(|t| t.project())
     }
 
     pub fn clear(&mut self) {
@@ -271,24 +281,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .collect()
     }
 
-    pub fn play_clip_legacy(
-        &mut self,
-        project: Project,
-        slot_index: usize,
-        track: Option<Track>,
-        options: SlotPlayOptions,
-    ) -> ClipEngineResult<()> {
-        let column = get_column_mut(&mut self.columns, slot_index)?;
+    pub fn play_clip(&mut self, column_index: usize) -> ClipEngineResult<()> {
+        let project = self.resolved_project();
+        let column = get_column_mut(&mut self.columns, column_index)?;
         let args = ColumnPlayClipArgs {
-            index: 0,
-            clip_args: ClipPlayArgs {
-                from_bar: if options.next_bar {
-                    let timeline = clip_timeline(Some(project), false);
-                    Some(timeline.next_bar_at(timeline.cursor_pos()))
-                } else {
-                    None
-                },
-            },
+            slot_index: FAKE_ROW_INDEX,
+            parent_start_timing: self.rt_settings.clip_play_start_timing,
+            timeline: clip_timeline(Some(project), false),
+            ref_pos: None,
         };
         column.play_clip(args);
         Ok(())
@@ -304,7 +304,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let column = get_column_mut(&mut self.columns, slot_index)?;
         let timeline = clip_timeline(Some(project), false);
         let args = ColumnStopClipArgs {
-            index: 0,
+            slot_index: 0,
             clip_args: ClipStopArgs {
                 stop_behavior: match stop_behavior {
                     SlotStopBehavior::Immediately => ClipStopBehavior::Immediately,
@@ -371,19 +371,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     pub fn clip_info(&self, slot_index: usize) -> Option<ClipInfo> {
         get_column(&self.columns, slot_index).ok()?.clip_info(0)
-    }
-
-    pub fn process_transport_change(&mut self, change: TransportChange, project: Option<Project>) {
-        let timeline = clip_timeline(project, true);
-        let moment = timeline.capture_moment();
-        let args = SlotProcessTransportChangeArgs {
-            change,
-            moment,
-            timeline,
-        };
-        for column in &mut self.columns {
-            column.process_transport_change(args.clone());
-        }
     }
 
     pub fn record_clip_legacy(

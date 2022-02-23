@@ -1265,15 +1265,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         format_midi_source_value(&value),
                     );
                 }
-                PlayJumpDetected => {
-                    let mut instance_state = self.basics.instance_state.borrow_mut();
-                    instance_state
-                        .require_clip_matrix_mut()
-                        .process_transport_change(
-                            TransportChange::PlayCursorJump,
-                            self.basics.context.project(),
-                        );
-                }
             }
         }
     }
@@ -2326,7 +2317,6 @@ pub enum NormalRealTimeToMainThreadTask {
     LogLifecycleOutput {
         value: MidiSourceValue<'static, RawShortMessage>,
     },
-    PlayJumpDetected,
 }
 
 /// A parameter-related task (which is potentially sent very frequently, just think of automation).
