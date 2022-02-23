@@ -2,6 +2,9 @@
 mod regex_util;
 
 #[macro_use]
+mod tracing_util;
+
+#[macro_use]
 mod global_macros;
 
 mod global;

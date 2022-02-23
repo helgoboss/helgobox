@@ -136,7 +136,12 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
         self.clear();
         let project = self.project();
-        for (i, api_column) in api_matrix.columns.into_iter().enumerate() {
+        for (i, api_column) in api_matrix
+            .columns
+            .unwrap_or_default()
+            .into_iter()
+            .enumerate()
+        {
             let track = if let Some(id) = api_column.clip_play_settings.track.as_ref() {
                 let guid = Guid::from_string_without_braces(&id.0)?;
                 Some(project.track_by_guid(&guid))
@@ -153,8 +158,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     pub fn save(&self) -> api::Matrix {
         api::Matrix {
-            columns: self.columns.iter().map(|column| column.save()).collect(),
-            rows: vec![],
+            columns: Some(self.columns.iter().map(|column| column.save()).collect()),
+            rows: None,
             clip_play_settings: MatrixClipPlaySettings {
                 start_timing: ClipPlayStartTiming::Immediately,
                 stop_timing: ClipPlayStopTiming::LikeClipStartTiming,
@@ -350,6 +355,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     pub fn clip_repeated(&self, slot_index: usize) -> Option<bool> {
         get_column(&self.columns, slot_index).ok()?.clip_repeated(0)
+    }
+
+    pub fn column_count(&self) -> usize {
+        self.columns.len()
     }
 
     pub fn clip_volume(&self, slot_index: usize) -> Option<ReaperVolumeValue> {

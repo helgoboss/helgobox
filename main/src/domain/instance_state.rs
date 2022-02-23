@@ -27,7 +27,7 @@ pub type RealearnClipMatrix = Matrix<RealearnClipMatrixHandler>;
 /// processing layer (otherwise it could reside in the main processor).
 #[derive(Debug)]
 pub struct InstanceState {
-    clip_matrix: LazyCell<RealearnClipMatrix>,
+    clip_matrix: Option<RealearnClipMatrix>,
     instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
     audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
     real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
@@ -119,7 +119,7 @@ impl InstanceState {
         this_track: Option<Track>,
     ) -> Self {
         Self {
-            clip_matrix: LazyCell::new(),
+            clip_matrix: None,
             instance_feedback_event_sender,
             audio_hook_task_sender,
             real_time_processor_sender,
@@ -135,21 +135,26 @@ impl InstanceState {
     }
 
     pub fn clip_matrix(&self) -> Option<&RealearnClipMatrix> {
-        self.clip_matrix.borrow()
-    }
-
-    pub fn require_clip_matrix(&self) -> &RealearnClipMatrix {
-        self.init_clip_matrix_if_necessary();
-        self.clip_matrix.borrow().expect(CLIP_MATRIX_NOT_FILLED)
+        self.clip_matrix.as_ref()
     }
 
     pub fn require_clip_matrix_mut(&mut self) -> &mut RealearnClipMatrix {
         self.init_clip_matrix_if_necessary();
-        self.clip_matrix.borrow_mut().expect(CLIP_MATRIX_NOT_FILLED)
+        self.clip_matrix
+            .as_mut()
+            .expect("clip matrix not filled yet")
     }
 
-    fn init_clip_matrix_if_necessary(&self) {
-        if self.clip_matrix.filled() {
+    pub fn shut_down_clip_matrix(&mut self) {
+        tracing_debug!("Shut down clip matrix");
+        self.real_time_processor_sender
+            .send(NormalRealTimeTask::SetClipMatrix(None))
+            .unwrap();
+        self.clip_matrix = None;
+    }
+
+    fn init_clip_matrix_if_necessary(&mut self) {
+        if self.clip_matrix.is_some() {
             return;
         }
         let clip_matrix = init_clip_matrix(
@@ -158,7 +163,7 @@ impl InstanceState {
             self.instance_feedback_event_sender.clone(),
             self.this_track.clone(),
         );
-        self.clip_matrix.fill(clip_matrix);
+        self.clip_matrix = Some(clip_matrix);
     }
 
     pub fn slot_contents_changed(
@@ -392,9 +397,7 @@ fn init_clip_matrix(
         RealearnClipMatrixHandler::new(audio_hook_task_sender, instance_feedback_event_sender);
     let (matrix, real_time_matrix) = Matrix::new(clip_matrix_handler, this_track);
     real_time_processor_sender
-        .send(NormalRealTimeTask::SetClipMatrix(real_time_matrix))
+        .send(NormalRealTimeTask::SetClipMatrix(Some(real_time_matrix)))
         .unwrap();
     matrix
 }
-
-const CLIP_MATRIX_NOT_FILLED: &str = "clip matrix not filled yet";

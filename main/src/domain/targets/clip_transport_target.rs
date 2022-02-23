@@ -264,13 +264,13 @@ impl<'a> Target<'a> for ClipTransportTarget {
         let val = match self.basics.action {
             PlayStop | PlayPause | Stop | Pause | RecordStop => {
                 let play_state = instance_state
-                    .require_clip_matrix()
+                    .clip_matrix()?
                     .clip_play_state(self.basics.slot_index)?;
                 clip_play_state_unit_value(self.basics.action, play_state)
             }
             Repeat => {
                 let is_looped = instance_state
-                    .require_clip_matrix()
+                    .clip_matrix()?
                     .clip_repeated(self.basics.slot_index)?;
                 transport_is_enabled_unit_value(is_looped)
             }

@@ -450,7 +450,11 @@ impl SessionData {
         {
             let mut instance_state = session.instance_state().borrow_mut();
             // Legacy clips
-            if !self.clip_slots.is_empty() {
+            if let Some(matrix) = &self.clip_matrix {
+                instance_state
+                    .require_clip_matrix_mut()
+                    .load(matrix.clone())?;
+            } else if !self.clip_slots.is_empty() {
                 instance_state.require_clip_matrix_mut().load_slots_legacy(
                     self.clip_slots
                         .iter()
@@ -462,11 +466,8 @@ impl SessionData {
                         .collect(),
                     Some(session.context().project_or_current_project()),
                 )?;
-            }
-            if let Some(matrix) = &self.clip_matrix {
-                instance_state
-                    .require_clip_matrix_mut()
-                    .load(matrix.clone())?;
+            } else {
+                instance_state.shut_down_clip_matrix();
             }
             instance_state
                 .set_active_instance_tags_without_notification(self.active_instance_tags.clone());

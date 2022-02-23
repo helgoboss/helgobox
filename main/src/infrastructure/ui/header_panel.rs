@@ -22,8 +22,8 @@ use crate::application::{
 };
 use crate::base::when;
 use crate::domain::{
-    ControlInput, GroupId, MappingCompartment, MessageCaptureEvent, OscDeviceId, ReaperTarget,
-    COMPARTMENT_PARAMETER_COUNT,
+    ControlInput, GroupId, MappingCompartment, MessageCaptureEvent, OscDeviceId,
+    RealearnClipMatrix, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
@@ -48,6 +48,7 @@ use crate::infrastructure::ui::{
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
+use playtime_api::Matrix;
 use realearn_api::schema::Envelope;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
@@ -1839,6 +1840,29 @@ impl HeaderPanel {
                     plugin_parameters.apply_session_data(&*d);
                 }
             }
+            DataObject::ClipMatrix(Envelope { value }) => {
+                let old_matrix_label = match self.session().borrow().instance_state().borrow().clip_matrix() {
+                    None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
+                    Some(m) => get_clip_matrix_label(m.column_count()),
+                };
+                let new_matrix_label = match &*value {
+                    None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
+                    Some(m) => get_clip_matrix_label(m.columns.as_ref().map(|c|c.len()).unwrap_or(0))
+                };
+                if self.view.require_window().confirm(
+                    "ReaLearn",
+                    format!("Do you want to replace the current {} with the {} in the clipboard?", old_matrix_label, new_matrix_label),
+                ) {
+                    let session = self.session();
+                    let session = session.borrow();
+                    let mut instance_state = session.instance_state().borrow_mut();
+                    if let Some(matrix) = *value {
+                        instance_state.require_clip_matrix_mut().load(matrix)?;
+                    } else {
+                        instance_state.shut_down_clip_matrix();
+                    }
+                }
+            }
             DataObject::MainCompartment(Envelope {value}) => {
                 let compartment = MappingCompartment::MainMappings;
                 self.import_compartment(compartment, value);
@@ -1897,6 +1921,7 @@ impl HeaderPanel {
         enum MenuAction {
             None,
             ExportSession(SerializationFormat),
+            ExportClipMatrix(SerializationFormat),
             ExportCompartment(SerializationFormat),
         }
         impl Default for MenuAction {
@@ -1910,6 +1935,14 @@ impl HeaderPanel {
             let entries = vec![
                 item("Export session as JSON", || {
                     MenuAction::ExportSession(SerializationFormat::JsonDataObject)
+                }),
+                item("Export clip matrix as JSON", || {
+                    MenuAction::ExportClipMatrix(SerializationFormat::JsonDataObject)
+                }),
+                item("Export clip matrix as Lua", || {
+                    MenuAction::ExportClipMatrix(SerializationFormat::LuaApiObject(
+                        ConversionStyle::Minimal,
+                    ))
                 }),
                 item(format!("Export {} as JSON", compartment), || {
                     MenuAction::ExportCompartment(SerializationFormat::JsonDataObject)
@@ -1961,6 +1994,21 @@ impl HeaderPanel {
                 });
                 let json = serialize_data_object_to_json(data_object).unwrap();
                 copy_text_to_clipboard(json);
+            }
+            MenuAction::ExportClipMatrix(format) => {
+                let matrix = self
+                    .session()
+                    .borrow()
+                    .instance_state()
+                    .borrow()
+                    .clip_matrix()
+                    .map(|matrix| matrix.save());
+                let envelope = Envelope {
+                    value: Box::new(matrix),
+                };
+                let data_object = DataObject::ClipMatrix(envelope);
+                let text = serialize_data_object(data_object, format)?;
+                copy_text_to_clipboard(text);
             }
             MenuAction::ExportCompartment(format) => {
                 let session = self.session();
@@ -2719,3 +2767,9 @@ fn edit_osc_device(mut dev: OscDevice) -> Result<OscDevice, EditOscDevError> {
 }
 
 const COMPARTMENT_CHANGES_WARNING_TEXT: &str = "Mapping/group/parameter changes in this compartment will be lost. Consider to save them first. Do you really want to continue?";
+
+const EMPTY_CLIP_MATRIX_LABEL: &str = "empty clip matrix";
+
+fn get_clip_matrix_label(column_count: usize) -> String {
+    format!("clip matrix with {} columns", column_count)
+}

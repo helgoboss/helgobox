@@ -10,7 +10,7 @@
 //! - For the same reasons, boolean data types are allowed and not in general substituted by On/Off
 //!   enums.
 //! - Only a subset of the possible Rust data structuring possibilities are used. The ones that
-//!   work well with ReaLearn Script (Lua).
+//!   work well with ReaLearn Script (`lua_serializer.rs`).
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -20,9 +20,11 @@ use std::path::PathBuf;
 #[serde(deny_unknown_fields)]
 pub struct Matrix {
     /// All columns from left to right.
-    pub columns: Vec<Column>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub columns: Option<Vec<Column>>,
     /// All rows from top to bottom.
-    pub rows: Vec<Row>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rows: Option<Vec<Row>>,
     pub clip_play_settings: MatrixClipPlaySettings,
     pub clip_record_settings: MatrixClipRecordSettings,
     pub common_tempo_range: TempoRange,
@@ -207,7 +209,8 @@ pub struct Column {
     /// Slots in this column.
     ///
     /// Only filled slots need to be mentioned here.
-    pub slots: Vec<Slot>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slots: Option<Vec<Slot>>,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]

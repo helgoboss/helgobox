@@ -49,7 +49,8 @@ use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
-    ReaperTargetType, SendMidiDestination, SimpleExclusivity, WithControlContext, CLIP_SLOT_COUNT,
+    RealearnClipMatrix, ReaperTargetType, SendMidiDestination, SimpleExclusivity,
+    WithControlContext, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -614,20 +615,23 @@ impl MappingPanel {
                     let mapping = self.mapping();
                     let mapping = mapping.borrow();
                     let slot_index = mapping.target_model.slot_index();
-                    let clip_matrix = instance_state.require_clip_matrix();
-                    if let (Some(clip_data), Some(clip_info)) = (
-                        clip_matrix.clip_data(slot_index),
-                        clip_matrix.clip_info(slot_index),
-                    ) {
-                        let info = SlotInfo {
-                            file_name: clip_data
-                                .content
-                                .file()
-                                .map(|p| p.to_string_lossy().to_string())
-                                .unwrap_or_default(),
-                            clip_info,
-                        };
-                        Some(info)
+                    if let Some(clip_matrix) = instance_state.clip_matrix() {
+                        if let (Some(clip_data), Some(clip_info)) = (
+                            clip_matrix.clip_data(slot_index),
+                            clip_matrix.clip_info(slot_index),
+                        ) {
+                            let info = SlotInfo {
+                                file_name: clip_data
+                                    .content
+                                    .file()
+                                    .map(|p| p.to_string_lossy().to_string())
+                                    .unwrap_or_default(),
+                                clip_info,
+                            };
+                            Some(info)
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
@@ -643,7 +647,7 @@ impl MappingPanel {
                     );
                     format!("Source: {}\n\n{}", info.file_name, suffix)
                 } else {
-                    "Slot is empty".to_owned()
+                    "Clip matrix not loaded or slot empty".to_owned()
                 };
                 self.view.require_window().alert("ReaLearn", msg);
                 Ok(())
@@ -4185,19 +4189,26 @@ impl<'a> ImmutableMappingPanel<'a> {
             TargetCategory::Reaper => match self.reaper_target_type() {
                 t if t.supports_slot() => {
                     let instance_state = self.session.instance_state().borrow();
-                    let descriptor = instance_state
-                        .require_clip_matrix()
-                        .clip_data(self.target.slot_index());
-                    let (label, enabled) = if let Some(descriptor) = descriptor {
-                        let label = match &descriptor.content {
-                            ClipContent::File { file } => file.to_string_lossy().to_string(),
-                            ClipContent::MidiChunk { .. } => String::from("<In-memory MIDI>"),
-                        };
-                        (label, true)
-                    } else {
-                        ("<Slot empty>".to_owned(), false)
-                    };
-                    Some((label, enabled))
+                    match instance_state.clip_matrix() {
+                        None => Some(("clip matrix disabled".to_owned(), false)),
+                        Some(clip_matrix) => {
+                            let descriptor = clip_matrix.clip_data(self.target.slot_index());
+                            let (label, enabled) = if let Some(descriptor) = descriptor {
+                                let label = match &descriptor.content {
+                                    ClipContent::File { file } => {
+                                        file.to_string_lossy().to_string()
+                                    }
+                                    ClipContent::MidiChunk { .. } => {
+                                        String::from("<In-memory MIDI>")
+                                    }
+                                };
+                                (label, true)
+                            } else {
+                                ("<Slot empty>".to_owned(), false)
+                            };
+                            Some((label, enabled))
+                        }
+                    }
                 }
                 _ => None,
             },

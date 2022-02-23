@@ -3502,6 +3502,7 @@ name = "realearn-api"
 version = "0.1.0"
 dependencies = [
  "mlua",
+ "playtime-api",
  "schemars",
  "serde",
  "serde_json",

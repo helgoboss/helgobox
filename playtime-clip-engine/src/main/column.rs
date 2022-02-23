@@ -74,7 +74,7 @@ impl Column {
         project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
     ) -> ClipEngineResult<()> {
-        for api_slot in api_column.slots {
+        for api_slot in api_column.slots.unwrap_or_default() {
             if let Some(api_clip) = api_slot.clip {
                 let clip = Clip::load(api_clip);
                 self.fill_slot_internal(api_slot.row, clip, project, recorder_equipment)?;
@@ -102,22 +102,25 @@ impl Column {
                 track: None,
                 origin: TrackRecordOrigin::TrackInput,
             },
-            slots: self
-                .slots
-                .iter()
-                .enumerate()
-                .filter_map(|(i, s)| {
-                    if let Some(clip) = &s.clip {
-                        let api_slot = api::Slot {
-                            row: i,
-                            clip: Some(clip.save()),
-                        };
-                        Some(api_slot)
-                    } else {
-                        None
-                    }
-                })
-                .collect(),
+            slots: {
+                let slots = self
+                    .slots
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, s)| {
+                        if let Some(clip) = &s.clip {
+                            let api_slot = api::Slot {
+                                row: i,
+                                clip: Some(clip.save()),
+                            };
+                            Some(api_slot)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                Some(slots)
+            },
         }
     }
 

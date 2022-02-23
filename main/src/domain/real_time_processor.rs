@@ -25,6 +25,7 @@ use assert_no_alloc::permit_alloc;
 use enum_map::{enum_map, EnumMap};
 use playtime_clip_engine::rt::Matrix;
 use std::convert::TryInto;
+use std::mem;
 use std::ptr::null_mut;
 use std::time::Duration;
 use vst::api::{EventType, Events, SysExEvent};
@@ -508,7 +509,9 @@ impl RealTimeProcessor {
                         .dispose(Garbage::ActivationChanges(activation_updates));
                 }
                 SetClipMatrix(m) => {
-                    self.clip_matrix = Some(m);
+                    if let Some(old_matrix) = mem::replace(&mut self.clip_matrix, m) {
+                        self.garbage_bin.dispose(Garbage::ClipMatrix(old_matrix));
+                    }
                 }
             }
         }
@@ -1281,7 +1284,7 @@ impl<T> RealTimeSender<T> {
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
-    SetClipMatrix(Matrix),
+    SetClipMatrix(Option<Matrix>),
     UpdateAllMappings(MappingCompartment, Vec<RealTimeMapping>),
     UpdateSingleMapping(MappingCompartment, Box<Option<RealTimeMapping>>),
     UpdatePersistentMappingProcessingState {
