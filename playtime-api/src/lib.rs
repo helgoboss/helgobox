@@ -445,9 +445,9 @@ pub struct ClipMidiSettings {
 #[serde(deny_unknown_fields)]
 pub struct MidiResetMessageRange {
     /// Which MIDI reset messages to apply at the beginning.
-    pub start: MidiResetMessages,
-    /// Which MIDI reset messages to apply at the beginning.
-    pub end: MidiResetMessages,
+    pub left: MidiResetMessages,
+    /// Which MIDI reset messages to apply at the end.
+    pub right: MidiResetMessages,
 }
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
