@@ -1,10 +1,10 @@
-use crate::main::{ClipContent, ClipData, Column};
+use crate::main::{Clip, ClipContent, ClipData, Column};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, keep_stretching, RecorderEquipment, StretchWorkerRequest,
 };
 use crate::rt::{
-    Clip, ClipChangedEvent, ClipInfo, ClipPlayArgs, ClipPlayState, ClipStopArgs, ClipStopBehavior,
+    ClipChangedEvent, ClipInfo, ClipPlayArgs, ClipPlayState, ClipStopArgs, ClipStopBehavior,
     ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
     RealTimeClipMatrix, RealTimeClipMatrixCommand, RecordBehavior, RecordTiming,
     SharedColumnSource, SlotProcessTransportChangeArgs, TransportChange,
@@ -13,7 +13,8 @@ use crate::timeline::{clip_timeline, Timeline};
 use crate::ClipEngineResult;
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
-use reaper_high::{Guid, Item, Project, Track};
+use playtime_api as api;
+use reaper_high::{Guid, Item, Project, Reaper, Track};
 use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -103,6 +104,38 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         (matrix, real_time_matrix)
     }
 
+    pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
+        self.clear();
+        let project = self.project();
+        for (i, api_column) in api_matrix.columns.into_iter().enumerate() {
+            let track = if let Some(id) = api_column.clip_play_settings.track.as_ref() {
+                let guid = Guid::from_string_without_braces(&id.0)?;
+                Some(project.track_by_guid(&guid))
+            } else {
+                None
+            };
+            let mut column = Column::new(track);
+            column.load(api_column, Some(project), &self.recorder_equipment)?;
+            self.send_command_to_real_time_matrix(RealTimeClipMatrixCommand::InsertColumn(
+                i,
+                column.source(),
+            ));
+            self.columns.push(column);
+        }
+        Ok(())
+    }
+
+    pub fn save(&self) -> ClipEngineResult<api::Matrix> {
+        todo!()
+    }
+
+    fn project(&self) -> Project {
+        self.containing_track
+            .as_ref()
+            .map(|t| t.project())
+            .unwrap_or_else(|| Reaper::get().current_project())
+    }
+
     pub fn clear(&mut self) {
         // TODO-medium How about suspension?
         self.columns.clear();
@@ -128,17 +161,32 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             };
             let mut column = Column::new(resolved_track);
             let row = 0;
-            column.fill_slot(ColumnFillSlotArgs {
-                index: row,
-                clip: {
-                    let source = desc.clip.content.create_source(project)?.into_raw();
-                    Clip::from_source(source, project, self.recorder_equipment.clone())
+            let api_clip = api::Clip {
+                source: match desc.clip.content {
+                    ClipContent::File { file } => api::Source::File(api::FileSource { path: file }),
+                    ClipContent::MidiChunk { chunk } => {
+                        api::Source::MidiChunk(api::MidiChunkSource { chunk })
+                    }
                 },
-            });
-            column.set_clip_repeated(ColumnSetClipRepeatedArgs {
-                index: row,
-                repeated: desc.clip.repeat,
-            });
+                time_base: api::ClipTimeBase::Time,
+                start_timing: None,
+                stop_timing: None,
+                looped: desc.clip.repeat,
+                volume: api::Db(0.0),
+                color: api::ClipColor::PlayTrackColor,
+                section: api::Section {
+                    start_pos: api::Seconds(0.0),
+                    length: None,
+                },
+                audio_settings: api::ClipAudioSettings {
+                    cache_behavior: api::AudioCacheBehavior::DirectFromDisk,
+                    apply_source_fades: false,
+                    time_stretch_mode: None,
+                },
+                midi_settings: Default::default(),
+            };
+            let clip = Clip::load(api_clip);
+            column.fill_slot_legacy(row, clip, project, &self.recorder_equipment)?;
             self.send_command_to_real_time_matrix(RealTimeClipMatrixCommand::InsertColumn(
                 desc.index,
                 column.source(),

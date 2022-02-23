@@ -1,5 +1,6 @@
 use crate::file_util::get_path_for_new_media_file;
 use crate::ClipEngineResult;
+use playtime_api as api;
 use reaper_high::{Item, OwnedSource, Project, ReaperSource};
 use reaper_medium::MidiImportBehavior;
 use serde::{Deserialize, Serialize};
@@ -20,6 +21,19 @@ pub enum CreateClipContentMode {
 }
 
 impl ClipContent {
+    pub fn load(source: &api::Source) -> Self {
+        // TODO-high SlotContent is a relict. Do this directly, then we also don't need the cloning.
+        use api::Source::*;
+        match source {
+            File(s) => ClipContent::File {
+                file: s.path.clone(),
+            },
+            MidiChunk(s) => ClipContent::MidiChunk {
+                chunk: s.chunk.clone(),
+            },
+        }
+    }
+
     /// Creates slot content based on the audio/MIDI file used by the given item.
     ///
     /// If the item uses pooled MIDI instead of a file, this method exports the MIDI data to a new

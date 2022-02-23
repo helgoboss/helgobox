@@ -1,4 +1,5 @@
-use crate::main::{ClipData, ClipRecordTask};
+use crate::main::{Clip, ClipContent, ClipData, ClipRecordTask, Slot};
+use crate::rt;
 use crate::rt::supplier::RecorderEquipment;
 use crate::rt::{
     ClipChangedEvent, ClipInfo, ClipPlayState, ColumnFillSlotArgs, ColumnPlayClipArgs,
@@ -10,7 +11,8 @@ use crate::ClipEngineResult;
 use crossbeam_channel::Receiver;
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
-use reaper_high::{Reaper, Track};
+use playtime_api as api;
+use reaper_high::{Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
 use reaper_medium::{
     create_custom_owned_pcm_source, Bpm, CustomPcmSource, FlexibleOwnedPcmSource, MeasureAlignment,
@@ -27,66 +29,8 @@ pub struct Column {
     column_source: SharedColumnSource,
     preview_register: PlayingPreviewRegister,
     command_sender: ColumnSourceCommandSender,
-    slots: Vec<SlotDesc>,
+    slots: Vec<Slot>,
     event_receiver: Receiver<ColumnSourceEvent>,
-}
-
-#[derive(Clone, Debug, Default)]
-struct SlotDesc {
-    clip: Option<ClipDesc>,
-}
-
-#[derive(Clone, Debug)]
-struct ClipDesc {
-    persistent_data: ClipData,
-    runtime_data: ClipRuntimeData,
-    derived_data: ClipDerivedData,
-}
-
-#[derive(Clone, Debug)]
-struct ClipRuntimeData {
-    play_state: ClipPlayState,
-    pos: SharedPos,
-}
-
-#[derive(Clone, Debug)]
-struct ClipDerivedData {
-    frame_count: usize,
-}
-
-impl ClipRuntimeData {
-    fn pos(&self) -> isize {
-        self.pos.get()
-    }
-}
-
-impl ClipDesc {
-    fn proportional_pos(&self) -> Option<UnitValue> {
-        let pos = self.runtime_data.pos.get();
-        if pos < 0 {
-            return None;
-        }
-        let frame_count = self.derived_data.frame_count;
-        if frame_count == 0 {
-            return None;
-        }
-        let mod_pos = pos as usize % self.derived_data.frame_count;
-        let proportional = UnitValue::new_clamped(mod_pos as f64 / frame_count as f64);
-        Some(proportional)
-    }
-
-    fn position_in_seconds(&self, timeline_tempo: Bpm) -> Option<PositionInSeconds> {
-        // TODO-high At the moment we don't use this anyway. But we should implement it as soon
-        //  as we do. Relies on having the current section length, source frame rate, source tempo.
-        todo!()
-    }
-
-    fn info(&self) -> ClipInfo {
-        // TODO-high This should be implemented as soon as we hold more derived info here.
-        //  - type (MIDI, WAVE, ...)
-        //  - original length
-        todo!()
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -117,26 +61,54 @@ impl Column {
         }
     }
 
+    pub(crate) fn load(
+        &mut self,
+        api_column: api::Column,
+        project: Option<Project>,
+        recorder_equipment: &RecorderEquipment,
+    ) -> ClipEngineResult<()> {
+        for api_slot in api_column.slots {
+            if let Some(api_clip) = api_slot.clip {
+                let clip = Clip::load(api_clip);
+                self.fill_slot_internal(api_slot.row, clip, project, recorder_equipment)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn save(&self) -> ClipEngineResult<api::Column> {
+        todo!()
+    }
+
     pub fn source(&self) -> WeakColumnSource {
         self.column_source.downgrade()
     }
 
-    pub fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
-        // TODO-high Implement correctly
-        let clip_desc = ClipDesc {
-            persistent_data: args.clip.persistent_data().unwrap().clone(),
-            runtime_data: ClipRuntimeData {
-                play_state: Default::default(),
-                pos: args.clip.shared_pos(),
-            },
-            derived_data: ClipDerivedData {
-                // TODO-high We need to update things like the frame count or in future derive
-                //  it from section data!
-                frame_count: args.clip.effective_frame_count(),
-            },
+    pub fn fill_slot_legacy(
+        &mut self,
+        row: usize,
+        clip: Clip,
+        project: Option<Project>,
+        recorder_equipment: &RecorderEquipment,
+    ) -> ClipEngineResult<()> {
+        self.fill_slot_internal(row, clip, project, recorder_equipment)
+    }
+
+    fn fill_slot_internal(
+        &mut self,
+        row: usize,
+        clip: Clip,
+        project: Option<Project>,
+        recorder_equipment: &RecorderEquipment,
+    ) -> ClipEngineResult<()> {
+        let rt_clip = clip.create_real_time_clip(project, recorder_equipment)?;
+        get_slot_mut(&mut self.slots, row).clip = Some(clip);
+        let args = ColumnFillSlotArgs {
+            index: row,
+            clip: rt_clip,
         };
-        get_slot_mut(&mut self.slots, 0).clip = Some(clip_desc);
         self.command_sender.fill_slot(args);
+        Ok(())
     }
 
     pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<(usize, ClipChangedEvent)> {
@@ -150,8 +122,7 @@ impl Column {
                         .clip
                         .as_mut()
                         .expect("slot not filled")
-                        .runtime_data
-                        .play_state = play_state;
+                        .update_play_state(play_state);
                     (index, ClipChangedEvent::PlayState(play_state))
                 }
             };
@@ -160,7 +131,7 @@ impl Column {
         // Add position updates
         let pos_change_events = self.slots.iter().enumerate().filter_map(|(row, slot)| {
             let clip = slot.clip.as_ref()?;
-            if clip.runtime_data.play_state.is_advancing() {
+            if clip.play_state().is_advancing() {
                 let proportional_pos = clip.proportional_pos().unwrap_or(UnitValue::MIN);
                 let event = ClipChangedEvent::ClipPosition(proportional_pos);
                 Some((row, event))
@@ -207,19 +178,20 @@ impl Column {
             .clip
             .as_mut()
             .ok_or("no clip")?;
-        let new_repeated = !clip.persistent_data.repeat;
-        clip.persistent_data.repeat = new_repeated;
-        let args = ColumnSetClipRepeatedArgs {
-            index,
-            repeated: new_repeated,
-        };
+        let repeated = clip.toggle_looped();
+        let args = ColumnSetClipRepeatedArgs { index, repeated };
         self.set_clip_repeated(args);
-        Ok(ClipChangedEvent::ClipRepeat(new_repeated))
+        Ok(ClipChangedEvent::ClipRepeat(repeated))
     }
 
     pub fn clip_data(&self, index: usize) -> Option<ClipData> {
         let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
-        Some(clip.persistent_data.clone())
+        let data = ClipData {
+            volume: Default::default(),
+            repeat: clip.data().looped,
+            content: ClipContent::load(&clip.data().source),
+        };
+        Some(data)
     }
 
     pub fn clip_info(&self, index: usize) -> Option<ClipInfo> {
@@ -238,17 +210,17 @@ impl Column {
 
     pub fn clip_play_state(&self, index: usize) -> Option<ClipPlayState> {
         let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
-        Some(clip.runtime_data.play_state)
+        Some(clip.play_state())
     }
 
     pub fn clip_repeated(&self, index: usize) -> Option<bool> {
         let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
-        Some(clip.persistent_data.repeat)
+        Some(clip.data().looped)
     }
 
     pub fn clip_volume(&self, index: usize) -> Option<ReaperVolumeValue> {
         let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
-        Some(clip.persistent_data.volume)
+        Some(Default::default())
     }
 
     pub fn proportional_clip_position(&self, row: usize) -> Option<UnitValue> {
@@ -355,11 +327,11 @@ fn start_playing_preview(
     result.unwrap()
 }
 
-fn get_slot(slots: &Vec<SlotDesc>, index: usize) -> ClipEngineResult<&SlotDesc> {
+fn get_slot(slots: &Vec<Slot>, index: usize) -> ClipEngineResult<&Slot> {
     slots.get(index).ok_or("slot doesn't exist")
 }
 
-fn get_slot_mut(slots: &mut Vec<SlotDesc>, index: usize) -> &mut SlotDesc {
+fn get_slot_mut(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
     if index >= slots.len() {
         slots.resize_with(index + 1, Default::default);
     }
