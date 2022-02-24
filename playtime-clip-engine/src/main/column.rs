@@ -29,7 +29,6 @@ pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 pub struct Column {
     rt_settings: rt::ColumnSettings,
     rt_command_sender: ColumnSourceCommandSender,
-    track: Option<Track>,
     column_source: SharedColumnSource,
     preview_register: Option<PlayingPreviewRegister>,
     slots: Vec<Slot>,
@@ -55,7 +54,6 @@ impl Column {
             //     PlayingPreviewRegister::new(shared_source.clone(), track.as_ref())
             // },
             preview_register: None,
-            track: None,
             column_source: shared_source,
             rt_command_sender: ColumnSourceCommandSender::new(command_sender),
             slots: vec![],
@@ -101,11 +99,12 @@ impl Column {
     }
 
     pub fn save(&self) -> api::Column {
-        let track_id = self
-            .track
-            .as_ref()
-            .map(|t| t.guid().to_string_without_braces())
-            .map(api::TrackId);
+        let track_id = self.preview_register.as_ref().and_then(|reg| {
+            reg.track
+                .as_ref()
+                .map(|t| t.guid().to_string_without_braces())
+                .map(api::TrackId)
+        });
         api::Column {
             clip_play_settings: ColumnClipPlaySettings {
                 track: track_id,
