@@ -27,6 +27,7 @@ pub struct Matrix {
     pub rows: Option<Vec<Row>>,
     pub clip_play_settings: MatrixClipPlaySettings,
     pub clip_record_settings: MatrixClipRecordSettings,
+    // TODO-clip-implement
     pub common_tempo_range: TempoRange,
 }
 
@@ -51,6 +52,7 @@ impl Default for TempoRange {
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipPlaySettings {
     pub start_timing: ClipPlayStartTiming,
+    // TODO-clip-implement
     pub stop_timing: ClipPlayStopTiming,
     pub audio_settings: MatrixClipPlayAudioSettings,
 }
@@ -58,6 +60,7 @@ pub struct MatrixClipPlaySettings {
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipPlayAudioSettings {
+    // TODO-clip-implement
     pub time_stretch_mode: AudioTimeStretchMode,
 }
 
@@ -65,15 +68,23 @@ pub struct MatrixClipPlayAudioSettings {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordSettings {
+    // TODO-clip-implement
     pub start_timing: ClipRecordStartTiming,
+    // TODO-clip-implement
     pub stop_timing: ClipRecordStopTiming,
+    // TODO-clip-implement
     pub duration: RecordLength,
+    // TODO-clip-implement
     pub play_start_timing: ClipSettingOverrideAfterRecording<ClipPlayStartTiming>,
+    // TODO-clip-implement
     pub play_stop_timing: ClipSettingOverrideAfterRecording<ClipPlayStopTiming>,
+    // TODO-clip-implement
     pub time_base: ClipRecordTimeBase,
     /// If `true`, starts playing the clip right after recording.
+    // TODO-clip-implement
     pub play_after: bool,
     /// If `true`, sets the global tempo to the tempo of this clip right after recording.
+    // TODO-clip-implement
     pub lead_tempo: bool,
     pub midi_settings: MatrixClipRecordMidiSettings,
     pub audio_settings: MatrixClipRecordAudioSettings,
@@ -99,13 +110,17 @@ impl Default for MatrixClipRecordSettings {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordMidiSettings {
+    // TODO-clip-implement
     pub record_mode: MidiClipRecordMode,
     /// If `true`, attempts to detect the actual start of the recorded MIDI material and derives
     /// the downbeat position from that.
+    // TODO-clip-implement
     pub detect_downbeat: bool,
     /// Makes the global record button work for MIDI by allowing global input detection.
+    // TODO-clip-implement
     pub detect_input: bool,
     /// Applies quantization while recording using the current quantization settings.
+    // TODO-clip-implement
     pub auto_quantize: bool,
 }
 
@@ -125,8 +140,10 @@ impl Default for MatrixClipRecordMidiSettings {
 pub struct MatrixClipRecordAudioSettings {
     /// If `true`, attempts to detect the actual start of the recorded audio material and derives
     /// the downbeat position from that.
+    // TODO-clip-implement
     pub detect_downbeat: bool,
     /// Makes the global record button work for audio by allowing global input detection.
+    // TODO-clip-implement
     pub detect_input: bool,
 }
 
@@ -366,6 +383,7 @@ pub struct ColumnClipPlaySettings {
     /// Stop timing override.
     ///
     /// `None` means it uses the matrix-global stop timing.
+    // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_timing: Option<ClipPlayStopTiming>,
     pub audio_settings: ColumnClipPlayAudioSettings,
@@ -375,8 +393,10 @@ pub struct ColumnClipPlaySettings {
 #[serde(deny_unknown_fields)]
 pub struct ColumnClipRecordSettings {
     /// By default, Playtime records from the play track but this settings allows to override that.
+    // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<TrackId>,
+    // TODO-clip-implement
     pub origin: TrackRecordOrigin,
 }
 
@@ -384,6 +404,7 @@ pub struct ColumnClipRecordSettings {
 #[serde(deny_unknown_fields)]
 pub struct ColumnClipPlayAudioSettings {
     /// Overrides the matrix-global audio time stretch mode for clips in this column.
+    // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_stretch_mode: Option<AudioTimeStretchMode>,
 }
@@ -397,11 +418,14 @@ pub struct Row {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Scene {
+    // TODO-clip-implement
     pub name: Option<String>,
     /// An optional tempo associated with this row.
+    // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tempo: Option<Bpm>,
     /// An optional time signature associated with this row.
+    // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_signature: Option<TimeSignature>,
 }
@@ -497,6 +521,7 @@ pub struct Clip {
     /// Source of the audio/MIDI material of this clip.
     pub source: Source,
     /// Time base of the material provided by that source.
+    // TODO-clip-implement
     pub time_base: ClipTimeBase,
     /// Start timing override.
     ///
@@ -506,15 +531,19 @@ pub struct Clip {
     /// Stop timing override.
     ///
     /// `None` means it uses the column stop timing.
+    // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_timing: Option<ClipPlayStopTiming>,
     /// Whether the clip should be played repeatedly or as a single shot.
     pub looped: bool,
     /// Relative volume adjustment of clip.
+    // TODO-clip-implement
     pub volume: Db,
     /// Color of the clip.
+    // TODO-clip-implement
     pub color: ClipColor,
     /// Defines which portion of the original source should be played.
+    // TODO-clip-implement
     pub section: Section,
     pub audio_settings: ClipAudioSettings,
     pub midi_settings: ClipMidiSettings,
@@ -534,6 +563,7 @@ pub struct Clip {
 #[serde(deny_unknown_fields)]
 pub struct ClipAudioSettings {
     /// Whether to cache audio in memory.
+    // TODO-clip-implement
     pub cache_behavior: AudioCacheBehavior,
     /// Defines whether to apply automatic fades in order to fix potentially non-optimized source
     /// material.
@@ -557,6 +587,7 @@ pub struct ClipAudioSettings {
     /// ## `true`
     ///
     /// Applies automatic fades to fix non-optimized source material, if necessary.
+    // TODO-clip-implement
     pub apply_source_fades: bool,
     /// Defines how to adjust audio material.
     ///
@@ -564,6 +595,7 @@ pub struct ClipAudioSettings {
     /// tempo.
     ///
     /// `None` means it uses the column time stretch mode.
+    // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_stretch_mode: Option<AudioTimeStretchMode>,
 }
@@ -579,12 +611,16 @@ pub struct ClipAudioSettings {
 #[serde(deny_unknown_fields)]
 pub struct ClipMidiSettings {
     /// For fixing the source itself.
+    // TODO-clip-implement
     pub source_reset_settings: MidiResetMessageRange,
     /// For fine-tuning the section.
+    // TODO-clip-implement
     pub section_reset_settings: MidiResetMessageRange,
     /// For fine-tuning the complete loop.
+    // TODO-clip-implement
     pub loop_reset_settings: MidiResetMessageRange,
     /// For fine-tuning instant start/stop of a MIDI clip when in the middle of a source or section.
+    // TODO-clip-implement
     pub interaction_reset_settings: MidiResetMessageRange,
 }
 
