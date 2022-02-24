@@ -110,11 +110,7 @@ impl RealearnTarget for ClipTransportTarget {
                 if on {
                     clip_matrix.play_clip(self.basics.slot_index)?;
                 } else {
-                    clip_matrix.stop_clip_legacy(
-                        self.basics.slot_index,
-                        self.basics.stop_behavior(),
-                        self.project,
-                    )?;
+                    clip_matrix.stop_clip(self.basics.slot_index)?;
                 }
             }
             PlayPause => {
@@ -126,11 +122,7 @@ impl RealearnTarget for ClipTransportTarget {
             }
             Stop => {
                 if on {
-                    clip_matrix.stop_clip_legacy(
-                        self.basics.slot_index,
-                        self.basics.stop_behavior(),
-                        self.project,
-                    )?;
+                    clip_matrix.stop_clip(self.basics.slot_index)?;
                 }
             }
             Pause => {
@@ -161,11 +153,7 @@ impl RealearnTarget for ClipTransportTarget {
                         },
                     );
                 } else {
-                    clip_matrix.stop_clip_legacy(
-                        self.basics.slot_index,
-                        SlotStopBehavior::EndOfClip,
-                        self.project,
-                    );
+                    clip_matrix.stop_clip(self.basics.slot_index);
                 }
             }
             Repeat => {

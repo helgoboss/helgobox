@@ -3,7 +3,7 @@ use crate::rt::supplier::RecorderEquipment;
 use crate::rt::{
     ClipChangedEvent, ClipInfo, ClipPlayState, ColumnFillSlotArgs, ColumnPlayClipArgs,
     ColumnSetClipRepeatedArgs, ColumnSource, ColumnSourceCommandSender, ColumnSourceEvent,
-    RecordBehavior, SharedColumnSource, SlotProcessTransportChangeArgs, WeakColumnSource,
+    ColumnStopClipArgs, RecordBehavior, SharedColumnSource, WeakColumnSource,
 };
 use crate::{rt, ClipEngineResult};
 use crossbeam_channel::Receiver;
@@ -206,7 +206,7 @@ impl Column {
         self.rt_command_sender.play_clip(args);
     }
 
-    pub fn stop_clip(&mut self, args: crate::rt::ColumnStopClipArgs) {
+    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) {
         self.rt_command_sender.stop_clip(args);
     }
 

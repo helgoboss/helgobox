@@ -17,7 +17,7 @@ use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::{ClipEngineResult, QuantizedPosition};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
-use playtime_api::{ClipPlayStartTiming, EvenQuantization};
+use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming, EvenQuantization};
 use reaper_high::{OrCurrentProject, Project};
 use reaper_medium::{
     Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds,
@@ -38,6 +38,7 @@ pub struct Clip {
 #[derive(Copy, Clone, Debug)]
 struct PersistentPlayData {
     start_timing: Option<ClipPlayStartTiming>,
+    stop_timing: Option<ClipPlayStopTiming>,
     looped: bool,
 }
 
@@ -121,16 +122,23 @@ enum ReadySubState {
 #[derive(Copy, Clone, Debug, Default)]
 struct PlayingState {
     pub virtual_pos: VirtualPosition,
-    pub pos: Option<InnerPos>,
-    pub scheduled_for_stop: bool,
+    /// Position within material, not a timeline position.
+    pub pos: Option<MaterialPos>,
+    pub stop_request: Option<StopRequest>,
     pub overdubbing: bool,
     pub seek_pos: Option<usize>,
 }
 
 #[derive(Copy, Clone, Debug)]
+enum StopRequest {
+    AtEndOfClip,
+    Quantized(QuantizedPosition),
+}
+
+#[derive(Copy, Clone, Debug)]
 struct SuspendingState {
     pub next_state: StateAfterSuspension,
-    pub pos: InnerPos,
+    pub pos: MaterialPos,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -170,13 +178,13 @@ struct PausedState {
 /// - For these reasons, we use this relative-to-previous-block logic. It guarantees that the
 ///   clip is played continuously, no matter what. Simple and effective.
 //endregion
-type InnerPos = isize;
+type MaterialPos = isize;
 
 #[derive(Clone, Debug, Default)]
 pub struct SharedPos(Arc<AtomicIsize>);
 
 impl SharedPos {
-    pub fn get(&self) -> InnerPos {
+    pub fn get(&self) -> MaterialPos {
         self.0.load(Ordering::Relaxed)
     }
 
@@ -246,6 +254,7 @@ impl Clip {
             source_data: SourceData::from_source(&source, permanent_project.or_current_project()),
             persistent_data: PersistentPlayData {
                 start_timing: api_clip.start_timing,
+                stop_timing: api_clip.stop_timing,
                 looped: api_clip.looped,
             },
         };
@@ -292,7 +301,7 @@ impl Clip {
         }
     }
 
-    /// Plays the clip.
+    /// Plays the clip if it's not recording.
     pub fn play(&mut self, args: ClipPlayArgs) -> ClipEngineResult<PlayOutcome> {
         use ClipState::*;
         match &mut self.state {
@@ -303,6 +312,7 @@ impl Clip {
         }
     }
 
+    /// Stops the clip playing or recording.
     #[must_use]
     pub fn stop(&mut self, args: ClipStopArgs) -> SlotInstruction {
         use ClipState::*;
@@ -563,21 +573,23 @@ impl ReadyState {
     }
 
     pub fn play(&mut self, args: ClipPlayArgs, supplier_chain: &mut SupplierChain) -> PlayOutcome {
-        let virtual_pos = self.calculate_virtual_play_pos(args);
+        let virtual_pos = self.calculate_virtual_play_pos(&args);
         use ReadySubState::*;
         match self.state {
             // Not yet running.
             Stopped => self.schedule_play_internal(virtual_pos),
             Playing(s) => {
-                if s.scheduled_for_stop {
+                if s.stop_request.is_some() {
                     // Scheduled for stop. Backpedal!
                     // We can only schedule for stop when repeated, so we can set this
                     // back to Infinitely.
                     supplier_chain
                         .looper_mut()
                         .set_loop_behavior(LoopBehavior::Infinitely);
+                    // If we have a quantized stop, the ad-hoc fader might be active. Clear fades!
+                    supplier_chain.ad_hoc_fader_mut().reset();
                     self.state = Playing(PlayingState {
-                        scheduled_for_stop: false,
+                        stop_request: None,
                         ..s
                     });
                 } else {
@@ -628,7 +640,19 @@ impl ReadyState {
         PlayOutcome { virtual_pos }
     }
 
-    fn calculate_virtual_play_pos(&self, play_args: ClipPlayArgs) -> VirtualPosition {
+    fn resolve_stop_timing(&self, stop_args: &ClipStopArgs) -> ConcreteClipPlayStopTiming {
+        let start_timing = self
+            .persistent_data
+            .start_timing
+            .unwrap_or(stop_args.parent_start_timing);
+        let stop_timing = self
+            .persistent_data
+            .stop_timing
+            .unwrap_or(stop_args.parent_stop_timing);
+        ConcreteClipPlayStopTiming::resolve(start_timing, stop_timing)
+    }
+
+    fn calculate_virtual_play_pos(&self, play_args: &ClipPlayArgs) -> VirtualPosition {
         let start_timing = self
             .persistent_data
             .start_timing
@@ -658,35 +682,43 @@ impl ReadyState {
                 } else {
                     // Just playing, not recording.
                     if let Some(pos) = s.pos {
-                        if s.scheduled_for_stop {
-                            // Already scheduled for stop.
-                            if args.stop_behavior == ClipStopBehavior::Immediately {
-                                // Transition to stop now!
-                                self.state = Suspending(SuspendingState {
-                                    next_state: StateAfterSuspension::Stopped,
-                                    pos,
-                                });
-                            }
-                        } else {
+                        if s.stop_request.is_none() {
                             // Not yet scheduled for stop.
+                            // TODO-high Oh, here we probably need to consider the downbeat.
+                            //  Also check similar code passages.
                             self.state = if pos >= 0 {
                                 // Playing
-                                match args.stop_behavior {
-                                    ClipStopBehavior::Immediately => {
+                                let resolved_stop_timing = self.resolve_stop_timing(&args);
+                                use ConcreteClipPlayStopTiming::*;
+                                match resolved_stop_timing {
+                                    Immediately => {
                                         // Immediately. Transition to stop.
                                         Suspending(SuspendingState {
                                             next_state: StateAfterSuspension::Stopped,
                                             pos,
                                         })
                                     }
-                                    ClipStopBehavior::EndOfClip => {
+                                    Quantized(q) => {
+                                        let ref_pos = args
+                                            .ref_pos
+                                            .unwrap_or_else(|| args.timeline.cursor_pos());
+                                        let quantized_pos =
+                                            args.timeline.next_quantized_pos_at(ref_pos, q);
+                                        Playing(PlayingState {
+                                            stop_request: Some(StopRequest::Quantized(
+                                                quantized_pos,
+                                            )),
+                                            ..s
+                                        })
+                                    }
+                                    UntilEndOfClip => {
                                         if self.persistent_data.looped {
                                             // Schedule
                                             supplier_chain
                                                 .looper_mut()
                                                 .keep_playing_until_end_of_current_cycle(pos);
                                             Playing(PlayingState {
-                                                scheduled_for_stop: true,
+                                                stop_request: Some(StopRequest::AtEndOfClip),
                                                 ..s
                                             })
                                         } else {
@@ -711,7 +743,8 @@ impl ReadyState {
                 self.state = Stopped;
             }
             Suspending(s) => {
-                if args.stop_behavior == ClipStopBehavior::Immediately {
+                let resolved_stop_timing = self.resolve_stop_timing(&args);
+                if resolved_stop_timing == ConcreteClipPlayStopTiming::Immediately {
                     // We are in another transition already. Simply change it to stop.
                     self.state = Suspending(SuspendingState {
                         next_state: StateAfterSuspension::Stopped,
@@ -748,70 +781,10 @@ impl ReadyState {
         supplier_chain: &mut SupplierChain,
     ) {
         let general_info = self.prepare_playing(&args, supplier_chain);
-        struct Go {
-            pos: isize,
-            sample_rate_factor: f64,
-            new_seek_pos: Option<usize>,
-        }
-        impl Default for Go {
-            fn default() -> Self {
-                Go {
-                    pos: 0,
-                    sample_rate_factor: 1.0,
-                    new_seek_pos: None,
-                }
-            }
-        }
         let go = if let Some(pos) = s.pos {
             // Already counting in or playing.
             if let Some(seek_pos) = s.seek_pos {
-                // Seek requested.
-                if self.source_data.is_midi {
-                    // MIDI. Let's jump to the position directly.
-                    Go {
-                        pos: seek_pos as isize,
-                        sample_rate_factor: 1.0,
-                        new_seek_pos: None,
-                    }
-                } else {
-                    // Audio. Let's fast-forward if possible.
-                    let (sample_rate_factor, new_seek_pos) = if pos >= 0 {
-                        // Playing.
-                        let pos = pos as usize;
-                        let seek_pos = if pos < seek_pos {
-                            seek_pos
-                        } else {
-                            seek_pos + supplier_chain.section_frame_count_in_ready_state()
-                        };
-                        // We might need to fast-forward.
-                        let real_distance = seek_pos - pos;
-                        let desired_distance_in_secs = DurationInSeconds::new(0.300);
-                        let source_frame_rate = supplier_chain.source_frame_rate_in_ready_state();
-                        let desired_distance = convert_duration_in_seconds_to_frames(
-                            desired_distance_in_secs,
-                            source_frame_rate,
-                        );
-                        if desired_distance < real_distance {
-                            // We need to fast-forward.
-                            let playback_speed_factor =
-                                16.0f64.min(real_distance as f64 / desired_distance as f64);
-                            let sample_rate_factor = 1.0 / playback_speed_factor;
-                            (sample_rate_factor, Some(seek_pos))
-                        } else {
-                            // We are almost there anyway, so no.
-                            (1.0, None)
-                        }
-                    } else {
-                        // Counting in.
-                        // We prevent seek during count-in but just in case, we reject it here.
-                        (1.0, None)
-                    };
-                    Go {
-                        pos,
-                        sample_rate_factor,
-                        new_seek_pos,
-                    }
-                }
+                self.calculate_seek_go(supplier_chain, pos, seek_pos)
             } else {
                 // No seek requested
                 Go {
@@ -832,6 +805,28 @@ impl ReadyState {
                 ..Go::default()
             }
         };
+        // Resolve potential quantized stop position if not yet done.
+        if let Some(StopRequest::Quantized(quantized_pos)) = s.stop_request {
+            if !supplier_chain.ad_hoc_fader().has_fade_out() {
+                // We have a quantized stop request. Calculate distance from quantized position.
+                // This should be a negative position because we should be left of the stop.
+                let distance = self.calc_distance_from_quantized_pos(
+                    quantized_pos,
+                    args,
+                    general_info.clip_tempo_factor,
+                    supplier_chain,
+                );
+                // Derive stop position *within material*.
+                let stop_pos = go.pos - distance;
+                debug!(
+                    "Calculated stop position {} (go pos = {}, distance = {}, quantized pos = {:?})",
+                    stop_pos, go.pos, distance, quantized_pos
+                );
+                supplier_chain
+                    .ad_hoc_fader_mut()
+                    .schedule_fade_out_ending_at(stop_pos);
+            }
+        }
         self.state = if let Some(end_frame) = self.fill_samples(
             args,
             go.pos,
@@ -855,13 +850,68 @@ impl ReadyState {
                 ..s
             })
         } else {
-            // We have reached the natural or scheduled end. Everything that needed to be
-            // played has been played in previous blocks. Audio fade outs have been applied
-            // as well, so no need to go to suspending state first. Go right to stop!
+            // We have reached the natural or scheduled-stop (at end of clip) end. Everything that
+            // needed to be played has been played in previous blocks. Audio fade outs have been
+            // applied as well, so no need to go to suspending state first. Go right to stop!
             self.pre_buffer(supplier_chain, 0);
             self.reset_for_play(supplier_chain);
             ReadySubState::Stopped
         };
+    }
+
+    fn calculate_seek_go(
+        &mut self,
+        supplier_chain: &mut SupplierChain,
+        pos: MaterialPos,
+        seek_pos: usize,
+    ) -> Go {
+        // Seek requested.
+        if self.source_data.is_midi {
+            // MIDI. Let's jump to the position directly.
+            Go {
+                pos: seek_pos as isize,
+                sample_rate_factor: 1.0,
+                new_seek_pos: None,
+            }
+        } else {
+            // Audio. Let's fast-forward if possible.
+            let (sample_rate_factor, new_seek_pos) = if pos >= 0 {
+                // Playing.
+                let pos = pos as usize;
+                let seek_pos = if pos < seek_pos {
+                    seek_pos
+                } else {
+                    seek_pos + supplier_chain.section_frame_count_in_ready_state()
+                };
+                // We might need to fast-forward.
+                let real_distance = seek_pos - pos;
+                let desired_distance_in_secs = DurationInSeconds::new(0.300);
+                let source_frame_rate = supplier_chain.source_frame_rate_in_ready_state();
+                let desired_distance = convert_duration_in_seconds_to_frames(
+                    desired_distance_in_secs,
+                    source_frame_rate,
+                );
+                if desired_distance < real_distance {
+                    // We need to fast-forward.
+                    let playback_speed_factor =
+                        16.0f64.min(real_distance as f64 / desired_distance as f64);
+                    let sample_rate_factor = 1.0 / playback_speed_factor;
+                    (sample_rate_factor, Some(seek_pos))
+                } else {
+                    // We are almost there anyway, so no.
+                    (1.0, None)
+                }
+            } else {
+                // Counting in.
+                // We prevent seek during count-in but just in case, we reject it here.
+                (1.0, None)
+            };
+            Go {
+                pos,
+                sample_rate_factor,
+                new_seek_pos,
+            }
+        }
     }
 
     fn resolve_virtual_pos(
@@ -874,7 +924,7 @@ impl ReadyState {
         use VirtualPosition::*;
         match virtual_pos {
             Now => 0,
-            Quantized(qp) => self.calc_initial_pos_from_quantized_pos(
+            Quantized(qp) => self.calc_distance_from_quantized_pos(
                 qp,
                 process_args,
                 clip_tempo_factor,
@@ -1016,7 +1066,15 @@ impl ReadyState {
     /// we would start advancing the count-in cursor from a wrong initial state
     /// and therefore end up with the wrong point in time for starting the clip
     /// (too late, to be accurate, because we would start advancing too late).
-    fn calc_initial_pos_from_quantized_pos(
+    ///
+    /// Update: This second point is not as urgent anymore as it was before. Since recently,
+    /// we process incoming play requests always in real-time. But let's still resolve here.
+    /// It's possible that we want to support "Live FX multiprocessing" in future, which means
+    /// get_samples() will in most situations be called in a different real-time thread
+    /// (some REAPER worker thread) than the play-request code (audio interface thread).
+    /// This brings up the question: Does GetPlayPosition2Ex in the worker thread return the same
+    /// position as the audio interface thread would do? TODO-high Wait for Justin's answer.
+    fn calc_distance_from_quantized_pos(
         &self,
         quantized_pos: QuantizedPosition,
         args: &ClipProcessArgs,
@@ -1029,12 +1087,13 @@ impl ReadyState {
         let timeline_frame_rate = args.block.sample_rate();
         // Essential calculation
         let quantized_timeline_pos = args.timeline.pos_of_quantized_pos(quantized_pos);
-        let rel_pos_from_bar_in_secs = args.timeline_cursor_pos - quantized_timeline_pos;
-        let rel_pos_from_bar_in_source_frames = convert_position_in_seconds_to_frames(
-            rel_pos_from_bar_in_secs,
+        let rel_pos_from_quant_in_secs = args.timeline_cursor_pos - quantized_timeline_pos;
+        let rel_pos_from_quant_in_source_frames = convert_position_in_seconds_to_frames(
+            rel_pos_from_quant_in_secs,
             supplier_chain.source_frame_rate_in_ready_state(),
         );
         if quantized_pos.denominator() == 1 {
+            // Quantization to bar
             let args = LogNaturalDeviationArgs {
                 start_bar: quantized_pos.position() as _,
                 block: args.block,
@@ -1056,7 +1115,7 @@ impl ReadyState {
         // We use this countdown approach for two reasons.
         //
         // 1. In order to allow tempo changes during count-in time.
-        // 2. In future, the count-in phase might play source material already.
+        // 2. If the downbeat is > 0, the count-in phase plays source material already.
         //
         // Especially (2) means that the count-in phase will not always have that
         // ideal length which makes the source frame ZERO be perfectly aligned with
@@ -1072,7 +1131,7 @@ impl ReadyState {
             source_frame_rate,
         );
         adjust_proportionally_in_blocks(
-            rel_pos_from_bar_in_source_frames,
+            rel_pos_from_quant_in_source_frames,
             clip_tempo_factor,
             block_length_in_source_frames,
         )
@@ -1086,7 +1145,7 @@ impl ReadyState {
     ) -> Option<RecordingState> {
         let general_info = self.prepare_playing(&args, supplier_chain);
         let fader = supplier_chain.ad_hoc_fader_mut();
-        if !fader.is_fading_out() {
+        if !fader.has_fade_out() {
             fader.start_fade_out(s.pos);
         }
         self.state = if let Some(end_frame) =
@@ -1342,6 +1401,8 @@ impl ReadyState {
                         // Playing. Pause!
                         // (If this clip is scheduled for stop already, a pause will backpedal from
                         // that.)
+                        // TODO-high But in that case we should probably do the same backpedaling
+                        //  logic on the supplier chain like when backpedaling from stop in play.
                         self.state = Suspending(SuspendingState {
                             next_state: StateAfterSuspension::Paused(PausedState { pos }),
                             pos: pos as isize,
@@ -1413,7 +1474,7 @@ impl ReadyState {
             Playing(s) => {
                 if s.overdubbing {
                     ClipPlayState::Recording
-                } else if s.scheduled_for_stop {
+                } else if s.stop_request.is_some() {
                     ClipPlayState::ScheduledForStop
                 } else if let Some(pos) = s.pos {
                     if pos < 0 {
@@ -1462,7 +1523,8 @@ impl RecordingState {
                 TransitionToReady(ready_state)
             }
             Synced { start_bar, end_bar } => {
-                let next_bar = args.timeline.next_bar_at(args.timeline_cursor_pos);
+                let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
+                let next_bar = args.timeline.next_bar_at(ref_pos);
                 if next_bar <= start_bar {
                     // Zero point of recording hasn't even been reached yet. Try to roll back.
                     if let Some(rollback_data) = &self.rollback_data {
@@ -1589,6 +1651,8 @@ impl RecordingState {
             persistent_data: PersistentPlayData {
                 // TODO-high Set start timing
                 start_timing: None,
+                // TODO-high Set stop timing
+                stop_timing: None,
                 looped: play_after,
             },
         }
@@ -1630,6 +1694,15 @@ pub struct ClipPlayArgs<'a> {
     pub ref_pos: Option<PositionInSeconds>,
 }
 
+#[derive(Debug)]
+pub struct ClipStopArgs<'a> {
+    pub parent_start_timing: ClipPlayStartTiming,
+    pub parent_stop_timing: ClipPlayStopTiming,
+    pub timeline: &'a HybridTimeline,
+    /// Set this if you already have the current timeline position or want to stop a batch of clips.
+    pub ref_pos: Option<PositionInSeconds>,
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum VirtualPosition {
     Now,
@@ -1665,13 +1738,6 @@ impl ClipRecordInput {
     pub fn is_midi(&self) -> bool {
         matches!(self, Self::Midi)
     }
-}
-
-#[derive(Debug)]
-pub struct ClipStopArgs {
-    pub stop_behavior: ClipStopBehavior,
-    pub timeline_cursor_pos: PositionInSeconds,
-    pub timeline: HybridTimeline,
 }
 
 #[derive(PartialEq, Debug)]
@@ -1755,4 +1821,42 @@ pub enum ClipChangedEvent {
 
 pub struct PlayOutcome {
     pub virtual_pos: VirtualPosition,
+}
+
+#[derive(PartialEq)]
+enum ConcreteClipPlayStopTiming {
+    Immediately,
+    Quantized(EvenQuantization),
+    UntilEndOfClip,
+}
+
+impl ConcreteClipPlayStopTiming {
+    pub fn resolve(start_timing: ClipPlayStartTiming, stop_timing: ClipPlayStopTiming) -> Self {
+        use ClipPlayStopTiming::*;
+        match stop_timing {
+            LikeClipStartTiming => match start_timing {
+                ClipPlayStartTiming::Immediately => Self::Immediately,
+                ClipPlayStartTiming::Quantized(q) => Self::Quantized(q),
+            },
+            Immediately => Self::Immediately,
+            Quantized(q) => Self::Quantized(q),
+            UntilEndOfClip => Self::UntilEndOfClip,
+        }
+    }
+}
+
+struct Go {
+    pos: isize,
+    sample_rate_factor: f64,
+    new_seek_pos: Option<usize>,
+}
+
+impl Default for Go {
+    fn default() -> Self {
+        Go {
+            pos: 0,
+            sample_rate_factor: 1.0,
+            new_seek_pos: None,
+        }
+    }
 }

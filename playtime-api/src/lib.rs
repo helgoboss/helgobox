@@ -41,7 +41,7 @@ pub struct TempoRange {
 impl Default for TempoRange {
     fn default() -> Self {
         Self {
-            min: Bpm(80.0),
+            min: Bpm(60.0),
             max: Bpm(200.0),
         }
     }
@@ -52,7 +52,6 @@ impl Default for TempoRange {
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipPlaySettings {
     pub start_timing: ClipPlayStartTiming,
-    // TODO-clip-implement
     pub stop_timing: ClipPlayStopTiming,
     pub audio_settings: MatrixClipPlayAudioSettings,
 }
@@ -252,7 +251,7 @@ impl Default for ClipPlayStartTiming {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipPlayStopTiming {
     /// Uses the play start timing.
@@ -383,7 +382,6 @@ pub struct ColumnClipPlaySettings {
     /// Stop timing override.
     ///
     /// `None` means it uses the matrix-global stop timing.
-    // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_timing: Option<ClipPlayStopTiming>,
     pub audio_settings: ColumnClipPlayAudioSettings,
@@ -531,7 +529,6 @@ pub struct Clip {
     /// Stop timing override.
     ///
     /// `None` means it uses the column stop timing.
-    // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_timing: Option<ClipPlayStopTiming>,
     /// Whether the clip should be played repeatedly or as a single shot.

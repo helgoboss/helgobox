@@ -8,7 +8,7 @@ use crate::ClipEngineResult;
 use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
-use playtime_api::ClipPlayStartTiming;
+use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
 use reaper_high::Project;
 use reaper_medium::{
     reaper_str, CustomPcmSource, DurationInBeats, DurationInSeconds, ExtendedArgs, GetPeakInfoArgs,
@@ -164,6 +164,7 @@ impl EventSender for Sender<ColumnSourceEvent> {
 #[derive(Clone, Debug, Default)]
 pub struct ColumnSettings {
     pub clip_play_start_timing: Option<ClipPlayStartTiming>,
+    pub clip_play_stop_timing: Option<ClipPlayStopTiming>,
 }
 
 impl ColumnSource {
@@ -216,7 +217,19 @@ impl ColumnSource {
     }
 
     pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, args.slot_index).stop_clip(args.clip_args)
+        let clip_args = ClipStopArgs {
+            parent_start_timing: self
+                .settings
+                .clip_play_start_timing
+                .unwrap_or(args.parent_start_timing),
+            parent_stop_timing: self
+                .settings
+                .clip_play_stop_timing
+                .unwrap_or(args.parent_stop_timing),
+            timeline: &args.timeline,
+            ref_pos: args.ref_pos,
+        };
+        get_slot_mut(&mut self.slots, args.slot_index)?.stop_clip(clip_args)
     }
 
     pub fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> ClipEngineResult<()> {
@@ -337,6 +350,13 @@ impl ColumnSource {
     }
 
     fn get_samples(&mut self, mut args: GetSamplesArgs) {
+        // We have code, e.g. triggered by crossbeam_channel that requests the ID of the
+        // current thread. This operation needs an allocation at the first time it's executed
+        // on a specific thread. If Live FX multi-processing is enabled, get_samples() will be
+        // called from a non-sticky worker thread instead of the audio interface thread (for which
+        // we already do this), so we execute this here again in order to initialize the current
+        // thread outside of assert_no_alloc.
+        let _ = std::thread::current().id();
         assert_no_alloc(|| {
             self.process_commands();
             // Make sure that in any case, we are only queried once per time, without retries.
@@ -526,7 +546,11 @@ pub struct ColumnPlayClipArgs {
 #[derive(Debug)]
 pub struct ColumnStopClipArgs {
     pub slot_index: usize,
-    pub clip_args: ClipStopArgs,
+    pub parent_start_timing: ClipPlayStartTiming,
+    pub parent_stop_timing: ClipPlayStopTiming,
+    pub timeline: HybridTimeline,
+    /// Set this if you already have the current timeline position or want to stop a batch of clips.
+    pub ref_pos: Option<PositionInSeconds>,
 }
 
 #[derive(Debug)]

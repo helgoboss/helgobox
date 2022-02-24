@@ -4,9 +4,9 @@ use crate::rt::{
     RelevantPlayStateChange, SharedColumnSource, SlotProcessTransportChangeArgs, TransportChange,
     WeakColumnSource, FAKE_ROW_INDEX,
 };
-use crate::{clip_timeline, main, ClipEngineResult, Timeline};
+use crate::{clip_timeline, main, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
-use playtime_api::ClipPlayStartTiming;
+use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
 use reaper_high::{Project, Reaper};
 use reaper_medium::{PlayState, ProjectContext, ReaperPointer};
 use std::borrow::BorrowMut;
@@ -26,6 +26,7 @@ pub struct Matrix {
 #[derive(Clone, Debug, Default)]
 pub struct MatrixSettings {
     pub clip_play_start_timing: ClipPlayStartTiming,
+    pub clip_play_stop_timing: ClipPlayStopTiming,
 }
 
 impl Matrix {
@@ -85,6 +86,7 @@ impl Matrix {
                 timeline: &timeline,
                 timeline_cursor_pos: timeline.cursor_pos(),
                 parent_clip_play_start_timing: self.settings.clip_play_start_timing,
+                parent_clip_play_stop_timing: self.settings.clip_play_stop_timing,
             };
             for column in self.columns.iter().filter_map(|c| c.upgrade()) {
                 column.lock().process_transport_change(args.clone());
@@ -105,6 +107,7 @@ impl Matrix {
             timeline: &timeline,
             timeline_cursor_pos: timeline.cursor_pos(),
             parent_clip_play_start_timing: self.settings.clip_play_start_timing,
+            parent_clip_play_stop_timing: self.settings.clip_play_stop_timing,
         };
         for column in self.columns.iter().filter_map(|c| c.upgrade()) {
             column.lock().process_transport_change(args.clone());
@@ -113,17 +116,16 @@ impl Matrix {
 
     pub fn play_clip(&self, column_index: usize) -> ClipEngineResult<()> {
         let column = self.column_internal(column_index)?;
-        let timeline = clip_timeline(self.project, false);
         let args = ColumnPlayClipArgs {
             slot_index: FAKE_ROW_INDEX,
             parent_start_timing: self.settings.clip_play_start_timing,
             // TODO-medium This could be optimized. In real-time context, getting the timeline only
-            //  once per block could save some resources.
-            timeline,
+            //  once per block could save some resources. Sample with clip stop.
+            timeline: self.timeline(),
             // TODO-medium We could even take the frame offset of the MIDI
             //  event into account and from that calculate the exact timeline position (within the
             //  block). That amount of accuracy is probably not necessary, but it's almost too easy
-            //  to implement to not do it ...
+            //  to implement to not do it ... same with clip stop.
             ref_pos: None,
         };
         column.lock().borrow_mut().play_clip(args)?;
@@ -132,17 +134,19 @@ impl Matrix {
 
     pub fn stop_clip(&self, column_index: usize) -> ClipEngineResult<()> {
         let column = self.column_internal(column_index)?;
-        let timeline = clip_timeline(self.project, false);
         let args = ColumnStopClipArgs {
             slot_index: FAKE_ROW_INDEX,
-            clip_args: ClipStopArgs {
-                stop_behavior: ClipStopBehavior::EndOfClip,
-                timeline_cursor_pos: timeline.cursor_pos(),
-                timeline,
-            },
+            parent_start_timing: self.settings.clip_play_start_timing,
+            parent_stop_timing: self.settings.clip_play_stop_timing,
+            timeline: self.timeline(),
+            ref_pos: None,
         };
         column.lock().borrow_mut().stop_clip(args)?;
         Ok(())
+    }
+
+    fn timeline(&self) -> HybridTimeline {
+        clip_timeline(self.project, false)
     }
 
     pub fn pause_clip(&self, column_index: usize) -> ClipEngineResult<()> {

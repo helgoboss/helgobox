@@ -42,13 +42,13 @@ impl<S> AdHocFader<S> {
         }
     }
 
-    pub fn is_fading_in(&self) -> bool {
+    pub fn has_fade_in(&self) -> bool {
         self.fade
             .map(|f| f.direction == FadeDirection::FadeIn)
             .unwrap_or(false)
     }
 
-    pub fn is_fading_out(&self) -> bool {
+    pub fn has_fade_out(&self) -> bool {
         self.fade
             .map(|f| f.direction == FadeDirection::FadeOut)
             .unwrap_or(false)
@@ -76,6 +76,12 @@ impl<S> AdHocFader<S> {
     /// frame is the current frame.
     pub fn start_fade_out(&mut self, start_frame: isize) {
         self.start_fade(FadeDirection::FadeOut, start_frame);
+    }
+
+    /// Doesn't do anything special if a fade-in is running already.
+    pub fn schedule_fade_out_ending_at(&mut self, end_frame: isize) {
+        let start_frame = end_frame - FADE_LENGTH as isize;
+        self.fade = Some(Fade::new(start_frame, FadeDirection::FadeOut))
     }
 
     fn start_fade(&mut self, direction: FadeDirection, start_frame: isize) {

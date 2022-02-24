@@ -8,7 +8,7 @@ use crate::rt::{
 use crate::timeline::HybridTimeline;
 use crate::ClipEngineResult;
 use helgoboss_learn::UnitValue;
-use playtime_api::ClipPlayStartTiming;
+use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
 use reaper_high::Project;
 use reaper_medium::{Bpm, PlayState, PositionInSeconds, ReaperVolumeValue};
 
@@ -44,6 +44,7 @@ impl Slot {
         self.get_clip_mut()
     }
 
+    /// Plays the clip if this slot contains one.
     pub fn play_clip(&mut self, args: ClipPlayArgs) -> ClipEngineResult<()> {
         let outcome = self.get_clip_mut()?.play(args)?;
         self.runtime_data.last_play = Some(LastPlay {
@@ -52,6 +53,7 @@ impl Slot {
         Ok(())
     }
 
+    /// Stops the clip if this slot contains one.
     pub fn stop_clip(&mut self, args: ClipStopArgs) -> ClipEngineResult<()> {
         self.runtime_data.stop_was_caused_by_transport_change = false;
         if self.get_clip_mut()?.stop(args) == SlotInstruction::ClearSlot {
@@ -250,10 +252,12 @@ impl RuntimeData {
         keep_starting_with_transport: bool,
     ) -> SlotInstruction {
         self.stop_was_caused_by_transport_change = keep_starting_with_transport;
+        // TODO-high We should probably enforce an immediate stop here, or not?
         clip.stop(ClipStopArgs {
-            stop_behavior: ClipStopBehavior::Immediately,
-            timeline_cursor_pos: args.timeline_cursor_pos,
-            timeline: args.timeline.clone(),
+            parent_start_timing: args.parent_clip_play_start_timing,
+            parent_stop_timing: args.parent_clip_play_stop_timing,
+            timeline: args.timeline,
+            ref_pos: Some(args.timeline_cursor_pos),
         })
     }
 }
@@ -268,6 +272,7 @@ pub struct SlotProcessTransportChangeArgs<'a> {
     pub timeline: &'a HybridTimeline,
     pub timeline_cursor_pos: PositionInSeconds,
     pub parent_clip_play_start_timing: ClipPlayStartTiming,
+    pub parent_clip_play_stop_timing: ClipPlayStopTiming,
 }
 
 const SLOT_NOT_FILLED: &str = "slot not filled";

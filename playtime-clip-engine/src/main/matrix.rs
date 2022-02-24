@@ -1,28 +1,27 @@
-use crate::main::{Clip, ClipContent, ClipData, Column};
+use crate::main::{ClipContent, ClipData, Column};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, keep_stretching, RecorderEquipment, StretchWorkerRequest,
 };
 use crate::rt::{
-    ClipChangedEvent, ClipInfo, ClipPlayArgs, ClipPlayState, ClipStopArgs, ClipStopBehavior,
-    ColumnPlayClipArgs, ColumnStopClipArgs, RecordBehavior, RecordTiming, RtMatrixCommandSender,
-    SharedColumnSource, SlotProcessTransportChangeArgs, TransportChange, WeakColumnSource,
+    ClipChangedEvent, ClipInfo, ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs,
+    RecordBehavior, RecordTiming, RtMatrixCommandSender, SharedColumnSource, WeakColumnSource,
     FAKE_ROW_INDEX,
 };
-use crate::timeline::{clip_timeline, Timeline};
-use crate::{rt, ClipEngineResult};
+use crate::timeline::clip_timeline;
+use crate::{rt, ClipEngineResult, HybridTimeline};
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, ClipRecordStartTiming,
-    ClipRecordStopTiming, ClipRecordTimeBase, ClipSettingOverrideAfterRecording,
-    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings,
-    MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordAudioSettings,
-    MatrixClipRecordMidiSettings, MatrixClipRecordSettings, MidiClipRecordMode, RecordLength,
-    TempoRange, TimeStretchMode, TrackId, TrackRecordOrigin, VirtualTimeStretchMode,
+    AudioTimeStretchMode, ClipPlayStopTiming, ClipRecordStartTiming, ClipRecordStopTiming,
+    ClipRecordTimeBase, ClipSettingOverrideAfterRecording, ColumnClipPlayAudioSettings,
+    ColumnClipPlaySettings, ColumnClipRecordSettings, MatrixClipPlayAudioSettings,
+    MatrixClipPlaySettings, MatrixClipRecordAudioSettings, MatrixClipRecordMidiSettings,
+    MatrixClipRecordSettings, MidiClipRecordMode, RecordLength, TempoRange, TimeStretchMode,
+    TrackId, TrackRecordOrigin, VirtualTimeStretchMode,
 };
-use reaper_high::{Guid, Item, OrCurrentProject, Project, Reaper, Track};
+use reaper_high::{Guid, Item, OrCurrentProject, Project, Track};
 use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -142,6 +141,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let permanent_project = self.permanent_project();
         // Settings
         self.rt_settings.clip_play_start_timing = api_matrix.clip_play_settings.start_timing;
+        self.rt_settings.clip_play_stop_timing = api_matrix.clip_play_settings.stop_timing;
         self.rt_command_sender
             .update_settings(self.rt_settings.clone());
         // Columns
@@ -166,7 +166,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             rows: None,
             clip_play_settings: MatrixClipPlaySettings {
                 start_timing: self.rt_settings.clip_play_start_timing,
-                stop_timing: ClipPlayStopTiming::LikeClipStartTiming,
+                stop_timing: self.rt_settings.clip_play_stop_timing,
                 audio_settings: MatrixClipPlayAudioSettings {
                     time_stretch_mode: AudioTimeStretchMode::KeepingPitch(TimeStretchMode {
                         mode: VirtualTimeStretchMode::ProjectDefault,
@@ -291,41 +291,35 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn play_clip(&mut self, column_index: usize) -> ClipEngineResult<()> {
-        let project = self.permanent_project().or_current_project();
-        let timeline = clip_timeline(Some(project), false);
+        let timeline = self.timeline();
         let column = get_column_mut(&mut self.columns, column_index)?;
         let args = ColumnPlayClipArgs {
             slot_index: FAKE_ROW_INDEX,
             parent_start_timing: self.rt_settings.clip_play_start_timing,
-            timeline: timeline,
+            timeline,
             ref_pos: None,
         };
         column.play_clip(args);
         Ok(())
     }
 
-    /// If repeat is not enabled and `immediately` is false, this has essentially no effect.
-    pub fn stop_clip_legacy(
-        &mut self,
-        slot_index: usize,
-        stop_behavior: SlotStopBehavior,
-        project: Project,
-    ) -> ClipEngineResult<()> {
-        let column = get_column_mut(&mut self.columns, slot_index)?;
-        let timeline = clip_timeline(Some(project), false);
+    pub fn stop_clip(&mut self, column_index: usize) -> ClipEngineResult<()> {
+        let timeline = self.timeline();
+        let column = get_column_mut(&mut self.columns, column_index)?;
         let args = ColumnStopClipArgs {
-            slot_index: 0,
-            clip_args: ClipStopArgs {
-                stop_behavior: match stop_behavior {
-                    SlotStopBehavior::Immediately => ClipStopBehavior::Immediately,
-                    SlotStopBehavior::EndOfClip => ClipStopBehavior::EndOfClip,
-                },
-                timeline_cursor_pos: timeline.cursor_pos(),
-                timeline,
-            },
+            slot_index: FAKE_ROW_INDEX,
+            parent_start_timing: self.rt_settings.clip_play_start_timing,
+            parent_stop_timing: self.rt_settings.clip_play_stop_timing,
+            timeline,
+            ref_pos: None,
         };
         column.stop_clip(args);
         Ok(())
+    }
+
+    fn timeline(&self) -> HybridTimeline {
+        let project = self.permanent_project().or_current_project();
+        clip_timeline(Some(project), false)
     }
 
     pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<(ClipLocation, ClipChangedEvent)> {

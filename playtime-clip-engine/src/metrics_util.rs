@@ -34,10 +34,9 @@ pub fn measure_time<R>(id: &'static str, f: impl FnOnce() -> R) -> R {
         id,
         delta: start.elapsed(),
     };
-    METRICS_CHANNEL
-        .sender
-        .try_send(task)
-        .expect("metrics channel full");
+    if METRICS_CHANNEL.sender.try_send(task).is_err() {
+        debug!("Metrics channel is full");
+    }
     result
 }
 
@@ -48,7 +47,7 @@ struct MetricsChannel {
 
 impl Default for MetricsChannel {
     fn default() -> Self {
-        let (sender, receiver) = crossbeam_channel::bounded(500);
+        let (sender, receiver) = crossbeam_channel::bounded(5000);
         Self { sender, receiver }
     }
 }
