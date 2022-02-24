@@ -1,7 +1,7 @@
 use crate::main::ClipContent;
 use crate::rt::supplier::{
-    AdHocFader, Downbeat, ExactDuration, ExactFrameCount, Looper, Recorder, Resampler, Section,
-    StartEndFader, TimeStretcher, WithFrameRate,
+    AdHocFader, Downbeat, ExactDuration, ExactFrameCount, LoopBehavior, Looper, Recorder,
+    Resampler, Section, StartEndFader, TimeStretcher, WithFrameRate,
 };
 use crate::rt::ClipInfo;
 use reaper_high::Project;
@@ -49,6 +49,11 @@ impl SupplierChain {
         // recorder.enable_cache();
         recorder.set_pre_buffering_enabled(true);
         chain
+    }
+
+    pub fn set_looped(&mut self, looped: bool) {
+        self.looper_mut()
+            .set_loop_behavior(LoopBehavior::from_bool(looped));
     }
 
     pub fn prepare_supply(&mut self, auto_fades_enabled: bool) {

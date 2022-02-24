@@ -38,6 +38,7 @@ pub struct Clip {
 #[derive(Copy, Clone, Debug)]
 struct PersistentPlayData {
     start_timing: Option<ClipPlayStartTiming>,
+    looped: bool,
 }
 
 // TODO-medium It's a bit strange that this is copied on some state changes that happen within
@@ -104,7 +105,6 @@ enum ClipState {
 struct ReadyState {
     state: ReadySubState,
     source_data: SourceData,
-    repeated: bool,
     persistent_data: PersistentPlayData,
 }
 
@@ -211,7 +211,7 @@ struct RecordingState {
 
 #[derive(Copy, Clone, Debug)]
 struct RollbackData {
-    repeated: bool,
+    persistent_data: PersistentPlayData,
     source_data: SourceData,
 }
 
@@ -244,12 +244,13 @@ impl Clip {
         let mut ready_state = ReadyState {
             state: ReadySubState::Stopped,
             source_data: SourceData::from_source(&source, permanent_project.or_current_project()),
-            repeated: false,
             persistent_data: PersistentPlayData {
                 start_timing: api_clip.start_timing,
+                looped: api_clip.looped,
             },
         };
         let mut supplier_chain = SupplierChain::new(Recorder::ready(source, recorder_equipment));
+        ready_state.update_supplier_chain(&mut supplier_chain);
         ready_state.pre_buffer(&mut supplier_chain, 0);
         Self {
             supplier_chain,
@@ -323,20 +324,20 @@ impl Clip {
         }
     }
 
-    pub fn set_repeated(&mut self, repeated: bool) {
+    pub fn set_looped(&mut self, looped: bool) {
         use ClipState::*;
         match &mut self.state {
             Ready(s) => {
-                s.set_repeated(repeated, &mut self.supplier_chain);
+                s.set_looped(looped, &mut self.supplier_chain);
             }
-            Recording(s) => s.set_play_after(repeated),
+            Recording(s) => s.set_play_after(looped),
         }
     }
 
-    pub fn repeated(&self) -> bool {
+    pub fn looped(&self) -> bool {
         use ClipState::*;
         match self.state {
-            Ready(s) => s.repeated,
+            Ready(s) => s.persistent_data.looped,
             Recording(s) => s.play_after,
         }
     }
@@ -444,7 +445,7 @@ impl Clip {
     pub fn persistent_data(&self) -> Option<ClipData> {
         let clip = ClipData {
             volume: Default::default(),
-            repeat: self.repeated(),
+            repeat: self.looped(),
             content: self.content()?,
         };
         Some(clip)
@@ -545,16 +546,20 @@ impl ReadyState {
         frame % supplier_chain.section_frame_count_in_ready_state()
     }
 
-    pub fn set_repeated(&mut self, repeated: bool, supplier_chain: &mut SupplierChain) {
-        self.repeated = repeated;
+    pub fn set_looped(&mut self, looped: bool, supplier_chain: &mut SupplierChain) {
+        self.persistent_data.looped = looped;
         let looper = supplier_chain.looper_mut();
-        if !repeated {
+        if !looped {
             if let ReadySubState::Playing(PlayingState { pos: Some(pos), .. }) = self.state {
                 looper.keep_playing_until_end_of_current_cycle(pos);
                 return;
             }
         }
-        looper.set_loop_behavior(LoopBehavior::from_bool(repeated));
+        self.update_supplier_chain(supplier_chain);
+    }
+
+    fn update_supplier_chain(&self, supplier_chain: &mut SupplierChain) {
+        supplier_chain.set_looped(self.persistent_data.looped);
     }
 
     pub fn play(&mut self, args: ClipPlayArgs, supplier_chain: &mut SupplierChain) -> PlayOutcome {
@@ -675,7 +680,7 @@ impl ReadyState {
                                         })
                                     }
                                     ClipStopBehavior::EndOfClip => {
-                                        if self.repeated {
+                                        if self.persistent_data.looped {
                                             // Schedule
                                             supplier_chain
                                                 .looper_mut()
@@ -1135,7 +1140,7 @@ impl ReadyState {
             .reset_buffers_and_latency();
         supplier_chain
             .looper_mut()
-            .set_loop_behavior(LoopBehavior::from_bool(self.repeated));
+            .set_loop_behavior(LoopBehavior::from_bool(self.persistent_data.looped));
     }
 
     fn log_natural_deviation(
@@ -1292,7 +1297,7 @@ impl ReadyState {
             input: args.input,
             rollback_data: {
                 let data = RollbackData {
-                    repeated: self.repeated,
+                    persistent_data: self.persistent_data,
                     source_data: self.source_data,
                 };
                 Some(data)
@@ -1466,8 +1471,7 @@ impl RecordingState {
                         let ready_state = ReadyState {
                             state: ReadySubState::Stopped,
                             source_data: rollback_data.source_data,
-                            repeated: rollback_data.repeated,
-                            persistent_data: todo!(),
+                            persistent_data: rollback_data.persistent_data,
                         };
                         TransitionToReady(ready_state)
                     } else {
@@ -1582,8 +1586,11 @@ impl RecordingState {
             } else {
                 SourceData::from_audio(outcome.tempo, outcome.effective_duration)
             },
-            repeated: play_after,
-            persistent_data: todo!(),
+            persistent_data: PersistentPlayData {
+                // TODO-high Set start timing
+                start_timing: None,
+                looped: play_after,
+            },
         }
     }
 }

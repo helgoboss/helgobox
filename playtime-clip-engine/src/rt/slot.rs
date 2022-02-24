@@ -5,7 +5,7 @@ use crate::rt::{
     Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs,
     ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, SlotInstruction,
 };
-use crate::timeline::{HybridTimeline, Timeline, TimelineMoment};
+use crate::timeline::HybridTimeline;
 use crate::ClipEngineResult;
 use helgoboss_learn::UnitValue;
 use playtime_api::ClipPlayStartTiming;
@@ -61,7 +61,7 @@ impl Slot {
     }
 
     pub fn set_clip_repeated(&mut self, repeated: bool) -> ClipEngineResult<()> {
-        self.get_clip_mut()?.set_repeated(repeated);
+        self.get_clip_mut()?.set_looped(repeated);
         Ok(())
     }
 

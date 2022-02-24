@@ -1,24 +1,22 @@
 use crate::rt::supplier::{RecorderEquipment, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordInput,
-    ClipStopArgs, RecordBehavior, RelevantPlayStateChange, Slot, SlotProcessTransportChangeArgs,
-    TransportChange,
+    ClipStopArgs, RecordBehavior, Slot, SlotProcessTransportChangeArgs,
 };
-use crate::timeline::{clip_timeline, HybridTimeline, Timeline, TimelineMoment};
+use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
 use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use playtime_api::ClipPlayStartTiming;
-use reaper_high::{Project, Reaper};
+use reaper_high::Project;
 use reaper_medium::{
     reaper_str, CustomPcmSource, DurationInBeats, DurationInSeconds, ExtendedArgs, GetPeakInfoArgs,
-    GetSamplesArgs, Hz, LoadStateArgs, OwnedPcmSource, PcmSource, PeaksClearArgs, PlayState,
-    PositionInSeconds, ProjectContext, PropertiesWindowArgs, ReaperStr, ReaperVolumeValue,
-    SaveStateArgs, SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
+    GetSamplesArgs, Hz, LoadStateArgs, OwnedPcmSource, PcmSource, PeaksClearArgs,
+    PositionInSeconds, PropertiesWindowArgs, ReaperStr, ReaperVolumeValue, SaveStateArgs,
+    SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
 };
 use std::error::Error;
-use std::mem;
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
 #[derive(Clone, Debug)]

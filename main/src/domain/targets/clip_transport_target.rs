@@ -344,7 +344,7 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
             PlayStop | PlayPause | Stop | Pause | RecordStop => {
                 clip_play_state_unit_value(self.basics.action, clip.play_state())
             }
-            Repeat => transport_is_enabled_unit_value(clip.repeated()),
+            Repeat => transport_is_enabled_unit_value(clip.looped()),
         };
         Some(AbsoluteValue::Continuous(val))
     }

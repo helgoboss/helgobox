@@ -21,6 +21,10 @@ struct ClipRuntimeData {
 }
 
 impl Clip {
+    // TODO-high Just like a column can live "offline" and keep its settings without a track, a clip
+    //  should be able to live "offline" and keep its settings if its content couldn't be loaded.
+    //  As a consequence, we should introduce a default constructor and a separate load() member
+    //  method.
     pub fn load(api_clip: api::Clip) -> Clip {
         Clip {
             persistent_data: api_clip,
