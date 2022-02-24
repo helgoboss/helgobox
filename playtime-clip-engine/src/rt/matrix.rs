@@ -61,7 +61,7 @@ impl Matrix {
                     let column = self.columns.remove(index);
                     self.main_command_sender.throw_away(column);
                 }
-                Clear => {
+                ClearColumns => {
                     for column in self.columns.drain(..) {
                         self.main_command_sender.throw_away(column);
                     }
@@ -164,14 +164,14 @@ impl Matrix {
 pub enum MatrixCommand {
     InsertColumn(usize, WeakColumnSource),
     RemoveColumn(usize),
-    Clear,
+    ClearColumns,
     UpdateSettings(MatrixSettings),
 }
 
 pub trait RtMatrixCommandSender {
     fn insert_column(&self, index: usize, source: WeakColumnSource);
     fn remove_column(&self, index: usize);
-    fn clear(&self);
+    fn clear_columns(&self);
     fn update_settings(&self, settings: MatrixSettings);
     fn send_command(&self, command: MatrixCommand);
 }
@@ -189,8 +189,8 @@ impl RtMatrixCommandSender for Sender<MatrixCommand> {
         self.send_command(MatrixCommand::RemoveColumn(index));
     }
 
-    fn clear(&self) {
-        self.send_command(MatrixCommand::Clear);
+    fn clear_columns(&self) {
+        self.send_command(MatrixCommand::ClearColumns);
     }
 
     fn send_command(&self, command: MatrixCommand) {

@@ -103,11 +103,16 @@ impl ClipContent {
     }
 
     /// Creates a REAPER PCM source from this content.
-    pub fn create_source(&self, project: Option<Project>) -> ClipEngineResult<OwnedSource> {
+    ///
+    /// If no project is given, the path will not be relative.
+    pub fn create_source(
+        &self,
+        project_for_relative_path: Option<Project>,
+    ) -> ClipEngineResult<OwnedSource> {
         match self {
             ClipContent::File { file } => {
                 let absolute_file = if file.is_relative() {
-                    project
+                    project_for_relative_path
                         .ok_or("slot source given as relative file but without project")?
                         .make_path_absolute(&file)
                         .ok_or("couldn't make clip source path absolute")?

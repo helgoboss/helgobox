@@ -455,7 +455,7 @@ impl SessionData {
                     .require_clip_matrix_mut()
                     .load(matrix.clone())?;
             } else if !self.clip_slots.is_empty() {
-                instance_state.require_clip_matrix_mut().load_slots_legacy(
+                instance_state.require_clip_matrix_mut().load_legacy(
                     self.clip_slots
                         .iter()
                         .map(|desc| LegacySlotDescriptor {
@@ -464,7 +464,6 @@ impl SessionData {
                             clip: desc.descriptor.clone(),
                         })
                         .collect(),
-                    Some(session.context().project_or_current_project()),
                 )?;
             } else {
                 instance_state.shut_down_clip_matrix();

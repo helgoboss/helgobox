@@ -16,7 +16,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Matrix {
     /// All columns from left to right.
@@ -37,8 +37,17 @@ pub struct TempoRange {
     pub max: Bpm,
 }
 
+impl Default for TempoRange {
+    fn default() -> Self {
+        Self {
+            min: Bpm(80.0),
+            max: Bpm(200.0),
+        }
+    }
+}
+
 /// Matrix-global settings related to playing clips.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipPlaySettings {
     pub start_timing: ClipPlayStartTiming,
@@ -46,7 +55,7 @@ pub struct MatrixClipPlaySettings {
     pub audio_settings: MatrixClipPlayAudioSettings,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipPlayAudioSettings {
     pub time_stretch_mode: AudioTimeStretchMode,
@@ -70,6 +79,23 @@ pub struct MatrixClipRecordSettings {
     pub audio_settings: MatrixClipRecordAudioSettings,
 }
 
+impl Default for MatrixClipRecordSettings {
+    fn default() -> Self {
+        Self {
+            start_timing: Default::default(),
+            stop_timing: Default::default(),
+            duration: Default::default(),
+            play_start_timing: Default::default(),
+            play_stop_timing: Default::default(),
+            time_base: Default::default(),
+            play_after: true,
+            lead_tempo: false,
+            midi_settings: Default::default(),
+            audio_settings: Default::default(),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordMidiSettings {
@@ -83,6 +109,17 @@ pub struct MatrixClipRecordMidiSettings {
     pub auto_quantize: bool,
 }
 
+impl Default for MatrixClipRecordMidiSettings {
+    fn default() -> Self {
+        Self {
+            record_mode: Default::default(),
+            detect_downbeat: true,
+            detect_input: true,
+            auto_quantize: false,
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordAudioSettings {
@@ -91,6 +128,15 @@ pub struct MatrixClipRecordAudioSettings {
     pub detect_downbeat: bool,
     /// Makes the global record button work for audio by allowing global input detection.
     pub detect_input: bool,
+}
+
+impl Default for MatrixClipRecordAudioSettings {
+    fn default() -> Self {
+        Self {
+            detect_downbeat: false,
+            detect_input: false,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -102,14 +148,26 @@ pub enum RecordLength {
     Quantized(EvenQuantization),
 }
 
+impl Default for RecordLength {
+    fn default() -> Self {
+        Self::OpenEnd
+    }
+}
+
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub enum ClipRecordTimeBase {
+    /// Derives the time base of the resulting clip from the clip start/stop timing.
+    DeriveFromRecordTiming,
     /// Sets the time base of the recorded clip to [`ClipTimeBase::Time`].
     Time,
     /// Sets the time base of the recorded clip to [`ClipTimeBase::Beat`].
     Beat,
-    /// Derives the time base of the resulting clip from the clip start/stop timing.
-    DeriveFromRecordTiming,
+}
+
+impl Default for ClipRecordTimeBase {
+    fn default() -> Self {
+        Self::DeriveFromRecordTiming
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -123,6 +181,12 @@ pub enum ClipRecordStartTiming {
     Quantized(EvenQuantization),
 }
 
+impl Default for ClipRecordStartTiming {
+    fn default() -> Self {
+        Self::LikeClipPlayStartTiming
+    }
+}
+
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipRecordStopTiming {
@@ -134,6 +198,12 @@ pub enum ClipRecordStopTiming {
     Quantized(EvenQuantization),
 }
 
+impl Default for ClipRecordStopTiming {
+    fn default() -> Self {
+        Self::LikeClipRecordStartTiming
+    }
+}
+
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub enum MidiClipRecordMode {
     /// Creates an empty clip and records MIDI material in it.
@@ -142,6 +212,12 @@ pub enum MidiClipRecordMode {
     Overdub,
     /// Records more material onto an existing clip, overwriting existing material.
     Replace,
+}
+
+impl Default for MidiClipRecordMode {
+    fn default() -> Self {
+        Self::Normal
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -172,6 +248,12 @@ pub enum ClipPlayStopTiming {
     UntilEndOfClip,
 }
 
+impl Default for ClipPlayStopTiming {
+    fn default() -> Self {
+        Self::LikeClipStartTiming
+    }
+}
+
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipSettingOverrideAfterRecording<T> {
@@ -181,6 +263,12 @@ pub enum ClipSettingOverrideAfterRecording<T> {
     Override(Override<T>),
     /// Overrides the setting with a value derived from the record timing.
     OverrideFromRecordTiming,
+}
+
+impl<T> Default for ClipSettingOverrideAfterRecording<T> {
+    fn default() -> Self {
+        Self::Inherit
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -331,6 +419,12 @@ pub enum AudioTimeStretchMode {
     KeepingPitch(TimeStretchMode),
 }
 
+impl Default for AudioTimeStretchMode {
+    fn default() -> Self {
+        Self::KeepingPitch(Default::default())
+    }
+}
+
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct VariSpeedMode {
@@ -352,7 +446,7 @@ pub struct ReaperResampleMode {
     pub mode: u32,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TimeStretchMode {
     pub mode: VirtualTimeStretchMode,
@@ -365,6 +459,12 @@ pub enum VirtualTimeStretchMode {
     ProjectDefault,
     /// Uses a specific REAPER pitch shift mode.
     ReaperMode(ReaperPitchShiftMode),
+}
+
+impl Default for VirtualTimeStretchMode {
+    fn default() -> Self {
+        Self::ProjectDefault
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]

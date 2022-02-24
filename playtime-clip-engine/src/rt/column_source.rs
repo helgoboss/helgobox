@@ -64,6 +64,10 @@ impl ColumnSourceCommandSender {
         Self { command_sender }
     }
 
+    pub fn clear_slots(&self) {
+        self.send_source_task(ColumnSourceCommand::ClearSlots);
+    }
+
     pub fn update_settings(&self, settings: ColumnSettings) {
         self.send_source_task(ColumnSourceCommand::UpdateSettings(settings));
     }
@@ -106,6 +110,7 @@ impl ColumnSourceCommandSender {
 
 #[derive(Debug)]
 pub enum ColumnSourceCommand {
+    ClearSlots,
     UpdateSettings(ColumnSettings),
     FillSlot(ColumnFillSlotArgs),
     PlayClip(ColumnPlayClipArgs),
@@ -135,7 +140,7 @@ pub struct ColumnSettings {
 
 impl ColumnSource {
     pub fn new(
-        project: Option<Project>,
+        permanent_project: Option<Project>,
         command_receiver: Receiver<ColumnSourceCommand>,
         event_sender: Sender<ColumnSourceEvent>,
     ) -> Self {
@@ -148,7 +153,7 @@ impl ColumnSource {
             //  the mutex in the meanwhile and try a second time as soon as we have the allocation
             //  ready.
             slots: Vec::with_capacity(8),
-            project,
+            project: permanent_project,
             command_receiver,
             event_sender,
         }
@@ -269,6 +274,9 @@ impl ColumnSource {
         while let Ok(task) = self.command_receiver.try_recv() {
             use ColumnSourceCommand::*;
             match task {
+                ClearSlots => {
+                    self.slots.clear();
+                }
                 UpdateSettings(s) => {
                     self.settings = s;
                 }

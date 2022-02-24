@@ -18,7 +18,7 @@ use crate::{ClipEngineResult, QuantizedPosition};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{ClipPlayStartTiming, EvenQuantization};
-use reaper_high::Project;
+use reaper_high::{OrCurrentProject, Project};
 use reaper_medium::{
     Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds,
     ReaperVolumeValue,
@@ -54,7 +54,7 @@ pub struct SourceData {
 }
 
 impl SourceData {
-    pub fn from_source(source: &OwnedPcmSource, project: Option<Project>) -> Self {
+    pub fn from_source(source: &OwnedPcmSource, project: Project) -> Self {
         if pcm_source_is_midi(source) {
             Self::from_midi(source.duration())
         } else {
@@ -238,12 +238,12 @@ impl Clip {
     pub fn from_source(
         api_clip: &api::Clip,
         source: OwnedPcmSource,
-        project: Option<Project>,
+        permanent_project: Option<Project>,
         recorder_equipment: RecorderEquipment,
     ) -> Self {
         let mut ready_state = ReadyState {
             state: ReadySubState::Stopped,
-            source_data: SourceData::from_source(&source, project),
+            source_data: SourceData::from_source(&source, permanent_project.or_current_project()),
             repeated: false,
             persistent_data: PersistentPlayData {
                 start_timing: api_clip.start_timing,
@@ -254,7 +254,7 @@ impl Clip {
         Self {
             supplier_chain,
             state: ClipState::Ready(ready_state),
-            project,
+            project: permanent_project,
             shared_pos: Default::default(),
         }
     }

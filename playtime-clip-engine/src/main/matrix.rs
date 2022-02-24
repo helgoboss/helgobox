@@ -17,11 +17,12 @@ use playtime_api as api;
 use playtime_api::{
     AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, ClipRecordStartTiming,
     ClipRecordStopTiming, ClipRecordTimeBase, ClipSettingOverrideAfterRecording,
+    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings,
     MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordAudioSettings,
     MatrixClipRecordMidiSettings, MatrixClipRecordSettings, MidiClipRecordMode, RecordLength,
-    TempoRange, TimeStretchMode, VirtualTimeStretchMode,
+    TempoRange, TimeStretchMode, TrackId, TrackRecordOrigin, VirtualTimeStretchMode,
 };
-use reaper_high::{Guid, Item, Project, Reaper, Track};
+use reaper_high::{Guid, Item, OrCurrentProject, Project, Reaper, Track};
 use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -137,8 +138,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
-        self.clear();
-        let project = self.resolved_project();
+        self.clear_columns();
+        let permanent_project = self.permanent_project();
         // Settings
         self.rt_settings.clip_play_start_timing = api_matrix.clip_play_settings.start_timing;
         self.rt_command_sender
@@ -150,17 +151,12 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .into_iter()
             .enumerate()
         {
-            let track = if let Some(id) = api_column.clip_play_settings.track.as_ref() {
-                let guid = Guid::from_string_without_braces(&id.0)?;
-                Some(project.track_by_guid(&guid))
-            } else {
-                None
-            };
-            let mut column = Column::new(track);
-            column.load(api_column, Some(project), &self.recorder_equipment)?;
+            let mut column = Column::new(permanent_project);
+            column.load(api_column, permanent_project, &self.recorder_equipment)?;
             self.rt_command_sender.insert_column(i, column.source());
             self.columns.push(column);
         }
+        self.handler.notify_slot_contents_changed();
         Ok(())
     }
 
@@ -204,68 +200,81 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
-    fn resolved_project(&self) -> Project {
-        self.project()
-            .unwrap_or_else(|| Reaper::get().current_project())
-    }
-
-    fn project(&self) -> Option<Project> {
+    fn permanent_project(&self) -> Option<Project> {
         self.containing_track.as_ref().map(|t| t.project())
     }
 
-    pub fn clear(&mut self) {
+    pub fn clear_columns(&mut self) {
         // TODO-medium How about suspension?
         self.columns.clear();
-        self.rt_command_sender.clear();
+        self.rt_command_sender.clear_columns();
     }
 
     /// This is for loading slots the legacy way.
-    pub fn load_slots_legacy(
-        &mut self,
-        descriptors: Vec<LegacySlotDescriptor>,
-        project: Option<Project>,
-    ) -> ClipEngineResult<()> {
-        self.clear();
-        for desc in descriptors {
-            let resolved_track = if let Some(track) = self.containing_track.as_ref() {
-                desc.output.resolve_track(track.clone())
-            } else {
-                None
-            };
-            let mut column = Column::new(resolved_track);
-            let row = 0;
-            let api_clip = api::Clip {
-                source: match desc.clip.content {
-                    ClipContent::File { file } => api::Source::File(api::FileSource { path: file }),
-                    ClipContent::MidiChunk { chunk } => {
-                        api::Source::MidiChunk(api::MidiChunkSource { chunk })
-                    }
-                },
-                time_base: api::ClipTimeBase::Time,
-                start_timing: None,
-                stop_timing: None,
-                looped: desc.clip.repeat,
-                volume: api::Db(0.0),
-                color: api::ClipColor::PlayTrackColor,
-                section: api::Section {
-                    start_pos: api::Seconds(0.0),
-                    length: None,
-                },
-                audio_settings: api::ClipAudioSettings {
-                    cache_behavior: api::AudioCacheBehavior::DirectFromDisk,
-                    apply_source_fades: false,
-                    time_stretch_mode: None,
-                },
-                midi_settings: Default::default(),
-            };
-            let clip = Clip::load(api_clip);
-            column.fill_slot_legacy(row, clip, project, &self.recorder_equipment)?;
-            self.rt_command_sender
-                .insert_column(desc.index, column.source());
-            self.columns.push(column);
-        }
-        self.handler.notify_slot_contents_changed();
-        Ok(())
+    pub fn load_legacy(&mut self, descriptors: Vec<LegacySlotDescriptor>) -> ClipEngineResult<()> {
+        let api_matrix = api::Matrix {
+            columns: {
+                let api_columns: ClipEngineResult<Vec<_>> = descriptors
+                    .into_iter()
+                    .map(|desc| {
+                        let api_column = api::Column {
+                            clip_play_settings: ColumnClipPlaySettings {
+                                track: desc
+                                    .output
+                                    .resolve_track(self.containing_track.clone())?
+                                    .map(|t| TrackId(t.guid().to_string_without_braces())),
+                                start_timing: None,
+                                stop_timing: None,
+                                audio_settings: ColumnClipPlayAudioSettings {
+                                    time_stretch_mode: None,
+                                },
+                            },
+                            clip_record_settings: ColumnClipRecordSettings {
+                                track: None,
+                                origin: TrackRecordOrigin::TrackInput,
+                            },
+                            slots: {
+                                let api_clip = api::Clip {
+                                    source: match desc.clip.content {
+                                        ClipContent::File { file } => {
+                                            api::Source::File(api::FileSource { path: file })
+                                        }
+                                        ClipContent::MidiChunk { chunk } => {
+                                            api::Source::MidiChunk(api::MidiChunkSource { chunk })
+                                        }
+                                    },
+                                    time_base: api::ClipTimeBase::Time,
+                                    start_timing: None,
+                                    stop_timing: None,
+                                    looped: desc.clip.repeat,
+                                    volume: api::Db(0.0),
+                                    color: api::ClipColor::PlayTrackColor,
+                                    section: api::Section {
+                                        start_pos: api::Seconds(0.0),
+                                        length: None,
+                                    },
+                                    audio_settings: api::ClipAudioSettings {
+                                        cache_behavior: api::AudioCacheBehavior::DirectFromDisk,
+                                        apply_source_fades: false,
+                                        time_stretch_mode: None,
+                                    },
+                                    midi_settings: Default::default(),
+                                };
+                                let api_slot = api::Slot {
+                                    row: 0,
+                                    clip: Some(api_clip),
+                                };
+                                Some(vec![api_slot])
+                            },
+                        };
+                        Ok(api_column)
+                    })
+                    .collect();
+                Some(api_columns?)
+            },
+            ..Default::default()
+        };
+        self.load(api_matrix)
     }
 
     pub fn filled_slot_descriptors_legacy(&self) -> Vec<QualifiedSlotDescriptor> {
@@ -282,12 +291,13 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     }
 
     pub fn play_clip(&mut self, column_index: usize) -> ClipEngineResult<()> {
-        let project = self.resolved_project();
+        let project = self.permanent_project().or_current_project();
+        let timeline = clip_timeline(Some(project), false);
         let column = get_column_mut(&mut self.columns, column_index)?;
         let args = ColumnPlayClipArgs {
             slot_index: FAKE_ROW_INDEX,
             parent_start_timing: self.rt_settings.clip_play_start_timing,
-            timeline: clip_timeline(Some(project), false),
+            timeline: timeline,
             ref_pos: None,
         };
         column.play_clip(args);
@@ -485,26 +495,30 @@ pub enum LegacyClipOutput {
 }
 
 impl LegacyClipOutput {
-    fn resolve_track(&self, containing_track: Track) -> Option<Track> {
+    fn resolve_track(&self, containing_track: Option<Track>) -> ClipEngineResult<Option<Track>> {
         use LegacyClipOutput::*;
-        match self {
-            MasterTrack => Some(containing_track.project().master_track()),
-            ThisTrack => Some(containing_track),
+        let containing_track = containing_track.ok_or(
+            "track-based columns are not supported when clip engine runs in monitoring FX chain",
+        );
+        let track = match self {
+            MasterTrack => Some(containing_track?.project().master_track()),
+            ThisTrack => Some(containing_track?),
             TrackById(id) => {
-                let track = containing_track.project().track_by_guid(id);
+                let track = containing_track?.project().track_by_guid(id);
                 if track.is_available() {
                     Some(track)
                 } else {
                     None
                 }
             }
-            TrackByIndex(index) => containing_track.project().track_by_index(*index),
-            TrackByName(name) => containing_track
+            TrackByIndex(index) => containing_track?.project().track_by_index(*index),
+            TrackByName(name) => containing_track?
                 .project()
                 .tracks()
                 .find(|t| t.name().map(|n| n.to_str() == name).unwrap_or(false)),
             HardwareOutput => None,
-        }
+        };
+        Ok(track)
     }
 }
 

@@ -34,14 +34,14 @@ impl Clip {
 
     pub fn create_real_time_clip(
         &self,
-        project: Option<Project>,
+        permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
     ) -> ClipEngineResult<rt::Clip> {
-        let source = load_source(&self.persistent_data.source, project)?;
+        let source = load_source(&self.persistent_data.source, permanent_project)?;
         Ok(rt::Clip::from_source(
             &self.persistent_data,
             source,
-            project,
+            permanent_project,
             recorder_equipment.clone(),
         ))
     }
