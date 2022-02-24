@@ -147,11 +147,12 @@ impl Column {
     fn fill_slot_internal(
         &mut self,
         row: usize,
-        clip: Clip,
+        mut clip: Clip,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
     ) -> ClipEngineResult<()> {
         let rt_clip = clip.create_real_time_clip(permanent_project, recorder_equipment)?;
+        clip.connect_to(&rt_clip);
         get_slot_mut(&mut self.slots, row).clip = Some(clip);
         let args = ColumnFillSlotArgs {
             index: row,
@@ -167,16 +168,24 @@ impl Column {
         while let Ok(evt) = self.event_receiver.try_recv() {
             use ColumnSourceEvent::*;
             let change_event = match evt {
-                ClipPlayStateChanged { index, play_state } => {
-                    get_slot_mut(&mut self.slots, index)
-                        .clip
-                        .as_mut()
-                        .expect("slot not filled")
-                        .update_play_state(play_state);
-                    (index, ClipChangedEvent::PlayState(play_state))
+                ClipPlayStateChanged {
+                    slot_index,
+                    play_state,
+                } => {
+                    get_clip_mut(&mut self.slots, slot_index).update_play_state(play_state);
+                    Some((slot_index, ClipChangedEvent::PlayState(play_state)))
+                }
+                ClipFrameCountUpdated {
+                    slot_index,
+                    frame_count,
+                } => {
+                    get_clip_mut(&mut self.slots, slot_index).update_frame_count(frame_count);
+                    None
                 }
             };
-            change_events.push(change_event);
+            if let Some(evt) = change_event {
+                change_events.push(evt);
+            }
         }
         // Add position updates
         let pos_change_events = self.slots.iter().enumerate().filter_map(|(row, slot)| {
@@ -366,6 +375,13 @@ fn start_playing_preview(
 
 fn get_slot(slots: &Vec<Slot>, index: usize) -> ClipEngineResult<&Slot> {
     slots.get(index).ok_or("slot doesn't exist")
+}
+
+fn get_clip_mut(slots: &mut Vec<Slot>, index: usize) -> &mut Clip {
+    get_slot_mut(slots, index)
+        .clip
+        .as_mut()
+        .expect("slot not filled")
 }
 
 fn get_slot_mut(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {

@@ -131,6 +131,36 @@ pub struct ColumnSource {
     event_sender: Sender<ColumnSourceEvent>,
 }
 
+trait EventSender {
+    fn clip_play_state_changed(&self, slot_index: usize, play_state: ClipPlayState);
+
+    fn clip_frame_count_updated(&self, slot_index: usize, frame_count: usize);
+
+    fn send_event(&self, event: ColumnSourceEvent);
+}
+
+impl EventSender for Sender<ColumnSourceEvent> {
+    fn clip_play_state_changed(&self, slot_index: usize, play_state: ClipPlayState) {
+        let event = ColumnSourceEvent::ClipPlayStateChanged {
+            slot_index,
+            play_state,
+        };
+        self.send_event(event);
+    }
+
+    fn clip_frame_count_updated(&self, slot_index: usize, frame_count: usize) {
+        let event = ColumnSourceEvent::ClipFrameCountUpdated {
+            slot_index,
+            frame_count,
+        };
+        self.send_event(event);
+    }
+
+    fn send_event(&self, event: ColumnSourceEvent) {
+        self.try_send(event).unwrap();
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct ColumnSettings {
     pub clip_play_start_timing: Option<ClipPlayStartTiming>,
@@ -158,7 +188,10 @@ impl ColumnSource {
     }
 
     fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
+        let frame_count = args.clip.effective_frame_count();
         get_slot_mut_insert(&mut self.slots, args.index).fill(args.clip);
+        self.event_sender
+            .clip_frame_count_updated(args.index, frame_count);
     }
 
     pub fn slot(&self, index: usize) -> ClipEngineResult<&Slot> {
@@ -340,11 +373,8 @@ impl ColumnSource {
                 };
                 // TODO-high Take care of mixing as soon as we implement Free mode.
                 if let Ok(Some(changed_play_state)) = slot.process(&mut inner_args) {
-                    let event = ColumnSourceEvent::ClipPlayStateChanged {
-                        index: row,
-                        play_state: changed_play_state,
-                    };
-                    self.event_sender.try_send(event).unwrap();
+                    self.event_sender
+                        .clip_play_state_changed(row, changed_play_state);
                 }
             }
         });
@@ -547,8 +577,12 @@ fn get_slot_mut_insert(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
 #[derive(Clone, Debug)]
 pub enum ColumnSourceEvent {
     ClipPlayStateChanged {
-        index: usize,
+        slot_index: usize,
         play_state: ClipPlayState,
+    },
+    ClipFrameCountUpdated {
+        slot_index: usize,
+        frame_count: usize,
     },
 }
 

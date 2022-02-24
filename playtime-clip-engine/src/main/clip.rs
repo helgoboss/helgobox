@@ -23,8 +23,6 @@ struct ClipRuntimeData {
 impl Clip {
     // TODO-high Just like a column can live "offline" and keep its settings without a track, a clip
     //  should be able to live "offline" and keep its settings if its content couldn't be loaded.
-    //  As a consequence, we should introduce a default constructor and a separate load() member
-    //  method.
     pub fn load(api_clip: api::Clip) -> Clip {
         Clip {
             persistent_data: api_clip,
@@ -42,12 +40,20 @@ impl Clip {
         recorder_equipment: &RecorderEquipment,
     ) -> ClipEngineResult<rt::Clip> {
         let source = load_source(&self.persistent_data.source, permanent_project)?;
-        Ok(rt::Clip::from_source(
+        let rt_clip = rt::Clip::from_source(
             &self.persistent_data,
             source,
             permanent_project,
             recorder_equipment.clone(),
-        ))
+        );
+        Ok(rt_clip)
+    }
+
+    /// Connects the given real-time clip to the main clip.
+    ///
+    /// At the moment this just means that they share a common atomic position.
+    pub fn connect_to(&mut self, rt_clip: &rt::Clip) {
+        self.runtime_data.pos = rt_clip.shared_pos();
     }
 
     pub fn data(&self) -> &api::Clip {
@@ -70,6 +76,10 @@ impl Clip {
 
     pub fn update_play_state(&mut self, play_state: ClipPlayState) {
         self.runtime_data.play_state = play_state;
+    }
+
+    pub fn update_frame_count(&mut self, frame_count: usize) {
+        self.runtime_data.frame_count = frame_count;
     }
 
     pub fn proportional_pos(&self) -> Option<UnitValue> {
