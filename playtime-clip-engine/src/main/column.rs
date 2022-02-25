@@ -11,7 +11,7 @@ use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings,
+    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, TempoRange,
     TrackRecordOrigin,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
@@ -66,6 +66,7 @@ impl Column {
         api_column: api::Column,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
+        common_tempo_range: TempoRange,
     ) -> ClipEngineResult<()> {
         self.clear_slots();
         // Track
@@ -87,7 +88,13 @@ impl Column {
         for api_slot in api_column.slots.unwrap_or_default() {
             if let Some(api_clip) = api_slot.clip {
                 let clip = Clip::load(api_clip);
-                self.fill_slot_internal(api_slot.row, clip, permanent_project, recorder_equipment)?;
+                self.fill_slot_internal(
+                    api_slot.row,
+                    clip,
+                    permanent_project,
+                    recorder_equipment,
+                    common_tempo_range,
+                )?;
             }
         }
         Ok(())
@@ -150,8 +157,10 @@ impl Column {
         mut clip: Clip,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
+        common_tempo_range: TempoRange,
     ) -> ClipEngineResult<()> {
-        let rt_clip = clip.create_real_time_clip(permanent_project, recorder_equipment)?;
+        let rt_clip =
+            clip.create_real_time_clip(permanent_project, recorder_equipment, common_tempo_range)?;
         clip.connect_to(&rt_clip);
         get_slot_mut(&mut self.slots, row).clip = Some(clip);
         let args = ColumnFillSlotArgs {

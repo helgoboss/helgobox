@@ -17,7 +17,7 @@ use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::{ClipEngineResult, QuantizedPosition};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
-use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming, EvenQuantization};
+use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming, EvenQuantization, TempoRange};
 use reaper_high::{OrCurrentProject, Project};
 use reaper_medium::{
     Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds,
@@ -56,13 +56,17 @@ pub struct SourceData {
 }
 
 impl SourceData {
-    pub fn from_source(source: &OwnedPcmSource, project: Project) -> Self {
+    pub fn from_source(
+        source: &OwnedPcmSource,
+        project: Project,
+        common_tempo_range: TempoRange,
+    ) -> Self {
         if pcm_source_is_midi(source) {
             Self::from_midi(source.duration())
         } else {
             let tempo = source
                 .tempo()
-                .unwrap_or_else(|| detect_tempo(source.duration(), project));
+                .unwrap_or_else(|| detect_tempo(source.duration(), project, common_tempo_range));
             Self::from_audio(tempo, source.duration())
         }
     }
@@ -248,10 +252,15 @@ impl Clip {
         source: OwnedPcmSource,
         permanent_project: Option<Project>,
         recorder_equipment: RecorderEquipment,
+        common_tempo_range: TempoRange,
     ) -> Self {
         let mut ready_state = ReadyState {
             state: ReadySubState::Stopped,
-            source_data: SourceData::from_source(&source, permanent_project.or_current_project()),
+            source_data: SourceData::from_source(
+                &source,
+                permanent_project.or_current_project(),
+                common_tempo_range,
+            ),
             persistent_data: PersistentPlayData {
                 start_timing: api_clip.start_timing,
                 stop_timing: api_clip.stop_timing,

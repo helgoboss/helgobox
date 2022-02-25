@@ -4,6 +4,7 @@ use crate::rt::{ClipInfo, ClipPlayState, SharedPos};
 use crate::{rt, ClipEngineResult};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
+use playtime_api::TempoRange;
 use reaper_high::Project;
 use reaper_medium::{Bpm, PositionInSeconds};
 
@@ -38,6 +39,7 @@ impl Clip {
         &self,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
+        common_tempo_range: TempoRange,
     ) -> ClipEngineResult<rt::Clip> {
         let source = load_source(&self.persistent_data.source, permanent_project)?;
         let rt_clip = rt::Clip::from_source(
@@ -45,6 +47,7 @@ impl Clip {
             source,
             permanent_project,
             recorder_equipment.clone(),
+            common_tempo_range,
         );
         Ok(rt_clip)
     }

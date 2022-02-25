@@ -30,6 +30,7 @@ use std::thread::JoinHandle;
 
 #[derive(Debug)]
 pub struct Matrix<H> {
+    settings: MatrixSettings,
     rt_settings: rt::MatrixSettings,
     handler: H,
     stretch_worker_sender: Sender<StretchWorkerRequest>,
@@ -39,6 +40,11 @@ pub struct Matrix<H> {
     command_receiver: Receiver<MatrixCommand>,
     rt_command_sender: Sender<rt::MatrixCommand>,
     worker_pool: WorkerPool,
+}
+
+#[derive(Debug, Default)]
+struct MatrixSettings {
+    common_tempo_range: TempoRange,
 }
 
 #[derive(Debug)]
@@ -118,6 +124,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         });
         let project = containing_track.as_ref().map(|t| t.project());
         let matrix = Self {
+            settings: Default::default(),
             rt_settings: Default::default(),
             handler,
             stretch_worker_sender,
@@ -140,6 +147,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.clear_columns();
         let permanent_project = self.permanent_project();
         // Settings
+        self.settings.common_tempo_range = api_matrix.common_tempo_range;
         self.rt_settings.clip_play_start_timing = api_matrix.clip_play_settings.start_timing;
         self.rt_settings.clip_play_stop_timing = api_matrix.clip_play_settings.stop_timing;
         self.rt_command_sender
@@ -152,7 +160,12 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .enumerate()
         {
             let mut column = Column::new(permanent_project);
-            column.load(api_column, permanent_project, &self.recorder_equipment)?;
+            column.load(
+                api_column,
+                permanent_project,
+                &self.recorder_equipment,
+                self.settings.common_tempo_range,
+            )?;
             self.rt_command_sender.insert_column(i, column.source());
             self.columns.push(column);
         }
@@ -193,10 +206,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                     detect_input: false,
                 },
             },
-            common_tempo_range: TempoRange {
-                min: api::Bpm(80.0),
-                max: api::Bpm(200.0),
-            },
+            common_tempo_range: self.settings.common_tempo_range,
         }
     }
 

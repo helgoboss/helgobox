@@ -27,16 +27,34 @@ pub struct Matrix {
     pub rows: Option<Vec<Row>>,
     pub clip_play_settings: MatrixClipPlaySettings,
     pub clip_record_settings: MatrixClipRecordSettings,
-    // TODO-clip-implement
     pub common_tempo_range: TempoRange,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TempoRange {
-    pub min: Bpm,
-    pub max: Bpm,
+    min: Bpm,
+    max: Bpm,
 }
+
+impl TempoRange {
+    pub fn new(min: Bpm, max: Bpm) -> PlaytimeApiResult<Self> {
+        if min > max {
+            return Err("min must be <= max");
+        }
+        Ok(Self { min, max })
+    }
+
+    pub const fn min(&self) -> Bpm {
+        self.min
+    }
+
+    pub const fn max(&self) -> Bpm {
+        self.max
+    }
+}
+
+impl TempoRange {}
 
 impl Default for TempoRange {
     fn default() -> Self {
@@ -753,8 +771,21 @@ pub struct TimeSignature {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct TrackId(pub String);
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-pub struct Bpm(pub f64);
+#[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct Bpm(f64);
+
+impl Bpm {
+    pub fn new(value: f64) -> PlaytimeApiResult<Self> {
+        if value <= 0.0 {
+            return Err("BPM value must be > 0.0");
+        }
+        Ok(Self(value))
+    }
+
+    pub const fn get(&self) -> f64 {
+        self.0
+    }
+}
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Seconds(pub f64);
