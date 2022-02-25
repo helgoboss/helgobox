@@ -563,7 +563,6 @@ pub struct Clip {
     // TODO-clip-implement
     pub color: ClipColor,
     /// Defines which portion of the original source should be played.
-    // TODO-high-clip-implement
     pub section: Section,
     pub audio_settings: ClipAudioSettings,
     pub midi_settings: ClipMidiSettings,

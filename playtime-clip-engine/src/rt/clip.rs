@@ -219,7 +219,9 @@ impl Clip {
             },
         };
         let mut supplier_chain = SupplierChain::new(Recorder::ready(source, recorder_equipment));
-        ready_state.update_supplier_chain_from_persistent_data(&mut supplier_chain);
+        supplier_chain
+            .set_section_in_seconds(api_clip.section.start_pos, api_clip.section.length)?;
+        ready_state.update_supplier_chain_from_persistent_data(&mut supplier_chain)?;
         ready_state.pre_buffer(&mut supplier_chain, 0);
         let clip = Self {
             supplier_chain,
@@ -543,10 +545,13 @@ impl ReadyState {
                 return;
             }
         }
-        self.update_supplier_chain_from_persistent_data(supplier_chain);
+        supplier_chain.set_looped(self.persistent_data.looped);
     }
 
-    fn update_supplier_chain_from_persistent_data(&self, supplier_chain: &mut SupplierChain) {
+    fn update_supplier_chain_from_persistent_data(
+        &self,
+        supplier_chain: &mut SupplierChain,
+    ) -> ClipEngineResult<()> {
         supplier_chain.set_looped(self.persistent_data.looped);
         match &self.persistent_data.time_base {
             ClipTimeBase::Time => {
@@ -556,9 +561,10 @@ impl ReadyState {
             ClipTimeBase::Beat(b) => {
                 supplier_chain.set_time_stretching_enabled(true);
                 let tempo = determine_tempo(b, supplier_chain);
-                supplier_chain.set_downbeat_in_beats(b.downbeat, tempo);
+                supplier_chain.set_downbeat_in_beats(b.downbeat, tempo)?;
             }
         }
+        Ok(())
     }
 
     pub fn play(&mut self, args: ClipPlayArgs, supplier_chain: &mut SupplierChain) -> PlayOutcome {
@@ -1618,10 +1624,7 @@ impl RecordingState {
         // Set section boundaries for perfect timing.
         supplier_chain
             .section_mut()
-            .set_start_frame(outcome.section_start_frame);
-        supplier_chain
-            .section_mut()
-            .set_length(outcome.section_frame_count);
+            .set_bounds(outcome.section_start_frame, outcome.section_frame_count);
         // Set downbeat.
         supplier_chain.set_downbeat_in_frames(outcome.normalized_downbeat_frame);
         // Change state

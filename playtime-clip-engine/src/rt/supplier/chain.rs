@@ -7,7 +7,9 @@ use crate::rt::supplier::{
 };
 use crate::rt::ClipInfo;
 use crate::ClipEngineResult;
-use playtime_api::{AudioTimeStretchMode, PositiveBeat, TimeStretchMode, VirtualResampleMode};
+use playtime_api::{
+    AudioTimeStretchMode, PositiveBeat, PositiveSecond, TimeStretchMode, VirtualResampleMode,
+};
 use reaper_high::Project;
 use reaper_medium::{Bpm, DurationInSeconds, Hz, PositionInSeconds};
 
@@ -42,12 +44,12 @@ impl SupplierChain {
         // Configure time stratcher
         let time_stretcher = chain.time_stretcher_mut();
         time_stretcher.set_enabled(true);
-        // Configure looper
-        let looper = chain.looper_mut();
-        looper.set_enabled(true);
         // Configure downbeat
         let downbeat = chain.downbeat_mut();
         downbeat.set_enabled(true);
+        // Configure looper
+        let looper = chain.looper_mut();
+        looper.set_enabled(true);
         // Configure recorder
         let recorder = chain.recorder_mut();
         // recorder.enable_cache();
@@ -61,6 +63,29 @@ impl SupplierChain {
 
     pub fn clear_downbeat(&mut self) {
         self.downbeat_mut().set_downbeat_frame(0);
+    }
+
+    pub fn set_section_in_seconds(
+        &mut self,
+        start: PositiveSecond,
+        length: Option<PositiveSecond>,
+    ) -> ClipEngineResult<()> {
+        let source_frame_frate = self
+            .section()
+            .frame_rate()
+            .ok_or("can't calculate section frame at the moment because no source available")?;
+        let start_frame = convert_duration_in_seconds_to_frames(
+            DurationInSeconds::new(start.get()),
+            source_frame_frate,
+        );
+        let frame_count = length.map(|l| {
+            convert_duration_in_seconds_to_frames(
+                DurationInSeconds::new(l.get()),
+                source_frame_frate,
+            )
+        });
+        self.section_mut().set_bounds(start_frame, frame_count);
+        Ok(())
     }
 
     pub fn set_downbeat_in_beats(

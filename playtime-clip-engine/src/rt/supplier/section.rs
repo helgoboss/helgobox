@@ -54,11 +54,8 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
         self.boundary.length
     }
 
-    pub fn set_start_frame(&mut self, start_frame: usize) {
+    pub fn set_bounds(&mut self, start_frame: usize, length: Option<usize>) {
         self.boundary.start_frame = start_frame;
-    }
-
-    pub fn set_length(&mut self, length: Option<usize>) {
         self.boundary.length = length;
     }
 
