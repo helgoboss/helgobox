@@ -19,7 +19,7 @@ use playtime_api::{
     ColumnClipPlaySettings, ColumnClipRecordSettings, MatrixClipPlayAudioSettings,
     MatrixClipPlaySettings, MatrixClipRecordAudioSettings, MatrixClipRecordMidiSettings,
     MatrixClipRecordSettings, MidiClipRecordMode, RecordLength, TempoRange, TimeStretchMode,
-    TrackId, TrackRecordOrigin, VirtualTimeStretchMode,
+    TrackId, TrackRecordOrigin, VirtualResampleMode, VirtualTimeStretchMode,
 };
 use reaper_high::{Guid, Item, OrCurrentProject, Project, Track};
 use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
@@ -43,8 +43,10 @@ pub struct Matrix<H> {
 }
 
 #[derive(Debug, Default)]
-struct MatrixSettings {
-    common_tempo_range: TempoRange,
+pub struct MatrixSettings {
+    pub common_tempo_range: TempoRange,
+    pub resample_mode: VirtualResampleMode,
+    pub time_stretch_mode: AudioTimeStretchMode,
 }
 
 #[derive(Debug)]
@@ -148,6 +150,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let permanent_project = self.permanent_project();
         // Settings
         self.settings.common_tempo_range = api_matrix.common_tempo_range;
+        self.settings.resample_mode = api_matrix.clip_play_settings.audio_settings.resample_mode;
+        self.settings.time_stretch_mode = api_matrix
+            .clip_play_settings
+            .audio_settings
+            .time_stretch_mode;
         self.rt_settings.clip_play_start_timing = api_matrix.clip_play_settings.start_timing;
         self.rt_settings.clip_play_stop_timing = api_matrix.clip_play_settings.stop_timing;
         self.rt_command_sender
@@ -165,6 +172,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 permanent_project,
                 &self.recorder_equipment,
                 self.settings.common_tempo_range,
+                &self.settings,
             )?;
             self.rt_command_sender.insert_column(i, column.source());
             self.columns.push(column);
@@ -181,9 +189,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 start_timing: self.rt_settings.clip_play_start_timing,
                 stop_timing: self.rt_settings.clip_play_stop_timing,
                 audio_settings: MatrixClipPlayAudioSettings {
-                    time_stretch_mode: AudioTimeStretchMode::KeepingPitch(TimeStretchMode {
-                        mode: VirtualTimeStretchMode::ProjectDefault,
-                    }),
+                    resample_mode: self.settings.resample_mode.clone(),
+                    time_stretch_mode: self.settings.time_stretch_mode.clone(),
                 },
             },
             clip_record_settings: MatrixClipRecordSettings {
@@ -233,16 +240,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                                     .output
                                     .resolve_track(self.containing_track.clone())?
                                     .map(|t| TrackId(t.guid().to_string_without_braces())),
-                                start_timing: None,
-                                stop_timing: None,
-                                audio_settings: ColumnClipPlayAudioSettings {
-                                    time_stretch_mode: None,
-                                },
+                                ..Default::default()
                             },
-                            clip_record_settings: ColumnClipRecordSettings {
-                                track: None,
-                                origin: TrackRecordOrigin::TrackInput,
-                            },
+                            clip_record_settings: Default::default(),
                             slots: {
                                 let api_clip = api::Clip {
                                     source: match desc.clip.content {
@@ -263,11 +263,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                                         start_pos: api::Seconds(0.0),
                                         length: None,
                                     },
-                                    audio_settings: api::ClipAudioSettings {
-                                        cache_behavior: api::AudioCacheBehavior::DirectFromDisk,
-                                        apply_source_fades: false,
-                                        time_stretch_mode: None,
-                                    },
+                                    audio_settings: Default::default(),
                                     midi_settings: Default::default(),
                                 };
                                 let api_slot = api::Slot {

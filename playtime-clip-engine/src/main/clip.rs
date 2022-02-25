@@ -1,15 +1,17 @@
-use crate::main::load_source;
+use crate::main::{load_source, ColumnSettings, MatrixSettings};
 use crate::rt::supplier::RecorderEquipment;
 use crate::rt::{ClipInfo, ClipPlayState, SharedPos};
 use crate::{rt, ClipEngineResult};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
-use playtime_api::TempoRange;
+use playtime_api::{AudioTimeStretchMode, TempoRange, VirtualResampleMode};
 use reaper_high::Project;
 use reaper_medium::{Bpm, PositionInSeconds};
 
 #[derive(Clone, Debug)]
 pub struct Clip {
+    // Unlike Column and Matrix, we use the API clip here directly because there's almost no
+    // unnecessary data inside.
     persistent_data: api::Clip,
     runtime_data: ClipRuntimeData,
 }
@@ -40,16 +42,50 @@ impl Clip {
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
         common_tempo_range: TempoRange,
+        matrix_settings: &MatrixSettings,
+        column_settings: &ColumnSettings,
     ) -> ClipEngineResult<rt::Clip> {
         let source = load_source(&self.persistent_data.source, permanent_project)?;
-        let rt_clip = rt::Clip::from_source(
+        let mut rt_clip = rt::Clip::from_source(
             &self.persistent_data,
             source,
             permanent_project,
             recorder_equipment.clone(),
             common_tempo_range,
         );
+        rt_clip.set_audio_resample_mode(
+            self.effective_resample_mode(matrix_settings, column_settings),
+        );
+        rt_clip.set_audio_time_stretch_mode(
+            self.effective_time_stretch_mode(matrix_settings, column_settings),
+        );
         Ok(rt_clip)
+    }
+
+    fn effective_resample_mode(
+        &self,
+        matrix_settings: &MatrixSettings,
+        column_settings: &ColumnSettings,
+    ) -> VirtualResampleMode {
+        self.persistent_data
+            .audio_settings
+            .resample_mode
+            .clone()
+            .or_else(|| column_settings.resample_mode.clone())
+            .unwrap_or_else(|| matrix_settings.resample_mode.clone())
+    }
+
+    fn effective_time_stretch_mode(
+        &self,
+        matrix_settings: &MatrixSettings,
+        column_settings: &ColumnSettings,
+    ) -> AudioTimeStretchMode {
+        self.persistent_data
+            .audio_settings
+            .time_stretch_mode
+            .clone()
+            .or_else(|| column_settings.time_stretch_mode.clone())
+            .unwrap_or_else(|| matrix_settings.time_stretch_mode.clone())
     }
 
     /// Connects the given real-time clip to the main clip.

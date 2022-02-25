@@ -5,15 +5,20 @@ use crate::rt::supplier::{
 use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
 };
+use playtime_api::VirtualResampleMode;
 use reaper_high::Reaper;
+use reaper_low::raw;
 use reaper_medium::{BorrowedMidiEventList, Hz, OwnedReaperResample};
+use std::ffi::c_void;
 use std::ptr::null_mut;
 
 #[derive(Debug)]
 pub struct Resampler<S> {
     enabled: bool,
+    responsible_for_audio_time_stretching: bool,
     supplier: S,
     api: OwnedReaperResample,
+    tempo_factor: f64,
 }
 
 impl<S> Resampler<S> {
@@ -21,8 +26,10 @@ impl<S> Resampler<S> {
         let api = Reaper::get().medium_reaper().resampler_create();
         Self {
             enabled: false,
+            responsible_for_audio_time_stretching: false,
             supplier,
             api,
+            tempo_factor: 1.0,
         }
     }
 
@@ -40,6 +47,33 @@ impl<S> Resampler<S> {
 
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
+    }
+
+    pub fn set_mode(&mut self, mode: VirtualResampleMode) {
+        use VirtualResampleMode::*;
+        let raw_mode = match mode {
+            ProjectDefault => -1,
+            ReaperMode(m) => m.mode as i32,
+        };
+        unsafe {
+            self.api.as_mut().as_mut().Extended(
+                raw::RESAMPLE_EXT_SETRSMODE,
+                raw_mode as *const c_void as *mut _,
+                null_mut(),
+                null_mut(),
+            );
+        }
+    }
+
+    /// Decides whether the resampler should also take the tempo factor into account for audio
+    /// (VariSpeed).
+    pub fn set_responsible_for_audio_time_stretching(&mut self, responsible: bool) {
+        self.responsible_for_audio_time_stretching = responsible;
+    }
+
+    /// Only has an effect if tempo changing enabled.
+    pub fn set_tempo_factor(&mut self, tempo_factor: f64) {
+        self.tempo_factor = tempo_factor;
     }
 }
 
@@ -59,7 +93,11 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
             }
             Some(r) => r,
         };
-        let dest_frame_rate = request.dest_sample_rate;
+        let dest_frame_rate = if self.responsible_for_audio_time_stretching {
+            Hz::new(request.dest_sample_rate.get() / self.tempo_factor)
+        } else {
+            request.dest_sample_rate
+        };
         if source_frame_rate == dest_frame_rate {
             return self.supplier.supply_audio(&request, dest_buffer);
         }

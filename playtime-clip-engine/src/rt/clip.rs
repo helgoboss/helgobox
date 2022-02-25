@@ -17,7 +17,10 @@ use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::{ClipEngineResult, QuantizedPosition};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
-use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming, EvenQuantization, TempoRange};
+use playtime_api::{
+    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, EvenQuantization, TempoRange,
+    TimeStretchMode, VirtualResampleMode,
+};
 use reaper_high::{OrCurrentProject, Project};
 use reaper_medium::{
     Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds,
@@ -308,6 +311,14 @@ impl Clip {
             project,
             shared_pos: Default::default(),
         }
+    }
+
+    pub fn set_audio_resample_mode(&mut self, mode: VirtualResampleMode) {
+        self.supplier_chain.set_audio_resample_mode(mode);
+    }
+
+    pub fn set_audio_time_stretch_mode(&mut self, mode: AudioTimeStretchMode) {
+        self.supplier_chain.set_audio_time_stretch_mode(mode);
     }
 
     /// Plays the clip if it's not recording.
@@ -1042,9 +1053,7 @@ impl ReadyState {
             timeline_tempo: args.timeline_tempo,
             clip_tempo_factor: final_tempo_factor,
         };
-        supplier_chain
-            .time_stretcher_mut()
-            .set_tempo_factor(final_tempo_factor);
+        supplier_chain.set_tempo_factor(final_tempo_factor);
         general_info
     }
 

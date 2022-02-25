@@ -8,7 +8,9 @@ use crate::rt::{
 use crate::timeline::HybridTimeline;
 use crate::ClipEngineResult;
 use helgoboss_learn::UnitValue;
-use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
+use playtime_api::{
+    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, VirtualResampleMode,
+};
 use reaper_high::Project;
 use reaper_medium::{Bpm, PlayState, PositionInSeconds, ReaperVolumeValue};
 
@@ -42,6 +44,22 @@ impl Slot {
 
     pub fn clip_mut(&mut self) -> ClipEngineResult<&mut Clip> {
         self.get_clip_mut()
+    }
+
+    pub fn set_clip_audio_resample_mode(
+        &mut self,
+        mode: VirtualResampleMode,
+    ) -> ClipEngineResult<()> {
+        self.get_clip_mut()?.set_audio_resample_mode(mode);
+        Ok(())
+    }
+
+    pub fn set_clip_audio_time_stretch_mode(
+        &mut self,
+        mode: AudioTimeStretchMode,
+    ) -> ClipEngineResult<()> {
+        self.get_clip_mut()?.set_audio_time_stretch_mode(mode);
+        Ok(())
     }
 
     /// Plays the clip if this slot contains one.

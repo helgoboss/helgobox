@@ -6,6 +6,7 @@ use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
 };
 use crossbeam_channel::Receiver;
+use playtime_api::{TimeStretchMode, VirtualTimeStretchMode};
 use reaper_high::Reaper;
 use reaper_low::raw::REAPER_PITCHSHIFT_API_VER;
 use reaper_medium::{BorrowedMidiEventList, Hz, OwnedReaperPitchShift};
@@ -15,6 +16,7 @@ pub struct TimeStretcher<S> {
     api: OwnedReaperPitchShift,
     supplier: S,
     enabled: bool,
+    responsible_for_audio_time_stretching: bool,
     tempo_factor: f64,
 }
 
@@ -28,6 +30,7 @@ impl<S> TimeStretcher<S> {
             api,
             supplier,
             enabled: false,
+            responsible_for_audio_time_stretching: false,
             tempo_factor: 1.0,
         }
     }
@@ -40,8 +43,26 @@ impl<S> TimeStretcher<S> {
         &mut self.supplier
     }
 
+    /// Decides whether the time stretcher should take the tempo factor into account for audio.
+    /// Usually it does.
+    pub fn set_responsible_for_audio_time_stretching(&mut self, responsible: bool) {
+        self.responsible_for_audio_time_stretching = responsible;
+    }
+
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
+    }
+
+    pub fn set_mode(&mut self, mode: VirtualTimeStretchMode) {
+        use VirtualTimeStretchMode::*;
+        let raw_quality_param = match mode {
+            ProjectDefault => -1i32,
+            ReaperMode(m) => (m.mode << 16 + m.sub_mode) as i32,
+        };
+        self.api
+            .as_mut()
+            .as_mut()
+            .SetQualityParameter(raw_quality_param);
     }
 
     pub fn set_tempo_factor(&mut self, tempo_factor: f64) {
@@ -59,7 +80,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        if !self.enabled {
+        if !self.enabled || !self.responsible_for_audio_time_stretching {
             return self.supplier.supply_audio(&request, dest_buffer);
         }
         let source_frame_rate = match self.supplier.frame_rate() {

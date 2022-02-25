@@ -4,6 +4,7 @@ use crate::rt::supplier::{
     Resampler, Section, StartEndFader, TimeStretcher, WithFrameRate,
 };
 use crate::rt::ClipInfo;
+use playtime_api::{AudioTimeStretchMode, TimeStretchMode, VirtualResampleMode};
 use reaper_high::Project;
 use reaper_medium::{DurationInSeconds, Hz};
 
@@ -51,9 +52,33 @@ impl SupplierChain {
         chain
     }
 
+    pub fn set_audio_resample_mode(&mut self, mode: VirtualResampleMode) {
+        self.resampler_mut().set_mode(mode);
+    }
+
+    pub fn set_audio_time_stretch_mode(&mut self, mode: AudioTimeStretchMode) {
+        use AudioTimeStretchMode::*;
+        let use_vari_speed = match mode {
+            VariSpeed => true,
+            KeepingPitch(m) => {
+                self.time_stretcher_mut().set_mode(m.mode);
+                false
+            }
+        };
+        self.resampler_mut()
+            .set_responsible_for_audio_time_stretching(use_vari_speed);
+        self.time_stretcher_mut()
+            .set_responsible_for_audio_time_stretching(!use_vari_speed);
+    }
+
     pub fn set_looped(&mut self, looped: bool) {
         self.looper_mut()
             .set_loop_behavior(LoopBehavior::from_bool(looped));
+    }
+
+    pub fn set_tempo_factor(&mut self, tempo_factor: f64) {
+        self.resampler_mut().set_tempo_factor(tempo_factor);
+        self.time_stretcher_mut().set_tempo_factor(tempo_factor);
     }
 
     pub fn prepare_supply(&mut self, auto_fades_enabled: bool) {

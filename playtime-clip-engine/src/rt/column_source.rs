@@ -8,7 +8,10 @@ use crate::ClipEngineResult;
 use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
-use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
+use playtime_api::{
+    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, TimeStretchMode,
+    VirtualResampleMode,
+};
 use reaper_high::Project;
 use reaper_medium::{
     reaper_str, CustomPcmSource, DurationInBeats, DurationInSeconds, ExtendedArgs, GetPeakInfoArgs,
@@ -74,6 +77,14 @@ impl ColumnSourceCommandSender {
         self.send_source_task(ColumnSourceCommand::FillSlot(args));
     }
 
+    pub fn set_clip_audio_resample_mode(&self, args: ColumnSetClipAudioResampleModeArgs) {
+        self.send_source_task(ColumnSourceCommand::SetClipAudioResampleMode(args));
+    }
+
+    pub fn set_clip_audio_time_stretch_mode(&self, args: ColumnSetClipAudioTimeStretchModeArgs) {
+        self.send_source_task(ColumnSourceCommand::SetClipAudioTimeStretchMode(args));
+    }
+
     pub fn play_clip(&self, args: ColumnPlayClipArgs) {
         self.send_source_task(ColumnSourceCommand::PlayClip(args));
     }
@@ -111,6 +122,8 @@ pub enum ColumnSourceCommand {
     ClearSlots,
     UpdateSettings(ColumnSettings),
     FillSlot(ColumnFillSlotArgs),
+    SetClipAudioResampleMode(ColumnSetClipAudioResampleModeArgs),
+    SetClipAudioTimeStretchMode(ColumnSetClipAudioTimeStretchModeArgs),
     PlayClip(ColumnPlayClipArgs),
     StopClip(ColumnStopClipArgs),
     PauseClip(ColumnPauseClipArgs),
@@ -119,6 +132,8 @@ pub enum ColumnSourceCommand {
     SetClipRepeated(ColumnSetClipRepeatedArgs),
 }
 
+/// Only such methods are public which are allowed to use from real-time threads. Other ones
+/// are private and called from the method that processes the incoming commands.
 #[derive(Debug)]
 pub struct ColumnSource {
     settings: ColumnSettings,
@@ -163,6 +178,9 @@ impl EventSender for Sender<ColumnSourceEvent> {
 
 #[derive(Clone, Debug, Default)]
 pub struct ColumnSettings {
+    // TODO-low We could maybe also treat this like e.g. time stretch mode. Something that's
+    //  not always passed through the functions but updated whenever changed and popagated as effective
+    //  timing to the clip. Let's see what turns out to be the more practical design.
     pub clip_play_start_timing: Option<ClipPlayStartTiming>,
     pub clip_play_stop_timing: Option<ClipPlayStopTiming>,
 }
@@ -201,6 +219,22 @@ impl ColumnSource {
 
     pub fn slot_mut(&mut self, index: usize) -> ClipEngineResult<&mut Slot> {
         self.slots.get_mut(index).ok_or(SLOT_DOESNT_EXIST)
+    }
+
+    fn set_clip_audio_resample_mode(
+        &mut self,
+        slot_index: usize,
+        mode: VirtualResampleMode,
+    ) -> ClipEngineResult<()> {
+        get_slot_mut(&mut self.slots, slot_index)?.set_clip_audio_resample_mode(mode)
+    }
+
+    fn set_clip_audio_time_stretch_mode(
+        &mut self,
+        slot_index: usize,
+        mode: AudioTimeStretchMode,
+    ) -> ClipEngineResult<()> {
+        get_slot_mut(&mut self.slots, slot_index)?.set_clip_audio_time_stretch_mode(mode)
     }
 
     pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> ClipEngineResult<()> {
@@ -326,6 +360,12 @@ impl ColumnSource {
                 }
                 FillSlot(args) => {
                     self.fill_slot(args);
+                }
+                SetClipAudioResampleMode(args) => {
+                    let _ = self.set_clip_audio_resample_mode(args.slot_index, args.mode);
+                }
+                SetClipAudioTimeStretchMode(args) => {
+                    let _ = self.set_clip_audio_time_stretch_mode(args.slot_index, args.mode);
                 }
                 PlayClip(args) => {
                     let _ = self.play_clip(args);
@@ -532,6 +572,18 @@ impl CustomPcmSource for SharedColumnSource {
 pub struct ColumnFillSlotArgs {
     pub index: usize,
     pub clip: Clip,
+}
+
+#[derive(Debug)]
+pub struct ColumnSetClipAudioResampleModeArgs {
+    pub slot_index: usize,
+    pub mode: VirtualResampleMode,
+}
+
+#[derive(Debug)]
+pub struct ColumnSetClipAudioTimeStretchModeArgs {
+    pub slot_index: usize,
+    pub mode: AudioTimeStretchMode,
 }
 
 #[derive(Debug)]

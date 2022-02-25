@@ -54,8 +54,6 @@ impl TempoRange {
     }
 }
 
-impl TempoRange {}
-
 impl Default for TempoRange {
     fn default() -> Self {
         Self {
@@ -77,7 +75,7 @@ pub struct MatrixClipPlaySettings {
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipPlayAudioSettings {
-    // TODO-clip-implement
+    pub resample_mode: VirtualResampleMode,
     pub time_stretch_mode: AudioTimeStretchMode,
 }
 
@@ -382,7 +380,7 @@ pub struct Column {
     pub slots: Option<Vec<Slot>>,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ColumnClipPlaySettings {
     /// REAPER track used for playing back clips in this column.
@@ -405,7 +403,7 @@ pub struct ColumnClipPlaySettings {
     pub audio_settings: ColumnClipPlayAudioSettings,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ColumnClipRecordSettings {
     /// By default, Playtime records from the play track but this settings allows to override that.
@@ -416,11 +414,13 @@ pub struct ColumnClipRecordSettings {
     pub origin: TrackRecordOrigin,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ColumnClipPlayAudioSettings {
+    /// Overrides the matrix-global resample mode for clips in this column.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resample_mode: Option<VirtualResampleMode>,
     /// Overrides the matrix-global audio time stretch mode for clips in this column.
-    // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_stretch_mode: Option<AudioTimeStretchMode>,
 }
@@ -452,7 +452,7 @@ pub enum AudioTimeStretchMode {
     /// Doesn't just stretch/squeeze the material but also changes the pitch.
     ///
     /// Comparatively fast.
-    VariSpeed(VariSpeedMode),
+    VariSpeed,
     /// Applies a real time-stretch algorithm to the material which keeps the pitch.
     ///
     /// Comparatively slow.
@@ -466,18 +466,18 @@ impl Default for AudioTimeStretchMode {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct VariSpeedMode {
-    pub mode: VirtualVariSpeedMode,
-}
-
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
-pub enum VirtualVariSpeedMode {
+pub enum VirtualResampleMode {
     /// Uses the resample mode set as default for this REAPER project.
     ProjectDefault,
     /// Uses a specific resample mode.
     ReaperMode(ReaperResampleMode),
+}
+
+impl Default for VirtualResampleMode {
+    fn default() -> Self {
+        Self::ProjectDefault
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -520,6 +520,12 @@ pub enum TrackRecordOrigin {
     TrackInput,
     /// Captures audio from the output of the track.
     TrackAudioOutput,
+}
+
+impl Default for TrackRecordOrigin {
+    fn default() -> Self {
+        Self::TrackInput
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -610,9 +616,22 @@ pub struct ClipAudioSettings {
     /// tempo.
     ///
     /// `None` means it uses the column time stretch mode.
-    // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_stretch_mode: Option<AudioTimeStretchMode>,
+    /// Overrides the column resample mode for clips in this column.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resample_mode: Option<VirtualResampleMode>,
+}
+
+impl Default for ClipAudioSettings {
+    fn default() -> Self {
+        Self {
+            cache_behavior: Default::default(),
+            apply_source_fades: true,
+            time_stretch_mode: None,
+            resample_mode: None,
+        }
+    }
 }
 
 // struct Canvas {
@@ -682,6 +701,12 @@ pub enum AudioCacheBehavior {
     DirectFromDisk,
     /// Loads the complete audio data into memory.
     CacheInMemory,
+}
+
+impl Default for AudioCacheBehavior {
+    fn default() -> Self {
+        Self::DirectFromDisk
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]

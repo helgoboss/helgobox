@@ -1,4 +1,4 @@
-use crate::main::{Clip, ClipContent, ClipData, ClipRecordTask, Slot};
+use crate::main::{Clip, ClipContent, ClipData, ClipRecordTask, MatrixSettings, Slot};
 use crate::rt::supplier::RecorderEquipment;
 use crate::rt::{
     ClipChangedEvent, ClipInfo, ClipPlayState, ColumnFillSlotArgs, ColumnPlayClipArgs,
@@ -11,8 +11,8 @@ use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, TempoRange,
-    TrackRecordOrigin,
+    AudioTimeStretchMode, ColumnClipPlayAudioSettings, ColumnClipPlaySettings,
+    ColumnClipRecordSettings, TempoRange, TrackRecordOrigin, VirtualResampleMode,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
@@ -27,12 +27,19 @@ pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 
 #[derive(Clone, Debug)]
 pub struct Column {
+    settings: ColumnSettings,
     rt_settings: rt::ColumnSettings,
     rt_command_sender: ColumnSourceCommandSender,
     column_source: SharedColumnSource,
     preview_register: Option<PlayingPreviewRegister>,
     slots: Vec<Slot>,
     event_receiver: Receiver<ColumnSourceEvent>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ColumnSettings {
+    pub resample_mode: Option<VirtualResampleMode>,
+    pub time_stretch_mode: Option<AudioTimeStretchMode>,
 }
 
 #[derive(Clone, Debug)]
@@ -49,6 +56,7 @@ impl Column {
         let source = ColumnSource::new(permanent_project, command_receiver, event_sender);
         let shared_source = SharedColumnSource::new(source);
         Self {
+            settings: Default::default(),
             rt_settings: Default::default(),
             // preview_register: {
             //     PlayingPreviewRegister::new(shared_source.clone(), track.as_ref())
@@ -67,6 +75,7 @@ impl Column {
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
         common_tempo_range: TempoRange,
+        matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
         self.clear_slots();
         // Track
@@ -81,7 +90,13 @@ impl Column {
             track,
         ));
         // Settings
+        self.settings.resample_mode = api_column.clip_play_settings.audio_settings.resample_mode;
+        self.settings.time_stretch_mode = api_column
+            .clip_play_settings
+            .audio_settings
+            .time_stretch_mode;
         self.rt_settings.clip_play_start_timing = api_column.clip_play_settings.start_timing;
+        self.rt_settings.clip_play_stop_timing = api_column.clip_play_settings.stop_timing;
         self.rt_command_sender
             .update_settings(self.rt_settings.clone());
         // Slots
@@ -94,6 +109,7 @@ impl Column {
                     permanent_project,
                     recorder_equipment,
                     common_tempo_range,
+                    matrix_settings,
                 )?;
             }
         }
@@ -118,7 +134,8 @@ impl Column {
                 start_timing: None,
                 stop_timing: None,
                 audio_settings: ColumnClipPlayAudioSettings {
-                    time_stretch_mode: None,
+                    resample_mode: self.settings.resample_mode.clone(),
+                    time_stretch_mode: self.settings.time_stretch_mode.clone(),
                 },
             },
             clip_record_settings: ColumnClipRecordSettings {
@@ -158,9 +175,15 @@ impl Column {
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
         common_tempo_range: TempoRange,
+        matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
-        let rt_clip =
-            clip.create_real_time_clip(permanent_project, recorder_equipment, common_tempo_range)?;
+        let rt_clip = clip.create_real_time_clip(
+            permanent_project,
+            recorder_equipment,
+            common_tempo_range,
+            matrix_settings,
+            &self.settings,
+        )?;
         clip.connect_to(&rt_clip);
         get_slot_mut(&mut self.slots, row).clip = Some(clip);
         let args = ColumnFillSlotArgs {
