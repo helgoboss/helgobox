@@ -5,6 +5,7 @@ use crate::conversion_util::{
 use crate::file_util::get_path_for_new_media_file;
 use crate::main::{ClipContent, CreateClipContentMode};
 use crate::rt::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
+use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
     AudioSupplier, Cache, CacheRequest, CacheResponseChannel, ExactDuration, ExactFrameCount,
@@ -211,6 +212,10 @@ impl KindSpecificRecordingState {
             }
         }
     }
+
+    pub fn is_midi(&self) -> bool {
+        matches!(self, Self::Midi(_))
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -348,6 +353,13 @@ impl Recorder {
                 };
                 s.phase = Some(next_phase);
             }
+        }
+    }
+
+    pub fn is_midi(&self) -> bool {
+        match self.state.as_ref().unwrap() {
+            State::Ready(s) => pcm_source_is_midi(s.cache.source()),
+            State::Recording(s) => s.kind_state.is_midi(),
         }
     }
 

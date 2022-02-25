@@ -543,7 +543,6 @@ pub struct Clip {
     /// Source of the audio/MIDI material of this clip.
     pub source: Source,
     /// Time base of the material provided by that source.
-    // TODO-clip-implement
     pub time_base: ClipTimeBase,
     /// Start timing override.
     ///
@@ -558,13 +557,13 @@ pub struct Clip {
     /// Whether the clip should be played repeatedly or as a single shot.
     pub looped: bool,
     /// Relative volume adjustment of clip.
-    // TODO-clip-implement
+    // TODO-high-clip-implement
     pub volume: Db,
     /// Color of the clip.
     // TODO-clip-implement
     pub color: ClipColor,
     /// Defines which portion of the original source should be played.
-    // TODO-clip-implement
+    // TODO-high-clip-implement
     pub section: Section,
     pub audio_settings: ClipAudioSettings,
     pub midi_settings: ClipMidiSettings,
@@ -584,7 +583,7 @@ pub struct Clip {
 #[serde(deny_unknown_fields)]
 pub struct ClipAudioSettings {
     /// Whether to cache audio in memory.
-    // TODO-clip-implement
+    // TODO-high-clip-implement
     pub cache_behavior: AudioCacheBehavior,
     /// Defines whether to apply automatic fades in order to fix potentially non-optimized source
     /// material.
@@ -608,7 +607,7 @@ pub struct ClipAudioSettings {
     /// ## `true`
     ///
     /// Applies automatic fades to fix non-optimized source material, if necessary.
-    // TODO-clip-implement
+    // TODO-high-clip-implement
     pub apply_source_fades: bool,
     /// Defines how to adjust audio material.
     ///
@@ -645,16 +644,16 @@ impl Default for ClipAudioSettings {
 #[serde(deny_unknown_fields)]
 pub struct ClipMidiSettings {
     /// For fixing the source itself.
-    // TODO-clip-implement
+    // TODO-high-clip-implement
     pub source_reset_settings: MidiResetMessageRange,
     /// For fine-tuning the section.
-    // TODO-clip-implement
+    // TODO-high-clip-implement
     pub section_reset_settings: MidiResetMessageRange,
     /// For fine-tuning the complete loop.
-    // TODO-clip-implement
+    // TODO-high-clip-implement
     pub loop_reset_settings: MidiResetMessageRange,
     /// For fine-tuning instant start/stop of a MIDI clip when in the middle of a source or section.
-    // TODO-clip-implement
+    // TODO-high-clip-implement
     pub interaction_reset_settings: MidiResetMessageRange,
 }
 
@@ -777,12 +776,14 @@ pub struct BeatTimeBase {
     /// This information is used by the clip engine to determine how much to speed up or
     /// slow down the material depending on the current project tempo.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub audio_bpm: Option<Bpm>,
+    pub audio_tempo: Option<Bpm>,
     /// The time signature of this clip.
     ///
     /// If provided, This information is used for certain aspects of the user interface.
+    // TODO-clip-implement (at the moment only for deviation logging)
     pub time_signature: TimeSignature,
     /// Defines which position (in beats) is the downbeat.
+    // TODO-high-clip-implement (at the moment only for deviation logging)
     pub downbeat: f64,
 }
 

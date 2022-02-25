@@ -1,4 +1,5 @@
 use crate::main::ClipContent;
+use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::{
     AdHocFader, Downbeat, ExactDuration, ExactFrameCount, LoopBehavior, Looper, Recorder,
     Resampler, Section, StartEndFader, TimeStretcher, WithFrameRate,
@@ -52,6 +53,10 @@ impl SupplierChain {
         chain
     }
 
+    pub fn is_midi(&self) -> bool {
+        self.recorder().is_midi()
+    }
+
     pub fn set_audio_resample_mode(&mut self, mode: VirtualResampleMode) {
         self.resampler_mut().set_mode(mode);
     }
@@ -69,6 +74,10 @@ impl SupplierChain {
             .set_responsible_for_audio_time_stretching(use_vari_speed);
         self.time_stretcher_mut()
             .set_responsible_for_audio_time_stretching(!use_vari_speed);
+    }
+
+    pub fn set_time_stretching_enabled(&mut self, enabled: bool) {
+        self.time_stretcher_mut().set_enabled(enabled);
     }
 
     pub fn set_looped(&mut self, looped: bool) {

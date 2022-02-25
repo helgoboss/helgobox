@@ -1,4 +1,4 @@
-use crate::main::{load_source, ColumnSettings, MatrixSettings};
+use crate::main::{ColumnSettings, MatrixSettings};
 use crate::rt::supplier::RecorderEquipment;
 use crate::rt::{ClipInfo, ClipPlayState, SharedPos};
 use crate::{rt, ClipEngineResult};
@@ -24,8 +24,6 @@ struct ClipRuntimeData {
 }
 
 impl Clip {
-    // TODO-high Just like a column can live "offline" and keep its settings without a track, a clip
-    //  should be able to live "offline" and keep its settings if its content couldn't be loaded.
     pub fn load(api_clip: api::Clip) -> Clip {
         Clip {
             persistent_data: api_clip,
@@ -45,14 +43,12 @@ impl Clip {
         matrix_settings: &MatrixSettings,
         column_settings: &ColumnSettings,
     ) -> ClipEngineResult<rt::Clip> {
-        let source = load_source(&self.persistent_data.source, permanent_project)?;
-        let mut rt_clip = rt::Clip::from_source(
+        let mut rt_clip = rt::Clip::ready(
             &self.persistent_data,
-            source,
             permanent_project,
             recorder_equipment.clone(),
             common_tempo_range,
-        );
+        )?;
         rt_clip.set_audio_resample_mode(
             self.effective_resample_mode(matrix_settings, column_settings),
         );

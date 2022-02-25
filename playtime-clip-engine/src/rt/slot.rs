@@ -106,7 +106,7 @@ impl Slot {
                     detect_downbeat,
                 };
                 match &mut self.clip {
-                    None => self.clip = Some(Clip::from_recording(args, project, equipment)),
+                    None => self.clip = Some(Clip::recording(args, project, equipment)),
                     Some(clip) => clip.record(args),
                 }
             }

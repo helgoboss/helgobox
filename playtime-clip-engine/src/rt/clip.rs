@@ -18,8 +18,8 @@ use crate::{ClipEngineResult, QuantizedPosition};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, EvenQuantization, TempoRange,
-    TimeStretchMode, VirtualResampleMode,
+    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, ClipTimeBase, EvenQuantization,
+    TempoRange, TimeStretchMode, VirtualResampleMode,
 };
 use reaper_high::{OrCurrentProject, Project};
 use reaper_medium::{
@@ -43,57 +43,26 @@ struct PersistentPlayData {
     start_timing: Option<ClipPlayStartTiming>,
     stop_timing: Option<ClipPlayStopTiming>,
     looped: bool,
+    beat_time_base_data: Option<BeatTimeBaseData>,
 }
 
-// TODO-medium It's a bit strange that this is copied on some state changes that happen within
-//  the ready state. If we don't want to copy this one day, we can make state: Option<ClipState>.
-//  and take the state out when we need to mutate it and put it back in when finished. Then we
-//  can mutate freely without having to worry about the borrow checker (which would otherwise
-//  always get in the way if we want to call a method on self).
 #[derive(Copy, Clone, Debug)]
-pub struct SourceData {
-    tempo: Bpm,
-    /// Only used for deviation logging at the moment.
-    beat_count: u32,
-    is_midi: bool,
+pub struct BeatTimeBaseData {
+    audio_tempo: Option<Bpm>,
 }
 
-impl SourceData {
-    pub fn from_source(
-        source: &OwnedPcmSource,
-        project: Project,
-        common_tempo_range: TempoRange,
-    ) -> Self {
-        if pcm_source_is_midi(source) {
-            Self::from_midi(source.duration())
-        } else {
-            let tempo = source
-                .tempo()
-                .unwrap_or_else(|| detect_tempo(source.duration(), project, common_tempo_range));
-            Self::from_audio(tempo, source.duration())
+impl BeatTimeBaseData {
+    fn from_time_base(time_base: &ClipTimeBase) -> Option<Self> {
+        use ClipTimeBase::*;
+        match time_base {
+            Time => None,
+            Beat(b) => {
+                let data = BeatTimeBaseData {
+                    audio_tempo: b.audio_tempo.map(|v| Bpm::new(v.get())),
+                };
+                Some(data)
+            }
         }
-    }
-
-    pub fn from_audio(tempo: Bpm, duration: DurationInSeconds) -> Self {
-        Self {
-            tempo,
-            beat_count: calculate_beat_count(tempo, duration),
-            is_midi: false,
-        }
-    }
-
-    pub fn from_midi(duration: DurationInSeconds) -> Self {
-        let tempo = Bpm::new(MIDI_BASE_BPM);
-        Self {
-            tempo,
-            beat_count: calculate_beat_count(tempo, duration),
-            is_midi: true,
-        }
-    }
-
-    fn bar_count(&self) -> u32 {
-        // TODO-high Respect different time signatures
-        (self.beat_count as f64 / 4.0).ceil() as u32
     }
 }
 
@@ -112,7 +81,6 @@ enum ClipState {
 #[derive(Copy, Clone, Debug)]
 struct ReadyState {
     state: ReadySubState,
-    source_data: SourceData,
     persistent_data: PersistentPlayData,
 }
 
@@ -227,7 +195,6 @@ struct RecordingState {
 #[derive(Copy, Clone, Debug)]
 struct RollbackData {
     persistent_data: PersistentPlayData,
-    source_data: SourceData,
 }
 
 #[derive(Copy, Clone)]
@@ -250,38 +217,40 @@ pub enum RecordTiming {
 }
 
 impl Clip {
-    pub fn from_source(
+    pub fn ready(
         api_clip: &api::Clip,
-        source: OwnedPcmSource,
         permanent_project: Option<Project>,
         recorder_equipment: RecorderEquipment,
         common_tempo_range: TempoRange,
-    ) -> Self {
+    ) -> ClipEngineResult<Self> {
+        let source = {
+            let content = ClipContent::load(&api_clip.source);
+            // TODO-high Just like a column can live "offline" and keep its settings without a track, a clip
+            //  should be able to live "offline" and keep its settings if its content couldn't be loaded.
+            content.create_source(permanent_project)?.into_raw()
+        };
         let mut ready_state = ReadyState {
             state: ReadySubState::Stopped,
-            source_data: SourceData::from_source(
-                &source,
-                permanent_project.or_current_project(),
-                common_tempo_range,
-            ),
             persistent_data: PersistentPlayData {
                 start_timing: api_clip.start_timing,
                 stop_timing: api_clip.stop_timing,
                 looped: api_clip.looped,
+                beat_time_base_data: BeatTimeBaseData::from_time_base(&api_clip.time_base),
             },
         };
         let mut supplier_chain = SupplierChain::new(Recorder::ready(source, recorder_equipment));
         ready_state.update_supplier_chain(&mut supplier_chain);
         ready_state.pre_buffer(&mut supplier_chain, 0);
-        Self {
+        let clip = Self {
             supplier_chain,
             state: ClipState::Ready(ready_state),
             project: permanent_project,
             shared_pos: Default::default(),
-        }
+        };
+        Ok(clip)
     }
 
-    pub fn from_recording(
+    pub fn recording(
         args: ClipRecordArgs,
         project: Option<Project>,
         equipment: RecorderEquipment,
@@ -319,6 +288,17 @@ impl Clip {
 
     pub fn set_audio_time_stretch_mode(&mut self, mode: AudioTimeStretchMode) {
         self.supplier_chain.set_audio_time_stretch_mode(mode);
+    }
+
+    pub fn set_time_base(&mut self, time_base: &ClipTimeBase) -> ClipEngineResult<()> {
+        use ClipState::*;
+        match &mut self.state {
+            Ready(s) => {
+                s.set_time_base(time_base, &mut self.supplier_chain);
+                Ok(())
+            }
+            Recording(_) => Err("recording"),
+        }
     }
 
     /// Plays the clip if it's not recording.
@@ -546,9 +526,22 @@ impl ReadyState {
             source_pos_in_source_frames,
             supplier_chain.source_frame_rate_in_ready_state(),
         );
-        let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo);
+        let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo, supplier_chain);
         let source_pos_in_secs_tempo_adjusted = source_pos_in_secs.get() / final_tempo_factor;
         Some(PositionInSeconds::new(source_pos_in_secs_tempo_adjusted))
+    }
+
+    /// Returns `None` if time base is not "Beat".
+    fn tempo(&self, supplier_chain: &SupplierChain) -> Option<Bpm> {
+        let data = &self.persistent_data.beat_time_base_data?;
+        if supplier_chain.is_midi() {
+            Some(Bpm::new(MIDI_BASE_BPM))
+        } else {
+            let tempo = data
+                .audio_tempo
+                .expect("material has time base 'beat' but no tempo");
+            Some(tempo)
+        }
     }
 
     fn frame_within_reaper_source(&self, supplier_chain: &SupplierChain) -> Option<isize> {
@@ -576,6 +569,11 @@ impl ReadyState {
         frame % supplier_chain.section_frame_count_in_ready_state()
     }
 
+    pub fn set_time_base(&mut self, time_base: &ClipTimeBase, supplier_chain: &mut SupplierChain) {
+        self.persistent_data.beat_time_base_data = BeatTimeBaseData::from_time_base(time_base);
+        self.update_supplier_chain(supplier_chain);
+    }
+
     pub fn set_looped(&mut self, looped: bool, supplier_chain: &mut SupplierChain) {
         self.persistent_data.looped = looped;
         let looper = supplier_chain.looper_mut();
@@ -590,6 +588,8 @@ impl ReadyState {
 
     fn update_supplier_chain(&self, supplier_chain: &mut SupplierChain) {
         supplier_chain.set_looped(self.persistent_data.looped);
+        supplier_chain
+            .set_time_stretching_enabled(self.persistent_data.beat_time_base_data.is_some());
     }
 
     pub fn play(&mut self, args: ClipPlayArgs, supplier_chain: &mut SupplierChain) -> PlayOutcome {
@@ -886,7 +886,7 @@ impl ReadyState {
         seek_pos: usize,
     ) -> Go {
         // Seek requested.
-        if self.source_data.is_midi {
+        if supplier_chain.is_midi() {
             // MIDI. Let's jump to the position directly.
             Go {
                 pos: seek_pos as isize,
@@ -966,7 +966,7 @@ impl ReadyState {
     ) -> Option<isize> {
         supplier_chain.prepare_supply(true);
         let dest_sample_rate = Hz::new(args.block.sample_rate().get() * sample_rate_factor);
-        let response = if self.source_data.is_midi {
+        let response = if supplier_chain.is_midi() {
             self.fill_samples_midi(args, start_frame, info, dest_sample_rate, supplier_chain)
         } else {
             self.fill_samples_audio(args, start_frame, info, dest_sample_rate, supplier_chain)
@@ -1045,7 +1045,7 @@ impl ReadyState {
         args: &ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
     ) -> SupplyRequestGeneralInfo {
-        let final_tempo_factor = self.calc_final_tempo_factor(args.timeline_tempo);
+        let final_tempo_factor = self.calc_final_tempo_factor(args.timeline_tempo, supplier_chain);
         let general_info = SupplyRequestGeneralInfo {
             audio_block_timeline_cursor_pos: args.timeline_cursor_pos,
             audio_block_length: args.block.length() as usize,
@@ -1057,9 +1057,13 @@ impl ReadyState {
         general_info
     }
 
-    fn calc_final_tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
-        let timeline_tempo_factor = timeline_tempo.get() / self.source_data.tempo.get();
-        timeline_tempo_factor.max(MIN_TEMPO_FACTOR)
+    fn calc_final_tempo_factor(&self, timeline_tempo: Bpm, supplier_chain: &SupplierChain) -> f64 {
+        if let Some(clip_tempo) = self.tempo(supplier_chain) {
+            let timeline_tempo_factor = timeline_tempo.get() / clip_tempo.get();
+            timeline_tempo_factor.max(MIN_TEMPO_FACTOR)
+        } else {
+            1.0
+        }
     }
 
     /// So, this is how we do play scheduling. Whenever the preview register
@@ -1116,17 +1120,21 @@ impl ReadyState {
         );
         if quantized_pos.denominator() == 1 {
             // Quantization to bar
-            let args = LogNaturalDeviationArgs {
-                start_bar: quantized_pos.position() as _,
-                block: args.block,
-                timeline: &args.timeline,
-                timeline_cursor_pos: args.timeline_cursor_pos,
-                clip_tempo_factor,
-                timeline_frame_rate,
-                source_frame_rate,
-                start_bar_timeline_pos: quantized_timeline_pos,
-            };
-            self.log_natural_deviation(args, supplier_chain);
+            if let Some(clip_tempo) = self.tempo(supplier_chain) {
+                // Plus, we react to tempo changes.
+                let args = LogNaturalDeviationArgs {
+                    start_bar: quantized_pos.position() as _,
+                    block: args.block,
+                    timeline: &args.timeline,
+                    timeline_cursor_pos: args.timeline_cursor_pos,
+                    clip_tempo_factor,
+                    timeline_frame_rate,
+                    source_frame_rate,
+                    start_bar_timeline_pos: quantized_timeline_pos,
+                    clip_tempo,
+                };
+                self.log_natural_deviation(args, supplier_chain);
+            }
         }
         //region Description
         // Now we have a countdown/position in source frames, but it doesn't yet
@@ -1200,7 +1208,7 @@ impl ReadyState {
     }
 
     fn pre_buffer(&mut self, supplier_chain: &mut SupplierChain, next_expected_pos: isize) {
-        if self.source_data.is_midi {
+        if supplier_chain.is_midi() {
             return;
         }
         let req = PreBufferFillRequest {
@@ -1230,9 +1238,10 @@ impl ReadyState {
         supplier_chain: &SupplierChain,
     ) {
         // Assuming a constant tempo and time signature during one cycle
-        let bar_count = self.source_data.bar_count();
+        let clip_duration = supplier_chain.section_duration_in_ready_state();
+        let beat_count = calculate_beat_count(args.clip_tempo, clip_duration);
+        let bar_count = (beat_count as f64 / 4.0).ceil() as u32;
         let end_bar = args.start_bar + bar_count as i32;
-        let bar_count = end_bar - args.start_bar;
         let end_bar_timeline_pos = args.timeline.pos_of_bar(end_bar);
         debug_assert!(
             end_bar_timeline_pos > args.start_bar_timeline_pos,
@@ -1379,7 +1388,6 @@ impl ReadyState {
             rollback_data: {
                 let data = RollbackData {
                     persistent_data: self.persistent_data,
-                    source_data: self.source_data,
                 };
                 Some(data)
             },
@@ -1554,7 +1562,6 @@ impl RecordingState {
                         supplier_chain.recorder_mut().rollback_recording();
                         let ready_state = ReadyState {
                             state: ReadySubState::Stopped,
-                            source_data: rollback_data.source_data,
                             persistent_data: rollback_data.persistent_data,
                         };
                         TransitionToReady(ready_state)
@@ -1665,17 +1672,14 @@ impl RecordingState {
             } else {
                 ReadySubState::Stopped
             },
-            source_data: if outcome.is_midi {
-                SourceData::from_midi(outcome.effective_duration)
-            } else {
-                SourceData::from_audio(outcome.tempo, outcome.effective_duration)
-            },
             persistent_data: PersistentPlayData {
                 // TODO-high Set start timing
                 start_timing: None,
                 // TODO-high Set stop timing
                 stop_timing: None,
                 looped: play_after,
+                // TODO-high Set time base
+                beat_time_base_data: None,
             },
         }
     }
@@ -1785,6 +1789,7 @@ struct LogNaturalDeviationArgs<'a, T: Timeline> {
     timeline_frame_rate: Hz,
     source_frame_rate: Hz,
     start_bar_timeline_pos: PositionInSeconds,
+    clip_tempo: Bpm,
 }
 
 const MIN_TEMPO_FACTOR: f64 = 0.0000000001;
