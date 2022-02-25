@@ -1,9 +1,11 @@
 use crate::rt::buffer::AudioBufMut;
+use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    AudioSupplier, ExactFrameCount, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithFrameRate,
+    midi_util, AudioSupplier, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
+    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo,
+    SupplyResponse, SupplyResponseStatus, WithFrameRate,
 };
+use playtime_api::MidiResetMessageRange;
 use reaper_medium::{BorrowedMidiEventList, Hz};
 
 #[derive(Debug)]
@@ -11,6 +13,7 @@ pub struct Looper<S> {
     loop_behavior: LoopBehavior,
     enabled: bool,
     supplier: S,
+    midi_reset_msg_range: MidiResetMessageRange,
 }
 
 #[derive(Debug)]
@@ -58,7 +61,8 @@ impl LoopBehavior {
         }
     }
 
-    fn last_cycle(&self) -> Option<usize> {
+    /// Returns the index of the last cycle to be played.
+    fn last_cycle_to_be_played(&self) -> Option<usize> {
         use LoopBehavior::*;
         match self {
             Infinitely => None,
@@ -73,11 +77,16 @@ impl<S: ExactFrameCount> Looper<S> {
             loop_behavior: Default::default(),
             enabled: false,
             supplier,
+            midi_reset_msg_range: Default::default(),
         }
     }
 
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
+    }
+
+    pub fn set_midi_reset_msg_range(&mut self, range: MidiResetMessageRange) {
+        self.midi_reset_msg_range = range;
     }
 
     pub fn supplier(&self) -> &S {
@@ -95,27 +104,25 @@ impl<S: ExactFrameCount> Looper<S> {
     pub fn keep_playing_until_end_of_current_cycle(&mut self, pos: isize) {
         // TODO-high Scheduling for stop after 2nd cycle plays a bit
         //  too far. Check MIDI clip, plays the downbeat!
-        let last_cycle = if pos < 0 {
-            0
-        } else {
-            self.get_cycle_at_frame(pos as usize)
-        };
+        let last_cycle = self.get_cycle_at_frame(pos);
         self.loop_behavior = LoopBehavior::UntilEndOfCycle(last_cycle);
     }
 
-    pub fn get_cycle_at_frame(&self, frame: usize) -> usize {
-        frame / self.supplier.frame_count()
+    pub fn get_cycle_at_frame(&self, frame: isize) -> usize {
+        if frame < 0 {
+            return 0;
+        }
+        frame as usize / self.supplier.frame_count()
     }
 
     fn check_relevance(&self, start_frame: isize) -> Option<RelevantData> {
-        if !self.enabled || start_frame < 0 {
+        if !self.enabled {
             return None;
         }
-        let start_frame = start_frame as usize;
         let current_cycle = self.get_cycle_at_frame(start_frame);
         let cycle_in_scope = self
             .loop_behavior
-            .last_cycle()
+            .last_cycle_to_be_played()
             .map(|last_cycle| current_cycle <= last_cycle)
             .unwrap_or(true);
         if !cycle_in_scope {
@@ -130,21 +137,25 @@ impl<S: ExactFrameCount> Looper<S> {
 
     fn is_last_cycle(&self, cycle: usize) -> bool {
         self.loop_behavior
-            .last_cycle()
+            .last_cycle_to_be_played()
             .map(|last_cycle| cycle == last_cycle)
             .unwrap_or(false)
     }
 }
 
 struct RelevantData {
-    start_frame: usize,
+    start_frame: isize,
     current_cycle: usize,
 }
 
 impl RelevantData {
     /// Start from beginning if we encounter a start frame after the end (modulo).
-    fn modulo_start_frame(&self, total_frame_count: usize) -> usize {
-        self.start_frame % total_frame_count
+    fn modulo_start_frame(&self, total_frame_count: usize) -> isize {
+        if self.start_frame < 0 {
+            return self.start_frame;
+        } else {
+            self.start_frame % total_frame_count as isize
+        }
     }
 }
 
@@ -162,7 +173,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
         };
         let modulo_start_frame = data.modulo_start_frame(self.supplier.frame_count());
         let modulo_request = SupplyAudioRequest {
-            start_frame: modulo_start_frame as isize,
+            start_frame: modulo_start_frame,
             dest_sample_rate: request.dest_sample_rate,
             info: SupplyRequestInfo {
                 audio_block_frame_offset: request.info.audio_block_frame_offset,
@@ -236,7 +247,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
         };
         let modulo_start_frame = data.modulo_start_frame(self.supplier.frame_count());
         let modulo_request = SupplyMidiRequest {
-            start_frame: modulo_start_frame as isize,
+            start_frame: modulo_start_frame,
             dest_frame_count: request.dest_frame_count,
             dest_sample_rate: request.dest_sample_rate,
             info: SupplyRequestInfo {
@@ -249,11 +260,28 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
             general_info: request.general_info,
         };
         let modulo_response = self.supplier.supply_midi(&modulo_request, event_list);
+        if data.start_frame <= 0 {
+            let end_frame = data.start_frame + modulo_response.num_frames_consumed as isize;
+            if end_frame > 0 {
+                debug!("Silence MIDI at loop start");
+                midi_util::silence_midi(
+                    event_list,
+                    self.midi_reset_msg_range.left,
+                    SilenceMidiBlockMode::Prepend,
+                );
+            }
+        }
         match modulo_response.status {
             SupplyResponseStatus::PleaseContinue => modulo_response,
             SupplyResponseStatus::ReachedEnd { num_frames_written } => {
                 if self.is_last_cycle(data.current_cycle) {
                     // Time to stop.
+                    debug!("Silence MIDI at loop end");
+                    midi_util::silence_midi(
+                        event_list,
+                        self.midi_reset_msg_range.right,
+                        SilenceMidiBlockMode::Append,
+                    );
                     modulo_response
                 } else if num_frames_written == request.dest_frame_count {
                     // Perfect landing, source completely consumed. Start next cycle.
@@ -300,7 +328,7 @@ impl<S: PreBufferSourceSkill + ExactFrameCount> PreBufferSourceSkill for Looper<
         };
         let modulo_start_frame = data.modulo_start_frame(self.supplier.frame_count());
         let inner_request = PreBufferFillRequest {
-            start_frame: modulo_start_frame as isize,
+            start_frame: modulo_start_frame,
             ..request
         };
         self.supplier.pre_buffer(inner_request);

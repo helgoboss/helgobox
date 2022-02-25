@@ -653,7 +653,6 @@ pub struct ClipMidiSettings {
     /// For fine-tuning the section.
     pub section_reset_settings: MidiResetMessageRange,
     /// For fine-tuning the complete loop.
-    // TODO-high-clip-implement
     pub loop_reset_settings: MidiResetMessageRange,
     /// For fine-tuning instant start/stop of a MIDI clip when in the middle of a source or section.
     pub interaction_reset_settings: MidiResetMessageRange,

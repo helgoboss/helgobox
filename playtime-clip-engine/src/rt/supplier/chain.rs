@@ -77,6 +77,10 @@ impl SupplierChain {
         self.ad_hoc_fader_mut().set_midi_reset_msg_range(range);
     }
 
+    pub fn set_midi_reset_msg_range_for_loop(&mut self, range: MidiResetMessageRange) {
+        self.looper_mut().set_midi_reset_msg_range(range);
+    }
+
     pub fn set_midi_reset_msg_range_for_source(&mut self, range: MidiResetMessageRange) {
         self.start_end_fader_mut().set_midi_reset_msg_range(range);
     }

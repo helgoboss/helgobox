@@ -233,6 +233,8 @@ impl Clip {
         supplier_chain
             .set_midi_reset_msg_range_for_section(api_clip.midi_settings.section_reset_settings);
         supplier_chain
+            .set_midi_reset_msg_range_for_loop(api_clip.midi_settings.loop_reset_settings);
+        supplier_chain
             .set_audio_fades_enabled_for_source(api_clip.audio_settings.apply_source_fades);
         ready_state.update_supplier_chain_from_persistent_data(&mut supplier_chain)?;
         ready_state.pre_buffer(&mut supplier_chain, 0);
@@ -1456,13 +1458,10 @@ impl ReadyState {
             Stopped | Suspending(_) => {}
             Playing(s) => {
                 if let Some(pos) = s.pos {
+                    // TODO-high Respect downbeat
                     if pos >= 0 {
-                        let up_cycled_frame = self.up_cycle_frame(
-                            desired_frame,
-                            pos as usize,
-                            frame_count,
-                            supplier_chain,
-                        );
+                        let up_cycled_frame =
+                            self.up_cycle_frame(desired_frame, pos, frame_count, supplier_chain);
                         self.state = Playing(PlayingState {
                             seek_pos: Some(up_cycled_frame),
                             ..s
@@ -1472,7 +1471,7 @@ impl ReadyState {
             }
             Paused(s) => {
                 let up_cycled_frame =
-                    self.up_cycle_frame(desired_frame, s.pos, frame_count, supplier_chain);
+                    self.up_cycle_frame(desired_frame, s.pos as isize, frame_count, supplier_chain);
                 self.state = Paused(PausedState {
                     pos: up_cycled_frame,
                 });
@@ -1483,7 +1482,7 @@ impl ReadyState {
     fn up_cycle_frame(
         &self,
         frame: usize,
-        offset_pos: usize,
+        offset_pos: isize,
         frame_count: usize,
         supplier_chain: &SupplierChain,
     ) -> usize {
