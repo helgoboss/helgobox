@@ -28,6 +28,9 @@ pub use ad_hoc_fader::*;
 mod start_end_fader;
 pub use start_end_fader::*;
 
+mod amplifier;
+pub use amplifier::*;
+
 mod section;
 pub use section::*;
 

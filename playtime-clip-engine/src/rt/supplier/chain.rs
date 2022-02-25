@@ -2,19 +2,20 @@ use crate::conversion_util::convert_duration_in_seconds_to_frames;
 use crate::main::ClipContent;
 use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::{
-    AdHocFader, Downbeat, ExactDuration, ExactFrameCount, LoopBehavior, Looper, Recorder,
-    Resampler, Section, StartEndFader, TimeStretcher, WithFrameRate,
+    AdHocFader, Amplifier, Downbeat, ExactDuration, ExactFrameCount, LoopBehavior, Looper,
+    Recorder, Resampler, Section, StartEndFader, TimeStretcher, WithFrameRate,
 };
 use crate::rt::ClipInfo;
 use crate::ClipEngineResult;
 use playtime_api::{
-    AudioCacheBehavior, AudioTimeStretchMode, MidiResetMessageRange, PositiveBeat, PositiveSecond,
-    TimeStretchMode, VirtualResampleMode,
+    AudioCacheBehavior, AudioTimeStretchMode, Db, MidiResetMessageRange, PositiveBeat,
+    PositiveSecond, TimeStretchMode, VirtualResampleMode,
 };
 use reaper_high::Project;
 use reaper_medium::{Bpm, DurationInSeconds, Hz, PositionInSeconds};
 
-type Head = AdHocFaderTail;
+type Head = AmplifierTail;
+type AmplifierTail = Amplifier<AdHocFaderTail>;
 type AdHocFaderTail = AdHocFader<ResamplerTail>;
 type ResamplerTail = Resampler<TimeStretcherTail>;
 type TimeStretcherTail = TimeStretcher<DownbeatTail>;
@@ -34,8 +35,8 @@ impl SupplierChain {
     pub fn new(recorder: Recorder) -> Self {
         let mut chain = Self {
             head: {
-                AdHocFader::new(Resampler::new(TimeStretcher::new(Downbeat::new(
-                    Looper::new(Section::new(StartEndFader::new(recorder))),
+                Amplifier::new(AdHocFader::new(Resampler::new(TimeStretcher::new(
+                    Downbeat::new(Looper::new(Section::new(StartEndFader::new(recorder)))),
                 ))))
             },
         };
@@ -83,6 +84,11 @@ impl SupplierChain {
 
     pub fn set_midi_reset_msg_range_for_source(&mut self, range: MidiResetMessageRange) {
         self.start_end_fader_mut().set_midi_reset_msg_range(range);
+    }
+
+    pub fn set_volume(&mut self, volume: Db) {
+        self.amplifier_mut()
+            .set_volume(reaper_medium::Db::new(volume.get()));
     }
 
     pub fn set_section_in_seconds(
@@ -190,20 +196,28 @@ impl SupplierChain {
         &mut self.head
     }
 
-    pub fn ad_hoc_fader(&self) -> &AdHocFaderTail {
+    pub fn amplifier(&self) -> &AmplifierTail {
         &self.head
     }
 
-    pub fn ad_hoc_fader_mut(&mut self) -> &mut AdHocFaderTail {
+    pub fn amplifier_mut(&mut self) -> &mut AmplifierTail {
         &mut self.head
     }
 
+    pub fn ad_hoc_fader(&self) -> &AdHocFaderTail {
+        self.amplifier().supplier()
+    }
+
+    pub fn ad_hoc_fader_mut(&mut self) -> &mut AdHocFaderTail {
+        self.amplifier_mut().supplier_mut()
+    }
+
     pub fn resampler(&self) -> &ResamplerTail {
-        self.head.supplier()
+        self.ad_hoc_fader().supplier()
     }
 
     pub fn resampler_mut(&mut self) -> &mut ResamplerTail {
-        self.head.supplier_mut()
+        self.ad_hoc_fader_mut().supplier_mut()
     }
 
     pub fn time_stretcher(&self) -> &TimeStretcherTail {

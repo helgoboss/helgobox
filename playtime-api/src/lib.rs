@@ -563,7 +563,6 @@ pub struct Clip {
     /// Whether the clip should be played repeatedly or as a single shot.
     pub looped: bool,
     /// Relative volume adjustment of clip.
-    // TODO-high-clip-implement
     pub volume: Db,
     /// Color of the clip.
     // TODO-clip-implement
@@ -841,7 +840,7 @@ impl PositiveSecond {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-pub struct PositiveBeat(pub f64);
+pub struct PositiveBeat(f64);
 
 impl PositiveBeat {
     pub fn new(value: f64) -> PlaytimeApiResult<Self> {
@@ -857,7 +856,20 @@ impl PositiveBeat {
 }
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-pub struct Db(pub f64);
+pub struct Db(f64);
+
+impl Db {
+    pub fn new(value: f64) -> PlaytimeApiResult<Self> {
+        if value.is_nan() {
+            return Err("dB value must not be NaN");
+        }
+        Ok(Self(value))
+    }
+
+    pub const fn get(&self) -> f64 {
+        self.0
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct RgbColor(pub u8, pub u8, pub u8);

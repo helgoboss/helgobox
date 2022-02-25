@@ -223,6 +223,7 @@ impl Clip {
             },
         };
         let mut supplier_chain = SupplierChain::new(Recorder::ready(source, recorder_equipment));
+        supplier_chain.set_volume(api_clip.volume);
         supplier_chain
             .set_section_in_seconds(api_clip.section.start_pos, api_clip.section.length)?;
         supplier_chain.set_midi_reset_msg_range_for_interaction(

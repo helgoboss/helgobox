@@ -70,4 +70,4 @@ fn calc_fade_out_volume_factor_at(frame: isize, frame_count: usize) -> f64 {
 }
 
 // 480 frames = 10ms at 48 kHz
-const FADE_LENGTH: usize = 48000;
+const FADE_LENGTH: usize = 480;

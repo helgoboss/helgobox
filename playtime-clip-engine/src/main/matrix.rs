@@ -262,7 +262,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                                     start_timing: None,
                                     stop_timing: None,
                                     looped: desc.clip.repeat,
-                                    volume: api::Db(0.0),
+                                    volume: api::Db::new(0.0).unwrap(),
                                     color: api::ClipColor::PlayTrackColor,
                                     section: api::Section {
                                         start_pos: api::PositiveSecond::new(0.0).unwrap(),
