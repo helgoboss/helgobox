@@ -8,8 +8,8 @@ use crate::rt::supplier::{
 use crate::rt::ClipInfo;
 use crate::ClipEngineResult;
 use playtime_api::{
-    AudioCacheBehavior, AudioTimeStretchMode, PositiveBeat, PositiveSecond, TimeStretchMode,
-    VirtualResampleMode,
+    AudioCacheBehavior, AudioTimeStretchMode, MidiResetMessageRange, PositiveBeat, PositiveSecond,
+    TimeStretchMode, VirtualResampleMode,
 };
 use reaper_high::Project;
 use reaper_medium::{Bpm, DurationInSeconds, Hz, PositionInSeconds};
@@ -63,6 +63,22 @@ impl SupplierChain {
 
     pub fn clear_downbeat(&mut self) {
         self.downbeat_mut().set_downbeat_frame(0);
+    }
+
+    pub fn set_audio_fades_enabled_for_source(&mut self, enabled: bool) {
+        self.start_end_fader_mut().set_audio_fades_enabled(enabled);
+    }
+
+    pub fn set_midi_reset_msg_range_for_section(&mut self, range: MidiResetMessageRange) {
+        self.section_mut().set_midi_reset_msg_range(range);
+    }
+
+    pub fn set_midi_reset_msg_range_for_interaction(&mut self, range: MidiResetMessageRange) {
+        self.ad_hoc_fader_mut().set_midi_reset_msg_range(range);
+    }
+
+    pub fn set_midi_reset_msg_range_for_source(&mut self, range: MidiResetMessageRange) {
+        self.start_end_fader_mut().set_midi_reset_msg_range(range);
     }
 
     pub fn set_section_in_seconds(
@@ -151,16 +167,15 @@ impl SupplierChain {
         self.time_stretcher_mut().set_tempo_factor(tempo_factor);
     }
 
-    pub fn prepare_supply(&mut self, apply_source_fades: bool) {
-        let (fade_in_enabled, fade_out_enabled) = if apply_source_fades {
-            let section = self.section();
-            (section.start_frame() == 0, section.length().is_none())
-        } else {
-            (false, false)
-        };
+    pub fn prepare_supply(&mut self) {
+        let section = self.section();
+        // If section start is > 0, the section will take care of applying start fades.
+        let enabled_for_start = section.start_frame() == 0;
+        // If section end is set, the section will take care of applying end fades.
+        let enabled_for_end = section.length().is_none();
         let start_end_fader = self.start_end_fader_mut();
-        start_end_fader.set_fade_in_enabled(fade_in_enabled);
-        start_end_fader.set_fade_out_enabled(fade_out_enabled);
+        start_end_fader.set_enabled_for_start(enabled_for_start);
+        start_end_fader.set_enabled_for_end(enabled_for_end);
     }
 
     pub fn head(&self) -> &Head {

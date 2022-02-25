@@ -1,33 +1,47 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::fade_util::{apply_fade_in, apply_fade_out};
+use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
     PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
 };
+use playtime_api::{MidiResetMessageRange, MidiResetMessages};
 use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz};
 
 #[derive(Debug)]
 pub struct StartEndFader<S> {
     supplier: S,
-    fade_in_enabled: bool,
-    fade_out_enabled: bool,
+    audio_fades_enabled: bool,
+    enabled_for_start: bool,
+    enabled_for_end: bool,
+    midi_reset_msg_range: MidiResetMessageRange,
 }
 
 impl<S> StartEndFader<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             supplier,
-            fade_in_enabled: false,
-            fade_out_enabled: false,
+            audio_fades_enabled: false,
+            enabled_for_start: false,
+            enabled_for_end: false,
+            midi_reset_msg_range: Default::default(),
         }
     }
 
-    pub fn set_fade_in_enabled(&mut self, enabled: bool) {
-        self.fade_in_enabled = enabled;
+    pub fn set_audio_fades_enabled(&mut self, enabled: bool) {
+        self.audio_fades_enabled = enabled;
     }
 
-    pub fn set_fade_out_enabled(&mut self, enabled: bool) {
-        self.fade_out_enabled = enabled;
+    pub fn set_midi_reset_msg_range(&mut self, range: MidiResetMessageRange) {
+        self.midi_reset_msg_range = range;
+    }
+
+    pub fn set_enabled_for_start(&mut self, enabled: bool) {
+        self.enabled_for_start = enabled;
+    }
+
+    pub fn set_enabled_for_end(&mut self, enabled: bool) {
+        self.enabled_for_end = enabled;
     }
 
     pub fn supplier(&self) -> &S {
@@ -46,10 +60,13 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for StartEndFader<S> {
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
         let response = self.supplier.supply_audio(request, dest_buffer);
-        if self.fade_in_enabled {
+        if !self.audio_fades_enabled {
+            return response;
+        }
+        if self.enabled_for_start {
             apply_fade_in(dest_buffer, request.start_frame);
         }
-        if self.fade_out_enabled {
+        if self.enabled_for_end {
             apply_fade_out(
                 dest_buffer,
                 request.start_frame,
@@ -71,11 +88,24 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for StartEndFader<S> {
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {
         let response = self.supplier.supply_midi(request, event_list);
-        if self.fade_out_enabled {
-            if response.status.reached_end() {
-                debug!("Silence MIDI at source end");
-                midi_util::silence_midi(event_list);
+        if self.enabled_for_start && request.start_frame <= 0 {
+            let end_frame = request.start_frame + response.num_frames_consumed as isize;
+            if end_frame > 0 {
+                debug!("Silence MIDI at source start");
+                midi_util::silence_midi(
+                    event_list,
+                    self.midi_reset_msg_range.left,
+                    SilenceMidiBlockMode::Prepend,
+                );
             }
+        }
+        if self.enabled_for_end && response.status.reached_end() {
+            debug!("Silence MIDI at source end");
+            midi_util::silence_midi(
+                event_list,
+                self.midi_reset_msg_range.right,
+                SilenceMidiBlockMode::Append,
+            );
         }
         response
     }

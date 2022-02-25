@@ -1,14 +1,17 @@
 use crate::rt::buffer::AudioBufMut;
+use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioSupplier, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, SupplyResponseStatus, WithFrameRate,
 };
+use playtime_api::{MidiResetMessageRange, MidiResetMessages};
 use reaper_medium::{BorrowedMidiEventList, Hz};
 
 #[derive(Debug)]
 pub struct AdHocFader<S> {
-    fade: Option<Fade>,
     supplier: S,
+    fade: Option<Fade>,
+    midi_reset_msg_range: MidiResetMessageRange,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -39,7 +42,12 @@ impl<S> AdHocFader<S> {
         Self {
             fade: None,
             supplier,
+            midi_reset_msg_range: Default::default(),
         }
+    }
+
+    pub fn set_midi_reset_msg_range(&mut self, range: MidiResetMessageRange) {
+        self.midi_reset_msg_range = range;
     }
 
     pub fn has_fade_in(&self) -> bool {
@@ -110,6 +118,33 @@ impl<S> AdHocFader<S> {
             }
         }
     }
+
+    fn get_instruction(&mut self, start_frame: isize) -> Instruction {
+        use FadeDirection::*;
+        let fade = match self.fade {
+            // No fade request.
+            None => return Instruction::Bypass,
+            Some(f) => f,
+        };
+        if start_frame < fade.start_frame && fade.direction == FadeOut {
+            // Fade out not started yet. Shouldn't happen if used in normal ways (instant fade).
+            return Instruction::Bypass;
+        }
+        if start_frame >= fade.end_frame {
+            // Nothing to fade anymore. Shouldn't happen if used in normal ways (stops requesting
+            // as soon as fade phase ended).
+            match fade.direction {
+                FadeIn => {
+                    self.fade = None;
+                    return Instruction::Bypass;
+                }
+                FadeOut => {
+                    return Instruction::Return(SupplyResponse::exceeded_end());
+                }
+            }
+        }
+        Instruction::ApplyFade(fade)
+    }
 }
 
 impl<S: AudioSupplier> AudioSupplier for AdHocFader<S> {
@@ -118,31 +153,19 @@ impl<S: AudioSupplier> AudioSupplier for AdHocFader<S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        use FadeDirection::*;
-        let fade = match self.fade {
-            // No fade request.
-            None => return self.supplier.supply_audio(request, dest_buffer),
-            Some(f) => f,
-        };
-        if request.start_frame < fade.start_frame && fade.direction == FadeOut {
-            // Fade out not started yet. Shouldn't happen if used in normal ways (instant fade).
-            return self.supplier.supply_audio(request, dest_buffer);
-        }
-        if request.start_frame >= fade.end_frame {
-            // Nothing to fade anymore. Shouldn't happen if used in normal ways (stops requests
-            // as soon as fade phase ended).
-            match fade.direction {
-                FadeIn => {
-                    self.fade = None;
-                    return self.supplier.supply_audio(request, dest_buffer);
-                }
-                FadeOut => {
-                    return SupplyResponse::exceeded_end();
-                }
+        use Instruction::*;
+        let fade = match self.get_instruction(request.start_frame) {
+            Bypass => {
+                return self.supplier.supply_audio(request, dest_buffer);
             }
-        }
+            Return(r) => {
+                return r;
+            }
+            ApplyFade(f) => f,
+        };
         // In fade phase.
         let inner_response = self.supplier.supply_audio(request, dest_buffer);
+        use FadeDirection::*;
         let counter = match fade.direction {
             FadeIn => (request.start_frame - fade.start_frame) as usize,
             FadeOut => (fade.end_frame - request.start_frame) as usize,
@@ -189,24 +212,35 @@ impl<S: MidiSupplier> MidiSupplier for AdHocFader<S> {
         request: &SupplyMidiRequest,
         event_list: &BorrowedMidiEventList,
     ) -> SupplyResponse {
-        let fade = match self.fade {
-            Some(
-                f
-                @
-                Fade {
-                    direction: FadeDirection::FadeOut,
-                    ..
-                },
-            ) => f,
-            // No fade out request.
-            _ => return self.supplier.supply_midi(request, event_list),
+        use Instruction::*;
+        let fade = match self.get_instruction(request.start_frame) {
+            Bypass => {
+                return self.supplier.supply_midi(request, event_list);
+            }
+            Return(r) => {
+                return r;
+            }
+            ApplyFade(f) => f,
         };
-        if request.start_frame < fade.start_frame {
-            // Fade not started yet. Shouldn't happen if used in normal ways (instant fade).
-            return self.supplier.supply_midi(request, event_list);
-        }
         // With MIDI it's simple. No fade necessary, just a plain "Shut up!".
-        midi_util::silence_midi(event_list);
+        use FadeDirection::*;
+        let (reset_messages, block_mode) = match fade.direction {
+            FadeIn => {
+                debug!("Silence MIDI at start interaction");
+                (
+                    self.midi_reset_msg_range.left,
+                    SilenceMidiBlockMode::Prepend,
+                )
+            }
+            FadeOut => {
+                debug!("Silence MIDI at stop interaction");
+                (
+                    self.midi_reset_msg_range.right,
+                    SilenceMidiBlockMode::Append,
+                )
+            }
+        };
+        midi_util::silence_midi(event_list, reset_messages, block_mode);
         SupplyResponse::exceeded_end()
     }
 }
@@ -219,3 +253,9 @@ impl<S: PreBufferSourceSkill> PreBufferSourceSkill for AdHocFader<S> {
 
 // 0.01s = 10ms at 48 kHz
 const FADE_LENGTH: usize = 480;
+
+enum Instruction {
+    Bypass,
+    Return(SupplyResponse),
+    ApplyFade(Fade),
+}

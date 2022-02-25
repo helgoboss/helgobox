@@ -649,20 +649,17 @@ impl Default for ClipAudioSettings {
 #[serde(deny_unknown_fields)]
 pub struct ClipMidiSettings {
     /// For fixing the source itself.
-    // TODO-high-clip-implement
     pub source_reset_settings: MidiResetMessageRange,
     /// For fine-tuning the section.
-    // TODO-high-clip-implement
     pub section_reset_settings: MidiResetMessageRange,
     /// For fine-tuning the complete loop.
     // TODO-high-clip-implement
     pub loop_reset_settings: MidiResetMessageRange,
     /// For fine-tuning instant start/stop of a MIDI clip when in the middle of a source or section.
-    // TODO-high-clip-implement
     pub interaction_reset_settings: MidiResetMessageRange,
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MidiResetMessageRange {
     /// Which MIDI reset messages to apply at the beginning.
@@ -671,12 +668,22 @@ pub struct MidiResetMessageRange {
     pub right: MidiResetMessages,
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MidiResetMessages {
     pub all_notes_off: bool,
-    pub all_sounds_off: bool,
-    pub sustain_off: bool,
+    pub all_sound_off: bool,
+    pub reset_all_controllers: bool,
+    pub damper_pedal_off: bool,
+}
+
+impl MidiResetMessages {
+    pub fn at_least_one_enabled(&self) -> bool {
+        self.all_notes_off
+            || self.all_sound_off
+            || self.reset_all_controllers
+            || self.damper_pedal_off
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]

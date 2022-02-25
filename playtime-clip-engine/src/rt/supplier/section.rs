@@ -3,17 +3,20 @@ use crate::conversion_util::{
 };
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::fade_util::{apply_fade_in, apply_fade_out};
+use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
     PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo,
     SupplyResponse, SupplyResponseStatus, WithFrameRate,
 };
+use playtime_api::{MidiResetMessageRange, MidiResetMessages};
 use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz};
 
 #[derive(Debug)]
 pub struct Section<S> {
     supplier: S,
     boundary: Boundary,
+    midi_reset_msg_range: MidiResetMessageRange,
 }
 
 #[derive(PartialEq, Debug, Default)]
@@ -33,16 +36,7 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
         Self {
             supplier,
             boundary: Default::default(),
-            // boundary: Boundary {
-            //     start_frame: 1_024_000,
-            //     length: Some(1_024_000),
-            //     // length: None,
-            // },
-            // boundary: Boundary {
-            //     start_frame: 48000 * 1,
-            //     length: Some(48000 * 3),
-            //     // length: None,
-            // },
+            midi_reset_msg_range: Default::default(),
         }
     }
 
@@ -52,6 +46,10 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
 
     pub fn length(&self) -> Option<usize> {
         self.boundary.length
+    }
+
+    pub fn set_midi_reset_msg_range(&mut self, range: MidiResetMessageRange) {
+        self.midi_reset_msg_range = range;
     }
 
     pub fn set_bounds(&mut self, start_frame: usize, length: Option<usize>) {
@@ -79,7 +77,7 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
         is_midi: bool,
     ) -> Instruction {
         if self.boundary.is_default() {
-            return Instruction::PassThrough;
+            return Instruction::Bypass;
         }
         // Section is set (start and/or length).
         let source_frame_rate = self
@@ -103,7 +101,7 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
             request.start_frame() + ideal_num_frames_to_be_consumed as isize;
         if ideal_end_frame_in_section <= 0 {
             // Pure count-in phase. Pass through for now.
-            return Instruction::PassThrough;
+            return Instruction::Bypass;
         }
         // TODO-high-downbeat If the start frame is < 0 and the end frame is > 0, we currently play
         //  some material which is shortly before the section start. I think one effect of this is
@@ -170,7 +168,7 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
             },
             phase_two,
         };
-        Instruction::QueryInner(data)
+        Instruction::ApplySection(data)
     }
 
     fn generate_outer_response(
@@ -228,11 +226,11 @@ impl<S: AudioSupplier + WithFrameRate + ExactFrameCount> AudioSupplier for Secti
             request.dest_sample_rate,
             false,
         ) {
-            Instruction::PassThrough => {
+            Instruction::Bypass => {
                 return self.supplier.supply_audio(request, dest_buffer);
             }
             Instruction::Return(r) => return r,
-            Instruction::QueryInner(d) => d,
+            Instruction::ApplySection(d) => d,
         };
         let inner_request = SupplyAudioRequest {
             start_frame: data.phase_one.start_frame,
@@ -247,7 +245,6 @@ impl<S: AudioSupplier + WithFrameRate + ExactFrameCount> AudioSupplier for Secti
             .supplier
             .supply_audio(&inner_request, &mut inner_dest_buffer);
         if self.boundary.start_frame > 0 {
-            // We need a fade in.
             apply_fade_in(dest_buffer, request.start_frame);
         }
         if let Some(length) = self.boundary.length {
@@ -273,11 +270,11 @@ impl<S: MidiSupplier + WithFrameRate + ExactFrameCount> MidiSupplier for Section
             request.dest_sample_rate,
             true,
         ) {
-            Instruction::PassThrough => {
+            Instruction::Bypass => {
                 return self.supplier.supply_midi(request, event_list);
             }
             Instruction::Return(r) => return r,
-            Instruction::QueryInner(d) => d,
+            Instruction::ApplySection(d) => d,
         };
         let inner_request = SupplyMidiRequest {
             start_frame: data.phase_one.start_frame,
@@ -288,13 +285,27 @@ impl<S: MidiSupplier + WithFrameRate + ExactFrameCount> MidiSupplier for Section
             general_info: request.general_info,
         };
         let inner_response = self.supplier.supply_midi(&inner_request, event_list);
+        // Reset MIDI at start if necessary
+        if request.start_frame <= 0 {
+            debug!("Silence MIDI at section start");
+            midi_util::silence_midi(
+                event_list,
+                self.midi_reset_msg_range.left,
+                SilenceMidiBlockMode::Prepend,
+            );
+        }
+        // Reset MIDI at end if necessary
         if let PhaseTwo::Bounded {
             reached_bound: true,
             ..
         } = &data.phase_two
         {
             debug!("Silence MIDI at section end");
-            midi_util::silence_midi(event_list);
+            midi_util::silence_midi(
+                event_list,
+                self.midi_reset_msg_range.right,
+                SilenceMidiBlockMode::Append,
+            );
         }
         self.generate_outer_response(inner_response, data.phase_two)
     }
@@ -348,8 +359,8 @@ impl<S: ExactDuration + WithFrameRate + ExactFrameCount> ExactDuration for Secti
 }
 
 enum Instruction {
-    PassThrough,
-    QueryInner(SectionRequestData),
+    Bypass,
+    ApplySection(SectionRequestData),
     Return(SupplyResponse),
 }
 

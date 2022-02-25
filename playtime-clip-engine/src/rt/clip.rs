@@ -225,6 +225,15 @@ impl Clip {
         let mut supplier_chain = SupplierChain::new(Recorder::ready(source, recorder_equipment));
         supplier_chain
             .set_section_in_seconds(api_clip.section.start_pos, api_clip.section.length)?;
+        supplier_chain.set_midi_reset_msg_range_for_interaction(
+            api_clip.midi_settings.interaction_reset_settings,
+        );
+        supplier_chain
+            .set_midi_reset_msg_range_for_source(api_clip.midi_settings.source_reset_settings);
+        supplier_chain
+            .set_midi_reset_msg_range_for_section(api_clip.midi_settings.section_reset_settings);
+        supplier_chain
+            .set_audio_fades_enabled_for_source(api_clip.audio_settings.apply_source_fades);
         ready_state.update_supplier_chain_from_persistent_data(&mut supplier_chain)?;
         ready_state.pre_buffer(&mut supplier_chain, 0);
         let clip = Self {
@@ -947,7 +956,7 @@ impl ReadyState {
         sample_rate_factor: f64,
         supplier_chain: &mut SupplierChain,
     ) -> Option<isize> {
-        supplier_chain.prepare_supply(self.persistent_data.apply_source_fades);
+        supplier_chain.prepare_supply();
         let dest_sample_rate = Hz::new(args.block.sample_rate().get() * sample_rate_factor);
         let response = if supplier_chain.is_midi() {
             self.fill_samples_midi(args, start_frame, info, dest_sample_rate, supplier_chain)
