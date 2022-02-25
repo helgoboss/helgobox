@@ -74,7 +74,6 @@ impl Column {
         api_column: api::Column,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
-        common_tempo_range: TempoRange,
         matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
         self.clear_slots();
@@ -108,7 +107,6 @@ impl Column {
                     clip,
                     permanent_project,
                     recorder_equipment,
-                    common_tempo_range,
                     matrix_settings,
                 )?;
             }
@@ -174,13 +172,11 @@ impl Column {
         mut clip: Clip,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
-        common_tempo_range: TempoRange,
         matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
         let rt_clip = clip.create_real_time_clip(
             permanent_project,
             recorder_equipment,
-            common_tempo_range,
             matrix_settings,
             &self.settings,
         )?;

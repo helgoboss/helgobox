@@ -18,13 +18,14 @@ use crate::{ClipEngineResult, QuantizedPosition};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, ClipTimeBase, EvenQuantization,
-    TempoRange, TimeStretchMode, VirtualResampleMode,
+    AudioTimeStretchMode, BeatTimeBase, ClipPlayStartTiming, ClipPlayStopTiming, ClipTimeBase,
+    EvenQuantization, PositiveBeat, TempoRange, TimeSignature, TimeStretchMode,
+    VirtualResampleMode,
 };
 use reaper_high::{OrCurrentProject, Project};
 use reaper_medium::{
-    Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInSeconds,
-    ReaperVolumeValue,
+    Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInBeats,
+    PositionInSeconds, ReaperVolumeValue,
 };
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicIsize, Ordering};
@@ -43,27 +44,7 @@ struct PersistentPlayData {
     start_timing: Option<ClipPlayStartTiming>,
     stop_timing: Option<ClipPlayStopTiming>,
     looped: bool,
-    beat_time_base_data: Option<BeatTimeBaseData>,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct BeatTimeBaseData {
-    audio_tempo: Option<Bpm>,
-}
-
-impl BeatTimeBaseData {
-    fn from_time_base(time_base: &ClipTimeBase) -> Option<Self> {
-        use ClipTimeBase::*;
-        match time_base {
-            Time => None,
-            Beat(b) => {
-                let data = BeatTimeBaseData {
-                    audio_tempo: b.audio_tempo.map(|v| Bpm::new(v.get())),
-                };
-                Some(data)
-            }
-        }
-    }
+    time_base: ClipTimeBase,
 }
 
 fn calculate_beat_count(tempo: Bpm, duration: DurationInSeconds) -> u32 {
@@ -221,7 +202,6 @@ impl Clip {
         api_clip: &api::Clip,
         permanent_project: Option<Project>,
         recorder_equipment: RecorderEquipment,
-        common_tempo_range: TempoRange,
     ) -> ClipEngineResult<Self> {
         let source = {
             let content = ClipContent::load(&api_clip.source);
@@ -235,11 +215,11 @@ impl Clip {
                 start_timing: api_clip.start_timing,
                 stop_timing: api_clip.stop_timing,
                 looped: api_clip.looped,
-                beat_time_base_data: BeatTimeBaseData::from_time_base(&api_clip.time_base),
+                time_base: api_clip.time_base.clone(),
             },
         };
         let mut supplier_chain = SupplierChain::new(Recorder::ready(source, recorder_equipment));
-        ready_state.update_supplier_chain(&mut supplier_chain);
+        ready_state.update_supplier_chain_from_persistent_data(&mut supplier_chain);
         ready_state.pre_buffer(&mut supplier_chain, 0);
         let clip = Self {
             supplier_chain,
@@ -288,17 +268,6 @@ impl Clip {
 
     pub fn set_audio_time_stretch_mode(&mut self, mode: AudioTimeStretchMode) {
         self.supplier_chain.set_audio_time_stretch_mode(mode);
-    }
-
-    pub fn set_time_base(&mut self, time_base: &ClipTimeBase) -> ClipEngineResult<()> {
-        use ClipState::*;
-        match &mut self.state {
-            Ready(s) => {
-                s.set_time_base(time_base, &mut self.supplier_chain);
-                Ok(())
-            }
-            Recording(_) => Err("recording"),
-        }
     }
 
     /// Plays the clip if it's not recording.
@@ -533,14 +502,10 @@ impl ReadyState {
 
     /// Returns `None` if time base is not "Beat".
     fn tempo(&self, supplier_chain: &SupplierChain) -> Option<Bpm> {
-        let data = &self.persistent_data.beat_time_base_data?;
-        if supplier_chain.is_midi() {
-            Some(Bpm::new(MIDI_BASE_BPM))
-        } else {
-            let tempo = data
-                .audio_tempo
-                .expect("material has time base 'beat' but no tempo");
-            Some(tempo)
+        use ClipTimeBase::*;
+        match &self.persistent_data.time_base {
+            Time => None,
+            Beat(b) => Some(determine_tempo(b, supplier_chain)),
         }
     }
 
@@ -569,11 +534,6 @@ impl ReadyState {
         frame % supplier_chain.section_frame_count_in_ready_state()
     }
 
-    pub fn set_time_base(&mut self, time_base: &ClipTimeBase, supplier_chain: &mut SupplierChain) {
-        self.persistent_data.beat_time_base_data = BeatTimeBaseData::from_time_base(time_base);
-        self.update_supplier_chain(supplier_chain);
-    }
-
     pub fn set_looped(&mut self, looped: bool, supplier_chain: &mut SupplierChain) {
         self.persistent_data.looped = looped;
         let looper = supplier_chain.looper_mut();
@@ -583,13 +543,22 @@ impl ReadyState {
                 return;
             }
         }
-        self.update_supplier_chain(supplier_chain);
+        self.update_supplier_chain_from_persistent_data(supplier_chain);
     }
 
-    fn update_supplier_chain(&self, supplier_chain: &mut SupplierChain) {
+    fn update_supplier_chain_from_persistent_data(&self, supplier_chain: &mut SupplierChain) {
         supplier_chain.set_looped(self.persistent_data.looped);
-        supplier_chain
-            .set_time_stretching_enabled(self.persistent_data.beat_time_base_data.is_some());
+        match &self.persistent_data.time_base {
+            ClipTimeBase::Time => {
+                supplier_chain.set_time_stretching_enabled(false);
+                supplier_chain.clear_downbeat();
+            }
+            ClipTimeBase::Beat(b) => {
+                supplier_chain.set_time_stretching_enabled(true);
+                let tempo = determine_tempo(b, supplier_chain);
+                supplier_chain.set_downbeat_in_beats(b.downbeat, tempo);
+            }
+        }
     }
 
     pub fn play(&mut self, args: ClipPlayArgs, supplier_chain: &mut SupplierChain) -> PlayOutcome {
@@ -1654,9 +1623,7 @@ impl RecordingState {
             .section_mut()
             .set_length(outcome.section_frame_count);
         // Set downbeat.
-        supplier_chain
-            .downbeat_mut()
-            .set_downbeat_frame(outcome.normalized_downbeat_frame);
+        supplier_chain.set_downbeat_in_frames(outcome.normalized_downbeat_frame);
         // Change state
         ReadyState {
             state: if play_after {
@@ -1679,7 +1646,7 @@ impl RecordingState {
                 stop_timing: None,
                 looped: play_after,
                 // TODO-high Set time base
-                beat_time_base_data: None,
+                time_base: ClipTimeBase::Time,
             },
         }
     }
@@ -1885,5 +1852,16 @@ impl Default for Go {
             sample_rate_factor: 1.0,
             new_seek_pos: None,
         }
+    }
+}
+
+fn determine_tempo(beat_time_base: &BeatTimeBase, supplier_chain: &SupplierChain) -> Bpm {
+    if supplier_chain.is_midi() {
+        Bpm::new(MIDI_BASE_BPM)
+    } else {
+        let tempo = beat_time_base
+            .audio_tempo
+            .expect("material has time base 'beat' but no tempo");
+        Bpm::new(tempo.get())
     }
 }

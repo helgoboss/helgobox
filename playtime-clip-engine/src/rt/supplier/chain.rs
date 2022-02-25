@@ -1,3 +1,4 @@
+use crate::conversion_util::convert_duration_in_seconds_to_frames;
 use crate::main::ClipContent;
 use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::{
@@ -5,9 +6,10 @@ use crate::rt::supplier::{
     Resampler, Section, StartEndFader, TimeStretcher, WithFrameRate,
 };
 use crate::rt::ClipInfo;
-use playtime_api::{AudioTimeStretchMode, TimeStretchMode, VirtualResampleMode};
+use crate::ClipEngineResult;
+use playtime_api::{AudioTimeStretchMode, PositiveBeat, TimeStretchMode, VirtualResampleMode};
 use reaper_high::Project;
-use reaper_medium::{DurationInSeconds, Hz};
+use reaper_medium::{Bpm, DurationInSeconds, Hz, PositionInSeconds};
 
 type Head = AdHocFaderTail;
 type AdHocFaderTail = AdHocFader<ResamplerTail>;
@@ -55,6 +57,33 @@ impl SupplierChain {
 
     pub fn is_midi(&self) -> bool {
         self.recorder().is_midi()
+    }
+
+    pub fn clear_downbeat(&mut self) {
+        self.downbeat_mut().set_downbeat_frame(0);
+    }
+
+    pub fn set_downbeat_in_beats(
+        &mut self,
+        beat: PositiveBeat,
+        tempo: Bpm,
+    ) -> ClipEngineResult<()> {
+        let source_frame_frate = self
+            .downbeat()
+            .frame_rate()
+            .ok_or("can't calculate downbeat frame at the moment because no source available")?;
+        let bps = tempo.get() / 60.0;
+        let second = beat.get() / bps;
+        let frame = convert_duration_in_seconds_to_frames(
+            DurationInSeconds::new(second),
+            source_frame_frate,
+        );
+        self.downbeat_mut().set_downbeat_frame(frame);
+        Ok(())
+    }
+
+    pub fn set_downbeat_in_frames(&mut self, frame: usize) {
+        self.downbeat_mut().set_downbeat_frame(frame);
     }
 
     pub fn set_audio_resample_mode(&mut self, mode: VirtualResampleMode) {

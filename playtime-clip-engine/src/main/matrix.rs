@@ -171,7 +171,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 api_column,
                 permanent_project,
                 &self.recorder_equipment,
-                self.settings.common_tempo_range,
                 &self.settings,
             )?;
             self.rt_command_sender.insert_column(i, column.source());
@@ -260,7 +259,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                                     volume: api::Db(0.0),
                                     color: api::ClipColor::PlayTrackColor,
                                     section: api::Section {
-                                        start_pos: api::Seconds(0.0),
+                                        start_pos: api::PositiveSecond::new(0.0).unwrap(),
                                         length: None,
                                     },
                                     audio_settings: Default::default(),

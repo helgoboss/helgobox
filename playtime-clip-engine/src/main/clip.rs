@@ -39,7 +39,6 @@ impl Clip {
         &self,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
-        common_tempo_range: TempoRange,
         matrix_settings: &MatrixSettings,
         column_settings: &ColumnSettings,
     ) -> ClipEngineResult<rt::Clip> {
@@ -47,7 +46,6 @@ impl Clip {
             &self.persistent_data,
             permanent_project,
             recorder_equipment.clone(),
-            common_tempo_range,
         )?;
         rt_clip.set_audio_resample_mode(
             self.effective_resample_mode(matrix_settings, column_settings),

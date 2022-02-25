@@ -680,7 +680,7 @@ pub struct Section {
     /// Position in the source from which to start.
     ///
     /// If this is greater than zero, a fade-in will be used to avoid clicks.
-    pub start_pos: Seconds,
+    pub start_pos: PositiveSecond,
     /// Length of the material to be played, starting from `start_pos`.
     ///
     /// - `None` means until original source end.
@@ -688,7 +688,7 @@ pub struct Section {
     /// - If this makes the section end be located before the original source end, a fade-out will
     ///   be used to avoid clicks.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub length: Option<Seconds>,
+    pub length: Option<PositiveSecond>,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -757,7 +757,7 @@ pub struct MidiChunkSource {
 }
 
 /// Decides if the clip will be adjusted to the current tempo.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipTimeBase {
     /// Material which doesn't need to be adjusted to the current tempo.
@@ -766,7 +766,7 @@ pub enum ClipTimeBase {
     Beat(BeatTimeBase),
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BeatTimeBase {
     /// The clip's native tempo.
@@ -783,11 +783,10 @@ pub struct BeatTimeBase {
     // TODO-clip-implement (at the moment only for deviation logging)
     pub time_signature: TimeSignature,
     /// Defines which position (in beats) is the downbeat.
-    // TODO-high-clip-implement (at the moment only for deviation logging)
-    pub downbeat: f64,
+    pub downbeat: PositiveBeat,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TimeSignature {
     pub numerator: u32,
@@ -813,13 +812,42 @@ impl Bpm {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-pub struct Seconds(pub f64);
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct PositiveSecond(f64);
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+impl PositiveSecond {
+    pub fn new(value: f64) -> PlaytimeApiResult<Self> {
+        if value < 0.0 {
+            return Err("second value must be positive");
+        }
+        Ok(Self(value))
+    }
+
+    pub const fn get(&self) -> f64 {
+        self.0
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct PositiveBeat(pub f64);
+
+impl PositiveBeat {
+    pub fn new(value: f64) -> PlaytimeApiResult<Self> {
+        if value < 0.0 {
+            return Err("beat value must be positive");
+        }
+        Ok(Self(value))
+    }
+
+    pub const fn get(&self) -> f64 {
+        self.0
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Db(pub f64);
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct RgbColor(pub u8, pub u8, pub u8);
 
 type PlaytimeApiResult<T> = Result<T, &'static str>;
