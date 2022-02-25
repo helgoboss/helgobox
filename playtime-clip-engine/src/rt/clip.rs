@@ -44,6 +44,7 @@ struct PersistentPlayData {
     start_timing: Option<ClipPlayStartTiming>,
     stop_timing: Option<ClipPlayStopTiming>,
     looped: bool,
+    apply_source_fades: bool,
     time_base: ClipTimeBase,
 }
 
@@ -217,6 +218,7 @@ impl Clip {
                 start_timing: api_clip.start_timing,
                 stop_timing: api_clip.stop_timing,
                 looped: api_clip.looped,
+                apply_source_fades: api_clip.audio_settings.apply_source_fades,
                 time_base: api_clip.time_base.clone(),
             },
         };
@@ -945,7 +947,7 @@ impl ReadyState {
         sample_rate_factor: f64,
         supplier_chain: &mut SupplierChain,
     ) -> Option<isize> {
-        supplier_chain.prepare_supply(true);
+        supplier_chain.prepare_supply(self.persistent_data.apply_source_fades);
         let dest_sample_rate = Hz::new(args.block.sample_rate().get() * sample_rate_factor);
         let response = if supplier_chain.is_midi() {
             self.fill_samples_midi(args, start_frame, info, dest_sample_rate, supplier_chain)
@@ -1656,6 +1658,7 @@ impl RecordingState {
                 looped: play_after,
                 // TODO-high Set time base
                 time_base: ClipTimeBase::Time,
+                apply_source_fades: true,
             },
         }
     }

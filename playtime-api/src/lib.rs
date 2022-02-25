@@ -609,7 +609,6 @@ pub struct ClipAudioSettings {
     /// ## `true`
     ///
     /// Applies automatic fades to fix non-optimized source material, if necessary.
-    // TODO-high-clip-implement
     pub apply_source_fades: bool,
     /// Defines how to adjust audio material.
     ///

@@ -151,8 +151,8 @@ impl SupplierChain {
         self.time_stretcher_mut().set_tempo_factor(tempo_factor);
     }
 
-    pub fn prepare_supply(&mut self, auto_fades_enabled: bool) {
-        let (fade_in_enabled, fade_out_enabled) = if auto_fades_enabled {
+    pub fn prepare_supply(&mut self, apply_source_fades: bool) {
+        let (fade_in_enabled, fade_out_enabled) = if apply_source_fades {
             let section = self.section();
             (section.start_frame() == 0, section.length().is_none())
         } else {
