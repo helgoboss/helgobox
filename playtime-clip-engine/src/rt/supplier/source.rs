@@ -76,7 +76,7 @@ impl MidiSupplier for OwnedPcmSource {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
-        event_list: &BorrowedMidiEventList,
+        event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         let midi_frame_rate = Hz::new(MIDI_FRAME_RATE);
         // As with audio, the ratio between output frame count and output sample rate determines

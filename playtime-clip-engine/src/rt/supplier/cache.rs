@@ -188,7 +188,7 @@ impl<S: MidiSupplier> MidiSupplier for Cache<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
-        event_list: &BorrowedMidiEventList,
+        event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         // MIDI doesn't need caching.
         self.supplier.supply_midi(request, event_list)

@@ -226,7 +226,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
-        event_list: &BorrowedMidiEventList,
+        event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         let data = match self.check_relevance(request.start_frame) {
             None => {

@@ -186,7 +186,7 @@ impl<S: MidiSupplier> MidiSupplier for TimeStretcher<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
-        event_list: &BorrowedMidiEventList,
+        event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         if !self.enabled {
             return self.supplier.supply_midi(&request, event_list);

@@ -814,7 +814,7 @@ impl MidiSupplier for Recorder {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
-        event_list: &BorrowedMidiEventList,
+        event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         let cache = match self.state.as_mut().unwrap() {
             State::Ready(s) => &mut s.cache,

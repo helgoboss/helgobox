@@ -210,7 +210,7 @@ impl<S: MidiSupplier> MidiSupplier for AdHocFader<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
-        event_list: &BorrowedMidiEventList,
+        event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         use Instruction::*;
         let fade = match self.get_instruction(request.start_frame) {

@@ -3,7 +3,7 @@ use playtime_api::MidiResetMessages;
 use reaper_medium::{BorrowedMidiEventList, MidiEvent, MidiFrameOffset};
 
 pub fn silence_midi(
-    event_list: &BorrowedMidiEventList,
+    event_list: &mut BorrowedMidiEventList,
     reset_messages: MidiResetMessages,
     block_mode: SilenceMidiBlockMode,
 ) {
@@ -13,23 +13,22 @@ pub fn silence_midi(
     use SilenceMidiBlockMode::*;
     let frame_offset = match block_mode {
         Prepend => {
-            for evt in event_list {
+            for evt in event_list.iter_mut() {
                 if evt.frame_offset() == MidiFrameOffset::MIN {
-                    // TODO-high
-                    // evt.set_frame_offset(MidiFrameOffset::new(1));
+                    evt.set_frame_offset(MidiFrameOffset::new(1));
                 }
             }
             MidiFrameOffset::MIN
         }
         Append => event_list
-            .into_iter()
+            .iter()
             .map(|evt| evt.frame_offset())
             .max()
             .map(|o| MidiFrameOffset::new(o.get() + 1))
             .unwrap_or(MidiFrameOffset::MIN),
     };
     for ch in 0..16 {
-        let append_reset = |cc| {
+        let mut append_reset = |cc| {
             let msg = RawShortMessage::control_change(Channel::new(ch), cc, U7::MIN);
             add_midi_event(event_list, frame_offset, msg);
         };
@@ -54,7 +53,7 @@ pub enum SilenceMidiBlockMode {
 }
 
 fn add_midi_event(
-    event_list: &BorrowedMidiEventList,
+    event_list: &mut BorrowedMidiEventList,
     frame_offset: MidiFrameOffset,
     msg: RawShortMessage,
 ) {

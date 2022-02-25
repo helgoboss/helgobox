@@ -87,7 +87,7 @@ impl<S: MidiSupplier> MidiSupplier for Downbeat<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
-        event_list: &BorrowedMidiEventList,
+        event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         let data = match self.get_data(request) {
             None => {

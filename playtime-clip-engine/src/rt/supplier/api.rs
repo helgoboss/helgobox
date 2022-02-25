@@ -31,7 +31,7 @@ pub trait MidiSupplier: Debug {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
-        event_list: &BorrowedMidiEventList,
+        event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse;
 }
 

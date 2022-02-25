@@ -1028,7 +1028,9 @@ impl ReadyState {
         };
         supplier_chain.head_mut().supply_midi(
             &request,
-            args.block.midi_event_list().expect("no MIDI event list"),
+            args.block
+                .midi_event_list_mut()
+                .expect("no MIDI event list"),
         )
     }
 

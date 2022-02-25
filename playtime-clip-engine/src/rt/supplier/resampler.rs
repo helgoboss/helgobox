@@ -192,7 +192,7 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
-        event_list: &BorrowedMidiEventList,
+        event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         return self.supplier.supply_midi(&request, event_list);
     }

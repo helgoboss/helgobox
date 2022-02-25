@@ -85,7 +85,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for StartEndFader<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
-        event_list: &BorrowedMidiEventList,
+        event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         let response = self.supplier.supply_midi(request, event_list);
         if self.enabled_for_start && request.start_frame <= 0 {
