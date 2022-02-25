@@ -18,9 +18,9 @@ use crate::{ClipEngineResult, QuantizedPosition};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    AudioTimeStretchMode, BeatTimeBase, ClipPlayStartTiming, ClipPlayStopTiming, ClipTimeBase,
-    EvenQuantization, PositiveBeat, TempoRange, TimeSignature, TimeStretchMode,
-    VirtualResampleMode,
+    AudioCacheBehavior, AudioTimeStretchMode, BeatTimeBase, ClipPlayStartTiming,
+    ClipPlayStopTiming, ClipTimeBase, EvenQuantization, PositiveBeat, TempoRange, TimeSignature,
+    TimeStretchMode, VirtualResampleMode,
 };
 use reaper_high::{OrCurrentProject, Project};
 use reaper_medium::{
@@ -62,6 +62,8 @@ enum ClipState {
 #[derive(Copy, Clone, Debug)]
 struct ReadyState {
     state: ReadySubState,
+    // TODO-low If this gets too big, we might run into a performance issue and we should make it
+    //  non-copy.
     persistent_data: PersistentPlayData,
 }
 
@@ -270,6 +272,10 @@ impl Clip {
 
     pub fn set_audio_time_stretch_mode(&mut self, mode: AudioTimeStretchMode) {
         self.supplier_chain.set_audio_time_stretch_mode(mode);
+    }
+
+    pub fn set_audio_cache_behavior(&mut self, cache_behavior: AudioCacheBehavior) {
+        self.supplier_chain.set_audio_cache_behavior(cache_behavior);
     }
 
     /// Plays the clip if it's not recording.

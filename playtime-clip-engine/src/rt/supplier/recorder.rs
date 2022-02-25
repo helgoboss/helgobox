@@ -18,6 +18,7 @@ use crate::timeline::{clip_timeline, Timeline};
 use crate::ClipEngineResult;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_midi::ShortMessage;
+use playtime_api::AudioCacheBehavior;
 use reaper_high::{OwnedSource, Project, Reaper, ReaperSource};
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
@@ -304,17 +305,37 @@ impl Recorder {
         }
     }
 
-    pub fn enable_cache(&mut self) {
+    pub fn set_audio_cache_behavior(
+        &mut self,
+        cache_behavior: AudioCacheBehavior,
+    ) -> ClipEngineResult<()> {
         match self.state.as_mut().unwrap() {
-            State::Ready(s) => s.cache.enable(),
-            State::Recording(_) => {}
+            State::Ready(s) => {
+                use AudioCacheBehavior::*;
+                let cache_enabled = match cache_behavior {
+                    DirectFromDisk => false,
+                    CacheInMemory => true,
+                };
+                if cache_enabled {
+                    s.cache.enable();
+                } else {
+                    s.cache.disable();
+                }
+                Ok(())
+            }
+            State::Recording(_) => Err("can't set audio cache behavior while recording"),
         }
     }
 
-    pub fn set_pre_buffering_enabled(&mut self, enabled: bool) {
+    pub fn set_pre_buffering_enabled(&mut self, enabled: bool) -> ClipEngineResult<()> {
         match self.state.as_mut().unwrap() {
-            State::Ready(s) => s.cache.supplier_mut().set_enabled(enabled),
-            State::Recording(_) => {}
+            State::Ready(s) => {
+                s.cache.supplier_mut().set_enabled(enabled);
+                Ok(())
+            }
+            State::Recording(_) => {
+                Err("can't enable/disable pre-buffering behavior while recording")
+            }
         }
     }
 

@@ -77,6 +77,7 @@ pub struct MatrixClipPlaySettings {
 pub struct MatrixClipPlayAudioSettings {
     pub resample_mode: VirtualResampleMode,
     pub time_stretch_mode: AudioTimeStretchMode,
+    pub cache_behavior: AudioCacheBehavior,
 }
 
 /// Matrix-global settings related to recording clips.
@@ -187,6 +188,7 @@ impl Default for RecordLength {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
 pub enum ClipRecordTimeBase {
     /// Derives the time base of the resulting clip from the clip start/stop timing.
     DeriveFromRecordTiming,
@@ -237,6 +239,7 @@ impl Default for ClipRecordStopTiming {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
 pub enum MidiClipRecordMode {
     /// Creates an empty clip and records MIDI material in it.
     Normal,
@@ -423,6 +426,8 @@ pub struct ColumnClipPlayAudioSettings {
     /// Overrides the matrix-global audio time stretch mode for clips in this column.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_stretch_mode: Option<AudioTimeStretchMode>,
+    /// Overrides the matrix-global audio cache behavior for clips in this column.
+    pub cache_behavior: Option<AudioCacheBehavior>,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -515,6 +520,7 @@ pub struct ReaperPitchShiftMode {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
 pub enum TrackRecordOrigin {
     /// Records using the hardware input set for the track (MIDI or stereo).
     TrackInput,
@@ -581,9 +587,6 @@ pub struct Clip {
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ClipAudioSettings {
-    /// Whether to cache audio in memory.
-    // TODO-high-clip-implement
-    pub cache_behavior: AudioCacheBehavior,
     /// Defines whether to apply automatic fades in order to fix potentially non-optimized source
     /// material.
     ///
@@ -619,6 +622,10 @@ pub struct ClipAudioSettings {
     /// Overrides the column resample mode for clips in this column.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resample_mode: Option<VirtualResampleMode>,
+    /// Whether to cache audio in memory.
+    ///
+    /// `None` means it uses the column cache behavior.
+    pub cache_behavior: Option<AudioCacheBehavior>,
 }
 
 impl Default for ClipAudioSettings {
@@ -691,6 +698,7 @@ pub struct Section {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
 pub enum AudioCacheBehavior {
     /// Loads directly from the disk.
     ///

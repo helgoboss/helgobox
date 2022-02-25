@@ -8,7 +8,8 @@ use crate::rt::supplier::{
 use crate::rt::ClipInfo;
 use crate::ClipEngineResult;
 use playtime_api::{
-    AudioTimeStretchMode, PositiveBeat, PositiveSecond, TimeStretchMode, VirtualResampleMode,
+    AudioCacheBehavior, AudioTimeStretchMode, PositiveBeat, PositiveSecond, TimeStretchMode,
+    VirtualResampleMode,
 };
 use reaper_high::Project;
 use reaper_medium::{Bpm, DurationInSeconds, Hz, PositionInSeconds};
@@ -52,8 +53,7 @@ impl SupplierChain {
         looper.set_enabled(true);
         // Configure recorder
         let recorder = chain.recorder_mut();
-        // recorder.enable_cache();
-        recorder.set_pre_buffering_enabled(true);
+        recorder.set_pre_buffering_enabled(true).unwrap();
         chain
     }
 
@@ -113,6 +113,13 @@ impl SupplierChain {
 
     pub fn set_audio_resample_mode(&mut self, mode: VirtualResampleMode) {
         self.resampler_mut().set_mode(mode);
+    }
+
+    pub fn set_audio_cache_behavior(
+        &mut self,
+        cache_behavior: AudioCacheBehavior,
+    ) -> ClipEngineResult<()> {
+        self.recorder_mut().set_audio_cache_behavior(cache_behavior)
     }
 
     pub fn set_audio_time_stretch_mode(&mut self, mode: AudioTimeStretchMode) {

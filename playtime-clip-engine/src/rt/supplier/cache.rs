@@ -106,6 +106,7 @@ impl<S: WithSource> Cache<S> {
         };
         match response {
             CacheResponse::CachedSource(cache_data) => {
+                debug!("Cached audio material completely in memory");
                 self.cached_data = Some(cache_data);
             }
         }

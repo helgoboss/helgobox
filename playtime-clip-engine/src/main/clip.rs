@@ -4,7 +4,7 @@ use crate::rt::{ClipInfo, ClipPlayState, SharedPos};
 use crate::{rt, ClipEngineResult};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
-use playtime_api::{AudioTimeStretchMode, TempoRange, VirtualResampleMode};
+use playtime_api::{AudioCacheBehavior, AudioTimeStretchMode, TempoRange, VirtualResampleMode};
 use reaper_high::Project;
 use reaper_medium::{Bpm, PositionInSeconds};
 
@@ -48,15 +48,18 @@ impl Clip {
             recorder_equipment.clone(),
         )?;
         rt_clip.set_audio_resample_mode(
-            self.effective_resample_mode(matrix_settings, column_settings),
+            self.effective_audio_resample_mode(matrix_settings, column_settings),
         );
         rt_clip.set_audio_time_stretch_mode(
-            self.effective_time_stretch_mode(matrix_settings, column_settings),
+            self.effective_audio_time_stretch_mode(matrix_settings, column_settings),
+        );
+        rt_clip.set_audio_cache_behavior(
+            self.effective_audio_cache_behavior(matrix_settings, column_settings),
         );
         Ok(rt_clip)
     }
 
-    fn effective_resample_mode(
+    fn effective_audio_resample_mode(
         &self,
         matrix_settings: &MatrixSettings,
         column_settings: &ColumnSettings,
@@ -65,11 +68,11 @@ impl Clip {
             .audio_settings
             .resample_mode
             .clone()
-            .or_else(|| column_settings.resample_mode.clone())
-            .unwrap_or_else(|| matrix_settings.resample_mode.clone())
+            .or_else(|| column_settings.audio_resample_mode.clone())
+            .unwrap_or_else(|| matrix_settings.audio_resample_mode.clone())
     }
 
-    fn effective_time_stretch_mode(
+    fn effective_audio_time_stretch_mode(
         &self,
         matrix_settings: &MatrixSettings,
         column_settings: &ColumnSettings,
@@ -78,8 +81,21 @@ impl Clip {
             .audio_settings
             .time_stretch_mode
             .clone()
-            .or_else(|| column_settings.time_stretch_mode.clone())
-            .unwrap_or_else(|| matrix_settings.time_stretch_mode.clone())
+            .or_else(|| column_settings.audio_time_stretch_mode.clone())
+            .unwrap_or_else(|| matrix_settings.audio_time_stretch_mode.clone())
+    }
+
+    fn effective_audio_cache_behavior(
+        &self,
+        matrix_settings: &MatrixSettings,
+        column_settings: &ColumnSettings,
+    ) -> AudioCacheBehavior {
+        self.persistent_data
+            .audio_settings
+            .cache_behavior
+            .clone()
+            .or_else(|| column_settings.audio_cache_behavior.clone())
+            .unwrap_or_else(|| matrix_settings.audio_cache_behavior.clone())
     }
 
     /// Connects the given real-time clip to the main clip.

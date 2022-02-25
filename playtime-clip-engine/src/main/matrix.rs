@@ -14,12 +14,13 @@ use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    AudioTimeStretchMode, ClipPlayStopTiming, ClipRecordStartTiming, ClipRecordStopTiming,
-    ClipRecordTimeBase, ClipSettingOverrideAfterRecording, ColumnClipPlayAudioSettings,
-    ColumnClipPlaySettings, ColumnClipRecordSettings, MatrixClipPlayAudioSettings,
-    MatrixClipPlaySettings, MatrixClipRecordAudioSettings, MatrixClipRecordMidiSettings,
-    MatrixClipRecordSettings, MidiClipRecordMode, RecordLength, TempoRange, TimeStretchMode,
-    TrackId, TrackRecordOrigin, VirtualResampleMode, VirtualTimeStretchMode,
+    AudioCacheBehavior, AudioTimeStretchMode, ClipPlayStopTiming, ClipRecordStartTiming,
+    ClipRecordStopTiming, ClipRecordTimeBase, ClipSettingOverrideAfterRecording,
+    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings,
+    MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordAudioSettings,
+    MatrixClipRecordMidiSettings, MatrixClipRecordSettings, MidiClipRecordMode, RecordLength,
+    TempoRange, TimeStretchMode, TrackId, TrackRecordOrigin, VirtualResampleMode,
+    VirtualTimeStretchMode,
 };
 use reaper_high::{Guid, Item, OrCurrentProject, Project, Track};
 use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
@@ -45,8 +46,9 @@ pub struct Matrix<H> {
 #[derive(Debug, Default)]
 pub struct MatrixSettings {
     pub common_tempo_range: TempoRange,
-    pub resample_mode: VirtualResampleMode,
-    pub time_stretch_mode: AudioTimeStretchMode,
+    pub audio_resample_mode: VirtualResampleMode,
+    pub audio_time_stretch_mode: AudioTimeStretchMode,
+    pub audio_cache_behavior: AudioCacheBehavior,
 }
 
 #[derive(Debug)]
@@ -150,11 +152,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let permanent_project = self.permanent_project();
         // Settings
         self.settings.common_tempo_range = api_matrix.common_tempo_range;
-        self.settings.resample_mode = api_matrix.clip_play_settings.audio_settings.resample_mode;
-        self.settings.time_stretch_mode = api_matrix
+        self.settings.audio_resample_mode =
+            api_matrix.clip_play_settings.audio_settings.resample_mode;
+        self.settings.audio_time_stretch_mode = api_matrix
             .clip_play_settings
             .audio_settings
             .time_stretch_mode;
+        self.settings.audio_cache_behavior =
+            api_matrix.clip_play_settings.audio_settings.cache_behavior;
         self.rt_settings.clip_play_start_timing = api_matrix.clip_play_settings.start_timing;
         self.rt_settings.clip_play_stop_timing = api_matrix.clip_play_settings.stop_timing;
         self.rt_command_sender
@@ -188,8 +193,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 start_timing: self.rt_settings.clip_play_start_timing,
                 stop_timing: self.rt_settings.clip_play_stop_timing,
                 audio_settings: MatrixClipPlayAudioSettings {
-                    resample_mode: self.settings.resample_mode.clone(),
-                    time_stretch_mode: self.settings.time_stretch_mode.clone(),
+                    resample_mode: self.settings.audio_resample_mode.clone(),
+                    time_stretch_mode: self.settings.audio_time_stretch_mode.clone(),
+                    cache_behavior: self.settings.audio_cache_behavior.clone(),
                 },
             },
             clip_record_settings: MatrixClipRecordSettings {

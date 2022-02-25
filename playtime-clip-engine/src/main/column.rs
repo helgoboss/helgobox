@@ -11,7 +11,7 @@ use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    AudioTimeStretchMode, ColumnClipPlayAudioSettings, ColumnClipPlaySettings,
+    AudioCacheBehavior, AudioTimeStretchMode, ColumnClipPlayAudioSettings, ColumnClipPlaySettings,
     ColumnClipRecordSettings, TempoRange, TrackRecordOrigin, VirtualResampleMode,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
@@ -38,8 +38,9 @@ pub struct Column {
 
 #[derive(Clone, Debug, Default)]
 pub struct ColumnSettings {
-    pub resample_mode: Option<VirtualResampleMode>,
-    pub time_stretch_mode: Option<AudioTimeStretchMode>,
+    pub audio_resample_mode: Option<VirtualResampleMode>,
+    pub audio_time_stretch_mode: Option<AudioTimeStretchMode>,
+    pub audio_cache_behavior: Option<AudioCacheBehavior>,
 }
 
 #[derive(Clone, Debug)]
@@ -89,11 +90,14 @@ impl Column {
             track,
         ));
         // Settings
-        self.settings.resample_mode = api_column.clip_play_settings.audio_settings.resample_mode;
-        self.settings.time_stretch_mode = api_column
+        self.settings.audio_resample_mode =
+            api_column.clip_play_settings.audio_settings.resample_mode;
+        self.settings.audio_time_stretch_mode = api_column
             .clip_play_settings
             .audio_settings
             .time_stretch_mode;
+        self.settings.audio_cache_behavior =
+            api_column.clip_play_settings.audio_settings.cache_behavior;
         self.rt_settings.clip_play_start_timing = api_column.clip_play_settings.start_timing;
         self.rt_settings.clip_play_stop_timing = api_column.clip_play_settings.stop_timing;
         self.rt_command_sender
@@ -132,8 +136,9 @@ impl Column {
                 start_timing: None,
                 stop_timing: None,
                 audio_settings: ColumnClipPlayAudioSettings {
-                    resample_mode: self.settings.resample_mode.clone(),
-                    time_stretch_mode: self.settings.time_stretch_mode.clone(),
+                    resample_mode: self.settings.audio_resample_mode.clone(),
+                    time_stretch_mode: self.settings.audio_time_stretch_mode.clone(),
+                    cache_behavior: self.settings.audio_cache_behavior.clone(),
                 },
             },
             clip_record_settings: ColumnClipRecordSettings {
