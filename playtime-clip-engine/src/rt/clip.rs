@@ -1058,22 +1058,26 @@ impl ReadyState {
     /// which start to play during count-in time. And second, just counting is cheaper
     /// than repeatedly doing time/beat mapping.
     ///
-    /// 2. We resolve the
-    /// count-in length here in the real-time context, not before! In particular not
-    /// at the time the play is requested. At that time we just calculate the
-    /// bar index. Reason: The start time of the next bar at play-request time
-    /// is not necessarily the same as the one in the get_samples call. If it's not,
-    /// we would start advancing the count-in cursor from a wrong initial state
-    /// and therefore end up with the wrong point in time for starting the clip
-    /// (too late, to be accurate, because we would start advancing too late).
+    /// 2. We resolve the count-in length here, not at the time the play is requested.
+    /// Reason: Here we have block information such as block length and frame rate available.
+    /// That's not an urgent reason ... we could always cache this information and thus make it
+    /// available in the play request itself.
+    /// In the past there were more urgent reasons but they are gone. I'll document them here
+    /// because they might remove doubt in case of possible future refactorings:
     ///
-    /// Update: This second point is not as urgent anymore as it was before. Since recently,
-    /// we process incoming play requests always in real-time. But let's still resolve here.
-    /// It's possible that we want to support "Live FX multiprocessing" in future, which means
-    /// get_samples() will in most situations be called in a different real-time thread
-    /// (some REAPER worker thread) than the play-request code (audio interface thread).
-    /// This brings up the question: Does GetPlayPosition2Ex in the worker thread return the same
-    /// position as the audio interface thread would do? TODO-high Wait for Justin's answer.
+    /// 2a) The play request didn't happen in a real-time thread but in the main thread.
+    /// At that time it was important to resolve in get_samples() because the start time of the
+    /// next bar at play-request time was not necessarily the same as the one in the get_samples()
+    /// call, which would lead to wrong results. However, today, play requests always happen in
+    /// the real-time thread (a change introduced in favor of a lock-free design).
+    ///
+    /// 2b) I still thought that it would be better to do it here in case "Live FX multiprocessing"
+    /// is enabled. If this is enabled, it means get_samples() will in most situations be called in
+    /// a different real-time thread (some REAPER worker thread) than the play-request code
+    /// (audio interface thread). I worried that GetPlayPosition2Ex() in the worker thread would
+    /// return a different position as the audio interface thread would do. However, Justin
+    /// assured that the worker threads are designed to be synchronous with the audio interface
+    /// thread and they return the same values. So this is not a reason anymore.
     fn calc_distance_from_quantized_pos(
         &self,
         quantized_pos: QuantizedPosition,

@@ -12,6 +12,27 @@ use reaper_medium::{PlayState, ProjectContext, ReaperPointer};
 use std::borrow::BorrowMut;
 use std::mem;
 
+/// The real-time matrix is supposed to be used from real-time threads.
+///
+/// It locks the column sources because it can be sure that there's no contention. Well, at least
+/// if "Live FX multi-processing" is disabled - because then both the lock code and the preview
+/// register playing are driven by the same (audio interface) thread and one thread can't do
+/// multiple things in parallel.
+///
+/// If "Live FX multi-processing" is enabled, the preview register playing will be driven by
+/// different worker threads. Still, according to Justin, the locking should be okay even then. As
+/// long as the worker threads don't hold the lock for too long. Which probably means that there's
+/// no high risk of priority inversion because the worker threads have a higher priority as well.
+///
+/// In theory, we could replace locking in favor of channels even here. But there's one significant
+/// catch: It means the calling code can't "look into" the matrix and query current state before
+/// executing a play, stop or whatever ... a sender is only uni-directional (bi-directional async
+/// communication would also be possible but it's more complex to get it right in particular with
+/// multiple similar requests coming in in sequence that depend on the result of the previous
+/// request). So simply toggling play/stop would already need a channel message (= ReaLearn target)
+/// that does just this. Which would be a deviation of ReaLearn's concept where the "glue" section
+/// can decide what to do based on the current target value. But in case we need it, that would be
+/// the way to go.
 #[derive(Debug)]
 pub struct Matrix {
     settings: MatrixSettings,
