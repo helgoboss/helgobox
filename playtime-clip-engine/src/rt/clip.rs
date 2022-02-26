@@ -213,7 +213,7 @@ impl Clip {
                 start_timing: api_clip.start_timing,
                 stop_timing: api_clip.stop_timing,
                 looped: api_clip.looped,
-                time_base: api_clip.time_base.clone(),
+                time_base: api_clip.time_base,
             },
         };
         let mut supplier_chain = SupplierChain::new(Recorder::ready(source, recorder_equipment));
@@ -671,7 +671,7 @@ impl ReadyState {
             Immediately => VirtualPosition::Now,
             Quantized(q) => {
                 let quantized_pos =
-                    QuantizedPosition::from_quantization(q, &play_args.timeline, play_args.ref_pos);
+                    QuantizedPosition::from_quantization(q, play_args.timeline, play_args.ref_pos);
                 VirtualPosition::Quantized(quantized_pos)
             }
         }
@@ -789,7 +789,7 @@ impl ReadyState {
         args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
     ) {
-        let general_info = self.prepare_playing(&args, supplier_chain);
+        let general_info = self.prepare_playing(args, supplier_chain);
         let go = if let Some(pos) = s.pos {
             // Already counting in or playing.
             if let Some(seek_pos) = s.seek_pos {
@@ -1164,7 +1164,7 @@ impl ReadyState {
         args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
     ) -> Option<RecordingState> {
-        let general_info = self.prepare_playing(&args, supplier_chain);
+        let general_info = self.prepare_playing(args, supplier_chain);
         let fader = supplier_chain.ad_hoc_fader_mut();
         if !fader.has_fade_out() {
             fader.start_fade_out(s.pos);

@@ -407,7 +407,7 @@ fn start_playing_preview(
     result.unwrap()
 }
 
-fn get_slot(slots: &Vec<Slot>, index: usize) -> ClipEngineResult<&Slot> {
+fn get_slot(slots: &[Slot], index: usize) -> ClipEngineResult<&Slot> {
     slots.get(index).ok_or("slot doesn't exist")
 }
 

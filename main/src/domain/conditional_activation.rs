@@ -220,8 +220,7 @@ fn extract_used_param_indexes(eel_script: &str) -> HashSet<u32> {
     let param_regex = regex!(r#"\bp([0-9]+)\b"#);
     param_regex
         .captures_iter(eel_script)
-        .map(|m| m[1].parse())
-        .flatten()
+        .flat_map(|m| m[1].parse())
         .filter(|i| *i >= 1 && *i <= COMPARTMENT_PARAMETER_COUNT)
         .map(|i: u32| i - 1)
         .collect()

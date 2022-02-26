@@ -40,7 +40,7 @@ impl<W: Write> AsyncWriter<W> {
 
 fn keep_logging(receiver: Receiver<Vec<u8>>, mut inner: impl Write) {
     while let Ok(msg) = receiver.recv() {
-        inner.write(&msg).unwrap();
+        inner.write_all(&msg).unwrap();
         inner.flush().unwrap();
     }
 }

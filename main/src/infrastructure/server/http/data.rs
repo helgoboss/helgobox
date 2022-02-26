@@ -192,11 +192,7 @@ pub struct WebSocketRequest {
 
 impl WebSocketRequest {
     pub fn parse_topics(&self) -> Topics {
-        self.topics
-            .split(',')
-            .map(Topic::try_from)
-            .flatten()
-            .collect()
+        self.topics.split(',').flat_map(Topic::try_from).collect()
     }
 }
 

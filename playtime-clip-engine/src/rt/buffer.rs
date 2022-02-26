@@ -79,6 +79,9 @@ pub type AudioBuf<'a> = AbstractAudioBuf<&'a [f64]>;
 pub type AudioBufMut<'a> = AbstractAudioBuf<&'a mut [f64]>;
 
 impl<'a> AudioBuf<'a> {
+    /// # Safety
+    ///
+    /// REAPER can crash if you pass an invalid pointer.
     pub unsafe fn from_raw(data: *mut f64, channel_count: usize, frame_count: usize) -> Self {
         AudioBuf {
             data: std::slice::from_raw_parts(data, (channel_count * frame_count) as _),
@@ -89,6 +92,9 @@ impl<'a> AudioBuf<'a> {
 }
 
 impl<'a> AudioBufMut<'a> {
+    /// # Safety
+    ///
+    /// REAPER can crash if the transfer object contains an invalid pointer.
     pub unsafe fn from_transfer(transfer: &PcmSourceTransfer) -> Self {
         Self::from_raw(
             transfer.samples(),
@@ -97,6 +103,9 @@ impl<'a> AudioBufMut<'a> {
         )
     }
 
+    /// # Safety
+    ///
+    /// REAPER can crash if you pass an invalid pointer.
     pub unsafe fn from_raw(data: *mut f64, channel_count: usize, frame_count: usize) -> Self {
         if frame_count == 0 {
             panic!("Attempt to create buffer from raw data with a frame count of zero");

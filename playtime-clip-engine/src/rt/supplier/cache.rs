@@ -24,6 +24,12 @@ pub struct CacheResponseChannel {
     receiver: Receiver<CacheResponse>,
 }
 
+impl Default for CacheResponseChannel {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CacheResponseChannel {
     pub fn new() -> Self {
         let (sender, receiver) = crossbeam_channel::bounded(10);

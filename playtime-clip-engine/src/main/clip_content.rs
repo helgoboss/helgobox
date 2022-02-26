@@ -83,7 +83,7 @@ impl ClipContent {
     }
 
     /// Takes care of making the path project-relative (if a project is given).
-    pub fn from_file(project: Option<Project>, file: &PathBuf) -> Self {
+    pub fn from_file(project: Option<Project>, file: &Path) -> Self {
         Self::File {
             file: make_relative(project, file),
         }
@@ -114,7 +114,7 @@ impl ClipContent {
                 let absolute_file = if file.is_relative() {
                     project_for_relative_path
                         .ok_or("slot source given as relative file but without project")?
-                        .make_path_absolute(&file)
+                        .make_path_absolute(file)
                         .ok_or("couldn't make clip source path absolute")?
                 } else {
                     file.clone()
@@ -138,8 +138,8 @@ impl ClipContent {
     }
 }
 
-fn make_relative(project: Option<Project>, file: &PathBuf) -> PathBuf {
+fn make_relative(project: Option<Project>, file: &Path) -> PathBuf {
     project
         .and_then(|p| p.make_path_relative_if_in_project_directory(file))
-        .unwrap_or(file.clone())
+        .unwrap_or_else(|| file.to_owned())
 }

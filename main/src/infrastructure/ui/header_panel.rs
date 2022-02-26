@@ -2378,7 +2378,7 @@ impl HeaderPanel {
     ) {
         when(event.take_until(self.view.closed()))
             .with(Rc::downgrade(self))
-            .do_sync(move |panel, item| reaction(panel, item));
+            .do_sync(reaction);
     }
 
     fn is_invoked_programmatically(&self) -> bool {

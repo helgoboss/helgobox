@@ -901,8 +901,7 @@ impl RealTimeProcessor {
 
     fn all_mappings(&self) -> impl Iterator<Item = &RealTimeMapping> {
         MappingCompartment::enum_iter()
-            .map(move |compartment| self.mappings[compartment].values())
-            .flatten()
+            .flat_map(move |compartment| self.mappings[compartment].values())
     }
 
     /// Returns whether this source value matched one of the mappings.
@@ -1333,6 +1332,7 @@ pub enum MidiDestination {
     Device(MidiOutputDeviceId),
 }
 
+#[allow(clippy::too_many_arguments)]
 fn control_controller_mappings_midi(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     // Mappings with virtual targets
@@ -1546,6 +1546,7 @@ fn forward_control_to_main_processor(
 }
 
 /// Returns whether this source value matched one of the mappings.
+#[allow(clippy::too_many_arguments)]
 fn control_main_mappings_virtual(
     sender: &crossbeam_channel::Sender<ControlMainTask>,
     main_mappings: &mut OrderedMappingMap<RealTimeMapping>,

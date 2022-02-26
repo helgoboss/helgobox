@@ -57,7 +57,7 @@ impl<S> TimeStretcher<S> {
         use VirtualTimeStretchMode::*;
         let raw_quality_param = match mode {
             ProjectDefault => -1i32,
-            ReaperMode(m) => (m.mode << 16 + m.sub_mode) as i32,
+            ReaperMode(m) => (m.mode << (16 + m.sub_mode)) as i32,
         };
         self.api
             .as_mut()
@@ -81,12 +81,12 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
         if !self.enabled || !self.responsible_for_audio_time_stretching {
-            return self.supplier.supply_audio(&request, dest_buffer);
+            return self.supplier.supply_audio(request, dest_buffer);
         }
         let source_frame_rate = match self.supplier.frame_rate() {
             None => {
                 // Nothing to stretch at the moment.
-                return self.supplier.supply_audio(&request, dest_buffer);
+                return self.supplier.supply_audio(request, dest_buffer);
             }
             Some(r) => r,
         };
@@ -132,7 +132,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
                     is_realtime: false
                 },
                 parent_request: Some(request),
-                general_info: &request.general_info,
+                general_info: request.general_info,
             };
             let inner_response = self
                 .supplier
@@ -189,7 +189,7 @@ impl<S: MidiSupplier> MidiSupplier for TimeStretcher<S> {
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         if !self.enabled {
-            return self.supplier.supply_midi(&request, event_list);
+            return self.supplier.supply_midi(request, event_list);
         }
         let request = SupplyMidiRequest {
             start_frame: request.start_frame,

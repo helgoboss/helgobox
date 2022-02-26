@@ -18,6 +18,7 @@ use crate::base::Global;
 pub use crate::infrastructure::server::http::handlers::*;
 use crate::infrastructure::server::layers::MainThreadLayer;
 
+#[allow(clippy::too_many_arguments)]
 pub async fn start_http_server(
     http_port: u16,
     https_port: u16,

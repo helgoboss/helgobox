@@ -65,7 +65,7 @@ impl PreBufferedBlock {
         remaining_dest_buffer: &mut AudioBufMut,
         criteria: &MatchCriteria,
     ) -> Result<ApplyOutcome, MatchError> {
-        let range = self.matches(&criteria)?;
+        let range = self.matches(criteria)?;
         // Pre-buffered block available and matches.
         Ok(self.copy_range_to(remaining_dest_buffer, range))
     }
@@ -383,7 +383,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
                             frame_offset,
                             non_matching_block_count: slots,
                         };
-                        return Err(failure);
+                        Err(failure)
                     }
                     Some((i, outcome)) => {
                         // Found a matching block and applied it!

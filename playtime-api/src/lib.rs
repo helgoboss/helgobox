@@ -170,7 +170,7 @@ impl Default for MatrixClipRecordMidiSettings {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordAudioSettings {
     /// If `true`, attempts to detect the actual start of the recorded audio material and derives
@@ -180,15 +180,6 @@ pub struct MatrixClipRecordAudioSettings {
     /// Makes the global record button work for audio by allowing global input detection.
     // TODO-clip-implement
     pub detect_input: bool,
-}
-
-impl Default for MatrixClipRecordAudioSettings {
-    fn default() -> Self {
-        Self {
-            detect_downbeat: false,
-            detect_input: false,
-        }
-    }
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]

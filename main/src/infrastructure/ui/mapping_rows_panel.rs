@@ -578,7 +578,7 @@ impl MappingRowsPanel {
     ) {
         when(event.take_until(self.view.closed()))
             .with(Rc::downgrade(self))
-            .do_sync(move |panel, item| reaction(panel, item));
+            .do_sync(reaction);
     }
 }
 

@@ -4,7 +4,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 static METRICS_ENABLED: Lazy<bool> = Lazy::new(|| std::env::var("CLIP_ENGINE_METRICS").is_ok());
-static METRICS_CHANNEL: Lazy<MetricsChannel> = Lazy::new(|| Default::default());
+static METRICS_CHANNEL: Lazy<MetricsChannel> = Lazy::new(Default::default);
 
 /// Initializes the metrics channel.  
 pub fn init_metrics() {

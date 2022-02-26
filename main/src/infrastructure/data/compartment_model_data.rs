@@ -40,7 +40,7 @@ impl CompartmentModelData {
             groups: model
                 .groups
                 .iter()
-                .map(|g| GroupModelData::from_model(g))
+                .map(GroupModelData::from_model)
                 .collect(),
             mappings: model
                 .mappings

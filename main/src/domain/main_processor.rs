@@ -1745,8 +1745,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     fn all_mappings_without_virtual_targets(&self) -> impl Iterator<Item = &MainMapping> {
         MappingCompartment::enum_iter()
-            .map(move |compartment| self.collections.mappings[compartment].values())
-            .flatten()
+            .flat_map(move |compartment| self.collections.mappings[compartment].values())
     }
 
     pub fn send_all_feedback(&self) {

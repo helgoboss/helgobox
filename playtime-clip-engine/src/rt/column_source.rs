@@ -120,6 +120,7 @@ impl ColumnSourceCommandSender {
 pub enum ColumnSourceCommand {
     ClearSlots,
     UpdateSettings(ColumnSettings),
+    // TODO-high We should box here (see clippy warning). But take care to send the Box back!
     FillSlot(ColumnFillSlotArgs),
     SetClipAudioResampleMode(ColumnSetClipAudioResampleModeArgs),
     SetClipAudioTimeStretchMode(ColumnSetClipAudioTimeStretchModeArgs),
@@ -609,7 +610,7 @@ pub struct ColumnWithSlotArgs<'a> {
     pub use_slot: &'a dyn Fn(),
 }
 
-fn get_slot(slots: &Vec<Slot>, index: usize) -> ClipEngineResult<&Slot> {
+fn get_slot(slots: &[Slot], index: usize) -> ClipEngineResult<&Slot> {
     slots.get(index).ok_or(SLOT_DOESNT_EXIST)
 }
 

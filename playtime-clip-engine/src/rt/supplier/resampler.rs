@@ -84,12 +84,12 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
         if !self.enabled {
-            return self.supplier.supply_audio(&request, dest_buffer);
+            return self.supplier.supply_audio(request, dest_buffer);
         }
         let source_frame_rate = match self.supplier.frame_rate() {
             None => {
                 // Nothing to resample at the moment.
-                return self.supplier.supply_audio(&request, dest_buffer);
+                return self.supplier.supply_audio(request, dest_buffer);
             }
             Some(r) => r,
         };
@@ -99,7 +99,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
             request.dest_sample_rate
         };
         if source_frame_rate == dest_frame_rate {
-            return self.supplier.supply_audio(&request, dest_buffer);
+            return self.supplier.supply_audio(request, dest_buffer);
         }
         let mut total_num_frames_consumed = 0usize;
         let mut total_num_frames_written = 0usize;
@@ -198,7 +198,7 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        return self.supplier.supply_midi(&request, event_list);
+        self.supplier.supply_midi(request, event_list)
     }
 }
 

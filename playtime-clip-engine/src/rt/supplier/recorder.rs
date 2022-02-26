@@ -243,7 +243,7 @@ fn create_recorder_cache(
 ) -> RecorderCache {
     Cache::new(
         PreBuffer::new(source, pre_buffer_request_sender),
-        cache_request_sender.clone(),
+        cache_request_sender,
         CacheResponseChannel::new(),
     )
 }
@@ -302,7 +302,7 @@ impl Recorder {
             state: Some(state),
             request_sender: equipment.recorder_request_sender.clone(),
             cache_request_sender: equipment.cache_request_sender.clone(),
-            pre_buffer_request_sender: equipment.pre_buffer_request_sender.clone(),
+            pre_buffer_request_sender: equipment.pre_buffer_request_sender,
             response_channel: ResponseChannel::new(),
         }
     }
@@ -590,7 +590,7 @@ impl Recorder {
         let left_buf_slice = request.left_buffer.data_as_slice();
         let right_buf_slice = request.right_buffer.data_as_slice();
         for i in 0..num_frames_written {
-            out_buf_slice[start_frame * out_channel_count + i * out_channel_count + 0] =
+            out_buf_slice[start_frame * out_channel_count + i * out_channel_count] =
                 left_buf_slice[i];
             out_buf_slice[start_frame * out_channel_count + i * out_channel_count + 1] =
                 right_buf_slice[i];

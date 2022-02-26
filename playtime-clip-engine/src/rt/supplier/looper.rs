@@ -152,7 +152,7 @@ impl RelevantData {
     /// Start from beginning if we encounter a start frame after the end (modulo).
     fn modulo_start_frame(&self, total_frame_count: usize) -> isize {
         if self.start_frame < 0 {
-            return self.start_frame;
+            self.start_frame
         } else {
             self.start_frame % total_frame_count as isize
         }
@@ -167,7 +167,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
     ) -> SupplyResponse {
         let data = match self.check_relevance(request.start_frame) {
             None => {
-                return self.supplier.supply_audio(&request, dest_buffer);
+                return self.supplier.supply_audio(request, dest_buffer);
             }
             Some(d) => d,
         };
@@ -241,7 +241,7 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
     ) -> SupplyResponse {
         let data = match self.check_relevance(request.start_frame) {
             None => {
-                return self.supplier.supply_midi(&request, event_list);
+                return self.supplier.supply_midi(request, event_list);
             }
             Some(d) => d,
         };

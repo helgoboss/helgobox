@@ -276,7 +276,7 @@ impl PlayPositionJumpDetector {
         let beat = res.full_beats.get() as isize;
         if let Some(previous_beat) = self.previous_beat.replace(beat) {
             let beat_diff = beat - previous_beat;
-            beat_diff < 0 || beat_diff > 1
+            !(0..=1).contains(&beat_diff)
         } else {
             // Don't count initial change as jump.
             false
