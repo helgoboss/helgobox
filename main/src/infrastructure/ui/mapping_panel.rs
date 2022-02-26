@@ -6479,7 +6479,7 @@ fn prompt_for_color(
             };
             menu(
                 color_target.to_string(),
-                IntoIterator::into_iter([
+                [
                     item_with_opts(
                         "<Default color>",
                         ItemOpts {
@@ -6496,8 +6496,8 @@ fn prompt_for_color(
                         },
                         move || OpenColorPicker(color_target),
                     ),
-                ])
-                    .chain(IntoIterator::into_iter(["target.track.color", "target.bookmark.color"]).map(|key| {
+                ].into_iter()
+                    .chain(["target.track.color", "target.bookmark.color"].into_iter().map(|key| {
                         item_with_opts(
                             key,
                             ItemOpts {

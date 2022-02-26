@@ -154,11 +154,12 @@ fn convert_activation_condition(
         Modifiers => {
             let condition = schema::ModifierActivationCondition {
                 modifiers: {
-                    let mod_conditions = IntoIterator::into_iter([
+                    let mod_conditions = [
                         condition_data.modifier_condition_1,
                         condition_data.modifier_condition_2,
-                    ]);
+                    ];
                     let mod_states: Vec<_> = mod_conditions
+                        .into_iter()
                         .filter_map(|c| {
                             let state = schema::ModifierState {
                                 parameter: ParamRef::Index(c.param_index?),
