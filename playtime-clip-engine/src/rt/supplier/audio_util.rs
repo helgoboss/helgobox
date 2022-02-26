@@ -118,6 +118,9 @@ pub fn transfer_samples_from_buffer(
         num_remaining_frames_in_source,
         req.dest_buffer.frame_count(),
     );
+    if num_frames_written == 0 {
+        return SupplyResponse::exceeded_end();
+    }
     let end_frame = req.start_frame + num_frames_written;
     buf.slice(req.start_frame..end_frame)
         .copy_to(&mut req.dest_buffer.slice_mut(0..num_frames_written));

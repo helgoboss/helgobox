@@ -1,4 +1,8 @@
 use crate::rt::buffer::AudioBufMut;
+use crate::rt::supplier::fade_util::{
+    apply_fade_in_starting_at_zero, apply_fade_out_ending_at, apply_fade_out_starting_at_zero,
+    FADE_LENGTH,
+};
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioSupplier, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
@@ -166,14 +170,15 @@ impl<S: AudioSupplier> AudioSupplier for AdHocFader<S> {
         // In fade phase.
         let inner_response = self.supplier.supply_audio(request, dest_buffer);
         use FadeDirection::*;
-        let counter = match fade.direction {
-            FadeIn => (request.start_frame - fade.start_frame) as usize,
-            FadeOut => (fade.end_frame - request.start_frame) as usize,
+        let distance_from_fade_start = request.start_frame - fade.start_frame;
+        match fade.direction {
+            FadeIn => {
+                apply_fade_in_starting_at_zero(dest_buffer, distance_from_fade_start);
+            }
+            FadeOut => {
+                apply_fade_out_starting_at_zero(dest_buffer, distance_from_fade_start);
+            }
         };
-        dest_buffer.modify_frames(|frame, sample| {
-            let factor = (counter + frame) as f64 / FADE_LENGTH as f64;
-            sample * factor
-        });
         let fade_finished = match inner_response.status {
             SupplyResponseStatus::PleaseContinue => {
                 let end_frame = request.start_frame + inner_response.num_frames_consumed as isize;
@@ -250,9 +255,6 @@ impl<S: PreBufferSourceSkill> PreBufferSourceSkill for AdHocFader<S> {
         self.supplier.pre_buffer(request);
     }
 }
-
-// 0.01s = 10ms at 48 kHz
-const FADE_LENGTH: usize = 480;
 
 enum Instruction {
     Bypass,

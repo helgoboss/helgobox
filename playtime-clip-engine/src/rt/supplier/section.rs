@@ -2,7 +2,7 @@ use crate::conversion_util::{
     convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
 };
 use crate::rt::buffer::AudioBufMut;
-use crate::rt::supplier::fade_util::{apply_fade_in, apply_fade_out};
+use crate::rt::supplier::fade_util::{apply_fade_in_starting_at_zero, apply_fade_out_ending_at};
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
@@ -120,7 +120,7 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
             }
             Some(length) => {
                 // Section has right bound.
-                if request.start_frame() > length as isize {
+                if request.start_frame() >= length as isize {
                     // We exceeded the section boundary. Return silence.
                     return Instruction::Return(SupplyResponse::exceeded_end());
                 }
@@ -245,10 +245,10 @@ impl<S: AudioSupplier + WithFrameRate + ExactFrameCount> AudioSupplier for Secti
             .supplier
             .supply_audio(&inner_request, &mut inner_dest_buffer);
         if self.boundary.start_frame > 0 {
-            apply_fade_in(dest_buffer, request.start_frame);
+            apply_fade_in_starting_at_zero(dest_buffer, request.start_frame);
         }
         if let Some(length) = self.boundary.length {
-            apply_fade_out(dest_buffer, request.start_frame, length);
+            apply_fade_out_ending_at(dest_buffer, request.start_frame, length);
         }
         self.generate_outer_response(inner_response, data.phase_two)
     }
