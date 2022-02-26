@@ -98,6 +98,9 @@ impl<'a> AudioBufMut<'a> {
     }
 
     pub unsafe fn from_raw(data: *mut f64, channel_count: usize, frame_count: usize) -> Self {
+        if frame_count == 0 {
+            panic!("Attempt to create buffer from raw data with a frame count of zero");
+        }
         AudioBufMut {
             data: std::slice::from_raw_parts_mut(data, (channel_count * frame_count) as _),
             frame_count,
@@ -136,6 +139,9 @@ impl<T: AsRef<[f64]>> AbstractAudioBuf<T> {
 
     pub fn slice(&self, bounds: impl RangeBounds<usize>) -> AudioBuf {
         let desc = self.prepare_slice(bounds);
+        if desc.new_frame_count == 0 {
+            panic!("slicing results in buffer with a frame count of zero");
+        }
         AudioBuf {
             data: &self.data.as_ref()[desc.data_start_index..desc.data_end_index],
             frame_count: desc.new_frame_count,

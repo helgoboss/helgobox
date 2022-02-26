@@ -127,6 +127,10 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
                     &mut resample_buffer,
                 )
             };
+            if num_source_frames_to_write == 0 {
+                // We are probably responsible for tempo adjustment and the tempo is super low.
+                break false;
+            }
             let mut resample_buffer = unsafe {
                 AudioBufMut::from_raw(
                     resample_buffer,
