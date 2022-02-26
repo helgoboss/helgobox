@@ -82,4 +82,4 @@ fn block_is_left_or_right_of_fade(block_start_frame: isize, block_frame_count: u
 }
 
 // 480 frames = 10ms at 48 kHz
-pub const FADE_LENGTH: usize = 48000;
+pub const FADE_LENGTH: usize = 240;
