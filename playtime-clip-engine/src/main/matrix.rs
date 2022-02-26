@@ -14,13 +14,11 @@ use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    AudioCacheBehavior, AudioTimeStretchMode, ClipPlayStopTiming, ClipRecordStartTiming,
-    ClipRecordStopTiming, ClipRecordTimeBase, ClipSettingOverrideAfterRecording,
-    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings,
+    AudioCacheBehavior, AudioTimeStretchMode, ClipRecordStartTiming, ClipRecordStopTiming,
+    ClipRecordTimeBase, ClipSettingOverrideAfterRecording, ColumnClipPlaySettings,
     MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordAudioSettings,
     MatrixClipRecordMidiSettings, MatrixClipRecordSettings, MidiClipRecordMode, RecordLength,
-    TempoRange, TimeStretchMode, TrackId, TrackRecordOrigin, VirtualResampleMode,
-    VirtualTimeStretchMode,
+    TempoRange, TrackId, VirtualResampleMode,
 };
 use reaper_high::{Guid, Item, OrCurrentProject, Project, Track};
 use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
@@ -34,13 +32,15 @@ pub struct Matrix<H> {
     settings: MatrixSettings,
     rt_settings: rt::MatrixSettings,
     handler: H,
+    #[allow(dead_code)]
     stretch_worker_sender: Sender<StretchWorkerRequest>,
     recorder_equipment: RecorderEquipment,
     columns: Vec<Column>,
     containing_track: Option<Track>,
     command_receiver: Receiver<MatrixCommand>,
     rt_command_sender: Sender<rt::MatrixCommand>,
-    worker_pool: WorkerPool,
+    // We use this just for RAII (joining worker threads when dropped)
+    _worker_pool: WorkerPool,
 }
 
 #[derive(Debug, Default)]
@@ -141,7 +141,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             containing_track,
             command_receiver: main_command_receiver,
             rt_command_sender,
-            worker_pool,
+            _worker_pool: worker_pool,
         };
         let rt_matrix = rt::Matrix::new(rt_command_receiver, main_command_sender, project);
         (matrix, rt_matrix)
@@ -333,7 +333,16 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         clip_timeline(Some(project), false)
     }
 
+    fn process_commands(&mut self) {
+        while let Ok(task) = self.command_receiver.try_recv() {
+            match task {
+                MatrixCommand::ThrowAway(_) => {}
+            }
+        }
+    }
+
     pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<(ClipLocation, ClipChangedEvent)> {
+        self.process_commands();
         self.columns
             .iter_mut()
             .enumerate()
@@ -391,7 +400,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn record_clip_legacy(
         &mut self,
         slot_index: usize,
-        project: Project,
         args: RecordArgs,
     ) -> ClipEngineResult<()> {
         let behavior = match args.kind {
@@ -461,7 +469,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     pub fn fill_slot_with_item_source(
         &mut self,
-        slot_index: usize,
+        _slot_index: usize,
         item: Item,
     ) -> Result<(), Box<dyn Error>> {
         // let slot = get_slot_mut(&mut self.clip_slots, slot_index)?;

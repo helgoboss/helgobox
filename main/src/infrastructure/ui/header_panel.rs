@@ -22,8 +22,8 @@ use crate::application::{
 };
 use crate::base::when;
 use crate::domain::{
-    ControlInput, GroupId, MappingCompartment, MessageCaptureEvent, OscDeviceId,
-    RealearnClipMatrix, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
+    ControlInput, GroupId, MappingCompartment, MessageCaptureEvent, OscDeviceId, ReaperTarget,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
@@ -48,7 +48,6 @@ use crate::infrastructure::ui::{
 };
 use crate::infrastructure::ui::{dialog_util, CompanionAppPresenter};
 use itertools::Itertools;
-use playtime_api::Matrix;
 use realearn_api::schema::Envelope;
 use std::cell::{Cell, RefCell};
 use std::error::Error;

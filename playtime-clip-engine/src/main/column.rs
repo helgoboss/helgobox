@@ -12,7 +12,7 @@ use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, ColumnClipPlayAudioSettings, ColumnClipPlaySettings,
-    ColumnClipRecordSettings, TempoRange, TrackRecordOrigin, VirtualResampleMode,
+    ColumnClipRecordSettings, TrackRecordOrigin, VirtualResampleMode,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
@@ -45,7 +45,7 @@ pub struct ColumnSettings {
 
 #[derive(Clone, Debug)]
 struct PlayingPreviewRegister {
-    preview_register: SharedRegister,
+    _preview_register: SharedRegister,
     play_handle: NonNull<preview_register_t>,
     track: Option<Track>,
 }
@@ -195,7 +195,7 @@ impl Column {
         Ok(())
     }
 
-    pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<(usize, ClipChangedEvent)> {
+    pub fn poll(&mut self, _timeline_tempo: Bpm) -> Vec<(usize, ClipChangedEvent)> {
         // Process source events and generate clip change events
         let mut change_events = vec![];
         while let Ok(evt) = self.event_receiver.try_recv() {
@@ -304,8 +304,9 @@ impl Column {
         Some(clip.data().looped)
     }
 
-    pub fn clip_volume(&self, index: usize) -> Option<ReaperVolumeValue> {
-        let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+    pub fn clip_volume(&self, _index: usize) -> Option<ReaperVolumeValue> {
+        // TODO-high implement
+        // let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
         Some(Default::default())
     }
 
@@ -359,7 +360,7 @@ impl PlayingPreviewRegister {
         let preview_register = Arc::new(ReaperMutex::new(register));
         let play_handle = start_playing_preview(&preview_register, track.as_ref());
         Self {
-            preview_register,
+            _preview_register: preview_register,
             play_handle,
             track,
         }

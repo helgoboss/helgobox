@@ -1840,6 +1840,12 @@
             "argument": {
               "$ref": "#/definitions/OscArgument"
             },
+            "feedback_arguments": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "feedback_behavior": {
               "$ref": "#/definitions/FeedbackBehavior"
             },

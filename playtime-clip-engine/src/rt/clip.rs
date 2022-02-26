@@ -5,27 +5,23 @@ use crate::conversion_util::{
 };
 use crate::main::{ClipContent, ClipData};
 use crate::rt::buffer::AudioBufMut;
-use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::{
-    AudioSupplier, ExactDuration, LoopBehavior, MidiSupplier, PreBufferFillRequest,
-    PreBufferSourceSkill, Recorder, RecorderEquipment, SupplierChain, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithTempo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
+    AudioSupplier, LoopBehavior, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
+    Recorder, RecorderEquipment, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
+    WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
 };
-use crate::rt::tempo_util::detect_tempo;
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::{ClipEngineResult, QuantizedPosition};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, BeatTimeBase, ClipPlayStartTiming,
-    ClipPlayStopTiming, ClipTimeBase, EvenQuantization, PositiveBeat, TempoRange, TimeSignature,
-    TimeStretchMode, VirtualResampleMode,
+    ClipPlayStopTiming, ClipTimeBase, EvenQuantization, VirtualResampleMode,
 };
-use reaper_high::{OrCurrentProject, Project};
+use reaper_high::Project;
 use reaper_medium::{
-    Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer, PositionInBeats,
-    PositionInSeconds, ReaperVolumeValue,
+    Bpm, DurationInSeconds, Hz, PcmSourceTransfer, PositionInSeconds, ReaperVolumeValue,
 };
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicIsize, Ordering};
@@ -44,7 +40,6 @@ struct PersistentPlayData {
     start_timing: Option<ClipPlayStartTiming>,
     stop_timing: Option<ClipPlayStopTiming>,
     looped: bool,
-    apply_source_fades: bool,
     time_base: ClipTimeBase,
 }
 
@@ -218,7 +213,6 @@ impl Clip {
                 start_timing: api_clip.start_timing,
                 stop_timing: api_clip.stop_timing,
                 looped: api_clip.looped,
-                apply_source_fades: api_clip.audio_settings.apply_source_fades,
                 time_base: api_clip.time_base.clone(),
             },
         };
@@ -289,7 +283,9 @@ impl Clip {
     }
 
     pub fn set_audio_cache_behavior(&mut self, cache_behavior: AudioCacheBehavior) {
-        self.supplier_chain.set_audio_cache_behavior(cache_behavior);
+        self.supplier_chain
+            .set_audio_cache_behavior(cache_behavior)
+            .unwrap();
     }
 
     /// Plays the clip if it's not recording.
@@ -486,9 +482,7 @@ impl Clip {
             Ready(s) => s
                 .process(args, &mut self.supplier_chain, &mut self.shared_pos)
                 .map(Recording),
-            Recording(s) => s
-                .process(args, &mut self.supplier_chain, self.project)
-                .map(Ready),
+            Recording(s) => s.process(args, &mut self.supplier_chain).map(Ready),
         };
         if let Some(s) = changed_state {
             self.state = s;
@@ -1553,7 +1547,7 @@ impl RecordingState {
                     // Zero point of recording hasn't even been reached yet. Try to roll back.
                     if let Some(rollback_data) = &self.rollback_data {
                         // We have a previous source that we can roll back to.
-                        supplier_chain.recorder_mut().rollback_recording();
+                        supplier_chain.recorder_mut().rollback_recording().unwrap();
                         let ready_state = ReadyState {
                             state: ReadySubState::Stopped,
                             persistent_data: rollback_data.persistent_data,
@@ -1588,7 +1582,6 @@ impl RecordingState {
         &mut self,
         args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
-        project: Option<Project>,
     ) -> Option<ReadyState> {
         if let RecordTiming::Synced {
             start_bar,
@@ -1669,7 +1662,6 @@ impl RecordingState {
                 looped: play_after,
                 // TODO-high Set time base
                 time_base: ClipTimeBase::Time,
-                apply_source_fades: true,
             },
         }
     }

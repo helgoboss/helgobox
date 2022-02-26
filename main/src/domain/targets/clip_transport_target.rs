@@ -7,12 +7,8 @@ use crate::domain::{
     DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use playtime_clip_engine::main::{
-    ClipRecordTiming, RecordArgs, RecordKind, SlotPlayOptions, SlotStopBehavior,
-};
-use playtime_clip_engine::rt::{
-    ClipChangedEvent, ClipPlayArgs, ClipStopArgs, ClipStopBehavior, SharedColumnSource,
-};
+use playtime_clip_engine::main::{ClipRecordTiming, RecordArgs, RecordKind, SlotPlayOptions};
+use playtime_clip_engine::rt::ClipChangedEvent;
 use playtime_clip_engine::{clip_timeline, Timeline};
 use reaper_high::{Project, Track};
 
@@ -76,17 +72,6 @@ pub struct ClipTransportTargetBasics {
     pub play_options: SlotPlayOptions,
 }
 
-impl ClipTransportTargetBasics {
-    fn stop_behavior(&self) -> SlotStopBehavior {
-        use SlotStopBehavior::*;
-        if self.play_options.next_bar {
-            EndOfClip
-        } else {
-            Immediately
-        }
-    }
-}
-
 impl RealearnTarget for ClipTransportTarget {
     fn control_type_and_character(&self, _: ControlContext) -> (ControlType, TargetCharacter) {
         self.basics.action.control_type_and_character()
@@ -127,23 +112,20 @@ impl RealearnTarget for ClipTransportTarget {
             }
             Pause => {
                 if on {
-                    clip_matrix.pause_clip_legacy(self.basics.slot_index);
+                    clip_matrix.pause_clip_legacy(self.basics.slot_index)?;
                 }
             }
             RecordStop => {
                 if on {
-                    let timing = if true {
+                    let timing = {
                         let timeline = clip_timeline(Some(self.project), false);
                         let next_bar = timeline.next_bar_at(timeline.cursor_pos());
                         ClipRecordTiming::StartOnBarStopOnDemand {
                             start_bar: next_bar,
                         }
-                    } else {
-                        ClipRecordTiming::StartImmediatelyStopOnDemand
                     };
                     clip_matrix.record_clip_legacy(
                         self.basics.slot_index,
-                        self.project,
                         RecordArgs {
                             kind: RecordKind::Normal {
                                 play_after: true,
@@ -151,9 +133,9 @@ impl RealearnTarget for ClipTransportTarget {
                                 detect_downbeat: true,
                             },
                         },
-                    );
+                    )?;
                 } else {
-                    clip_matrix.stop_clip(self.basics.slot_index);
+                    clip_matrix.stop_clip(self.basics.slot_index)?;
                 }
             }
             Repeat => {

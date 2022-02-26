@@ -108,10 +108,7 @@ pub struct SourceMaterialRequest<'a, 'b> {
     pub dest_sample_rate: Hz,
 }
 
-pub fn transfer_samples_from_buffer(
-    buf: AudioBuf,
-    mut req: SourceMaterialRequest,
-) -> SupplyResponse {
+pub fn transfer_samples_from_buffer(buf: AudioBuf, req: SourceMaterialRequest) -> SupplyResponse {
     debug_assert_eq!(req.dest_sample_rate, req.source_sample_rate);
     let num_remaining_frames_in_source = buf.frame_count() - req.start_frame;
     let num_frames_written = cmp::min(

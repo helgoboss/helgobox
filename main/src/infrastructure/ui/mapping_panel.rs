@@ -49,8 +49,7 @@ use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
-    RealearnClipMatrix, ReaperTargetType, SendMidiDestination, SimpleExclusivity,
-    WithControlContext, CLIP_SLOT_COUNT,
+    ReaperTargetType, SendMidiDestination, SimpleExclusivity, WithControlContext, CLIP_SLOT_COUNT,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,

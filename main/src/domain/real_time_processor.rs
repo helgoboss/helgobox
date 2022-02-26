@@ -14,10 +14,8 @@ use helgoboss_midi::{
     ParameterNumberMessage, PollingParameterNumberMessageScanner, RawShortMessage, ShortMessage,
     ShortMessageFactory, ShortMessageType,
 };
-use reaper_high::{MidiOutputDevice, Project, Reaper};
-use reaper_medium::{
-    Hz, MidiInputDeviceId, MidiOutputDeviceId, ProjectContext, ReaperPointer, SendMidiTime,
-};
+use reaper_high::{MidiOutputDevice, Reaper};
+use reaper_medium::{Hz, MidiInputDeviceId, MidiOutputDeviceId, SendMidiTime};
 use slog::{debug, trace};
 
 use crate::base::Global;
@@ -364,7 +362,6 @@ impl RealTimeProcessor {
                     midi_feedback_output,
                     input_logging_enabled,
                     output_logging_enabled,
-                    project,
                 } => {
                     permit_alloc(|| {
                         debug!(self.logger, "Updating settings...");
@@ -591,6 +588,7 @@ impl RealTimeProcessor {
                 "\n\
             # Real-time processor\n\
             \n\
+            - Instance ID: {} \n\
             - State: {:?} \n\
             - Total main mapping count: {} \n\
             - Enabled main mapping count: {} \n\
@@ -599,6 +597,7 @@ impl RealTimeProcessor {
             - Normal task count: {} \n\
             - Feedback task count: {} \n\
             ",
+                self.instance_id,
                 self.control_mode,
                 self.mappings[MappingCompartment::MainMappings].len(),
                 self.mappings[MappingCompartment::MainMappings]
@@ -1242,7 +1241,6 @@ pub enum NormalRealTimeTask {
         midi_feedback_output: Option<MidiDestination>,
         input_logging_enabled: bool,
         output_logging_enabled: bool,
-        project: Option<Project>,
     },
     /// This takes care of propagating target activation states (for non-virtual mappings).
     UpdateTargetActivations(MappingCompartment, Vec<ActivationChange>),

@@ -1,14 +1,13 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::fade_util::{
-    apply_fade_in_starting_at_zero, apply_fade_out_ending_at, apply_fade_out_starting_at_zero,
-    FADE_LENGTH,
+    apply_fade_in_starting_at_zero, apply_fade_out_starting_at_zero, FADE_LENGTH,
 };
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioSupplier, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, SupplyResponseStatus, WithFrameRate,
 };
-use playtime_api::{MidiResetMessageRange, MidiResetMessages};
+use playtime_api::MidiResetMessageRange;
 use reaper_medium::{BorrowedMidiEventList, Hz};
 
 #[derive(Debug)]

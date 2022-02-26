@@ -9,8 +9,7 @@ use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use playtime_api::{
-    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, TimeStretchMode,
-    VirtualResampleMode,
+    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, VirtualResampleMode,
 };
 use reaper_high::Project;
 use reaper_medium::{
@@ -137,8 +136,6 @@ pub enum ColumnSourceCommand {
 #[derive(Debug)]
 pub struct ColumnSource {
     settings: ColumnSettings,
-    // TODO-high Integrate into API
-    mode: ClipColumnMode,
     slots: Vec<Slot>,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
@@ -193,7 +190,6 @@ impl ColumnSource {
     ) -> Self {
         Self {
             settings: Default::default(),
-            mode: Default::default(),
             // TODO-high We should probably make this higher so we don't need to allocate in the
             //  audio thread (or block the audio thread through allocation in the main thread).
             //  Or we find a mechanism to return a request for a newly allocated vector, release
@@ -389,7 +385,7 @@ impl ColumnSource {
         }
     }
 
-    fn get_samples(&mut self, mut args: GetSamplesArgs) {
+    fn get_samples(&mut self, args: GetSamplesArgs) {
         // We have code, e.g. triggered by crossbeam_channel that requests the ID of the
         // current thread. This operation needs an allocation at the first time it's executed
         // on a specific thread. If Live FX multi-processing is enabled, get_samples() will be
@@ -441,30 +437,10 @@ impl ColumnSource {
         debug_assert_eq!(args.block.samples_out(), args.block.length());
     }
 
-    fn extended(&mut self, args: ExtendedArgs) -> i32 {
+    fn extended(&mut self, _args: ExtendedArgs) -> i32 {
         // TODO-medium Maybe implement PCM_SOURCE_EXT_NOTIFYPREVIEWPLAYPOS. This is the only
         //  extended call done by the preview register, at least for type WAVE.
         0
-    }
-}
-
-#[derive(Debug)]
-pub enum ClipColumnMode {
-    /// Song mode.
-    ///
-    /// - Only one clip in the column can play at a certain point in time.
-    /// - Clips are started/stopped if the corresponding scene is started/stopped.
-    Song,
-    /// Free mode.
-    ///
-    /// - Multiple clips can play simultaneously.
-    /// - Clips are not started/stopped if the corresponding scene is started/stopped.
-    Free,
-}
-
-impl Default for ClipColumnMode {
-    fn default() -> Self {
-        Self::Song
     }
 }
 
@@ -531,7 +507,7 @@ impl CustomPcmSource for SharedColumnSource {
         unimplemented!()
     }
 
-    fn get_samples(&mut self, mut args: GetSamplesArgs) {
+    fn get_samples(&mut self, args: GetSamplesArgs) {
         self.lock().get_samples(args)
     }
 
@@ -662,5 +638,5 @@ pub enum ColumnSourceEvent {
     },
 }
 
-#[deprecated]
+// TODO-high Fix this when writing proper ReaLearn targets
 pub const FAKE_ROW_INDEX: usize = 0;

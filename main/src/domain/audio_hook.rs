@@ -412,14 +412,12 @@ fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipReco
                     if event_list.get_size() == 0 {
                         return;
                     }
-                    unsafe {
-                        let req = WriteMidiRequest {
-                            input_sample_rate: args.srate,
-                            block_length: args.len as _,
-                            events: event_list,
-                        };
-                        src.write_clip_midi(record_task.slot_index, req).unwrap();
-                    }
+                    let req = WriteMidiRequest {
+                        input_sample_rate: args.srate,
+                        block_length: args.len as _,
+                        events: event_list,
+                    };
+                    src.write_clip_midi(record_task.slot_index, req).unwrap();
                 });
             }
         }
@@ -429,8 +427,8 @@ fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipReco
                 None => return true,
                 Some(f) => f,
             };
-            let input_channel_count = args.reg.input_nch();
             // TODO-high Support particular channels, mono and multi-channel
+            let _input_channel_count = args.reg.input_nch();
             let left_buffer = (get_buffer)(false, 6);
             let right_buffer = (get_buffer)(false, 7);
             if left_buffer.is_null() || right_buffer.is_null() {

@@ -2,6 +2,7 @@ use playtime_api::TempoRange;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{Bpm, DurationInSeconds, PositionInSeconds};
 
+#[allow(dead_code)]
 pub fn detect_tempo(
     duration: DurationInSeconds,
     project: Project,

@@ -286,7 +286,6 @@ fn calc_pos_of_bar(
 }
 
 // TODO-high Respect time signature also in steady timeline.
-#[deprecated]
 const FAKE_TIME_SIG_DENOMINATOR: u32 = 4;
 
 impl Timeline for SteadyTimeline {

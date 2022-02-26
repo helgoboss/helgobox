@@ -60,15 +60,6 @@ struct MatchCriteria {
 }
 
 impl PreBufferedBlock {
-    fn new(channel_count: usize) -> Self {
-        Self {
-            start_frame: 0,
-            frame_rate: Default::default(),
-            buffer: OwnedAudioBuffer::new(channel_count, PRE_BUFFERED_BLOCK_LENGTH),
-            response: SupplyResponse::default(),
-        }
-    }
-
     fn try_apply_to(
         &self,
         remaining_dest_buffer: &mut AudioBufMut,
@@ -175,18 +166,6 @@ enum MatchError {
     BlockContainsFutureMaterial,
     /// All material in the pre-buffered block is in the past.
     BlockContainsOnlyPastMaterial,
-}
-
-impl MatchError {
-    fn should_consume_block(&self) -> bool {
-        use MatchError::*;
-        match self {
-            WrongChannelCount | WrongFrameRate => true,
-            BlockContainsOnlyRelevantMaterialButStartFrameIsInFuture => true,
-            BlockContainsFutureMaterial => false,
-            BlockContainsOnlyPastMaterial => true,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -511,7 +490,8 @@ impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier fo
                     // We found non-matching blocks.
                     // First, we can assume that the pre-buffer worker somehow is somehow on the
                     // wrong track. "Recalibrate" it.
-                    let fill_request = PreBufferFillRequest {
+                    // TODO-high
+                    let _fill_request = PreBufferFillRequest {
                         start_frame: calculate_next_reasonable_frame(
                             request.start_frame,
                             &response,
@@ -519,7 +499,6 @@ impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier fo
                         frame_rate: request.dest_sample_rate,
                         channel_count: dest_buffer.channel_count(),
                     };
-                    // TODO-high
                     // self.pre_buffer_internal(fill_request);
                     // Second, let's drain all non-matching blocks. Not useful!
                     self.recycle_next_n_blocks(step_failure.non_matching_block_count);

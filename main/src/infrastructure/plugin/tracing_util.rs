@@ -46,11 +46,11 @@ fn keep_logging(receiver: Receiver<Vec<u8>>, mut inner: impl Write) {
 }
 
 impl<W: Write> Write for AsyncWriter<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+    fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
         unimplemented!()
     }
 
-    fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> std::io::Result<usize> {
+    fn write_vectored(&mut self, _bufs: &[IoSlice<'_>]) -> std::io::Result<usize> {
         unimplemented!()
     }
 
@@ -69,7 +69,7 @@ impl<W: Write> Write for AsyncWriter<W> {
         }
     }
 
-    fn write_fmt(&mut self, fmt: Arguments<'_>) -> std::io::Result<()> {
+    fn write_fmt(&mut self, _fmt: Arguments<'_>) -> std::io::Result<()> {
         unimplemented!()
     }
 }

@@ -21,7 +21,8 @@ pub fn init_metrics() {
         .name(String::from("Playtime metrics"))
         .spawn(move || {
             keep_recording_metrics((*METRICS_CHANNEL).receiver.clone());
-        });
+        })
+        .unwrap();
 }
 
 pub fn measure_time<R>(id: &'static str, f: impl FnOnce() -> R) -> R {

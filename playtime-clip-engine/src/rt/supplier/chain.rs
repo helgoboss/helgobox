@@ -1,6 +1,5 @@
 use crate::conversion_util::convert_duration_in_seconds_to_frames;
 use crate::main::ClipContent;
-use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::{
     AdHocFader, Amplifier, Downbeat, ExactDuration, ExactFrameCount, LoopBehavior, Looper,
     Recorder, Resampler, Section, StartEndFader, TimeStretcher, WithFrameRate,
@@ -9,10 +8,10 @@ use crate::rt::ClipInfo;
 use crate::ClipEngineResult;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, Db, MidiResetMessageRange, PositiveBeat,
-    PositiveSecond, TimeStretchMode, VirtualResampleMode,
+    PositiveSecond, VirtualResampleMode,
 };
 use reaper_high::Project;
-use reaper_medium::{Bpm, DurationInSeconds, Hz, PositionInSeconds};
+use reaper_medium::{Bpm, DurationInSeconds, Hz};
 
 type Head = AmplifierTail;
 type AmplifierTail = Amplifier<AdHocFaderTail>;

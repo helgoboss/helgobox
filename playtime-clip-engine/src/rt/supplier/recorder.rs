@@ -146,7 +146,8 @@ struct RecordingState {
     project: Option<Project>,
     detect_downbeat: bool,
     phase: Option<RecordingPhase>,
-    cache_response_channel: CacheResponseChannel,
+    // TODO-high use
+    _cache_response_channel: CacheResponseChannel,
 }
 
 #[derive(Debug)]
@@ -181,7 +182,8 @@ struct RecordingAudioFinishingState {
 #[derive(Debug)]
 struct RecordingMidiState {
     new_source: OwnedPcmSource,
-    source_start_timeline_pos: PositionInSeconds,
+    // TODO-high Use
+    _source_start_timeline_pos: PositionInSeconds,
 }
 
 impl KindSpecificRecordingState {
@@ -195,7 +197,7 @@ impl KindSpecificRecordingState {
             Midi => {
                 let recording_midi_state = RecordingMidiState {
                     new_source: create_empty_midi_source(),
-                    source_start_timeline_pos: trigger_timeline_pos,
+                    _source_start_timeline_pos: trigger_timeline_pos,
                 };
                 Self::Midi(recording_midi_state)
             }
@@ -290,7 +292,7 @@ impl Recorder {
             project,
             detect_downbeat,
             phase: Some(initial_phase),
-            cache_response_channel: CacheResponseChannel::new(),
+            _cache_response_channel: CacheResponseChannel::new(),
         };
         Self::new(State::Recording(recording_state), equipment)
     }
@@ -444,7 +446,7 @@ impl Recorder {
             project,
             detect_downbeat,
             phase: Some(initial_phase),
-            cache_response_channel: CacheResponseChannel::new(),
+            _cache_response_channel: CacheResponseChannel::new(),
         };
         self.state = Some(Recording(recording_state));
     }
@@ -568,13 +570,15 @@ impl Recorder {
             request.left_buffer.data_as_slice().as_ptr() as _,
             request.right_buffer.data_as_slice().as_ptr() as _,
         ];
-        sink.WriteDoubles(
-            &mut channels as *mut _,
-            request.block_length as _,
-            NCH as _,
-            0,
-            1,
-        );
+        unsafe {
+            sink.WriteDoubles(
+                &mut channels as *mut _,
+                request.block_length as _,
+                NCH as _,
+                0,
+                1,
+            );
+        }
         // Write into temporary buffer
         let start_frame = state.next_record_start_frame;
         let mut out_buf = state.temporary_audio_buffer.to_buf_mut();
@@ -963,7 +967,8 @@ impl EmptyPhase {
         };
         if let Some(end_bar) = end_bar {
             // TODO-high Deal with end schulding when no audio material arrived yet
-            RecordingPhase::EndScheduled(open_end_phase.schedule_end(end_bar, todo!()))
+            let todo_timeline = clip_timeline(None, false);
+            RecordingPhase::EndScheduled(open_end_phase.schedule_end(end_bar, &todo_timeline))
         } else {
             RecordingPhase::OpenEnd(open_end_phase)
         }
@@ -999,6 +1004,8 @@ impl OpenEndPhase {
         timeline: &dyn Timeline,
     ) -> RecordingOutcome {
         let snapshot = self.snapshot(timeline);
+        // TODO-high Deal with immediate recording stop
+        let fake_duration = DurationInSeconds::ZERO;
         RecordingOutcome {
             frame_rate: self.frame_rate,
             tempo: self.prev_phase.tempo,
@@ -1007,8 +1014,7 @@ impl OpenEndPhase {
             section_start_frame: snapshot.section_start_frame,
             normalized_downbeat_frame: snapshot.normalized_downbeat_frame,
             section_frame_count: None,
-            // TODO-high Deal with immediate recording stop
-            effective_duration: todo!(),
+            effective_duration: fake_duration,
         }
     }
 

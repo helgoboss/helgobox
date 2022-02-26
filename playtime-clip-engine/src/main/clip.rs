@@ -4,7 +4,7 @@ use crate::rt::{ClipInfo, ClipPlayState, SharedPos};
 use crate::{rt, ClipEngineResult};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
-use playtime_api::{AudioCacheBehavior, AudioTimeStretchMode, TempoRange, VirtualResampleMode};
+use playtime_api::{AudioCacheBehavior, AudioTimeStretchMode, VirtualResampleMode};
 use reaper_high::Project;
 use reaper_medium::{Bpm, PositionInSeconds};
 
@@ -145,7 +145,7 @@ impl Clip {
         Some(proportional)
     }
 
-    pub fn position_in_seconds(&self, timeline_tempo: Bpm) -> Option<PositionInSeconds> {
+    pub fn position_in_seconds(&self, _timeline_tempo: Bpm) -> Option<PositionInSeconds> {
         // TODO-high At the moment we don't use this anyway. But we should implement it as soon
         //  as we do. Relies on having the current section length, source frame rate, source tempo.
         todo!()

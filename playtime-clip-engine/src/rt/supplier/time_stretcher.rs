@@ -6,7 +6,7 @@ use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
 };
 use crossbeam_channel::Receiver;
-use playtime_api::{TimeStretchMode, VirtualTimeStretchMode};
+use playtime_api::VirtualTimeStretchMode;
 use reaper_high::Reaper;
 use reaper_low::raw::REAPER_PITCHSHIFT_API_VER;
 use reaper_medium::{BorrowedMidiEventList, Hz, OwnedReaperPitchShift};
@@ -226,4 +226,5 @@ pub enum StretchWorkerRequest {
 
 /// A function that keeps processing stretch worker requests until the channel of the given receiver
 /// is dropped.
-pub fn keep_stretching(requests: Receiver<StretchWorkerRequest>) {}
+// TODO-high Implement this
+pub fn keep_stretching(_requests: Receiver<StretchWorkerRequest>) {}

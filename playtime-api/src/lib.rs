@@ -16,6 +16,25 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+// TODO-high Add column property follows_scenes
+// TODO-high Add column property exclusive
+// TODO-medium Add legato
+
+//  Old simplified code:
+// #[derive(Debug)]
+// pub enum ClipColumnMode {
+//     /// Song mode.
+//     ///
+//     /// - Only one clip in the column can play at a certain point in time.
+//     /// - Clips are started/stopped if the corresponding scene is started/stopped.
+//     Song,
+//     /// Free mode.
+//     ///
+//     /// - Multiple clips can play simultaneously.
+//     /// - Clips are not started/stopped if the corresponding scene is started/stopped.
+//     Free,
+// }
+
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Matrix {

@@ -3,7 +3,7 @@ use crate::rt::supplier::{RecorderEquipment, WriteAudioRequest, WriteMidiRequest
 use crate::rt::SlotInstruction::KeepSlot;
 use crate::rt::{
     Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs,
-    ClipRecordInput, ClipStopArgs, ClipStopBehavior, RecordBehavior, SlotInstruction,
+    ClipRecordInput, ClipStopArgs, RecordBehavior, SlotInstruction,
 };
 use crate::timeline::HybridTimeline;
 use crate::ClipEngineResult;
@@ -179,7 +179,7 @@ impl Slot {
                                         timeline: args.timeline,
                                         ref_pos: Some(args.timeline_cursor_pos),
                                     };
-                                    clip.play(args);
+                                    clip.play(args).unwrap();
                                     SlotInstruction::KeepSlot
                                 }
                                 _ => {
@@ -223,7 +223,8 @@ impl Slot {
                         parent_start_timing: args.parent_clip_play_start_timing,
                         timeline: args.timeline,
                         ref_pos: Some(args.timeline_cursor_pos),
-                    });
+                    })
+                    .unwrap();
                     KeepSlot
                 }
             }

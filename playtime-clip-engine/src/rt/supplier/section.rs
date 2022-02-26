@@ -9,7 +9,7 @@ use crate::rt::supplier::{
     PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo,
     SupplyResponse, SupplyResponseStatus, WithFrameRate,
 };
-use playtime_api::{MidiResetMessageRange, MidiResetMessages};
+use playtime_api::MidiResetMessageRange;
 use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz};
 
 #[derive(Debug)]

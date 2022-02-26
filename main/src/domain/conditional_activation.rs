@@ -145,7 +145,8 @@ impl ModifierCondition {
 pub struct EelCondition {
     // Declared above VM in order to be dropped before VM is dropped.
     program: eel::Program,
-    vm: eel::Vm,
+    // The existence in memory and the Drop is important.
+    _vm: eel::Vm,
     params: [Option<eel::Variable>; COMPARTMENT_PARAMETER_COUNT as usize],
     y: eel::Variable,
 }
@@ -178,7 +179,7 @@ impl EelCondition {
         };
         Ok(EelCondition {
             program,
-            vm,
+            _vm: vm,
             params,
             y,
         })

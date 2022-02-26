@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use enum_map::EnumMap;
-use lazycell::LazyCell;
 use reaper_high::Track;
 use rxrust::prelude::*;
 
@@ -363,10 +362,6 @@ impl InstanceState {
             .flatten()
             .copied()
             .filter(move |id| self.mapping_is_on(QualifiedMappingId::new(compartment, *id)))
-    }
-
-    fn send_feedback_event(&self, event: InstanceStateChanged) {
-        self.instance_feedback_event_sender.try_send(event).unwrap();
     }
 }
 
