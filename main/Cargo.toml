@@ -154,7 +154,7 @@ indexmap = { git = "https://github.com/helgoboss/indexmap", branch = "feature/cl
 # For comparing floating point numbers in tests
 approx = "0.3.2"
 # For the API
-mlua = { version = "0.6.6", features = ["vendored", "lua54", "serialize"] }
+mlua = { version = "0.7.3", features = ["vendored", "lua54", "serialize"] }
 # For checking if an FX has loaded a specific chunk and duplicate detection of non-primitive feedback messages
 twox-hash = "1.6.1"
 # For convenient converting prop key to prop enum variant

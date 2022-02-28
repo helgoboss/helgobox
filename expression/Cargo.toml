@@ -1,0 +1,20 @@
+[package]
+name = "realearn-expression"
+version = "0.1.0"
+authors = ["Benjamin Klum <benjamin.klum@helgoboss.org>"]
+edition = "2021"
+
+[dependencies]
+fasteval = { version = "0.2.4", default-features = false }
+eel2 = { path = "../eel2" }
+mlua = { version = "0.7.3", features = ["vendored", "lua54"] }
+
+[build-dependencies]
+cc = "1.0.50"
+
+[dev-dependencies]
+criterion = "0.3.5"
+
+[[bench]]
+name = "expression-evaluation"
+harness = false
