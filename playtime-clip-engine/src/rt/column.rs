@@ -10,7 +10,8 @@ use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use playtime_api::{
-    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, VirtualResampleMode,
+    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode,
+    VirtualResampleMode,
 };
 use reaper_high::Project;
 use reaper_medium::{
@@ -184,6 +185,7 @@ pub struct ColumnSettings {
     //  timing to the clip. Let's see what turns out to be the more practical design.
     pub clip_play_start_timing: Option<ClipPlayStartTiming>,
     pub clip_play_stop_timing: Option<ClipPlayStopTiming>,
+    pub play_mode: ColumnPlayMode,
 }
 
 const MAX_CHANNEL_COUNT: usize = 64;
@@ -244,14 +246,36 @@ impl Column {
     }
 
     pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> ClipEngineResult<()> {
-        // TODO-high If column mode Song, suspend all other clips first.
+        let parent_start_timing = self
+            .settings
+            .clip_play_start_timing
+            .unwrap_or(args.parent_start_timing);
+        let parent_stop_timing = self
+            .settings
+            .clip_play_stop_timing
+            .unwrap_or(args.parent_stop_timing);
+        let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
+        if self.settings.play_mode.is_exclusive() {
+            for (_, slot) in self
+                .slots
+                .iter_mut()
+                .enumerate()
+                .filter(|(i, _)| *i != args.slot_index)
+            {
+                let stop_args = ClipStopArgs {
+                    parent_start_timing,
+                    parent_stop_timing,
+                    stop_timing: None,
+                    timeline: &args.timeline,
+                    ref_pos: Some(ref_pos),
+                };
+                let _ = slot.stop_clip(stop_args);
+            }
+        }
         let clip_args = ClipPlayArgs {
-            parent_start_timing: self
-                .settings
-                .clip_play_start_timing
-                .unwrap_or(args.parent_start_timing),
+            parent_start_timing,
             timeline: &args.timeline,
-            ref_pos: args.ref_pos,
+            ref_pos: Some(ref_pos),
         };
         get_slot_mut(&mut self.slots, args.slot_index)?.play_clip(clip_args)
     }
@@ -605,6 +629,7 @@ pub struct ColumnSetClipAudioTimeStretchModeArgs {
 pub struct ColumnPlayClipArgs {
     pub slot_index: usize,
     pub parent_start_timing: ClipPlayStartTiming,
+    pub parent_stop_timing: ClipPlayStopTiming,
     pub timeline: HybridTimeline,
     /// Set this if you already have the current timeline position or want to play a batch of clips.
     pub ref_pos: Option<PositionInSeconds>,

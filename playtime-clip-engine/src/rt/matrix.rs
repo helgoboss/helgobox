@@ -139,6 +139,7 @@ impl Matrix {
         let args = ColumnPlayClipArgs {
             slot_index: coordinates.row(),
             parent_start_timing: self.settings.clip_play_start_timing,
+            parent_stop_timing: self.settings.clip_play_stop_timing,
             // TODO-medium This could be optimized. In real-time context, getting the timeline only
             //  once per block could save some resources. Sample with clip stop.
             timeline: self.timeline(),

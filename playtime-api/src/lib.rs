@@ -2,8 +2,9 @@
 //!
 //! It is designed using the following conventions:
 //!
-//! - Fields are optional only if they have a totally natural default or are an optional override
-//!   of an otherwise inherited value.
+//! - Fields are definitely optional if they have a totally natural default or are an optional
+//!   override of an otherwise inherited value. Fields that are added later must also be optional
+//!   (for backward compatibility).
 //! - Fat enum variants are used to distinguish between multiple alternatives, but not as a general
 //!   rule. For UI purposes, it's sometimes desirable to save data even it's not actually in use.
 //!   In the processing layer this would be different.
@@ -16,24 +17,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-// TODO-high Add column property follows_scenes
-// TODO-high Add column property exclusive
 // TODO-medium Add legato
-
-//  Old simplified code:
-// #[derive(Debug)]
-// pub enum ClipColumnMode {
-//     /// Song mode.
-//     ///
-//     /// - Only one clip in the column can play at a certain point in time.
-//     /// - Clips are started/stopped if the corresponding scene is started/stopped.
-//     Song,
-//     /// Free mode.
-//     ///
-//     /// - Multiple clips can play simultaneously.
-//     /// - Clips are not started/stopped if the corresponding scene is started/stopped.
-//     Free,
-// }
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -396,6 +380,8 @@ pub struct Column {
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ColumnClipPlaySettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<ColumnPlayMode>,
     /// REAPER track used for playing back clips in this column.
     ///
     /// Usually, each column should have a play track. But events might occur that leave a column
@@ -415,6 +401,33 @@ pub struct ColumnClipPlaySettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_timing: Option<ClipPlayStopTiming>,
     pub audio_settings: ColumnClipPlayAudioSettings,
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind")]
+pub enum ColumnPlayMode {
+    /// - Only one clip in the column can play at a certain point in time.
+    /// - Clips are started/stopped if the corresponding scene is started/stopped.
+    ExclusiveFollowingScene,
+    /// - Only one clip in the column can play at a certain point in time.
+    /// - Clips are not started/stopped if the corresponding scene is started/stopped.
+    ExclusiveIgnoringScene,
+    /// - Multiple clips can play simultaneously.
+    /// - Clips are not started/stopped if the corresponding scene is started/stopped.
+    Free,
+}
+
+impl Default for ColumnPlayMode {
+    fn default() -> Self {
+        Self::ExclusiveFollowingScene
+    }
+}
+
+impl ColumnPlayMode {
+    pub fn is_exclusive(&self) -> bool {
+        use ColumnPlayMode::*;
+        matches!(self, ExclusiveFollowingScene | ExclusiveIgnoringScene)
+    }
 }
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]

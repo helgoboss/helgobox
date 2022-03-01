@@ -294,6 +294,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let args = ColumnPlayClipArgs {
             slot_index: coordinates.row,
             parent_start_timing: self.rt_settings.clip_play_start_timing,
+            parent_stop_timing: self.rt_settings.clip_play_stop_timing,
             timeline,
             ref_pos: None,
         };

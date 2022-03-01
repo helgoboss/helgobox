@@ -98,6 +98,7 @@ impl Column {
             .time_stretch_mode;
         self.settings.audio_cache_behavior =
             api_column.clip_play_settings.audio_settings.cache_behavior;
+        self.rt_settings.play_mode = api_column.clip_play_settings.mode.unwrap_or_default();
         self.rt_settings.clip_play_start_timing = api_column.clip_play_settings.start_timing;
         self.rt_settings.clip_play_stop_timing = api_column.clip_play_settings.stop_timing;
         self.rt_command_sender
@@ -132,6 +133,7 @@ impl Column {
         });
         api::Column {
             clip_play_settings: ColumnClipPlaySettings {
+                mode: Some(self.rt_settings.play_mode),
                 track: track_id,
                 start_timing: None,
                 stop_timing: None,
