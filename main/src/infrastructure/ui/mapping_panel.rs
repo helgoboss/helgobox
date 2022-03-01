@@ -3859,7 +3859,6 @@ impl<'a> ImmutableMappingPanel<'a> {
     fn invalidate_target_line_3_button(&self) {
         let text = match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_slot() => Some("..."),
                 ReaperTargetType::SendMidi => Some("Pick!"),
                 _ => None,
             },
@@ -4020,7 +4019,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::SendMidi => Some("Pattern"),
                 ReaperTargetType::SendOsc => Some("Address"),
                 _ if self.target.supports_automation_mode() => Some("Mode"),
-                t if t.supports_slot() => Some("Slot"),
                 t if t.supports_fx() => Some("FX"),
                 t if t.supports_send() => Some("Kind"),
                 _ => None,
@@ -4039,7 +4037,6 @@ impl<'a> ImmutableMappingPanel<'a> {
                 ReaperTargetType::FxParameter => Some("Parameter"),
                 ReaperTargetType::LoadFxSnapshot => Some("Snapshot"),
                 ReaperTargetType::SendOsc => Some("Argument"),
-                ReaperTargetType::ClipTransport => Some("Action"),
                 t if t.supports_track_exclusivity() => Some("Exclusive"),
                 t if t.supports_fx_display_type() => Some("Display"),
                 t if t.supports_tags() => Some("Tags"),
