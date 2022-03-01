@@ -205,9 +205,9 @@ impl ColumnSource {
 
     fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
         let frame_count = args.clip.effective_frame_count();
-        get_slot_mut_insert(&mut self.slots, args.index).fill(args.clip);
+        get_slot_mut_insert(&mut self.slots, args.slot_index).fill(args.clip);
         self.event_sender
-            .clip_frame_count_updated(args.index, frame_count);
+            .clip_frame_count_updated(args.slot_index, frame_count);
     }
 
     pub fn slot(&self, index: usize) -> ClipEngineResult<&Slot> {
@@ -264,7 +264,7 @@ impl ColumnSource {
     }
 
     pub fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, args.index).set_clip_repeated(args.repeated)
+        get_slot_mut_insert(&mut self.slots, args.slot_index).set_clip_repeated(args.repeated)
     }
 
     pub fn clip_play_state(&self, index: usize) -> ClipEngineResult<ClipPlayState> {
@@ -547,7 +547,7 @@ impl CustomPcmSource for SharedColumnSource {
 
 #[derive(Debug)]
 pub struct ColumnFillSlotArgs {
-    pub index: usize,
+    pub slot_index: usize,
     pub clip: Clip,
 }
 
@@ -601,7 +601,7 @@ pub struct ColumnSetClipVolumeArgs {
 
 #[derive(Debug)]
 pub struct ColumnSetClipRepeatedArgs {
-    pub index: usize,
+    pub slot_index: usize,
     pub repeated: bool,
 }
 

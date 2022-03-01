@@ -1,21 +1,21 @@
 use crate::domain::{
-    clip_play_state_unit_value, format_value_as_on_off, get_effective_tracks,
-    transport_is_enabled_unit_value, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, InstanceStateChanged, MappingCompartment, MappingControlContext,
-    RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
-    TargetCharacter, TargetTypeDef, TrackDescriptor, TransportAction, UnresolvedReaperTargetDef,
-    DEFAULT_TARGET,
+    clip_play_state_unit_value, format_value_as_on_off, transport_is_enabled_unit_value,
+    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
+    InstanceStateChanged, MappingCompartment, MappingControlContext, RealTimeControlContext,
+    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
+    TargetTypeDef, TransportAction, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
-use playtime_clip_engine::main::{ClipRecordTiming, RecordArgs, RecordKind, SlotPlayOptions};
+use playtime_clip_engine::main::{
+    ClipRecordTiming, ClipSlotCoordinates, RecordArgs, RecordKind, SlotPlayOptions,
+};
 use playtime_clip_engine::rt::ClipChangedEvent;
 use playtime_clip_engine::{clip_timeline, Timeline};
-use reaper_high::{Project, Track};
+use reaper_high::Project;
 
 #[derive(Debug)]
 pub struct UnresolvedClipTransportTarget {
-    pub track_descriptor: Option<TrackDescriptor>,
-    pub slot_index: usize,
+    pub slot: VirtualClipSlot,
     pub action: TransportAction,
     pub play_options: SlotPlayOptions,
 }
@@ -28,46 +28,27 @@ impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         let project = context.context.project_or_current_project();
         let basics = ClipTransportTargetBasics {
-            slot_index: self.slot_index,
+            slot_coordinates: self.slot.resolve(context, compartment)?,
             action: self.action,
             play_options: self.play_options,
         };
-        let targets = if let Some(desc) = self.track_descriptor.as_ref() {
-            get_effective_tracks(context, &desc.track, compartment)?
-                .into_iter()
-                .map(|track| {
-                    ReaperTarget::ClipTransport(ClipTransportTarget {
-                        project,
-                        track: Some(track),
-                        basics: basics.clone(),
-                    })
-                })
-                .collect()
-        } else {
-            vec![ReaperTarget::ClipTransport(ClipTransportTarget {
-                project,
-                track: None,
-                basics,
-            })]
-        };
+        let targets = vec![ReaperTarget::ClipTransport(ClipTransportTarget {
+            project,
+            basics,
+        })];
         Ok(targets)
-    }
-
-    fn track_descriptor(&self) -> Option<&TrackDescriptor> {
-        self.track_descriptor.as_ref()
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipTransportTarget {
     pub project: Project,
-    pub track: Option<Track>,
     pub basics: ClipTransportTargetBasics,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipTransportTargetBasics {
-    pub slot_index: usize,
+    pub slot_coordinates: ClipSlotCoordinates,
     pub action: TransportAction,
     pub play_options: SlotPlayOptions,
 }
@@ -93,26 +74,26 @@ impl RealearnTarget for ClipTransportTarget {
         match self.basics.action {
             PlayStop => {
                 if on {
-                    clip_matrix.play_clip(self.basics.slot_index)?;
+                    clip_matrix.play_clip(self.basics.slot_coordinates)?;
                 } else {
-                    clip_matrix.stop_clip(self.basics.slot_index)?;
+                    clip_matrix.stop_clip(self.basics.slot_coordinates)?;
                 }
             }
             PlayPause => {
                 if on {
-                    clip_matrix.play_clip(self.basics.slot_index)?;
+                    clip_matrix.play_clip(self.basics.slot_coordinates)?;
                 } else {
-                    clip_matrix.pause_clip_legacy(self.basics.slot_index)?;
+                    clip_matrix.pause_clip_legacy(self.basics.slot_coordinates)?;
                 }
             }
             Stop => {
                 if on {
-                    clip_matrix.stop_clip(self.basics.slot_index)?;
+                    clip_matrix.stop_clip(self.basics.slot_coordinates)?;
                 }
             }
             Pause => {
                 if on {
-                    clip_matrix.pause_clip_legacy(self.basics.slot_index)?;
+                    clip_matrix.pause_clip_legacy(self.basics.slot_coordinates)?;
                 }
             }
             RecordStop => {
@@ -125,7 +106,7 @@ impl RealearnTarget for ClipTransportTarget {
                         }
                     };
                     clip_matrix.record_clip_legacy(
-                        self.basics.slot_index,
+                        self.basics.slot_coordinates,
                         RecordArgs {
                             kind: RecordKind::Normal {
                                 play_after: true,
@@ -135,11 +116,11 @@ impl RealearnTarget for ClipTransportTarget {
                         },
                     )?;
                 } else {
-                    clip_matrix.stop_clip(self.basics.slot_index)?;
+                    clip_matrix.stop_clip(self.basics.slot_coordinates)?;
                 }
             }
             Repeat => {
-                clip_matrix.toggle_repeat_legacy(self.basics.slot_index)?;
+                clip_matrix.toggle_repeat_legacy(self.basics.slot_coordinates)?;
             }
         };
         Ok(None)
@@ -148,20 +129,11 @@ impl RealearnTarget for ClipTransportTarget {
     fn is_available(&self, _: ControlContext) -> bool {
         // TODO-medium With clip targets we should check the control context (instance state) if
         //  slot filled.
-        if let Some(t) = &self.track {
-            if !t.is_available() {
-                return false;
-            }
-        }
         true
     }
 
     fn project(&self) -> Option<Project> {
-        self.track.as_ref().map(|t| t.project())
-    }
-
-    fn track(&self) -> Option<&Track> {
-        self.track.as_ref()
+        Some(self.project)
     }
 
     fn process_change_event(
@@ -171,9 +143,9 @@ impl RealearnTarget for ClipTransportTarget {
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
             CompoundChangeEvent::Instance(InstanceStateChanged::Clip {
-                slot_index: si,
+                slot_coordinates: sc,
                 event,
-            }) if *si == self.basics.slot_index => {
+            }) if *sc == self.basics.slot_coordinates => {
                 use TransportAction::*;
                 match self.basics.action {
                     PlayStop | PlayPause | Stop | Pause | RecordStop => match event {
@@ -230,13 +202,13 @@ impl<'a> Target<'a> for ClipTransportTarget {
             PlayStop | PlayPause | Stop | Pause | RecordStop => {
                 let play_state = instance_state
                     .clip_matrix()?
-                    .clip_play_state(self.basics.slot_index)?;
+                    .clip_play_state(self.basics.slot_coordinates)?;
                 clip_play_state_unit_value(self.basics.action, play_state)
             }
             Repeat => {
                 let is_looped = instance_state
                     .clip_matrix()?
-                    .clip_repeated(self.basics.slot_index)?;
+                    .clip_repeated(self.basics.slot_coordinates)?;
                 transport_is_enabled_unit_value(is_looped)
             }
         };
@@ -266,28 +238,28 @@ impl RealTimeClipTransportTarget {
         match self.basics.action {
             PlayStop => {
                 if on {
-                    matrix.play_clip(self.basics.slot_index)
+                    matrix.play_clip(self.basics.slot_coordinates)
                 } else {
-                    matrix.stop_clip(self.basics.slot_index)
+                    matrix.stop_clip(self.basics.slot_coordinates)
                 }
             }
             PlayPause => {
                 if on {
-                    matrix.play_clip(self.basics.slot_index)
+                    matrix.play_clip(self.basics.slot_coordinates)
                 } else {
-                    matrix.pause_clip(self.basics.slot_index)
+                    matrix.pause_clip(self.basics.slot_coordinates)
                 }
             }
             Stop => {
                 if on {
-                    matrix.stop_clip(self.basics.slot_index)
+                    matrix.stop_clip(self.basics.slot_coordinates)
                 } else {
                     Ok(())
                 }
             }
             Pause => {
                 if on {
-                    matrix.pause_clip(self.basics.slot_index)
+                    matrix.pause_clip(self.basics.slot_coordinates)
                 } else {
                     Ok(())
                 }
@@ -305,10 +277,14 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
         let column = context
             .clip_matrix()
             .ok()?
-            .column(self.basics.slot_index)
+            .column(self.basics.slot_coordinates.column())
             .ok()?;
         let column = column.lock();
-        let clip = column.slot(0).ok()?.clip().ok()?;
+        let clip = column
+            .slot(self.basics.slot_coordinates.row())
+            .ok()?
+            .clip()
+            .ok()?;
         use TransportAction::*;
         let val = match self.basics.action {
             PlayStop | PlayPause | Stop | Pause | RecordStop => {
@@ -327,8 +303,7 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
 pub const CLIP_TRANSPORT_TARGET: TargetTypeDef = TargetTypeDef {
     name: "Clip: Invoke transport action",
     short_name: "Clip transport",
-    hint: "Experimental target, record not supported",
-    supports_track: true,
+    supports_track: false,
     supports_slot: true,
     ..DEFAULT_TARGET
 };

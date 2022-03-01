@@ -20,17 +20,17 @@ use crate::infrastructure::data::{
 use realearn_api::schema;
 use realearn_api::schema::{
     AllTrackFxOnOffStateTarget, AnyOnTarget, AutomationModeOverrideTarget, BookmarkDescriptor,
-    BookmarkRef, ClipDescriptor, ClipOutput, ClipSeekTarget, ClipTransportActionTarget,
-    ClipVolumeTarget, CycleThroughFxPresetsTarget, CycleThroughFxTarget,
-    CycleThroughGroupMappingsTarget, CycleThroughTracksTarget, EnableInstancesTarget,
-    EnableMappingsTarget, FxOnOffStateTarget, FxParameterValueTarget, FxVisibilityTarget,
-    GoToBookmarkTarget, LastTouchedTarget, LoadFxSnapshotTarget, LoadMappingSnapshotsTarget,
-    PlayRateTarget, ReaperActionTarget, RouteAutomationModeTarget, RouteMonoStateTarget,
-    RouteMuteStateTarget, RoutePanTarget, RoutePhaseTarget, RouteVolumeTarget, SeekTarget,
-    SendMidiTarget, SendOscTarget, TempoTarget, TrackArmStateTarget, TrackAutomationModeTarget,
-    TrackAutomationTouchStateTarget, TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget,
-    TrackPhaseTarget, TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget,
-    TrackVisibilityTarget, TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
+    BookmarkRef, ClipSeekTarget, ClipTransportActionTarget, ClipVolumeTarget,
+    CycleThroughFxPresetsTarget, CycleThroughFxTarget, CycleThroughGroupMappingsTarget,
+    CycleThroughTracksTarget, EnableInstancesTarget, EnableMappingsTarget, FxOnOffStateTarget,
+    FxParameterValueTarget, FxVisibilityTarget, GoToBookmarkTarget, LastTouchedTarget,
+    LoadFxSnapshotTarget, LoadMappingSnapshotsTarget, PlayRateTarget, ReaperActionTarget,
+    RouteAutomationModeTarget, RouteMonoStateTarget, RouteMuteStateTarget, RoutePanTarget,
+    RoutePhaseTarget, RouteVolumeTarget, SeekTarget, SendMidiTarget, SendOscTarget, TempoTarget,
+    TrackArmStateTarget, TrackAutomationModeTarget, TrackAutomationTouchStateTarget,
+    TrackMuteStateTarget, TrackPanTarget, TrackPeakTarget, TrackPhaseTarget,
+    TrackSelectionStateTarget, TrackSoloStateTarget, TrackToolTarget, TrackVisibilityTarget,
+    TrackVolumeTarget, TrackWidthTarget, TransportActionTarget,
 };
 
 pub fn convert_target(
@@ -230,26 +230,12 @@ fn convert_real_target(
         }),
         ClipTransport => T::ClipTransportAction(ClipTransportActionTarget {
             commons,
-            output: {
-                let output = ClipOutput::Track {
-                    track: convert_track_descriptor(
-                        data.track_data,
-                        data.enable_only_if_track_is_selected,
-                        style,
-                    ),
-                };
-                style.required_value(output)
-            },
-            clip: convert_clip_descriptor(data.slot_index),
+            slot: data.clip_slot.unwrap_or_default(),
             action: convert_transport_action(data.transport_action),
-            next_bar: style
-                .required_value_with_default(data.next_bar, defaults::TARGET_CLIP_NEXT_BAR),
-            buffered: style
-                .required_value_with_default(data.buffered, defaults::TARGET_CLIP_BUFFERED),
         }),
         ClipSeek => T::ClipSeek(ClipSeekTarget {
             commons,
-            clip: convert_clip_descriptor(data.slot_index),
+            slot: data.clip_slot.unwrap_or_default(),
             feedback_resolution: convert_feedback_resolution(
                 data.seek_options.feedback_resolution,
                 style,
@@ -257,7 +243,7 @@ fn convert_real_target(
         }),
         ClipVolume => T::ClipVolume(ClipVolumeTarget {
             commons,
-            clip: convert_clip_descriptor(data.slot_index),
+            slot: data.clip_slot.unwrap_or_default(),
         }),
         SendMidi => T::SendMidi(SendMidiTarget {
             commons,
@@ -809,12 +795,6 @@ fn convert_fx_descriptor(
         },
     };
     style.required_value(v)
-}
-
-fn convert_clip_descriptor(slot_index: usize) -> schema::ClipDescriptor {
-    ClipDescriptor::Slot {
-        index: slot_index as _,
-    }
 }
 
 fn convert_feedback_resolution(

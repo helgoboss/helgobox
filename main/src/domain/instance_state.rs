@@ -13,10 +13,8 @@ use crate::domain::{
     GroupId, MappingCompartment, MappingId, NormalAudioHookTask, NormalRealTimeTask,
     QualifiedMappingId, RealTimeSender, Tag,
 };
-use playtime_clip_engine::main::{ClipMatrixHandler, ClipRecordTask, Matrix};
+use playtime_clip_engine::main::{ClipMatrixHandler, ClipRecordTask, ClipSlotCoordinates, Matrix};
 use playtime_clip_engine::rt::ClipChangedEvent;
-
-pub const CLIP_SLOT_COUNT: usize = 8;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 
@@ -99,8 +97,11 @@ impl ClipMatrixHandler for RealearnClipMatrixHandler {
         AsyncNotifier::notify(&mut self.slot_contents_changed_subject, &());
     }
 
-    fn notify_clip_changed(&self, slot_index: usize, event: ClipChangedEvent) {
-        let event = InstanceStateChanged::Clip { slot_index, event };
+    fn notify_clip_changed(&self, slot_coordinates: ClipSlotCoordinates, event: ClipChangedEvent) {
+        let event = InstanceStateChanged::Clip {
+            slot_coordinates,
+            event,
+        };
         self.instance_feedback_event_sender.try_send(event).unwrap();
     }
 }
@@ -368,7 +369,7 @@ impl InstanceState {
 #[derive(Debug)]
 pub enum InstanceStateChanged {
     Clip {
-        slot_index: usize,
+        slot_coordinates: ClipSlotCoordinates,
         event: ClipChangedEvent,
     },
     ActiveMappingWithinGroup {

@@ -1,7 +1,7 @@
-use crate::main::MainMatrixCommandSender;
+use crate::main::{ClipSlotCoordinates, MainMatrixCommandSender};
 use crate::rt::{
     ColumnPlayClipArgs, ColumnStopClipArgs, RelevantPlayStateChange, SharedColumnSource,
-    SlotProcessTransportChangeArgs, TransportChange, WeakColumnSource, FAKE_ROW_INDEX,
+    SlotProcessTransportChangeArgs, TransportChange, WeakColumnSource,
 };
 use crate::{clip_timeline, main, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
@@ -134,10 +134,10 @@ impl Matrix {
         }
     }
 
-    pub fn play_clip(&self, column_index: usize) -> ClipEngineResult<()> {
-        let column = self.column_internal(column_index)?;
+    pub fn play_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        let column = self.column_internal(coordinates.column())?;
         let args = ColumnPlayClipArgs {
-            slot_index: FAKE_ROW_INDEX,
+            slot_index: coordinates.row(),
             parent_start_timing: self.settings.clip_play_start_timing,
             // TODO-medium This could be optimized. In real-time context, getting the timeline only
             //  once per block could save some resources. Sample with clip stop.
@@ -152,10 +152,10 @@ impl Matrix {
         Ok(())
     }
 
-    pub fn stop_clip(&self, column_index: usize) -> ClipEngineResult<()> {
-        let column = self.column_internal(column_index)?;
+    pub fn stop_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        let column = self.column_internal(coordinates.column())?;
         let args = ColumnStopClipArgs {
-            slot_index: FAKE_ROW_INDEX,
+            slot_index: coordinates.row(),
             parent_start_timing: self.settings.clip_play_start_timing,
             parent_stop_timing: self.settings.clip_play_stop_timing,
             timeline: self.timeline(),
@@ -169,9 +169,9 @@ impl Matrix {
         clip_timeline(self.project, false)
     }
 
-    pub fn pause_clip(&self, column_index: usize) -> ClipEngineResult<()> {
-        let column = self.column_internal(column_index)?;
-        column.lock().borrow_mut().pause_clip(FAKE_ROW_INDEX)?;
+    pub fn pause_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        let column = self.column_internal(coordinates.column())?;
+        column.lock().borrow_mut().pause_clip(coordinates.row())?;
         Ok(())
     }
 

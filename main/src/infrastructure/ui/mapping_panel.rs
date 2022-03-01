@@ -25,8 +25,6 @@ use helgoboss_learn::{
     RgbColor, SoftSymmetricUnitValue, SourceCharacter, TakeoverMode, Target, UnitValue,
     ValueSequence, VirtualColor,
 };
-use playtime_clip_engine::main::ClipContent;
-use playtime_clip_engine::rt::ClipInfo;
 use swell_ui::{
     DialogUnits, MenuBar, Point, SharedView, SwellStringArg, View, ViewContext, WeakView, Window,
 };
@@ -49,7 +47,7 @@ use crate::base::{notification, when, Prop};
 use crate::domain::ui_util::parse_unit_value_from_percentage;
 use crate::domain::{
     control_element_domains, AnyOnParameter, ControlContext, Exclusivity, FeedbackSendBehavior,
-    ReaperTargetType, SendMidiDestination, SimpleExclusivity, WithControlContext, CLIP_SLOT_COUNT,
+    ReaperTargetType, SendMidiDestination, SimpleExclusivity, WithControlContext,
 };
 use crate::domain::{
     get_non_present_virtual_route_label, get_non_present_virtual_track_label,
@@ -419,7 +417,7 @@ impl MappingPanel {
                                                 view.invalidate_target_value_controls();
                                                 view.invalidate_mode_controls();
                                             }
-                                            P::SoloBehavior | P::TouchedParameterType | P::AutomationMode | P::TrackArea | P::SlotIndex => {
+                                            P::SoloBehavior | P::TouchedParameterType | P::AutomationMode | P::TrackArea | P::ClipSlot => {
                                                 view.invalidate_target_line_3(None);
                                             }
                                             P::AutomationModeOverrideType => {
@@ -460,10 +458,10 @@ impl MappingPanel {
                                             P::EnableOnlyIfFxHasFocus | P::UseProject => {
                                                 view.invalidate_target_check_boxes();
                                             }
-                                            P::UseRegions  | P::NextBar => {
+                                            P::UseRegions => {
                                                 view.invalidate_target_check_boxes();
                                             }
-                                            P::UseLoopPoints | P::Buffered | P::PollForFeedback => {
+                                            P::UseLoopPoints | P::PollForFeedback => {
                                                 view.invalidate_target_check_boxes();
                                             }
                                             P::UseTimeSelection => {
@@ -557,121 +555,9 @@ impl MappingPanel {
                     ));
                 }
             }
-            t if t.supports_slot() => {
-                if let Some(action) = self.prompt_for_slot_action() {
-                    self.invoke_slot_menu_action(action)?;
-                }
-            }
             _ => {}
         }
         Ok(())
-    }
-
-    fn prompt_for_slot_action(&self) -> Option<SlotMenuAction> {
-        let menu_bar = MenuBar::new_popup_menu();
-        let pure_menu = {
-            use swell_ui::menu_tree::*;
-            let session = self.session();
-            let session = session.borrow();
-            let entries = vec![
-                item("Show slot info", || SlotMenuAction::ShowSlotInfo),
-                item_with_opts(
-                    "Fill with selected item source",
-                    ItemOpts {
-                        enabled: session
-                            .context()
-                            .project_or_current_project()
-                            .first_selected_item()
-                            .is_some(),
-                        checked: false,
-                    },
-                    || SlotMenuAction::FillWithItemSource,
-                ),
-            ];
-            let mut root_menu = root_menu(entries);
-            root_menu.index(1);
-            fill_menu(menu_bar.menu(), &root_menu);
-            root_menu
-        };
-        let result_index = self
-            .view
-            .require_window()
-            .open_popup_menu(menu_bar.menu(), Window::cursor_pos())?;
-        let item = pure_menu.find_item_by_id(result_index)?;
-        Some(item.invoke_handler())
-    }
-
-    fn invoke_slot_menu_action(&self, action: SlotMenuAction) -> Result<(), &'static str> {
-        match action {
-            SlotMenuAction::ShowSlotInfo => {
-                struct SlotInfo {
-                    file_name: String,
-                    clip_info: ClipInfo,
-                }
-                let info = {
-                    let instance_state = self.session().borrow().instance_state().clone();
-                    let instance_state = instance_state.borrow();
-                    let mapping = self.mapping();
-                    let mapping = mapping.borrow();
-                    let slot_index = mapping.target_model.slot_index();
-                    if let Some(clip_matrix) = instance_state.clip_matrix() {
-                        if let (Some(clip_data), Some(clip_info)) = (
-                            clip_matrix.clip_data(slot_index),
-                            clip_matrix.clip_info(slot_index),
-                        ) {
-                            let info = SlotInfo {
-                                file_name: clip_data
-                                    .content
-                                    .file()
-                                    .map(|p| p.to_string_lossy().to_string())
-                                    .unwrap_or_default(),
-                                clip_info,
-                            };
-                            Some(info)
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                };
-                let msg = if let Some(info) = info {
-                    let suffix = format!(
-                        "Type: {}\n\nLength: {}",
-                        info.clip_info.r#type,
-                        info.clip_info
-                            .length
-                            .map(|l| format!("{} secs", l))
-                            .unwrap_or_default()
-                    );
-                    format!("Source: {}\n\n{}", info.file_name, suffix)
-                } else {
-                    "Clip matrix not loaded or slot empty".to_owned()
-                };
-                self.view.require_window().alert("ReaLearn", msg);
-                Ok(())
-            }
-            SlotMenuAction::FillWithItemSource => {
-                let result = {
-                    let session = self.session();
-                    let session = session.borrow();
-                    let item = session
-                        .context()
-                        .project_or_current_project()
-                        .first_selected_item()
-                        .ok_or("no item selected")?;
-                    let slot_index = self.mapping().borrow().target_model.slot_index();
-                    let mut instance_state = session.instance_state().borrow_mut();
-                    instance_state
-                        .require_clip_matrix_mut()
-                        .fill_slot_with_item_source(slot_index, item)
-                };
-                if let Err(e) = result {
-                    self.view.require_window().alert("ReaLearn", e.to_string());
-                }
-                Ok(())
-            }
-        }
     }
 
     fn handle_source_line_4_button_press(&self) -> Result<(), &'static str> {
@@ -2194,11 +2080,6 @@ impl<'a> MutableMappingPanel<'a> {
                         TargetCommand::SetUseRegions(is_checked),
                     ));
                 }
-                ReaperTargetType::ClipTransport => {
-                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetNextBar(
-                        is_checked,
-                    )));
-                }
                 t if t.supports_poll_for_feedback() => {
                     self.change_mapping(MappingCommand::ChangeTarget(
                         TargetCommand::SetPollForFeedback(is_checked),
@@ -2339,12 +2220,6 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_slot() => {
-                    let slot_index = combo.selected_combo_box_item_index();
-                    self.change_mapping(MappingCommand::ChangeTarget(TargetCommand::SetSlotIndex(
-                        slot_index,
-                    )));
-                }
                 t if t.supports_fx() => {
                     let fx_type = combo
                         .selected_combo_box_item_index()
@@ -4184,43 +4059,9 @@ impl<'a> ImmutableMappingPanel<'a> {
     }
 
     fn invalidate_target_line_3_label_2(&self) {
-        let state = match self.target_category() {
-            TargetCategory::Reaper => match self.reaper_target_type() {
-                t if t.supports_slot() => {
-                    let instance_state = self.session.instance_state().borrow();
-                    match instance_state.clip_matrix() {
-                        None => Some(("clip matrix disabled".to_owned(), false)),
-                        Some(clip_matrix) => {
-                            let descriptor = clip_matrix.clip_data(self.target.slot_index());
-                            let (label, enabled) = if let Some(descriptor) = descriptor {
-                                let label = match &descriptor.content {
-                                    ClipContent::File { file } => {
-                                        file.to_string_lossy().to_string()
-                                    }
-                                    ClipContent::MidiChunk { .. } => {
-                                        String::from("<In-memory MIDI>")
-                                    }
-                                };
-                                (label, true)
-                            } else {
-                                ("<Slot empty>".to_owned(), false)
-                            };
-                            Some((label, enabled))
-                        }
-                    }
-                }
-                _ => None,
-            },
-            TargetCategory::Virtual => None,
-        };
         let label = self.view.require_control(root::ID_TARGET_LINE_3_LABEL_2);
-        if let Some((text, enabled)) = state {
-            label.show();
-            label.set_enabled(enabled);
-            label.set_text(text);
-        } else {
-            label.hide();
-        }
+        // Not in use at the moment
+        label.hide();
     }
 
     fn invalidate_target_line_4_label_2(&self) {
@@ -4250,15 +4091,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_3_COMBO_BOX_1);
         match self.target_category() {
             TargetCategory::Reaper => match self.target.target_type() {
-                t if t.supports_slot() => {
-                    combo.show();
-                    combo.fill_combo_box_indexed(
-                        (0..CLIP_SLOT_COUNT).map(|i| format!("Slot {}", i + 1)),
-                    );
-                    combo
-                        .select_combo_box_item_by_index(self.target.slot_index())
-                        .unwrap();
-                }
                 t if t.supports_fx() => {
                     combo.show();
                     combo.fill_combo_box_indexed(VirtualFxType::into_enum_iter());
@@ -4634,16 +4466,6 @@ impl<'a> ImmutableMappingPanel<'a> {
         let state = match self.target.category() {
             TargetCategory::Reaper => match self.target.target_type() {
                 ReaperTargetType::Seek => Some(("Use regions", self.target.use_regions())),
-                ReaperTargetType::ClipTransport
-                    if matches!(
-                        self.target.transport_action(),
-                        TransportAction::PlayStop
-                            | TransportAction::PlayPause
-                            | TransportAction::Stop
-                    ) =>
-                {
-                    Some(("Next bar", self.target.next_bar()))
-                }
                 t if t.supports_poll_for_feedback() => {
                     Some(("Poll for feedback", self.target.poll_for_feedback()))
                 }
@@ -6730,9 +6552,4 @@ fn format_osc_arg_index(index: Option<u32>) -> String {
     } else {
         "".to_owned()
     }
-}
-
-enum SlotMenuAction {
-    ShowSlotInfo,
-    FillWithItemSource,
 }

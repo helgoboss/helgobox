@@ -188,7 +188,7 @@ impl Column {
         clip.connect_to(&rt_clip);
         get_slot_mut(&mut self.slots, row).clip = Some(clip);
         let args = ColumnFillSlotArgs {
-            index: row,
+            slot_index: row,
             clip: rt_clip,
         };
         self.rt_command_sender.fill_slot(args);
@@ -247,31 +247,37 @@ impl Column {
         self.rt_command_sender.set_clip_repeated(args);
     }
 
-    pub fn pause_clip(&mut self, index: usize) {
-        self.rt_command_sender.pause_clip(index);
+    pub fn pause_clip(&mut self, slot_index: usize) {
+        self.rt_command_sender.pause_clip(slot_index);
     }
 
-    pub fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) {
-        self.rt_command_sender.seek_clip(index, desired_pos);
+    pub fn seek_clip(&mut self, slot_index: usize, desired_pos: UnitValue) {
+        self.rt_command_sender.seek_clip(slot_index, desired_pos);
     }
 
-    pub fn set_clip_volume(&mut self, index: usize, volume: ReaperVolumeValue) {
-        self.rt_command_sender.set_clip_volume(index, volume);
+    pub fn set_clip_volume(&mut self, slot_index: usize, volume: ReaperVolumeValue) {
+        self.rt_command_sender.set_clip_volume(slot_index, volume);
     }
 
-    pub fn toggle_clip_repeated(&mut self, index: usize) -> ClipEngineResult<ClipChangedEvent> {
-        let clip = get_slot_mut(&mut self.slots, index)
+    pub fn toggle_clip_repeated(
+        &mut self,
+        slot_index: usize,
+    ) -> ClipEngineResult<ClipChangedEvent> {
+        let clip = get_slot_mut(&mut self.slots, slot_index)
             .clip
             .as_mut()
             .ok_or("no clip")?;
         let repeated = clip.toggle_looped();
-        let args = ColumnSetClipRepeatedArgs { index, repeated };
+        let args = ColumnSetClipRepeatedArgs {
+            slot_index,
+            repeated,
+        };
         self.set_clip_repeated(args);
         Ok(ClipChangedEvent::ClipRepeat(repeated))
     }
 
-    pub fn clip_data(&self, index: usize) -> Option<ClipData> {
-        let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+    pub fn clip_data(&self, slot_index: usize) -> Option<ClipData> {
+        let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
         let data = ClipData {
             volume: Default::default(),
             repeat: clip.data().looped,
@@ -280,33 +286,33 @@ impl Column {
         Some(data)
     }
 
-    pub fn clip_info(&self, index: usize) -> Option<ClipInfo> {
-        let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+    pub fn clip_info(&self, slot_index: usize) -> Option<ClipInfo> {
+        let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
         Some(clip.info())
     }
 
     pub fn clip_position_in_seconds(
         &self,
-        index: usize,
+        slot_index: usize,
         timeline_tempo: Bpm,
     ) -> Option<PositionInSeconds> {
-        let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+        let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
         clip.position_in_seconds(timeline_tempo)
     }
 
-    pub fn clip_play_state(&self, index: usize) -> Option<ClipPlayState> {
-        let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+    pub fn clip_play_state(&self, slot_index: usize) -> Option<ClipPlayState> {
+        let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
         Some(clip.play_state())
     }
 
-    pub fn clip_repeated(&self, index: usize) -> Option<bool> {
-        let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+    pub fn clip_repeated(&self, slot_index: usize) -> Option<bool> {
+        let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
         Some(clip.data().looped)
     }
 
-    pub fn clip_volume(&self, _index: usize) -> Option<ReaperVolumeValue> {
+    pub fn clip_volume(&self, _slot_index: usize) -> Option<ReaperVolumeValue> {
         // TODO-high implement
-        // let clip = get_slot(&self.slots, index).ok()?.clip.as_ref()?;
+        // let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
         Some(Default::default())
     }
 
@@ -320,14 +326,14 @@ impl Column {
 
     pub fn record_clip(
         &mut self,
-        index: usize,
+        slot_index: usize,
         behavior: RecordBehavior,
         equipment: RecorderEquipment,
     ) -> ClipEngineResult<ClipRecordTask> {
-        self.with_source_mut(|s| s.record_clip(index, behavior, equipment))?;
+        self.with_source_mut(|s| s.record_clip(slot_index, behavior, equipment))?;
         let task = ClipRecordTask {
             column_source: self.column_source.clone(),
-            slot_index: index,
+            slot_index,
         };
         Ok(task)
     }

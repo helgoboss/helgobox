@@ -37,15 +37,16 @@ use crate::domain::{
     UnresolvedTrackMuteTarget, UnresolvedTrackPanTarget, UnresolvedTrackPeakTarget,
     UnresolvedTrackPhaseTarget, UnresolvedTrackSelectionTarget, UnresolvedTrackShowTarget,
     UnresolvedTrackSoloTarget, UnresolvedTrackToolTarget, UnresolvedTrackVolumeTarget,
-    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualControlElement,
-    VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget, VirtualTrack,
-    VirtualTrackRoute,
+    UnresolvedTrackWidthTarget, UnresolvedTransportTarget, VirtualChainFx, VirtualClipSlot,
+    VirtualControlElement, VirtualControlElementId, VirtualFx, VirtualFxParameter, VirtualTarget,
+    VirtualTrack, VirtualTrackRoute,
 };
 use serde_repr::*;
 use std::borrow::Cow;
 use std::error::Error;
 
 use playtime_clip_engine::main::SlotPlayOptions;
+use realearn_api::schema::ClipSlotDescriptor;
 use reaper_medium::{
     AutomationMode, BookmarkId, GlobalAutomationModeOverride, TrackArea, TrackLocation,
     TrackSendDirection,
@@ -112,9 +113,7 @@ pub enum TargetCommand {
     SetOscArgIndex(Option<u32>),
     SetOscArgTypeTag(OscTypeTag),
     SetOscDevId(Option<OscDeviceId>),
-    SetSlotIndex(usize),
-    SetNextBar(bool),
-    SetBuffered(bool),
+    SetClipSlot(ClipSlotDescriptor),
     SetPollForFeedback(bool),
     SetTags(Vec<Tag>),
     SetExclusivity(Exclusivity),
@@ -183,9 +182,7 @@ pub enum TargetProp {
     OscArgIndex,
     OscArgTypeTag,
     OscDevId,
-    SlotIndex,
-    NextBar,
-    Buffered,
+    ClipSlot,
     PollForFeedback,
     Tags,
     Exclusivity,
@@ -429,18 +426,6 @@ impl<'a> Change<'a> for TargetModel {
                 self.osc_dev_id = v;
                 One(P::OscDevId)
             }
-            C::SetSlotIndex(v) => {
-                self.slot_index = v;
-                One(P::SlotIndex)
-            }
-            C::SetNextBar(v) => {
-                self.next_bar = v;
-                One(P::NextBar)
-            }
-            C::SetBuffered(v) => {
-                self.buffered = v;
-                One(P::Buffered)
-            }
             C::SetPollForFeedback(v) => {
                 self.poll_for_feedback = v;
                 One(P::PollForFeedback)
@@ -460,6 +445,10 @@ impl<'a> Change<'a> for TargetModel {
             C::SetActiveMappingsOnly(v) => {
                 self.active_mappings_only = v;
                 One(P::ActiveMappingsOnly)
+            }
+            C::SetClipSlot(s) => {
+                self.clip_slot = s;
+                One(P::ClipSlot)
             }
         };
         Some(affected)
@@ -555,9 +544,7 @@ pub struct TargetModel {
     osc_arg_type_tag: OscTypeTag,
     osc_dev_id: Option<OscDeviceId>,
     // # For clip targets
-    slot_index: usize,
-    next_bar: bool,
-    buffered: bool,
+    clip_slot: ClipSlotDescriptor,
     // # For targets that might have to be polled in order to get automatic feedback in all cases.
     poll_for_feedback: bool,
     tags: Vec<Tag>,
@@ -628,14 +615,12 @@ impl Default for TargetModel {
             osc_arg_index: Some(0),
             osc_arg_type_tag: Default::default(),
             osc_dev_id: None,
-            slot_index: 0,
-            next_bar: false,
-            buffered: false,
             poll_for_feedback: true,
             tags: Default::default(),
             exclusivity: Default::default(),
             group_id: Default::default(),
             active_mappings_only: false,
+            clip_slot: ClipSlotDescriptor::Selected,
         }
     }
 }
@@ -863,18 +848,6 @@ impl TargetModel {
 
     pub fn osc_dev_id(&self) -> Option<OscDeviceId> {
         self.osc_dev_id
-    }
-
-    pub fn slot_index(&self) -> usize {
-        self.slot_index
-    }
-
-    pub fn next_bar(&self) -> bool {
-        self.next_bar
-    }
-
-    pub fn buffered(&self) -> bool {
-        self.buffered
     }
 
     pub fn poll_for_feedback(&self) -> bool {
@@ -1546,6 +1519,34 @@ impl TargetModel {
         Ok(desc)
     }
 
+    fn virtual_clip_slot(&self) -> Result<VirtualClipSlot, &'static str> {
+        use ClipSlotDescriptor::*;
+        let slot = match &self.clip_slot {
+            Selected => VirtualClipSlot::Selected,
+            ByIndex {
+                column_index,
+                row_index,
+            } => VirtualClipSlot::ByIndex {
+                column_index: *column_index,
+                row_index: *row_index,
+            },
+            Dynamic {
+                column_expression,
+                row_expression,
+            } => {
+                let column_evaluator = ExpressionEvaluator::compile(column_expression)
+                    .map_err(|_| "couldn't evaluate row")?;
+                let row_evaluator = ExpressionEvaluator::compile(row_expression)
+                    .map_err(|_| "couldn't evaluate row")?;
+                VirtualClipSlot::Dynamic {
+                    column_evaluator: Box::new(column_evaluator),
+                    row_evaluator: Box::new(row_evaluator),
+                }
+            }
+        };
+        Ok(slot)
+    }
+
     pub fn fx_descriptor(&self) -> Result<FxDescriptor, &'static str> {
         let desc = FxDescriptor {
             track_descriptor: self.track_descriptor()?,
@@ -1801,19 +1802,17 @@ impl TargetModel {
                     }),
                     ClipTransport => {
                         UnresolvedReaperTarget::ClipTransport(UnresolvedClipTransportTarget {
-                            // TODO-medium Make it possible to pass direct HW output channel instead
-                            track_descriptor: Some(self.track_descriptor()?),
-                            slot_index: self.slot_index,
+                            slot: self.virtual_clip_slot()?,
                             action: self.transport_action,
                             play_options: self.slot_play_options(),
                         })
                     }
                     ClipSeek => UnresolvedReaperTarget::ClipSeek(UnresolvedClipSeekTarget {
-                        slot_index: self.slot_index,
+                        slot: self.virtual_clip_slot()?,
                         feedback_resolution: self.feedback_resolution,
                     }),
                     ClipVolume => UnresolvedReaperTarget::ClipVolume(UnresolvedClipVolumeTarget {
-                        slot_index: self.slot_index,
+                        slot: self.virtual_clip_slot()?,
                     }),
                     LoadMappingSnapshot => UnresolvedReaperTarget::LoadMappingSnapshot(
                         UnresolvedLoadMappingSnapshotTarget {
@@ -1860,11 +1859,12 @@ impl TargetModel {
         }
     }
 
+    pub fn clip_slot(&self) -> &ClipSlotDescriptor {
+        &self.clip_slot
+    }
+
     pub fn slot_play_options(&self) -> SlotPlayOptions {
-        SlotPlayOptions {
-            next_bar: self.next_bar,
-            buffered: self.buffered,
-        }
+        SlotPlayOptions {}
     }
 
     fn osc_arg_descriptor(&self) -> Option<OscArgDescriptor> {
@@ -1997,9 +1997,6 @@ impl<'a> Display for TargetModelFormatVeryShort<'a> {
                 use ReaperTargetType::*;
                 let tt = self.0.r#type;
                 match tt {
-                    ClipTransport | ClipSeek | ClipVolume => {
-                        write!(f, "{}: Slot {}", tt.short_name(), self.0.slot_index + 1)
-                    }
                     Action => match self.0.resolved_action().ok() {
                         None => write!(f, "Action {}", self.0.command_id_label()),
                         Some(a) => f.write_str(a.name().to_str()),

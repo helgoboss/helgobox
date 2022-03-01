@@ -6,25 +6,26 @@ use crate::domain::{
     AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
     FeedbackResolution, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, DEFAULT_TARGET,
+    TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
+use playtime_clip_engine::main::ClipSlotCoordinates;
 use playtime_clip_engine::rt::{ClipChangedEvent, ClipPlayState};
 use playtime_clip_engine::{clip_timeline, Timeline};
 
 #[derive(Debug)]
 pub struct UnresolvedClipSeekTarget {
-    pub slot_index: usize,
+    pub slot: VirtualClipSlot,
     pub feedback_resolution: FeedbackResolution,
 }
 
 impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
     fn resolve(
         &self,
-        _: ExtendedProcessorContext,
-        _: MappingCompartment,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
     ) -> Result<Vec<ReaperTarget>, &'static str> {
         Ok(vec![ReaperTarget::ClipSeek(ClipSeekTarget {
-            slot_index: self.slot_index,
+            slot_coordinates: self.slot.resolve(context, compartment)?,
             feedback_resolution: self.feedback_resolution,
         })])
     }
@@ -44,7 +45,7 @@ impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClipSeekTarget {
-    pub slot_index: usize,
+    pub slot_coordinates: ClipSlotCoordinates,
     pub feedback_resolution: FeedbackResolution,
 }
 
@@ -62,7 +63,7 @@ impl RealearnTarget for ClipSeekTarget {
         let mut instance_state = context.control_context.instance_state.borrow_mut();
         instance_state
             .require_clip_matrix_mut()
-            .seek_clip_legacy(self.slot_index, value)?;
+            .seek_clip_legacy(self.slot_coordinates, value)?;
         Ok(None)
     }
 
@@ -84,9 +85,9 @@ impl RealearnTarget for ClipSeekTarget {
                 (true, None)
             }
             CompoundChangeEvent::Instance(InstanceStateChanged::Clip {
-                slot_index: si,
+                slot_coordinates: si,
                 event,
-            }) if *si == self.slot_index => match event {
+            }) if *si == self.slot_coordinates => match event {
                 // If feedback resolution is high, we use the special ClipChangedEvent to do our job
                 // (in order to not lock mutex of playing clips more than once per main loop cycle).
                 ClipChangedEvent::ClipPosition(new_position)
@@ -129,7 +130,7 @@ impl ClipSeekTarget {
         let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
         instance_state
             .clip_matrix()?
-            .clip_position_in_seconds(self.slot_index, timeline_tempo)
+            .clip_position_in_seconds(self.slot_coordinates, timeline_tempo)
     }
 }
 
@@ -140,7 +141,7 @@ impl<'a> Target<'a> for ClipSeekTarget {
         let instance_state = context.instance_state.borrow();
         let val = instance_state
             .clip_matrix()?
-            .proportional_clip_position_legacy(self.slot_index)?;
+            .proportional_clip_position_legacy(self.slot_coordinates)?;
         Some(AbsoluteValue::Continuous(val))
     }
 

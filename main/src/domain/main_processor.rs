@@ -671,14 +671,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         let timeline = clip_timeline(self.basics.context.project(), false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
-        for (location, event) in instance_state
+        for (slot_coordinates, event) in instance_state
             .require_clip_matrix_mut()
             .poll(timeline_tempo)
             .into_iter()
         {
             let is_position_change = matches!(&event, ClipChangedEvent::ClipPosition(_));
             let instance_event = InstanceStateChanged::Clip {
-                slot_index: location.column,
+                slot_coordinates,
                 event,
             };
             if is_position_change {

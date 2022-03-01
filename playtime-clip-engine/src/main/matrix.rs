@@ -6,7 +6,6 @@ use crate::rt::supplier::{
 use crate::rt::{
     ClipChangedEvent, ClipInfo, ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs,
     RecordBehavior, RecordTiming, RtMatrixCommandSender, SharedColumnSource, WeakColumnSource,
-    FAKE_ROW_INDEX,
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline};
@@ -272,6 +271,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                                     midi_settings: Default::default(),
                                 };
                                 let api_slot = api::Slot {
+                                    // In the previous clip system, we had only one dimension.
                                     row: 0,
                                     clip: Some(api_clip),
                                 };
@@ -288,24 +288,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.load(api_matrix)
     }
 
-    pub fn filled_slot_descriptors_legacy(&self) -> Vec<QualifiedSlotDescriptor> {
-        self.columns
-            .iter()
-            .enumerate()
-            .filter_map(|(i, column)| {
-                Some(QualifiedSlotDescriptor {
-                    index: i,
-                    descriptor: column.clip_data(0)?,
-                })
-            })
-            .collect()
-    }
-
-    pub fn play_clip(&mut self, column_index: usize) -> ClipEngineResult<()> {
+    pub fn play_clip(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
         let timeline = self.timeline();
-        let column = get_column_mut(&mut self.columns, column_index)?;
+        let column = get_column_mut(&mut self.columns, coordinates.column)?;
         let args = ColumnPlayClipArgs {
-            slot_index: FAKE_ROW_INDEX,
+            slot_index: coordinates.row,
             parent_start_timing: self.rt_settings.clip_play_start_timing,
             timeline,
             ref_pos: None,
@@ -314,11 +301,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn stop_clip(&mut self, column_index: usize) -> ClipEngineResult<()> {
+    pub fn stop_clip(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
         let timeline = self.timeline();
-        let column = get_column_mut(&mut self.columns, column_index)?;
+        let column = get_column_mut(&mut self.columns, coordinates.column)?;
         let args = ColumnStopClipArgs {
-            slot_index: FAKE_ROW_INDEX,
+            slot_index: coordinates.row,
             parent_start_timing: self.rt_settings.clip_play_start_timing,
             parent_stop_timing: self.rt_settings.clip_play_stop_timing,
             timeline,
@@ -341,65 +328,79 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
-    pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<(ClipLocation, ClipChangedEvent)> {
+    pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<(ClipSlotCoordinates, ClipChangedEvent)> {
         self.process_commands();
         self.columns
             .iter_mut()
             .enumerate()
-            .flat_map(|(i, column)| {
+            .flat_map(|(column_index, column)| {
                 column
                     .poll(timeline_tempo)
                     .into_iter()
-                    .map(move |(row, event)| (ClipLocation::new(i, row), event))
+                    .map(move |(row_index, event)| {
+                        (ClipSlotCoordinates::new(column_index, row_index), event)
+                    })
             })
             .collect()
     }
 
-    pub fn toggle_repeat_legacy(&mut self, slot_index: usize) -> ClipEngineResult<()> {
-        let event = get_column_mut(&mut self.columns, slot_index)?.toggle_clip_repeated(0)?;
-        self.handler.notify_clip_changed(slot_index, event);
+    pub fn toggle_repeat_legacy(
+        &mut self,
+        coordinates: ClipSlotCoordinates,
+    ) -> ClipEngineResult<()> {
+        let event = get_column_mut(&mut self.columns, coordinates.column())?
+            .toggle_clip_repeated(coordinates.row())?;
+        self.handler.notify_clip_changed(coordinates, event);
         Ok(())
     }
 
     pub fn clip_position_in_seconds(
         &self,
-        slot_index: usize,
+        coordinates: ClipSlotCoordinates,
         timeline_tempo: Bpm,
     ) -> Option<PositionInSeconds> {
-        get_column(&self.columns, slot_index)
+        get_column(&self.columns, coordinates.column())
             .ok()?
-            .clip_position_in_seconds(0, timeline_tempo)
+            .clip_position_in_seconds(coordinates.row(), timeline_tempo)
     }
 
-    pub fn clip_play_state(&self, slot_index: usize) -> Option<ClipPlayState> {
-        get_column(&self.columns, slot_index)
+    pub fn clip_play_state(&self, coordinates: ClipSlotCoordinates) -> Option<ClipPlayState> {
+        get_column(&self.columns, coordinates.column())
             .ok()?
-            .clip_play_state(0)
+            .clip_play_state(coordinates.row())
     }
 
-    pub fn clip_repeated(&self, slot_index: usize) -> Option<bool> {
-        get_column(&self.columns, slot_index).ok()?.clip_repeated(0)
+    pub fn clip_repeated(&self, coordinates: ClipSlotCoordinates) -> Option<bool> {
+        get_column(&self.columns, coordinates.column())
+            .ok()?
+            .clip_repeated(coordinates.row())
     }
 
     pub fn column_count(&self) -> usize {
         self.columns.len()
     }
 
-    pub fn clip_volume(&self, slot_index: usize) -> Option<ReaperVolumeValue> {
-        get_column(&self.columns, slot_index).ok()?.clip_volume(0)
+    pub fn clip_volume(&self, coordinates: ClipSlotCoordinates) -> Option<ReaperVolumeValue> {
+        get_column(&self.columns, coordinates.column())
+            .ok()?
+            .clip_volume(coordinates.row())
     }
 
-    pub fn clip_data(&self, slot_index: usize) -> Option<ClipData> {
-        get_column(&self.columns, slot_index).ok()?.clip_data(0)
+    pub fn clip_data(&self, coordinates: ClipSlotCoordinates) -> Option<ClipData> {
+        get_column(&self.columns, coordinates.column())
+            .ok()?
+            .clip_data(coordinates.row())
     }
 
-    pub fn clip_info(&self, slot_index: usize) -> Option<ClipInfo> {
-        get_column(&self.columns, slot_index).ok()?.clip_info(0)
+    pub fn clip_info(&self, coordinates: ClipSlotCoordinates) -> Option<ClipInfo> {
+        get_column(&self.columns, coordinates.column())
+            .ok()?
+            .clip_info(coordinates.row())
     }
 
     pub fn record_clip_legacy(
         &mut self,
-        slot_index: usize,
+        coordinates: ClipSlotCoordinates,
         args: RecordArgs,
     ) -> ClipEngineResult<()> {
         let behavior = match args.kind {
@@ -429,8 +430,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             },
             RecordKind::MidiOverdub => RecordBehavior::MidiOverdub,
         };
-        let task = get_column_mut(&mut self.columns, slot_index)?.record_clip(
-            0,
+        let task = get_column_mut(&mut self.columns, coordinates.column())?.record_clip(
+            coordinates.row(),
             behavior,
             self.recorder_equipment.clone(),
         )?;
@@ -438,41 +439,46 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn pause_clip_legacy(&mut self, slot_index: usize) -> ClipEngineResult<()> {
-        get_column_mut(&mut self.columns, slot_index)?.pause_clip(0);
+    pub fn pause_clip_legacy(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        get_column_mut(&mut self.columns, coordinates.column())?.pause_clip(coordinates.row());
         Ok(())
     }
 
     pub fn seek_clip_legacy(
         &mut self,
-        slot_index: usize,
+        coordinates: ClipSlotCoordinates,
         position: UnitValue,
     ) -> ClipEngineResult<()> {
-        get_column_mut(&mut self.columns, slot_index)?.seek_clip(0, position);
+        get_column_mut(&mut self.columns, coordinates.column())?
+            .seek_clip(coordinates.row(), position);
         Ok(())
     }
 
     pub fn set_clip_volume_legacy(
         &mut self,
-        slot_index: usize,
+        coordinates: ClipSlotCoordinates,
         volume: ReaperVolumeValue,
     ) -> ClipEngineResult<()> {
-        get_column_mut(&mut self.columns, slot_index)?.set_clip_volume(0, volume);
+        get_column_mut(&mut self.columns, coordinates.column())?
+            .set_clip_volume(coordinates.row(), volume);
         Ok(())
     }
 
-    pub fn proportional_clip_position_legacy(&self, slot_index: usize) -> Option<UnitValue> {
-        get_column(&self.columns, slot_index)
+    pub fn proportional_clip_position_legacy(
+        &self,
+        coordinates: ClipSlotCoordinates,
+    ) -> Option<UnitValue> {
+        get_column(&self.columns, coordinates.column())
             .ok()?
-            .proportional_clip_position(0)
+            .proportional_clip_position(coordinates.row())
     }
 
     pub fn fill_slot_with_item_source(
         &mut self,
-        _slot_index: usize,
+        _coordinates: ClipSlotCoordinates,
         item: Item,
     ) -> Result<(), Box<dyn Error>> {
-        // let slot = get_slot_mut(&mut self.clip_slots, slot_index)?;
+        // let slot = get_slot_mut(&mut self.clip_slots, coordinates.column())?;
         // let content = ClipContent::from_item(item, false)?;
         // slot.fill_by_user(content, item.project(), &self.stretch_worker_sender)?;
         // self.handler.notify_slot_contents_changed();
@@ -496,6 +502,26 @@ pub struct LegacySlotDescriptor {
     pub output: LegacyClipOutput,
     pub index: usize,
     pub clip: ClipData,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub struct ClipSlotCoordinates {
+    column: usize,
+    row: usize,
+}
+
+impl ClipSlotCoordinates {
+    pub fn new(column: usize, row: usize) -> Self {
+        Self { column, row }
+    }
+
+    pub fn column(&self) -> usize {
+        self.column
+    }
+
+    pub fn row(&self) -> usize {
+        self.row
+    }
 }
 
 pub enum LegacyClipOutput {
@@ -544,7 +570,7 @@ pub struct ClipRecordTask {
 pub trait ClipMatrixHandler {
     fn request_recording_input(&self, task: ClipRecordTask);
     fn notify_slot_contents_changed(&mut self);
-    fn notify_clip_changed(&self, slot_index: usize, event: ClipChangedEvent);
+    fn notify_clip_changed(&self, slot_coordinates: ClipSlotCoordinates, event: ClipChangedEvent);
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -554,20 +580,9 @@ pub enum ClipRecordTiming {
     StartOnBarStopOnBar { start_bar: i32, bar_count: u32 },
 }
 
-// TODO-medium Evolved into a perfect duplicate of ClipStopTime
-/// Defines how to stop the clip.
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub enum SlotStopBehavior {
-    Immediately,
-    EndOfClip,
-}
 /// Contains instructions how to play a clip.
 #[derive(Copy, Clone, PartialEq, Debug, Default)]
-pub struct SlotPlayOptions {
-    /// Syncs with timeline.
-    pub next_bar: bool,
-    pub buffered: bool,
-}
+pub struct SlotPlayOptions {}
 
 #[derive(Copy, Clone)]
 pub struct RecordArgs {
@@ -590,15 +605,4 @@ pub struct QualifiedSlotDescriptor {
     pub index: usize,
     #[serde(flatten)]
     pub descriptor: ClipData,
-}
-
-pub struct ClipLocation {
-    pub column: usize,
-    pub row: usize,
-}
-
-impl ClipLocation {
-    pub fn new(column: usize, row: usize) -> Self {
-        Self { column, row }
-    }
 }

@@ -24,6 +24,7 @@ use enum_dispatch::enum_dispatch;
 use enum_iterator::IntoEnumIterator;
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use playtime_clip_engine::main::ClipSlotCoordinates;
 use reaper_high::{
     BookmarkType, FindBookmarkResult, Fx, FxChain, FxParameter, Guid, Project, Reaper,
     SendPartnerType, Track, TrackRoute,
@@ -424,6 +425,54 @@ impl Default for TrackRouteType {
     fn default() -> Self {
         Self::Send
     }
+}
+
+#[derive(Debug)]
+pub enum VirtualClipSlot {
+    Selected,
+    ByIndex {
+        column_index: usize,
+        row_index: usize,
+    },
+    Dynamic {
+        column_evaluator: Box<ExpressionEvaluator>,
+        row_evaluator: Box<ExpressionEvaluator>,
+    },
+}
+
+impl VirtualClipSlot {
+    pub fn resolve(
+        &self,
+        context: ExtendedProcessorContext,
+        compartment: MappingCompartment,
+    ) -> Result<ClipSlotCoordinates, &'static str> {
+        use VirtualClipSlot::*;
+        let coordinates = match self {
+            Selected => return Err("the concept of a selected slot is not yet supported"),
+            ByIndex {
+                column_index,
+                row_index,
+            } => ClipSlotCoordinates::new(*column_index, *row_index),
+            Dynamic {
+                column_evaluator,
+                row_evaluator,
+            } => {
+                let sliced_params = compartment.slice_params(context.params());
+                let column_index = to_slot_coordinate(column_evaluator.evaluate(sliced_params))?;
+                let row_index = to_slot_coordinate(row_evaluator.evaluate(sliced_params))?;
+                ClipSlotCoordinates::new(column_index, row_index)
+            }
+        };
+        Ok(coordinates)
+    }
+}
+
+fn to_slot_coordinate(eval_result: Result<f64, fasteval::Error>) -> Result<usize, &'static str> {
+    let res = eval_result.map_err(|_| "couldn't evaluate clip slot coordinate")?;
+    if res < 0.0 {
+        return Err("negative clip slot coordinate");
+    }
+    Ok(res.round() as usize)
 }
 
 #[derive(Debug)]
