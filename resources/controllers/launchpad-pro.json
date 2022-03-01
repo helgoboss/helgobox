@@ -15,7 +15,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/1/row/1/pad"
+        "controlElementIndex": "col1/row1/pad"
       }
     },
     {
@@ -32,7 +32,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/2/row/1/pad"
+        "controlElementIndex": "col2/row1/pad"
       }
     },
     {
@@ -49,7 +49,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/3/row/1/pad"
+        "controlElementIndex": "col3/row1/pad"
       }
     },
     {
@@ -66,7 +66,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/4/row/1/pad"
+        "controlElementIndex": "col4/row1/pad"
       }
     },
     {
@@ -83,7 +83,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/5/row/1/pad"
+        "controlElementIndex": "col5/row1/pad"
       }
     },
     {
@@ -100,7 +100,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/6/row/1/pad"
+        "controlElementIndex": "col6/row1/pad"
       }
     },
     {
@@ -117,7 +117,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/7/row/1/pad"
+        "controlElementIndex": "col7/row1/pad"
       }
     },
     {
@@ -134,7 +134,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/8/row/1/pad"
+        "controlElementIndex": "col8/row1/pad"
       }
     },
     {
@@ -151,7 +151,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/1/row/2/pad"
+        "controlElementIndex": "col1/row2/pad"
       }
     },
     {
@@ -168,7 +168,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/2/row/2/pad"
+        "controlElementIndex": "col2/row2/pad"
       }
     },
     {
@@ -185,7 +185,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/3/row/2/pad"
+        "controlElementIndex": "col3/row2/pad"
       }
     },
     {
@@ -202,7 +202,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/4/row/2/pad"
+        "controlElementIndex": "col4/row2/pad"
       }
     },
     {
@@ -219,7 +219,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/5/row/2/pad"
+        "controlElementIndex": "col5/row2/pad"
       }
     },
     {
@@ -236,7 +236,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/6/row/2/pad"
+        "controlElementIndex": "col6/row2/pad"
       }
     },
     {
@@ -253,7 +253,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/7/row/2/pad"
+        "controlElementIndex": "col7/row2/pad"
       }
     },
     {
@@ -270,7 +270,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/8/row/2/pad"
+        "controlElementIndex": "col8/row2/pad"
       }
     },
     {
@@ -287,7 +287,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/1/row/3/pad"
+        "controlElementIndex": "col1/row3/pad"
       }
     },
     {
@@ -304,7 +304,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/2/row/3/pad"
+        "controlElementIndex": "col2/row3/pad"
       }
     },
     {
@@ -321,7 +321,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/3/row/3/pad"
+        "controlElementIndex": "col3/row3/pad"
       }
     },
     {
@@ -338,7 +338,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/4/row/3/pad"
+        "controlElementIndex": "col4/row3/pad"
       }
     },
     {
@@ -355,7 +355,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/5/row/3/pad"
+        "controlElementIndex": "col5/row3/pad"
       }
     },
     {
@@ -372,7 +372,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/6/row/3/pad"
+        "controlElementIndex": "col6/row3/pad"
       }
     },
     {
@@ -389,7 +389,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/7/row/3/pad"
+        "controlElementIndex": "col7/row3/pad"
       }
     },
     {
@@ -406,7 +406,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/8/row/3/pad"
+        "controlElementIndex": "col8/row3/pad"
       }
     },
     {
@@ -423,7 +423,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/1/row/4/pad"
+        "controlElementIndex": "col1/row4/pad"
       }
     },
     {
@@ -440,7 +440,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/2/row/4/pad"
+        "controlElementIndex": "col2/row4/pad"
       }
     },
     {
@@ -457,7 +457,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/3/row/4/pad"
+        "controlElementIndex": "col3/row4/pad"
       }
     },
     {
@@ -474,7 +474,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/4/row/4/pad"
+        "controlElementIndex": "col4/row4/pad"
       }
     },
     {
@@ -491,7 +491,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/5/row/4/pad"
+        "controlElementIndex": "col5/row4/pad"
       }
     },
     {
@@ -508,7 +508,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/6/row/4/pad"
+        "controlElementIndex": "col6/row4/pad"
       }
     },
     {
@@ -525,7 +525,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/7/row/4/pad"
+        "controlElementIndex": "col7/row4/pad"
       }
     },
     {
@@ -542,7 +542,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/8/row/4/pad"
+        "controlElementIndex": "col8/row4/pad"
       }
     },
     {
@@ -559,7 +559,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/1/row/5/pad"
+        "controlElementIndex": "col1/row5/pad"
       }
     },
     {
@@ -576,7 +576,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/2/row/5/pad"
+        "controlElementIndex": "col2/row5/pad"
       }
     },
     {
@@ -593,7 +593,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/3/row/5/pad"
+        "controlElementIndex": "col3/row5/pad"
       }
     },
     {
@@ -610,7 +610,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/4/row/5/pad"
+        "controlElementIndex": "col4/row5/pad"
       }
     },
     {
@@ -627,7 +627,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/5/row/5/pad"
+        "controlElementIndex": "col5/row5/pad"
       }
     },
     {
@@ -644,7 +644,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/6/row/5/pad"
+        "controlElementIndex": "col6/row5/pad"
       }
     },
     {
@@ -661,7 +661,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/7/row/5/pad"
+        "controlElementIndex": "col7/row5/pad"
       }
     },
     {
@@ -678,7 +678,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/8/row/5/pad"
+        "controlElementIndex": "col8/row5/pad"
       }
     },
     {
@@ -695,7 +695,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/1/row/6/pad"
+        "controlElementIndex": "col1/row6/pad"
       }
     },
     {
@@ -712,7 +712,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/2/row/6/pad"
+        "controlElementIndex": "col2/row6/pad"
       }
     },
     {
@@ -729,7 +729,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/3/row/6/pad"
+        "controlElementIndex": "col3/row6/pad"
       }
     },
     {
@@ -746,7 +746,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/4/row/6/pad"
+        "controlElementIndex": "col4/row6/pad"
       }
     },
     {
@@ -763,7 +763,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/5/row/6/pad"
+        "controlElementIndex": "col5/row6/pad"
       }
     },
     {
@@ -780,7 +780,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/6/row/6/pad"
+        "controlElementIndex": "col6/row6/pad"
       }
     },
     {
@@ -797,7 +797,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/7/row/6/pad"
+        "controlElementIndex": "col7/row6/pad"
       }
     },
     {
@@ -814,7 +814,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/8/row/6/pad"
+        "controlElementIndex": "col8/row6/pad"
       }
     },
     {
@@ -831,7 +831,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/1/row/7/pad"
+        "controlElementIndex": "col1/row7/pad"
       }
     },
     {
@@ -848,7 +848,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/2/row/7/pad"
+        "controlElementIndex": "col2/row7/pad"
       }
     },
     {
@@ -865,7 +865,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/3/row/7/pad"
+        "controlElementIndex": "col3/row7/pad"
       }
     },
     {
@@ -882,7 +882,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/4/row/7/pad"
+        "controlElementIndex": "col4/row7/pad"
       }
     },
     {
@@ -899,7 +899,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/5/row/7/pad"
+        "controlElementIndex": "col5/row7/pad"
       }
     },
     {
@@ -916,7 +916,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/6/row/7/pad"
+        "controlElementIndex": "col6/row7/pad"
       }
     },
     {
@@ -933,7 +933,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/7/row/7/pad"
+        "controlElementIndex": "col7/row7/pad"
       }
     },
     {
@@ -950,7 +950,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/8/row/7/pad"
+        "controlElementIndex": "col8/row7/pad"
       }
     },
     {
@@ -967,7 +967,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/1/row/8/pad"
+        "controlElementIndex": "col1/row8/pad"
       }
     },
     {
@@ -984,7 +984,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/2/row/8/pad"
+        "controlElementIndex": "col2/row8/pad"
       }
     },
     {
@@ -1001,7 +1001,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/3/row/8/pad"
+        "controlElementIndex": "col3/row8/pad"
       }
     },
     {
@@ -1018,7 +1018,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/4/row/8/pad"
+        "controlElementIndex": "col4/row8/pad"
       }
     },
     {
@@ -1035,7 +1035,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/5/row/8/pad"
+        "controlElementIndex": "col5/row8/pad"
       }
     },
     {
@@ -1052,7 +1052,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/6/row/8/pad"
+        "controlElementIndex": "col6/row8/pad"
       }
     },
     {
@@ -1069,7 +1069,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/7/row/8/pad"
+        "controlElementIndex": "col7/row8/pad"
       }
     },
     {
@@ -1086,7 +1086,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "col/8/row/8/pad"
+        "controlElementIndex": "col8/row8/pad"
       }
     },
     {
@@ -1100,7 +1100,8 @@
       },
       "mode": {},
       "target": {
-        "category": "virtual"
+        "category": "virtual",
+        "controlElementIndex": "channel-pressure"
       }
     },
     {
@@ -1117,7 +1118,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "row/1/play"
+        "controlElementIndex": "row1/play"
       }
     },
     {
@@ -1134,7 +1135,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "row/2/play"
+        "controlElementIndex": "row2/play"
       }
     },
     {
@@ -1151,7 +1152,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "row/3/play"
+        "controlElementIndex": "row3/play"
       }
     },
     {
@@ -1168,7 +1169,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "row/4/play"
+        "controlElementIndex": "row4/play"
       }
     },
     {
@@ -1185,7 +1186,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "row/5/play"
+        "controlElementIndex": "row5/play"
       }
     },
     {
@@ -1202,7 +1203,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "row/6/play"
+        "controlElementIndex": "row6/play"
       }
     },
     {
@@ -1219,7 +1220,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "row/7/play"
+        "controlElementIndex": "row7/play"
       }
     },
     {
@@ -1236,7 +1237,7 @@
       "target": {
         "category": "virtual",
         "controlElementType": "button",
-        "controlElementIndex": "row/8/play"
+        "controlElementIndex": "row8/play"
       }
     },
     {
