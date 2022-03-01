@@ -237,10 +237,10 @@ impl Slot {
     pub fn process(
         &mut self,
         args: &mut ClipProcessArgs,
-    ) -> ClipEngineResult<Option<ClipPlayState>> {
+    ) -> ClipEngineResult<SlotProcessingOutcome> {
         measure_time("slot.process.time", || {
             let clip = self.get_clip_mut()?;
-            clip.process(args);
+            let clip_outcome = clip.process(args);
             let play_state = clip.play_state();
             let last_play_state = self.runtime_data.last_play_state;
             let changed_play_state = if play_state == last_play_state {
@@ -250,7 +250,11 @@ impl Slot {
                 self.runtime_data.last_play_state = play_state;
                 Some(play_state)
             };
-            Ok(changed_play_state)
+            let outcome = SlotProcessingOutcome {
+                changed_play_state,
+                num_audio_frames_written: clip_outcome.num_audio_frames_written,
+            };
+            Ok(outcome)
         })
     }
 
@@ -322,4 +326,9 @@ impl RelevantPlayStateChange {
         };
         Some(change)
     }
+}
+
+pub struct SlotProcessingOutcome {
+    pub changed_play_state: Option<ClipPlayState>,
+    pub num_audio_frames_written: usize,
 }

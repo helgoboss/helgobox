@@ -9,9 +9,9 @@ pub fn apply_fade_in_starting_at_zero(block: &mut AudioBufMut, block_start_frame
         return;
     }
     // Block contains at least a portion of the fade
-    block.modify_frames(|frame, sample| {
-        let factor = calc_fade_in_volume_factor_at(block_start_frame + frame as isize);
-        sample * factor
+    block.modify_frames(|sample| {
+        let factor = calc_fade_in_volume_factor_at(block_start_frame + sample.index.frame as isize);
+        sample.value * factor
     });
 }
 
@@ -38,9 +38,10 @@ pub fn apply_fade_out_starting_at_zero(block: &mut AudioBufMut, block_start_fram
         return;
     }
     // Block contains at least a portion of the fade
-    block.modify_frames(|frame, sample| {
-        let factor = calc_fade_out_volume_factor_at(block_start_frame + frame as isize);
-        sample * factor
+    block.modify_frames(|sample| {
+        let factor =
+            calc_fade_out_volume_factor_at(block_start_frame + sample.index.frame as isize);
+        sample.value * factor
     });
 }
 

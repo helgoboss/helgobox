@@ -51,7 +51,7 @@ impl<S: AudioSupplier> AudioSupplier for Amplifier<S> {
         let response = self.supplier.supply_audio(request, dest_buffer);
         if self.volume != Db::ZERO_DB {
             // TODO-medium Maybe improve the volume factor
-            dest_buffer.modify_frames(|_, s| s * self.derived_volume_factor);
+            dest_buffer.modify_frames(|sample| sample.value * self.derived_volume_factor);
         }
         response
     }

@@ -1,7 +1,8 @@
 use crate::rt::supplier::{RecorderEquipment, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordInput,
-    ClipStopArgs, RecordBehavior, Slot, SlotProcessTransportChangeArgs,
+    AudioBufMut, Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
+    ClipRecordInput, ClipStopArgs, OwnedAudioBuffer, RecordBehavior, Slot,
+    SlotProcessTransportChangeArgs,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -31,6 +32,8 @@ pub struct Column {
     project: Option<Project>,
     command_receiver: Receiver<ColumnCommand>,
     event_sender: Sender<ColumnEvent>,
+    /// Enough reserved memory to hold one audio block of an arbitrary size.
+    mix_buffer_chunk: Vec<f64>,
 }
 
 #[derive(Clone, Debug)]
@@ -183,6 +186,9 @@ pub struct ColumnSettings {
     pub clip_play_stop_timing: Option<ClipPlayStopTiming>,
 }
 
+const MAX_CHANNEL_COUNT: usize = 64;
+const MAX_BLOCK_SIZE: usize = 2048;
+
 impl Column {
     pub fn new(
         permanent_project: Option<Project>,
@@ -200,6 +206,9 @@ impl Column {
             project: permanent_project,
             command_receiver,
             event_sender,
+            // Sized to hold pretty any audio block imaginable. Vastly oversized for the majority
+            // of use cases but 1 MB memory per column ... okay for now, on the safe side.
+            mix_buffer_chunk: OwnedAudioBuffer::new(MAX_CHANNEL_COUNT, MAX_BLOCK_SIZE).into_inner(),
         }
     }
 
@@ -419,19 +428,47 @@ impl Column {
             // Get samples
             let timeline_cursor_pos = timeline.cursor_pos();
             let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
+            let output_channel_count = args.block.nch() as usize;
+            let output_frame_count = args.block.length() as usize;
+            let mut output_buffer = unsafe {
+                AudioBufMut::from_raw(
+                    args.block.samples(),
+                    output_channel_count,
+                    output_frame_count,
+                )
+            };
             // rt_debug!("block sr = {}, block length = {}, block time = {}, timeline cursor pos = {}, timeline cursor frame = {}",
             //          sample_rate, args.block.length(), args.block.time_s(), timeline_cursor_pos, timeline_cursor_frame);
             for (row, slot) in self.slots.iter_mut().enumerate() {
+                let mut mix_buffer = AudioBufMut::from_slice(
+                    &mut self.mix_buffer_chunk,
+                    output_channel_count,
+                    output_frame_count,
+                )
+                .unwrap();
                 let mut inner_args = ClipProcessArgs {
-                    block: args.block,
+                    dest_buffer: &mut mix_buffer,
+                    dest_sample_rate: args.block.sample_rate(),
+                    midi_event_list: args
+                        .block
+                        .midi_event_list_mut()
+                        .expect("no MIDI event list available"),
                     timeline: &timeline,
                     timeline_cursor_pos,
                     timeline_tempo,
                 };
-                // TODO-high Take care of mixing as soon as we implement Free mode.
-                if let Ok(Some(changed_play_state)) = slot.process(&mut inner_args) {
-                    self.event_sender
-                        .clip_play_state_changed(row, changed_play_state);
+                if let Ok(outcome) = slot.process(&mut inner_args) {
+                    if outcome.num_audio_frames_written > 0 {
+                        output_buffer.modify_frames(|sample| {
+                            // TODO-high This is a hot code path. We might want to skip bound checks
+                            //  in sample_value_at().
+                            sample.value + mix_buffer.sample_value_at(sample.index).unwrap()
+                        })
+                    }
+                    if let Some(changed_play_state) = outcome.changed_play_state {
+                        self.event_sender
+                            .clip_play_state_changed(row, changed_play_state);
+                    }
                 }
             }
         });
@@ -638,6 +675,3 @@ pub enum ColumnEvent {
         frame_count: usize,
     },
 }
-
-// TODO-high Fix this when writing proper ReaLearn targets
-pub const FAKE_ROW_INDEX: usize = 0;

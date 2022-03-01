@@ -21,7 +21,7 @@ use playtime_api::{
 };
 use reaper_high::Project;
 use reaper_medium::{
-    Bpm, DurationInSeconds, Hz, PcmSourceTransfer, PositionInSeconds, ReaperVolumeValue,
+    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds, ReaperVolumeValue,
 };
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicIsize, Ordering};
@@ -53,6 +53,19 @@ enum ClipState {
     Ready(ReadyState),
     /// Recording from scratch, not MIDI overdub.
     Recording(RecordingState),
+}
+
+impl ClipState {
+    fn is_playing(&self) -> bool {
+        use ClipState::*;
+        matches!(
+            self,
+            Ready(ReadyState {
+                state: ReadySubState::Playing(_),
+                ..
+            })
+        )
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -476,27 +489,31 @@ impl Clip {
         self.supplier_chain.section_frame_count_in_ready_state()
     }
 
-    pub fn process(&mut self, args: &mut ClipProcessArgs) {
+    pub fn process(&mut self, args: &mut ClipProcessArgs) -> ClipPlayingOutcome {
         use ClipState::*;
-        let changed_state = match &mut self.state {
-            Ready(s) => s
-                .process(args, &mut self.supplier_chain, &mut self.shared_pos)
-                .map(Recording),
-            Recording(s) => s.process(args, &mut self.supplier_chain).map(Ready),
-        };
-        if let Some(s) = changed_state {
-            self.state = s;
-            if matches!(
-                s,
-                Ready(ReadyState {
-                    state: ReadySubState::Playing(_),
-                    ..
-                })
-            ) {
-                // Changed from record to playing. Don't miss any samples!
-                self.process(args);
+        let (outcome, changed_state) = match &mut self.state {
+            Ready(s) => {
+                let (outcome, changed_state) =
+                    s.process(args, &mut self.supplier_chain, &mut self.shared_pos);
+                (Some(outcome), changed_state.map(Recording))
             }
-        }
+            Recording(s) => {
+                let changed_state = s.process(args, &mut self.supplier_chain);
+                (None, changed_state.map(Ready))
+            }
+        };
+        let outcome = if let Some(s) = changed_state {
+            self.state = s;
+            if s.is_playing() {
+                // Changed from record to playing. Don't miss any samples!
+                Some(self.process(args))
+            } else {
+                outcome
+            }
+        } else {
+            outcome
+        };
+        outcome.unwrap_or_default()
     }
 }
 
@@ -769,18 +786,21 @@ impl ReadyState {
         args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
         shared_pos: &mut SharedPos,
-    ) -> Option<RecordingState> {
+    ) -> (ClipPlayingOutcome, Option<RecordingState>) {
         use ReadySubState::*;
-        let (changed_state, pos) = match self.state {
-            Stopped | Paused(_) => return None,
+        let (outcome, changed_state, pos) = match self.state {
+            Stopped | Paused(_) => return (Default::default(), None),
             Playing(s) => {
-                self.process_playing(s, args, supplier_chain);
-                (None, s.pos.unwrap_or_default())
+                let outcome = self.process_playing(s, args, supplier_chain);
+                (outcome, None, s.pos.unwrap_or_default())
             }
-            Suspending(s) => (self.process_suspending(s, args, supplier_chain), s.pos),
+            Suspending(s) => {
+                let (outcome, changed_state) = self.process_suspending(s, args, supplier_chain);
+                (outcome, changed_state, s.pos)
+            }
         };
         shared_pos.set(pos);
-        changed_state
+        (outcome, changed_state)
     }
 
     fn process_playing(
@@ -788,7 +808,7 @@ impl ReadyState {
         s: PlayingState,
         args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
-    ) {
+    ) -> ClipPlayingOutcome {
         let general_info = self.prepare_playing(args, supplier_chain);
         let go = if let Some(pos) = s.pos {
             // Already counting in or playing.
@@ -836,19 +856,20 @@ impl ReadyState {
                     .schedule_fade_out_ending_at(stop_pos);
             }
         }
-        self.state = if let Some(end_frame) = self.fill_samples(
+        let outcome = self.fill_samples(
             args,
             go.pos,
             &general_info,
             go.sample_rate_factor,
             supplier_chain,
-        ) {
+        );
+        self.state = if let Some(next_frame) = outcome.next_frame {
             // There's still something to play.
             ReadySubState::Playing(PlayingState {
-                pos: Some(end_frame),
+                pos: Some(next_frame),
                 seek_pos: go.new_seek_pos.and_then(|new_seek_pos| {
                     // Check if we reached our desired position.
-                    if end_frame >= new_seek_pos as isize {
+                    if next_frame >= new_seek_pos as isize {
                         // Reached
                         None
                     } else {
@@ -866,6 +887,7 @@ impl ReadyState {
             self.reset_for_play(supplier_chain);
             ReadySubState::Stopped
         };
+        outcome.clip_playing_outcome
     }
 
     fn calculate_seek_go(
@@ -952,19 +974,27 @@ impl ReadyState {
         info: &SupplyRequestGeneralInfo,
         sample_rate_factor: f64,
         supplier_chain: &mut SupplierChain,
-    ) -> Option<isize> {
+    ) -> FillSamplesOutcome {
         supplier_chain.prepare_supply();
-        let dest_sample_rate = Hz::new(args.block.sample_rate().get() * sample_rate_factor);
-        let response = if supplier_chain.is_midi() {
+        let dest_sample_rate = Hz::new(args.dest_sample_rate.get() * sample_rate_factor);
+        let is_midi = supplier_chain.is_midi();
+        let response = if is_midi {
             self.fill_samples_midi(args, start_frame, info, dest_sample_rate, supplier_chain)
         } else {
             self.fill_samples_audio(args, start_frame, info, dest_sample_rate, supplier_chain)
         };
-        match response.status {
-            SupplyResponseStatus::PleaseContinue => {
-                Some(start_frame + response.num_frames_consumed as isize)
-            }
-            SupplyResponseStatus::ReachedEnd { .. } => None,
+        let (frames_written, next_frame) = match response.status {
+            SupplyResponseStatus::PleaseContinue => (
+                args.dest_buffer.frame_count(),
+                Some(start_frame + response.num_frames_consumed as isize),
+            ),
+            SupplyResponseStatus::ReachedEnd { num_frames_written } => (num_frames_written, None),
+        };
+        FillSamplesOutcome {
+            clip_playing_outcome: ClipPlayingOutcome {
+                num_audio_frames_written: if is_midi { 0 } else { frames_written },
+            },
+            next_frame,
         }
     }
 
@@ -988,18 +1018,11 @@ impl ReadyState {
             parent_request: None,
             general_info: info,
         };
-        let mut dest_buffer = unsafe {
-            AudioBufMut::from_raw(
-                args.block.samples(),
-                args.block.nch() as _,
-                args.block.length() as _,
-            )
-        };
         // TODO-high There's an issue e.g. when playing the piano audio clip that makes
         //  the clip not stop for a long time when it's not looped. Check that!
         supplier_chain
             .head_mut()
-            .supply_audio(&request, &mut dest_buffer)
+            .supply_audio(&request, args.dest_buffer)
     }
 
     fn fill_samples_midi(
@@ -1012,7 +1035,7 @@ impl ReadyState {
     ) -> SupplyResponse {
         let request = SupplyMidiRequest {
             start_frame,
-            dest_frame_count: args.block.length() as _,
+            dest_frame_count: args.dest_buffer.frame_count(),
             dest_sample_rate,
             info: SupplyRequestInfo {
                 audio_block_frame_offset: 0,
@@ -1023,12 +1046,9 @@ impl ReadyState {
             parent_request: None,
             general_info: info,
         };
-        supplier_chain.head_mut().supply_midi(
-            &request,
-            args.block
-                .midi_event_list_mut()
-                .expect("no MIDI event list"),
-        )
+        supplier_chain
+            .head_mut()
+            .supply_midi(&request, args.midi_event_list)
     }
 
     fn prepare_playing(
@@ -1039,8 +1059,8 @@ impl ReadyState {
         let final_tempo_factor = self.calc_final_tempo_factor(args.timeline_tempo, supplier_chain);
         let general_info = SupplyRequestGeneralInfo {
             audio_block_timeline_cursor_pos: args.timeline_cursor_pos,
-            audio_block_length: args.block.length() as usize,
-            output_frame_rate: args.block.sample_rate(),
+            audio_block_length: args.dest_buffer.frame_count(),
+            output_frame_rate: args.dest_sample_rate,
             timeline_tempo: args.timeline_tempo,
             clip_tempo_factor: final_tempo_factor,
         };
@@ -1099,9 +1119,9 @@ impl ReadyState {
         supplier_chain: &SupplierChain,
     ) -> isize {
         // Basics
-        let block_length_in_timeline_frames = args.block.length() as usize;
+        let block_length_in_timeline_frames = args.dest_buffer.frame_count();
         let source_frame_rate = supplier_chain.source_frame_rate_in_ready_state();
-        let timeline_frame_rate = args.block.sample_rate();
+        let timeline_frame_rate = args.dest_sample_rate;
         // Essential calculation
         let quantized_timeline_pos = args.timeline.pos_of_quantized_pos(quantized_pos);
         let rel_pos_from_quant_in_secs = args.timeline_cursor_pos - quantized_timeline_pos;
@@ -1115,7 +1135,7 @@ impl ReadyState {
                 // Plus, we react to tempo changes.
                 let args = LogNaturalDeviationArgs {
                     start_bar: quantized_pos.position() as _,
-                    block: args.block,
+                    block_length: args.dest_buffer.frame_count(),
                     timeline: &args.timeline,
                     timeline_cursor_pos: args.timeline_cursor_pos,
                     clip_tempo_factor,
@@ -1163,18 +1183,17 @@ impl ReadyState {
         s: SuspendingState,
         args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
-    ) -> Option<RecordingState> {
+    ) -> (ClipPlayingOutcome, Option<RecordingState>) {
         let general_info = self.prepare_playing(args, supplier_chain);
         let fader = supplier_chain.ad_hoc_fader_mut();
         if !fader.has_fade_out() {
             fader.start_fade_out(s.pos);
         }
-        self.state = if let Some(end_frame) =
-            self.fill_samples(args, s.pos, &general_info, 1.0, supplier_chain)
-        {
+        let outcome = self.fill_samples(args, s.pos, &general_info, 1.0, supplier_chain);
+        self.state = if let Some(next_frame) = outcome.next_frame {
             // Suspension not finished yet.
             ReadySubState::Suspending(SuspendingState {
-                pos: end_frame,
+                pos: next_frame,
                 ..s
             })
         } else {
@@ -1192,10 +1211,10 @@ impl ReadyState {
                     self.pre_buffer(supplier_chain, 0);
                     ReadySubState::Stopped
                 }
-                Recording(s) => return Some(s),
+                Recording(s) => return (outcome.clip_playing_outcome, Some(s)),
             }
         };
-        None
+        (outcome.clip_playing_outcome, None)
     }
 
     fn pre_buffer(&mut self, supplier_chain: &mut SupplierChain, next_expected_pos: isize) {
@@ -1260,7 +1279,7 @@ impl ReadyState {
         let source_cycle_length_in_source_frames =
             supplier_chain.section_frame_count_in_ready_state();
         // Block length
-        let block_length_in_timeline_frames = args.block.length() as usize;
+        let block_length_in_timeline_frames = args.block_length;
         let block_length_in_secs = convert_duration_in_frames_to_seconds(
             block_length_in_timeline_frames,
             args.timeline_frame_rate,
@@ -1590,8 +1609,8 @@ impl RecordingState {
         {
             if args.timeline.next_bar_at(args.timeline_cursor_pos) >= end_bar {
                 // Close to scheduled recording end.
-                let block_length_in_timeline_frames = args.block.length() as usize;
-                let timeline_frame_rate = args.block.sample_rate();
+                let block_length_in_timeline_frames = args.dest_buffer.frame_count();
+                let timeline_frame_rate = args.dest_sample_rate;
                 let block_length_in_secs = convert_duration_in_frames_to_seconds(
                     block_length_in_timeline_frames,
                     timeline_frame_rate,
@@ -1754,16 +1773,18 @@ pub enum ClipStopBehavior {
     EndOfClip,
 }
 
-pub struct ClipProcessArgs<'a> {
-    pub block: &'a mut PcmSourceTransfer,
+pub struct ClipProcessArgs<'a, 'b> {
+    pub dest_buffer: &'a mut AudioBufMut<'b>,
+    pub dest_sample_rate: Hz,
+    pub midi_event_list: &'a mut BorrowedMidiEventList,
     pub timeline: &'a HybridTimeline,
     pub timeline_cursor_pos: PositionInSeconds,
     pub timeline_tempo: Bpm,
 }
 
-struct LogNaturalDeviationArgs<'a, T: Timeline> {
+struct LogNaturalDeviationArgs<T: Timeline> {
     start_bar: i32,
-    block: &'a PcmSourceTransfer,
+    block_length: usize,
     timeline: T,
     timeline_cursor_pos: PositionInSeconds,
     // timeline_tempo: Bpm,
@@ -1879,4 +1900,14 @@ fn determine_tempo(beat_time_base: &BeatTimeBase, supplier_chain: &SupplierChain
             .expect("material has time base 'beat' but no tempo");
         Bpm::new(tempo.get())
     }
+}
+
+#[derive(Default)]
+pub struct ClipPlayingOutcome {
+    pub num_audio_frames_written: usize,
+}
+
+struct FillSamplesOutcome {
+    clip_playing_outcome: ClipPlayingOutcome,
+    next_frame: Option<isize>,
 }

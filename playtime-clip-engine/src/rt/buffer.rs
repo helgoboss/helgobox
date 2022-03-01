@@ -92,23 +92,42 @@ impl<'a> AudioBuf<'a> {
 }
 
 impl<'a> AudioBufMut<'a> {
-    /// # Safety
+    /// # Panics
     ///
-    /// REAPER can crash if the transfer object contains an invalid pointer.
-    pub unsafe fn from_transfer(transfer: &PcmSourceTransfer) -> Self {
-        Self::from_raw(
-            transfer.samples(),
-            transfer.nch() as _,
-            transfer.length() as _,
-        )
+    /// Panics if requested frame count is zero.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the size of the given data chunk isn't large enough.
+    pub fn from_slice(
+        data: &'a mut [f64],
+        channel_count: usize,
+        frame_count: usize,
+    ) -> Result<Self, &'static str> {
+        if frame_count == 0 {
+            panic!("attempt to create buffer from sliced data with a frame count of zero");
+        }
+        if channel_count * frame_count >= data.len() {
+            return Err("given slice not large enough");
+        }
+        let buf = AudioBufMut {
+            data,
+            frame_count,
+            channel_count,
+        };
+        Ok(buf)
     }
 
+    /// # Panics
+    ///
+    /// Panics if requested frame count is zero.
+    ///
     /// # Safety
     ///
     /// REAPER can crash if you pass an invalid pointer.
     pub unsafe fn from_raw(data: *mut f64, channel_count: usize, frame_count: usize) -> Self {
         if frame_count == 0 {
-            panic!("Attempt to create buffer from raw data with a frame count of zero");
+            panic!("attempt to create buffer from raw data with a frame count of zero");
         }
         AudioBufMut {
             data: std::slice::from_raw_parts_mut(data, (channel_count * frame_count) as _),
@@ -210,11 +229,27 @@ impl<T: AsRef<[f64]> + AsMut<[f64]>> AbstractAudioBuf<T> {
         }
     }
 
-    pub fn modify_frames(&mut self, mut f: impl FnMut(usize, f64) -> f64) {
-        for frame in 0..self.frame_count {
+    pub fn sample_value_at(&self, index: SampleIndex) -> Option<f64> {
+        self.data
+            .as_ref()
+            .get(index.frame * self.channel_count + index.channel)
+            .copied()
+    }
+
+    pub fn modify_frames(&mut self, mut f: impl FnMut(SampleDescriptor) -> f64) {
+        for frame_index in 0..self.frame_count {
             for ch in 0..self.channel_count {
-                let sample = &mut self.data.as_mut()[frame * self.channel_count + ch];
-                *sample = f(frame, *sample);
+                // TODO-high For performance we might want to skip the bound checks. This is
+                //  very hot code.
+                let sample_value = &mut self.data.as_mut()[frame_index * self.channel_count + ch];
+                let descriptor = SampleDescriptor {
+                    index: SampleIndex {
+                        frame: frame_index,
+                        channel: ch,
+                    },
+                    value: *sample_value,
+                };
+                *sample_value = f(descriptor);
             }
         }
     }
@@ -260,4 +295,15 @@ impl<'a> CopyToAudioBuffer for &'a BorrowedPcmSource {
         }
         Ok(dest_buffer.frame_count())
     }
+}
+
+pub struct SampleDescriptor {
+    pub index: SampleIndex,
+    pub value: f64,
+}
+
+#[derive(Copy, Clone)]
+pub struct SampleIndex {
+    pub frame: usize,
+    pub channel: usize,
 }
