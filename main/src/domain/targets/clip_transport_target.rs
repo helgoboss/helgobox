@@ -142,6 +142,7 @@ impl RealearnTarget for ClipTransportTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
+            CompoundChangeEvent::Instance(InstanceStateChanged::AllClips) => (true, None),
             CompoundChangeEvent::Instance(InstanceStateChanged::Clip {
                 slot_coordinates: sc,
                 event,

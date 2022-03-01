@@ -69,7 +69,6 @@ pub struct InstanceState {
 #[derive(Debug)]
 pub struct RealearnClipMatrixHandler {
     audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
-    slot_contents_changed_subject: LocalSubject<'static, (), ()>,
     instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
 }
 
@@ -80,7 +79,6 @@ impl RealearnClipMatrixHandler {
     ) -> Self {
         Self {
             audio_hook_task_sender,
-            slot_contents_changed_subject: Default::default(),
             instance_feedback_event_sender,
         }
     }
@@ -94,7 +92,9 @@ impl ClipMatrixHandler for RealearnClipMatrixHandler {
     }
 
     fn notify_slot_contents_changed(&mut self) {
-        AsyncNotifier::notify(&mut self.slot_contents_changed_subject, &());
+        self.instance_feedback_event_sender
+            .try_send(InstanceStateChanged::AllClips)
+            .unwrap();
     }
 
     fn notify_clip_changed(&self, slot_coordinates: ClipSlotCoordinates, event: ClipChangedEvent) {
@@ -372,6 +372,7 @@ pub enum InstanceStateChanged {
         slot_coordinates: ClipSlotCoordinates,
         event: ClipChangedEvent,
     },
+    AllClips,
     ActiveMappingWithinGroup {
         compartment: MappingCompartment,
         group_id: GroupId,
