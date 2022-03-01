@@ -1,14 +1,25 @@
-use derive_more::Display;
 use serde::ser::Impossible;
 use serde::{ser, Serialize};
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Clone, Debug, PartialEq, Display)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Error {
     Message(String),
-    Unsupported,
+    Unsupported(&'static str),
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use Error::*;
+        match self {
+            Message(m) => f.write_str(m),
+            Unsupported(kind) => {
+                write!(f, "serializing {} is currently not supported", kind)
+            }
+        }
+    }
 }
 
 impl ser::Error for Error {
@@ -136,7 +147,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_none(self) -> Result<()> {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("none"))
     }
 
     fn serialize_some<T>(self, value: &T) -> Result<()>
@@ -147,11 +158,11 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_unit(self) -> Result<()> {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("unit"))
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("unit struct"))
     }
 
     fn serialize_unit_variant(
@@ -180,7 +191,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     where
         T: ?Sized + Serialize,
     {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("newtype variant"))
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq> {
@@ -194,7 +205,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("tuple"))
     }
 
     fn serialize_tuple_struct(
@@ -213,7 +224,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("tuple variant"))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -234,7 +245,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        Err(Error::Unsupported)
+        Err(Error::Unsupported("struct variant"))
     }
 }
 
