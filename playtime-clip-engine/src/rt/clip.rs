@@ -1799,7 +1799,7 @@ impl ClipPlayState {
     pub fn feedback_value(self) -> UnitValue {
         use ClipPlayState::*;
         match self {
-            Stopped => UnitValue::MIN,
+            Stopped => UnitValue::new(0.1),
             ScheduledForPlay => UnitValue::new(0.75),
             Playing => UnitValue::MAX,
             Paused => UnitValue::new(0.5),
