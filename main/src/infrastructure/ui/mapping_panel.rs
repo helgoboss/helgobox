@@ -6217,11 +6217,20 @@ fn prompt_for_predefined_control_element_name(
                 control_element_domains::daw::PREDEFINED_VIRTUAL_BUTTON_NAMES
             }
         };
+        let grid_control_names = match r#type {
+            VirtualControlElementType::Multi => {
+                control_element_domains::grid::PREDEFINED_VIRTUAL_MULTI_NAMES
+            }
+            VirtualControlElementType::Button => {
+                control_element_domains::grid::PREDEFINED_VIRTUAL_BUTTON_NAMES
+            }
+        };
         let entries = vec![
             menu(
                 "DAW control",
                 build_slash_menu_entries(daw_control_names, ""),
             ),
+            menu("Grid", build_slash_menu_entries(grid_control_names, "")),
             menu(
                 "Numbered",
                 chunked_number_menu(100, 10, true, |i| {
