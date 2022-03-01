@@ -402,6 +402,7 @@ pub struct ColumnClipPlaySettings {
     /// in a "track-less" state, e.g. the deletion of a track. This column will be unusable until
     /// the user sets a play track again. We still want to be able to save the matrix in such a
     /// state, otherwise it could be really annoying. So we allow `None`.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<TrackId>,
     /// Start timing override.
     ///
@@ -437,6 +438,7 @@ pub struct ColumnClipPlayAudioSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_stretch_mode: Option<AudioTimeStretchMode>,
     /// Overrides the matrix-global audio cache behavior for clips in this column.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_behavior: Option<AudioCacheBehavior>,
 }
 
@@ -450,6 +452,7 @@ pub struct Row {
 #[serde(deny_unknown_fields)]
 pub struct Scene {
     // TODO-clip-implement
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     /// An optional tempo associated with this row.
     // TODO-clip-implement
@@ -550,6 +553,7 @@ pub struct Slot {
     /// Slot index within the column (= row), starting at zero.
     pub row: usize,
     /// Clip which currently lives in this slot.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub clip: Option<Clip>,
 }
 
@@ -633,6 +637,7 @@ pub struct ClipAudioSettings {
     /// Whether to cache audio in memory.
     ///
     /// `None` means it uses the column cache behavior.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_behavior: Option<AudioCacheBehavior>,
 }
 
