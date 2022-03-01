@@ -21,6 +21,18 @@ use reaper_medium::{
 use std::error::Error;
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
+/// Only such methods are public which are allowed to use from real-time threads. Other ones
+/// are private and called from the method that processes the incoming commands.
+#[derive(Debug)]
+pub struct Column {
+    settings: ColumnSettings,
+    slots: Vec<Slot>,
+    /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
+    project: Option<Project>,
+    command_receiver: Receiver<ColumnCommand>,
+    event_sender: Sender<ColumnEvent>,
+}
+
 #[derive(Clone, Debug)]
 pub struct SharedColumn(Arc<Mutex<Column>>);
 
@@ -130,18 +142,6 @@ pub enum ColumnCommand {
     SeekClip(ColumnSeekClipArgs),
     SetClipVolume(ColumnSetClipVolumeArgs),
     SetClipRepeated(ColumnSetClipRepeatedArgs),
-}
-
-/// Only such methods are public which are allowed to use from real-time threads. Other ones
-/// are private and called from the method that processes the incoming commands.
-#[derive(Debug)]
-pub struct Column {
-    settings: ColumnSettings,
-    slots: Vec<Slot>,
-    /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
-    project: Option<Project>,
-    command_receiver: Receiver<ColumnCommand>,
-    event_sender: Sender<ColumnEvent>,
 }
 
 trait EventSender {
