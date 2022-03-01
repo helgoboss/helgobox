@@ -1,7 +1,7 @@
 use crate::main::{ClipSlotCoordinates, MainMatrixCommandSender};
 use crate::rt::{
-    ColumnPlayClipArgs, ColumnStopClipArgs, RelevantPlayStateChange, SharedColumnSource,
-    SlotProcessTransportChangeArgs, TransportChange, WeakColumnSource,
+    ColumnPlayClipArgs, ColumnStopClipArgs, RelevantPlayStateChange, SharedColumn,
+    SlotProcessTransportChangeArgs, TransportChange, WeakColumn,
 };
 use crate::{clip_timeline, main, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
@@ -35,7 +35,7 @@ use std::mem;
 #[derive(Debug)]
 pub struct Matrix {
     settings: MatrixSettings,
-    columns: Vec<WeakColumnSource>,
+    columns: Vec<WeakColumn>,
     command_receiver: Receiver<MatrixCommand>,
     main_command_sender: Sender<main::MatrixCommand>,
     project: Option<Project>,
@@ -175,25 +175,25 @@ impl Matrix {
         Ok(())
     }
 
-    pub fn column(&self, index: usize) -> ClipEngineResult<SharedColumnSource> {
+    pub fn column(&self, index: usize) -> ClipEngineResult<SharedColumn> {
         self.column_internal(index)
     }
 
-    fn column_internal(&self, index: usize) -> ClipEngineResult<SharedColumnSource> {
+    fn column_internal(&self, index: usize) -> ClipEngineResult<SharedColumn> {
         let column = self.columns.get(index).ok_or("column doesn't exist")?;
         column.upgrade().ok_or("column doesn't exist anymore")
     }
 }
 
 pub enum MatrixCommand {
-    InsertColumn(usize, WeakColumnSource),
+    InsertColumn(usize, WeakColumn),
     RemoveColumn(usize),
     ClearColumns,
     UpdateSettings(MatrixSettings),
 }
 
 pub trait RtMatrixCommandSender {
-    fn insert_column(&self, index: usize, source: WeakColumnSource);
+    fn insert_column(&self, index: usize, source: WeakColumn);
     fn remove_column(&self, index: usize);
     fn clear_columns(&self);
     fn update_settings(&self, settings: MatrixSettings);
@@ -201,7 +201,7 @@ pub trait RtMatrixCommandSender {
 }
 
 impl RtMatrixCommandSender for Sender<MatrixCommand> {
-    fn insert_column(&self, index: usize, source: WeakColumnSource) {
+    fn insert_column(&self, index: usize, source: WeakColumn) {
         self.send_command(MatrixCommand::InsertColumn(index, source));
     }
 

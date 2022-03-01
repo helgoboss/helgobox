@@ -6,9 +6,7 @@ use enum_map::EnumMap;
 use reaper_high::Track;
 use rxrust::prelude::*;
 
-use rx_util::Notifier;
-
-use crate::base::{AsyncNotifier, Prop};
+use crate::base::Prop;
 use crate::domain::{
     GroupId, MappingCompartment, MappingId, NormalAudioHookTask, NormalRealTimeTask,
     QualifiedMappingId, RealTimeSender, Tag,

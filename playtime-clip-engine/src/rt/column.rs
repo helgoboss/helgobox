@@ -22,25 +22,25 @@ use std::error::Error;
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
 #[derive(Clone, Debug)]
-pub struct SharedColumnSource(Arc<Mutex<ColumnSource>>);
+pub struct SharedColumn(Arc<Mutex<Column>>);
 
 #[derive(Clone, Debug)]
-pub struct WeakColumnSource(Weak<Mutex<ColumnSource>>);
+pub struct WeakColumn(Weak<Mutex<Column>>);
 
-impl SharedColumnSource {
-    pub fn new(column_source: ColumnSource) -> Self {
+impl SharedColumn {
+    pub fn new(column_source: Column) -> Self {
         Self(Arc::new(Mutex::new(column_source)))
     }
 
-    pub fn lock(&self) -> MutexGuard<ColumnSource> {
+    pub fn lock(&self) -> MutexGuard<Column> {
         match self.0.lock() {
             Ok(g) => g,
             Err(e) => e.into_inner(),
         }
     }
 
-    pub fn downgrade(&self) -> WeakColumnSource {
-        WeakColumnSource(Arc::downgrade(&self.0))
+    pub fn downgrade(&self) -> WeakColumn {
+        WeakColumn(Arc::downgrade(&self.0))
     }
 
     pub fn strong_count(&self) -> usize {
@@ -48,76 +48,76 @@ impl SharedColumnSource {
     }
 }
 
-impl WeakColumnSource {
-    pub fn upgrade(&self) -> Option<SharedColumnSource> {
-        self.0.upgrade().map(SharedColumnSource)
+impl WeakColumn {
+    pub fn upgrade(&self) -> Option<SharedColumn> {
+        self.0.upgrade().map(SharedColumn)
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct ColumnSourceCommandSender {
-    command_sender: Sender<ColumnSourceCommand>,
+pub struct ColumnCommandSender {
+    command_sender: Sender<ColumnCommand>,
 }
 
-impl ColumnSourceCommandSender {
-    pub fn new(command_sender: Sender<ColumnSourceCommand>) -> Self {
+impl ColumnCommandSender {
+    pub fn new(command_sender: Sender<ColumnCommand>) -> Self {
         Self { command_sender }
     }
 
     pub fn clear_slots(&self) {
-        self.send_source_task(ColumnSourceCommand::ClearSlots);
+        self.send_source_task(ColumnCommand::ClearSlots);
     }
 
     pub fn update_settings(&self, settings: ColumnSettings) {
-        self.send_source_task(ColumnSourceCommand::UpdateSettings(settings));
+        self.send_source_task(ColumnCommand::UpdateSettings(settings));
     }
 
     pub fn fill_slot(&self, args: ColumnFillSlotArgs) {
-        self.send_source_task(ColumnSourceCommand::FillSlot(args));
+        self.send_source_task(ColumnCommand::FillSlot(args));
     }
 
     pub fn set_clip_audio_resample_mode(&self, args: ColumnSetClipAudioResampleModeArgs) {
-        self.send_source_task(ColumnSourceCommand::SetClipAudioResampleMode(args));
+        self.send_source_task(ColumnCommand::SetClipAudioResampleMode(args));
     }
 
     pub fn set_clip_audio_time_stretch_mode(&self, args: ColumnSetClipAudioTimeStretchModeArgs) {
-        self.send_source_task(ColumnSourceCommand::SetClipAudioTimeStretchMode(args));
+        self.send_source_task(ColumnCommand::SetClipAudioTimeStretchMode(args));
     }
 
     pub fn play_clip(&self, args: ColumnPlayClipArgs) {
-        self.send_source_task(ColumnSourceCommand::PlayClip(args));
+        self.send_source_task(ColumnCommand::PlayClip(args));
     }
 
     pub fn stop_clip(&self, args: ColumnStopClipArgs) {
-        self.send_source_task(ColumnSourceCommand::StopClip(args));
+        self.send_source_task(ColumnCommand::StopClip(args));
     }
 
     pub fn set_clip_repeated(&self, args: ColumnSetClipRepeatedArgs) {
-        self.send_source_task(ColumnSourceCommand::SetClipRepeated(args));
+        self.send_source_task(ColumnCommand::SetClipRepeated(args));
     }
 
     pub fn pause_clip(&self, index: usize) {
         let args = ColumnPauseClipArgs { index };
-        self.send_source_task(ColumnSourceCommand::PauseClip(args));
+        self.send_source_task(ColumnCommand::PauseClip(args));
     }
 
     pub fn seek_clip(&self, index: usize, desired_pos: UnitValue) {
         let args = ColumnSeekClipArgs { index, desired_pos };
-        self.send_source_task(ColumnSourceCommand::SeekClip(args));
+        self.send_source_task(ColumnCommand::SeekClip(args));
     }
 
     pub fn set_clip_volume(&self, index: usize, volume: ReaperVolumeValue) {
         let args = ColumnSetClipVolumeArgs { index, volume };
-        self.send_source_task(ColumnSourceCommand::SetClipVolume(args));
+        self.send_source_task(ColumnCommand::SetClipVolume(args));
     }
 
-    fn send_source_task(&self, task: ColumnSourceCommand) {
+    fn send_source_task(&self, task: ColumnCommand) {
         self.command_sender.try_send(task).unwrap();
     }
 }
 
 #[derive(Debug)]
-pub enum ColumnSourceCommand {
+pub enum ColumnCommand {
     ClearSlots,
     UpdateSettings(ColumnSettings),
     // TODO-high We should box here (see clippy warning). But take care to send the Box back!
@@ -135,13 +135,13 @@ pub enum ColumnSourceCommand {
 /// Only such methods are public which are allowed to use from real-time threads. Other ones
 /// are private and called from the method that processes the incoming commands.
 #[derive(Debug)]
-pub struct ColumnSource {
+pub struct Column {
     settings: ColumnSettings,
     slots: Vec<Slot>,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
     project: Option<Project>,
-    command_receiver: Receiver<ColumnSourceCommand>,
-    event_sender: Sender<ColumnSourceEvent>,
+    command_receiver: Receiver<ColumnCommand>,
+    event_sender: Sender<ColumnEvent>,
 }
 
 trait EventSender {
@@ -149,12 +149,12 @@ trait EventSender {
 
     fn clip_frame_count_updated(&self, slot_index: usize, frame_count: usize);
 
-    fn send_event(&self, event: ColumnSourceEvent);
+    fn send_event(&self, event: ColumnEvent);
 }
 
-impl EventSender for Sender<ColumnSourceEvent> {
+impl EventSender for Sender<ColumnEvent> {
     fn clip_play_state_changed(&self, slot_index: usize, play_state: ClipPlayState) {
-        let event = ColumnSourceEvent::ClipPlayStateChanged {
+        let event = ColumnEvent::ClipPlayStateChanged {
             slot_index,
             play_state,
         };
@@ -162,14 +162,14 @@ impl EventSender for Sender<ColumnSourceEvent> {
     }
 
     fn clip_frame_count_updated(&self, slot_index: usize, frame_count: usize) {
-        let event = ColumnSourceEvent::ClipFrameCountUpdated {
+        let event = ColumnEvent::ClipFrameCountUpdated {
             slot_index,
             frame_count,
         };
         self.send_event(event);
     }
 
-    fn send_event(&self, event: ColumnSourceEvent) {
+    fn send_event(&self, event: ColumnEvent) {
         self.try_send(event).unwrap();
     }
 }
@@ -183,11 +183,11 @@ pub struct ColumnSettings {
     pub clip_play_stop_timing: Option<ClipPlayStopTiming>,
 }
 
-impl ColumnSource {
+impl Column {
     pub fn new(
         permanent_project: Option<Project>,
-        command_receiver: Receiver<ColumnSourceCommand>,
-        event_sender: Sender<ColumnSourceEvent>,
+        command_receiver: Receiver<ColumnCommand>,
+        event_sender: Sender<ColumnEvent>,
     ) -> Self {
         Self {
             settings: Default::default(),
@@ -347,7 +347,7 @@ impl ColumnSource {
 
     fn process_commands(&mut self) {
         while let Ok(task) = self.command_receiver.try_recv() {
-            use ColumnSourceCommand::*;
+            use ColumnCommand::*;
             match task {
                 ClearSlots => {
                     self.slots.clear();
@@ -445,7 +445,7 @@ impl ColumnSource {
     }
 }
 
-impl CustomPcmSource for SharedColumnSource {
+impl CustomPcmSource for SharedColumn {
     fn duplicate(&mut self) -> Option<OwnedPcmSource> {
         unimplemented!()
     }
@@ -628,7 +628,7 @@ fn get_slot_mut_insert(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
 }
 
 #[derive(Clone, Debug)]
-pub enum ColumnSourceEvent {
+pub enum ColumnEvent {
     ClipPlayStateChanged {
         slot_index: usize,
         play_state: ClipPlayState,

@@ -1,9 +1,9 @@
 use crate::main::{Clip, ClipContent, ClipData, ClipRecordTask, MatrixSettings, Slot};
 use crate::rt::supplier::RecorderEquipment;
 use crate::rt::{
-    ClipChangedEvent, ClipInfo, ClipPlayState, ColumnFillSlotArgs, ColumnPlayClipArgs,
-    ColumnSetClipRepeatedArgs, ColumnSource, ColumnSourceCommandSender, ColumnSourceEvent,
-    ColumnStopClipArgs, RecordBehavior, SharedColumnSource, WeakColumnSource,
+    ClipChangedEvent, ClipInfo, ClipPlayState, ColumnCommandSender, ColumnEvent,
+    ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
+    RecordBehavior, SharedColumn, WeakColumn,
 };
 use crate::{rt, ClipEngineResult};
 use crossbeam_channel::Receiver;
@@ -29,11 +29,11 @@ pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
 pub struct Column {
     settings: ColumnSettings,
     rt_settings: rt::ColumnSettings,
-    rt_command_sender: ColumnSourceCommandSender,
-    column_source: SharedColumnSource,
+    rt_command_sender: ColumnCommandSender,
+    column_source: SharedColumn,
     preview_register: Option<PlayingPreviewRegister>,
     slots: Vec<Slot>,
-    event_receiver: Receiver<ColumnSourceEvent>,
+    event_receiver: Receiver<ColumnEvent>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -54,8 +54,8 @@ impl Column {
     pub fn new(permanent_project: Option<Project>) -> Self {
         let (command_sender, command_receiver) = crossbeam_channel::bounded(500);
         let (event_sender, event_receiver) = crossbeam_channel::bounded(500);
-        let source = ColumnSource::new(permanent_project, command_receiver, event_sender);
-        let shared_source = SharedColumnSource::new(source);
+        let source = rt::Column::new(permanent_project, command_receiver, event_sender);
+        let shared_source = SharedColumn::new(source);
         Self {
             settings: Default::default(),
             rt_settings: Default::default(),
@@ -64,7 +64,7 @@ impl Column {
             // },
             preview_register: None,
             column_source: shared_source,
-            rt_command_sender: ColumnSourceCommandSender::new(command_sender),
+            rt_command_sender: ColumnCommandSender::new(command_sender),
             slots: vec![],
             event_receiver,
         }
@@ -167,7 +167,7 @@ impl Column {
         }
     }
 
-    pub fn source(&self) -> WeakColumnSource {
+    pub fn source(&self) -> WeakColumn {
         self.column_source.downgrade()
     }
 
@@ -199,7 +199,7 @@ impl Column {
         // Process source events and generate clip change events
         let mut change_events = vec![];
         while let Ok(evt) = self.event_receiver.try_recv() {
-            use ColumnSourceEvent::*;
+            use ColumnEvent::*;
             let change_event = match evt {
                 ClipPlayStateChanged {
                     slot_index,
@@ -338,7 +338,7 @@ impl Column {
         Ok(task)
     }
 
-    fn with_source_mut<R>(&mut self, f: impl FnOnce(&mut ColumnSource) -> R) -> R {
+    fn with_source_mut<R>(&mut self, f: impl FnOnce(&mut rt::Column) -> R) -> R {
         let mut guard = self.column_source.lock();
         f(&mut guard)
     }

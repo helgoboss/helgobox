@@ -5,7 +5,7 @@ use crate::rt::supplier::{
 };
 use crate::rt::{
     ClipChangedEvent, ClipInfo, ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs,
-    RecordBehavior, RecordTiming, RtMatrixCommandSender, SharedColumnSource, WeakColumnSource,
+    RecordBehavior, RecordTiming, RtMatrixCommandSender, SharedColumn, WeakColumn,
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline};
@@ -52,16 +52,16 @@ pub struct MatrixSettings {
 
 #[derive(Debug)]
 pub enum MatrixCommand {
-    ThrowAway(WeakColumnSource),
+    ThrowAway(WeakColumn),
 }
 
 pub trait MainMatrixCommandSender {
-    fn throw_away(&self, source: WeakColumnSource);
+    fn throw_away(&self, source: WeakColumn);
     fn send_command(&self, command: MatrixCommand);
 }
 
 impl MainMatrixCommandSender for Sender<MatrixCommand> {
-    fn throw_away(&self, source: WeakColumnSource) {
+    fn throw_away(&self, source: WeakColumn) {
         self.send_command(MatrixCommand::ThrowAway(source));
     }
 
@@ -563,7 +563,7 @@ impl LegacyClipOutput {
 
 #[derive(Debug)]
 pub struct ClipRecordTask {
-    pub column_source: SharedColumnSource,
+    pub column_source: SharedColumn,
     pub slot_index: usize,
 }
 
