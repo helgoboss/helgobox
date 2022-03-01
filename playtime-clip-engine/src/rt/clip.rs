@@ -671,9 +671,9 @@ impl ReadyState {
             .persistent_data
             .start_timing
             .unwrap_or(stop_args.parent_start_timing);
-        let stop_timing = self
-            .persistent_data
+        let stop_timing = stop_args
             .stop_timing
+            .or(self.persistent_data.stop_timing)
             .unwrap_or(stop_args.parent_stop_timing);
         ConcreteClipPlayStopTiming::resolve(start_timing, stop_timing)
     }
@@ -1725,6 +1725,7 @@ pub struct ClipPlayArgs<'a> {
 pub struct ClipStopArgs<'a> {
     pub parent_start_timing: ClipPlayStartTiming,
     pub parent_stop_timing: ClipPlayStopTiming,
+    pub stop_timing: Option<ClipPlayStopTiming>,
     pub timeline: &'a HybridTimeline,
     /// Set this if you already have the current timeline position or want to stop a batch of clips.
     pub ref_pos: Option<PositionInSeconds>,

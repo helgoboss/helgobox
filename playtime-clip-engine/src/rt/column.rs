@@ -266,6 +266,7 @@ impl Column {
                 .settings
                 .clip_play_stop_timing
                 .unwrap_or(args.parent_stop_timing),
+            stop_timing: None,
             timeline: &args.timeline,
             ref_pos: args.ref_pos,
         };

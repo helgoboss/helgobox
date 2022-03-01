@@ -275,10 +275,10 @@ impl RuntimeData {
         keep_starting_with_transport: bool,
     ) -> SlotInstruction {
         self.stop_was_caused_by_transport_change = keep_starting_with_transport;
-        // TODO-high We should probably enforce an immediate stop here, or not?
         clip.stop(ClipStopArgs {
             parent_start_timing: args.parent_clip_play_start_timing,
             parent_stop_timing: args.parent_clip_play_stop_timing,
+            stop_timing: Some(ClipPlayStopTiming::Immediately),
             timeline: args.timeline,
             ref_pos: Some(args.timeline_cursor_pos),
         })
