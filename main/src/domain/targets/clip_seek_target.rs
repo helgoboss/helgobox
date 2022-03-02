@@ -3,13 +3,13 @@ use reaper_medium::PositionInSeconds;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 
 use crate::domain::{
-    AdditionalFeedbackEvent, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    FeedbackResolution, HitInstructionReturnValue, InstanceStateChanged, MappingCompartment,
+    AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, MappingCompartment,
     MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
-use playtime_clip_engine::main::ClipSlotCoordinates;
-use playtime_clip_engine::rt::{ClipChangedEvent, ClipPlayState};
+use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
+use playtime_clip_engine::rt::{ClipChangedEvent, ClipPlayState, QualifiedClipChangedEvent};
 use playtime_clip_engine::{clip_timeline, Timeline};
 
 #[derive(Debug)]
@@ -60,11 +60,10 @@ impl RealearnTarget for ClipSeekTarget {
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
         let value = value.to_unit_value()?;
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
-        instance_state
-            .require_clip_matrix_mut()
-            .seek_clip_legacy(self.slot_coordinates, value)?;
-        Ok(None)
+        BackboneState::get().with_clip_matrix(context.control_context.instance_state, |matrix| {
+            matrix.seek_clip_legacy(self.slot_coordinates, value)?;
+            Ok(None)
+        })?
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
@@ -84,10 +83,12 @@ impl RealearnTarget for ClipSeekTarget {
             {
                 (true, None)
             }
-            CompoundChangeEvent::Instance(InstanceStateChanged::Clip {
-                slot_coordinates: si,
-                event,
-            }) if *si == self.slot_coordinates => match event {
+            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
+                QualifiedClipChangedEvent {
+                    slot_coordinates: si,
+                    event,
+                },
+            )) if *si == self.slot_coordinates => match event {
                 // If feedback resolution is high, we use the special ClipChangedEvent to do our job
                 // (in order to not lock mutex of playing clips more than once per main loop cycle).
                 ClipChangedEvent::ClipPosition(new_position)
@@ -125,12 +126,13 @@ impl RealearnTarget for ClipSeekTarget {
 
 impl ClipSeekTarget {
     fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
-        let instance_state = context.instance_state.borrow();
-        let timeline = clip_timeline(context.processor_context.project(), false);
-        let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
-        instance_state
-            .clip_matrix()?
-            .clip_position_in_seconds(self.slot_coordinates, timeline_tempo)
+        BackboneState::get()
+            .with_clip_matrix(context.instance_state, |matrix| {
+                let timeline = clip_timeline(context.processor_context.project(), false);
+                let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
+                matrix.clip_position_in_seconds(self.slot_coordinates, timeline_tempo)
+            })
+            .ok()?
     }
 }
 
@@ -138,11 +140,12 @@ impl<'a> Target<'a> for ClipSeekTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        let instance_state = context.instance_state.borrow();
-        let val = instance_state
-            .clip_matrix()?
-            .proportional_clip_position_legacy(self.slot_coordinates)?;
-        Some(AbsoluteValue::Continuous(val))
+        BackboneState::get()
+            .with_clip_matrix(context.instance_state, |matrix| {
+                let val = matrix.proportional_clip_position_legacy(self.slot_coordinates)?;
+                Some(AbsoluteValue::Continuous(val))
+            })
+            .ok()?
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

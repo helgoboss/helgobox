@@ -5,9 +5,9 @@ use crate::application::{
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    GroupId, GroupKey, InstanceState, MappingCompartment, MappingId, MidiControlInput,
-    MidiDestination, OscDeviceId, ParameterArray, ReaperTargetType, Tag, TransportAction,
-    COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    ClipMatrixRef, GroupId, GroupKey, InstanceId, InstanceState, MappingCompartment, MappingId,
+    MidiControlInput, MidiDestination, OscDeviceId, ParameterArray, ReaperTargetType, Tag,
+    TransportAction, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     deserialize_track, ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData,
@@ -94,7 +94,7 @@ pub struct SessionData {
     clip_slots: Vec<QualifiedSlotDescriptor>,
     // New since 2.12.0-pre.5
     #[serde(default, skip_serializing_if = "is_default")]
-    clip_matrix: Option<Matrix>,
+    clip_matrix: Option<ClipMatrixRefData>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub tags: Vec<Tag>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -103,6 +103,13 @@ pub struct SessionData {
     main: CompartmentState,
     #[serde(default, skip_serializing_if = "is_default")]
     active_instance_tags: HashSet<Tag>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum ClipMatrixRefData {
+    Owned(Matrix),
+    BorrowedFromInstance(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
@@ -249,7 +256,16 @@ impl SessionData {
                 MappingCompartment::ControllerMappings,
             ),
             clip_slots: vec![],
-            clip_matrix: instance_state.clip_matrix().map(|m| m.save()),
+            clip_matrix: {
+                instance_state
+                    .clip_matrix_ref()
+                    .map(|matrix_ref| match matrix_ref {
+                        ClipMatrixRef::Owned(m) => ClipMatrixRefData::Owned(m.save()),
+                        ClipMatrixRef::BorrowedFromInstance(id) => {
+                            ClipMatrixRefData::BorrowedFromInstance(id.to_string())
+                        }
+                    })
+            },
             tags: session.tags.get_ref().clone(),
             controller: CompartmentState::from_instance_state(
                 &instance_state,
@@ -450,23 +466,34 @@ impl SessionData {
         {
             let mut instance_state = session.instance_state().borrow_mut();
             // Legacy clips
-            if let Some(matrix) = &self.clip_matrix {
-                instance_state
-                    .require_clip_matrix_mut()
-                    .load(matrix.clone())?;
+            if let Some(matrix_ref) = &self.clip_matrix {
+                use ClipMatrixRefData::*;
+                match matrix_ref {
+                    Owned(m) => {
+                        instance_state
+                            .get_or_insert_owned_clip_matrix()
+                            .load(m.clone())?;
+                    }
+                    BorrowedFromInstance(instance_id) => {
+                        let instance_id = InstanceId::from_string_cropping(instance_id);
+                        instance_state.borrow_clip_matrix_from_instance(instance_id);
+                    }
+                };
             } else if !self.clip_slots.is_empty() {
-                instance_state.require_clip_matrix_mut().load_legacy(
-                    self.clip_slots
-                        .iter()
-                        .map(|desc| LegacySlotDescriptor {
-                            output: self.determine_legacy_clip_track(desc.index),
-                            index: desc.index,
-                            clip: desc.descriptor.clone(),
-                        })
-                        .collect(),
-                )?;
+                instance_state
+                    .get_or_insert_owned_clip_matrix()
+                    .load_legacy(
+                        self.clip_slots
+                            .iter()
+                            .map(|desc| LegacySlotDescriptor {
+                                output: self.determine_legacy_clip_track(desc.index),
+                                index: desc.index,
+                                clip: desc.descriptor.clone(),
+                            })
+                            .collect(),
+                    )?;
             } else {
-                instance_state.shut_down_clip_matrix();
+                instance_state.remove_clip_matrix();
             }
             instance_state
                 .set_active_instance_tags_without_notification(self.active_instance_tags.clone());

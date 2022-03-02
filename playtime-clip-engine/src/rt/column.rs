@@ -108,7 +108,7 @@ impl ColumnCommandSender {
         self.send_source_task(ColumnCommand::StopClip(args));
     }
 
-    pub fn set_clip_repeated(&self, args: ColumnSetClipRepeatedArgs) {
+    pub fn set_clip_looped(&self, args: ColumnSetClipRepeatedArgs) {
         self.send_source_task(ColumnCommand::SetClipRepeated(args));
     }
 
@@ -181,7 +181,7 @@ impl EventSender for Sender<ColumnEvent> {
 #[derive(Clone, Debug, Default)]
 pub struct ColumnSettings {
     // TODO-low We could maybe also treat this like e.g. time stretch mode. Something that's
-    //  not always passed through the functions but updated whenever changed and popagated as effective
+    //  not always passed through the functions but updated whenever changed and propagated as effective
     //  timing to the clip. Let's see what turns out to be the more practical design.
     pub clip_play_start_timing: Option<ClipPlayStartTiming>,
     pub clip_play_stop_timing: Option<ClipPlayStopTiming>,
@@ -298,7 +298,7 @@ impl Column {
     }
 
     pub fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, args.slot_index).set_clip_repeated(args.repeated)
+        get_slot_mut_insert(&mut self.slots, args.slot_index).set_clip_repeated(args.looped)
     }
 
     pub fn clip_play_state(&self, index: usize) -> ClipEngineResult<ClipPlayState> {
@@ -665,7 +665,7 @@ pub struct ColumnSetClipVolumeArgs {
 #[derive(Debug)]
 pub struct ColumnSetClipRepeatedArgs {
     pub slot_index: usize,
-    pub repeated: bool,
+    pub looped: bool,
 }
 
 pub struct ColumnWithSlotArgs<'a> {

@@ -4,8 +4,9 @@ use crate::domain::{
     DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, EelTransformation,
     FeedbackOutput, FeedbackRealTimeTask, InstanceId, LifecycleMidiData, MainProcessor,
     MidiCaptureSender, MidiDeviceChangePayload, NormalRealTimeTask, OscDeviceId, OscInputDevice,
-    OscScanResult, RealTimeCompoundMappingTarget, RealTimeMapping, ReaperMessage, ReaperTarget,
-    SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
+    OscScanResult, QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget, RealTimeMapping,
+    ReaperMessage, ReaperTarget, SharedRealTimeProcessor, SourceFeedbackValue,
+    TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{ModeGarbage, RawMidiEvent};
@@ -32,6 +33,7 @@ type OscCaptureSender = async_channel::Sender<OscScanResult>;
 const CONTROL_SURFACE_MAIN_TASK_BULK_SIZE: usize = 10;
 const CONTROL_SURFACE_SERVER_TASK_BULK_SIZE: usize = 10;
 const ADDITIONAL_FEEDBACK_EVENT_BULK_SIZE: usize = 30;
+const CLIP_MATRIX_EVENT_BULK_SIZE: usize = 30;
 const INSTANCE_ORCHESTRATION_EVENT_BULK_SIZE: usize = 30;
 const OSC_INCOMING_BULK_SIZE: usize = 32;
 const GARBAGE_BULK_SIZE: usize = 100;
@@ -43,6 +45,7 @@ pub struct RealearnControlSurfaceMiddleware<EH: DomainEventHandler> {
     rx_middleware: ControlSurfaceRxMiddleware,
     main_processors: Vec<MainProcessor<EH>>,
     main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
+    clip_matrix_event_receiver: Receiver<QualifiedClipMatrixEvent>,
     server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
     additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
     instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
@@ -175,6 +178,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     pub fn new(
         parent_logger: &slog::Logger,
         main_task_receiver: Receiver<RealearnControlSurfaceMainTask<EH>>,
+        clip_matrix_event_receiver: Receiver<QualifiedClipMatrixEvent>,
         server_task_receiver: Receiver<RealearnControlSurfaceServerTask>,
         additional_feedback_event_receiver: Receiver<AdditionalFeedbackEvent>,
         instance_orchestration_event_receiver: Receiver<InstanceOrchestrationEvent>,
@@ -192,6 +196,7 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             rx_middleware: ControlSurfaceRxMiddleware::new(Global::control_surface_rx().clone()),
             main_processors: Default::default(),
             main_task_receiver,
+            clip_matrix_event_receiver,
             server_task_receiver,
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
@@ -254,6 +259,8 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         self.emit_beats_as_feedback_events();
         self.emit_device_changes_as_reaper_source_messages();
         self.process_incoming_osc_messages();
+        self.poll_clip_matrixes();
+        self.process_incoming_clip_matrix_events();
         self.run_main_processors();
         // // TODO-high-grpc Just an experiment
         // if let Some(t) = Reaper::get().current_project().first_track() {
@@ -340,11 +347,24 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
         }
     }
 
+    fn poll_clip_matrixes(&mut self) {
+        for p in &self.main_processors {
+            let events = p.poll_owned_clip_matrix();
+            if events.is_empty() {
+                continue;
+            }
+            for p in &self.main_processors {
+                p.process_clip_matrix_events(*p.instance_id(), &events);
+            }
+        }
+    }
+
     fn run_main_processors(&mut self) {
         match &self.state {
             State::Normal => {
                 for p in &mut self.main_processors {
-                    p.run_all();
+                    p.run_essential();
+                    p.run_control();
                 }
             }
             State::CapturingOsc(_) | State::LearningTarget(_) => {
@@ -372,6 +392,18 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
             }
             for p in &mut self.main_processors {
                 p.process_additional_feedback_event(&event)
+            }
+        }
+    }
+
+    fn process_incoming_clip_matrix_events(&mut self) {
+        for event in self
+            .clip_matrix_event_receiver
+            .try_iter()
+            .take(CLIP_MATRIX_EVENT_BULK_SIZE)
+        {
+            for p in &mut self.main_processors {
+                p.process_clip_matrix_event(&event);
             }
         }
     }

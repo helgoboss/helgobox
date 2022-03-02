@@ -22,8 +22,8 @@ use crate::application::{
 };
 use crate::base::when;
 use crate::domain::{
-    ControlInput, GroupId, MappingCompartment, MessageCaptureEvent, OscDeviceId, ReaperTarget,
-    COMPARTMENT_PARAMETER_COUNT,
+    ClipMatrixRef, ControlInput, GroupId, MappingCompartment, MessageCaptureEvent, OscDeviceId,
+    ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
@@ -1840,9 +1840,16 @@ impl HeaderPanel {
                 }
             }
             DataObject::ClipMatrix(Envelope { value }) => {
-                let old_matrix_label = match self.session().borrow().instance_state().borrow().clip_matrix() {
+                let old_matrix_label = match self.session().borrow().instance_state().borrow().clip_matrix_ref() {
                     None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
-                    Some(m) => get_clip_matrix_label(m.column_count()),
+                    Some(r) => match r {
+                        ClipMatrixRef::Owned(m) => {
+                            get_clip_matrix_label(m.column_count())
+                        }
+                        ClipMatrixRef::BorrowedFromInstance(instance_id) => {
+                            format!("clip matrix reference (to instance {})", instance_id)
+                        }
+                    },
                 };
                 let new_matrix_label = match &*value {
                     None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
@@ -1856,9 +1863,9 @@ impl HeaderPanel {
                     let session = session.borrow();
                     let mut instance_state = session.instance_state().borrow_mut();
                     if let Some(matrix) = *value {
-                        instance_state.require_clip_matrix_mut().load(matrix)?;
+                        instance_state.get_or_insert_owned_clip_matrix().load(matrix)?;
                     } else {
-                        instance_state.shut_down_clip_matrix();
+                        instance_state.remove_clip_matrix();
                     }
                 }
             }
@@ -2000,7 +2007,7 @@ impl HeaderPanel {
                     .borrow()
                     .instance_state()
                     .borrow()
-                    .clip_matrix()
+                    .owned_clip_matrix()
                     .map(|matrix| matrix.save());
                 let envelope = Envelope {
                     value: Box::new(matrix),

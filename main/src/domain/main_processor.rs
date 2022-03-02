@@ -1,19 +1,19 @@
 use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
-    CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
+    ClipMatrixRef, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlInput, ControlMode,
     DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
     FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
     FeedbackResolution, FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
-    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, MainMapping,
-    MainSourceMessage, MappingActivationEffect, MappingCompartment, MappingControlResult,
-    MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult, MidiDestination,
-    MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap, OscDeviceId,
-    OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedMappingId, QualifiedSource,
-    RealFeedbackValue, RealTimeSender, RealearnMonitoringFxParameterValueChangedEvent,
-    ReaperMessage, ReaperTarget, SharedInstanceState, SmallAsciiString, SourceFeedbackValue,
-    SourceReleasedEvent, SpecificCompoundFeedbackValue, TargetValueChangedEvent,
-    UpdatedSingleMappingOnStateEvent, VirtualSourceValue,
+    InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, LimitedAsciiString,
+    MainMapping, MainSourceMessage, MappingActivationEffect, MappingCompartment,
+    MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult,
+    MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap,
+    OscDeviceId, OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedClipMatrixEvent,
+    QualifiedMappingId, QualifiedSource, RealFeedbackValue, RealTimeSender,
+    RealearnMonitoringFxParameterValueChangedEvent, ReaperMessage, ReaperTarget,
+    SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, SpecificCompoundFeedbackValue,
+    TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -31,7 +31,8 @@ use crate::domain::ui_util::{
 };
 use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_midi::{ControlChange14BitMessage, ParameterNumberMessage, RawShortMessage};
-use playtime_clip_engine::rt::ClipChangedEvent;
+use playtime_clip_engine::main::ClipMatrixEvent;
+use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
 use playtime_clip_engine::{clip_timeline, Timeline};
 use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
@@ -368,18 +369,12 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         );
     }
 
-    /// This should be regularly called by the control surface in normal mode.
-    pub fn run_all(&mut self) {
-        self.run_essential();
-        self.run_control();
-    }
-
     /// Processes control tasks coming from the real-time processor.
     ///
     /// This should *not* be called by the control surface when it's globally learning targets
     /// because we want to pause controlling in that case! Otherwise we could control targets and
     /// they would be learned although not touched via mouse, that's not good.
-    fn run_control(&mut self) {
+    pub fn run_control(&mut self) {
         // Collect control tasks (we do that in any case to not let get channels full).
         // TODO-high Collecting into a vec is actually not necessary because we can just use
         //  self.receiver.try_recv().ok() (just like the iterator itself).
@@ -550,9 +545,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         self.process_normal_tasks_from_session();
         self.process_parameter_tasks();
         self.process_feedback_tasks();
-        self.poll_clip_slots();
         self.process_instance_feedback_events();
-        self.poll_for_feedback()
+        self.poll_for_feedback();
     }
 
     /// This goes through all mappings that returned "high" feedback resolution - which they do if
@@ -663,59 +657,90 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn poll_clip_slots(&mut self) {
-        // TODO-medium This is polled on each main loop cycle. As soon as we have more than 8 slots,
-        //  We should introduce a set that contains the currently filled or playing slot numbers
-        //  iterate over them only instead of all slots.
+    /// Polls the clip matrix of this ReaLearn instance, if existing and only if it's an owned one
+    /// (not borrowed from another instance).
+    pub fn poll_owned_clip_matrix(&self) -> Vec<ClipMatrixEvent> {
         let mut instance_state = self.basics.instance_state.borrow_mut();
+        let matrix = match instance_state.clip_matrix_ref_mut() {
+            Some(ClipMatrixRef::Owned(m)) => m,
+            _ => return vec![],
+        };
         let timeline = clip_timeline(self.basics.context.project(), false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
-        for (slot_coordinates, event) in instance_state
-            .require_clip_matrix_mut()
-            .poll(timeline_tempo)
-            .into_iter()
+        matrix.poll(timeline_tempo)
+    }
+
+    /// Processes the given clip matrix events if they are relevant to this instance.
+    pub fn process_clip_matrix_events(&self, instance_id: InstanceId, events: &[ClipMatrixEvent]) {
+        if !self
+            .basics
+            .instance_state
+            .borrow()
+            .is_interested_in_clip_matrix_events_from(instance_id)
         {
-            let is_position_change = matches!(&event, ClipChangedEvent::ClipPosition(_));
-            let instance_event = InstanceStateChanged::Clip {
-                slot_coordinates,
-                event,
-            };
-            if is_position_change {
-                // Position changed. This happens very frequently when a clip is playing.
-                // Mappings with slot seek targets are in the beat-dependent feedback
-                // mapping set, not in the milli-dependent one (because we don't want to
-                // query their feedback value more than once in one main loop cycle).
-                // So we don't want to iterate over all mappings but just the beat-dependent
-                // ones.
-                for compartment in MappingCompartment::enum_iter() {
-                    for mapping_id in
-                        self.collections.beat_dependent_feedback_mappings[compartment].iter()
-                    {
-                        if let Some(m) = self.collections.mappings[compartment].get(mapping_id) {
-                            self.process_feedback_related_reaper_event_for_mapping(
-                                m,
-                                &mut |m, target| {
-                                    m.process_change_event(
-                                        target,
-                                        CompoundChangeEvent::Instance(&instance_event),
-                                        self.basics.control_context(),
-                                    )
-                                },
-                            );
-                        }
+            return;
+        }
+        for event in events {
+            self.process_clip_matrix_event_internal(event);
+        }
+    }
+
+    /// Processes the given clip matrix event if it's relevant to this instance.
+    pub fn process_clip_matrix_event(&self, event: &QualifiedClipMatrixEvent) {
+        if !self
+            .basics
+            .instance_state
+            .borrow()
+            .is_interested_in_clip_matrix_events_from(event.instance_id)
+        {
+            return;
+        }
+        self.process_clip_matrix_event_internal(&event.event)
+    }
+
+    fn process_clip_matrix_event_internal(&self, event: &ClipMatrixEvent) {
+        let is_position_change = matches!(
+            event,
+            ClipMatrixEvent::ClipChanged(QualifiedClipChangedEvent {
+                event: ClipChangedEvent::ClipPosition(_),
+                ..
+            })
+        );
+        if is_position_change {
+            // Position changed. This happens very frequently when a clip is playing.
+            // Mappings with slot seek targets are in the beat-dependent feedback
+            // mapping set, not in the milli-dependent one (because we don't want to
+            // query their feedback value more than once in one main loop cycle).
+            // So we don't want to iterate over all mappings but just the beat-dependent
+            // ones.
+            for compartment in MappingCompartment::enum_iter() {
+                for mapping_id in
+                    self.collections.beat_dependent_feedback_mappings[compartment].iter()
+                {
+                    if let Some(m) = self.collections.mappings[compartment].get(mapping_id) {
+                        self.process_feedback_related_reaper_event_for_mapping(
+                            m,
+                            &mut |m, target| {
+                                m.process_change_event(
+                                    target,
+                                    CompoundChangeEvent::ClipMatrix(event),
+                                    self.basics.control_context(),
+                                )
+                            },
+                        );
                     }
                 }
-            } else {
-                // Other property of clip changed.
-                self.process_feedback_related_reaper_event(|mapping, target| {
-                    mapping.process_change_event(
-                        target,
-                        CompoundChangeEvent::Instance(&instance_event),
-                        self.basics.control_context(),
-                    )
-                });
             }
+        } else {
+            // Other property of clip changed.
+            self.process_feedback_related_reaper_event(|mapping, target| {
+                mapping.process_change_event(
+                    target,
+                    CompoundChangeEvent::ClipMatrix(event),
+                    self.basics.control_context(),
+                )
+            });
         }
     }
 
@@ -3010,7 +3035,7 @@ fn get_normal_or_virtual_target_mapping_mut<'a>(
 // of implementing Display in a way that outputs something like nanoid! because this will be used
 // as the initial session ID - which should be a bit more human-friendly than UUIDs.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Hash)]
-pub struct InstanceId(SmallAsciiString);
+pub struct InstanceId(LimitedAsciiString<INSTANCE_ID_LENGTH>);
 
 impl fmt::Display for InstanceId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -3018,14 +3043,20 @@ impl fmt::Display for InstanceId {
     }
 }
 
+const INSTANCE_ID_LENGTH: usize = 8;
+
 impl InstanceId {
     pub fn random() -> Self {
-        let instance_id = nanoid::nanoid!(8);
+        let instance_id = nanoid::nanoid!(INSTANCE_ID_LENGTH);
+        Self::from_string_cropping(&instance_id)
+    }
+
+    pub fn from_string_cropping(instance_id: &str) -> Self {
         let ascii_string: AsciiString = instance_id
             .chars()
             .filter_map(|c| c.to_ascii_char().ok())
             .collect();
-        Self(SmallAsciiString::from_ascii_str_cropping(&ascii_string))
+        Self(LimitedAsciiString::from_ascii_str_cropping(&ascii_string))
     }
 }
 

@@ -3,7 +3,7 @@ use crate::conversion_util::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
     convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
 };
-use crate::main::{ClipContent, ClipData};
+use crate::main::{ClipContent, ClipData, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
     AudioSupplier, LoopBehavior, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
@@ -1846,8 +1846,14 @@ impl Default for ClipPlayState {
 pub enum ClipChangedEvent {
     PlayState(ClipPlayState),
     ClipVolume(ReaperVolumeValue),
-    ClipRepeat(bool),
+    ClipLooped(bool),
     ClipPosition(UnitValue),
+}
+
+#[derive(Debug)]
+pub struct QualifiedClipChangedEvent {
+    pub slot_coordinates: ClipSlotCoordinates,
+    pub event: ClipChangedEvent,
 }
 
 pub struct PlayOutcome {

@@ -237,45 +237,39 @@ impl Column {
         change_events
     }
 
-    pub fn play_clip(&mut self, args: ColumnPlayClipArgs) {
+    pub fn play_clip(&self, args: ColumnPlayClipArgs) {
         self.rt_command_sender.play_clip(args);
     }
 
-    pub fn stop_clip(&mut self, args: ColumnStopClipArgs) {
+    pub fn stop_clip(&self, args: ColumnStopClipArgs) {
         self.rt_command_sender.stop_clip(args);
     }
 
-    pub fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) {
-        self.rt_command_sender.set_clip_repeated(args);
+    pub fn set_clip_looped(&self, args: ColumnSetClipRepeatedArgs) {
+        self.rt_command_sender.set_clip_looped(args);
     }
 
-    pub fn pause_clip(&mut self, slot_index: usize) {
+    pub fn pause_clip(&self, slot_index: usize) {
         self.rt_command_sender.pause_clip(slot_index);
     }
 
-    pub fn seek_clip(&mut self, slot_index: usize, desired_pos: UnitValue) {
+    pub fn seek_clip(&self, slot_index: usize, desired_pos: UnitValue) {
         self.rt_command_sender.seek_clip(slot_index, desired_pos);
     }
 
-    pub fn set_clip_volume(&mut self, slot_index: usize, volume: ReaperVolumeValue) {
+    pub fn set_clip_volume(&self, slot_index: usize, volume: ReaperVolumeValue) {
         self.rt_command_sender.set_clip_volume(slot_index, volume);
     }
 
-    pub fn toggle_clip_repeated(
-        &mut self,
-        slot_index: usize,
-    ) -> ClipEngineResult<ClipChangedEvent> {
+    pub fn toggle_clip_looped(&mut self, slot_index: usize) -> ClipEngineResult<ClipChangedEvent> {
         let clip = get_slot_mut(&mut self.slots, slot_index)
             .clip
             .as_mut()
             .ok_or("no clip")?;
-        let repeated = clip.toggle_looped();
-        let args = ColumnSetClipRepeatedArgs {
-            slot_index,
-            repeated,
-        };
-        self.set_clip_repeated(args);
-        Ok(ClipChangedEvent::ClipRepeat(repeated))
+        let looped = clip.toggle_looped();
+        let args = ColumnSetClipRepeatedArgs { slot_index, looped };
+        self.set_clip_looped(args);
+        Ok(ClipChangedEvent::ClipLooped(looped))
     }
 
     pub fn clip_data(&self, slot_index: usize) -> Option<ClipData> {

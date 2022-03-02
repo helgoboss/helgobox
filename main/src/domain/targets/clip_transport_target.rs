@@ -1,15 +1,15 @@
 use crate::domain::{
     clip_play_state_unit_value, format_value_as_on_off, transport_is_enabled_unit_value,
-    CompoundChangeEvent, ControlContext, ExtendedProcessorContext, HitInstructionReturnValue,
-    InstanceStateChanged, MappingCompartment, MappingControlContext, RealTimeControlContext,
+    BackboneState, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
+    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealTimeControlContext,
     RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
     TargetTypeDef, TransportAction, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_clip_engine::main::{
-    ClipRecordTiming, ClipSlotCoordinates, RecordArgs, RecordKind, SlotPlayOptions,
+    ClipMatrixEvent, ClipRecordTiming, ClipSlotCoordinates, RecordArgs, RecordKind, SlotPlayOptions,
 };
-use playtime_clip_engine::rt::ClipChangedEvent;
+use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
 use playtime_clip_engine::{clip_timeline, Timeline};
 use reaper_high::Project;
 
@@ -69,61 +69,64 @@ impl RealearnTarget for ClipTransportTarget {
     ) -> Result<HitInstructionReturnValue, &'static str> {
         use TransportAction::*;
         let on = value.is_on();
-        let mut instance_state = context.control_context.instance_state.borrow_mut();
-        let clip_matrix = instance_state.require_clip_matrix_mut();
-        match self.basics.action {
-            PlayStop => {
-                if on {
-                    clip_matrix.play_clip(self.basics.slot_coordinates)?;
-                } else {
-                    clip_matrix.stop_clip(self.basics.slot_coordinates)?;
-                }
-            }
-            PlayPause => {
-                if on {
-                    clip_matrix.play_clip(self.basics.slot_coordinates)?;
-                } else {
-                    clip_matrix.pause_clip_legacy(self.basics.slot_coordinates)?;
-                }
-            }
-            Stop => {
-                if on {
-                    clip_matrix.stop_clip(self.basics.slot_coordinates)?;
-                }
-            }
-            Pause => {
-                if on {
-                    clip_matrix.pause_clip_legacy(self.basics.slot_coordinates)?;
-                }
-            }
-            RecordStop => {
-                if on {
-                    let timing = {
-                        let timeline = clip_timeline(Some(self.project), false);
-                        let next_bar = timeline.next_bar_at(timeline.cursor_pos());
-                        ClipRecordTiming::StartOnBarStopOnDemand {
-                            start_bar: next_bar,
+        BackboneState::get().with_clip_matrix_mut(
+            context.control_context.instance_state,
+            |matrix| {
+                match self.basics.action {
+                    PlayStop => {
+                        if on {
+                            matrix.play_clip(self.basics.slot_coordinates)?;
+                        } else {
+                            matrix.stop_clip(self.basics.slot_coordinates)?;
                         }
-                    };
-                    clip_matrix.record_clip_legacy(
-                        self.basics.slot_coordinates,
-                        RecordArgs {
-                            kind: RecordKind::Normal {
-                                play_after: true,
-                                timing,
-                                detect_downbeat: true,
-                            },
-                        },
-                    )?;
-                } else {
-                    clip_matrix.stop_clip(self.basics.slot_coordinates)?;
-                }
-            }
-            Repeat => {
-                clip_matrix.toggle_repeat_legacy(self.basics.slot_coordinates)?;
-            }
-        };
-        Ok(None)
+                    }
+                    PlayPause => {
+                        if on {
+                            matrix.play_clip(self.basics.slot_coordinates)?;
+                        } else {
+                            matrix.pause_clip_legacy(self.basics.slot_coordinates)?;
+                        }
+                    }
+                    Stop => {
+                        if on {
+                            matrix.stop_clip(self.basics.slot_coordinates)?;
+                        }
+                    }
+                    Pause => {
+                        if on {
+                            matrix.pause_clip_legacy(self.basics.slot_coordinates)?;
+                        }
+                    }
+                    RecordStop => {
+                        if on {
+                            let timing = {
+                                let timeline = clip_timeline(Some(self.project), false);
+                                let next_bar = timeline.next_bar_at(timeline.cursor_pos());
+                                ClipRecordTiming::StartOnBarStopOnDemand {
+                                    start_bar: next_bar,
+                                }
+                            };
+                            matrix.record_clip_legacy(
+                                self.basics.slot_coordinates,
+                                RecordArgs {
+                                    kind: RecordKind::Normal {
+                                        play_after: true,
+                                        timing,
+                                        detect_downbeat: true,
+                                    },
+                                },
+                            )?;
+                        } else {
+                            matrix.stop_clip(self.basics.slot_coordinates)?;
+                        }
+                    }
+                    Repeat => {
+                        matrix.toggle_looped(self.basics.slot_coordinates)?;
+                    }
+                };
+                Ok(None)
+            },
+        )?
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
@@ -142,11 +145,13 @@ impl RealearnTarget for ClipTransportTarget {
         _: ControlContext,
     ) -> (bool, Option<AbsoluteValue>) {
         match evt {
-            CompoundChangeEvent::Instance(InstanceStateChanged::AllClips) => (true, None),
-            CompoundChangeEvent::Instance(InstanceStateChanged::Clip {
-                slot_coordinates: sc,
-                event,
-            }) if *sc == self.basics.slot_coordinates => {
+            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::AllClipsChanged) => (true, None),
+            CompoundChangeEvent::ClipMatrix(ClipMatrixEvent::ClipChanged(
+                QualifiedClipChangedEvent {
+                    slot_coordinates: sc,
+                    event,
+                },
+            )) if *sc == self.basics.slot_coordinates => {
                 use TransportAction::*;
                 match self.basics.action {
                     PlayStop | PlayPause | Stop | Pause | RecordStop => match event {
@@ -157,7 +162,7 @@ impl RealearnTarget for ClipTransportTarget {
                         _ => (false, None),
                     },
                     Repeat => match event {
-                        ClipChangedEvent::ClipRepeat(new_state) => (
+                        ClipChangedEvent::ClipLooped(new_state) => (
                             true,
                             Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
                                 *new_state,
@@ -197,23 +202,22 @@ impl<'a> Target<'a> for ClipTransportTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        let instance_state = context.instance_state.borrow();
-        use TransportAction::*;
-        let val = match self.basics.action {
-            PlayStop | PlayPause | Stop | Pause | RecordStop => {
-                let play_state = instance_state
-                    .clip_matrix()?
-                    .clip_play_state(self.basics.slot_coordinates)?;
-                clip_play_state_unit_value(self.basics.action, play_state)
-            }
-            Repeat => {
-                let is_looped = instance_state
-                    .clip_matrix()?
-                    .clip_repeated(self.basics.slot_coordinates)?;
-                transport_is_enabled_unit_value(is_looped)
-            }
-        };
-        Some(AbsoluteValue::Continuous(val))
+        BackboneState::get()
+            .with_clip_matrix(context.instance_state, |matrix| {
+                use TransportAction::*;
+                let val = match self.basics.action {
+                    PlayStop | PlayPause | Stop | Pause | RecordStop => {
+                        let play_state = matrix.clip_play_state(self.basics.slot_coordinates)?;
+                        clip_play_state_unit_value(self.basics.action, play_state)
+                    }
+                    Repeat => {
+                        let is_looped = matrix.clip_repeated(self.basics.slot_coordinates)?;
+                        transport_is_enabled_unit_value(is_looped)
+                    }
+                };
+                Some(AbsoluteValue::Continuous(val))
+            })
+            .ok()?
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

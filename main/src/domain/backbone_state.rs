@@ -1,10 +1,14 @@
 use crate::domain::{
-    ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput, InstanceId,
-    RealearnTargetContext, ReaperTarget,
+    ClipMatrixRef, ControlInput, DeviceControlInput, DeviceFeedbackOutput, FeedbackOutput,
+    InstanceId, InstanceState, InstanceStateChanged, NormalAudioHookTask, NormalRealTimeTask,
+    QualifiedClipMatrixEvent, RealTimeSender, RealearnClipMatrix, RealearnTargetContext,
+    ReaperTarget, SharedInstanceState, WeakInstanceState,
 };
+use reaper_high::Track;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+use std::rc::Rc;
 
 make_available_globally_in_main_thread_on_demand!(BackboneState);
 
@@ -18,6 +22,10 @@ pub struct BackboneState {
     /// Value: Instance ID of the ReaLearn instance that owns the feedback output.
     feedback_output_usages: RefCell<HashMap<DeviceFeedbackOutput, HashSet<InstanceId>>>,
     upper_floor_instances: RefCell<HashSet<InstanceId>>,
+    /// We hold pointers to the instance state of all ReaLearn instances in order to let instance B
+    /// borrow a clip matrix which is owned by instance A. This is great because it allows us to
+    /// control the same clip matrix from different controllers.
+    instance_states: RefCell<HashMap<InstanceId, WeakInstanceState>>,
     server_event_sender: tokio::sync::broadcast::Sender<ServerEventType>,
 }
 
@@ -31,6 +39,7 @@ impl BackboneState {
             control_input_usages: Default::default(),
             feedback_output_usages: Default::default(),
             upper_floor_instances: Default::default(),
+            instance_states: Default::default(),
             server_event_sender: tokio::sync::broadcast::channel(1000).0,
         }
     }
@@ -57,6 +66,109 @@ impl BackboneState {
 
     pub fn remove_from_upper_floor(&self, instance_id: &InstanceId) {
         self.upper_floor_instances.borrow_mut().remove(instance_id);
+    }
+
+    pub fn create_instance(
+        &self,
+        id: InstanceId,
+        instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
+        clip_matrix_event_sender: crossbeam_channel::Sender<QualifiedClipMatrixEvent>,
+        audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
+        real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
+        this_track: Option<Track>,
+    ) -> SharedInstanceState {
+        let instance_state = InstanceState::new(
+            id,
+            instance_feedback_event_sender,
+            clip_matrix_event_sender,
+            audio_hook_task_sender,
+            real_time_processor_sender,
+            this_track,
+        );
+        let shared_instance_state = Rc::new(RefCell::new(instance_state));
+        self.instance_states
+            .borrow_mut()
+            .insert(id, Rc::downgrade(&shared_instance_state));
+        shared_instance_state
+    }
+
+    /// Grants immutable access to the clip matrix defined for the given ReaLearn instance,
+    /// if one is defined.
+    ///
+    /// In case the given ReaLearn instance is configured to borrow the clip matrix from another
+    /// referenced instance, the provided matrix will be the one from that other instance.
+    ///
+    /// Provides `None` in the following cases:
+    ///
+    /// - The given instance doesn't have any clip matrix defined.
+    /// - The referenced instance doesn't exist.
+    /// - The referenced instance exists but has no clip matrix defined.   
+    pub fn with_clip_matrix<R>(
+        &self,
+        instance_state: &SharedInstanceState,
+        f: impl FnOnce(&RealearnClipMatrix) -> R,
+    ) -> Result<R, &'static str> {
+        use ClipMatrixRef::*;
+        let other_instance_id = match instance_state
+            .borrow()
+            .clip_matrix_ref()
+            .ok_or(NO_CLIP_MATRIX_SET)?
+        {
+            Owned(m) => return Ok(f(m)),
+            BorrowedFromInstance(instance_id) => *instance_id,
+        };
+        let other_instance_state = self
+            .instance_states
+            .borrow()
+            .get(&other_instance_id)
+            .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?
+            .upgrade()
+            .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?;
+        let other_instance_state = other_instance_state.borrow();
+        match other_instance_state
+            .clip_matrix_ref()
+            .ok_or(REFERENCED_CLIP_MATRIX_NOT_AVAILABLE)?
+        {
+            Owned(m) => Ok(f(m)),
+            BorrowedFromInstance(_) => Err(NESTED_CLIP_BORROW_NOT_SUPPORTED),
+        }
+    }
+
+    /// Grants mutable access to the clip matrix defined for the given ReaLearn instance,
+    /// if one is defined.
+    pub fn with_clip_matrix_mut<R>(
+        &self,
+        instance_state: &SharedInstanceState,
+        f: impl FnOnce(&mut RealearnClipMatrix) -> R,
+    ) -> Result<R, &'static str> {
+        use ClipMatrixRef::*;
+        let other_instance_id = match instance_state
+            .borrow_mut()
+            .clip_matrix_ref_mut()
+            .ok_or(NO_CLIP_MATRIX_SET)?
+        {
+            Owned(m) => return Ok(f(m)),
+            BorrowedFromInstance(instance_id) => *instance_id,
+        };
+        let other_instance_state = self
+            .instance_states
+            .borrow()
+            .get(&other_instance_id)
+            .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?
+            .upgrade()
+            .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?;
+        let mut other_instance_state = other_instance_state.borrow_mut();
+        match other_instance_state
+            .clip_matrix_ref_mut()
+            .ok_or(REFERENCED_CLIP_MATRIX_NOT_AVAILABLE)?
+        {
+            Owned(m) => Ok(f(m)),
+            BorrowedFromInstance(_) => Err(NESTED_CLIP_BORROW_NOT_SUPPORTED),
+        }
+    }
+
+    pub(super) fn unregister_instance_state(&self, id: &InstanceId) {
+        self.instance_states.borrow_mut().remove(id);
     }
 
     pub fn control_is_allowed(
@@ -159,3 +271,8 @@ fn update_io_usage<D: Eq + Hash + Copy>(
     }
     device != previously_used_device
 }
+
+const NO_CLIP_MATRIX_SET: &str = "no clip matrix set for this instance";
+const REFERENCED_INSTANCE_NOT_AVAILABLE: &str = "other instance not available";
+const REFERENCED_CLIP_MATRIX_NOT_AVAILABLE: &str = "clip matrix of other instance not available";
+const NESTED_CLIP_BORROW_NOT_SUPPORTED: &str = "clip matrix of other instance also borrows";

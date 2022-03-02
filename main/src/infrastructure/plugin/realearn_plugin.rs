@@ -5,7 +5,7 @@ use vst::plugin::{CanDo, Category, HostCallback, Info, Plugin, PluginParameters}
 use super::RealearnEditor;
 use crate::base::Global;
 use crate::domain::{
-    ControlMainTask, Event, FeedbackRealTimeTask, InstanceId, InstanceState, MainProcessor,
+    BackboneState, ControlMainTask, Event, FeedbackRealTimeTask, InstanceId, MainProcessor,
     NormalMainTask, NormalRealTimeToMainThreadTask, ParameterMainTask, ProcessorContext,
     RealTimeProcessorLocker, RealTimeSender, SharedRealTimeProcessor, PLUGIN_PARAMETER_COUNT,
 };
@@ -341,12 +341,14 @@ impl RealearnPlugin {
                 // Instance state (domain - shared)
                 let (instance_feedback_event_sender, instance_feedback_event_receiver) =
                     crossbeam_channel::bounded(INSTANCE_FEEDBACK_EVENT_QUEUE_SIZE);
-                let instance_state = Rc::new(RefCell::new(InstanceState::new(
+                let instance_state = BackboneState::get().create_instance(
+                    instance_id,
                     instance_feedback_event_sender,
+                    App::get().clip_matrix_event_sender().clone(),
                     App::get().normal_audio_hook_task_sender().clone(),
                     normal_real_time_task_sender.clone(),
                     processor_context.track().cloned(),
-                )));
+                );
                 // Session (application - shared)
                 let session = Session::new(
                     instance_id,

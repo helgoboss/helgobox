@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use enum_map::EnumMap;
 use reaper_high::Track;
@@ -8,13 +8,14 @@ use rxrust::prelude::*;
 
 use crate::base::Prop;
 use crate::domain::{
-    GroupId, MappingCompartment, MappingId, NormalAudioHookTask, NormalRealTimeTask,
-    QualifiedMappingId, RealTimeSender, Tag,
+    BackboneState, GroupId, InstanceId, MappingCompartment, MappingId, NormalAudioHookTask,
+    NormalRealTimeTask, QualifiedMappingId, RealTimeSender, Tag,
 };
-use playtime_clip_engine::main::{ClipMatrixHandler, ClipRecordTask, ClipSlotCoordinates, Matrix};
-use playtime_clip_engine::rt::ClipChangedEvent;
+use playtime_clip_engine::main::{ClipMatrixEvent, ClipMatrixHandler, ClipRecordTask, Matrix};
+use playtime_clip_engine::rt;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
+pub type WeakInstanceState = Weak<RefCell<InstanceState>>;
 
 pub type RealearnClipMatrix = Matrix<RealearnClipMatrixHandler>;
 
@@ -22,8 +23,10 @@ pub type RealearnClipMatrix = Matrix<RealearnClipMatrixHandler>;
 /// processing layer (otherwise it could reside in the main processor).
 #[derive(Debug)]
 pub struct InstanceState {
-    clip_matrix: Option<RealearnClipMatrix>,
+    instance_id: InstanceId,
+    clip_matrix_ref: Option<ClipMatrixRef>,
     instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
+    clip_matrix_event_sender: crossbeam_channel::Sender<QualifiedClipMatrixEvent>,
     audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
     real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
     this_track: Option<Track>,
@@ -65,19 +68,34 @@ pub struct InstanceState {
 }
 
 #[derive(Debug)]
+pub enum ClipMatrixRef {
+    Owned(RealearnClipMatrix),
+    BorrowedFromInstance(InstanceId),
+}
+
+#[derive(Debug)]
 pub struct RealearnClipMatrixHandler {
+    instance_id: InstanceId,
     audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
-    instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
+    event_sender: crossbeam_channel::Sender<QualifiedClipMatrixEvent>,
+}
+
+#[derive(Debug)]
+pub struct QualifiedClipMatrixEvent {
+    pub instance_id: InstanceId,
+    pub event: ClipMatrixEvent,
 }
 
 impl RealearnClipMatrixHandler {
     fn new(
+        instance_id: InstanceId,
         audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
-        instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
+        event_sender: crossbeam_channel::Sender<QualifiedClipMatrixEvent>,
     ) -> Self {
         Self {
+            instance_id,
             audio_hook_task_sender,
-            instance_feedback_event_sender,
+            event_sender,
         }
     }
 }
@@ -89,18 +107,12 @@ impl ClipMatrixHandler for RealearnClipMatrixHandler {
             .unwrap()
     }
 
-    fn notify_slot_contents_changed(&mut self) {
-        self.instance_feedback_event_sender
-            .try_send(InstanceStateChanged::AllClips)
-            .unwrap();
-    }
-
-    fn notify_clip_changed(&self, slot_coordinates: ClipSlotCoordinates, event: ClipChangedEvent) {
-        let event = InstanceStateChanged::Clip {
-            slot_coordinates,
+    fn emit_event(&self, event: ClipMatrixEvent) {
+        let event = QualifiedClipMatrixEvent {
+            instance_id: self.instance_id,
             event,
         };
-        self.instance_feedback_event_sender.try_send(event).unwrap();
+        self.event_sender.try_send(event).unwrap();
     }
 }
 
@@ -110,15 +122,19 @@ pub struct MappingInfo {
 }
 
 impl InstanceState {
-    pub fn new(
+    pub(super) fn new(
+        instance_id: InstanceId,
         instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
+        clip_matrix_event_sender: crossbeam_channel::Sender<QualifiedClipMatrixEvent>,
         audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
         real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
         this_track: Option<Track>,
     ) -> Self {
         Self {
-            clip_matrix: None,
+            instance_id,
+            clip_matrix_ref: None,
             instance_feedback_event_sender,
+            clip_matrix_event_sender,
             audio_hook_task_sender,
             real_time_processor_sender,
             this_track,
@@ -132,36 +148,95 @@ impl InstanceState {
         }
     }
 
-    pub fn clip_matrix(&self) -> Option<&RealearnClipMatrix> {
-        self.clip_matrix.as_ref()
+    pub fn is_interested_in_clip_matrix_events_from(&self, instance_id: InstanceId) -> bool {
+        use ClipMatrixRef::*;
+        let our_instance_id = match self.clip_matrix_ref {
+            None => return false,
+            Some(Owned(_)) => self.instance_id,
+            Some(BorrowedFromInstance(id)) => id,
+        };
+        instance_id == our_instance_id
     }
 
-    pub fn require_clip_matrix_mut(&mut self) -> &mut RealearnClipMatrix {
-        self.init_clip_matrix_if_necessary();
-        self.clip_matrix
-            .as_mut()
-            .expect("clip matrix not filled yet")
+    pub fn owned_clip_matrix(&self) -> Option<&RealearnClipMatrix> {
+        use ClipMatrixRef::*;
+        match self.clip_matrix_ref.as_ref()? {
+            Owned(m) => Some(m),
+            BorrowedFromInstance(_) => None,
+        }
     }
 
-    pub fn shut_down_clip_matrix(&mut self) {
-        tracing_debug!("Shut down clip matrix");
-        self.real_time_processor_sender
-            .send(NormalRealTimeTask::SetClipMatrix(None))
-            .unwrap();
-        self.clip_matrix = None;
+    pub fn owned_clip_matrix_mut(&mut self) -> Option<&mut RealearnClipMatrix> {
+        use ClipMatrixRef::*;
+        match self.clip_matrix_ref.as_mut()? {
+            Owned(m) => Some(m),
+            BorrowedFromInstance(_) => None,
+        }
     }
 
-    fn init_clip_matrix_if_necessary(&mut self) {
-        if self.clip_matrix.is_some() {
+    pub fn clip_matrix_ref(&self) -> Option<&ClipMatrixRef> {
+        self.clip_matrix_ref.as_ref()
+    }
+
+    pub fn clip_matrix_ref_mut(&mut self) -> Option<&mut ClipMatrixRef> {
+        self.clip_matrix_ref.as_mut()
+    }
+
+    /// Returns and - if necessary - installs an owned clip matrix.
+    ///
+    /// If this instance already contains an owned clip matrix, returns it. If not, creates
+    /// and installs one, removing a possibly existing foreign matrix reference.
+    pub fn get_or_insert_owned_clip_matrix(&mut self) -> &mut RealearnClipMatrix {
+        self.create_and_install_owned_clip_matrix_if_necessary();
+        self.owned_clip_matrix_mut().unwrap()
+    }
+
+    /// Removes the current matrix/reference (if any) and sets a new reference.
+    pub fn borrow_clip_matrix_from_instance(&mut self, instance_id: InstanceId) {
+        self.set_clip_matrix_ref(Some(ClipMatrixRef::BorrowedFromInstance(instance_id)));
+    }
+
+    /// Removes the clip matrix from this instance if one is set.
+    ///
+    /// If this instance owns a matrix, it shuts it down. If it just refers to one, it removes
+    /// the reference.
+    pub fn remove_clip_matrix(&mut self) {
+        self.set_clip_matrix_ref(None);
+    }
+
+    fn create_and_install_owned_clip_matrix_if_necessary(&mut self) {
+        if matches!(self.clip_matrix_ref.as_ref(), Some(ClipMatrixRef::Owned(_))) {
             return;
         }
-        let clip_matrix = init_clip_matrix(
+        let (matrix, rt_matrix) = self.create_owned_clip_matrix();
+        self.install_owned_clip_matrix(matrix, rt_matrix)
+    }
+
+    fn create_owned_clip_matrix(&self) -> (RealearnClipMatrix, rt::Matrix) {
+        let clip_matrix_handler = RealearnClipMatrixHandler::new(
+            self.instance_id,
             self.audio_hook_task_sender.clone(),
-            self.real_time_processor_sender.clone(),
-            self.instance_feedback_event_sender.clone(),
-            self.this_track.clone(),
+            self.clip_matrix_event_sender.clone(),
         );
-        self.clip_matrix = Some(clip_matrix);
+        Matrix::new(clip_matrix_handler, self.this_track.clone())
+    }
+
+    fn install_owned_clip_matrix(&mut self, matrix: RealearnClipMatrix, rt_matrix: rt::Matrix) {
+        // TODO-high CONTINUE The real-time matrix needs to be distributed from now on.
+        self.real_time_processor_sender
+            .send(NormalRealTimeTask::SetClipMatrix(Some(rt_matrix)))
+            .unwrap();
+        self.set_clip_matrix_ref(Some(ClipMatrixRef::Owned(matrix)));
+    }
+
+    fn set_clip_matrix_ref(&mut self, matrix_ref: Option<ClipMatrixRef>) {
+        if self.clip_matrix_ref.is_some() {
+            tracing_debug!("Shutdown existing clip matrix or remove reference to clip matrix of other instance");
+            self.real_time_processor_sender
+                .send(NormalRealTimeTask::SetClipMatrix(None))
+                .unwrap();
+        }
+        self.clip_matrix_ref = matrix_ref;
     }
 
     pub fn slot_contents_changed(
@@ -364,13 +439,14 @@ impl InstanceState {
     }
 }
 
+impl Drop for InstanceState {
+    fn drop(&mut self) {
+        BackboneState::get().unregister_instance_state(&self.instance_id);
+    }
+}
+
 #[derive(Debug)]
 pub enum InstanceStateChanged {
-    Clip {
-        slot_coordinates: ClipSlotCoordinates,
-        event: ClipChangedEvent,
-    },
-    AllClips,
     ActiveMappingWithinGroup {
         compartment: MappingCompartment,
         group_id: GroupId,
@@ -380,19 +456,4 @@ pub enum InstanceStateChanged {
         compartment: MappingCompartment,
     },
     ActiveInstanceTags,
-}
-
-fn init_clip_matrix(
-    audio_hook_task_sender: RealTimeSender<NormalAudioHookTask>,
-    real_time_processor_sender: RealTimeSender<NormalRealTimeTask>,
-    instance_feedback_event_sender: crossbeam_channel::Sender<InstanceStateChanged>,
-    this_track: Option<Track>,
-) -> RealearnClipMatrix {
-    let clip_matrix_handler =
-        RealearnClipMatrixHandler::new(audio_hook_task_sender, instance_feedback_event_sender);
-    let (matrix, real_time_matrix) = Matrix::new(clip_matrix_handler, this_track);
-    real_time_processor_sender
-        .send(NormalRealTimeTask::SetClipMatrix(Some(real_time_matrix)))
-        .unwrap();
-    matrix
 }

@@ -4,7 +4,7 @@ use crate::rt::supplier::{
     keep_processing_recorder_requests, keep_stretching, RecorderEquipment, StretchWorkerRequest,
 };
 use crate::rt::{
-    ClipChangedEvent, ClipInfo, ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs,
+    ClipInfo, ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs, QualifiedClipChangedEvent,
     RecordBehavior, RecordTiming, RtMatrixCommandSender, SharedColumn, WeakColumn,
 };
 use crate::timeline::clip_timeline;
@@ -180,7 +180,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             self.rt_command_sender.insert_column(i, column.source());
             self.columns.push(column);
         }
-        self.handler.notify_slot_contents_changed();
+        self.handler.emit_event(ClipMatrixEvent::AllClipsChanged);
         Ok(())
     }
 
@@ -288,9 +288,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.load(api_matrix)
     }
 
-    pub fn play_clip(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+    pub fn play_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
         let timeline = self.timeline();
-        let column = get_column_mut(&mut self.columns, coordinates.column)?;
+        let column = get_column(&self.columns, coordinates.column)?;
         let args = ColumnPlayClipArgs {
             slot_index: coordinates.row,
             parent_start_timing: self.rt_settings.clip_play_start_timing,
@@ -302,9 +302,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn stop_clip(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+    pub fn stop_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
         let timeline = self.timeline();
-        let column = get_column_mut(&mut self.columns, coordinates.column)?;
+        let column = get_column(&self.columns, coordinates.column)?;
         let args = ColumnStopClipArgs {
             slot_index: coordinates.row,
             parent_start_timing: self.rt_settings.clip_play_start_timing,
@@ -329,7 +329,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         }
     }
 
-    pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<(ClipSlotCoordinates, ClipChangedEvent)> {
+    pub fn poll(&mut self, timeline_tempo: Bpm) -> Vec<ClipMatrixEvent> {
         self.process_commands();
         self.columns
             .iter_mut()
@@ -339,19 +339,23 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                     .poll(timeline_tempo)
                     .into_iter()
                     .map(move |(row_index, event)| {
-                        (ClipSlotCoordinates::new(column_index, row_index), event)
+                        ClipMatrixEvent::ClipChanged(QualifiedClipChangedEvent {
+                            slot_coordinates: ClipSlotCoordinates::new(column_index, row_index),
+                            event,
+                        })
                     })
             })
             .collect()
     }
 
-    pub fn toggle_repeat_legacy(
-        &mut self,
-        coordinates: ClipSlotCoordinates,
-    ) -> ClipEngineResult<()> {
+    pub fn toggle_looped(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
         let event = get_column_mut(&mut self.columns, coordinates.column())?
-            .toggle_clip_repeated(coordinates.row())?;
-        self.handler.notify_clip_changed(coordinates, event);
+            .toggle_clip_looped(coordinates.row())?;
+        let event = ClipMatrixEvent::ClipChanged(QualifiedClipChangedEvent {
+            slot_coordinates: coordinates,
+            event,
+        });
+        self.handler.emit_event(event);
         Ok(())
     }
 
@@ -440,28 +444,26 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn pause_clip_legacy(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
-        get_column_mut(&mut self.columns, coordinates.column())?.pause_clip(coordinates.row());
+    pub fn pause_clip_legacy(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        get_column(&self.columns, coordinates.column())?.pause_clip(coordinates.row());
         Ok(())
     }
 
     pub fn seek_clip_legacy(
-        &mut self,
+        &self,
         coordinates: ClipSlotCoordinates,
         position: UnitValue,
     ) -> ClipEngineResult<()> {
-        get_column_mut(&mut self.columns, coordinates.column())?
-            .seek_clip(coordinates.row(), position);
+        get_column(&self.columns, coordinates.column())?.seek_clip(coordinates.row(), position);
         Ok(())
     }
 
     pub fn set_clip_volume_legacy(
-        &mut self,
+        &self,
         coordinates: ClipSlotCoordinates,
         volume: ReaperVolumeValue,
     ) -> ClipEngineResult<()> {
-        get_column_mut(&mut self.columns, coordinates.column())?
-            .set_clip_volume(coordinates.row(), volume);
+        get_column(&self.columns, coordinates.column())?.set_clip_volume(coordinates.row(), volume);
         Ok(())
     }
 
@@ -570,8 +572,13 @@ pub struct ClipRecordTask {
 
 pub trait ClipMatrixHandler {
     fn request_recording_input(&self, task: ClipRecordTask);
-    fn notify_slot_contents_changed(&mut self);
-    fn notify_clip_changed(&self, slot_coordinates: ClipSlotCoordinates, event: ClipChangedEvent);
+    fn emit_event(&self, event: ClipMatrixEvent);
+}
+
+#[derive(Debug)]
+pub enum ClipMatrixEvent {
+    AllClipsChanged,
+    ClipChanged(QualifiedClipChangedEvent),
 }
 
 #[derive(Copy, Clone, Debug)]

@@ -8,7 +8,7 @@ use crate::domain::{
     FeedbackAudioHookTask, Garbage, GarbageBin, GroupId, InputDescriptor, InstanceContainer,
     InstanceId, InstanceOrchestrationEvent, MainProcessor, MappingCompartment, MessageCaptureEvent,
     MessageCaptureResult, MidiScanResult, NormalAudioHookTask, OscDeviceId, OscFeedbackProcessor,
-    OscFeedbackTask, OscScanResult, RealTimeSender, RealearnAudioHook,
+    OscFeedbackTask, OscScanResult, QualifiedClipMatrixEvent, RealTimeSender, RealearnAudioHook,
     RealearnControlSurfaceMainTask, RealearnControlSurfaceMiddleware,
     RealearnControlSurfaceServerTask, RealearnTarget, RealearnTargetContext, ReaperTarget,
     SharedRealTimeProcessor, Tag,
@@ -24,6 +24,7 @@ use crate::infrastructure::server::{RealearnServer, SharedRealearnServer, COMPAN
 use crate::infrastructure::ui::MessagePanel;
 
 use crate::infrastructure::plugin::tracing_util::setup_tracing;
+use crossbeam_channel::Sender;
 use metrics_exporter_prometheus::PrometheusBuilder;
 use once_cell::sync::Lazy;
 use reaper_high::{ActionKind, CrashInfo, Fx, MiddlewareControlSurface, Project, Reaper, Track};
@@ -46,6 +47,7 @@ use swell_ui::{SharedView, View};
 use url::Url;
 
 const CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE: usize = 500;
+const CLIP_MATRIX_EVENT_QUEUE_SIZE: usize = 500;
 const CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE: usize = 500;
 // Probably can get quite much on action invocation
 // (https://github.com/helgoboss/realearn/issues/234). Doesn't need much memory at the time of this
@@ -89,6 +91,7 @@ pub struct App {
     list_of_recently_focused_fx: Rc<RefCell<ListOfRecentlyFocusedFx>>,
     party_is_over_subject: LocalSubject<'static, (), ()>,
     control_surface_main_task_sender: RealearnControlSurfaceMainTaskSender,
+    clip_matrix_event_sender: Sender<QualifiedClipMatrixEvent>,
     osc_feedback_task_sender: crossbeam_channel::Sender<OscFeedbackTask>,
     additional_feedback_event_sender: crossbeam_channel::Sender<AdditionalFeedbackEvent>,
     feedback_audio_hook_task_sender: RealTimeSender<FeedbackAudioHookTask>,
@@ -130,6 +133,7 @@ enum AppState {
 struct UninitializedState {
     control_surface_main_task_receiver:
         crossbeam_channel::Receiver<RealearnControlSurfaceMainTask<WeakSession>>,
+    clip_matrix_event_receiver: crossbeam_channel::Receiver<QualifiedClipMatrixEvent>,
     control_surface_server_task_receiver:
         crossbeam_channel::Receiver<RealearnControlSurfaceServerTask>,
     additional_feedback_event_receiver: crossbeam_channel::Receiver<AdditionalFeedbackEvent>,
@@ -191,6 +195,8 @@ impl App {
     fn new(config: AppConfig) -> App {
         let (main_sender, main_receiver) =
             crossbeam_channel::bounded(CONTROL_SURFACE_MAIN_TASK_QUEUE_SIZE);
+        let (clip_matrix_event_sender, clip_matrix_event_receiver) =
+            crossbeam_channel::bounded(CLIP_MATRIX_EVENT_QUEUE_SIZE);
         let (server_sender, server_receiver) =
             crossbeam_channel::bounded(CONTROL_SURFACE_SERVER_TASK_QUEUE_SIZE);
         let (osc_feedback_task_sender, osc_feedback_task_receiver) =
@@ -205,6 +211,7 @@ impl App {
             crossbeam_channel::bounded(NORMAL_AUDIO_HOOK_TASK_QUEUE_SIZE);
         let uninitialized_state = UninitializedState {
             control_surface_main_task_receiver: main_receiver,
+            clip_matrix_event_receiver,
             control_surface_server_task_receiver: server_receiver,
             additional_feedback_event_receiver,
             instance_orchestration_event_receiver,
@@ -242,6 +249,7 @@ impl App {
             list_of_recently_focused_fx: Default::default(),
             party_is_over_subject: Default::default(),
             control_surface_main_task_sender: main_sender,
+            clip_matrix_event_sender,
             osc_feedback_task_sender,
             additional_feedback_event_sender,
             feedback_audio_hook_task_sender: RealTimeSender::new(feedback_audio_hook_task_sender),
@@ -304,6 +312,7 @@ impl App {
         let control_surface = MiddlewareControlSurface::new(RealearnControlSurfaceMiddleware::new(
             App::logger(),
             uninit_state.control_surface_main_task_receiver,
+            uninit_state.clip_matrix_event_receiver,
             uninit_state.control_surface_server_task_receiver,
             uninit_state.additional_feedback_event_receiver,
             uninit_state.instance_orchestration_event_receiver,
@@ -553,6 +562,10 @@ impl App {
 
     pub fn feedback_audio_hook_task_sender(&self) -> &RealTimeSender<FeedbackAudioHookTask> {
         &self.feedback_audio_hook_task_sender
+    }
+
+    pub fn clip_matrix_event_sender(&self) -> &Sender<QualifiedClipMatrixEvent> {
+        &self.clip_matrix_event_sender
     }
 
     pub fn normal_audio_hook_task_sender(&self) -> &RealTimeSender<NormalAudioHookTask> {

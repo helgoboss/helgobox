@@ -27,6 +27,7 @@ use helgoboss_learn::{
     TransformationInputProvider, UnitValue,
 };
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use playtime_clip_engine::main::ClipMatrixEvent;
 use playtime_clip_engine::rt::Matrix;
 use reaper_high::{ChangeEvent, Fx, Project, Reaper, Track, TrackRoute};
 use reaper_medium::{CommandId, MidiOutputDeviceId};
@@ -326,6 +327,7 @@ pub enum CompoundChangeEvent<'a> {
     Reaper(&'a ChangeEvent),
     Additional(&'a AdditionalFeedbackEvent),
     Instance(&'a InstanceStateChanged),
+    ClipMatrix(&'a ClipMatrixEvent),
 }
 
 pub fn get_track_name(t: &Track) -> String {
