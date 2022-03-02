@@ -64,6 +64,7 @@ pub struct RealTimeProcessor {
     input_logging_enabled: bool,
     output_logging_enabled: bool,
     clip_matrix: Option<WeakMatrix>,
+    clip_matrix_is_owned: bool,
 }
 
 impl RealTimeProcessor {
@@ -107,6 +108,7 @@ impl RealTimeProcessor {
             output_logging_enabled: false,
             sample_rate: Hz::new(1.0),
             clip_matrix: None,
+            clip_matrix_is_owned: false,
         }
     }
 
@@ -209,8 +211,12 @@ impl RealTimeProcessor {
     /// downtime of the audio device. It could also be just a downtime related to opening the
     /// project itself, which we detect to some degree. See the code that reacts to this parameter.
     pub fn run_from_audio_hook_essential(&mut self, sample_count: usize, might_be_rebirth: bool) {
-        if let Some(clip_matrix) = self.clip_matrix.as_ref().and_then(|m| m.upgrade()) {
-            clip_matrix.lock().poll();
+        // Poll if this is the clip matrix of this instance. If we would do polling for a foreign
+        // clip matrix as well, it would be polled more than once, which is unnecessary.
+        if self.clip_matrix_is_owned {
+            if let Some(clip_matrix) = self.clip_matrix.as_ref().and_then(|m| m.upgrade()) {
+                clip_matrix.lock().poll();
+            }
         }
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
@@ -448,8 +454,9 @@ impl RealTimeProcessor {
                     self.garbage_bin
                         .dispose(Garbage::ActivationChanges(activation_updates));
                 }
-                SetClipMatrix(m) => {
-                    self.clip_matrix = m;
+                SetClipMatrix { is_owned, matrix } => {
+                    self.clip_matrix = matrix;
+                    self.clip_matrix_is_owned = is_owned;
                 }
             }
         }
@@ -1223,7 +1230,10 @@ impl<T> RealTimeSender<T> {
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
-    SetClipMatrix(Option<WeakMatrix>),
+    SetClipMatrix {
+        is_owned: bool,
+        matrix: Option<WeakMatrix>,
+    },
     UpdateAllMappings(MappingCompartment, Vec<RealTimeMapping>),
     UpdateSingleMapping(MappingCompartment, Box<Option<RealTimeMapping>>),
     UpdatePersistentMappingProcessingState {

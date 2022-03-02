@@ -222,9 +222,10 @@ impl InstanceState {
 
     fn install_owned_clip_matrix(&mut self, matrix: RealearnClipMatrix) {
         self.real_time_processor_sender
-            .send(NormalRealTimeTask::SetClipMatrix(Some(
-                matrix.real_time_matrix(),
-            )))
+            .send(NormalRealTimeTask::SetClipMatrix {
+                is_owned: true,
+                matrix: Some(matrix.real_time_matrix()),
+            })
             .unwrap();
         self.set_clip_matrix_ref(Some(ClipMatrixRef::Owned(matrix)));
     }
@@ -233,7 +234,10 @@ impl InstanceState {
         if self.clip_matrix_ref.is_some() {
             tracing_debug!("Shutdown existing clip matrix or remove reference to clip matrix of other instance");
             self.real_time_processor_sender
-                .send(NormalRealTimeTask::SetClipMatrix(None))
+                .send(NormalRealTimeTask::SetClipMatrix {
+                    is_owned: false,
+                    matrix: None,
+                })
                 .unwrap();
         }
         self.clip_matrix_ref = matrix_ref;
