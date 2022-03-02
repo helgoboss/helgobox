@@ -12,7 +12,6 @@ use crate::domain::{
     NormalRealTimeTask, QualifiedMappingId, RealTimeSender, Tag,
 };
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipMatrixHandler, ClipRecordTask, Matrix};
-use playtime_clip_engine::rt;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 pub type WeakInstanceState = Weak<RefCell<InstanceState>>;
@@ -208,11 +207,11 @@ impl InstanceState {
         if matches!(self.clip_matrix_ref.as_ref(), Some(ClipMatrixRef::Owned(_))) {
             return;
         }
-        let (matrix, rt_matrix) = self.create_owned_clip_matrix();
-        self.install_owned_clip_matrix(matrix, rt_matrix)
+        let matrix = self.create_owned_clip_matrix();
+        self.install_owned_clip_matrix(matrix)
     }
 
-    fn create_owned_clip_matrix(&self) -> (RealearnClipMatrix, rt::Matrix) {
+    fn create_owned_clip_matrix(&self) -> RealearnClipMatrix {
         let clip_matrix_handler = RealearnClipMatrixHandler::new(
             self.instance_id,
             self.audio_hook_task_sender.clone(),
@@ -221,10 +220,11 @@ impl InstanceState {
         Matrix::new(clip_matrix_handler, self.this_track.clone())
     }
 
-    fn install_owned_clip_matrix(&mut self, matrix: RealearnClipMatrix, rt_matrix: rt::Matrix) {
-        // TODO-high CONTINUE The real-time matrix needs to be distributed from now on.
+    fn install_owned_clip_matrix(&mut self, matrix: RealearnClipMatrix) {
         self.real_time_processor_sender
-            .send(NormalRealTimeTask::SetClipMatrix(Some(rt_matrix)))
+            .send(NormalRealTimeTask::SetClipMatrix(Some(
+                matrix.real_time_matrix(),
+            )))
             .unwrap();
         self.set_clip_matrix_ref(Some(ClipMatrixRef::Owned(matrix)));
     }

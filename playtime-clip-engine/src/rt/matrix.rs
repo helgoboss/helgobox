@@ -10,6 +10,7 @@ use reaper_high::{Project, Reaper};
 use reaper_medium::{PlayState, ProjectContext, ReaperPointer};
 use std::borrow::BorrowMut;
 use std::mem;
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
 /// The real-time matrix is supposed to be used from real-time threads.
 ///
@@ -47,6 +48,38 @@ pub struct Matrix {
 pub struct MatrixSettings {
     pub clip_play_start_timing: ClipPlayStartTiming,
     pub clip_play_stop_timing: ClipPlayStopTiming,
+}
+
+#[derive(Clone, Debug)]
+pub struct SharedMatrix(Arc<Mutex<Matrix>>);
+
+#[derive(Clone, Debug)]
+pub struct WeakMatrix(Weak<Mutex<Matrix>>);
+
+impl SharedMatrix {
+    pub fn new(matrix: Matrix) -> Self {
+        Self(Arc::new(Mutex::new(matrix)))
+    }
+
+    /// The real-time matrix should be locked only from real-time threads.
+    ///
+    /// Then we have no contention and this is super fast.
+    pub fn lock(&self) -> MutexGuard<Matrix> {
+        match self.0.lock() {
+            Ok(g) => g,
+            Err(e) => e.into_inner(),
+        }
+    }
+
+    pub fn downgrade(&self) -> WeakMatrix {
+        WeakMatrix(Arc::downgrade(&self.0))
+    }
+}
+
+impl WeakMatrix {
+    pub fn upgrade(&self) -> Option<SharedMatrix> {
+        self.0.upgrade().map(SharedMatrix)
+    }
 }
 
 impl Matrix {

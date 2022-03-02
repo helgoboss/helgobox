@@ -28,6 +28,8 @@ use std::thread::JoinHandle;
 
 #[derive(Debug)]
 pub struct Matrix<H> {
+    /// Don't lock this from the main thread, only from real-time threads!
+    rt_matrix: rt::SharedMatrix,
     settings: MatrixSettings,
     rt_settings: rt::MatrixSettings,
     handler: H,
@@ -104,7 +106,7 @@ impl Drop for Worker {
 }
 
 impl<H: ClipMatrixHandler> Matrix<H> {
-    pub fn new(handler: H, containing_track: Option<Track>) -> (Self, rt::Matrix) {
+    pub fn new(handler: H, containing_track: Option<Track>) -> Self {
         let (stretch_worker_sender, stretch_worker_receiver) = crossbeam_channel::bounded(500);
         let (recorder_request_sender, recorder_request_receiver) = crossbeam_channel::bounded(500);
         let (cache_request_sender, cache_request_receiver) = crossbeam_channel::bounded(500);
@@ -126,7 +128,9 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             keep_processing_pre_buffer_requests(pre_buffer_request_receiver);
         });
         let project = containing_track.as_ref().map(|t| t.project());
-        let matrix = Self {
+        let rt_matrix = rt::Matrix::new(rt_command_receiver, main_command_sender, project);
+        Self {
+            rt_matrix: rt::SharedMatrix::new(rt_matrix),
             settings: Default::default(),
             rt_settings: Default::default(),
             handler,
@@ -141,9 +145,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             command_receiver: main_command_receiver,
             rt_command_sender,
             _worker_pool: worker_pool,
-        };
-        let rt_matrix = rt::Matrix::new(rt_command_receiver, main_command_sender, project);
-        (matrix, rt_matrix)
+        }
+    }
+
+    pub fn real_time_matrix(&self) -> rt::WeakMatrix {
+        self.rt_matrix.downgrade()
     }
 
     pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {

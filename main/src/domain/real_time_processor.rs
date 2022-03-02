@@ -21,9 +21,8 @@ use slog::{debug, trace};
 use crate::base::Global;
 use assert_no_alloc::permit_alloc;
 use enum_map::{enum_map, EnumMap};
-use playtime_clip_engine::rt::Matrix;
+use playtime_clip_engine::rt::WeakMatrix;
 use std::convert::TryInto;
-use std::mem;
 use std::ptr::null_mut;
 use std::time::Duration;
 use vst::api::{EventType, Events, SysExEvent};
@@ -64,7 +63,7 @@ pub struct RealTimeProcessor {
     sample_rate: Hz,
     input_logging_enabled: bool,
     output_logging_enabled: bool,
-    clip_matrix: Option<Matrix>,
+    clip_matrix: Option<WeakMatrix>,
 }
 
 impl RealTimeProcessor {
@@ -210,8 +209,8 @@ impl RealTimeProcessor {
     /// downtime of the audio device. It could also be just a downtime related to opening the
     /// project itself, which we detect to some degree. See the code that reacts to this parameter.
     pub fn run_from_audio_hook_essential(&mut self, sample_count: usize, might_be_rebirth: bool) {
-        if let Some(clip_matrix) = &mut self.clip_matrix {
-            clip_matrix.poll();
+        if let Some(clip_matrix) = self.clip_matrix.as_ref().and_then(|m| m.upgrade()) {
+            clip_matrix.lock().poll();
         }
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
@@ -450,9 +449,7 @@ impl RealTimeProcessor {
                         .dispose(Garbage::ActivationChanges(activation_updates));
                 }
                 SetClipMatrix(m) => {
-                    if let Some(old_matrix) = mem::replace(&mut self.clip_matrix, m) {
-                        self.garbage_bin.dispose(Garbage::ClipMatrix(old_matrix));
-                    }
+                    self.clip_matrix = m;
                 }
             }
         }
@@ -1226,7 +1223,7 @@ impl<T> RealTimeSender<T> {
 /// A task which is sent from time to time.
 #[derive(Debug)]
 pub enum NormalRealTimeTask {
-    SetClipMatrix(Option<Matrix>),
+    SetClipMatrix(Option<WeakMatrix>),
     UpdateAllMappings(MappingCompartment, Vec<RealTimeMapping>),
     UpdateSingleMapping(MappingCompartment, Box<Option<RealTimeMapping>>),
     UpdatePersistentMappingProcessingState {
@@ -1343,7 +1340,7 @@ fn control_controller_mappings_midi(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
-    matrix: Option<&Matrix>,
+    matrix: Option<&WeakMatrix>,
 ) -> bool {
     let mut matched = false;
     let mut enforce_target_refresh = false;
@@ -1415,7 +1412,7 @@ fn process_real_mapping(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
-    clip_matrix: Option<&Matrix>,
+    clip_matrix: Option<&WeakMatrix>,
 ) -> Result<(), &'static str> {
     if let Some(RealTimeCompoundMappingTarget::Reaper(reaper_target)) =
         mapping.resolved_target.as_mut()
@@ -1555,7 +1552,7 @@ fn control_main_mappings_virtual(
     caller: Caller,
     midi_feedback_output: Option<MidiDestination>,
     output_logging_enabled: bool,
-    matrix: Option<&Matrix>,
+    matrix: Option<&WeakMatrix>,
 ) -> bool {
     // Controller mappings can't have virtual sources, so for now we only need to check
     // main mappings.

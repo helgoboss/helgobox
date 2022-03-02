@@ -240,6 +240,7 @@ impl RealTimeClipTransportTarget {
         use TransportAction::*;
         let on = value.is_on();
         let matrix = context.clip_matrix()?;
+        let matrix = matrix.lock();
         match self.basics.action {
             PlayStop => {
                 if on {
@@ -279,11 +280,9 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
     type Context = RealTimeControlContext<'a>;
 
     fn current_value(&self, context: RealTimeControlContext<'a>) -> Option<AbsoluteValue> {
-        let column = context
-            .clip_matrix()
-            .ok()?
-            .column(self.basics.slot_coordinates.column())
-            .ok()?;
+        let matrix = context.clip_matrix().ok()?;
+        let matrix = matrix.lock();
+        let column = matrix.column(self.basics.slot_coordinates.column()).ok()?;
         let column = column.lock();
         let clip = column
             .slot(self.basics.slot_coordinates.row())
