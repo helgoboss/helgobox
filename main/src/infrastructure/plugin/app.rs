@@ -792,6 +792,47 @@ impl App {
         })
     }
 
+    pub fn find_session_by_id_ignoring_borrowed_ones(
+        &self,
+        session_id: &str,
+    ) -> Option<SharedSession> {
+        self.find_session(|session| {
+            if let Ok(session) = session.try_borrow() {
+                session.id() == session_id
+            } else {
+                false
+            }
+        })
+    }
+
+    pub fn find_session_by_instance_id_ignoring_borrowed_ones(
+        &self,
+        instance_id: InstanceId,
+    ) -> Option<SharedSession> {
+        self.find_session(|session| {
+            if let Ok(session) = session.try_borrow() {
+                *session.instance_id() == instance_id
+            } else {
+                false
+            }
+        })
+    }
+
+    pub fn find_session(
+        &self,
+        predicate: impl FnMut(&SharedSession) -> bool,
+    ) -> Option<SharedSession> {
+        self.sessions
+            .borrow()
+            .iter()
+            .filter_map(|s| s.upgrade())
+            .find(predicate)
+    }
+
+    pub fn with_sessions<R>(&self, f: impl FnOnce(&[WeakSession]) -> R) -> R {
+        f(&self.sessions.borrow())
+    }
+
     pub fn find_session_by_containing_fx(&self, fx: &Fx) -> Option<SharedSession> {
         self.find_session(|session| {
             let session = session.borrow();
@@ -1300,14 +1341,6 @@ impl App {
             };
             Some((session, mapping))
         })
-    }
-
-    fn find_session(&self, predicate: impl FnMut(&SharedSession) -> bool) -> Option<SharedSession> {
-        self.sessions
-            .borrow()
-            .iter()
-            .filter_map(|s| s.upgrade())
-            .find(predicate)
     }
 
     fn server_resource_dir_path() -> PathBuf {

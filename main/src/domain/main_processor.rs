@@ -3051,7 +3051,7 @@ impl InstanceId {
         Self::from_string_cropping(&instance_id)
     }
 
-    pub fn from_string_cropping(instance_id: &str) -> Self {
+    fn from_string_cropping(instance_id: &str) -> Self {
         let ascii_string: AsciiString = instance_id
             .chars()
             .filter_map(|c| c.to_ascii_char().ok())

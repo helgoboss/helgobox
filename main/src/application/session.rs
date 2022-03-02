@@ -113,6 +113,9 @@ pub struct Session {
     instance_state: SharedInstanceState,
     global_feedback_audio_hook_task_sender: &'static RealTimeSender<FeedbackAudioHookTask>,
     global_osc_feedback_task_sender: &'static crossbeam_channel::Sender<OscFeedbackTask>,
+    /// Is set as long as this ReaLearn instance wants to use a clip matrix from a foreign ReaLearn
+    /// instance but this instance is not yet loaded.
+    unresolved_foreign_clip_matrix_session_id: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -241,6 +244,7 @@ impl Session {
             instance_state,
             global_feedback_audio_hook_task_sender,
             global_osc_feedback_task_sender,
+            unresolved_foreign_clip_matrix_session_id: None,
         }
     }
 
@@ -250,6 +254,21 @@ impl Session {
 
     pub fn id(&self) -> &str {
         self.id.get_ref()
+    }
+
+    pub fn unresolved_foreign_clip_matrix_session_id(&self) -> Option<&String> {
+        self.unresolved_foreign_clip_matrix_session_id.as_ref()
+    }
+
+    pub fn memorize_unresolved_foreign_clip_matrix_session_id(
+        &mut self,
+        foreign_session_id: String,
+    ) {
+        self.unresolved_foreign_clip_matrix_session_id = Some(foreign_session_id);
+    }
+
+    pub fn notify_foreign_clip_matrix_resolved(&mut self) {
+        self.unresolved_foreign_clip_matrix_session_id = None;
     }
 
     pub fn receives_input_from(&self, input_descriptor: &InputDescriptor) -> bool {

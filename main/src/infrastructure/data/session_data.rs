@@ -5,9 +5,9 @@ use crate::application::{
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    BackboneState, ClipMatrixRef, GroupId, GroupKey, InstanceId, InstanceState, MappingCompartment,
-    MappingId, MidiControlInput, MidiDestination, OscDeviceId, ParameterArray, ReaperTargetType,
-    Tag, TransportAction, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    BackboneState, ClipMatrixRef, GroupId, GroupKey, InstanceState, MappingCompartment, MappingId,
+    MidiControlInput, MidiDestination, OscDeviceId, ParameterArray, ReaperTargetType, Tag,
+    TransportAction, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     deserialize_track, ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData,
@@ -259,9 +259,14 @@ impl SessionData {
             clip_matrix: {
                 instance_state
                     .clip_matrix_ref()
-                    .map(|matrix_ref| match matrix_ref {
-                        ClipMatrixRef::Own(m) => ClipMatrixRefData::Own(m.save()),
-                        ClipMatrixRef::Foreign(id) => ClipMatrixRefData::Foreign(id.to_string()),
+                    .and_then(|matrix_ref| match matrix_ref {
+                        ClipMatrixRef::Own(m) => Some(ClipMatrixRefData::Own(m.save())),
+                        ClipMatrixRef::Foreign(instance_id) => {
+                            let foreign_session = App::get()
+                                .find_session_by_instance_id_ignoring_borrowed_ones(*instance_id)?;
+                            let foreign_id = foreign_session.borrow().id().to_owned();
+                            Some(ClipMatrixRefData::Foreign(foreign_id))
+                        }
                     })
             },
             tags: session.tags.get_ref().clone(),
@@ -462,7 +467,8 @@ impl SessionData {
         }
         // Instance state
         {
-            let mut instance_state = session.instance_state().borrow_mut();
+            let instance_state = session.instance_state().clone();
+            let mut instance_state = instance_state.borrow_mut();
             if let Some(matrix_ref) = &self.clip_matrix {
                 use ClipMatrixRefData::*;
                 match matrix_ref {
@@ -473,12 +479,25 @@ impl SessionData {
                             )
                             .load(m.clone())?;
                     }
-                    Foreign(instance_id) => {
-                        let instance_id = InstanceId::from_string_cropping(instance_id);
-                        BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
-                            &mut instance_state,
-                            instance_id,
-                        );
+                    Foreign(session_id) => {
+                        // Check if a session with that ID already exists.
+                        let foreign_instance_id = App::get()
+                            .find_session_by_id_ignoring_borrowed_ones(session_id)
+                            .and_then(|session| {
+                                session.try_borrow().map(|s| *s.instance_id()).ok()
+                            });
+                        if let Some(id) = foreign_instance_id {
+                            // Referenced ReaLearn instance exists already.
+                            BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
+                                &mut instance_state,
+                                id,
+                            );
+                        } else {
+                            // Referenced ReaLearn instance doesn't exist yet.
+                            session.memorize_unresolved_foreign_clip_matrix_session_id(
+                                session_id.clone(),
+                            );
+                        }
                     }
                 };
             } else if !self.clip_slots.is_empty() {
@@ -516,6 +535,33 @@ impl SessionData {
                 MappingCompartment::MainMappings,
                 self.main.active_mapping_tags.clone(),
             );
+            // Check if some other instances waited for the clip matrix of this instance.
+            App::get().with_sessions(|sessions| {
+                let relevant_other_sessions = sessions.iter().filter_map(|other_session| {
+                    let other_session = other_session.upgrade()?;
+                    if other_session
+                        .try_borrow()
+                        .ok()?
+                        .unresolved_foreign_clip_matrix_session_id()
+                        == self.id.as_ref()
+                    {
+                        Some(other_session)
+                    } else {
+                        None
+                    }
+                });
+                for other_session in relevant_other_sessions {
+                    // Let the other session's instance state reference the clip matrix of this
+                    // session's instance state.
+                    let mut other_session = other_session.borrow_mut();
+                    let other_instance_state = other_session.instance_state();
+                    BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
+                        &mut other_instance_state.borrow_mut(),
+                        *session.instance_id(),
+                    );
+                    other_session.notify_foreign_clip_matrix_resolved();
+                }
+            });
         }
         Ok(())
     }
