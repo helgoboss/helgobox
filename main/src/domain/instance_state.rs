@@ -12,6 +12,7 @@ use crate::domain::{
     NormalRealTimeTask, QualifiedMappingId, RealTimeSender, Tag,
 };
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipMatrixHandler, ClipRecordTask, Matrix};
+use playtime_clip_engine::rt;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
 pub type WeakInstanceState = Weak<RefCell<InstanceState>>;
@@ -68,8 +69,8 @@ pub struct InstanceState {
 
 #[derive(Debug)]
 pub enum ClipMatrixRef {
-    Owned(RealearnClipMatrix),
-    BorrowedFromInstance(InstanceId),
+    Own(RealearnClipMatrix),
+    Foreign(InstanceId),
 }
 
 #[derive(Debug)]
@@ -147,12 +148,16 @@ impl InstanceState {
         }
     }
 
+    pub fn instance_id(&self) -> InstanceId {
+        self.instance_id
+    }
+
     pub fn is_interested_in_clip_matrix_events_from(&self, instance_id: InstanceId) -> bool {
         use ClipMatrixRef::*;
         let our_instance_id = match self.clip_matrix_ref {
             None => return false,
-            Some(Owned(_)) => self.instance_id,
-            Some(BorrowedFromInstance(id)) => id,
+            Some(Own(_)) => self.instance_id,
+            Some(Foreign(id)) => id,
         };
         instance_id == our_instance_id
     }
@@ -160,16 +165,16 @@ impl InstanceState {
     pub fn owned_clip_matrix(&self) -> Option<&RealearnClipMatrix> {
         use ClipMatrixRef::*;
         match self.clip_matrix_ref.as_ref()? {
-            Owned(m) => Some(m),
-            BorrowedFromInstance(_) => None,
+            Own(m) => Some(m),
+            Foreign(_) => None,
         }
     }
 
     pub fn owned_clip_matrix_mut(&mut self) -> Option<&mut RealearnClipMatrix> {
         use ClipMatrixRef::*;
         match self.clip_matrix_ref.as_mut()? {
-            Owned(m) => Some(m),
-            BorrowedFromInstance(_) => None,
+            Own(m) => Some(m),
+            Foreign(_) => None,
         }
     }
 
@@ -181,34 +186,15 @@ impl InstanceState {
         self.clip_matrix_ref.as_mut()
     }
 
-    /// Returns and - if necessary - installs an owned clip matrix.
-    ///
-    /// If this instance already contains an owned clip matrix, returns it. If not, creates
-    /// and installs one, removing a possibly existing foreign matrix reference.
-    pub fn get_or_insert_owned_clip_matrix(&mut self) -> &mut RealearnClipMatrix {
-        self.create_and_install_owned_clip_matrix_if_necessary();
-        self.owned_clip_matrix_mut().unwrap()
-    }
-
-    /// Removes the current matrix/reference (if any) and sets a new reference.
-    pub fn borrow_clip_matrix_from_instance(&mut self, instance_id: InstanceId) {
-        self.set_clip_matrix_ref(Some(ClipMatrixRef::BorrowedFromInstance(instance_id)));
-    }
-
-    /// Removes the clip matrix from this instance if one is set.
-    ///
-    /// If this instance owns a matrix, it shuts it down. If it just refers to one, it removes
-    /// the reference.
-    pub fn remove_clip_matrix(&mut self) {
-        self.set_clip_matrix_ref(None);
-    }
-
-    fn create_and_install_owned_clip_matrix_if_necessary(&mut self) {
-        if matches!(self.clip_matrix_ref.as_ref(), Some(ClipMatrixRef::Owned(_))) {
-            return;
+    /// Returns `true` if it installed a clip matrix.
+    pub(super) fn create_and_install_owned_clip_matrix_if_necessary(&mut self) -> bool {
+        if matches!(self.clip_matrix_ref.as_ref(), Some(ClipMatrixRef::Own(_))) {
+            return false;
         }
         let matrix = self.create_owned_clip_matrix();
-        self.install_owned_clip_matrix(matrix)
+        self.update_real_time_clip_matrix(Some(matrix.real_time_matrix()), true);
+        self.set_clip_matrix_ref(Some(ClipMatrixRef::Own(matrix)));
+        true
     }
 
     fn create_owned_clip_matrix(&self) -> RealearnClipMatrix {
@@ -220,27 +206,24 @@ impl InstanceState {
         Matrix::new(clip_matrix_handler, self.this_track.clone())
     }
 
-    fn install_owned_clip_matrix(&mut self, matrix: RealearnClipMatrix) {
-        self.real_time_processor_sender
-            .send(NormalRealTimeTask::SetClipMatrix {
-                is_owned: true,
-                matrix: Some(matrix.real_time_matrix()),
-            })
-            .unwrap();
-        self.set_clip_matrix_ref(Some(ClipMatrixRef::Owned(matrix)));
-    }
-
-    fn set_clip_matrix_ref(&mut self, matrix_ref: Option<ClipMatrixRef>) {
+    pub(super) fn set_clip_matrix_ref(&mut self, matrix_ref: Option<ClipMatrixRef>) {
         if self.clip_matrix_ref.is_some() {
             tracing_debug!("Shutdown existing clip matrix or remove reference to clip matrix of other instance");
-            self.real_time_processor_sender
-                .send(NormalRealTimeTask::SetClipMatrix {
-                    is_owned: false,
-                    matrix: None,
-                })
-                .unwrap();
+            self.update_real_time_clip_matrix(None, false);
         }
         self.clip_matrix_ref = matrix_ref;
+    }
+
+    pub(super) fn update_real_time_clip_matrix(
+        &self,
+        real_time_matrix: Option<rt::WeakMatrix>,
+        is_owned: bool,
+    ) {
+        let rt_task = NormalRealTimeTask::SetClipMatrix {
+            is_owned,
+            matrix: real_time_matrix,
+        };
+        self.real_time_processor_sender.send(rt_task).unwrap();
     }
 
     pub fn slot_contents_changed(

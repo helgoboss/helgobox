@@ -4,6 +4,7 @@ use crate::domain::{
     QualifiedClipMatrixEvent, RealTimeSender, RealearnClipMatrix, RealearnTargetContext,
     ReaperTarget, SharedInstanceState, WeakInstanceState,
 };
+use playtime_clip_engine::rt::WeakMatrix;
 use reaper_high::Track;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -91,6 +92,89 @@ impl BackboneState {
             .insert(id, Rc::downgrade(&shared_instance_state));
         shared_instance_state
     }
+    //
+    // /// Returns and - if necessary - installs an owned clip matrix.
+    // ///
+    // /// If this instance already contains an owned clip matrix, returns it. If not, creates
+    // /// and installs one, removing a possibly existing foreign matrix reference.
+    // pub fn get_or_insert_owned_clip_matrix(&mut self) -> &mut RealearnClipMatrix {
+    //     self.create_and_install_owned_clip_matrix_if_necessary();
+    //     self.owned_clip_matrix_mut().unwrap()
+    // }
+
+    /// Removes the clip matrix from the given instance if one is set.
+    ///
+    /// If this instance owns a matrix, it shuts it down. If it just refers to one, it removes
+    /// the reference.
+    ///
+    /// Also takes care of clearing all real-time matrices in other ReaLearn instances that refer
+    /// to this one.
+    pub fn clear_clip_matrix_from_instance_state(&self, instance_state: &mut InstanceState) {
+        instance_state.set_clip_matrix_ref(None);
+        self.update_rt_clip_matrix_of_referencing_instances(instance_state.instance_id(), None);
+    }
+
+    /// Returns and - if necessary - installs an owned clip matrix from/into the given instance.
+    ///
+    /// If this instance already contains an owned clip matrix, returns it. If not, creates
+    /// and installs one, removing a possibly existing foreign matrix reference.
+    ///
+    /// Also takes care of updating all real-time matrices in other ReaLearn instances that refer
+    /// to this one.
+    pub fn get_or_insert_owned_clip_matrix_from_instance_state<'a, 'b>(
+        &'b self,
+        instance_state: &'a mut InstanceState,
+    ) -> &'a mut RealearnClipMatrix {
+        let instance_id = instance_state.instance_id();
+        let created = instance_state.create_and_install_owned_clip_matrix_if_necessary();
+        let matrix = instance_state.owned_clip_matrix_mut().unwrap();
+        if created {
+            self.update_rt_clip_matrix_of_referencing_instances(
+                instance_id,
+                Some(matrix.real_time_matrix()),
+            );
+        }
+        matrix
+    }
+
+    fn update_rt_clip_matrix_of_referencing_instances(
+        &self,
+        this_instance_id: InstanceId,
+        real_time_matrix: Option<WeakMatrix>,
+    ) {
+        for (id, is) in self.instance_states.borrow().iter() {
+            if *id == this_instance_id {
+                continue;
+            }
+            let is = match is.upgrade() {
+                None => continue,
+                Some(s) => s,
+            };
+            let is = is.borrow();
+            match is.clip_matrix_ref() {
+                Some(ClipMatrixRef::Foreign(foreign_id)) if *foreign_id == this_instance_id => {
+                    is.update_real_time_clip_matrix(real_time_matrix.clone(), false);
+                }
+                _ => continue,
+            }
+        }
+    }
+
+    /// Removes the current matrix/reference (if any) and sets a new reference.
+    pub fn set_instance_clip_matrix_to_foreign_matrix(
+        &self,
+        instance_state: &mut InstanceState,
+        foreign_instance_id: InstanceId,
+    ) {
+        let matrix_ref = ClipMatrixRef::Foreign(foreign_instance_id);
+        instance_state.set_clip_matrix_ref(Some(matrix_ref));
+        let result = self.with_owned_clip_matrix_from_instance(&foreign_instance_id, |matrix| {
+            instance_state.update_real_time_clip_matrix(Some(matrix.real_time_matrix()), false);
+        });
+        if let Err(e) = result {
+            tracing_debug!("waiting for foreign clip matrix instance ({e})");
+        }
+    }
 
     /// Grants immutable access to the clip matrix defined for the given ReaLearn instance,
     /// if one is defined.
@@ -114,13 +198,22 @@ impl BackboneState {
             .clip_matrix_ref()
             .ok_or(NO_CLIP_MATRIX_SET)?
         {
-            Owned(m) => return Ok(f(m)),
-            BorrowedFromInstance(instance_id) => *instance_id,
+            Own(m) => return Ok(f(m)),
+            Foreign(instance_id) => *instance_id,
         };
+        self.with_owned_clip_matrix_from_instance(&other_instance_id, f)
+    }
+
+    fn with_owned_clip_matrix_from_instance<R>(
+        &self,
+        instance_id: &InstanceId,
+        f: impl FnOnce(&RealearnClipMatrix) -> R,
+    ) -> Result<R, &'static str> {
+        use ClipMatrixRef::*;
         let other_instance_state = self
             .instance_states
             .borrow()
-            .get(&other_instance_id)
+            .get(&instance_id)
             .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?
             .upgrade()
             .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?;
@@ -129,8 +222,8 @@ impl BackboneState {
             .clip_matrix_ref()
             .ok_or(REFERENCED_CLIP_MATRIX_NOT_AVAILABLE)?
         {
-            Owned(m) => Ok(f(m)),
-            BorrowedFromInstance(_) => Err(NESTED_CLIP_BORROW_NOT_SUPPORTED),
+            Own(m) => Ok(f(m)),
+            Foreign(_) => Err(NESTED_CLIP_BORROW_NOT_SUPPORTED),
         }
     }
 
@@ -147,13 +240,22 @@ impl BackboneState {
             .clip_matrix_ref_mut()
             .ok_or(NO_CLIP_MATRIX_SET)?
         {
-            Owned(m) => return Ok(f(m)),
-            BorrowedFromInstance(instance_id) => *instance_id,
+            Own(m) => return Ok(f(m)),
+            Foreign(instance_id) => *instance_id,
         };
+        self.with_owned_clip_matrix_from_instance_mut(&other_instance_id, f)
+    }
+
+    fn with_owned_clip_matrix_from_instance_mut<R>(
+        &self,
+        instance_id: &InstanceId,
+        f: impl FnOnce(&mut RealearnClipMatrix) -> R,
+    ) -> Result<R, &'static str> {
+        use ClipMatrixRef::*;
         let other_instance_state = self
             .instance_states
             .borrow()
-            .get(&other_instance_id)
+            .get(&instance_id)
             .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?
             .upgrade()
             .ok_or(REFERENCED_INSTANCE_NOT_AVAILABLE)?;
@@ -162,8 +264,8 @@ impl BackboneState {
             .clip_matrix_ref_mut()
             .ok_or(REFERENCED_CLIP_MATRIX_NOT_AVAILABLE)?
         {
-            Owned(m) => Ok(f(m)),
-            BorrowedFromInstance(_) => Err(NESTED_CLIP_BORROW_NOT_SUPPORTED),
+            Own(m) => Ok(f(m)),
+            Foreign(_) => Err(NESTED_CLIP_BORROW_NOT_SUPPORTED),
         }
     }
 

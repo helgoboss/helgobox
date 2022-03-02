@@ -22,8 +22,8 @@ use crate::application::{
 };
 use crate::base::when;
 use crate::domain::{
-    ClipMatrixRef, ControlInput, GroupId, MappingCompartment, MessageCaptureEvent, OscDeviceId,
-    ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
+    BackboneState, ClipMatrixRef, ControlInput, GroupId, MappingCompartment, MessageCaptureEvent,
+    OscDeviceId, ReaperTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use crate::domain::{MidiControlInput, MidiDestination};
 use crate::infrastructure::data::{
@@ -1843,10 +1843,10 @@ impl HeaderPanel {
                 let old_matrix_label = match self.session().borrow().instance_state().borrow().clip_matrix_ref() {
                     None => EMPTY_CLIP_MATRIX_LABEL.to_owned(),
                     Some(r) => match r {
-                        ClipMatrixRef::Owned(m) => {
+                        ClipMatrixRef::Own(m) => {
                             get_clip_matrix_label(m.column_count())
                         }
-                        ClipMatrixRef::BorrowedFromInstance(instance_id) => {
+                        ClipMatrixRef::Foreign(instance_id) => {
                             format!("clip matrix reference (to instance {})", instance_id)
                         }
                     },
@@ -1863,9 +1863,9 @@ impl HeaderPanel {
                     let session = session.borrow();
                     let mut instance_state = session.instance_state().borrow_mut();
                     if let Some(matrix) = *value {
-                        instance_state.get_or_insert_owned_clip_matrix().load(matrix)?;
+                        BackboneState::get().get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state).load(matrix)?;
                     } else {
-                        instance_state.remove_clip_matrix();
+                        BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
                     }
                 }
             }

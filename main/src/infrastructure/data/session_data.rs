@@ -5,9 +5,9 @@ use crate::application::{
 };
 use crate::base::default_util::{bool_true, is_bool_true, is_default};
 use crate::domain::{
-    ClipMatrixRef, GroupId, GroupKey, InstanceId, InstanceState, MappingCompartment, MappingId,
-    MidiControlInput, MidiDestination, OscDeviceId, ParameterArray, ReaperTargetType, Tag,
-    TransportAction, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
+    BackboneState, ClipMatrixRef, GroupId, GroupKey, InstanceId, InstanceState, MappingCompartment,
+    MappingId, MidiControlInput, MidiDestination, OscDeviceId, ParameterArray, ReaperTargetType,
+    Tag, TransportAction, COMPARTMENT_PARAMETER_COUNT, ZEROED_PLUGIN_PARAMETERS,
 };
 use crate::infrastructure::data::{
     deserialize_track, ensure_no_duplicate_compartment_data, GroupModelData, MappingModelData,
@@ -108,8 +108,8 @@ pub struct SessionData {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 enum ClipMatrixRefData {
-    Owned(Matrix),
-    BorrowedFromInstance(String),
+    Own(Matrix),
+    Foreign(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
@@ -260,10 +260,8 @@ impl SessionData {
                 instance_state
                     .clip_matrix_ref()
                     .map(|matrix_ref| match matrix_ref {
-                        ClipMatrixRef::Owned(m) => ClipMatrixRefData::Owned(m.save()),
-                        ClipMatrixRef::BorrowedFromInstance(id) => {
-                            ClipMatrixRefData::BorrowedFromInstance(id.to_string())
-                        }
+                        ClipMatrixRef::Own(m) => ClipMatrixRefData::Own(m.save()),
+                        ClipMatrixRef::Foreign(id) => ClipMatrixRefData::Foreign(id.to_string()),
                     })
             },
             tags: session.tags.get_ref().clone(),
@@ -469,19 +467,24 @@ impl SessionData {
             if let Some(matrix_ref) = &self.clip_matrix {
                 use ClipMatrixRefData::*;
                 match matrix_ref {
-                    Owned(m) => {
-                        instance_state
-                            .get_or_insert_owned_clip_matrix()
+                    Own(m) => {
+                        BackboneState::get()
+                            .get_or_insert_owned_clip_matrix_from_instance_state(
+                                &mut instance_state,
+                            )
                             .load(m.clone())?;
                     }
-                    BorrowedFromInstance(instance_id) => {
+                    Foreign(instance_id) => {
                         let instance_id = InstanceId::from_string_cropping(instance_id);
-                        instance_state.borrow_clip_matrix_from_instance(instance_id);
+                        BackboneState::get().set_instance_clip_matrix_to_foreign_matrix(
+                            &mut instance_state,
+                            instance_id,
+                        );
                     }
                 };
             } else if !self.clip_slots.is_empty() {
-                instance_state
-                    .get_or_insert_owned_clip_matrix()
+                BackboneState::get()
+                    .get_or_insert_owned_clip_matrix_from_instance_state(&mut instance_state)
                     .load_legacy(
                         self.clip_slots
                             .iter()
@@ -493,7 +496,7 @@ impl SessionData {
                             .collect(),
                     )?;
             } else {
-                instance_state.remove_clip_matrix();
+                BackboneState::get().clear_clip_matrix_from_instance_state(&mut instance_state);
             }
             instance_state
                 .set_active_instance_tags_without_notification(self.active_instance_tags.clone());

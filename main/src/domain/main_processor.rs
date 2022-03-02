@@ -1,6 +1,6 @@
 use crate::domain::{
     aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
-    ClipMatrixRef, CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
+    CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
     CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlInput, ControlMode,
     DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
     FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
@@ -661,8 +661,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// (not borrowed from another instance).
     pub fn poll_owned_clip_matrix(&self) -> Vec<ClipMatrixEvent> {
         let mut instance_state = self.basics.instance_state.borrow_mut();
-        let matrix = match instance_state.clip_matrix_ref_mut() {
-            Some(ClipMatrixRef::Owned(m)) => m,
+        let matrix = match instance_state.owned_clip_matrix_mut() {
+            Some(m) => m,
             _ => return vec![],
         };
         let timeline = clip_timeline(self.basics.context.project(), false);
