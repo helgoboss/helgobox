@@ -23,6 +23,7 @@ use assert_no_alloc::permit_alloc;
 use enum_map::{enum_map, EnumMap};
 use playtime_clip_engine::rt::WeakMatrix;
 use std::convert::TryInto;
+use std::mem;
 use std::ptr::null_mut;
 use std::time::Duration;
 use vst::api::{EventType, Events, SysExEvent};
@@ -455,8 +456,10 @@ impl RealTimeProcessor {
                         .dispose(Garbage::ActivationChanges(activation_updates));
                 }
                 SetClipMatrix { is_owned, matrix } => {
-                    self.clip_matrix = matrix;
                     self.clip_matrix_is_owned = is_owned;
+                    if let Some(matrix) = mem::replace(&mut self.clip_matrix, matrix) {
+                        self.garbage_bin.dispose(Garbage::ClipMatrix(matrix));
+                    }
                 }
             }
         }

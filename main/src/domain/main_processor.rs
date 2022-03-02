@@ -673,6 +673,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
 
     /// Processes the given clip matrix events if they are relevant to this instance.
     pub fn process_clip_matrix_events(&self, instance_id: InstanceId, events: &[ClipMatrixEvent]) {
+        tracing_debug!("{}", instance_id);
         if !self
             .basics
             .instance_state

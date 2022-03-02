@@ -463,7 +463,6 @@ impl SessionData {
         // Instance state
         {
             let mut instance_state = session.instance_state().borrow_mut();
-            // Legacy clips
             if let Some(matrix_ref) = &self.clip_matrix {
                 use ClipMatrixRefData::*;
                 match matrix_ref {

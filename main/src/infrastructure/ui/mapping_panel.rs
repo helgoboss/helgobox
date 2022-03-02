@@ -2459,13 +2459,6 @@ impl<'a> MutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::ClipTransport => {
-                    let i = combo.selected_combo_box_item_index();
-                    let v = i.try_into().expect("invalid transport action");
-                    self.change_mapping(MappingCommand::ChangeTarget(
-                        TargetCommand::SetTransportAction(v),
-                    ));
-                }
                 ReaperTargetType::FxParameter => {
                     if let Ok(fx) = self.target_with_context().first_fx() {
                         let i = combo.selected_combo_box_item_index();
@@ -4268,15 +4261,6 @@ impl<'a> ImmutableMappingPanel<'a> {
             .require_control(root::ID_TARGET_LINE_4_COMBO_BOX_2);
         match self.target_category() {
             TargetCategory::Reaper => match self.reaper_target_type() {
-                ReaperTargetType::ClipTransport => {
-                    combo.show();
-                    combo.fill_combo_box_indexed(TransportAction::into_enum_iter());
-                    combo
-                        .select_combo_box_item_by_index(
-                            self.mapping.target_model.transport_action().into(),
-                        )
-                        .unwrap();
-                }
                 ReaperTargetType::FxParameter
                     if self.target.param_type() == VirtualFxParameterType::ById =>
                 {

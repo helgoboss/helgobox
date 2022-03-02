@@ -18,6 +18,7 @@ use reaper_rx::ControlSurfaceRxMiddleware;
 use rosc::{OscMessage, OscPacket};
 
 use itertools::{EitherOrBoth, Itertools};
+use playtime_clip_engine::rt::WeakMatrix;
 use reaper_medium::{
     CommandId, ExtSupportsExtendedTouchArgs, GetTouchStateArgs, MediaTrack, MidiInputDeviceId,
     MidiOutputDeviceId, PositionInSeconds, ReaProject, ReaperNormalizedFxParamValue,
@@ -74,6 +75,7 @@ pub enum Garbage {
     NormalRealTimeTask(NormalRealTimeTask),
     FeedbackRealTimeTask(FeedbackRealTimeTask),
     MidiCaptureSender(MidiCaptureSender),
+    ClipMatrix(WeakMatrix),
 }
 
 #[derive(Debug)]
