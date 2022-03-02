@@ -348,13 +348,13 @@ impl<EH: DomainEventHandler> RealearnControlSurfaceMiddleware<EH> {
     }
 
     fn poll_clip_matrixes(&mut self) {
-        for p in &self.main_processors {
-            let events = p.poll_owned_clip_matrix();
+        for processor in &self.main_processors {
+            let events = processor.poll_owned_clip_matrix();
             if events.is_empty() {
                 continue;
             }
-            for p in &self.main_processors {
-                p.process_clip_matrix_events(*p.instance_id(), &events);
+            for other_processor in &self.main_processors {
+                other_processor.process_clip_matrix_events(*processor.instance_id(), &events);
             }
         }
     }
