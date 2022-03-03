@@ -972,6 +972,7 @@ impl ReadyState {
             ),
             SupplyResponseStatus::ReachedEnd { num_frames_written } => (num_frames_written, None),
         };
+        debug!("FRAMES CONSUMED: {}", response.num_frames_consumed);
         FillSamplesOutcome {
             clip_playing_outcome: ClipPlayingOutcome {
                 num_audio_frames_written: if is_midi { 0 } else { num_frames_written },
@@ -1148,6 +1149,10 @@ impl ReadyState {
             block_length_in_timeline_frames,
             timeline_frame_rate,
             source_frame_rate,
+        );
+        debug!(
+            "CALCULATED BLOCK LENGTH IN SOURCE FRAMES: {}",
+            block_length_in_source_frames
         );
         adjust_proportionally_in_blocks(
             rel_pos_from_quant_in_source_frames,
