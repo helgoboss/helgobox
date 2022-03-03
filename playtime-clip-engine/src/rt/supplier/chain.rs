@@ -1,5 +1,4 @@
 use crate::conversion_util::convert_duration_in_seconds_to_frames;
-use crate::main::ClipContent;
 use crate::rt::supplier::{
     AdHocFader, Amplifier, Downbeat, ExactDuration, ExactFrameCount, LoopBehavior, Looper,
     Recorder, Resampler, Section, StartEndFader, TimeStretcher, WithFrameRate,
@@ -9,7 +8,6 @@ use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, Db, MidiResetMessageRange, PositiveBeat,
     PositiveSecond, VirtualResampleMode,
 };
-use reaper_high::Project;
 use reaper_medium::{Bpm, DurationInSeconds, Hz};
 
 type Head = AmplifierTail;
@@ -278,9 +276,5 @@ impl SupplierChain {
 
     pub fn section_duration_in_ready_state(&self) -> DurationInSeconds {
         self.section().duration()
-    }
-
-    pub fn clip_content(&self, project: Option<Project>) -> Option<ClipContent> {
-        self.recorder().clip_content(project)
     }
 }

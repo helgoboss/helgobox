@@ -4,7 +4,7 @@ use crate::conversion_util::{
     convert_duration_in_seconds_to_frames, convert_position_in_frames_to_seconds,
     convert_position_in_seconds_to_frames,
 };
-use crate::main::{ClipContent, ClipData, ClipSlotCoordinates};
+use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
     AudioSupplier, LoopBehavior, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
@@ -24,7 +24,6 @@ use reaper_high::Project;
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds, ReaperVolumeValue,
 };
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
 
@@ -215,12 +214,7 @@ impl Clip {
         permanent_project: Option<Project>,
         recorder_equipment: RecorderEquipment,
     ) -> ClipEngineResult<Self> {
-        let source = {
-            let content = ClipContent::load(&api_clip.source);
-            // TODO-high Just like a column can live "offline" and keep its settings without a track, a clip
-            //  should be able to live "offline" and keep its settings if its content couldn't be loaded.
-            content.create_source(permanent_project)?.into_raw()
-        };
+        let pcm_source = create_pcm_source_from_api_source(&api_clip.source, permanent_project)?;
         let mut ready_state = ReadyState {
             state: ReadySubState::Stopped,
             persistent_data: PersistentPlayData {
@@ -230,7 +224,8 @@ impl Clip {
                 time_base: api_clip.time_base,
             },
         };
-        let mut supplier_chain = SupplierChain::new(Recorder::ready(source, recorder_equipment));
+        let mut supplier_chain =
+            SupplierChain::new(Recorder::ready(pcm_source, recorder_equipment));
         supplier_chain.set_volume(api_clip.volume);
         supplier_chain
             .set_section_in_seconds(api_clip.section.start_pos, api_clip.section.length)?;
@@ -447,19 +442,6 @@ impl Clip {
     pub fn set_volume(&mut self, volume: ReaperVolumeValue) -> ClipChangedEvent {
         // self.volume = volume;
         ClipChangedEvent::ClipVolume(volume)
-    }
-
-    pub fn persistent_data(&self) -> Option<ClipData> {
-        let clip = ClipData {
-            volume: Default::default(),
-            repeat: self.looped(),
-            content: self.content()?,
-        };
-        Some(clip)
-    }
-
-    fn content(&self) -> Option<ClipContent> {
-        self.supplier_chain.clip_content(self.project)
     }
 
     pub fn shared_pos(&self) -> SharedPos {

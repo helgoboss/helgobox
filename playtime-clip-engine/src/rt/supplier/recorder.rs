@@ -3,7 +3,6 @@ use crate::conversion_util::{
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
 };
 use crate::file_util::get_path_for_new_media_file;
-use crate::main::{ClipContent, CreateClipContentMode};
 use crate::rt::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
@@ -19,7 +18,7 @@ use crate::ClipEngineResult;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_midi::ShortMessage;
 use playtime_api::AudioCacheBehavior;
-use reaper_high::{OwnedSource, Project, Reaper, ReaperSource};
+use reaper_high::{OwnedSource, Project, Reaper};
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, MidiImportBehavior, OwnedPcmSink,
@@ -384,25 +383,6 @@ impl Recorder {
             State::Ready(s) => pcm_source_is_midi(s.cache.source()),
             State::Recording(s) => s.kind_state.is_midi(),
         }
-    }
-
-    pub fn clip_content(&self, project: Option<Project>) -> Option<ClipContent> {
-        let source = match self.state.as_ref().unwrap() {
-            State::Ready(s) => s.cache.source(),
-            State::Recording(s) => match &s.kind_state {
-                KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
-                    return Some(ClipContent::from_file(project, &s.file))
-                }
-                _ => s.old_cache.as_ref()?.source(),
-            },
-        };
-        let source = ReaperSource::new(source.as_ptr());
-        let content = ClipContent::from_reaper_source(
-            &source,
-            CreateClipContentMode::AllowEmbeddedData,
-            project,
-        );
-        Some(content.unwrap())
     }
 
     /// This must not be done in a real-time thread!

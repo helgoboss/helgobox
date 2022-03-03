@@ -1,4 +1,4 @@
-use crate::main::{Clip, ClipContent, ClipData, ClipRecordTask, MatrixSettings, Slot};
+use crate::main::{Clip, ClipRecordTask, MatrixSettings, Slot};
 use crate::rt::supplier::RecorderEquipment;
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs,
@@ -276,16 +276,6 @@ impl Column {
         let args = ColumnSetClipRepeatedArgs { slot_index, looped };
         self.set_clip_looped(args);
         Ok(ClipChangedEvent::ClipLooped(looped))
-    }
-
-    pub fn clip_data(&self, slot_index: usize) -> Option<ClipData> {
-        let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
-        let data = ClipData {
-            volume: Default::default(),
-            repeat: clip.data().looped,
-            content: ClipContent::load(&clip.data().source),
-        };
-        Some(data)
     }
 
     pub fn clip_position_in_seconds(&self, slot_index: usize) -> Option<PositionInSeconds> {

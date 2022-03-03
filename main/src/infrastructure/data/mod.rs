@@ -51,3 +51,5 @@ pub use osc_device_management::*;
 
 mod virtual_control;
 pub use virtual_control::*;
+
+mod clip_legacy;

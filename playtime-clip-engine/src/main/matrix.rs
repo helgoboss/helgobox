@@ -1,4 +1,4 @@
-use crate::main::{ClipContent, ClipData, Column, Slot};
+use crate::main::{Column, Slot};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, keep_stretching, RecorderEquipment, StretchWorkerRequest,
@@ -14,15 +14,12 @@ use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, ClipRecordStartTiming, ClipRecordStopTiming,
-    ClipRecordTimeBase, ClipSettingOverrideAfterRecording, ColumnClipPlaySettings,
-    MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordAudioSettings,
-    MatrixClipRecordMidiSettings, MatrixClipRecordSettings, MidiClipRecordMode, RecordLength,
-    TempoRange, TrackId, VirtualResampleMode,
+    ClipRecordTimeBase, ClipSettingOverrideAfterRecording, MatrixClipPlayAudioSettings,
+    MatrixClipPlaySettings, MatrixClipRecordAudioSettings, MatrixClipRecordMidiSettings,
+    MatrixClipRecordSettings, MidiClipRecordMode, RecordLength, TempoRange, VirtualResampleMode,
 };
-use reaper_high::{Guid, Item, OrCurrentProject, Project, Track};
+use reaper_high::{OrCurrentProject, Project, Track};
 use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
-use serde::{Deserialize, Serialize};
-use std::error::Error;
 use std::thread;
 use std::thread::JoinHandle;
 
@@ -237,63 +234,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.rt_command_sender.clear_columns();
     }
 
-    /// This is for loading slots the legacy way.
-    pub fn load_legacy(&mut self, descriptors: Vec<LegacySlotDescriptor>) -> ClipEngineResult<()> {
-        let api_matrix = api::Matrix {
-            columns: {
-                let api_columns: ClipEngineResult<Vec<_>> = descriptors
-                    .into_iter()
-                    .map(|desc| {
-                        let api_column = api::Column {
-                            clip_play_settings: ColumnClipPlaySettings {
-                                track: desc
-                                    .output
-                                    .resolve_track(self.containing_track.clone())?
-                                    .map(|t| TrackId(t.guid().to_string_without_braces())),
-                                ..Default::default()
-                            },
-                            clip_record_settings: Default::default(),
-                            slots: {
-                                let api_clip = api::Clip {
-                                    source: match desc.clip.content {
-                                        ClipContent::File { file } => {
-                                            api::Source::File(api::FileSource { path: file })
-                                        }
-                                        ClipContent::MidiChunk { chunk } => {
-                                            api::Source::MidiChunk(api::MidiChunkSource { chunk })
-                                        }
-                                    },
-                                    time_base: api::ClipTimeBase::Time,
-                                    start_timing: None,
-                                    stop_timing: None,
-                                    looped: desc.clip.repeat,
-                                    volume: api::Db::new(0.0).unwrap(),
-                                    color: api::ClipColor::PlayTrackColor,
-                                    section: api::Section {
-                                        start_pos: api::PositiveSecond::new(0.0).unwrap(),
-                                        length: None,
-                                    },
-                                    audio_settings: Default::default(),
-                                    midi_settings: Default::default(),
-                                };
-                                let api_slot = api::Slot {
-                                    // In the previous clip system, we had only one dimension.
-                                    row: 0,
-                                    clip: Some(api_clip),
-                                };
-                                Some(vec![api_slot])
-                            },
-                        };
-                        Ok(api_column)
-                    })
-                    .collect();
-                Some(api_columns?)
-            },
-            ..Default::default()
-        };
-        self.load(api_matrix)
-    }
-
     pub fn slot(&self, coordinates: ClipSlotCoordinates) -> Option<&Slot> {
         let column = get_column(&self.columns, coordinates.column).ok()?;
         column.slot(coordinates.row())
@@ -401,12 +341,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .clip_volume(coordinates.row())
     }
 
-    pub fn clip_data(&self, coordinates: ClipSlotCoordinates) -> Option<ClipData> {
-        get_column(&self.columns, coordinates.column())
-            .ok()?
-            .clip_data(coordinates.row())
-    }
-
     pub fn record_clip_legacy(
         &mut self,
         coordinates: ClipSlotCoordinates,
@@ -479,20 +413,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .ok()?
             .proportional_clip_position(coordinates.row())
     }
-
-    pub fn fill_slot_with_item_source(
-        &mut self,
-        _coordinates: ClipSlotCoordinates,
-        item: Item,
-    ) -> Result<(), Box<dyn Error>> {
-        // let slot = get_slot_mut(&mut self.clip_slots, coordinates.column())?;
-        // let content = ClipContent::from_item(item, false)?;
-        // slot.fill_by_user(content, item.project(), &self.stretch_worker_sender)?;
-        // self.handler.notify_slot_contents_changed();
-        let content = ClipContent::from_item(item, false)?;
-        dbg!(content);
-        Ok(())
-    }
 }
 
 fn get_column(columns: &[Column], index: usize) -> ClipEngineResult<&Column> {
@@ -504,12 +424,6 @@ fn get_column_mut(columns: &mut [Column], index: usize) -> ClipEngineResult<&mut
 }
 
 const NO_SUCH_COLUMN: &str = "no such column";
-
-pub struct LegacySlotDescriptor {
-    pub output: LegacyClipOutput,
-    pub index: usize,
-    pub clip: ClipData,
-}
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub struct ClipSlotCoordinates {
@@ -528,43 +442,6 @@ impl ClipSlotCoordinates {
 
     pub fn row(&self) -> usize {
         self.row
-    }
-}
-
-pub enum LegacyClipOutput {
-    MasterTrack,
-    ThisTrack,
-    TrackById(Guid),
-    TrackByIndex(u32),
-    TrackByName(String),
-    HardwareOutput,
-}
-
-impl LegacyClipOutput {
-    fn resolve_track(&self, containing_track: Option<Track>) -> ClipEngineResult<Option<Track>> {
-        use LegacyClipOutput::*;
-        let containing_track = containing_track.ok_or(
-            "track-based columns are not supported when clip engine runs in monitoring FX chain",
-        );
-        let track = match self {
-            MasterTrack => Some(containing_track?.project().master_track()),
-            ThisTrack => Some(containing_track?),
-            TrackById(id) => {
-                let track = containing_track?.project().track_by_guid(id);
-                if track.is_available() {
-                    Some(track)
-                } else {
-                    None
-                }
-            }
-            TrackByIndex(index) => containing_track?.project().track_by_index(*index),
-            TrackByName(name) => containing_track?
-                .project()
-                .tracks()
-                .find(|t| t.name().map(|n| n.to_str() == name).unwrap_or(false)),
-            HardwareOutput => None,
-        };
-        Ok(track)
     }
 }
 
@@ -609,12 +486,4 @@ pub enum RecordKind {
         detect_downbeat: bool,
     },
     MidiOverdub,
-}
-
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
-pub struct QualifiedSlotDescriptor {
-    #[serde(rename = "index")]
-    pub index: usize,
-    #[serde(flatten)]
-    pub descriptor: ClipData,
 }
