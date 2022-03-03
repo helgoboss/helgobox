@@ -13,7 +13,7 @@ use crate::rt::supplier::{
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate, WithSource,
     MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
-use crate::rt::{ClipInfo, ClipRecordInput, RecordTiming};
+use crate::rt::{ClipRecordInput, RecordTiming};
 use crate::timeline::{clip_timeline, Timeline};
 use crate::ClipEngineResult;
 use crossbeam_channel::{Receiver, Sender};
@@ -383,24 +383,6 @@ impl Recorder {
         match self.state.as_ref().unwrap() {
             State::Ready(s) => pcm_source_is_midi(s.cache.source()),
             State::Recording(s) => s.kind_state.is_midi(),
-        }
-    }
-
-    pub fn clip_info(&self) -> Option<ClipInfo> {
-        match self.state.as_ref().unwrap() {
-            State::Ready(s) => {
-                let source = s.cache.source();
-                let info = ClipInfo {
-                    r#type: source.get_type(|t| t.to_string()),
-                    file_name: source.get_file_name(|p| Some(p?.to_owned())),
-                    length: {
-                        // TODO-low Doesn't need to be optional
-                        Some(source.duration())
-                    },
-                };
-                Some(info)
-            }
-            State::Recording(_) => None,
         }
     }
 

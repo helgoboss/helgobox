@@ -449,10 +449,6 @@ impl Clip {
         ClipChangedEvent::ClipVolume(volume)
     }
 
-    pub fn info_legacy(&self) -> Option<ClipInfo> {
-        self.supplier_chain.clip_info()
-    }
-
     pub fn persistent_data(&self) -> Option<ClipData> {
         let clip = ClipData {
             volume: Default::default(),
@@ -1799,13 +1795,6 @@ struct LogNaturalDeviationArgs<T: Timeline> {
 }
 
 const MIN_TEMPO_FACTOR: f64 = 0.0000000001;
-
-/// Contains static information about a clip.
-pub struct ClipInfo {
-    pub r#type: String,
-    pub file_name: Option<PathBuf>,
-    pub length: Option<DurationInSeconds>,
-}
 
 /// Play state of a clip.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

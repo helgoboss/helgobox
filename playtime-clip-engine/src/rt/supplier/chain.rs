@@ -4,7 +4,6 @@ use crate::rt::supplier::{
     AdHocFader, Amplifier, Downbeat, ExactDuration, ExactFrameCount, LoopBehavior, Looper,
     Recorder, Resampler, Section, StartEndFader, TimeStretcher, WithFrameRate,
 };
-use crate::rt::ClipInfo;
 use crate::ClipEngineResult;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, Db, MidiResetMessageRange, PositiveBeat,
@@ -279,10 +278,6 @@ impl SupplierChain {
 
     pub fn section_duration_in_ready_state(&self) -> DurationInSeconds {
         self.section().duration()
-    }
-
-    pub fn clip_info(&self) -> Option<ClipInfo> {
-        self.recorder().clip_info()
     }
 
     pub fn clip_content(&self, project: Option<Project>) -> Option<ClipContent> {

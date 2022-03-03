@@ -3,9 +3,7 @@ use crate::conversion_util::{
 };
 use crate::main::{ColumnSettings, MatrixSettings};
 use crate::rt::supplier::RecorderEquipment;
-use crate::rt::{
-    calc_tempo_factor, determine_tempo_from_time_base, ClipInfo, ClipPlayState, SharedPos,
-};
+use crate::rt::{calc_tempo_factor, determine_tempo_from_time_base, ClipPlayState, SharedPos};
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
@@ -185,12 +183,5 @@ impl Clip {
     /// Returns `None` if time base is not "Beat".
     fn tempo(&self) -> Option<Bpm> {
         determine_tempo_from_time_base(&self.persistent_data.time_base, self.runtime_data.is_midi)
-    }
-
-    pub fn info(&self) -> ClipInfo {
-        // TODO-high This should be implemented as soon as we hold more derived info here.
-        //  - type (MIDI, WAVE, ...)
-        //  - original length
-        todo!()
     }
 }

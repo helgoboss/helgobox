@@ -4,7 +4,7 @@ use crate::rt::supplier::{
     keep_processing_recorder_requests, keep_stretching, RecorderEquipment, StretchWorkerRequest,
 };
 use crate::rt::{
-    ClipInfo, ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs, QualifiedClipChangedEvent,
+    ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs, QualifiedClipChangedEvent,
     RecordBehavior, RecordTiming, RtMatrixCommandSender, SharedColumn, WeakColumn,
 };
 use crate::timeline::clip_timeline;
@@ -405,12 +405,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         get_column(&self.columns, coordinates.column())
             .ok()?
             .clip_data(coordinates.row())
-    }
-
-    pub fn clip_info(&self, coordinates: ClipSlotCoordinates) -> Option<ClipInfo> {
-        get_column(&self.columns, coordinates.column())
-            .ok()?
-            .clip_info(coordinates.row())
     }
 
     pub fn record_clip_legacy(

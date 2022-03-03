@@ -1,9 +1,9 @@
 use crate::main::{Clip, ClipContent, ClipData, ClipRecordTask, MatrixSettings, Slot};
 use crate::rt::supplier::RecorderEquipment;
 use crate::rt::{
-    ClipChangedEvent, ClipInfo, ClipPlayState, ColumnCommandSender, ColumnEvent,
-    ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
-    RecordBehavior, SharedColumn, WeakColumn,
+    ClipChangedEvent, ClipPlayState, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs,
+    ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs, RecordBehavior,
+    SharedColumn, WeakColumn,
 };
 use crate::{clip_timeline, rt, ClipEngineResult};
 use crossbeam_channel::Receiver;
@@ -286,11 +286,6 @@ impl Column {
             content: ClipContent::load(&clip.data().source),
         };
         Some(data)
-    }
-
-    pub fn clip_info(&self, slot_index: usize) -> Option<ClipInfo> {
-        let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
-        Some(clip.info())
     }
 
     pub fn clip_position_in_seconds(&self, slot_index: usize) -> Option<PositionInSeconds> {
