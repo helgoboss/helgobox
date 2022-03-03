@@ -101,6 +101,11 @@ impl Matrix {
     }
 
     pub fn poll(&mut self) {
+        if let Some(p) = self.project {
+            if !p.is_available() {
+                return;
+            }
+        }
         let relevant_transport_change_detected = self.detect_and_process_transport_change();
         if !relevant_transport_change_detected {
             self.detect_and_process_play_position_jump();
