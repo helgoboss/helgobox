@@ -5,9 +5,10 @@ use crate::domain::{
     MappingActivationEffect, MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent,
     MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult, ParameterArray, ParameterSlice,
     PersistentMappingProcessingState, RealTimeReaperTarget, RealearnTarget, ReaperMessage,
-    ReaperSource, ReaperTarget, ReaperTargetType, Tag, TargetCharacter, TrackExclusivity,
-    UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue, VirtualSource,
-    VirtualSourceAddress, VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
+    ReaperSource, ReaperTarget, ReaperTargetType, Tag, TargetCharacter, TargetUpdate,
+    TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue,
+    VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
+    COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -382,16 +383,19 @@ impl MainMapping {
                 UnresolvedCompoundMappingTarget::Virtual(_) => UnresolvedTargetCategory::Virtual,
             }),
             target_is_resolved: !self.targets.is_empty(),
-            resolved_target: self
-                .targets
-                .first()
-                .and_then(|t| t.splinter_real_time_target()),
+            resolved_target: self.splinter_first_real_time_target(),
             lifecycle_midi_data: self
                 .extension
                 .lifecycle_midi_data
                 .take()
                 .unwrap_or_default(),
         }
+    }
+
+    pub fn splinter_first_real_time_target(&self) -> Option<RealTimeCompoundMappingTarget> {
+        self.targets
+            .first()
+            .and_then(|t| t.splinter_real_time_target())
     }
 
     pub fn has_virtual_target(&self) -> bool {
@@ -1218,8 +1222,13 @@ impl RealTimeMapping {
         self.core.options.persistent_processing_state = state;
     }
 
-    pub fn update_target_activation(&mut self, is_active: bool) {
-        self.core.options.target_is_active = is_active;
+    pub fn update_target(&mut self, update: &mut TargetUpdate) {
+        if let Some(c) = update.activation_change {
+            self.core.options.target_is_active = c.is_active;
+        }
+        if let Some(rt_target) = update.real_time_target_change.take() {
+            self.resolved_target = rt_target;
+        }
     }
 
     pub fn update_activation(&mut self, is_active: bool) {

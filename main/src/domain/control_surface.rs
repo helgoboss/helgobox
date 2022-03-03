@@ -5,7 +5,7 @@ use crate::domain::{
     FeedbackOutput, FeedbackRealTimeTask, InstanceId, LifecycleMidiData, MainProcessor,
     MidiCaptureSender, MidiDeviceChangePayload, NormalRealTimeTask, OscDeviceId, OscInputDevice,
     OscScanResult, QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget, RealTimeMapping,
-    ReaperMessage, ReaperTarget, SharedRealTimeProcessor, SourceFeedbackValue,
+    ReaperMessage, ReaperTarget, SharedRealTimeProcessor, SourceFeedbackValue, TargetUpdate,
     TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
@@ -72,6 +72,7 @@ pub enum Garbage {
     RealTimeMappings(Vec<RealTimeMapping>),
     BoxedRealTimeMapping(Box<Option<RealTimeMapping>>),
     ActivationChanges(Vec<ActivationChange>),
+    TargetUpdates(Vec<TargetUpdate>),
     NormalRealTimeTask(NormalRealTimeTask),
     FeedbackRealTimeTask(FeedbackRealTimeTask),
     MidiCaptureSender(MidiCaptureSender),

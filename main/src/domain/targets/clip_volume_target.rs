@@ -28,6 +28,10 @@ impl UnresolvedReaperTargetDef for UnresolvedClipVolumeTarget {
             slot_coordinates: self.slot.resolve(context, compartment)?,
         })])
     }
+
+    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
+        Some(&self.slot)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

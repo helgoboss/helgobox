@@ -120,7 +120,7 @@ impl UnresolvedReaperTarget {
         true
     }
 
-    /// Should return true if the target should be refreshed (reresolved) on parameter changes.
+    /// Should return true if the target should be refreshed (re-resolved) on parameter changes.
     /// Usually true for all targets that use `<Dynamic>` selector.
     pub fn can_be_affected_by_parameters(&self) -> bool {
         let descriptors = self.unpack_descriptors();
@@ -156,6 +156,11 @@ impl UnresolvedReaperTarget {
                 return true;
             }
         }
+        if let Some(desc) = descriptors.clip_slot {
+            if matches!(&desc, VirtualClipSlot::Dynamic { .. }) {
+                return true;
+            }
+        }
         false
     }
 
@@ -185,6 +190,12 @@ impl UnresolvedReaperTarget {
         if let Some(d) = self.track_descriptor() {
             return Descriptors {
                 track: Some(d),
+                ..Default::default()
+            };
+        }
+        if let Some(d) = self.clip_slot_descriptor() {
+            return Descriptors {
+                clip_slot: Some(d),
                 ..Default::default()
             };
         }
@@ -1427,6 +1438,7 @@ struct Descriptors<'a> {
     fx: Option<&'a FxDescriptor>,
     route: Option<&'a TrackRouteDescriptor>,
     fx_param: Option<&'a FxParameterDescriptor>,
+    clip_slot: Option<&'a VirtualClipSlot>,
 }
 
 #[enum_dispatch(UnresolvedReaperTarget)]
@@ -1471,6 +1483,10 @@ pub trait UnresolvedReaperTargetDef {
     }
 
     fn fx_parameter_descriptor(&self) -> Option<&FxParameterDescriptor> {
+        None
+    }
+
+    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
         None
     }
 }

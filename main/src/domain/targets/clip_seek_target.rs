@@ -41,6 +41,10 @@ impl UnresolvedReaperTargetDef for UnresolvedClipSeekTarget {
         // per main loop.
         Some(FeedbackResolution::Beat)
     }
+
+    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
+        Some(&self.slot)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

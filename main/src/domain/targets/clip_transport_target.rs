@@ -38,6 +38,10 @@ impl UnresolvedReaperTargetDef for UnresolvedClipTransportTarget {
         })];
         Ok(targets)
     }
+
+    fn clip_slot_descriptor(&self) -> Option<&VirtualClipSlot> {
+        Some(&self.slot)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

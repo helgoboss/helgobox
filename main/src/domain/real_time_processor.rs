@@ -326,7 +326,7 @@ impl RealTimeProcessor {
                         }
                     }
                 }
-                UpdateTargetActivations(compartment, activation_updates) => {
+                UpdateTargets(compartment, mut target_updates) => {
                     // Also log sample count in order to be sure about invocation order
                     // (timestamp is not accurate enough on e.g. selection changes).
                     // TODO-low We should use an own logger and always log the sample count
@@ -340,26 +340,29 @@ impl RealTimeProcessor {
                         );
                     });
                     // Apply updates
-                    for update in activation_updates.iter() {
-                        if let Some(m) = self.mappings[compartment].get_mut(&update.id) {
-                            m.update_target_activation(update.is_active);
+                    for update in target_updates.iter_mut() {
+                        if let Some(m) = self.mappings[compartment].get_mut(&update.mapping_id) {
+                            m.update_target(update);
                         }
                     }
                     // Handle lifecycle MIDI
                     if self.processor_feedback_is_effectively_on() {
-                        for update in activation_updates.iter() {
-                            if let Some(m) = self.mappings[compartment].get(&update.id) {
-                                if m.feedback_is_effectively_on_ignoring_target_activation() {
-                                    self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
-                                        m,
-                                        update.is_active.into(),
-                                    );
+                        for update in target_updates.iter() {
+                            if let Some(activation_change) = update.activation_change {
+                                if let Some(m) = self.mappings[compartment].get(&update.mapping_id)
+                                {
+                                    if m.feedback_is_effectively_on_ignoring_target_activation() {
+                                        self.send_lifecycle_midi_to_feedback_output_from_audio_hook(
+                                            m,
+                                            activation_change.is_active.into(),
+                                        );
+                                    }
                                 }
                             }
                         }
                     }
                     self.garbage_bin
-                        .dispose(Garbage::ActivationChanges(activation_updates));
+                        .dispose(Garbage::TargetUpdates(target_updates));
                 }
                 UpdateSettings {
                     let_matched_events_through,
@@ -1251,8 +1254,9 @@ pub enum NormalRealTimeTask {
         input_logging_enabled: bool,
         output_logging_enabled: bool,
     },
-    /// This takes care of propagating target activation states (for non-virtual mappings).
-    UpdateTargetActivations(MappingCompartment, Vec<ActivationChange>),
+    /// This takes care of propagating target activation states and/or real-time target updates
+    /// (for non-virtual mappings).
+    UpdateTargets(MappingCompartment, Vec<TargetUpdate>),
     /// Updates the activation state of multiple mappings.
     ///
     /// The given vector contains updates just for affected mappings. This is because when a
@@ -1303,6 +1307,13 @@ impl MappingActivationEffect {
 pub struct ActivationChange {
     pub id: MappingId,
     pub is_active: bool,
+}
+
+#[derive(Debug)]
+pub struct TargetUpdate {
+    pub mapping_id: MappingId,
+    pub activation_change: Option<ActivationChange>,
+    pub real_time_target_change: Option<Option<RealTimeCompoundMappingTarget>>,
 }
 
 /// A feedback task (which is potentially sent very frequently).
