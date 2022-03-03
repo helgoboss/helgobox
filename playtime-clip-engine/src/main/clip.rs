@@ -1,8 +1,12 @@
-use crate::conversion_util::convert_position_in_frames_to_seconds;
+use crate::conversion_util::{
+    adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
+};
 use crate::main::{ColumnSettings, MatrixSettings};
 use crate::rt::supplier::RecorderEquipment;
-use crate::rt::{ClipInfo, ClipPlayState, SharedPos};
-use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, Timeline};
+use crate::rt::{
+    calc_tempo_factor, determine_tempo_from_time_base, ClipInfo, ClipPlayState, SharedPos,
+};
+use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{AudioCacheBehavior, AudioTimeStretchMode, VirtualResampleMode};
@@ -23,6 +27,7 @@ struct ClipRuntimeData {
     pos: SharedPos,
     frame_count: usize,
     source_frame_rate: Hz,
+    is_midi: bool,
 }
 
 impl Clip {
@@ -104,6 +109,7 @@ impl Clip {
     pub fn connect_to(&mut self, rt_clip: &rt::Clip) {
         self.runtime_data.pos = rt_clip.shared_pos();
         self.runtime_data.source_frame_rate = rt_clip.source_frame_rate();
+        self.runtime_data.is_midi = rt_clip.is_midi();
     }
 
     pub fn data(&self) -> &api::Clip {
@@ -146,14 +152,39 @@ impl Clip {
         Some(proportional)
     }
 
-    pub fn position_in_seconds(&self, timeline: &HybridTimeline) -> Option<PositionInSeconds> {
-        let pos_in_source_frames = self.runtime_data.pos.get();
+    pub fn position_in_seconds(&self, timeline: &HybridTimeline) -> PositionInSeconds {
+        let pos_in_source_frames = self.mod_frame();
         let pos_in_secs = convert_position_in_frames_to_seconds(
             pos_in_source_frames,
             self.runtime_data.source_frame_rate,
         );
-        // let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
-        Some(pos_in_secs)
+        let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
+        let tempo_factor = self.tempo_factor(timeline_tempo);
+        adjust_pos_in_secs_anti_proportionally(pos_in_secs, tempo_factor)
+    }
+
+    pub fn mod_frame(&self) -> isize {
+        let frame = self.runtime_data.pos.get();
+        if frame < 0 {
+            frame
+        } else if self.runtime_data.frame_count > 0 {
+            frame % self.runtime_data.frame_count as isize
+        } else {
+            0
+        }
+    }
+
+    fn tempo_factor(&self, timeline_tempo: Bpm) -> f64 {
+        if let Some(tempo) = self.tempo() {
+            calc_tempo_factor(tempo, timeline_tempo)
+        } else {
+            1.0
+        }
+    }
+
+    /// Returns `None` if time base is not "Beat".
+    fn tempo(&self) -> Option<Bpm> {
+        determine_tempo_from_time_base(&self.persistent_data.time_base, self.runtime_data.is_midi)
     }
 
     pub fn info(&self) -> ClipInfo {

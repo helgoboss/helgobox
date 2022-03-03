@@ -10,7 +10,6 @@ use crate::domain::{
 };
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
 use playtime_clip_engine::rt::{ClipChangedEvent, ClipPlayState, QualifiedClipChangedEvent};
-use playtime_clip_engine::{clip_timeline, Timeline};
 
 #[derive(Debug)]
 pub struct UnresolvedClipSeekTarget {

@@ -296,7 +296,7 @@ impl Column {
     pub fn clip_position_in_seconds(&self, slot_index: usize) -> Option<PositionInSeconds> {
         let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
         let timeline = clip_timeline(self.project, false);
-        clip.position_in_seconds(&timeline)
+        Some(clip.position_in_seconds(&timeline))
     }
 
     pub fn clip_play_state(&self, slot_index: usize) -> Option<ClipPlayState> {

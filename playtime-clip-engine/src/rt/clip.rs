@@ -1,7 +1,8 @@
 use crate::conversion_util::{
-    adjust_proportionally_positive, convert_duration_in_frames_to_other_frame_rate,
-    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
+    adjust_pos_in_secs_anti_proportionally, adjust_proportionally_positive,
+    convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
+    convert_duration_in_seconds_to_frames, convert_position_in_frames_to_seconds,
+    convert_position_in_seconds_to_frames,
 };
 use crate::main::{ClipContent, ClipData, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
@@ -473,6 +474,10 @@ impl Clip {
         self.supplier_chain.source_frame_rate_in_ready_state()
     }
 
+    pub fn is_midi(&self) -> bool {
+        self.supplier_chain.is_midi()
+    }
+
     pub fn play_state(&self) -> ClipPlayState {
         use ClipState::*;
         match &self.state {
@@ -484,7 +489,7 @@ impl Clip {
     pub fn position_in_seconds(&self, timeline_tempo: Bpm) -> Option<PositionInSeconds> {
         use ClipState::*;
         match &self.state {
-            Ready(s) => s.position_in_seconds(timeline_tempo, &self.supplier_chain),
+            Ready(s) => Some(s.position_in_seconds(timeline_tempo, &self.supplier_chain)),
             Recording(_) => None,
         }
     }
@@ -526,49 +531,43 @@ impl ReadyState {
         &self,
         timeline_tempo: Bpm,
         supplier_chain: &SupplierChain,
-    ) -> Option<PositionInSeconds> {
-        let source_pos_in_source_frames = self.frame_within_reaper_source(supplier_chain)?;
+    ) -> PositionInSeconds {
+        let source_pos_in_source_frames = self.frame_within_reaper_source(supplier_chain);
         let source_pos_in_secs = convert_position_in_frames_to_seconds(
             source_pos_in_source_frames,
             supplier_chain.source_frame_rate_in_ready_state(),
         );
-        let final_tempo_factor = self.calc_final_tempo_factor(timeline_tempo, supplier_chain);
-        let source_pos_in_secs_tempo_adjusted = source_pos_in_secs.get() / final_tempo_factor;
-        Some(PositionInSeconds::new(source_pos_in_secs_tempo_adjusted))
+        let tempo_factor = self.calc_tempo_factor(timeline_tempo, supplier_chain.is_midi());
+        adjust_pos_in_secs_anti_proportionally(source_pos_in_secs, tempo_factor)
     }
 
     /// Returns `None` if time base is not "Beat".
-    fn tempo(&self, supplier_chain: &SupplierChain) -> Option<Bpm> {
-        use ClipTimeBase::*;
-        match &self.persistent_data.time_base {
-            Time => None,
-            Beat(b) => Some(determine_tempo(b, supplier_chain)),
-        }
+    fn tempo(&self, is_midi: bool) -> Option<Bpm> {
+        determine_tempo_from_time_base(&self.persistent_data.time_base, is_midi)
     }
 
-    fn frame_within_reaper_source(&self, supplier_chain: &SupplierChain) -> Option<isize> {
+    fn frame_within_reaper_source(&self, supplier_chain: &SupplierChain) -> isize {
         use ReadySubState::*;
-        match self.state {
+        let absolute_frame = match self.state {
             Playing(PlayingState {
                 seek_pos: Some(pos),
                 ..
-            }) => Some(self.modulo_frame(pos as usize, supplier_chain) as isize),
+            }) => pos as isize,
             Playing(PlayingState { pos: Some(pos), .. })
-            | Suspending(SuspendingState { pos, .. }) => {
-                if pos < 0 {
-                    Some(pos)
-                } else {
-                    Some(self.modulo_frame(pos as usize, supplier_chain) as isize)
-                }
-            }
+            | Suspending(SuspendingState { pos, .. }) => pos,
             // Pause position is modulo already.
-            Paused(s) => Some(self.modulo_frame(s.pos, supplier_chain) as isize),
-            _ => None,
-        }
+            Paused(s) => s.pos as isize,
+            _ => return 0,
+        };
+        self.modulo_frame(absolute_frame, supplier_chain)
     }
 
-    fn modulo_frame(&self, frame: usize, supplier_chain: &SupplierChain) -> usize {
-        frame % supplier_chain.section_frame_count_in_ready_state()
+    fn modulo_frame(&self, frame: isize, supplier_chain: &SupplierChain) -> isize {
+        if frame < 0 {
+            frame
+        } else {
+            frame % supplier_chain.section_frame_count_in_ready_state() as isize
+        }
     }
 
     pub fn set_looped(&mut self, looped: bool, supplier_chain: &mut SupplierChain) {
@@ -595,7 +594,7 @@ impl ReadyState {
             }
             ClipTimeBase::Beat(b) => {
                 supplier_chain.set_time_stretching_enabled(true);
-                let tempo = determine_tempo(b, supplier_chain);
+                let tempo = determine_tempo_from_beat_time_base(b, supplier_chain.is_midi());
                 supplier_chain.set_downbeat_in_beats(b.downbeat, tempo)?;
             }
         }
@@ -1060,22 +1059,21 @@ impl ReadyState {
         args: &ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
     ) -> SupplyRequestGeneralInfo {
-        let final_tempo_factor = self.calc_final_tempo_factor(args.timeline_tempo, supplier_chain);
+        let tempo_factor = self.calc_tempo_factor(args.timeline_tempo, supplier_chain.is_midi());
         let general_info = SupplyRequestGeneralInfo {
             audio_block_timeline_cursor_pos: args.timeline_cursor_pos,
             audio_block_length: args.dest_buffer.frame_count(),
             output_frame_rate: args.dest_sample_rate,
             timeline_tempo: args.timeline_tempo,
-            clip_tempo_factor: final_tempo_factor,
+            clip_tempo_factor: tempo_factor,
         };
-        supplier_chain.set_tempo_factor(final_tempo_factor);
+        supplier_chain.set_tempo_factor(tempo_factor);
         general_info
     }
 
-    fn calc_final_tempo_factor(&self, timeline_tempo: Bpm, supplier_chain: &SupplierChain) -> f64 {
-        if let Some(clip_tempo) = self.tempo(supplier_chain) {
-            let timeline_tempo_factor = timeline_tempo.get() / clip_tempo.get();
-            timeline_tempo_factor.max(MIN_TEMPO_FACTOR)
+    fn calc_tempo_factor(&self, timeline_tempo: Bpm, is_midi: bool) -> f64 {
+        if let Some(clip_tempo) = self.tempo(is_midi) {
+            calc_tempo_factor(clip_tempo, timeline_tempo)
         } else {
             1.0
         }
@@ -1135,7 +1133,7 @@ impl ReadyState {
         );
         if quantized_pos.denominator() == 1 {
             // Quantization to bar
-            if let Some(clip_tempo) = self.tempo(supplier_chain) {
+            if let Some(clip_tempo) = self.tempo(supplier_chain.is_midi()) {
                 // Plus, we react to tempo changes.
                 let args = LogNaturalDeviationArgs {
                     start_bar: quantized_pos.position() as _,
@@ -1902,8 +1900,22 @@ impl Default for Go {
     }
 }
 
-fn determine_tempo(beat_time_base: &BeatTimeBase, supplier_chain: &SupplierChain) -> Bpm {
-    if supplier_chain.is_midi() {
+/// Returns `None` if time base is not "Beat".
+pub fn determine_tempo_from_time_base(time_base: &ClipTimeBase, is_midi: bool) -> Option<Bpm> {
+    use ClipTimeBase::*;
+    match time_base {
+        Time => None,
+        Beat(b) => Some(determine_tempo_from_beat_time_base(b, is_midi)),
+    }
+}
+
+pub fn calc_tempo_factor(clip_tempo: Bpm, timeline_tempo: Bpm) -> f64 {
+    let timeline_tempo_factor = timeline_tempo.get() / clip_tempo.get();
+    timeline_tempo_factor.max(MIN_TEMPO_FACTOR)
+}
+
+fn determine_tempo_from_beat_time_base(beat_time_base: &BeatTimeBase, is_midi: bool) -> Bpm {
+    if is_midi {
         Bpm::new(MIDI_BASE_BPM)
     } else {
         let tempo = beat_time_base

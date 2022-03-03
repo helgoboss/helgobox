@@ -24,6 +24,13 @@ pub fn adjust_anti_proportionally(frame_count: f64, factor: f64) -> isize {
     (frame_count as f64 / factor).round() as isize
 }
 
+pub fn adjust_pos_in_secs_anti_proportionally(
+    pos: PositionInSeconds,
+    factor: f64,
+) -> PositionInSeconds {
+    PositionInSeconds::new(pos.get() / factor)
+}
+
 pub fn convert_duration_in_frames_to_seconds(
     frame_count: usize,
     sample_rate: Hz,
