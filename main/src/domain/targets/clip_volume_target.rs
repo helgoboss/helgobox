@@ -3,10 +3,10 @@ use crate::domain::ui_util::{
     reaper_volume_unit_value, volume_unit_value,
 };
 use crate::domain::{
-    BackboneState, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealearnTarget,
-    ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef,
-    VirtualClipSlot, DEFAULT_TARGET,
+    interpret_current_clip_slot_value, BackboneState, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
+    RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter, TargetTypeDef,
+    UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
@@ -130,8 +130,11 @@ impl<'a> Target<'a> for ClipVolumeTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        let volume = self.volume(context)?;
-        Some(AbsoluteValue::Continuous(volume_unit_value(volume)))
+        let val = self
+            .volume(context)
+            .map(volume_unit_value)
+            .map(AbsoluteValue::Continuous);
+        interpret_current_clip_slot_value(val)
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

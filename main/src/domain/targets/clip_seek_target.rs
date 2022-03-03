@@ -3,10 +3,10 @@ use reaper_medium::PositionInSeconds;
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Target, UnitValue};
 
 use crate::domain::{
-    AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent, ControlContext,
-    ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue, MappingCompartment,
-    MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    interpret_current_clip_slot_value, AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent,
+    ControlContext, ExtendedProcessorContext, FeedbackResolution, HitInstructionReturnValue,
+    MappingCompartment, MappingControlContext, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
 };
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
 use playtime_clip_engine::rt::{ClipChangedEvent, ClipPlayState, QualifiedClipChangedEvent};
@@ -144,12 +144,13 @@ impl<'a> Target<'a> for ClipSeekTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        BackboneState::get()
+        let val = BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
                 let val = matrix.proportional_clip_position_legacy(self.slot_coordinates)?;
                 Some(AbsoluteValue::Continuous(val))
             })
-            .ok()?
+            .ok()?;
+        interpret_current_clip_slot_value(val)
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {

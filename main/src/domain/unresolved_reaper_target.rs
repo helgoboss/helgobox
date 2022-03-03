@@ -1,14 +1,15 @@
 use crate::application::BookmarkAnchorType;
 use crate::domain::realearn_target::RealearnTarget;
 use crate::domain::{
-    ExtendedProcessorContext, FeedbackResolution, MappingCompartment, ParameterSlice, ReaperTarget,
-    UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget, UnresolvedAnyOnTarget,
-    UnresolvedAutomationModeOverrideTarget, UnresolvedAutomationTouchStateTarget,
-    UnresolvedClipSeekTarget, UnresolvedClipTransportTarget, UnresolvedClipVolumeTarget,
-    UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget, UnresolvedFxEnableTarget,
-    UnresolvedFxNavigateTarget, UnresolvedFxOpenTarget, UnresolvedFxParameterTarget,
-    UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget, UnresolvedLastTouchedTarget,
-    UnresolvedLoadFxSnapshotTarget, UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
+    BackboneState, ExtendedProcessorContext, FeedbackResolution, MappingCompartment,
+    ParameterSlice, ReaperTarget, UnresolvedActionTarget, UnresolvedAllTrackFxEnableTarget,
+    UnresolvedAnyOnTarget, UnresolvedAutomationModeOverrideTarget,
+    UnresolvedAutomationTouchStateTarget, UnresolvedClipSeekTarget, UnresolvedClipTransportTarget,
+    UnresolvedClipVolumeTarget, UnresolvedEnableInstancesTarget, UnresolvedEnableMappingsTarget,
+    UnresolvedFxEnableTarget, UnresolvedFxNavigateTarget, UnresolvedFxOpenTarget,
+    UnresolvedFxParameterTarget, UnresolvedFxPresetTarget, UnresolvedGoToBookmarkTarget,
+    UnresolvedLastTouchedTarget, UnresolvedLoadFxSnapshotTarget,
+    UnresolvedLoadMappingSnapshotTarget, UnresolvedMidiSendTarget,
     UnresolvedNavigateWithinGroupTarget, UnresolvedOscSendTarget, UnresolvedPlayrateTarget,
     UnresolvedRouteAutomationModeTarget, UnresolvedRouteMonoTarget, UnresolvedRouteMuteTarget,
     UnresolvedRoutePanTarget, UnresolvedRoutePhaseTarget, UnresolvedRouteVolumeTarget,
@@ -474,8 +475,24 @@ impl VirtualClipSlot {
                 ClipSlotCoordinates::new(column_index, row_index)
             }
         };
+        let slot_exists = BackboneState::get()
+            .with_clip_matrix(context.control_context.instance_state, |matrix| {
+                matrix.slot(coordinates).is_some()
+            })?;
+        if !slot_exists {
+            return Err("slot doesn't exist");
+        }
         Ok(coordinates)
     }
+}
+
+/// In clip slot targets, the resolve phase makes sure that the targeted slot actually exists.
+/// So if we get a `None` value from some of the clip slot methods, it's because the slot doesn't
+/// have a clip, which is a valid state and should return *something*. The contract of the target
+/// `current_value()` is that if it returns `None`, it means it can't get a value at the moment,
+/// probably just temporarily. In that case, the feedback is simply not updated.
+pub fn interpret_current_clip_slot_value<T: Default>(value: Option<T>) -> Option<T> {
+    Some(value.unwrap_or_default())
 }
 
 fn to_slot_coordinate(eval_result: Result<f64, fasteval::Error>) -> Result<usize, &'static str> {

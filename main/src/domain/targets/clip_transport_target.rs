@@ -1,9 +1,10 @@
 use crate::domain::{
-    clip_play_state_unit_value, format_value_as_on_off, transport_is_enabled_unit_value,
-    BackboneState, CompoundChangeEvent, ControlContext, ExtendedProcessorContext,
-    HitInstructionReturnValue, MappingCompartment, MappingControlContext, RealTimeControlContext,
-    RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType, TargetCharacter,
-    TargetTypeDef, TransportAction, UnresolvedReaperTargetDef, VirtualClipSlot, DEFAULT_TARGET,
+    clip_play_state_unit_value, format_value_as_on_off, interpret_current_clip_slot_value,
+    transport_is_enabled_unit_value, BackboneState, CompoundChangeEvent, ControlContext,
+    ExtendedProcessorContext, HitInstructionReturnValue, MappingCompartment, MappingControlContext,
+    RealTimeControlContext, RealTimeReaperTarget, RealearnTarget, ReaperTarget, ReaperTargetType,
+    TargetCharacter, TargetTypeDef, TransportAction, UnresolvedReaperTargetDef, VirtualClipSlot,
+    DEFAULT_TARGET,
 };
 use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, Target, UnitValue};
 use playtime_clip_engine::main::{
@@ -206,7 +207,7 @@ impl<'a> Target<'a> for ClipTransportTarget {
     type Context = ControlContext<'a>;
 
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
-        BackboneState::get()
+        let val = BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
                 use TransportAction::*;
                 let val = match self.basics.action {
@@ -221,7 +222,8 @@ impl<'a> Target<'a> for ClipTransportTarget {
                 };
                 Some(AbsoluteValue::Continuous(val))
             })
-            .ok()?
+            .ok()?;
+        interpret_current_clip_slot_value(val)
     }
 
     fn control_type(&self, context: Self::Context) -> ControlType {
@@ -288,11 +290,11 @@ impl<'a> Target<'a> for RealTimeClipTransportTarget {
         let matrix = matrix.lock();
         let column = matrix.column(self.basics.slot_coordinates.column()).ok()?;
         let column = column.lock();
-        let clip = column
-            .slot(self.basics.slot_coordinates.row())
-            .ok()?
-            .clip()
-            .ok()?;
+        let slot = column.slot(self.basics.slot_coordinates.row()).ok()?;
+        let clip = match slot.clip() {
+            Ok(c) => c,
+            Err(_) => return interpret_current_clip_slot_value(None),
+        };
         use TransportAction::*;
         let val = match self.basics.action {
             PlayStop | PlayPause | Stop | Pause | RecordStop => {

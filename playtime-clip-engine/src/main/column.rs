@@ -124,6 +124,10 @@ impl Column {
         self.rt_command_sender.clear_slots();
     }
 
+    pub fn slot(&self, index: usize) -> Option<&Slot> {
+        self.slots.get(index)
+    }
+
     pub fn save(&self) -> api::Column {
         let track_id = self.preview_register.as_ref().and_then(|reg| {
             reg.track

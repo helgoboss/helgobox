@@ -1,4 +1,4 @@
-use crate::main::{ClipContent, ClipData, Column};
+use crate::main::{ClipContent, ClipData, Column, Slot};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
     keep_processing_recorder_requests, keep_stretching, RecorderEquipment, StretchWorkerRequest,
@@ -292,6 +292,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             ..Default::default()
         };
         self.load(api_matrix)
+    }
+
+    pub fn slot(&self, coordinates: ClipSlotCoordinates) -> Option<&Slot> {
+        let column = get_column(&self.columns, coordinates.column).ok()?;
+        column.slot(coordinates.row())
     }
 
     pub fn play_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
