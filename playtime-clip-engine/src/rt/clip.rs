@@ -828,6 +828,37 @@ impl ReadyState {
                     general_info.clip_tempo_factor,
                     supplier_chain,
                 );
+                // TODO-high CONTINUE There's a slight inaccuracy here which is annoying when
+                //  doing a quantized MIDI stop. It goes like this:
+                //  - The count-in period is calculated a bit incorrectly.
+                //  - One can check that during count-in, the current count-in countdown slowly
+                //    deviates from the ideal count-in countdown (repeatedly calculated via
+                //    calc_distance_from_quantized_pos). The actual count-in advances slightly
+                //    faster than the ideal count-in.
+                //  - As a result, the material starts playing slightly too early (really just a
+                //    few dozens MIDI frames, so almost nothing). This is not a big deal.
+                //  - Because the count-out (to stop) uses the same mechanism, it also is not
+                //    100% accurate (but even if the count-out would be correct, we would have the
+                //    issue).
+                //  - When doing a quantized stop, this inaccuracy leads to the result that it plays
+                //    just a few frames too far. But this can be annoying if we don't want e.g.
+                //    the downbeat of a drum rhythm to occur on stop.
+                //  - So why is it inaccurate?
+                //  - Because the timeline_cursor_pos (used to calculate the ideal count-in length)
+                //    advances a tiny bit slower than we think.
+                //  - As a result, the repeatedly calculated ideal count-in decreases slower than
+                //    our countdown.
+                //  - pos_of_quantized_pos() is correct in that it always returns the
+                //    same result!
+                //  - What to do? I guess we should try creating timeline_cursor_pos ourselves
+                //    and make it a discrete value. Try at first with our steady timeline.
+                //    Problem is ... how to sync with the real timeline then?
+                //  - IMPORTANT: Test with tempo 120 and MIDI first. Then we know it's not related
+                //    to tempo factors.
+                //  - UPDATE: Adjusting the MIDI_FRAME_RATE to match the output frame rate solves
+                //    the issue! Having it slightly different leads to this inaccuracy again.
+                //    So maybe all we need to do is to give up on enforcing a constant
+                //    MIDI_FRAME_RATE.
                 // Derive stop position within material.
                 let stop_pos = go.pos - distance_from_quantized_stop_pos;
                 let mod_stop_pos = self.modulo_frame(stop_pos, supplier_chain);
