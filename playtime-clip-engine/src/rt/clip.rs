@@ -790,6 +790,15 @@ impl ReadyState {
                 self.calculate_seek_go(supplier_chain, pos, seek_pos)
             } else {
                 // No seek requested
+                let compare = self.resolve_virtual_pos(
+                    s.virtual_pos,
+                    args,
+                    general_info.clip_tempo_factor,
+                    supplier_chain,
+                );
+                if compare != pos {
+                    debug!("ATTENTION: compare {} != pos {}", compare, pos);
+                }
                 Go {
                     pos,
                     ..Go::default()
