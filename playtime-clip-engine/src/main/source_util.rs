@@ -90,8 +90,15 @@ pub fn create_pcm_source_from_api_source(
             } else {
                 path.clone()
             };
-            // TODO-high Maybe we should force in-project MIDI?
-            OwnedSource::from_file(&absolute_file, MidiImportBehavior::ForceNoMidiImport)?
+            // TODO-high-record Maybe we should enforce in-project MIDI to not get recording
+            //  problems? Not sure how REAPER behaves when trying to overdub onto a file-based
+            //  MIDI source. Check! If it doesn't work, we must convert to MIDI chunk here or
+            //  latest when the MIDI source gets overdubbed (latter probably better!). If it does,
+            //  then all good but it raises the question if we have to worry about real-time thread
+            //  file access. Related preference: Media => MIDI => Import existing MIDI files
+            //  Anyway, take care of it as soon as we implement saving modifications
+            //  (through recording or editing). Before it doesn't matter.
+            OwnedSource::from_file(&absolute_file, MidiImportBehavior::UsePreference)?
         }
         MidiChunk(api::MidiChunkSource { chunk }) => {
             let mut source = OwnedSource::from_type("MIDI")?;
