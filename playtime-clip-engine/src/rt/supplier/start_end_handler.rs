@@ -1,5 +1,7 @@
 use crate::rt::buffer::AudioBufMut;
-use crate::rt::supplier::fade_util::{apply_fade_in_starting_at_zero, apply_fade_out_ending_at};
+use crate::rt::supplier::fade_util::{
+    apply_fade_in_starting_at_zero, apply_fade_out_ending_at, START_END_FADE_LENGTH,
+};
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
@@ -64,13 +66,14 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for StartEndHandler<S> {
             return response;
         }
         if self.enabled_for_start {
-            apply_fade_in_starting_at_zero(dest_buffer, request.start_frame);
+            apply_fade_in_starting_at_zero(dest_buffer, request.start_frame, START_END_FADE_LENGTH);
         }
         if self.enabled_for_end {
             apply_fade_out_ending_at(
                 dest_buffer,
                 request.start_frame,
                 self.supplier.frame_count(),
+                START_END_FADE_LENGTH,
             );
         }
         response

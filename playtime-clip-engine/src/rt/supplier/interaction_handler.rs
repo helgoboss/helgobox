@@ -1,6 +1,6 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::fade_util::{
-    apply_fade_in_starting_at_zero, apply_fade_out_starting_at_zero, FADE_LENGTH,
+    apply_fade_in_starting_at_zero, apply_fade_out_starting_at_zero, INTERACTION_FADE_LENGTH,
 };
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
@@ -44,7 +44,7 @@ impl Interaction {
             use InteractionKind::*;
             match kind {
                 Start => Self::new(kind, current_frame),
-                Stop => Self::new(kind, current_frame + FADE_LENGTH as isize),
+                Stop => Self::new(kind, current_frame + INTERACTION_FADE_LENGTH as isize),
             }
         }
     }
@@ -53,14 +53,14 @@ impl Interaction {
         use InteractionKind::*;
         match self.kind {
             Start => self.frame,
-            Stop => self.frame - FADE_LENGTH as isize,
+            Stop => self.frame - INTERACTION_FADE_LENGTH as isize,
         }
     }
 
     pub fn fade_end_frame(&self) -> isize {
         use InteractionKind::*;
         match self.kind {
-            Start => self.frame + FADE_LENGTH as isize,
+            Start => self.frame + INTERACTION_FADE_LENGTH as isize,
             Stop => self.frame,
         }
     }
@@ -182,7 +182,7 @@ impl<S> InteractionHandler<S> {
         let current_pos_in_fade = begin_frame_of_new_fade - begin_frame_of_ongoing_fade;
         // If current_pos_in_fade is zero, we should skip the fade (move it completely to left).
         // If it's FADE_LENGTH, we should apply the complete fade.
-        let adjustment = current_pos_in_fade - FADE_LENGTH as isize;
+        let adjustment = current_pos_in_fade - INTERACTION_FADE_LENGTH as isize;
         let fixed_interaction =
             Interaction::new(new_interaction.kind, new_interaction.frame + adjustment);
         Some(fixed_interaction)
@@ -211,7 +211,11 @@ impl<S: AudioSupplier> AudioSupplier for InteractionHandler<S> {
                 }
                 let inner_response = self.supplier.supply_audio(request, dest_buffer);
                 // The following function returns early if fade not yet started.
-                apply_fade_in_starting_at_zero(dest_buffer, distance_from_fade_begin);
+                apply_fade_in_starting_at_zero(
+                    dest_buffer,
+                    distance_from_fade_begin,
+                    INTERACTION_FADE_LENGTH,
+                );
                 let end_frame = request.start_frame + inner_response.num_frames_consumed as isize;
                 if end_frame >= interaction.fade_end_frame() || inner_response.status.reached_end()
                 {
@@ -235,7 +239,11 @@ impl<S: AudioSupplier> AudioSupplier for InteractionHandler<S> {
                 match inner_response.status {
                     SupplyResponseStatus::PleaseContinue => {
                         // The following function returns early if fade not yet started.
-                        apply_fade_out_starting_at_zero(dest_buffer, distance_from_fade_begin);
+                        apply_fade_out_starting_at_zero(
+                            dest_buffer,
+                            distance_from_fade_begin,
+                            INTERACTION_FADE_LENGTH,
+                        );
                         let end_frame =
                             request.start_frame + inner_response.num_frames_consumed as isize;
                         if end_frame < interaction.fade_end_frame() {
