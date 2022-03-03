@@ -37,7 +37,6 @@ pub fn prop_is_affected_by(
         Some(props) => {
             // TODO-medium Not very consequent? Here we take the first target and for
             //  target-specific placeholders the given one. A bit hard to change though. Let's see.
-            // tracing_debug!("EVENT: {:?}", event);
             props.is_affected_by(event, mapping, mapping.targets().first(), control_context)
         }
         None => {
@@ -293,6 +292,13 @@ impl MappingProp for MappingNameProp {
 struct TargetTextValueProp;
 
 impl TargetProp for TargetTextValueProp {
+    fn feedback_resolution(
+        &self,
+        args: PropFeedbackResolutionArgs<MappingAndUnresolvedTarget>,
+    ) -> Option<FeedbackResolution> {
+        args.object.target.feedback_resolution()
+    }
+
     fn get_value(&self, input: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
         Some(PropValue::Text(
             input.object.target.text_value(input.control_context)?,
@@ -304,6 +310,13 @@ impl TargetProp for TargetTextValueProp {
 struct TargetNumericValueProp;
 
 impl TargetProp for TargetNumericValueProp {
+    fn feedback_resolution(
+        &self,
+        args: PropFeedbackResolutionArgs<MappingAndUnresolvedTarget>,
+    ) -> Option<FeedbackResolution> {
+        args.object.target.feedback_resolution()
+    }
+
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
         Some(PropValue::Numeric(
             args.object.target.numeric_value(args.control_context)?,
@@ -315,6 +328,13 @@ impl TargetProp for TargetNumericValueProp {
 struct TargetNormalizedValueProp;
 
 impl TargetProp for TargetNormalizedValueProp {
+    fn feedback_resolution(
+        &self,
+        args: PropFeedbackResolutionArgs<MappingAndUnresolvedTarget>,
+    ) -> Option<FeedbackResolution> {
+        args.object.target.feedback_resolution()
+    }
+
     fn get_value(&self, args: PropGetValueArgs<MappingAndTarget>) -> Option<PropValue> {
         Some(PropValue::Normalized(
             args.object
