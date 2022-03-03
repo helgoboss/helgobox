@@ -132,9 +132,7 @@ impl ClipSeekTarget {
     fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
         BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
-                let timeline = clip_timeline(context.processor_context.project(), false);
-                let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
-                matrix.clip_position_in_seconds(self.slot_coordinates, timeline_tempo)
+                matrix.clip_position_in_seconds(self.slot_coordinates)
             })
             .ok()?
     }

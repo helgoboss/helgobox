@@ -37,6 +37,7 @@ pub fn prop_is_affected_by(
         Some(props) => {
             // TODO-medium Not very consequent? Here we take the first target and for
             //  target-specific placeholders the given one. A bit hard to change though. Let's see.
+            // tracing_debug!("EVENT: {:?}", event);
             props.is_affected_by(event, mapping, mapping.targets().first(), control_context)
         }
         None => {

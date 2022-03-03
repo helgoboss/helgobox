@@ -373,11 +373,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn clip_position_in_seconds(
         &self,
         coordinates: ClipSlotCoordinates,
-        timeline_tempo: Bpm,
     ) -> Option<PositionInSeconds> {
         get_column(&self.columns, coordinates.column())
             .ok()?
-            .clip_position_in_seconds(coordinates.row(), timeline_tempo)
+            .clip_position_in_seconds(coordinates.row())
     }
 
     pub fn clip_play_state(&self, coordinates: ClipSlotCoordinates) -> Option<ClipPlayState> {

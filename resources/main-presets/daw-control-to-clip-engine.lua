@@ -21,6 +21,9 @@ local groups = {
     },
 }
 
+local column_expression = "p[0] * 100"
+local row_expression = "p[1] * 100"
+
 local mappings = {
     {
         id = "slot-play",
@@ -38,10 +41,33 @@ local mappings = {
             kind = "ClipTransportAction",
             slot = {
                 address = "Dynamic",
-                column_expression = "p[0] * 100",
-                row_expression = "p[1] * 100",
+                column_expression = column_expression,
+                row_expression = row_expression,
             },
             action = "PlayStop",
+        },
+    },
+    {
+        id = "position",
+        name = "Position",
+        control_enabled = false,
+        source = {
+            kind = "Virtual",
+            id = "ch1/lcd/line1",
+        },
+        glue = {
+            feedback = {
+                kind = "Text",
+            },
+        },
+        target = {
+            kind = "ClipSeek",
+            slot = {
+                address = "Dynamic",
+                column_expression = column_expression,
+                row_expression = row_expression,
+            },
+            feedback_resolution = "High",
         },
     },
     {

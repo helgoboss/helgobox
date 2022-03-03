@@ -1,12 +1,13 @@
+use crate::conversion_util::convert_position_in_frames_to_seconds;
 use crate::main::{ColumnSettings, MatrixSettings};
 use crate::rt::supplier::RecorderEquipment;
 use crate::rt::{ClipInfo, ClipPlayState, SharedPos};
-use crate::{rt, ClipEngineResult};
+use crate::{clip_timeline, rt, ClipEngineResult, HybridTimeline, Timeline};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{AudioCacheBehavior, AudioTimeStretchMode, VirtualResampleMode};
 use reaper_high::Project;
-use reaper_medium::{Bpm, PositionInSeconds};
+use reaper_medium::{Bpm, Hz, PositionInSeconds};
 
 #[derive(Clone, Debug)]
 pub struct Clip {
@@ -21,6 +22,7 @@ struct ClipRuntimeData {
     play_state: ClipPlayState,
     pos: SharedPos,
     frame_count: usize,
+    source_frame_rate: Hz,
 }
 
 impl Clip {
@@ -99,10 +101,9 @@ impl Clip {
     }
 
     /// Connects the given real-time clip to the main clip.
-    ///
-    /// At the moment this just means that they share a common atomic position.
     pub fn connect_to(&mut self, rt_clip: &rt::Clip) {
         self.runtime_data.pos = rt_clip.shared_pos();
+        self.runtime_data.source_frame_rate = rt_clip.source_frame_rate();
     }
 
     pub fn data(&self) -> &api::Clip {
@@ -145,10 +146,14 @@ impl Clip {
         Some(proportional)
     }
 
-    pub fn position_in_seconds(&self, _timeline_tempo: Bpm) -> Option<PositionInSeconds> {
-        // TODO-high At the moment we don't use this anyway. But we should implement it as soon
-        //  as we do. Relies on having the current section length, source frame rate, source tempo.
-        todo!()
+    pub fn position_in_seconds(&self, timeline: &HybridTimeline) -> Option<PositionInSeconds> {
+        let pos_in_source_frames = self.runtime_data.pos.get();
+        let pos_in_secs = convert_position_in_frames_to_seconds(
+            pos_in_source_frames,
+            self.runtime_data.source_frame_rate,
+        );
+        // let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
+        Some(pos_in_secs)
     }
 
     pub fn info(&self) -> ClipInfo {

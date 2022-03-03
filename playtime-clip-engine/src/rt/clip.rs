@@ -469,6 +469,10 @@ impl Clip {
         self.shared_pos.clone()
     }
 
+    pub fn source_frame_rate(&self) -> Hz {
+        self.supplier_chain.source_frame_rate_in_ready_state()
+    }
+
     pub fn play_state(&self) -> ClipPlayState {
         use ClipState::*;
         match &self.state {

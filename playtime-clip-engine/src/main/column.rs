@@ -5,7 +5,7 @@ use crate::rt::{
     ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs,
     RecordBehavior, SharedColumn, WeakColumn,
 };
-use crate::{rt, ClipEngineResult};
+use crate::{clip_timeline, rt, ClipEngineResult};
 use crossbeam_channel::Receiver;
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
@@ -34,6 +34,7 @@ pub struct Column {
     preview_register: Option<PlayingPreviewRegister>,
     slots: Vec<Slot>,
     event_receiver: Receiver<ColumnEvent>,
+    project: Option<Project>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -67,6 +68,7 @@ impl Column {
             rt_command_sender: ColumnCommandSender::new(command_sender),
             slots: vec![],
             event_receiver,
+            project: permanent_project,
         }
     }
 
@@ -291,13 +293,10 @@ impl Column {
         Some(clip.info())
     }
 
-    pub fn clip_position_in_seconds(
-        &self,
-        slot_index: usize,
-        timeline_tempo: Bpm,
-    ) -> Option<PositionInSeconds> {
+    pub fn clip_position_in_seconds(&self, slot_index: usize) -> Option<PositionInSeconds> {
         let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
-        clip.position_in_seconds(timeline_tempo)
+        let timeline = clip_timeline(self.project, false);
+        clip.position_in_seconds(&timeline)
     }
 
     pub fn clip_play_state(&self, slot_index: usize) -> Option<ClipPlayState> {

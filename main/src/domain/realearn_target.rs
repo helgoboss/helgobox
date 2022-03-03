@@ -323,7 +323,7 @@ pub trait RealearnTarget {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum CompoundChangeEvent<'a> {
     Reaper(&'a ChangeEvent),
     Additional(&'a AdditionalFeedbackEvent),
