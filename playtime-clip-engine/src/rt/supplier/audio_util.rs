@@ -13,14 +13,10 @@ pub fn supply_audio_material(
     source_sample_rate: Hz,
     supply_inner: impl FnOnce(SourceMaterialRequest) -> SupplyResponse,
 ) -> SupplyResponse {
-    // TODO-high I think we can throw this tempo factor logic away because this is being taken
-    //  care of in upper-layer suppliers (source and dest sample rate must be the same).
-    // The lower the destination sample rate in relation to the source sample rate, the
-    // higher the tempo.
-    let tempo_factor = source_sample_rate.get() / request.dest_sample_rate.get();
-    // The higher the tempo, the more inner source material we should grab.
-    let ideal_num_consumed_frames =
-        adjust_proportionally_positive(dest_buffer.frame_count() as f64, tempo_factor);
+    // We never let the PCM source or our buffers do the resampling itself. Our higher-level
+    // suppliers take care of that (time stretcher or resampler).
+    debug_assert_eq!(request.dest_sample_rate, source_sample_rate);
+    let ideal_num_consumed_frames = dest_buffer.frame_count();
     let ideal_end_frame = request.start_frame + ideal_num_consumed_frames as isize;
     if ideal_end_frame <= 0 {
         // Requested portion is located entirely before the actual source material.
@@ -109,7 +105,6 @@ pub struct SourceMaterialRequest<'a, 'b> {
 }
 
 pub fn transfer_samples_from_buffer(buf: AudioBuf, req: SourceMaterialRequest) -> SupplyResponse {
-    debug_assert_eq!(req.dest_sample_rate, req.source_sample_rate);
     let num_remaining_frames_in_source = buf.frame_count() - req.start_frame;
     let num_frames_written = cmp::min(
         num_remaining_frames_in_source,

@@ -157,9 +157,6 @@ impl WithSource for OwnedPcmSource {
 }
 
 fn transfer_audio(source: &OwnedPcmSource, req: SourceMaterialRequest) -> SupplyResponse {
-    // We never let the PCM source do the resampling itself. Our higher-level resampler takes care
-    // of it.
-    debug_assert_eq!(req.dest_sample_rate, req.source_sample_rate);
     let time_s = convert_duration_in_frames_to_seconds(req.start_frame, req.source_sample_rate);
     let num_frames_written = unsafe {
         let mut transfer = PcmSourceTransfer::default();
