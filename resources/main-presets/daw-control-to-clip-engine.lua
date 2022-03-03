@@ -71,6 +71,22 @@ local mappings = {
         },
     },
     {
+        id = "volume",
+        name = "Volume",
+        source = {
+            kind = "Virtual",
+            id = "ch1/fader",
+        },
+        target = {
+            kind = "ClipVolume",
+            slot = {
+                address = "Dynamic",
+                column_expression = column_expression,
+                row_expression = row_expression,
+            },
+        },
+    },
+    {
         id = "NjmzrUDIo-EgoOxRMpBk-",
         name = "Col <",
         feedback_enabled = false,
@@ -82,8 +98,6 @@ local mappings = {
         glue = {
             absolute_mode = "IncrementalButton",
             reverse = true,
-            step_size_interval = { 0.01, 0.05 },
-            step_factor_interval = { 1, 5 },
         },
         target = {
             kind = "FxParameterValue",
@@ -104,8 +118,6 @@ local mappings = {
         },
         glue = {
             absolute_mode = "IncrementalButton",
-            step_size_interval = { 0.01, 0.05 },
-            step_factor_interval = { 1, 5 },
         },
         target = {
             kind = "FxParameterValue",
@@ -127,8 +139,6 @@ local mappings = {
         glue = {
             absolute_mode = "IncrementalButton",
             reverse = true,
-            step_size_interval = { 0.01, 0.05 },
-            step_factor_interval = { 1, 5 },
         },
         target = {
             kind = "FxParameterValue",
@@ -149,8 +159,6 @@ local mappings = {
         },
         glue = {
             absolute_mode = "IncrementalButton",
-            step_size_interval = { 0.01, 0.05 },
-            step_factor_interval = { 1, 5 },
         },
         target = {
             kind = "FxParameterValue",

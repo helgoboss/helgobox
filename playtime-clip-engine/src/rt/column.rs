@@ -1,8 +1,7 @@
 use crate::rt::supplier::{RecorderEquipment, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    AudioBufMut, Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
-    ClipRecordInput, ClipStopArgs, OwnedAudioBuffer, RecordBehavior, Slot,
-    SlotProcessTransportChangeArgs,
+    AudioBufMut, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordInput, ClipStopArgs,
+    OwnedAudioBuffer, RecordBehavior, Slot, SlotProcessTransportChangeArgs,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -10,15 +9,15 @@ use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use playtime_api::{
-    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode,
+    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
     VirtualResampleMode,
 };
 use reaper_high::Project;
 use reaper_medium::{
     reaper_str, CustomPcmSource, DurationInBeats, DurationInSeconds, ExtendedArgs, GetPeakInfoArgs,
     GetSamplesArgs, Hz, LoadStateArgs, OwnedPcmSource, PcmSource, PeaksClearArgs,
-    PositionInSeconds, PropertiesWindowArgs, ReaperStr, ReaperVolumeValue, SaveStateArgs,
-    SetAvailableArgs, SetFileNameArgs, SetSourceArgs,
+    PositionInSeconds, PropertiesWindowArgs, ReaperStr, SaveStateArgs, SetAvailableArgs,
+    SetFileNameArgs, SetSourceArgs,
 };
 use std::error::Error;
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
@@ -122,8 +121,8 @@ impl ColumnCommandSender {
         self.send_source_task(ColumnCommand::SeekClip(args));
     }
 
-    pub fn set_clip_volume(&self, index: usize, volume: ReaperVolumeValue) {
-        let args = ColumnSetClipVolumeArgs { index, volume };
+    pub fn set_clip_volume(&self, slot_index: usize, volume: Db) {
+        let args = ColumnSetClipVolumeArgs { slot_index, volume };
         self.send_source_task(ColumnCommand::SetClipVolume(args));
     }
 
@@ -347,12 +346,8 @@ impl Column {
         get_slot_mut_insert(&mut self.slots, index).write_clip_audio(request)
     }
 
-    fn set_clip_volume(
-        &mut self,
-        index: usize,
-        volume: ReaperVolumeValue,
-    ) -> ClipEngineResult<ClipChangedEvent> {
-        get_slot_mut_insert(&mut self.slots, index).set_clip_volume(volume)
+    fn set_clip_volume(&mut self, slot_index: usize, volume: Db) -> ClipEngineResult<()> {
+        get_slot_mut_insert(&mut self.slots, slot_index).set_clip_volume(volume)
     }
 
     pub fn process_transport_change(&mut self, args: SlotProcessTransportChangeArgs) {
@@ -408,7 +403,7 @@ impl Column {
                     let _ = self.pause_clip(args.index);
                 }
                 SetClipVolume(args) => {
-                    let _ = self.set_clip_volume(args.index, args.volume);
+                    let _ = self.set_clip_volume(args.slot_index, args.volume);
                 }
                 SeekClip(args) => {
                     let _ = self.seek_clip(args.index, args.desired_pos);
@@ -658,8 +653,8 @@ pub struct ColumnSeekClipArgs {
 
 #[derive(Debug)]
 pub struct ColumnSetClipVolumeArgs {
-    pub index: usize,
-    pub volume: ReaperVolumeValue,
+    pub slot_index: usize,
+    pub volume: Db,
 }
 
 #[derive(Debug)]

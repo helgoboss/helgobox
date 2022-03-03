@@ -5,7 +5,7 @@ use helgoboss_learn::{
 };
 use helgoboss_midi::{RawShortMessage, ShortMessage};
 use reaper_high::{FxParameter, Reaper, Volume};
-use reaper_medium::{Db, ReaperNormalizedFxParamValue, ReaperVolumeValue};
+use reaper_medium::{Db, ReaperNormalizedFxParamValue};
 use rosc::{OscMessage, OscPacket};
 use slog::warn;
 use std::convert::TryInto;
@@ -61,8 +61,8 @@ pub fn format_volume_as_db_without_unit(volume: Volume) -> String {
     }
 }
 
-pub fn reaper_volume_unit_value(volume: ReaperVolumeValue) -> UnitValue {
-    volume_unit_value(Volume::from_reaper_value(volume))
+pub fn db_unit_value(volume: Db) -> UnitValue {
+    volume_unit_value(Volume::from_db(volume))
 }
 
 pub fn volume_unit_value(volume: Volume) -> UnitValue {

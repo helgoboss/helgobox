@@ -7,7 +7,7 @@ use crate::rt::{calc_tempo_factor, determine_tempo_from_time_base, ClipPlayState
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
-use playtime_api::{AudioCacheBehavior, AudioTimeStretchMode, VirtualResampleMode};
+use playtime_api::{AudioCacheBehavior, AudioTimeStretchMode, Db, VirtualResampleMode};
 use reaper_high::Project;
 use reaper_medium::{Bpm, Hz, PositionInSeconds};
 
@@ -124,6 +124,14 @@ impl Clip {
         looped_new
     }
 
+    pub fn set_volume(&mut self, volume: Db) {
+        self.persistent_data.volume = volume;
+    }
+
+    pub fn volume(&self) -> Db {
+        self.persistent_data.volume
+    }
+
     pub fn play_state(&self) -> ClipPlayState {
         self.runtime_data.play_state
     }
@@ -136,18 +144,18 @@ impl Clip {
         self.runtime_data.frame_count = frame_count;
     }
 
-    pub fn proportional_pos(&self) -> Option<UnitValue> {
+    pub fn proportional_pos(&self) -> ClipEngineResult<UnitValue> {
         let pos = self.runtime_data.pos.get();
         if pos < 0 {
-            return None;
+            return Err("count-in phase");
         }
         let frame_count = self.runtime_data.frame_count;
         if frame_count == 0 {
-            return None;
+            return Err("no frame count available");
         }
         let mod_pos = pos as usize % self.runtime_data.frame_count;
         let proportional = UnitValue::new_clamped(mod_pos as f64 / frame_count as f64);
-        Some(proportional)
+        Ok(proportional)
     }
 
     pub fn position_in_seconds(&self, timeline: &HybridTimeline) -> PositionInSeconds {
@@ -161,7 +169,7 @@ impl Clip {
         adjust_pos_in_secs_anti_proportionally(pos_in_secs, tempo_factor)
     }
 
-    pub fn mod_frame(&self) -> isize {
+    fn mod_frame(&self) -> isize {
         let frame = self.runtime_data.pos.get();
         if frame < 0 {
             frame

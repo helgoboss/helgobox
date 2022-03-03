@@ -1,6 +1,6 @@
 use crate::domain::ui_util::{
-    format_value_as_db, format_value_as_db_without_unit, parse_value_from_db,
-    reaper_volume_unit_value, volume_unit_value,
+    db_unit_value, format_value_as_db, format_value_as_db_without_unit, parse_value_from_db,
+    volume_unit_value,
 };
 use crate::domain::{
     interpret_current_clip_slot_value, BackboneState, CompoundChangeEvent, ControlContext,
@@ -12,6 +12,7 @@ use helgoboss_learn::{AbsoluteValue, ControlType, ControlValue, NumericValue, Ta
 use playtime_clip_engine::main::{ClipMatrixEvent, ClipSlotCoordinates};
 use playtime_clip_engine::rt::{ClipChangedEvent, QualifiedClipChangedEvent};
 use reaper_high::Volume;
+use reaper_medium::Db;
 
 #[derive(Debug)]
 pub struct UnresolvedClipVolumeTarget {
@@ -65,14 +66,17 @@ impl RealearnTarget for ClipVolumeTarget {
         value: ControlValue,
         context: MappingControlContext,
     ) -> Result<HitInstructionReturnValue, &'static str> {
-        let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get());
-        BackboneState::get().with_clip_matrix(context.control_context.instance_state, |matrix| {
-            matrix.set_clip_volume_legacy(
-                self.slot_coordinates,
-                volume.unwrap_or(Volume::MIN).reaper_value(),
-            )?;
-            Ok(None)
-        })?
+        let volume = Volume::try_from_soft_normalized_value(value.to_unit_value()?.get())
+            .unwrap_or_default();
+        let db = volume.db();
+        let api_db = playtime_api::Db::new(db.get())?;
+        BackboneState::get().with_clip_matrix_mut(
+            context.control_context.instance_state,
+            |matrix| {
+                matrix.set_clip_volume(self.slot_coordinates, api_db)?;
+                Ok(None)
+            },
+        )?
     }
 
     fn is_available(&self, _: ControlContext) -> bool {
@@ -94,9 +98,9 @@ impl RealearnTarget for ClipVolumeTarget {
                 },
             )) if *si == self.slot_coordinates => (
                 true,
-                Some(AbsoluteValue::Continuous(reaper_volume_unit_value(
-                    *new_value,
-                ))),
+                Some(AbsoluteValue::Continuous(db_unit_value(Db::new(
+                    new_value.get(),
+                )))),
             ),
             _ => (false, None),
         }
@@ -119,8 +123,8 @@ impl ClipVolumeTarget {
     fn volume(&self, context: ControlContext) -> Option<Volume> {
         BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
-                let reaper_volume = matrix.clip_volume(self.slot_coordinates)?;
-                Some(Volume::from_reaper_value(reaper_volume))
+                let db = matrix.clip_volume(self.slot_coordinates).ok()?;
+                Some(Volume::from_db(Db::new(db.get())))
             })
             .ok()?
     }

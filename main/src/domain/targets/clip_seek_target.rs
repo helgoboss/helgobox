@@ -131,7 +131,7 @@ impl ClipSeekTarget {
     fn position_in_seconds(&self, context: ControlContext) -> Option<PositionInSeconds> {
         BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
-                matrix.clip_position_in_seconds(self.slot_coordinates)
+                matrix.clip_position_in_seconds(self.slot_coordinates).ok()
             })
             .ok()?
     }
@@ -143,7 +143,9 @@ impl<'a> Target<'a> for ClipSeekTarget {
     fn current_value(&self, context: ControlContext<'a>) -> Option<AbsoluteValue> {
         let val = BackboneState::get()
             .with_clip_matrix(context.instance_state, |matrix| {
-                let val = matrix.proportional_clip_position_legacy(self.slot_coordinates)?;
+                let val = matrix
+                    .proportional_clip_position(self.slot_coordinates)
+                    .ok()?;
                 Some(AbsoluteValue::Continuous(val))
             })
             .ok()?;

@@ -18,12 +18,10 @@ use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, BeatTimeBase, ClipPlayStartTiming,
-    ClipPlayStopTiming, ClipTimeBase, EvenQuantization, VirtualResampleMode,
+    ClipPlayStopTiming, ClipTimeBase, Db, EvenQuantization, VirtualResampleMode,
 };
 use reaper_high::Project;
-use reaper_medium::{
-    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds, ReaperVolumeValue,
-};
+use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds};
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
 
@@ -439,9 +437,8 @@ impl Clip {
         self.supplier_chain.recorder_mut().write_audio(request);
     }
 
-    pub fn set_volume(&mut self, volume: ReaperVolumeValue) -> ClipChangedEvent {
-        // self.volume = volume;
-        ClipChangedEvent::ClipVolume(volume)
+    pub fn set_volume(&mut self, volume: Db) {
+        self.supplier_chain.set_volume(volume);
     }
 
     pub fn shared_pos(&self) -> SharedPos {
@@ -1818,7 +1815,7 @@ impl Default for ClipPlayState {
 #[derive(Debug)]
 pub enum ClipChangedEvent {
     PlayState(ClipPlayState),
-    ClipVolume(ReaperVolumeValue),
+    ClipVolume(Db),
     ClipLooped(bool),
     ClipPosition(UnitValue),
 }

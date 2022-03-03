@@ -14,12 +14,12 @@ use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, ClipRecordStartTiming, ClipRecordStopTiming,
-    ClipRecordTimeBase, ClipSettingOverrideAfterRecording, MatrixClipPlayAudioSettings,
+    ClipRecordTimeBase, ClipSettingOverrideAfterRecording, Db, MatrixClipPlayAudioSettings,
     MatrixClipPlaySettings, MatrixClipRecordAudioSettings, MatrixClipRecordMidiSettings,
     MatrixClipRecordSettings, MidiClipRecordMode, RecordLength, TempoRange, VirtualResampleMode,
 };
 use reaper_high::{OrCurrentProject, Project, Track};
-use reaper_medium::{Bpm, PositionInSeconds, ReaperVolumeValue};
+use reaper_medium::{Bpm, PositionInSeconds};
 use std::thread;
 use std::thread::JoinHandle;
 
@@ -313,32 +313,27 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn clip_position_in_seconds(
         &self,
         coordinates: ClipSlotCoordinates,
-    ) -> Option<PositionInSeconds> {
-        get_column(&self.columns, coordinates.column())
-            .ok()?
-            .clip_position_in_seconds(coordinates.row())
+    ) -> ClipEngineResult<PositionInSeconds> {
+        get_column(&self.columns, coordinates.column())?.clip_position_in_seconds(coordinates.row())
     }
 
-    pub fn clip_play_state(&self, coordinates: ClipSlotCoordinates) -> Option<ClipPlayState> {
-        get_column(&self.columns, coordinates.column())
-            .ok()?
-            .clip_play_state(coordinates.row())
+    pub fn clip_play_state(
+        &self,
+        coordinates: ClipSlotCoordinates,
+    ) -> ClipEngineResult<ClipPlayState> {
+        get_column(&self.columns, coordinates.column())?.clip_play_state(coordinates.row())
     }
 
-    pub fn clip_repeated(&self, coordinates: ClipSlotCoordinates) -> Option<bool> {
-        get_column(&self.columns, coordinates.column())
-            .ok()?
-            .clip_repeated(coordinates.row())
+    pub fn clip_repeated(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<bool> {
+        get_column(&self.columns, coordinates.column())?.clip_repeated(coordinates.row())
     }
 
     pub fn column_count(&self) -> usize {
         self.columns.len()
     }
 
-    pub fn clip_volume(&self, coordinates: ClipSlotCoordinates) -> Option<ReaperVolumeValue> {
-        get_column(&self.columns, coordinates.column())
-            .ok()?
-            .clip_volume(coordinates.row())
+    pub fn clip_volume(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<Db> {
+        get_column(&self.columns, coordinates.column())?.clip_volume(coordinates.row())
     }
 
     pub fn record_clip_legacy(
@@ -396,21 +391,20 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Ok(())
     }
 
-    pub fn set_clip_volume_legacy(
-        &self,
+    pub fn set_clip_volume(
+        &mut self,
         coordinates: ClipSlotCoordinates,
-        volume: ReaperVolumeValue,
+        volume: Db,
     ) -> ClipEngineResult<()> {
-        get_column(&self.columns, coordinates.column())?.set_clip_volume(coordinates.row(), volume);
-        Ok(())
+        get_column_mut(&mut self.columns, coordinates.column())?
+            .set_clip_volume(coordinates.row(), volume)
     }
 
-    pub fn proportional_clip_position_legacy(
+    pub fn proportional_clip_position(
         &self,
         coordinates: ClipSlotCoordinates,
-    ) -> Option<UnitValue> {
-        get_column(&self.columns, coordinates.column())
-            .ok()?
+    ) -> ClipEngineResult<UnitValue> {
+        get_column(&self.columns, coordinates.column())?
             .proportional_clip_position(coordinates.row())
     }
 }

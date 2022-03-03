@@ -212,11 +212,12 @@ impl<'a> Target<'a> for ClipTransportTarget {
                 use TransportAction::*;
                 let val = match self.basics.action {
                     PlayStop | PlayPause | Stop | Pause | RecordStop => {
-                        let play_state = matrix.clip_play_state(self.basics.slot_coordinates)?;
+                        let play_state =
+                            matrix.clip_play_state(self.basics.slot_coordinates).ok()?;
                         clip_play_state_unit_value(self.basics.action, play_state)
                     }
                     Repeat => {
-                        let is_looped = matrix.clip_repeated(self.basics.slot_coordinates)?;
+                        let is_looped = matrix.clip_repeated(self.basics.slot_coordinates).ok()?;
                         transport_is_enabled_unit_value(is_looped)
                     }
                 };

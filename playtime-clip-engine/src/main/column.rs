@@ -12,7 +12,7 @@ use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, ColumnClipPlayAudioSettings, ColumnClipPlaySettings,
-    ColumnClipRecordSettings, TrackRecordOrigin, VirtualResampleMode,
+    ColumnClipRecordSettings, Db, TrackRecordOrigin, VirtualResampleMode,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
@@ -213,14 +213,18 @@ impl Column {
                     slot_index,
                     play_state,
                 } => {
-                    get_clip_mut(&mut self.slots, slot_index).update_play_state(play_state);
+                    if let Ok(clip) = get_clip_mut(&mut self.slots, slot_index) {
+                        clip.update_play_state(play_state);
+                    }
                     Some((slot_index, ClipChangedEvent::PlayState(play_state)))
                 }
                 ClipFrameCountUpdated {
                     slot_index,
                     frame_count,
                 } => {
-                    get_clip_mut(&mut self.slots, slot_index).update_frame_count(frame_count);
+                    if let Ok(clip) = get_clip_mut(&mut self.slots, slot_index) {
+                        clip.update_frame_count(frame_count);
+                    }
                     None
                 }
             };
@@ -251,10 +255,6 @@ impl Column {
         self.rt_command_sender.stop_clip(args);
     }
 
-    pub fn set_clip_looped(&self, args: ColumnSetClipRepeatedArgs) {
-        self.rt_command_sender.set_clip_looped(args);
-    }
-
     pub fn pause_clip(&self, slot_index: usize) {
         self.rt_command_sender.pause_clip(slot_index);
     }
@@ -263,49 +263,48 @@ impl Column {
         self.rt_command_sender.seek_clip(slot_index, desired_pos);
     }
 
-    pub fn set_clip_volume(&self, slot_index: usize, volume: ReaperVolumeValue) {
+    pub fn set_clip_volume(&mut self, slot_index: usize, volume: Db) -> ClipEngineResult<()> {
+        let clip = get_clip_mut(&mut self.slots, slot_index)?;
+        clip.set_volume(volume);
         self.rt_command_sender.set_clip_volume(slot_index, volume);
+        Ok(())
     }
 
     pub fn toggle_clip_looped(&mut self, slot_index: usize) -> ClipEngineResult<ClipChangedEvent> {
-        let clip = get_slot_mut(&mut self.slots, slot_index)
-            .clip
-            .as_mut()
-            .ok_or("no clip")?;
+        let clip = get_clip_mut(&mut self.slots, slot_index)?;
         let looped = clip.toggle_looped();
         let args = ColumnSetClipRepeatedArgs { slot_index, looped };
-        self.set_clip_looped(args);
+        self.rt_command_sender.set_clip_looped(args);
         Ok(ClipChangedEvent::ClipLooped(looped))
     }
 
-    pub fn clip_position_in_seconds(&self, slot_index: usize) -> Option<PositionInSeconds> {
-        let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
+    pub fn clip_position_in_seconds(
+        &self,
+        slot_index: usize,
+    ) -> ClipEngineResult<PositionInSeconds> {
+        let clip = get_clip(&self.slots, slot_index)?;
         let timeline = clip_timeline(self.project, false);
-        Some(clip.position_in_seconds(&timeline))
+        Ok(clip.position_in_seconds(&timeline))
     }
 
-    pub fn clip_play_state(&self, slot_index: usize) -> Option<ClipPlayState> {
-        let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
-        Some(clip.play_state())
+    pub fn clip_volume(&self, slot_index: usize) -> ClipEngineResult<Db> {
+        let clip = get_clip(&self.slots, slot_index)?;
+        Ok(clip.volume())
     }
 
-    pub fn clip_repeated(&self, slot_index: usize) -> Option<bool> {
-        let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
-        Some(clip.data().looped)
+    pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<ClipPlayState> {
+        let clip = get_clip(&self.slots, slot_index)?;
+        Ok(clip.play_state())
     }
 
-    pub fn clip_volume(&self, _slot_index: usize) -> Option<ReaperVolumeValue> {
-        // TODO-high implement
-        // let clip = get_slot(&self.slots, slot_index).ok()?.clip.as_ref()?;
-        Some(Default::default())
+    pub fn clip_repeated(&self, slot_index: usize) -> ClipEngineResult<bool> {
+        let clip = get_clip(&self.slots, slot_index)?;
+        Ok(clip.data().looped)
     }
 
-    pub fn proportional_clip_position(&self, row: usize) -> Option<UnitValue> {
-        get_slot(&self.slots, row)
-            .ok()?
-            .clip
-            .as_ref()?
-            .proportional_pos()
+    pub fn proportional_clip_position(&self, slot_index: usize) -> ClipEngineResult<UnitValue> {
+        let clip = get_clip(&self.slots, slot_index)?;
+        clip.proportional_pos()
     }
 
     pub fn record_clip(
@@ -397,20 +396,30 @@ fn start_playing_preview(
     result.unwrap()
 }
 
-fn get_slot(slots: &[Slot], index: usize) -> ClipEngineResult<&Slot> {
-    slots.get(index).ok_or("slot doesn't exist")
+fn get_clip(slots: &[Slot], slot_index: usize) -> ClipEngineResult<&Clip> {
+    get_slot(slots, slot_index)?
+        .clip
+        .as_ref()
+        .ok_or(SLOT_NOT_FILLED)
 }
 
-fn get_clip_mut(slots: &mut Vec<Slot>, index: usize) -> &mut Clip {
-    get_slot_mut(slots, index)
+fn get_slot(slots: &[Slot], slot_index: usize) -> ClipEngineResult<&Slot> {
+    slots.get(slot_index).ok_or(SLOT_DOESNT_EXIST)
+}
+
+fn get_clip_mut(slots: &mut Vec<Slot>, slot_index: usize) -> ClipEngineResult<&mut Clip> {
+    get_slot_mut(slots, slot_index)
         .clip
         .as_mut()
-        .expect("slot not filled")
+        .ok_or(SLOT_NOT_FILLED)
 }
 
-fn get_slot_mut(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
-    if index >= slots.len() {
-        slots.resize_with(index + 1, Default::default);
+fn get_slot_mut(slots: &mut Vec<Slot>, slot_index: usize) -> &mut Slot {
+    if slot_index >= slots.len() {
+        slots.resize_with(slot_index + 1, Default::default);
     }
-    slots.get_mut(index).unwrap()
+    slots.get_mut(slot_index).unwrap()
 }
+
+const SLOT_DOESNT_EXIST: &str = "slot doesn't exist";
+const SLOT_NOT_FILLED: &str = "slot not filled";

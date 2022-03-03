@@ -2,17 +2,17 @@ use crate::metrics_util::measure_time;
 use crate::rt::supplier::{RecorderEquipment, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::SlotInstruction::KeepSlot;
 use crate::rt::{
-    Clip, ClipChangedEvent, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs,
-    ClipRecordInput, ClipStopArgs, RecordBehavior, SlotInstruction,
+    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipRecordInput,
+    ClipStopArgs, RecordBehavior, SlotInstruction,
 };
 use crate::timeline::HybridTimeline;
 use crate::ClipEngineResult;
 use helgoboss_learn::UnitValue;
 use playtime_api::{
-    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, VirtualResampleMode,
+    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, Db, VirtualResampleMode,
 };
 use reaper_high::Project;
-use reaper_medium::{Bpm, PlayState, PositionInSeconds, ReaperVolumeValue};
+use reaper_medium::{Bpm, PlayState, PositionInSeconds};
 
 #[derive(Debug, Default)]
 pub struct Slot {
@@ -141,11 +141,9 @@ impl Slot {
         Ok(())
     }
 
-    pub fn set_clip_volume(
-        &mut self,
-        volume: ReaperVolumeValue,
-    ) -> ClipEngineResult<ClipChangedEvent> {
-        Ok(self.get_clip_mut()?.set_volume(volume))
+    pub fn set_clip_volume(&mut self, volume: Db) -> ClipEngineResult<()> {
+        self.get_clip_mut()?.set_volume(volume);
+        Ok(())
     }
 
     pub fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
