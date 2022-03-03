@@ -4,11 +4,11 @@ use crate::domain::{
     ExtendedProcessorContext, FeedbackResolution, GroupId, HitInstructionReturnValue,
     MappingActivationEffect, MappingControlContext, MappingData, MappingInfo, MessageCaptureEvent,
     MidiScanResult, MidiSource, Mode, OscDeviceId, OscScanResult, ParameterArray, ParameterSlice,
-    PersistentMappingProcessingState, RealTimeReaperTarget, RealearnTarget, ReaperMessage,
-    ReaperSource, ReaperTarget, ReaperTargetType, Tag, TargetCharacter, TargetUpdate,
-    TrackExclusivity, UnresolvedReaperTarget, VirtualControlElement, VirtualFeedbackValue,
-    VirtualSource, VirtualSourceAddress, VirtualSourceValue, VirtualTarget,
-    COMPARTMENT_PARAMETER_COUNT,
+    PersistentMappingProcessingState, RealTimeMappingUpdate, RealTimeReaperTarget,
+    RealTimeTargetUpdate, RealearnTarget, ReaperMessage, ReaperSource, ReaperTarget,
+    ReaperTargetType, Tag, TargetCharacter, TrackExclusivity, UnresolvedReaperTarget,
+    VirtualControlElement, VirtualFeedbackValue, VirtualSource, VirtualSourceAddress,
+    VirtualSourceValue, VirtualTarget, COMPARTMENT_PARAMETER_COUNT,
 };
 use derive_more::Display;
 use enum_iterator::IntoEnumIterator;
@@ -463,7 +463,7 @@ impl MainMapping {
     pub fn update_activation_from_effect(
         &mut self,
         activation_effect: MappingActivationEffect,
-    ) -> Option<ActivationChange> {
+    ) -> Option<RealTimeMappingUpdate> {
         let was_active_before = self.is_active_in_terms_of_activation_state();
         self.activation_state.is_active_1 = activation_effect
             .active_1_effect
@@ -475,9 +475,11 @@ impl MainMapping {
         if now_is_active == was_active_before {
             return None;
         }
-        let update = ActivationChange {
+        let update = RealTimeMappingUpdate {
             id: self.id(),
-            is_active: now_is_active,
+            activation_change: Some(ActivationChange {
+                is_active: now_is_active,
+            }),
         };
         Some(update)
     }
@@ -559,16 +561,17 @@ impl MainMapping {
 
     /// The boolean return value tells if the resolved target changed in some way, the activation
     /// change says if activation changed from off to on or on to off.
+    #[must_use]
     pub fn refresh_target(
         &mut self,
         context: ExtendedProcessorContext,
         control_context: ControlContext,
-    ) -> (bool, Option<ActivationChange>) {
+    ) -> Option<RealTimeTargetUpdate> {
         match self.unresolved_target.as_ref() {
-            None => return (false, None),
+            None => return None,
             Some(t) => {
                 if !t.can_be_affected_by_change_events() {
-                    return (false, None);
+                    return None;
                 }
             }
         }
@@ -577,17 +580,29 @@ impl MainMapping {
         let target_changed = targets != self.targets;
         self.targets = targets;
         self.core.options.target_is_active = is_active;
-        if self.target_is_effectively_active() == was_effectively_active_before {
-            return (target_changed, None);
+        // Build real-time target update if necessary
+        let activation_changed =
+            self.target_is_effectively_active() == was_effectively_active_before;
+        if !target_changed && !activation_changed {
+            return None;
         }
-        let update = ActivationChange {
+        let update = RealTimeTargetUpdate {
             id: self.id(),
-            is_active,
+            activation_change: if activation_changed {
+                Some(ActivationChange { is_active })
+            } else {
+                None
+            },
+            target_change: if target_changed {
+                Some(self.splinter_first_real_time_target())
+            } else {
+                None
+            },
         };
-        (target_changed, Some(update))
+        Some(update)
     }
 
-    pub fn update_activation(&mut self, params: &ParameterArray) -> Option<ActivationChange> {
+    pub fn update_activation(&mut self, params: &ParameterArray) -> Option<RealTimeMappingUpdate> {
         let sliced_params = self.core.compartment.slice_params(params);
         let was_active_before = self.is_active_in_terms_of_activation_state();
         self.activation_state.is_active_1 = self.activation_condition_1.is_fulfilled(sliced_params);
@@ -596,9 +611,11 @@ impl MainMapping {
         if now_is_active == was_active_before {
             return None;
         }
-        let update = ActivationChange {
+        let update = RealTimeMappingUpdate {
             id: self.id(),
-            is_active: now_is_active,
+            activation_change: Some(ActivationChange {
+                is_active: now_is_active,
+            }),
         };
         Some(update)
     }
@@ -1222,17 +1239,19 @@ impl RealTimeMapping {
         self.core.options.persistent_processing_state = state;
     }
 
-    pub fn update_target(&mut self, update: &mut TargetUpdate) {
+    pub fn update_target(&mut self, update: &mut RealTimeTargetUpdate) {
         if let Some(c) = update.activation_change {
             self.core.options.target_is_active = c.is_active;
         }
-        if let Some(rt_target) = update.real_time_target_change.take() {
+        if let Some(rt_target) = update.target_change.take() {
             self.resolved_target = rt_target;
         }
     }
 
-    pub fn update_activation(&mut self, is_active: bool) {
-        self.is_active = is_active
+    pub fn update(&mut self, update: &RealTimeMappingUpdate) {
+        if let Some(c) = update.activation_change {
+            self.is_active = c.is_active;
+        }
     }
 
     pub fn source(&self) -> &CompoundMappingSource {

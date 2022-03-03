@@ -1,19 +1,20 @@
 use crate::domain::{
-    aggregate_target_values, ActivationChange, AdditionalFeedbackEvent, BackboneState,
-    CompoundChangeEvent, CompoundFeedbackValue, CompoundMappingSource,
-    CompoundMappingSourceAddress, CompoundMappingTarget, ControlContext, ControlInput, ControlMode,
-    DeviceFeedbackOutput, DomainEvent, DomainEventHandler, ExtendedProcessorContext,
-    FeedbackAudioHookTask, FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask,
-    FeedbackResolution, FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
+    aggregate_target_values, AdditionalFeedbackEvent, BackboneState, CompoundChangeEvent,
+    CompoundFeedbackValue, CompoundMappingSource, CompoundMappingSourceAddress,
+    CompoundMappingTarget, ControlContext, ControlInput, ControlMode, DeviceFeedbackOutput,
+    DomainEvent, DomainEventHandler, ExtendedProcessorContext, FeedbackAudioHookTask,
+    FeedbackDestinations, FeedbackOutput, FeedbackRealTimeTask, FeedbackResolution,
+    FeedbackSendBehavior, GroupId, HitInstructionContext, InstanceContainer,
     InstanceOrchestrationEvent, InstanceStateChanged, IoUpdatedEvent, LimitedAsciiString,
     MainMapping, MainSourceMessage, MappingActivationEffect, MappingCompartment,
     MappingControlResult, MappingId, MappingInfo, MessageCaptureEvent, MessageCaptureResult,
     MidiDestination, MidiScanResult, NormalRealTimeTask, OrderedMappingIdSet, OrderedMappingMap,
     OscDeviceId, OscFeedbackTask, OscScanResult, ProcessorContext, QualifiedClipMatrixEvent,
-    QualifiedMappingId, QualifiedSource, RealFeedbackValue, RealTimeSender,
-    RealearnMonitoringFxParameterValueChangedEvent, ReaperMessage, ReaperTarget,
-    SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent, SpecificCompoundFeedbackValue,
-    TargetUpdate, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent, VirtualSourceValue,
+    QualifiedMappingId, QualifiedSource, RealFeedbackValue, RealTimeMappingUpdate, RealTimeSender,
+    RealTimeTargetUpdate, RealearnMonitoringFxParameterValueChangedEvent, ReaperMessage,
+    ReaperTarget, SharedInstanceState, SourceFeedbackValue, SourceReleasedEvent,
+    SpecificCompoundFeedbackValue, TargetValueChangedEvent, UpdatedSingleMappingOnStateEvent,
+    VirtualSourceValue,
 };
 use derive_more::Display;
 use enum_map::EnumMap;
@@ -773,7 +774,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     // is always on. Switching off is not necessary since the last
                     // touched target can never be "unset".
                     let control_context = self.basics.control_context();
-                    m.refresh_target(
+                    let _ = m.refresh_target(
                         ExtendedProcessorContext::new(
                             &self.basics.context,
                             &self.collections.parameters,
@@ -872,7 +873,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 })
                 .collect();
             // 2. Mapping activation: Write
-            let mapping_activation_updates: Vec<ActivationChange> = activation_effects
+            let mapping_updates: Vec<RealTimeMappingUpdate> = activation_effects
                 .into_iter()
                 .filter_map(|eff| {
                     changed_mappings.insert(eff.id);
@@ -886,7 +887,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 })
                 .collect();
             // 3. Target refreshment and determine unused sources
-            let mut target_updates: Vec<TargetUpdate> = vec![];
+            let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
             for m in all_mappings_in_compartment_mut(
                 &mut self.collections.mappings,
                 &mut self.collections.mappings_with_virtual_targets,
@@ -899,14 +900,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         &self.collections.parameters,
                         control_context,
                     );
-                    let (target_has_changed, activation_change) =
-                        m.refresh_target(context, control_context);
-                    if target_has_changed || activation_change.is_some() {
-                        let target_update = create_target_update_from_refresh_outcome(
-                            m,
-                            target_has_changed,
-                            activation_change,
-                        );
+                    if let Some(target_update) = m.refresh_target(context, control_context) {
                         target_updates.push(target_update);
                         changed_mappings.insert(m.id());
                     }
@@ -920,7 +914,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
             self.process_mapping_updates_due_to_parameter_changes(
                 compartment,
-                mapping_activation_updates,
+                mapping_updates,
                 target_updates,
                 unused_sources,
                 changed_mappings.into_iter(),
@@ -935,8 +929,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             .event_handler
             .handle_event(DomainEvent::UpdatedAllParameters(parameters));
         for compartment in MappingCompartment::enum_iter() {
-            let mut mapping_activation_changes: Vec<ActivationChange> = vec![];
-            let mut target_updates: Vec<TargetUpdate> = vec![];
+            let mut mapping_updates: Vec<RealTimeMappingUpdate> = vec![];
+            let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
             let mut changed_mappings = vec![];
             let mut unused_sources = self.currently_feedback_enabled_sources(compartment, true);
             for m in all_mappings_in_compartment_mut(
@@ -946,7 +940,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             ) {
                 if m.activation_can_be_affected_by_parameters() {
                     if let Some(update) = m.update_activation(&self.collections.parameters) {
-                        mapping_activation_changes.push(update);
+                        mapping_updates.push(update);
                     }
                 }
                 if m.target_can_be_affected_by_parameters() {
@@ -956,14 +950,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                         &self.collections.parameters,
                         control_context,
                     );
-                    let (has_changed, activation_change) =
-                        m.refresh_target(context, control_context);
-                    if has_changed || activation_change.is_some() {
-                        let target_update = create_target_update_from_refresh_outcome(
-                            m,
-                            has_changed,
-                            activation_change,
-                        );
+                    if let Some(target_update) = m.refresh_target(context, control_context) {
                         target_updates.push(target_update);
                         changed_mappings.push(m.id())
                     }
@@ -977,7 +964,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             }
             self.process_mapping_updates_due_to_parameter_changes(
                 compartment,
-                mapping_activation_changes,
+                mapping_updates,
                 target_updates,
                 unused_sources,
                 changed_mappings.into_iter(),
@@ -1099,7 +1086,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn refresh_all_targets(&mut self) {
         debug!(self.basics.logger, "Refreshing all targets...");
         for compartment in MappingCompartment::enum_iter() {
-            let mut target_updates: Vec<TargetUpdate> = vec![];
+            let mut target_updates: Vec<RealTimeTargetUpdate> = vec![];
             let mut changed_mappings = vec![];
             let mut unused_sources = self.currently_feedback_enabled_sources(compartment, false);
             // Mappings with virtual targets don't have to be refreshed because virtual
@@ -1111,16 +1098,9 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     &self.collections.parameters,
                     control_context,
                 );
-                let (target_changed, activation_change) =
-                    m.refresh_target(context, control_context);
-                if target_changed || activation_change.is_some() {
-                    let target_update = create_target_update_from_refresh_outcome(
-                        m,
-                        target_changed,
-                        activation_change,
-                    );
+                if let Some(target_update) = m.refresh_target(context, control_context) {
                     target_updates.push(target_update);
-                    changed_mappings.push(m.id());
+                    changed_mappings.push(m.id())
                 }
                 if m.feedback_is_effectively_on() {
                     // Mark source as used
@@ -1134,7 +1114,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 // fail because the real-time processor is
                 // already gone. But it doesn't matter.
                 let _ = self.basics.channels.normal_real_time_task_sender.send(
-                    NormalRealTimeTask::UpdateTargets(compartment, target_updates),
+                    NormalRealTimeTask::UpdateTargetsPartially(compartment, target_updates),
                 );
             }
             // Important to send IO event first ...
@@ -1680,8 +1660,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     fn process_mapping_updates_due_to_parameter_changes(
         &mut self,
         compartment: MappingCompartment,
-        mapping_activation_updates: Vec<ActivationChange>,
-        target_updates: Vec<TargetUpdate>,
+        mapping_updates: Vec<RealTimeMappingUpdate>,
+        target_updates: Vec<RealTimeTargetUpdate>,
         unused_sources: HashMap<CompoundMappingSourceAddress, QualifiedSource>,
         changed_mappings: impl Iterator<Item = MappingId>,
     ) {
@@ -1691,14 +1671,14 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             unused_sources,
             changed_mappings,
         );
-        // Communicate activation changes to real-time processor
-        if !mapping_activation_updates.is_empty() {
+        // Propagate updates to real-time processor
+        if !mapping_updates.is_empty() {
             self.basics
                 .channels
                 .normal_real_time_task_sender
-                .send(NormalRealTimeTask::UpdateMappingActivations(
+                .send(NormalRealTimeTask::UpdateMappingsPartially(
                     compartment,
-                    mapping_activation_updates,
+                    mapping_updates,
                 ))
                 .unwrap();
         }
@@ -1706,7 +1686,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             self.basics
                 .channels
                 .normal_real_time_task_sender
-                .send(NormalRealTimeTask::UpdateTargets(
+                .send(NormalRealTimeTask::UpdateTargetsPartially(
                     compartment,
                     target_updates,
                 ))
@@ -2413,22 +2393,6 @@ impl<EH: DomainEventHandler> Drop for MainProcessor<EH> {
             self.clear_all_feedback_preventing_source_takeover();
         }
         let _ = self.send_io_update(self.io_released_event());
-    }
-}
-
-fn create_target_update_from_refresh_outcome(
-    mapping: &MainMapping,
-    target_has_changed: bool,
-    activation_change: Option<ActivationChange>,
-) -> TargetUpdate {
-    TargetUpdate {
-        mapping_id: mapping.id(),
-        activation_change,
-        real_time_target_change: if target_has_changed {
-            Some(mapping.splinter_first_real_time_target())
-        } else {
-            None
-        },
     }
 }
 

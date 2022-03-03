@@ -1,12 +1,12 @@
 use crate::base::Global;
 use crate::domain::{
-    ActivationChange, BackboneState, CompoundMappingSource, DeviceChangeDetector,
-    DeviceControlInput, DeviceFeedbackOutput, DomainEventHandler, EelTransformation,
-    FeedbackOutput, FeedbackRealTimeTask, InstanceId, LifecycleMidiData, MainProcessor,
-    MidiCaptureSender, MidiDeviceChangePayload, NormalRealTimeTask, OscDeviceId, OscInputDevice,
-    OscScanResult, QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget, RealTimeMapping,
-    ReaperMessage, ReaperTarget, SharedRealTimeProcessor, SourceFeedbackValue, TargetUpdate,
-    TouchedParameterType,
+    BackboneState, CompoundMappingSource, DeviceChangeDetector, DeviceControlInput,
+    DeviceFeedbackOutput, DomainEventHandler, EelTransformation, FeedbackOutput,
+    FeedbackRealTimeTask, InstanceId, LifecycleMidiData, MainProcessor, MidiCaptureSender,
+    MidiDeviceChangePayload, NormalRealTimeTask, OscDeviceId, OscInputDevice, OscScanResult,
+    QualifiedClipMatrixEvent, RealTimeCompoundMappingTarget, RealTimeMapping,
+    RealTimeMappingUpdate, RealTimeTargetUpdate, ReaperMessage, ReaperTarget,
+    SharedRealTimeProcessor, SourceFeedbackValue, TouchedParameterType,
 };
 use crossbeam_channel::Receiver;
 use helgoboss_learn::{ModeGarbage, RawMidiEvent};
@@ -71,8 +71,8 @@ pub enum Garbage {
     MappingSource(CompoundMappingSource),
     RealTimeMappings(Vec<RealTimeMapping>),
     BoxedRealTimeMapping(Box<Option<RealTimeMapping>>),
-    ActivationChanges(Vec<ActivationChange>),
-    TargetUpdates(Vec<TargetUpdate>),
+    MappingUpdates(Vec<RealTimeMappingUpdate>),
+    TargetUpdates(Vec<RealTimeTargetUpdate>),
     NormalRealTimeTask(NormalRealTimeTask),
     FeedbackRealTimeTask(FeedbackRealTimeTask),
     MidiCaptureSender(MidiCaptureSender),
