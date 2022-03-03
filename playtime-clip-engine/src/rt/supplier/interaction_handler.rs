@@ -311,15 +311,15 @@ impl<S: MidiSupplier> MidiSupplier for InteractionHandler<S> {
                 inner_response
             }
             Stop => {
-                let distance_to_stop = interaction.frame - request.start_frame;
-                if distance_to_stop <= 0 {
+                let distance_to_interaction = interaction.frame - request.start_frame;
+                if distance_to_interaction <= 0 {
                     // Exceeded end. Shouldn't usually happen because playback is continuous, but
                     // let's handle this gracefully.
                     self.interaction = None;
                     return SupplyResponse::exceeded_end();
                 }
                 let num_frames_to_write =
-                    cmp::min(request.dest_frame_count, distance_to_stop as usize);
+                    cmp::min(request.dest_frame_count, distance_to_interaction as usize);
                 let inner_request = SupplyMidiRequest {
                     dest_frame_count: num_frames_to_write,
                     info: SupplyRequestInfo {

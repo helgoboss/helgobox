@@ -813,17 +813,18 @@ impl ReadyState {
             if !supplier_chain.stop_interaction_is_installed_already() {
                 // We have a quantized stop request. Calculate distance from quantized position.
                 // This should be a negative position because we should be left of the stop.
-                let distance = self.calc_distance_from_quantized_pos(
+                let distance_from_quantized_stop_pos = self.calc_distance_from_quantized_pos(
                     quantized_pos,
                     args,
                     general_info.clip_tempo_factor,
                     supplier_chain,
                 );
-                // Derive stop position *within material*.
-                let stop_pos = go.pos - distance;
+                // Derive stop position within material.
+                let stop_pos = go.pos - distance_from_quantized_stop_pos;
+                let mod_stop_pos = self.modulo_frame(stop_pos, supplier_chain);
                 debug!(
-                    "Calculated stop position {} (go pos = {}, distance = {}, quantized pos = {:?})",
-                    stop_pos, go.pos, distance, quantized_pos
+                    "Calculated stop position {} (mod_stop_pos = {}, go pos = {}, distance = {}, quantized pos = {:?}, tempo factor = {:?})",
+                    stop_pos, mod_stop_pos, go.pos, distance_from_quantized_stop_pos, quantized_pos, general_info.clip_tempo_factor
                 );
                 supplier_chain.schedule_stop_interaction_at(stop_pos);
             }
@@ -955,7 +956,7 @@ impl ReadyState {
         } else {
             self.fill_samples_audio(args, start_frame, info, dest_sample_rate, supplier_chain)
         };
-        let (frames_written, next_frame) = match response.status {
+        let (num_frames_written, next_frame) = match response.status {
             SupplyResponseStatus::PleaseContinue => (
                 args.dest_buffer.frame_count(),
                 Some(start_frame + response.num_frames_consumed as isize),
@@ -964,7 +965,7 @@ impl ReadyState {
         };
         FillSamplesOutcome {
             clip_playing_outcome: ClipPlayingOutcome {
-                num_audio_frames_written: if is_midi { 0 } else { frames_written },
+                num_audio_frames_written: if is_midi { 0 } else { num_frames_written },
             },
             next_frame,
         }
@@ -1061,7 +1062,8 @@ impl ReadyState {
     /// 2. We resolve the count-in length here, not at the time the play is requested.
     /// Reason: Here we have block information such as block length and frame rate available.
     /// That's not an urgent reason ... we could always cache this information and thus make it
-    /// available in the play request itself.
+    /// available in the play request itself. Or we make sure that play/stop is always triggered
+    /// via receiving in get_samples()! That's good! TODO-medium Implement it.
     /// In the past there were more urgent reasons but they are gone. I'll document them here
     /// because they might remove doubt in case of possible future refactorings:
     ///
