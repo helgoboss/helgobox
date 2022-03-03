@@ -9,7 +9,7 @@ use playtime_api::MidiResetMessageRange;
 use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz};
 
 #[derive(Debug)]
-pub struct StartEndFader<S> {
+pub struct StartEndHandler<S> {
     supplier: S,
     audio_fades_enabled: bool,
     enabled_for_start: bool,
@@ -17,7 +17,7 @@ pub struct StartEndFader<S> {
     midi_reset_msg_range: MidiResetMessageRange,
 }
 
-impl<S> StartEndFader<S> {
+impl<S> StartEndHandler<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             supplier,
@@ -53,7 +53,7 @@ impl<S> StartEndFader<S> {
     }
 }
 
-impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for StartEndFader<S> {
+impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for StartEndHandler<S> {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -81,7 +81,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for StartEndFader<S> {
     }
 }
 
-impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for StartEndFader<S> {
+impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for StartEndHandler<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
@@ -111,25 +111,25 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for StartEndFader<S> {
     }
 }
 
-impl<S: PreBufferSourceSkill> PreBufferSourceSkill for StartEndFader<S> {
+impl<S: PreBufferSourceSkill> PreBufferSourceSkill for StartEndHandler<S> {
     fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         self.supplier.pre_buffer(request);
     }
 }
 
-impl<S: WithFrameRate> WithFrameRate for StartEndFader<S> {
+impl<S: WithFrameRate> WithFrameRate for StartEndHandler<S> {
     fn frame_rate(&self) -> Option<Hz> {
         self.supplier.frame_rate()
     }
 }
 
-impl<S: ExactFrameCount> ExactFrameCount for StartEndFader<S> {
+impl<S: ExactFrameCount> ExactFrameCount for StartEndHandler<S> {
     fn frame_count(&self) -> usize {
         self.supplier.frame_count()
     }
 }
 
-impl<S: ExactDuration + WithFrameRate + ExactFrameCount> ExactDuration for StartEndFader<S> {
+impl<S: ExactDuration + WithFrameRate + ExactFrameCount> ExactDuration for StartEndHandler<S> {
     fn duration(&self) -> DurationInSeconds {
         self.supplier.duration()
     }

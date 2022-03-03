@@ -1,21 +1,31 @@
 use crate::rt::buffer::AudioBufMut;
 
-/// Takes care of applying a fade-in to the first few frames of a larger audio portion.
+/// Takes care of applying a fade-in starting at frame zero.
+///
+/// The portion left of it will be muted.
 ///
 /// The `block_start_frame` parameter indicates the position of the block within the larger audio
 /// portion.
 pub fn apply_fade_in_starting_at_zero(block: &mut AudioBufMut, block_start_frame: isize) {
-    if block_is_left_or_right_of_fade(block_start_frame, block.frame_count()) {
-        return;
+    use BlockLocation::*;
+    match block_location(block_start_frame, block.frame_count()) {
+        ContainingFadePortion => {
+            block.modify_frames(|sample| {
+                let factor =
+                    calc_fade_in_volume_factor_at(block_start_frame + sample.index.frame as isize);
+                sample.value * factor
+            });
+        }
+        LeftOfFade => {
+            block.clear();
+        }
+        RightOfFade => {}
     }
-    // Block contains at least a portion of the fade
-    block.modify_frames(|sample| {
-        let factor = calc_fade_in_volume_factor_at(block_start_frame + sample.index.frame as isize);
-        sample.value * factor
-    });
 }
 
 /// Takes care of applying a fade-out to the last few frames of a larger audio portion.
+///
+/// The portion right of it will be muted.
 ///
 /// The `block_start_frame` parameter indicates the position of the block within the larger audio
 /// portion.
@@ -29,20 +39,27 @@ pub fn apply_fade_out_ending_at(
     apply_fade_out_starting_at_zero(block, adjusted_block_start_frame);
 }
 
-/// Takes care of applying a fade-out.
+/// Takes care of applying a fade-out starting at frame zero.
+///
+/// The portion right of it will be muted.
 ///
 /// The `block_start_frame` parameter indicates the position of the block within the larger audio
 /// portion.
 pub fn apply_fade_out_starting_at_zero(block: &mut AudioBufMut, block_start_frame: isize) {
-    if block_is_left_or_right_of_fade(block_start_frame, block.frame_count()) {
-        return;
+    use BlockLocation::*;
+    match block_location(block_start_frame, block.frame_count()) {
+        ContainingFadePortion => {
+            block.modify_frames(|sample| {
+                let factor =
+                    calc_fade_out_volume_factor_at(block_start_frame + sample.index.frame as isize);
+                sample.value * factor
+            });
+        }
+        LeftOfFade => {}
+        RightOfFade => {
+            block.clear();
+        }
     }
-    // Block contains at least a portion of the fade
-    block.modify_frames(|sample| {
-        let factor =
-            calc_fade_out_volume_factor_at(block_start_frame + sample.index.frame as isize);
-        sample.value * factor
-    });
 }
 
 fn calc_fade_in_volume_factor_at(frame: isize) -> f64 {
@@ -69,17 +86,21 @@ fn calc_fade_out_volume_factor_at(frame: isize) -> f64 {
     (frame - FADE_LENGTH as isize).abs() as f64 / FADE_LENGTH as f64
 }
 
-fn block_is_left_or_right_of_fade(block_start_frame: isize, block_frame_count: usize) -> bool {
+fn block_location(block_start_frame: isize, block_frame_count: usize) -> BlockLocation {
     if block_start_frame > FADE_LENGTH as isize {
-        // Block is right of fade
-        return true;
+        return BlockLocation::RightOfFade;
     }
     let block_end_frame = block_start_frame + block_frame_count as isize;
     if block_end_frame < 0 {
-        // Block is left of fade
-        return true;
+        return BlockLocation::LeftOfFade;
     }
-    false
+    BlockLocation::ContainingFadePortion
+}
+
+enum BlockLocation {
+    ContainingFadePortion,
+    LeftOfFade,
+    RightOfFade,
 }
 
 // 480 frames = 10ms at 48 kHz

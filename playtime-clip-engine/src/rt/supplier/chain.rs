@@ -1,24 +1,27 @@
 use crate::conversion_util::convert_duration_in_seconds_to_frames;
 use crate::rt::supplier::{
-    AdHocFader, Amplifier, Downbeat, ExactDuration, ExactFrameCount, LoopBehavior, Looper,
-    Recorder, Resampler, Section, StartEndFader, TimeStretcher, WithFrameRate,
+    Amplifier, AudioSupplier, Downbeat, ExactDuration, ExactFrameCount, InteractionHandler,
+    LoopBehavior, Looper, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, Recorder,
+    Resampler, Section, StartEndHandler, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
+    TimeStretcher, WithFrameRate,
 };
-use crate::ClipEngineResult;
+use crate::rt::AudioBufMut;
+use crate::{ClipEngineResult, Timeline};
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, Db, MidiResetMessageRange, PositiveBeat,
     PositiveSecond, VirtualResampleMode,
 };
-use reaper_medium::{Bpm, DurationInSeconds, Hz};
+use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz};
 
 type Head = AmplifierTail;
-type AmplifierTail = Amplifier<AdHocFaderTail>;
-type AdHocFaderTail = AdHocFader<ResamplerTail>;
+type AmplifierTail = Amplifier<InteractionHandlerTail>;
+type InteractionHandlerTail = InteractionHandler<ResamplerTail>;
 type ResamplerTail = Resampler<TimeStretcherTail>;
 type TimeStretcherTail = TimeStretcher<DownbeatTail>;
 type DownbeatTail = Downbeat<LooperTail>;
 type LooperTail = Looper<SectionTail>;
-type SectionTail = Section<StartEndFaderTail>;
-type StartEndFaderTail = StartEndFader<RecorderTail>;
+type SectionTail = Section<StartEndHandlerTail>;
+type StartEndHandlerTail = StartEndHandler<RecorderTail>;
 // Recorder is hard-coded to sit on top of Cache<PreBuffer<OwnedPcmSource>>.
 type RecorderTail = Recorder;
 
@@ -31,8 +34,8 @@ impl SupplierChain {
     pub fn new(recorder: Recorder) -> Self {
         let mut chain = Self {
             head: {
-                Amplifier::new(AdHocFader::new(Resampler::new(TimeStretcher::new(
-                    Downbeat::new(Looper::new(Section::new(StartEndFader::new(recorder)))),
+                Amplifier::new(InteractionHandler::new(Resampler::new(TimeStretcher::new(
+                    Downbeat::new(Looper::new(Section::new(StartEndHandler::new(recorder)))),
                 ))))
             },
         };
@@ -63,7 +66,8 @@ impl SupplierChain {
     }
 
     pub fn set_audio_fades_enabled_for_source(&mut self, enabled: bool) {
-        self.start_end_fader_mut().set_audio_fades_enabled(enabled);
+        self.start_end_handler_mut()
+            .set_audio_fades_enabled(enabled);
     }
 
     pub fn set_midi_reset_msg_range_for_section(&mut self, range: MidiResetMessageRange) {
@@ -71,7 +75,8 @@ impl SupplierChain {
     }
 
     pub fn set_midi_reset_msg_range_for_interaction(&mut self, range: MidiResetMessageRange) {
-        self.ad_hoc_fader_mut().set_midi_reset_msg_range(range);
+        self.interaction_handler_mut()
+            .set_midi_reset_msg_range(range);
     }
 
     pub fn set_midi_reset_msg_range_for_loop(&mut self, range: MidiResetMessageRange) {
@@ -79,7 +84,7 @@ impl SupplierChain {
     }
 
     pub fn set_midi_reset_msg_range_for_source(&mut self, range: MidiResetMessageRange) {
-        self.start_end_fader_mut().set_midi_reset_msg_range(range);
+        self.start_end_handler_mut().set_midi_reset_msg_range(range);
     }
 
     pub fn set_volume(&mut self, volume: Db) {
@@ -173,95 +178,64 @@ impl SupplierChain {
         self.time_stretcher_mut().set_tempo_factor(tempo_factor);
     }
 
+    pub fn install_immediate_start_interaction(&mut self, current_frame: isize) {
+        let is_midi = self.is_midi();
+        self.interaction_handler_mut()
+            .start_immediately(current_frame, is_midi);
+    }
+
+    pub fn stop_interaction_is_installed_already(&self) -> bool {
+        self.interaction_handler().has_stop_interaction()
+    }
+
+    pub fn install_immediate_stop_interaction(&mut self, current_frame: isize) {
+        let is_midi = self.is_midi();
+        self.interaction_handler_mut()
+            .stop_immediately(current_frame, is_midi);
+    }
+
+    pub fn schedule_stop_interaction_at(&mut self, frame: isize) {
+        self.interaction_handler_mut().schedule_stop_at(frame);
+    }
+
+    pub fn reset_interactions(&mut self) {
+        self.interaction_handler_mut().reset();
+    }
+
     pub fn prepare_supply(&mut self) {
         let section = self.section();
         // If section start is > 0, the section will take care of applying start fades.
         let enabled_for_start = section.start_frame() == 0;
         // If section end is set, the section will take care of applying end fades.
         let enabled_for_end = section.length().is_none();
-        let start_end_fader = self.start_end_fader_mut();
-        start_end_fader.set_enabled_for_start(enabled_for_start);
-        start_end_fader.set_enabled_for_end(enabled_for_end);
+        let start_end_handler = self.start_end_handler_mut();
+        start_end_handler.set_enabled_for_start(enabled_for_start);
+        start_end_handler.set_enabled_for_end(enabled_for_end);
     }
 
-    pub fn head(&self) -> &Head {
-        &self.head
+    pub fn reset_for_play(&mut self, looped: bool) {
+        self.interaction_handler_mut().reset();
+        self.resampler_mut().reset_buffers_and_latency();
+        self.time_stretcher_mut().reset_buffers_and_latency();
+        self.looper_mut()
+            .set_loop_behavior(LoopBehavior::from_bool(looped));
     }
 
-    pub fn head_mut(&mut self) -> &mut Head {
-        &mut self.head
+    pub fn get_cycle_at_frame(&self, frame: isize) -> usize {
+        self.looper().get_cycle_at_frame(frame)
     }
 
-    pub fn amplifier(&self) -> &AmplifierTail {
-        &self.head
+    pub fn keep_playing_until_end_of_current_cycle(&mut self, pos: isize) {
+        self.looper_mut()
+            .keep_playing_until_end_of_current_cycle(pos);
     }
 
-    pub fn amplifier_mut(&mut self) -> &mut AmplifierTail {
-        &mut self.head
+    pub fn set_section_bounds(&mut self, start_frame: usize, length: Option<usize>) {
+        self.section_mut().set_bounds(start_frame, length);
     }
 
-    pub fn ad_hoc_fader(&self) -> &AdHocFaderTail {
-        self.amplifier().supplier()
-    }
-
-    pub fn ad_hoc_fader_mut(&mut self) -> &mut AdHocFaderTail {
-        self.amplifier_mut().supplier_mut()
-    }
-
-    pub fn resampler(&self) -> &ResamplerTail {
-        self.ad_hoc_fader().supplier()
-    }
-
-    pub fn resampler_mut(&mut self) -> &mut ResamplerTail {
-        self.ad_hoc_fader_mut().supplier_mut()
-    }
-
-    pub fn time_stretcher(&self) -> &TimeStretcherTail {
-        self.resampler().supplier()
-    }
-
-    pub fn time_stretcher_mut(&mut self) -> &mut TimeStretcherTail {
-        self.resampler_mut().supplier_mut()
-    }
-
-    pub fn downbeat(&self) -> &DownbeatTail {
-        self.time_stretcher().supplier()
-    }
-
-    pub fn downbeat_mut(&mut self) -> &mut DownbeatTail {
-        self.time_stretcher_mut().supplier_mut()
-    }
-
-    pub fn looper(&self) -> &LooperTail {
-        self.downbeat().supplier()
-    }
-
-    pub fn looper_mut(&mut self) -> &mut LooperTail {
-        self.downbeat_mut().supplier_mut()
-    }
-
-    pub fn section(&self) -> &SectionTail {
-        self.looper().supplier()
-    }
-
-    pub fn section_mut(&mut self) -> &mut SectionTail {
-        self.looper_mut().supplier_mut()
-    }
-
-    pub fn start_end_fader(&self) -> &StartEndFaderTail {
-        self.section().supplier()
-    }
-
-    pub fn start_end_fader_mut(&mut self) -> &mut StartEndFaderTail {
-        self.section_mut().supplier_mut()
-    }
-
-    pub fn recorder(&self) -> &RecorderTail {
-        self.start_end_fader().supplier()
-    }
-
-    pub fn recorder_mut(&mut self) -> &mut RecorderTail {
-        self.start_end_fader_mut().supplier_mut()
+    pub fn downbeat_pos_during_recording(&self, timeline: &dyn Timeline) -> DurationInSeconds {
+        self.recorder().downbeat_pos_during_recording(timeline)
     }
 
     pub fn source_frame_rate_in_ready_state(&self) -> Hz {
@@ -276,5 +250,108 @@ impl SupplierChain {
 
     pub fn section_duration_in_ready_state(&self) -> DurationInSeconds {
         self.section().duration()
+    }
+
+    fn amplifier(&self) -> &AmplifierTail {
+        &self.head
+    }
+
+    fn amplifier_mut(&mut self) -> &mut AmplifierTail {
+        &mut self.head
+    }
+
+    fn interaction_handler(&self) -> &InteractionHandlerTail {
+        self.amplifier().supplier()
+    }
+
+    fn interaction_handler_mut(&mut self) -> &mut InteractionHandlerTail {
+        self.amplifier_mut().supplier_mut()
+    }
+
+    fn resampler(&self) -> &ResamplerTail {
+        self.interaction_handler().supplier()
+    }
+
+    fn resampler_mut(&mut self) -> &mut ResamplerTail {
+        self.interaction_handler_mut().supplier_mut()
+    }
+
+    fn time_stretcher(&self) -> &TimeStretcherTail {
+        self.resampler().supplier()
+    }
+
+    fn time_stretcher_mut(&mut self) -> &mut TimeStretcherTail {
+        self.resampler_mut().supplier_mut()
+    }
+
+    fn downbeat(&self) -> &DownbeatTail {
+        self.time_stretcher().supplier()
+    }
+
+    fn downbeat_mut(&mut self) -> &mut DownbeatTail {
+        self.time_stretcher_mut().supplier_mut()
+    }
+
+    fn looper(&self) -> &LooperTail {
+        self.downbeat().supplier()
+    }
+
+    fn looper_mut(&mut self) -> &mut LooperTail {
+        self.downbeat_mut().supplier_mut()
+    }
+
+    fn section(&self) -> &SectionTail {
+        self.looper().supplier()
+    }
+
+    fn section_mut(&mut self) -> &mut SectionTail {
+        self.looper_mut().supplier_mut()
+    }
+
+    fn start_end_handler(&self) -> &StartEndHandlerTail {
+        self.section().supplier()
+    }
+
+    fn start_end_handler_mut(&mut self) -> &mut StartEndHandlerTail {
+        self.section_mut().supplier_mut()
+    }
+
+    fn recorder(&self) -> &RecorderTail {
+        self.start_end_handler().supplier()
+    }
+
+    // TODO-medium Don't expose.
+    pub fn recorder_mut(&mut self) -> &mut RecorderTail {
+        self.start_end_handler_mut().supplier_mut()
+    }
+}
+
+impl AudioSupplier for SupplierChain {
+    fn supply_audio(
+        &mut self,
+        request: &SupplyAudioRequest,
+        dest_buffer: &mut AudioBufMut,
+    ) -> SupplyResponse {
+        self.head.supply_audio(request, dest_buffer)
+    }
+
+    fn channel_count(&self) -> usize {
+        self.head.channel_count()
+    }
+}
+
+impl MidiSupplier for SupplierChain {
+    fn supply_midi(
+        &mut self,
+        request: &SupplyMidiRequest,
+        event_list: &mut BorrowedMidiEventList,
+    ) -> SupplyResponse {
+        self.head.supply_midi(request, event_list)
+    }
+}
+
+impl PreBufferSourceSkill for SupplierChain {
+    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
+        self.head.pre_buffer(request)
     }
 }

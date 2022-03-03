@@ -7,8 +7,8 @@ use crate::conversion_util::{
 use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, LoopBehavior, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
-    Recorder, RecorderEquipment, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
+    AudioSupplier, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, Recorder,
+    RecorderEquipment, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
     SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
     WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
 };
@@ -547,10 +547,9 @@ impl ReadyState {
 
     pub fn set_looped(&mut self, looped: bool, supplier_chain: &mut SupplierChain) {
         self.persistent_data.looped = looped;
-        let looper = supplier_chain.looper_mut();
         if !looped {
             if let ReadySubState::Playing(PlayingState { pos: Some(pos), .. }) = self.state {
-                looper.keep_playing_until_end_of_current_cycle(pos);
+                supplier_chain.keep_playing_until_end_of_current_cycle(pos);
                 return;
             }
         }
@@ -587,11 +586,9 @@ impl ReadyState {
                     // Scheduled for stop. Backpedal!
                     // We can only schedule for stop when repeated, so we can set this
                     // back to Infinitely.
-                    supplier_chain
-                        .looper_mut()
-                        .set_loop_behavior(LoopBehavior::Infinitely);
-                    // If we have a quantized stop, the ad-hoc fader might be active. Clear fades!
-                    supplier_chain.ad_hoc_fader_mut().reset();
+                    supplier_chain.set_looped(true);
+                    // If we have a quantized stop, the interaction handler is active. Clear!
+                    supplier_chain.reset_interactions();
                     self.state = Playing(PlayingState {
                         stop_request: None,
                         ..s
@@ -634,7 +631,7 @@ impl ReadyState {
             Paused(s) => {
                 // Resume
                 let pos = s.pos as isize;
-                supplier_chain.ad_hoc_fader_mut().start_fade_in(pos);
+                supplier_chain.install_immediate_start_interaction(pos);
                 self.state = ReadySubState::Playing(PlayingState {
                     pos: Some(pos),
                     ..Default::default()
@@ -719,7 +716,6 @@ impl ReadyState {
                                         if self.persistent_data.looped {
                                             // Schedule
                                             supplier_chain
-                                                .looper_mut()
                                                 .keep_playing_until_end_of_current_cycle(pos);
                                             Playing(PlayingState {
                                                 stop_request: Some(StopRequest::AtEndOfClip),
@@ -814,7 +810,7 @@ impl ReadyState {
         };
         // Resolve potential quantized stop position if not yet done.
         if let Some(StopRequest::Quantized(quantized_pos)) = s.stop_request {
-            if !supplier_chain.ad_hoc_fader().has_fade_out() {
+            if !supplier_chain.stop_interaction_is_installed_already() {
                 // We have a quantized stop request. Calculate distance from quantized position.
                 // This should be a negative position because we should be left of the stop.
                 let distance = self.calc_distance_from_quantized_pos(
@@ -829,9 +825,7 @@ impl ReadyState {
                     "Calculated stop position {} (go pos = {}, distance = {}, quantized pos = {:?})",
                     stop_pos, go.pos, distance, quantized_pos
                 );
-                supplier_chain
-                    .ad_hoc_fader_mut()
-                    .schedule_fade_out_ending_at(stop_pos);
+                supplier_chain.schedule_stop_interaction_at(stop_pos);
             }
         }
         let outcome = self.fill_samples(
@@ -998,9 +992,7 @@ impl ReadyState {
         };
         // TODO-high There's an issue e.g. when playing the piano audio clip that makes
         //  the clip not stop for a long time when it's not looped. Check that!
-        supplier_chain
-            .head_mut()
-            .supply_audio(&request, args.dest_buffer)
+        supplier_chain.supply_audio(&request, args.dest_buffer)
     }
 
     fn fill_samples_midi(
@@ -1024,9 +1016,7 @@ impl ReadyState {
             parent_request: None,
             general_info: info,
         };
-        supplier_chain
-            .head_mut()
-            .supply_midi(&request, args.midi_event_list)
+        supplier_chain.supply_midi(&request, args.midi_event_list)
     }
 
     fn prepare_playing(
@@ -1162,9 +1152,10 @@ impl ReadyState {
         supplier_chain: &mut SupplierChain,
     ) -> (ClipPlayingOutcome, Option<RecordingState>) {
         let general_info = self.prepare_playing(args, supplier_chain);
-        let fader = supplier_chain.ad_hoc_fader_mut();
-        if !fader.has_fade_out() {
-            fader.start_fade_out(s.pos);
+        // TODO-medium We could do that already when changing to suspended. That saves us the
+        //  check if a stop interaction is installed already.
+        if !supplier_chain.stop_interaction_is_installed_already() {
+            supplier_chain.install_immediate_stop_interaction(s.pos);
         }
         let outcome = self.fill_samples(args, s.pos, &general_info, 1.0, supplier_chain);
         self.state = if let Some(next_frame) = outcome.next_frame {
@@ -1205,18 +1196,11 @@ impl ReadyState {
             frame_rate: Hz::new(48000.0),
             channel_count: 2,
         };
-        supplier_chain.head_mut().pre_buffer(req);
+        supplier_chain.pre_buffer(req);
     }
 
     fn reset_for_play(&mut self, supplier_chain: &mut SupplierChain) {
-        supplier_chain.ad_hoc_fader_mut().reset();
-        supplier_chain.resampler_mut().reset_buffers_and_latency();
-        supplier_chain
-            .time_stretcher_mut()
-            .reset_buffers_and_latency();
-        supplier_chain
-            .looper_mut()
-            .set_loop_behavior(LoopBehavior::from_bool(self.persistent_data.looped));
+        supplier_chain.reset_for_play(self.persistent_data.looped);
     }
 
     fn log_natural_deviation(
@@ -1477,7 +1461,7 @@ impl ReadyState {
         frame_count: usize,
         supplier_chain: &SupplierChain,
     ) -> usize {
-        let current_cycle = supplier_chain.looper().get_cycle_at_frame(offset_pos);
+        let current_cycle = supplier_chain.get_cycle_at_frame(offset_pos);
         current_cycle * frame_count + frame
     }
 
@@ -1593,9 +1577,7 @@ impl RecordingState {
                     timeline_frame_rate,
                 );
                 let block_end_pos = args.timeline_cursor_pos + block_length_in_secs;
-                let downbeat_pos = supplier_chain
-                    .recorder()
-                    .downbeat_pos_during_recording(&args.timeline);
+                let downbeat_pos = supplier_chain.downbeat_pos_during_recording(&args.timeline);
                 let record_end_pos = args.timeline.pos_of_bar(end_bar) - downbeat_pos;
                 if block_end_pos >= record_end_pos {
                     // We have recorded the last block.
@@ -1630,9 +1612,7 @@ impl RecordingState {
             .unwrap();
         // Calculate section boundaries
         // Set section boundaries for perfect timing.
-        supplier_chain
-            .section_mut()
-            .set_bounds(outcome.section_start_frame, outcome.section_frame_count);
+        supplier_chain.set_section_bounds(outcome.section_start_frame, outcome.section_frame_count);
         // Set downbeat.
         supplier_chain.set_downbeat_in_frames(outcome.normalized_downbeat_frame);
         // Change state

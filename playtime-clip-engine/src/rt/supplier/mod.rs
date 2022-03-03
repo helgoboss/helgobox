@@ -22,11 +22,11 @@ pub use resampler::*;
 mod chain;
 pub use chain::*;
 
-mod ad_hoc_fader;
-pub use ad_hoc_fader::*;
+mod interaction_handler;
+pub use interaction_handler::*;
 
-mod start_end_fader;
-pub use start_end_fader::*;
+mod start_end_handler;
+pub use start_end_handler::*;
 
 mod amplifier;
 pub use amplifier::*;
