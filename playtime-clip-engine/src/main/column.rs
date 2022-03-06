@@ -199,7 +199,7 @@ impl Column {
             slot_index: row,
             clip: rt_clip,
         };
-        self.rt_command_sender.fill_slot(args);
+        self.rt_command_sender.fill_slot(Box::new(Some(args)));
         Ok(())
     }
 
@@ -227,6 +227,7 @@ impl Column {
                     }
                     None
                 }
+                Dispose(_) => None,
             };
             if let Some(evt) = change_event {
                 change_events.push(evt);

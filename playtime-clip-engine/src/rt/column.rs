@@ -87,7 +87,7 @@ impl ColumnCommandSender {
         self.send_source_task(ColumnCommand::UpdateSettings(settings));
     }
 
-    pub fn fill_slot(&self, args: ColumnFillSlotArgs) {
+    pub fn fill_slot(&self, args: Box<Option<ColumnFillSlotArgs>>) {
         self.send_source_task(ColumnCommand::FillSlot(args));
     }
 
@@ -135,8 +135,8 @@ impl ColumnCommandSender {
 pub enum ColumnCommand {
     ClearSlots,
     UpdateSettings(ColumnSettings),
-    // TODO-high We should box here (see clippy warning). But take care to send the Box back!
-    FillSlot(ColumnFillSlotArgs),
+    // Boxed because comparatively large.
+    FillSlot(Box<Option<ColumnFillSlotArgs>>),
     SetClipAudioResampleMode(ColumnSetClipAudioResampleModeArgs),
     SetClipAudioTimeStretchMode(ColumnSetClipAudioTimeStretchModeArgs),
     PlayClip(ColumnPlayClipArgs),
@@ -151,6 +151,8 @@ trait EventSender {
     fn clip_play_state_changed(&self, slot_index: usize, play_state: ClipPlayState);
 
     fn clip_frame_count_updated(&self, slot_index: usize, frame_count: usize);
+
+    fn dispose(&self, garbage: ColumnGarbage);
 
     fn send_event(&self, event: ColumnEvent);
 }
@@ -170,6 +172,10 @@ impl EventSender for Sender<ColumnEvent> {
             frame_count,
         };
         self.send_event(event);
+    }
+
+    fn dispose(&self, garbage: ColumnGarbage) {
+        self.send_event(ColumnEvent::Dispose(garbage));
     }
 
     fn send_event(&self, event: ColumnEvent) {
@@ -384,8 +390,11 @@ impl Column {
                 UpdateSettings(s) => {
                     self.settings = s;
                 }
-                FillSlot(args) => {
+                FillSlot(mut boxed_args) => {
+                    let args = boxed_args.take().unwrap();
                     self.fill_slot(args);
+                    self.event_sender
+                        .dispose(ColumnGarbage::FillSlotArgs(boxed_args))
                 }
                 SetClipAudioResampleMode(args) => {
                     let _ = self.set_clip_audio_resample_mode(args.slot_index, args.mode);
@@ -685,7 +694,7 @@ fn get_slot_mut_insert(slots: &mut Vec<Slot>, index: usize) -> &mut Slot {
     slots.get_mut(index).unwrap()
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum ColumnEvent {
     ClipPlayStateChanged {
         slot_index: usize,
@@ -695,4 +704,10 @@ pub enum ColumnEvent {
         slot_index: usize,
         frame_count: usize,
     },
+    Dispose(ColumnGarbage),
+}
+
+#[derive(Debug)]
+pub enum ColumnGarbage {
+    FillSlotArgs(Box<Option<ColumnFillSlotArgs>>),
 }
