@@ -1032,8 +1032,6 @@ impl ReadyState {
             parent_request: None,
             general_info: info,
         };
-        // TODO-high There's an issue e.g. when playing the piano audio clip that makes
-        //  the clip not stop for a long time when it's not looped. Check that!
         supplier_chain.supply_audio(&request, args.dest_buffer)
     }
 
