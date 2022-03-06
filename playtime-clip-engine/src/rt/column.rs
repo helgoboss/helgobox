@@ -196,20 +196,19 @@ pub struct ColumnSettings {
 const MAX_CHANNEL_COUNT: usize = 64;
 const MAX_BLOCK_SIZE: usize = 2048;
 
+/// At the time of this writing, a slot is just around 900 byte, so 100 slots take roughly 90 kB.
+const MAX_SLOT_COUNT_WITHOUT_REALLOCATION: usize = 100;
+
 impl Column {
     pub fn new(
         permanent_project: Option<Project>,
         command_receiver: Receiver<ColumnCommand>,
         event_sender: Sender<ColumnEvent>,
     ) -> Self {
+        debug!("Slot size: {}", std::mem::size_of::<Slot>());
         Self {
             settings: Default::default(),
-            // TODO-high We should probably make this higher so we don't need to allocate in the
-            //  audio thread (or block the audio thread through allocation in the main thread).
-            //  Or we find a mechanism to return a request for a newly allocated vector, release
-            //  the mutex in the meanwhile and try a second time as soon as we have the allocation
-            //  ready.
-            slots: Vec::with_capacity(8),
+            slots: Vec::with_capacity(MAX_SLOT_COUNT_WITHOUT_REALLOCATION),
             project: permanent_project,
             command_receiver,
             event_sender,

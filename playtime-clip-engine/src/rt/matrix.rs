@@ -12,6 +12,9 @@ use std::borrow::BorrowMut;
 use std::mem;
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
+/// A column here is just a weak pointer. 1000 pointers take just around 8 kB in total.
+const MAX_COLUMN_COUNT_WITHOUT_REALLOCATION: usize = 1000;
+
 /// The real-time matrix is supposed to be used from real-time threads.
 ///
 /// It locks the column sources because it can be sure that there's no contention. Well, at least
@@ -90,8 +93,7 @@ impl Matrix {
     ) -> Self {
         Self {
             settings: Default::default(),
-            // TODO-high Choose capacity wisely
-            columns: Vec::with_capacity(500),
+            columns: Vec::with_capacity(MAX_COLUMN_COUNT_WITHOUT_REALLOCATION),
             command_receiver,
             main_command_sender: command_sender,
             project,
