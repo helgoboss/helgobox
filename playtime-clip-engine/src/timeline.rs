@@ -7,8 +7,7 @@ use helgoboss_learn::BASE_EPSILON;
 use playtime_api::EvenQuantization;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
-    Bpm, Hz, MeasureMode, PlayState, PositionInBeats, PositionInQuarterNotes, PositionInSeconds,
-    ProjectContext,
+    Bpm, Hz, PlayState, PositionInQuarterNotes, PositionInSeconds, ProjectContext,
 };
 use static_assertions::const_assert;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -120,6 +119,9 @@ impl Timeline for ReaperProjectTimeline {
         timeline_pos: PositionInSeconds,
         quantization: EvenQuantization,
     ) -> QuantizedPosition {
+        // TODO-medium Handle in-measure tempo changes correctly (also for pos_of_quantized_pos).
+        //  Time signature changes (always start a new measure) and on-measure tempo changes are
+        //  handled correctly already.
         get_next_quantized_pos_at(timeline_pos, quantization, self.project_context)
     }
 
@@ -358,7 +360,7 @@ fn get_next_quantized_pos_at(
     } else {
         // We are looking for the next fraction of a bar (e.g. the next 16th note).
         let qn = reaper.time_map_2_time_to_qn_abs(proj_context, cursor_pos);
-        // Calculate ratio between our desired target unit (16th) and a beat (4th) = 4
+        // Calculate ratio between our desired target unit (16th) and a quarter note (4th) = 4
         let ratio = quantization.denominator() as f64 / 4.0;
         // Current position in desired target unit (158.4 16th's).
         let accurate_pos = qn.get() * ratio;
@@ -392,23 +394,17 @@ fn get_pos_of_quantized_pos(
     proj_context: ProjectContext,
 ) -> PositionInSeconds {
     let reaper = Reaper::get().medium_reaper();
-    if quantized_pos.denominator() == 1 {
+    let qn = if quantized_pos.denominator() == 1 {
         // We are looking for the position of a bar.
-        reaper.time_map_2_beats_to_time(
-            proj_context,
-            // TODO-high This stops at the next tempo marker. Maybe use QN functions instead.
-            MeasureMode::FromMeasureAtIndex(quantized_pos.position as _),
-            PositionInBeats::new(0.0),
-        )
+        let res = reaper.time_map_get_measure_info(proj_context, quantized_pos.position as _);
+        res.start_qn
     } else {
         // We are looking for the position of a fraction of a bar (e.g. a 16th note).
-        // Calculate ratio between a beat (4th) and our desired target unit (16th) = 0.25
+        // Calculate ratio between a quarter note (4th) and our desired target unit (16th) = 0.25
         let ratio = 4.0 / quantized_pos.denominator() as f64;
-        reaper.time_map_2_qn_to_time(
-            proj_context,
-            PositionInQuarterNotes::new(quantized_pos.position as f64 * ratio),
-        )
-    }
+        PositionInQuarterNotes::new(quantized_pos.position as f64 * ratio)
+    };
+    reaper.time_map_2_qn_to_time_abs(proj_context, qn)
 }
 
 impl<T: Timeline> Timeline for &T {
