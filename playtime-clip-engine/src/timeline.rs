@@ -185,8 +185,10 @@ pub trait Timeline {
 ///
 /// - The cursor position (seconds) moves forward in real-time and independent from the current
 ///   tempo.
-/// - The tempo is synchronized with the tempo of the current project.
-/// - Uses the time signature of the referenced project for quantization purposes.
+/// - The tempo is synchronized with the tempo of the current project (if there are tempo markers,
+///   the tempo at the beginning is relevant).
+/// - Uses the time signature of the referenced project for quantization purposes (if there are
+///   time signature markers, the tempo at the beginning is relevant).
 #[derive(Clone, Debug)]
 pub struct SteadyTimeline<'a> {
     project_context: ProjectContext,
@@ -201,6 +203,15 @@ impl<'a> SteadyTimeline<'a> {
                 .unwrap_or(ProjectContext::CurrentProject),
             state,
         }
+    }
+
+    fn time_signature_denominator(&self) -> u32 {
+        Reaper::get()
+            .medium_reaper()
+            .time_map_2_time_to_beats(self.project_context, PositionInSeconds::ZERO)
+            .time_signature
+            .denominator
+            .get()
     }
 }
 
@@ -225,7 +236,14 @@ impl SteadyTimelineState {
         }
     }
 
-    pub fn update(&self, buffer_length: u64, sample_rate: Hz, tempo: Bpm) {
+    /// Supposed to be called once per audio callback.
+    pub fn on_audio_buffer(&self, buffer_length: u64, sample_rate: Hz) {
+        let tempo = Reaper::get()
+            .medium_reaper()
+            .time_map_2_get_divided_bpm_at_time(
+                ProjectContext::CurrentProject,
+                PositionInSeconds::ZERO,
+            );
         let prev_tempo = self.tempo();
         let prev_sample_count = self
             .sample_counter
@@ -350,9 +368,6 @@ fn calc_pos_of_beat(
     PositionInSeconds::new(secs_at_last_tempo_change.get() + secs_since_last_tempo_change)
 }
 
-// TODO-high Respect time signature also in steady timeline.
-const FAKE_TIME_SIG_DENOMINATOR: u32 = 4;
-
 impl<'a> Timeline for SteadyTimeline<'a> {
     fn cursor_pos(&self) -> PositionInSeconds {
         self.state.cursor_pos()
@@ -363,13 +378,16 @@ impl<'a> Timeline for SteadyTimeline<'a> {
         timeline_pos: PositionInSeconds,
         quantization: EvenQuantization,
     ) -> QuantizedPosition {
-        self.state
-            .next_quantized_pos_at(timeline_pos, quantization, FAKE_TIME_SIG_DENOMINATOR)
+        self.state.next_quantized_pos_at(
+            timeline_pos,
+            quantization,
+            self.time_signature_denominator(),
+        )
     }
 
     fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
         self.state
-            .pos_of_quantized_pos(quantized_pos, FAKE_TIME_SIG_DENOMINATOR)
+            .pos_of_quantized_pos(quantized_pos, self.time_signature_denominator())
     }
 
     fn is_running(&self) -> bool {

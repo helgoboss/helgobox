@@ -309,6 +309,9 @@ impl RealearnAudioHook {
 
 impl OnAudioBuffer for RealearnAudioHook {
     fn call(&mut self, args: OnAudioBufferArgs) {
+        if args.is_post {
+            return;
+        }
         if !self.initialized {
             // We have code, e.g. triggered by crossbeam_channel that requests the ID of the
             // current thread. This operation needs an allocation at the first time it's executed
@@ -330,16 +333,7 @@ impl OnAudioBuffer for RealearnAudioHook {
             self.initialized = true;
         }
         assert_no_alloc(|| {
-            if args.is_post {
-                return;
-            }
-            let tempo = Reaper::get()
-                .medium_reaper()
-                .time_map_2_get_divided_bpm_at_time(
-                    ProjectContext::CurrentProject,
-                    PositionInSeconds::ZERO,
-                );
-            global_steady_timeline_state().update(args.len as u64, args.srate, tempo);
+            global_steady_timeline_state().on_audio_buffer(args.len as u64, args.srate);
             let current_time = Instant::now();
             let time_of_last_run = self.time_of_last_run.replace(current_time);
             let might_be_rebirth = if let Some(time) = time_of_last_run {
