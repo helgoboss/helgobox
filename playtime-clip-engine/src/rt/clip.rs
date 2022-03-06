@@ -369,7 +369,7 @@ impl Clip {
     pub fn pause(&mut self) {
         use ClipState::*;
         match &mut self.state {
-            Ready(s) => s.pause(),
+            Ready(s) => s.pause(&self.supplier_chain),
             Recording(_) => {}
         }
     }
@@ -594,7 +594,7 @@ impl ReadyState {
                 } else {
                     // Scheduled for play or playing already.
                     if let Some(pos) = s.pos {
-                        if pos >= 0 {
+                        if supplier_chain.is_playing_already(pos) {
                             // Already playing. Retrigger!
                             self.state = Suspending(SuspendingState {
                                 next_state: StateAfterSuspension::Playing(PlayingState {
@@ -683,9 +683,7 @@ impl ReadyState {
                     if let Some(pos) = s.pos {
                         if s.stop_request.is_none() {
                             // Not yet scheduled for stop.
-                            // TODO-high Oh, here we probably need to consider the downbeat.
-                            //  Also check similar code passages.
-                            self.state = if pos >= 0 {
+                            self.state = if supplier_chain.is_playing_already(pos) {
                                 // Playing
                                 let resolved_stop_timing = self.resolve_stop_timing(&args);
                                 use ConcreteClipPlayStopTiming::*;
@@ -917,7 +915,7 @@ impl ReadyState {
             }
         } else {
             // Audio. Let's fast-forward if possible.
-            let (sample_rate_factor, new_seek_pos) = if pos >= 0 {
+            let (sample_rate_factor, new_seek_pos) = if supplier_chain.is_playing_already(pos) {
                 // Playing.
                 let pos = pos as usize;
                 let seek_pos = if pos < seek_pos {
@@ -1413,7 +1411,7 @@ impl ReadyState {
             Stopped => Some(recording_state),
             Playing(s) => {
                 if let Some(pos) = s.pos {
-                    if pos >= 0 {
+                    if supplier_chain.is_playing_already(pos) {
                         self.state = Suspending(SuspendingState {
                             next_state: StateAfterSuspension::Recording(recording_state),
                             pos,
@@ -1436,13 +1434,13 @@ impl ReadyState {
             Paused(_) => Some(recording_state),
         }
     }
-    pub fn pause(&mut self) {
+    pub fn pause(&mut self, supplier_chain: &SupplierChain) {
         use ReadySubState::*;
         match self.state {
             Stopped | Paused(_) => {}
             Playing(s) => {
                 if let Some(pos) = s.pos {
-                    if pos >= 0 {
+                    if supplier_chain.is_playing_already(pos) {
                         let pos = pos as usize;
                         // Playing. Pause!
                         // (If this clip is scheduled for stop already, a pause will backpedal from
@@ -1478,8 +1476,7 @@ impl ReadyState {
             Stopped | Suspending(_) => {}
             Playing(s) => {
                 if let Some(pos) = s.pos {
-                    // TODO-high Respect downbeat
-                    if pos >= 0 {
+                    if supplier_chain.is_playing_already(pos) {
                         let up_cycled_frame =
                             self.up_cycle_frame(desired_frame, pos, frame_count, supplier_chain);
                         self.state = Playing(PlayingState {
@@ -1520,6 +1517,9 @@ impl ReadyState {
                 } else if s.stop_request.is_some() {
                     ClipPlayState::ScheduledForStop
                 } else if let Some(pos) = s.pos {
+                    // It's correct that we don't consider the downbeat here. We want to expose
+                    // the count-in phase as count-in phase, even some pickup beats are playing
+                    // already.
                     if pos < 0 {
                         ClipPlayState::ScheduledForPlay
                     } else {
@@ -1540,6 +1540,8 @@ impl ReadyState {
     }
 
     fn schedule_play_internal(&mut self, virtual_pos: VirtualPosition) {
+        // TODO-high If we have a downbeat > 0 and the material should already play, add a immediate
+        //  start interaction!
         self.state = ReadySubState::Playing(PlayingState {
             virtual_pos,
             ..Default::default()

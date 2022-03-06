@@ -61,6 +61,11 @@ impl SupplierChain {
         self.recorder().is_midi()
     }
 
+    pub fn is_playing_already(&self, pos: isize) -> bool {
+        let downbeat_correct_pos = pos + self.downbeat().downbeat_frame() as isize;
+        downbeat_correct_pos >= 0
+    }
+
     pub fn clear_downbeat(&mut self) {
         self.downbeat_mut().set_downbeat_frame(0);
     }

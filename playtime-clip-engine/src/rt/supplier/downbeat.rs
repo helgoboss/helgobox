@@ -35,6 +35,10 @@ impl<S> Downbeat<S> {
         self.enabled = enabled;
     }
 
+    pub fn downbeat_frame(&self) -> usize {
+        self.downbeat_frame
+    }
+
     pub fn set_downbeat_frame(&mut self, frame: usize) {
         self.downbeat_frame = frame;
     }

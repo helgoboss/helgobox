@@ -174,7 +174,9 @@ impl Slot {
                                     // stop. Play the clip!
                                     play_clip_by_transport(clip, args)
                                 }
-                                Playing | ScheduledForStop => play_clip_by_transport(clip, args),
+                                ScheduledForPlay | Playing | ScheduledForStop => {
+                                    play_clip_by_transport(clip, args)
+                                }
                                 _ => {
                                     // Stop and forget (because we have a timeline switch).
                                     self.runtime_data.stop_clip_by_transport(clip, args, false)
