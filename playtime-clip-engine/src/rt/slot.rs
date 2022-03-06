@@ -172,14 +172,9 @@ impl Slot {
                                     // REAPER transport was started from stopped state. Clip is stopped
                                     // as well and was put in that state due to a previous transport
                                     // stop. Play the clip!
-                                    let args = ClipPlayArgs {
-                                        parent_start_timing: args.parent_clip_play_start_timing,
-                                        timeline: args.timeline,
-                                        ref_pos: Some(args.timeline_cursor_pos),
-                                    };
-                                    clip.play(args).unwrap();
-                                    SlotInstruction::KeepSlot
+                                    play_clip_by_transport(clip, args)
                                 }
+                                Playing | ScheduledForStop => play_clip_by_transport(clip, args),
                                 _ => {
                                     // Stop and forget (because we have a timeline switch).
                                     self.runtime_data.stop_clip_by_transport(clip, args, false)
@@ -329,4 +324,17 @@ impl RelevantPlayStateChange {
 pub struct SlotProcessingOutcome {
     pub changed_play_state: Option<ClipPlayState>,
     pub num_audio_frames_written: usize,
+}
+
+fn play_clip_by_transport(
+    clip: &mut Clip,
+    args: &SlotProcessTransportChangeArgs,
+) -> SlotInstruction {
+    let args = ClipPlayArgs {
+        parent_start_timing: args.parent_clip_play_start_timing,
+        timeline: args.timeline,
+        ref_pos: Some(args.timeline_cursor_pos),
+    };
+    clip.play(args).unwrap();
+    SlotInstruction::KeepSlot
 }
