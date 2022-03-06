@@ -209,7 +209,7 @@ pub struct SteadyTimelineState {
     sample_counter: AtomicU64,
     sample_rate: Atomic<Hz>,
     tempo: Atomic<Bpm>,
-    bar_at_last_tempo_change: Atomic<f64>,
+    beat_at_last_tempo_change: Atomic<f64>,
     sample_count_at_last_tempo_change: AtomicU64,
 }
 
@@ -220,7 +220,7 @@ impl SteadyTimelineState {
             sample_counter: AtomicU64::new(0),
             sample_rate: Atomic::new(Hz::MIN),
             tempo: Atomic::new(Bpm::MIN),
-            bar_at_last_tempo_change: Atomic::new(0.0),
+            beat_at_last_tempo_change: Atomic::new(0.0),
             sample_count_at_last_tempo_change: AtomicU64::new(0),
         }
     }
@@ -232,19 +232,18 @@ impl SteadyTimelineState {
             .fetch_add(buffer_length, Ordering::SeqCst);
         if tempo != prev_tempo {
             let prev_sample_count_at_last_tempo_change = self.sample_count_at_last_tempo_change();
-            let prev_bar_at_last_tempo_change = self.bar_at_last_tempo_change();
+            let prev_beat_at_last_tempo_change = self.beat_at_last_tempo_change();
             let prev_sample_rate = self.sample_rate();
-            let bar = calc_bar_at(
+            let beat = calc_beat_at(
                 prev_sample_count,
                 prev_sample_count_at_last_tempo_change,
-                prev_bar_at_last_tempo_change,
+                prev_beat_at_last_tempo_change,
                 prev_tempo,
                 prev_sample_rate,
-                FAKE_TIME_SIG_DENOMINATOR,
             );
             self.sample_count_at_last_tempo_change
                 .store(prev_sample_count, Ordering::SeqCst);
-            self.bar_at_last_tempo_change.store(bar, Ordering::SeqCst);
+            self.beat_at_last_tempo_change.store(beat, Ordering::SeqCst);
         }
         self.tempo.store(tempo, Ordering::SeqCst);
         self.sample_rate.store(sample_rate, Ordering::SeqCst);
@@ -262,8 +261,8 @@ impl SteadyTimelineState {
         self.tempo.load(Ordering::SeqCst)
     }
 
-    fn bar_at_last_tempo_change(&self) -> f64 {
-        self.bar_at_last_tempo_change.load(Ordering::SeqCst)
+    fn beat_at_last_tempo_change(&self) -> f64 {
+        self.beat_at_last_tempo_change.load(Ordering::SeqCst)
     }
 
     fn sample_count_at_last_tempo_change(&self) -> u64 {
@@ -286,17 +285,18 @@ impl SteadyTimelineState {
         let sample_count_at_last_tempo_change = self.sample_count_at_last_tempo_change();
         let sample_count = timeline_frame as u64;
         if sample_count < sample_count_at_last_tempo_change {
-            panic!("attempt to query next bar from a position in the past");
+            panic!("attempt to query next quantized position from a position in the past");
         }
-        let accurate_bar = calc_bar_at(
+        let accurate_beat = calc_beat_at(
             sample_count,
             sample_count_at_last_tempo_change,
-            self.bar_at_last_tempo_change(),
+            self.beat_at_last_tempo_change(),
             self.tempo(),
             sample_rate,
-            time_sig_denominator,
         );
-        let accurate_pos = accurate_bar * quantization.denominator() as f64;
+        // The time signature denominator defines what one beat "means" (e.g. a quarter note).
+        let ratio = quantization.denominator() as f64 / time_sig_denominator as f64;
+        let accurate_pos = accurate_beat * ratio;
         calc_quantized_pos_from_accurate_pos(accurate_pos, quantization)
     }
 
@@ -305,48 +305,44 @@ impl SteadyTimelineState {
         quantized_pos: QuantizedPosition,
         time_sig_denominator: u32,
     ) -> PositionInSeconds {
-        let bar = quantized_pos.position() as f64 / quantized_pos.denominator() as f64;
-        calc_pos_of_bar(
-            bar,
+        let ratio = time_sig_denominator as f64 / quantized_pos.denominator() as f64;
+        let beat = quantized_pos.position() as f64 * ratio;
+        calc_pos_of_beat(
+            beat,
             self.tempo(),
-            self.bar_at_last_tempo_change(),
+            self.beat_at_last_tempo_change(),
             self.sample_count_at_last_tempo_change(),
             self.sample_rate(),
-            time_sig_denominator,
         )
     }
 }
 
-fn calc_bar_at(
+fn calc_beat_at(
     sample_count: u64,
     sample_count_at_last_tempo_change: u64,
-    bar_at_last_tempo_change: f64,
+    beat_at_last_tempo_change: f64,
     current_tempo: Bpm,
     current_sample_rate: Hz,
-    time_sig_denominator: u32,
 ) -> f64 {
     debug_assert!(sample_count >= sample_count_at_last_tempo_change);
     let beats_per_sec = current_tempo.get() / 60.0;
-    let bars_per_sec = beats_per_sec / time_sig_denominator as f64;
     let samples_since_last_tempo_change = sample_count - sample_count_at_last_tempo_change;
     let secs_since_last_tempo_change = convert_duration_in_frames_to_seconds(
         samples_since_last_tempo_change as usize,
         current_sample_rate,
     );
-    bar_at_last_tempo_change + secs_since_last_tempo_change.get() * bars_per_sec
+    beat_at_last_tempo_change + secs_since_last_tempo_change.get() * beats_per_sec
 }
 
-fn calc_pos_of_bar(
-    bar: f64,
+fn calc_pos_of_beat(
+    beat: f64,
     current_tempo: Bpm,
-    bar_at_last_tempo_change: f64,
+    beat_at_last_tempo_change: f64,
     sample_count_at_last_tempo_change: u64,
     current_sample_rate: Hz,
-    time_sig_denominator: u32,
 ) -> PositionInSeconds {
     let beats_per_sec = current_tempo.get() / 60.0;
-    let bars_per_sec = beats_per_sec / time_sig_denominator as f64;
-    let secs_since_last_tempo_change = (bar - bar_at_last_tempo_change) / bars_per_sec;
+    let secs_since_last_tempo_change = (beat - beat_at_last_tempo_change) / beats_per_sec;
     let secs_at_last_tempo_change = convert_duration_in_frames_to_seconds(
         sample_count_at_last_tempo_change as usize,
         current_sample_rate,
