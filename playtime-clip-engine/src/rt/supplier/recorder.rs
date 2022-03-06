@@ -30,14 +30,14 @@ use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut, NonNull};
 
-// TODO-high The PreBuffer sitting on top of the source is maybe not the best idea because once
+// TODO-high-prebuffer The PreBuffer sitting on top of the source is maybe not the best idea because once
 //  completely played, it will jump back to source-zero, not section-zero, so we will run into a
 //  cache miss when repeated. But even that is not perfect, just think of loops that don't start
 //  from the start again ... maybe it should sit above looper then. The obvious downside is that
 //  instant changes of permanent-section/loop/start-end-fade settings will not take effect
 //  immediately. Since all those are not intended for real-time changes though, a cache miss would
 //  be acceptable.
-// TODO-high In addition we should deploy a start-buffer that always keeps the start completely in
+// TODO-high-prebuffer In addition we should deploy a start-buffer that always keeps the start completely in
 //  memory. Because sudden restarts (e.g. retriggers) are the main reason why we could still run
 //  into a cache miss. That start-buffer should take the downbeat setting into account. It must
 //  cache everything up to the downbeat + the usual start-buffer samples. It should probably sit
@@ -145,8 +145,83 @@ struct RecordingState {
     project: Option<Project>,
     detect_downbeat: bool,
     phase: Option<RecordingPhase>,
-    // TODO-high use
-    _cache_response_channel: CacheResponseChannel,
+}
+
+impl RecordingState {
+    pub fn commit_recording(
+        self,
+        timeline: &dyn Timeline,
+        request_sender: &Sender<RecorderRequest>,
+        response_sender: &Sender<RecorderResponse>,
+        cache_request_sender: &Sender<CacheRequest>,
+        pre_buffer_request_sender: &Sender<PreBufferRequest>,
+    ) -> (ClipEngineResult<RecordingOutcome>, State) {
+        use KindSpecificRecordingState::*;
+        use State::*;
+        let (next_state, source_duration) = match self.kind_state {
+            Audio(ss) => {
+                let sss = match ss {
+                    RecordingAudioState::Active(s) => s,
+                    RecordingAudioState::Finishing(s) => {
+                        let recording_state = RecordingState {
+                            kind_state: KindSpecificRecordingState::Audio(
+                                RecordingAudioState::Finishing(s),
+                            ),
+                            ..self
+                        };
+                        return (Err("already committed"), Recording(recording_state));
+                    }
+                };
+                // TODO-medium We should probably record a bit longer to have some
+                //  crossfade material for the future.
+                let source_duration =
+                    DurationInSeconds::new(sss.sink.as_ref().as_ref().GetLength());
+                let request = RecorderRequest::FinishAudioRecording(FinishAudioRecordingRequest {
+                    sink: sss.sink,
+                    file: sss.file,
+                    response_sender: response_sender.clone(),
+                });
+                request_sender.try_send(request).unwrap();
+                let finishing_state = RecordingAudioFinishingState {
+                    temporary_audio_buffer: sss.temporary_audio_buffer,
+                    frame_rate: self
+                        .phase
+                        .as_ref()
+                        .unwrap()
+                        .frame_rate()
+                        .expect("frame rate not available yet"),
+                    file: sss.file_clone,
+                    source_duration,
+                };
+                let recording_state = RecordingState {
+                    kind_state: Audio(RecordingAudioState::Finishing(finishing_state)),
+                    phase: Some(RecordingPhase::Committed),
+                    ..self
+                };
+                (Recording(recording_state), source_duration)
+            }
+            Midi(ss) => {
+                let source_duration = ss.new_source.get_length().unwrap();
+                let ready_state = ReadyState {
+                    cache: create_recorder_cache(
+                        ss.new_source,
+                        cache_request_sender.clone(),
+                        pre_buffer_request_sender.clone(),
+                    ),
+                };
+                (Ready(ready_state), source_duration)
+            }
+        };
+        let outcome = match self.phase.unwrap() {
+            RecordingPhase::Empty(_) => {
+                Err("attempt to commit recording although no material arrived yet")
+            }
+            RecordingPhase::OpenEnd(p) => Ok(p.commit(source_duration, timeline)),
+            RecordingPhase::EndScheduled(p) => Ok(p.commit(source_duration)),
+            RecordingPhase::Committed => Err("already committed"),
+        };
+        (outcome, next_state)
+    }
 }
 
 #[derive(Debug)]
@@ -181,7 +256,7 @@ struct RecordingAudioFinishingState {
 #[derive(Debug)]
 struct RecordingMidiState {
     new_source: OwnedPcmSource,
-    // TODO-high Use
+    // TODO-high-record Use
     _source_start_timeline_pos: PositionInSeconds,
 }
 
@@ -291,7 +366,6 @@ impl Recorder {
             project,
             detect_downbeat,
             phase: Some(initial_phase),
-            _cache_response_channel: CacheResponseChannel::new(),
         };
         Self::new(State::Recording(recording_state), equipment)
     }
@@ -408,7 +482,6 @@ impl Recorder {
             project,
             detect_downbeat,
             phase: Some(initial_phase),
-            _cache_response_channel: CacheResponseChannel::new(),
         };
         self.state = Some(Recording(recording_state));
     }
@@ -421,68 +494,13 @@ impl Recorder {
         use State::*;
         let (res, next_state) = match self.state.take().unwrap() {
             Ready(s) => (Err("not recording"), Ready(s)),
-            Recording(s) => {
-                use KindSpecificRecordingState::*;
-                let (next_state, source_duration) = match s.kind_state {
-                    Audio(ss) => {
-                        let sss = match ss {
-                            RecordingAudioState::Active(s) => s,
-                            // TODO-high This destroys the state.
-                            RecordingAudioState::Finishing(_) => return Err("already committed"),
-                        };
-                        // TODO-medium We should probably record a bit longer to have some
-                        //  crossfade material for the future.
-                        let source_duration =
-                            DurationInSeconds::new(sss.sink.as_ref().as_ref().GetLength());
-                        let request =
-                            RecorderRequest::FinishAudioRecording(FinishAudioRecordingRequest {
-                                sink: sss.sink,
-                                file: sss.file,
-                                response_sender: self.response_channel.sender.clone(),
-                            });
-                        self.request_sender
-                            .try_send(request)
-                            .map_err(|_| "couldn't send request to finish audio recording")?;
-                        let finishing_state = RecordingAudioFinishingState {
-                            temporary_audio_buffer: sss.temporary_audio_buffer,
-                            frame_rate: s
-                                .phase
-                                .as_ref()
-                                .unwrap()
-                                .frame_rate()
-                                .expect("frame rate not available yet"),
-                            file: sss.file_clone,
-                            source_duration,
-                        };
-                        let recording_state = RecordingState {
-                            kind_state: Audio(RecordingAudioState::Finishing(finishing_state)),
-                            phase: Some(RecordingPhase::Committed),
-                            ..s
-                        };
-                        (Recording(recording_state), source_duration)
-                    }
-                    Midi(ss) => {
-                        let source_duration = ss.new_source.get_length().unwrap();
-                        let ready_state = ReadyState {
-                            cache: create_recorder_cache(
-                                ss.new_source,
-                                self.cache_request_sender.clone(),
-                                self.pre_buffer_request_sender.clone(),
-                            ),
-                        };
-                        (Ready(ready_state), source_duration)
-                    }
-                };
-                let outcome = match s.phase.unwrap() {
-                    RecordingPhase::Empty(_) => {
-                        Err("attempt to commit recording although no material arrived yet")
-                    }
-                    RecordingPhase::OpenEnd(p) => Ok(p.commit(source_duration, timeline)),
-                    RecordingPhase::EndScheduled(p) => Ok(p.commit(source_duration)),
-                    RecordingPhase::Committed => Err("already committed"),
-                };
-                (outcome, next_state)
-            }
+            Recording(s) => s.commit_recording(
+                timeline,
+                &self.request_sender,
+                &self.response_channel.sender,
+                &self.cache_request_sender,
+                &self.pre_buffer_request_sender,
+            ),
         };
         self.state = Some(next_state);
         res
@@ -654,7 +672,7 @@ impl Recorder {
                             Ready(ready_state)
                         }
                         Err(msg) => {
-                            // TODO-high We should handle this more gracefully, not just let it
+                            // TODO-high-record We should handle this more gracefully, not just let it
                             //  stuck in Finishing state. First by trying to roll back to the old
                             //  clip. If there's no old clip, either by making it possible to return
                             //  an instruction to clear the slot or by letting the worker not just
@@ -928,7 +946,7 @@ impl EmptyPhase {
             first_play_frame: None,
         };
         if let Some(end_bar) = end_bar {
-            // TODO-high Deal with end schulding when no audio material arrived yet
+            // TODO-high-record Deal with end schulding when no audio material arrived yet
             let todo_timeline = clip_timeline(None, false);
             RecordingPhase::EndScheduled(open_end_phase.schedule_end(end_bar, &todo_timeline))
         } else {
@@ -966,7 +984,7 @@ impl OpenEndPhase {
         timeline: &dyn Timeline,
     ) -> RecordingOutcome {
         let snapshot = self.snapshot(timeline);
-        // TODO-high Deal with immediate recording stop
+        // TODO-high-record Deal with immediate recording stop
         let fake_duration = DurationInSeconds::ZERO;
         RecordingOutcome {
             frame_rate: self.frame_rate,
@@ -1022,7 +1040,7 @@ impl OpenEndPhase {
             },
             RecordTiming::Synced { start_bar, .. } => {
                 let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
-                // TODO-high Depending on source_start_timeline_pos doesn't work when tempo changed
+                // TODO-high-record Depending on source_start_timeline_pos doesn't work when tempo changed
                 //  during recording. It would be better to advance frames just like we do it
                 //  when counting in (e.g. provide advance() function that's called in process()).
                 let start_pos =

@@ -480,7 +480,7 @@ impl Column {
                 if let Ok(outcome) = slot.process(&mut inner_args) {
                     if outcome.num_audio_frames_written > 0 {
                         output_buffer.modify_frames(|sample| {
-                            // TODO-high This is a hot code path. We might want to skip bound checks
+                            // TODO-high-performance This is a hot code path. We might want to skip bound checks
                             //  in sample_value_at().
                             sample.value + mix_buffer.sample_value_at(sample.index).unwrap()
                         })

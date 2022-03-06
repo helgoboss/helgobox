@@ -226,5 +226,5 @@ pub enum StretchWorkerRequest {
 
 /// A function that keeps processing stretch worker requests until the channel of the given receiver
 /// is dropped.
-// TODO-high Implement this
+// TODO-high-time-stretcher Implement this
 pub fn keep_stretching(_requests: Receiver<StretchWorkerRequest>) {}

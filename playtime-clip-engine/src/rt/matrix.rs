@@ -310,7 +310,7 @@ impl PlayPositionJumpDetector {
         }
         let play_pos = reaper.get_play_position_2_ex(self.project_context);
         let res = reaper.time_map_2_time_to_beats(self.project_context, play_pos);
-        // TODO-high If we skip slighly forward within the beat or just to the next beat, the
+        // TODO-high-later If we skip slightly forward within the beat or just to the next beat, the
         //  detector won't detect it as a jump. Destroys the synchronization.
         let beat = res.full_beats.get() as isize;
         if let Some(previous_beat) = self.previous_beat.replace(beat) {

@@ -239,7 +239,7 @@ impl<T: AsRef<[f64]> + AsMut<[f64]>> AbstractAudioBuf<T> {
     pub fn modify_frames(&mut self, mut f: impl FnMut(SampleDescriptor) -> f64) {
         for frame_index in 0..self.frame_count {
             for ch in 0..self.channel_count {
-                // TODO-high For performance we might want to skip the bound checks. This is
+                // TODO-high-performance For performance we might want to skip the bound checks. This is
                 //  very hot code.
                 let sample_value = &mut self.data.as_mut()[frame_index * self.channel_count + ch];
                 let descriptor = SampleDescriptor {

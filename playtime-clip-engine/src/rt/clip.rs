@@ -422,7 +422,7 @@ impl Clip {
                     return;
                 }
             }
-            // TODO-high Depending on the trigger timeline pos is not good with tempo changes.
+            // TODO-high-record Depending on the trigger timeline pos is not good with tempo changes.
             Recording(s) => timeline_cursor_pos - s.trigger_timeline_pos,
         };
         if record_pos < PositionInSeconds::ZERO {
@@ -828,7 +828,7 @@ impl ReadyState {
                     general_info.clip_tempo_factor,
                     supplier_chain,
                 );
-                // TODO-high CONTINUE There's a slight inaccuracy here which is annoying when
+                // TODO-high-accuracy There's a slight inaccuracy here which is annoying when
                 //  doing a quantized MIDI stop. It goes like this:
                 //  - The count-in period is calculated a bit incorrectly.
                 //  - One can check that during count-in, the current count-in countdown slowly
@@ -1238,7 +1238,7 @@ impl ReadyState {
         }
         let req = PreBufferFillRequest {
             start_frame: next_expected_pos,
-            // TODO-high These shouldn't be fixed values. If pre-buffering turns out to work nicely,
+            // TODO-high-prebuffer These shouldn't be fixed values. If pre-buffering turns out to work nicely,
             //  we must somehow
             frame_rate: Hz::new(48000.0),
             channel_count: 2,
@@ -1678,12 +1678,12 @@ impl RecordingState {
                 ReadySubState::Stopped
             },
             persistent_data: PersistentPlayData {
-                // TODO-high Set start timing
+                // TODO-high-record Set start timing
                 start_timing: None,
-                // TODO-high Set stop timing
+                // TODO-high-record Set stop timing
                 stop_timing: None,
                 looped: play_after,
-                // TODO-high Set time base
+                // TODO-high-record Set time base
                 time_base: ClipTimeBase::Time,
             },
         }
