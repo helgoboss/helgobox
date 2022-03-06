@@ -5,7 +5,7 @@ use crate::domain::{
 use assert_no_alloc::*;
 use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
 use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
-use playtime_clip_engine::global_steady_timeline;
+use playtime_clip_engine::global_steady_timeline_state;
 use playtime_clip_engine::main::ClipRecordTask;
 use playtime_clip_engine::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
 use playtime_clip_engine::rt::{AudioBuf, ClipRecordInput};
@@ -339,7 +339,7 @@ impl OnAudioBuffer for RealearnAudioHook {
                     ProjectContext::CurrentProject,
                     PositionInSeconds::ZERO,
                 );
-            global_steady_timeline().update(args.len as u64, args.srate, tempo);
+            global_steady_timeline_state().update(args.len as u64, args.srate, tempo);
             let current_time = Instant::now();
             let time_of_last_run = self.time_of_last_run.replace(current_time);
             let might_be_rebirth = if let Some(time) = time_of_last_run {

@@ -13,12 +13,13 @@ use static_assertions::const_assert;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Delivers the timeline to be used for clips.
-pub fn clip_timeline(project: Option<Project>, force_project_timeline: bool) -> HybridTimeline {
-    let project_timeline = ReaperProjectTimeline::new(project);
-    if force_project_timeline || project_timeline.is_playing_or_paused() {
-        HybridTimeline::ReaperProject(project_timeline)
+pub fn clip_timeline(project: Option<Project>, force_reaper_timeline: bool) -> HybridTimeline {
+    let reaper_timeline = ReaperTimeline::new(project);
+    if force_reaper_timeline || reaper_timeline.is_playing_or_paused() {
+        HybridTimeline::ReaperProject(reaper_timeline)
     } else {
-        HybridTimeline::GlobalSteady(global_steady_timeline())
+        let steady_timeline = SteadyTimeline::new(project, global_steady_timeline_state());
+        HybridTimeline::GlobalSteady(steady_timeline)
     }
 }
 
@@ -82,11 +83,11 @@ impl TimelineMoment {
 ///       structure to be fluent and adjust to tempo changes dynamically, much as a playing project
 ///       would do.
 #[derive(Clone, Debug)]
-pub struct ReaperProjectTimeline {
+pub struct ReaperTimeline {
     project_context: ProjectContext,
 }
 
-impl ReaperProjectTimeline {
+impl ReaperTimeline {
     pub fn new(project: Option<Project>) -> Self {
         Self {
             project_context: project
@@ -107,7 +108,7 @@ impl ReaperProjectTimeline {
     }
 }
 
-impl Timeline for ReaperProjectTimeline {
+impl Timeline for ReaperTimeline {
     fn cursor_pos(&self) -> PositionInSeconds {
         Reaper::get()
             .medium_reaper()
@@ -178,15 +179,33 @@ pub trait Timeline {
     fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm;
 }
 
-/// This represents a self-made timeline that is driven by the global audio hook.
+/// Self-made timeline state that is driven by the global audio hook.
 ///
 /// Characteristics:
 ///
 /// - The cursor position (seconds) moves forward in real-time and independent from the current
 ///   tempo.
 /// - The tempo is synchronized with the tempo of the current project.
+/// - Uses the time signature of the referenced project for quantization purposes.
+#[derive(Clone, Debug)]
+pub struct SteadyTimeline<'a> {
+    project_context: ProjectContext,
+    state: &'a SteadyTimelineState,
+}
+
+impl<'a> SteadyTimeline<'a> {
+    pub fn new(project: Option<Project>, state: &'a SteadyTimelineState) -> Self {
+        Self {
+            project_context: project
+                .map(|p| p.context())
+                .unwrap_or(ProjectContext::CurrentProject),
+            state,
+        }
+    }
+}
+
 #[derive(Debug)]
-pub struct SteadyTimeline {
+pub struct SteadyTimelineState {
     sample_counter: AtomicU64,
     sample_rate: Atomic<Hz>,
     tempo: Atomic<Bpm>,
@@ -194,7 +213,7 @@ pub struct SteadyTimeline {
     sample_count_at_last_tempo_change: AtomicU64,
 }
 
-impl SteadyTimeline {
+impl SteadyTimelineState {
     pub const fn new() -> Self {
         const_assert!(Atomic::<f64>::is_lock_free());
         Self {
@@ -204,14 +223,6 @@ impl SteadyTimeline {
             bar_at_last_tempo_change: Atomic::new(0.0),
             sample_count_at_last_tempo_change: AtomicU64::new(0),
         }
-    }
-
-    pub fn sample_count(&self) -> u64 {
-        self.sample_counter.load(Ordering::SeqCst)
-    }
-
-    pub fn sample_rate(&self) -> Hz {
-        self.sample_rate.load(Ordering::SeqCst)
     }
 
     pub fn update(&self, buffer_length: u64, sample_rate: Hz, tempo: Bpm) {
@@ -229,6 +240,7 @@ impl SteadyTimeline {
                 prev_bar_at_last_tempo_change,
                 prev_tempo,
                 prev_sample_rate,
+                FAKE_TIME_SIG_DENOMINATOR,
             );
             self.sample_count_at_last_tempo_change
                 .store(prev_sample_count, Ordering::SeqCst);
@@ -236,6 +248,14 @@ impl SteadyTimeline {
         }
         self.tempo.store(tempo, Ordering::SeqCst);
         self.sample_rate.store(sample_rate, Ordering::SeqCst);
+    }
+
+    fn sample_count(&self) -> u64 {
+        self.sample_counter.load(Ordering::SeqCst)
+    }
+
+    fn sample_rate(&self) -> Hz {
+        self.sample_rate.load(Ordering::SeqCst)
     }
 
     fn tempo(&self) -> Bpm {
@@ -250,47 +270,7 @@ impl SteadyTimeline {
         self.sample_count_at_last_tempo_change
             .load(Ordering::SeqCst)
     }
-}
 
-fn calc_bar_at(
-    sample_count: u64,
-    sample_count_at_last_tempo_change: u64,
-    bar_at_last_tempo_change: f64,
-    current_tempo: Bpm,
-    current_sample_rate: Hz,
-) -> f64 {
-    debug_assert!(sample_count >= sample_count_at_last_tempo_change);
-    let beats_per_sec = current_tempo.get() / 60.0;
-    let bars_per_sec = beats_per_sec / FAKE_TIME_SIG_DENOMINATOR as f64;
-    let samples_since_last_tempo_change = sample_count - sample_count_at_last_tempo_change;
-    let secs_since_last_tempo_change = convert_duration_in_frames_to_seconds(
-        samples_since_last_tempo_change as usize,
-        current_sample_rate,
-    );
-    bar_at_last_tempo_change + secs_since_last_tempo_change.get() * bars_per_sec
-}
-
-fn calc_pos_of_bar(
-    bar: f64,
-    current_tempo: Bpm,
-    bar_at_last_tempo_change: f64,
-    sample_count_at_last_tempo_change: u64,
-    current_sample_rate: Hz,
-) -> PositionInSeconds {
-    let beats_per_sec = current_tempo.get() / 60.0;
-    let bars_per_sec = beats_per_sec / FAKE_TIME_SIG_DENOMINATOR as f64;
-    let secs_since_last_tempo_change = (bar - bar_at_last_tempo_change) / bars_per_sec;
-    let secs_at_last_tempo_change = convert_duration_in_frames_to_seconds(
-        sample_count_at_last_tempo_change as usize,
-        current_sample_rate,
-    );
-    PositionInSeconds::new(secs_at_last_tempo_change.get() + secs_since_last_tempo_change)
-}
-
-// TODO-high Respect time signature also in steady timeline.
-const FAKE_TIME_SIG_DENOMINATOR: u32 = 4;
-
-impl Timeline for SteadyTimeline {
     fn cursor_pos(&self) -> PositionInSeconds {
         PositionInSeconds::new(self.sample_count() as f64 / self.sample_rate().get())
     }
@@ -299,6 +279,7 @@ impl Timeline for SteadyTimeline {
         &self,
         timeline_pos: PositionInSeconds,
         quantization: EvenQuantization,
+        time_sig_denominator: u32,
     ) -> QuantizedPosition {
         let sample_rate = self.sample_rate();
         let timeline_frame = convert_position_in_seconds_to_frames(timeline_pos, sample_rate);
@@ -313,12 +294,17 @@ impl Timeline for SteadyTimeline {
             self.bar_at_last_tempo_change(),
             self.tempo(),
             sample_rate,
+            time_sig_denominator,
         );
         let accurate_pos = accurate_bar * quantization.denominator() as f64;
         calc_quantized_pos_from_accurate_pos(accurate_pos, quantization)
     }
 
-    fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
+    fn pos_of_quantized_pos(
+        &self,
+        quantized_pos: QuantizedPosition,
+        time_sig_denominator: u32,
+    ) -> PositionInSeconds {
         let bar = quantized_pos.position() as f64 / quantized_pos.denominator() as f64;
         calc_pos_of_bar(
             bar,
@@ -326,7 +312,68 @@ impl Timeline for SteadyTimeline {
             self.bar_at_last_tempo_change(),
             self.sample_count_at_last_tempo_change(),
             self.sample_rate(),
+            time_sig_denominator,
         )
+    }
+}
+
+fn calc_bar_at(
+    sample_count: u64,
+    sample_count_at_last_tempo_change: u64,
+    bar_at_last_tempo_change: f64,
+    current_tempo: Bpm,
+    current_sample_rate: Hz,
+    time_sig_denominator: u32,
+) -> f64 {
+    debug_assert!(sample_count >= sample_count_at_last_tempo_change);
+    let beats_per_sec = current_tempo.get() / 60.0;
+    let bars_per_sec = beats_per_sec / time_sig_denominator as f64;
+    let samples_since_last_tempo_change = sample_count - sample_count_at_last_tempo_change;
+    let secs_since_last_tempo_change = convert_duration_in_frames_to_seconds(
+        samples_since_last_tempo_change as usize,
+        current_sample_rate,
+    );
+    bar_at_last_tempo_change + secs_since_last_tempo_change.get() * bars_per_sec
+}
+
+fn calc_pos_of_bar(
+    bar: f64,
+    current_tempo: Bpm,
+    bar_at_last_tempo_change: f64,
+    sample_count_at_last_tempo_change: u64,
+    current_sample_rate: Hz,
+    time_sig_denominator: u32,
+) -> PositionInSeconds {
+    let beats_per_sec = current_tempo.get() / 60.0;
+    let bars_per_sec = beats_per_sec / time_sig_denominator as f64;
+    let secs_since_last_tempo_change = (bar - bar_at_last_tempo_change) / bars_per_sec;
+    let secs_at_last_tempo_change = convert_duration_in_frames_to_seconds(
+        sample_count_at_last_tempo_change as usize,
+        current_sample_rate,
+    );
+    PositionInSeconds::new(secs_at_last_tempo_change.get() + secs_since_last_tempo_change)
+}
+
+// TODO-high Respect time signature also in steady timeline.
+const FAKE_TIME_SIG_DENOMINATOR: u32 = 4;
+
+impl<'a> Timeline for SteadyTimeline<'a> {
+    fn cursor_pos(&self) -> PositionInSeconds {
+        self.state.cursor_pos()
+    }
+
+    fn next_quantized_pos_at(
+        &self,
+        timeline_pos: PositionInSeconds,
+        quantization: EvenQuantization,
+    ) -> QuantizedPosition {
+        self.state
+            .next_quantized_pos_at(timeline_pos, quantization, FAKE_TIME_SIG_DENOMINATOR)
+    }
+
+    fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
+        self.state
+            .pos_of_quantized_pos(quantized_pos, FAKE_TIME_SIG_DENOMINATOR)
     }
 
     fn is_running(&self) -> bool {
@@ -338,7 +385,7 @@ impl Timeline for SteadyTimeline {
     }
 
     fn tempo_at(&self, _timeline_pos: PositionInSeconds) -> Bpm {
-        self.tempo()
+        self.state.tempo()
     }
 }
 
@@ -449,17 +496,18 @@ impl<T: Timeline> Timeline for &T {
     }
 }
 
-static GLOBAL_STEADY_TIMELINE: SteadyTimeline = SteadyTimeline::new();
+static GLOBAL_STEADY_TIMELINE_STATE: SteadyTimelineState = SteadyTimelineState::new();
 
-/// Returns a global timeline that is ever-increasing and not influenced by REAPER's transport.
-pub fn global_steady_timeline() -> &'static SteadyTimeline {
-    &GLOBAL_STEADY_TIMELINE
+/// Returns the state for a global timeline that is ever-increasing and not influenced by REAPER's
+/// transport.
+pub fn global_steady_timeline_state() -> &'static SteadyTimelineState {
+    &GLOBAL_STEADY_TIMELINE_STATE
 }
 
 #[derive(Clone, Debug)]
 pub enum HybridTimeline {
-    ReaperProject(ReaperProjectTimeline),
-    GlobalSteady(&'static SteadyTimeline),
+    ReaperProject(ReaperTimeline),
+    GlobalSteady(SteadyTimeline<'static>),
 }
 
 impl Timeline for HybridTimeline {
