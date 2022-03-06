@@ -18,7 +18,7 @@ pub fn clip_timeline(project: Option<Project>, force_reaper_timeline: bool) -> H
     if force_reaper_timeline || reaper_timeline.is_playing_or_paused() {
         HybridTimeline::ReaperProject(reaper_timeline)
     } else {
-        let steady_timeline = SteadyTimeline::new(project, global_steady_timeline_state());
+        let steady_timeline = SteadyTimeline::new(global_steady_timeline_state());
         HybridTimeline::GlobalSteady(steady_timeline)
     }
 }
@@ -187,28 +187,26 @@ pub trait Timeline {
 ///   tempo.
 /// - The tempo is synchronized with the tempo of the current project (if there are tempo markers,
 ///   the tempo at the beginning is relevant).
-/// - Uses the time signature of the referenced project for quantization purposes (if there are
+/// - Uses the time signature of the current project for quantization purposes (if there are
 ///   time signature markers, the tempo at the beginning is relevant).
 #[derive(Clone, Debug)]
 pub struct SteadyTimeline<'a> {
-    project_context: ProjectContext,
     state: &'a SteadyTimelineState,
 }
 
 impl<'a> SteadyTimeline<'a> {
-    pub fn new(project: Option<Project>, state: &'a SteadyTimelineState) -> Self {
-        Self {
-            project_context: project
-                .map(|p| p.context())
-                .unwrap_or(ProjectContext::CurrentProject),
-            state,
-        }
+    pub fn new(state: &'a SteadyTimelineState) -> Self {
+        Self { state }
     }
 
     fn time_signature_denominator(&self) -> u32 {
+        // We could take the time signature from a particular project here (instead of from the
+        // current project) but that wouldn't be consequent because the global
+        // (project-independent) timeline state takes the tempo information always from the current
+        // project.
         Reaper::get()
             .medium_reaper()
-            .time_map_2_time_to_beats(self.project_context, PositionInSeconds::ZERO)
+            .time_map_2_time_to_beats(ProjectContext::CurrentProject, PositionInSeconds::ZERO)
             .time_signature
             .denominator
             .get()
