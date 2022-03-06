@@ -185,10 +185,10 @@ pub trait Timeline {
 ///
 /// - The cursor position (seconds) moves forward in real-time and independent from the current
 ///   tempo.
-/// - The tempo is synchronized with the tempo of the current project (if there are tempo markers,
-///   the tempo at the beginning is relevant).
-/// - Uses the time signature of the current project for quantization purposes (if there are
-///   time signature markers, the tempo at the beginning is relevant).
+/// - The tempo is synchronized with the tempo of the current project at the current edit cursor
+///   position.
+/// - Uses the time signature of the current project at the current edit cursor position for
+///   quantization purposes.
 #[derive(Clone, Debug)]
 pub struct SteadyTimeline<'a> {
     state: &'a SteadyTimelineState,
@@ -206,7 +206,10 @@ impl<'a> SteadyTimeline<'a> {
         // project.
         Reaper::get()
             .medium_reaper()
-            .time_map_2_time_to_beats(ProjectContext::CurrentProject, PositionInSeconds::ZERO)
+            .time_map_2_time_to_beats(
+                ProjectContext::CurrentProject,
+                SteadyTimelineState::tempo_and_time_sig_ref_pos(),
+            )
             .time_signature
             .denominator
             .get()
@@ -240,7 +243,7 @@ impl SteadyTimelineState {
             .medium_reaper()
             .time_map_2_get_divided_bpm_at_time(
                 ProjectContext::CurrentProject,
-                PositionInSeconds::ZERO,
+                Self::tempo_and_time_sig_ref_pos(),
             );
         let prev_tempo = self.tempo();
         let prev_sample_count = self
@@ -263,6 +266,12 @@ impl SteadyTimelineState {
         }
         self.tempo.store(tempo, Ordering::SeqCst);
         self.sample_rate.store(sample_rate, Ordering::SeqCst);
+    }
+
+    fn tempo_and_time_sig_ref_pos() -> PositionInSeconds {
+        Reaper::get()
+            .medium_reaper()
+            .get_cursor_position_ex(ProjectContext::CurrentProject)
     }
 
     fn sample_count(&self) -> u64 {

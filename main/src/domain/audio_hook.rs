@@ -12,7 +12,7 @@ use playtime_clip_engine::rt::{AudioBuf, ClipRecordInput};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
-    PositionInSeconds, ProjectContext, SendMidiTime,
+    SendMidiTime,
 };
 use smallvec::SmallVec;
 use std::sync::{Arc, Mutex, MutexGuard};
