@@ -2,14 +2,15 @@ use crate::conversion_util::{
     convert_duration_in_frames_to_seconds, convert_position_in_seconds_to_frames,
 };
 use crate::ClipEngineResult;
-use atomic_float::AtomicF64;
+use atomic::Atomic;
 use helgoboss_learn::BASE_EPSILON;
 use playtime_api::EvenQuantization;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
     Bpm, Hz, MeasureMode, PlayState, PositionInBeats, PositionInSeconds, ProjectContext,
 };
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use static_assertions::const_assert;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Delivers the timeline to be used for clips.
 pub fn clip_timeline(project: Option<Project>, force_project_timeline: bool) -> HybridTimeline {
@@ -181,24 +182,23 @@ pub trait Timeline {
 /// - The cursor position (seconds) moves forward in real-time and independent from the current
 ///   tempo.
 /// - The tempo is synchronized with the tempo of the current project.
-// TODO-high If we really take this approach of the steady timeline for stopped projects, this
-//  needs an overhaul: More AtomicF64, less conversion from/to frames.
 #[derive(Debug)]
 pub struct SteadyTimeline {
     sample_counter: AtomicU64,
-    sample_rate: AtomicU32,
-    tempo: AtomicU64,
-    bar_at_last_tempo_change: AtomicF64,
+    sample_rate: Atomic<Hz>,
+    tempo: Atomic<Bpm>,
+    bar_at_last_tempo_change: Atomic<f64>,
     sample_count_at_last_tempo_change: AtomicU64,
 }
 
 impl SteadyTimeline {
     pub const fn new() -> Self {
+        const_assert!(Atomic::<f64>::is_lock_free());
         Self {
             sample_counter: AtomicU64::new(0),
-            sample_rate: AtomicU32::new(1),
-            tempo: AtomicU64::new(1),
-            bar_at_last_tempo_change: AtomicF64::new(0.0),
+            sample_rate: Atomic::new(Hz::MIN),
+            tempo: Atomic::new(Bpm::MIN),
+            bar_at_last_tempo_change: Atomic::new(0.0),
             sample_count_at_last_tempo_change: AtomicU64::new(0),
         }
     }
@@ -208,8 +208,7 @@ impl SteadyTimeline {
     }
 
     pub fn sample_rate(&self) -> Hz {
-        let discrete_sample_rate = self.sample_rate.load(Ordering::SeqCst) as f64;
-        Hz::new(discrete_sample_rate)
+        self.sample_rate.load(Ordering::SeqCst)
     }
 
     pub fn update(&self, buffer_length: u64, sample_rate: Hz, tempo: Bpm) {
@@ -232,15 +231,12 @@ impl SteadyTimeline {
                 .store(prev_sample_count, Ordering::SeqCst);
             self.bar_at_last_tempo_change.store(bar, Ordering::SeqCst);
         }
-        self.tempo
-            .store(tempo.get().round() as u64, Ordering::SeqCst);
-        let discrete_sample_rate = sample_rate.get() as u32;
-        self.sample_rate
-            .store(discrete_sample_rate, Ordering::SeqCst);
+        self.tempo.store(tempo, Ordering::SeqCst);
+        self.sample_rate.store(sample_rate, Ordering::SeqCst);
     }
 
     fn tempo(&self) -> Bpm {
-        Bpm::new(self.tempo.load(Ordering::SeqCst) as f64)
+        self.tempo.load(Ordering::SeqCst)
     }
 
     fn bar_at_last_tempo_change(&self) -> f64 {

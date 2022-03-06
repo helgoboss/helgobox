@@ -378,12 +378,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "065374052e7df7ee4047b1160cca5e1467a12351a40b3da123c870ba0b8eda2a"
 
 [[package]]
-name = "atomic_float"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62af46d040ba9df09edc6528dae9d8e49f5f3e82f55b7d2ec31a733c38dbc49d"
-
-[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2918,7 +2912,7 @@ name = "playtime-clip-engine"
 version = "0.1.0"
 dependencies = [
  "assert_no_alloc",
- "atomic_float",
+ "atomic",
  "crossbeam-channel",
  "derivative",
  "derive_more",
@@ -2936,6 +2930,7 @@ dependencies = [
  "rtrb",
  "serde",
  "slug",
+ "static_assertions",
  "tracing",
  "twox-hash",
 ]

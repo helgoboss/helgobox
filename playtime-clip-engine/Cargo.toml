@@ -19,7 +19,9 @@ helgoboss-learn = { path = "../main/lib/helgoboss-learn", features = ["serde", "
 rtrb = "0.2.1"
 crossbeam-channel = "0.5"
 # For our own timeline
-atomic_float = "0.1.0"
+atomic = "0.5.1"
+# For making sure that we can have a cheap atomic f64
+static_assertions = "1.1.0"
 # For detecting undesired (de)allocation in real-time threads.
 assert_no_alloc = { git = "https://github.com/Windfisch/rust-assert-no-alloc.git", branch = "master" }
 # For using bit flags in the reaper-rs API.
