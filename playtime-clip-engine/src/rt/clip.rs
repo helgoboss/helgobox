@@ -108,7 +108,7 @@ struct SuspendingState {
 
 #[derive(Copy, Clone, Debug, Default)]
 struct PausedState {
-    pub pos: usize,
+    pub pos: MaterialPos,
 }
 
 //region Description
@@ -164,7 +164,7 @@ enum StateAfterSuspension {
     /// [`ClipState::ScheduledOrPlaying`] again.
     Playing(PlayingState),
     /// Play was suspended for initiating a pause, so the next state will be [`ClipState::Paused`].
-    Paused(PausedState),
+    Paused,
     /// Play was suspended for initiating a stop, so the next state will be [`ClipState::Stopped`].
     Stopped,
     /// Play was suspended for initiating recording.
@@ -1215,11 +1215,7 @@ impl ReadyState {
             self.reset_for_play(supplier_chain);
             match s.next_state {
                 Playing(s) => ReadySubState::Playing(s),
-                Paused(s) => {
-                    // TODO-high Set follow-up Pause state in pause() correctly, see old
-                    //  get_suspension_follow_up_state()
-                    ReadySubState::Paused(s)
-                }
+                Paused => ReadySubState::Paused(PausedState { pos: s.pos }),
                 Stopped => {
                     self.pre_buffer(supplier_chain, 0);
                     ReadySubState::Stopped
@@ -1443,15 +1439,10 @@ impl ReadyState {
             Playing(s) => {
                 if let Some(pos) = s.pos {
                     if supplier_chain.is_playing_already(pos) {
-                        let pos = pos as usize;
                         // Playing. Pause!
-                        // (If this clip is scheduled for stop already, a pause will backpedal from
-                        // that.)
-                        // TODO-high But in that case we should probably do the same backpedaling
-                        //  logic on the supplier chain like when backpedaling from stop in play.
                         self.state = Suspending(SuspendingState {
-                            next_state: StateAfterSuspension::Paused(PausedState { pos }),
-                            pos: pos as isize,
+                            next_state: StateAfterSuspension::Paused,
+                            pos,
                         });
                     }
                 }
@@ -1461,9 +1452,7 @@ impl ReadyState {
             }
             Suspending(s) => {
                 self.state = Suspending(SuspendingState {
-                    next_state: StateAfterSuspension::Paused(PausedState {
-                        pos: s.pos as usize,
-                    }),
+                    next_state: StateAfterSuspension::Paused,
                     ..s
                 });
             }
@@ -1490,9 +1479,9 @@ impl ReadyState {
             }
             Paused(s) => {
                 let up_cycled_frame =
-                    self.up_cycle_frame(desired_frame, s.pos as isize, frame_count, supplier_chain);
+                    self.up_cycle_frame(desired_frame, s.pos, frame_count, supplier_chain);
                 self.state = Paused(PausedState {
-                    pos: up_cycled_frame,
+                    pos: up_cycled_frame as isize,
                 });
             }
         }
@@ -1533,7 +1522,7 @@ impl ReadyState {
             }
             Suspending(s) => match s.next_state {
                 StateAfterSuspension::Playing(_) => ClipPlayState::Playing,
-                StateAfterSuspension::Paused(_) => ClipPlayState::Paused,
+                StateAfterSuspension::Paused => ClipPlayState::Paused,
                 StateAfterSuspension::Stopped => ClipPlayState::Stopped,
                 StateAfterSuspension::Recording(_) => ClipPlayState::Recording,
             },

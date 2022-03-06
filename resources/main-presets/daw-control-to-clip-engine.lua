@@ -16,8 +16,8 @@ local parameters = {
 
 local groups = {
     {
-        id = "slot-play",
-        name = "Slot play",
+        id = "slot-transport",
+        name = "Slot transport",
     },
 }
 
@@ -27,8 +27,8 @@ local row_expression = "p[1] * 100"
 local mappings = {
     {
         id = "slot-play",
-        name = "Slot play",
-        group = "slot-play",
+        name = "Slot play/pause",
+        group = "slot-transport",
         source = {
             kind = "Virtual",
             character = "Button",
@@ -44,7 +44,29 @@ local mappings = {
                 column_expression = column_expression,
                 row_expression = row_expression,
             },
-            action = "PlayStop",
+            action = "PlayPause",
+        },
+    },
+    {
+        id = "slot-stop",
+        name = "Slot stop",
+        group = "slot-transport",
+        source = {
+            kind = "Virtual",
+            character = "Button",
+            id = "stop",
+        },
+        glue = {
+            absolute_mode = "Normal",
+        },
+        target = {
+            kind = "ClipTransportAction",
+            slot = {
+                address = "Dynamic",
+                column_expression = column_expression,
+                row_expression = row_expression,
+            },
+            action = "Stop",
         },
     },
     {
