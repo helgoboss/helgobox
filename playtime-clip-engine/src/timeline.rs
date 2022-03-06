@@ -12,11 +12,13 @@ use reaper_medium::{
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
 /// Delivers the timeline to be used for clips.
-// TODO-high We expect this timeline sometimes as argument. The initial idea here was to not change
-//  behavior even if stopping/starting transport. But not this doesn't work anymore. The
-//  HybridTimeline switches dynamically. So we probably need to make this an enum.
 pub fn clip_timeline(project: Option<Project>, force_project_timeline: bool) -> HybridTimeline {
-    HybridTimeline::new(project, force_project_timeline)
+    let project_timeline = ReaperProjectTimeline::new(project);
+    if force_project_timeline || project_timeline.is_playing_or_paused() {
+        HybridTimeline::ReaperProject(project_timeline)
+    } else {
+        HybridTimeline::GlobalSteady(global_steady_timeline())
+    }
 }
 
 pub fn clip_timeline_cursor_pos(project: Option<Project>) -> PositionInSeconds {
@@ -181,6 +183,7 @@ pub trait Timeline {
 /// - The tempo is synchronized with the tempo of the current project.
 // TODO-high If we really take this approach of the steady timeline for stopped projects, this
 //  needs an overhaul: More AtomicF64, less conversion from/to frames.
+#[derive(Debug)]
 pub struct SteadyTimeline {
     sample_counter: AtomicU64,
     sample_rate: AtomicU32,
@@ -470,30 +473,23 @@ pub fn global_steady_timeline() -> &'static SteadyTimeline {
 }
 
 #[derive(Clone, Debug)]
-pub struct HybridTimeline {
-    project_timeline: ReaperProjectTimeline,
-    force_project_timeline: bool,
-}
-
-impl HybridTimeline {
-    pub fn new(project: Option<Project>, force_project_timeline: bool) -> Self {
-        Self {
-            project_timeline: ReaperProjectTimeline::new(project),
-            force_project_timeline,
-        }
-    }
-
-    fn use_project_timeline(&self) -> bool {
-        self.force_project_timeline || self.project_timeline.is_playing_or_paused()
-    }
+pub enum HybridTimeline {
+    ReaperProject(ReaperProjectTimeline),
+    GlobalSteady(&'static SteadyTimeline),
 }
 
 impl Timeline for HybridTimeline {
+    fn capture_moment(&self) -> TimelineMoment {
+        match self {
+            HybridTimeline::ReaperProject(t) => t.capture_moment(),
+            HybridTimeline::GlobalSteady(t) => t.capture_moment(),
+        }
+    }
+
     fn cursor_pos(&self) -> PositionInSeconds {
-        if self.use_project_timeline() {
-            self.project_timeline.cursor_pos()
-        } else {
-            global_steady_timeline().cursor_pos()
+        match self {
+            HybridTimeline::ReaperProject(t) => t.cursor_pos(),
+            HybridTimeline::GlobalSteady(t) => t.cursor_pos(),
         }
     }
 
@@ -502,43 +498,51 @@ impl Timeline for HybridTimeline {
         timeline_pos: PositionInSeconds,
         quantization: EvenQuantization,
     ) -> QuantizedPosition {
-        if self.use_project_timeline() {
-            self.project_timeline
-                .next_quantized_pos_at(timeline_pos, quantization)
-        } else {
-            global_steady_timeline().next_quantized_pos_at(timeline_pos, quantization)
+        match self {
+            HybridTimeline::ReaperProject(t) => t.next_quantized_pos_at(timeline_pos, quantization),
+            HybridTimeline::GlobalSteady(t) => t.next_quantized_pos_at(timeline_pos, quantization),
+        }
+    }
+
+    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
+        match self {
+            HybridTimeline::ReaperProject(t) => t.next_bar_at(timeline_pos),
+            HybridTimeline::GlobalSteady(t) => t.next_bar_at(timeline_pos),
         }
     }
 
     fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
-        if self.use_project_timeline() {
-            self.project_timeline.pos_of_quantized_pos(quantized_pos)
-        } else {
-            global_steady_timeline().pos_of_quantized_pos(quantized_pos)
+        match self {
+            HybridTimeline::ReaperProject(t) => t.pos_of_quantized_pos(quantized_pos),
+            HybridTimeline::GlobalSteady(t) => t.pos_of_quantized_pos(quantized_pos),
+        }
+    }
+
+    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
+        match self {
+            HybridTimeline::ReaperProject(t) => t.pos_of_bar(bar),
+            HybridTimeline::GlobalSteady(t) => t.pos_of_bar(bar),
         }
     }
 
     fn is_running(&self) -> bool {
-        if self.use_project_timeline() {
-            self.project_timeline.is_running()
-        } else {
-            global_steady_timeline().is_running()
+        match self {
+            HybridTimeline::ReaperProject(t) => t.is_running(),
+            HybridTimeline::GlobalSteady(t) => t.is_running(),
         }
     }
 
     fn follows_reaper_transport(&self) -> bool {
-        if self.use_project_timeline() {
-            self.project_timeline.follows_reaper_transport()
-        } else {
-            global_steady_timeline().follows_reaper_transport()
+        match self {
+            HybridTimeline::ReaperProject(t) => t.follows_reaper_transport(),
+            HybridTimeline::GlobalSteady(t) => t.follows_reaper_transport(),
         }
     }
 
     fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm {
-        if self.use_project_timeline() {
-            self.project_timeline.tempo_at(timeline_pos)
-        } else {
-            global_steady_timeline().tempo_at(timeline_pos)
+        match self {
+            HybridTimeline::ReaperProject(t) => t.tempo_at(timeline_pos),
+            HybridTimeline::GlobalSteady(t) => t.tempo_at(timeline_pos),
         }
     }
 }
