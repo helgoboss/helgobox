@@ -808,6 +808,10 @@ impl ReadyState {
                 general_info.clip_tempo_factor,
                 supplier_chain,
             );
+            if supplier_chain.is_playing_already(pos) {
+                debug!("Install immediate start interaction because material playing already");
+                supplier_chain.install_immediate_start_interaction(pos);
+            }
             Go {
                 pos,
                 ..Go::default()
@@ -1540,8 +1544,6 @@ impl ReadyState {
     }
 
     fn schedule_play_internal(&mut self, virtual_pos: VirtualPosition) {
-        // TODO-high If we have a downbeat > 0 and the material should already play, add a immediate
-        //  start interaction!
         self.state = ReadySubState::Playing(PlayingState {
             virtual_pos,
             ..Default::default()
