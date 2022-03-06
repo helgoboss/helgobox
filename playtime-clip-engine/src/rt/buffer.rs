@@ -1,6 +1,5 @@
 use crate::ClipEngineResult;
 use derivative::Derivative;
-use reaper_medium::{BorrowedPcmSource, PcmSourceTransfer, PositionInSeconds};
 use std::collections::Bound;
 use std::fmt::Debug;
 use std::ops::RangeBounds;
@@ -261,39 +260,6 @@ impl<T: AsRef<[f64]> + AsMut<[f64]>> AbstractAudioBuf<T> {
     /// clear it.
     pub fn clear(&mut self) {
         self.data.as_mut().fill(0.0);
-    }
-}
-
-/// Material to be stretched.
-pub trait CopyToAudioBuffer {
-    fn copy_to_audio_buffer(
-        &self,
-        start_frame: usize,
-        dest_buffer: AudioBufMut,
-    ) -> ClipEngineResult<usize>;
-}
-
-impl<'a> CopyToAudioBuffer for &'a BorrowedPcmSource {
-    fn copy_to_audio_buffer(
-        &self,
-        start_frame: usize,
-        mut dest_buffer: AudioBufMut,
-    ) -> ClipEngineResult<usize> {
-        let mut transfer = PcmSourceTransfer::default();
-        let sample_rate = self.get_sample_rate().ok_or("source without sample rate")?;
-        let start_time =
-            (start_frame as f64 / sample_rate.get()) % self.get_length().unwrap().get();
-        let start_time = PositionInSeconds::new(start_time);
-        transfer.set_time_s(start_time);
-        transfer.set_sample_rate(sample_rate);
-        // TODO-high Here we need to handle repeat/not-repeat
-        unsafe {
-            transfer.set_nch(dest_buffer.channel_count() as _);
-            transfer.set_length(dest_buffer.frame_count() as _);
-            transfer.set_samples(dest_buffer.data_as_mut_ptr());
-            self.get_samples(&transfer);
-        }
-        Ok(dest_buffer.frame_count())
     }
 }
 
