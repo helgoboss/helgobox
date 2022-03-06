@@ -207,7 +207,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 play_start_timing: ClipSettingOverrideAfterRecording::Inherit,
                 play_stop_timing: ClipSettingOverrideAfterRecording::Inherit,
                 time_base: ClipRecordTimeBase::Time,
-                play_after: false,
+                looped: false,
                 lead_tempo: false,
                 midi_settings: MatrixClipRecordMidiSettings {
                     record_mode: MidiClipRecordMode::Normal,
@@ -343,11 +343,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     ) -> ClipEngineResult<()> {
         let behavior = match args.kind {
             RecordKind::Normal {
-                play_after,
+                looped,
                 timing,
                 detect_downbeat,
             } => RecordBehavior::Normal {
-                play_after,
+                looped,
                 timing: match timing {
                     ClipRecordTiming::StartImmediatelyStopOnDemand => RecordTiming::Unsynced,
                     ClipRecordTiming::StartOnBarStopOnDemand { start_bar } => {
@@ -475,7 +475,7 @@ pub struct RecordArgs {
 #[derive(Copy, Clone)]
 pub enum RecordKind {
     Normal {
-        play_after: bool,
+        looped: bool,
         timing: ClipRecordTiming,
         detect_downbeat: bool,
     },

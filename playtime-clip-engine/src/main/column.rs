@@ -2,8 +2,8 @@ use crate::main::{Clip, ClipRecordTask, MatrixSettings, Slot};
 use crate::rt::supplier::RecorderEquipment;
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs,
-    ColumnPlayClipArgs, ColumnSetClipRepeatedArgs, ColumnStopClipArgs, RecordBehavior,
-    SharedColumn, WeakColumn,
+    ColumnPlayClipArgs, ColumnSetClipLoopedArgs, ColumnStopClipArgs, RecordBehavior, SharedColumn,
+    WeakColumn,
 };
 use crate::{clip_timeline, rt, ClipEngineResult};
 use crossbeam_channel::Receiver;
@@ -273,7 +273,7 @@ impl Column {
     pub fn toggle_clip_looped(&mut self, slot_index: usize) -> ClipEngineResult<ClipChangedEvent> {
         let clip = get_clip_mut(&mut self.slots, slot_index)?;
         let looped = clip.toggle_looped();
-        let args = ColumnSetClipRepeatedArgs { slot_index, looped };
+        let args = ColumnSetClipLoopedArgs { slot_index, looped };
         self.rt_command_sender.set_clip_looped(args);
         Ok(ClipChangedEvent::ClipLooped(looped))
     }

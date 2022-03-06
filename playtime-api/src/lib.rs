@@ -101,7 +101,9 @@ pub struct MatrixClipRecordSettings {
     pub time_base: ClipRecordTimeBase,
     /// If `true`, starts playing the clip right after recording.
     // TODO-clip-implement
-    pub play_after: bool,
+    // TODO-medium Remove play_after alias
+    #[serde(alias = "play_after")]
+    pub looped: bool,
     /// If `true`, sets the global tempo to the tempo of this clip right after recording.
     // TODO-clip-implement
     pub lead_tempo: bool,
@@ -118,7 +120,7 @@ impl Default for MatrixClipRecordSettings {
             play_start_timing: Default::default(),
             play_stop_timing: Default::default(),
             time_base: Default::default(),
-            play_after: true,
+            looped: true,
             lead_tempo: false,
             midi_settings: Default::default(),
             audio_settings: Default::default(),

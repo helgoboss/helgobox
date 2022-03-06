@@ -115,7 +115,7 @@ impl RealearnTarget for ClipTransportTarget {
                                 self.basics.slot_coordinates,
                                 RecordArgs {
                                     kind: RecordKind::Normal {
-                                        play_after: true,
+                                        looped: true,
                                         timing,
                                         detect_downbeat: true,
                                     },

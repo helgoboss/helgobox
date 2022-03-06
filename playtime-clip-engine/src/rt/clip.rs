@@ -175,8 +175,8 @@ enum StateAfterSuspension {
 struct RecordingState {
     /// Timeline position at which recording was triggered.
     pub trigger_timeline_pos: PositionInSeconds,
-    /// Implies repeat.
-    pub play_after: bool,
+    /// Implies play-after-record.
+    pub looped: bool,
     pub timing: RecordTiming,
     pub input: ClipRecordInput,
     pub rollback_data: Option<RollbackData>,
@@ -190,7 +190,7 @@ struct RollbackData {
 #[derive(Copy, Clone)]
 pub enum RecordBehavior {
     Normal {
-        play_after: bool,
+        looped: bool,
         timing: RecordTiming,
         detect_downbeat: bool,
     },
@@ -259,7 +259,7 @@ impl Clip {
         let tempo = timeline.tempo_at(trigger_timeline_pos);
         let recording_state = RecordingState {
             trigger_timeline_pos,
-            play_after: args.play_after,
+            looped: args.looped,
             timing: args.timing,
             input: args.input,
             rollback_data: None,
@@ -300,8 +300,6 @@ impl Clip {
         use ClipState::*;
         match &mut self.state {
             Ready(s) => Ok(s.play(args, &mut self.supplier_chain)),
-            // TODO-high It would probably be good to react the same way as if we would
-            //  stop recording and press play right afterwards (or auto-play).
             Recording(_) => Err("recording"),
         }
     }
@@ -334,7 +332,7 @@ impl Clip {
             Ready(s) => {
                 s.set_looped(looped, &mut self.supplier_chain);
             }
-            Recording(s) => s.set_play_after(looped),
+            Recording(s) => s.set_looped(looped),
         }
     }
 
@@ -342,7 +340,7 @@ impl Clip {
         use ClipState::*;
         match self.state {
             Ready(s) => s.persistent_data.looped,
-            Recording(s) => s.play_after,
+            Recording(s) => s.looped,
         }
     }
 
@@ -1400,7 +1398,7 @@ impl ReadyState {
         );
         let recording_state = RecordingState {
             trigger_timeline_pos,
-            play_after: args.play_after,
+            looped: args.looped,
             timing: args.timing,
             input: args.input,
             rollback_data: {
@@ -1550,8 +1548,8 @@ impl ReadyState {
 }
 
 impl RecordingState {
-    pub fn set_play_after(&mut self, play_after: bool) {
-        self.play_after = play_after;
+    pub fn set_looped(&mut self, looped: bool) {
+        self.looped = looped;
     }
 
     pub fn stop(
@@ -1564,7 +1562,7 @@ impl RecordingState {
         match self.timing {
             Unsynced => {
                 let ready_state =
-                    self.finish_recording(self.play_after, None, supplier_chain, &args.timeline);
+                    self.finish_recording(self.looped, None, supplier_chain, &args.timeline);
                 TransitionToReady(ready_state)
             }
             Synced { start_bar, end_bar } => {
@@ -1588,7 +1586,7 @@ impl RecordingState {
                     // We are recording already.
                     if end_bar.is_some() {
                         // End already scheduled. Take care of stopping after recording.
-                        self.play_after = false;
+                        self.looped = false;
                     } else {
                         // End not scheduled yet. Schedule end.
                         supplier_chain
@@ -1629,7 +1627,7 @@ impl RecordingState {
                 if block_end_pos >= record_end_pos {
                     // We have recorded the last block.
                     let ready_state = self.finish_recording(
-                        self.play_after,
+                        self.looped,
                         Some((start_bar, end_bar)),
                         supplier_chain,
                         &args.timeline,
@@ -1754,7 +1752,7 @@ impl VirtualPosition {
 }
 
 pub struct ClipRecordArgs {
-    pub play_after: bool,
+    pub looped: bool,
     pub input: ClipRecordInput,
     pub timing: RecordTiming,
     pub detect_downbeat: bool,

@@ -80,7 +80,7 @@ impl Slot {
         Ok(())
     }
 
-    pub fn set_clip_repeated(&mut self, repeated: bool) -> ClipEngineResult<()> {
+    pub fn set_clip_looped(&mut self, repeated: bool) -> ClipEngineResult<()> {
         self.get_clip_mut()?.set_looped(repeated);
         Ok(())
     }
@@ -95,12 +95,12 @@ impl Slot {
         use RecordBehavior::*;
         match behavior {
             Normal {
-                play_after,
+                looped,
                 timing,
                 detect_downbeat,
             } => {
                 let args = ClipRecordArgs {
-                    play_after,
+                    looped,
                     input,
                     timing,
                     detect_downbeat,

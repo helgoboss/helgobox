@@ -107,8 +107,8 @@ impl ColumnCommandSender {
         self.send_source_task(ColumnCommand::StopClip(args));
     }
 
-    pub fn set_clip_looped(&self, args: ColumnSetClipRepeatedArgs) {
-        self.send_source_task(ColumnCommand::SetClipRepeated(args));
+    pub fn set_clip_looped(&self, args: ColumnSetClipLoopedArgs) {
+        self.send_source_task(ColumnCommand::SetClipLooped(args));
     }
 
     pub fn pause_clip(&self, index: usize) {
@@ -144,7 +144,7 @@ pub enum ColumnCommand {
     PauseClip(ColumnPauseClipArgs),
     SeekClip(ColumnSeekClipArgs),
     SetClipVolume(ColumnSetClipVolumeArgs),
-    SetClipRepeated(ColumnSetClipRepeatedArgs),
+    SetClipLooped(ColumnSetClipLoopedArgs),
 }
 
 trait EventSender {
@@ -296,8 +296,8 @@ impl Column {
         get_slot_mut(&mut self.slots, args.slot_index)?.stop_clip(clip_args)
     }
 
-    pub fn set_clip_repeated(&mut self, args: ColumnSetClipRepeatedArgs) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, args.slot_index).set_clip_repeated(args.looped)
+    pub fn set_clip_looped(&mut self, args: ColumnSetClipLoopedArgs) -> ClipEngineResult<()> {
+        get_slot_mut_insert(&mut self.slots, args.slot_index).set_clip_looped(args.looped)
     }
 
     pub fn clip_play_state(&self, index: usize) -> ClipEngineResult<ClipPlayState> {
@@ -408,8 +408,8 @@ impl Column {
                 SeekClip(args) => {
                     let _ = self.seek_clip(args.index, args.desired_pos);
                 }
-                SetClipRepeated(args) => {
-                    let _ = self.set_clip_repeated(args);
+                SetClipLooped(args) => {
+                    let _ = self.set_clip_looped(args);
                 }
             }
         }
@@ -658,7 +658,7 @@ pub struct ColumnSetClipVolumeArgs {
 }
 
 #[derive(Debug)]
-pub struct ColumnSetClipRepeatedArgs {
+pub struct ColumnSetClipLoopedArgs {
     pub slot_index: usize,
     pub looped: bool,
 }
