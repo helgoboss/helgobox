@@ -7,7 +7,8 @@ use helgoboss_learn::BASE_EPSILON;
 use playtime_api::EvenQuantization;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
-    Bpm, Hz, MeasureMode, PlayState, PositionInBeats, PositionInSeconds, ProjectContext,
+    Bpm, Hz, MeasureMode, PlayState, PositionInBeats, PositionInQuarterNotes, PositionInSeconds,
+    ProjectContext,
 };
 use static_assertions::const_assert;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -345,9 +346,9 @@ fn get_next_quantized_pos_at(
     proj_context: ProjectContext,
 ) -> QuantizedPosition {
     let reaper = Reaper::get().medium_reaper();
-    let res = reaper.time_map_2_time_to_beats(proj_context, cursor_pos);
     if quantization.denominator() == 1 {
         // We are looking for one of the next bars.
+        let res = reaper.time_map_2_time_to_beats(proj_context, cursor_pos);
         let next_position = next_quantized_pos_sloppy(
             res.measure_index as i64,
             res.beats_since_measure.get(),
@@ -356,14 +357,11 @@ fn get_next_quantized_pos_at(
         QuantizedPosition::new(next_position, 1).unwrap()
     } else {
         // We are looking for the next fraction of a bar (e.g. the next 16th note).
-        // The denominator of the time signature defines what 1 beat means (e.g. one quarter note).
-        // TODO-high This might lead to wrong results if we have time signature changes in the
-        //  project. Maybe use QN functions instead.
-        let beat_denominator = res.time_signature.denominator.get();
+        let qn = reaper.time_map_2_time_to_qn_abs(proj_context, cursor_pos);
         // Calculate ratio between our desired target unit (16th) and a beat (4th) = 4
-        let ratio = quantization.denominator() as f64 / beat_denominator as f64;
+        let ratio = quantization.denominator() as f64 / 4.0;
         // Current position in desired target unit (158.4 16th's).
-        let accurate_pos = res.full_beats.get() * ratio;
+        let accurate_pos = qn.get() * ratio;
         calc_quantized_pos_from_accurate_pos(accurate_pos, quantization)
     }
 }
@@ -404,17 +402,11 @@ fn get_pos_of_quantized_pos(
         )
     } else {
         // We are looking for the position of a fraction of a bar (e.g. a 16th note).
-        let res = reaper.time_map_2_time_to_beats(proj_context, PositionInSeconds::ZERO);
-        // The denominator of the time signature defines what 1 beat means (e.g. one quarter note).
-        // TODO-high This might lead to wrong results if we have time signature changes in the
-        //  project. Maybe use QN functions instead.
-        let beat_denominator = res.time_signature.denominator.get();
         // Calculate ratio between a beat (4th) and our desired target unit (16th) = 0.25
-        let ratio = beat_denominator as f64 / quantized_pos.denominator() as f64;
-        reaper.time_map_2_beats_to_time(
+        let ratio = 4.0 / quantized_pos.denominator() as f64;
+        reaper.time_map_2_qn_to_time(
             proj_context,
-            MeasureMode::IgnoreMeasure,
-            PositionInBeats::new(quantized_pos.position as f64 * ratio),
+            PositionInQuarterNotes::new(quantized_pos.position as f64 * ratio),
         )
     }
 }
