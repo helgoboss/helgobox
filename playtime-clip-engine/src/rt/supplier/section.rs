@@ -142,6 +142,10 @@ impl<S> Section<S> {
                     };
                 let bounded_num_frames_to_be_consumed =
                     (effective_end_frame_in_source - start_frame_in_source) as usize;
+                // TODO-high CONTINUE This is probably wrong because dest_frame_count is in dest
+                //  frame rate and bounded_num_frames_to_be_written in source frame rate. With MIDI, it's
+                //  not as with audio in that those frame rates are equal in the lower parts of
+                //  our chain!
                 let bounded_num_frames_to_be_written = bounded_num_frames_to_be_consumed;
                 let phase_two = PhaseTwo::Bounded {
                     reached_bound,

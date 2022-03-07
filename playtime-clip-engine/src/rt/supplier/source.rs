@@ -88,6 +88,7 @@ impl MidiSupplier for OwnedPcmSource {
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         let midi_frame_rate = Hz::new(MIDI_FRAME_RATE);
+        debug!("DEST SAMPLE RATE: {:?}", request.dest_sample_rate);
         // As with audio, the ratio between output frame count and output sample rate determines
         // the playback tempo.
         let input_ratio = request.dest_frame_count as f64 / request.dest_sample_rate.get();
