@@ -39,7 +39,6 @@ use reaper_high::{ChangeEvent, Reaper};
 use reaper_medium::ReaperNormalizedFxParamValue;
 use rosc::{OscMessage, OscPacket, OscType};
 use slog::{debug, trace};
-use smallvec::SmallVec;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -376,52 +375,48 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     /// because we want to pause controlling in that case! Otherwise we could control targets and
     /// they would be learned although not touched via mouse, that's not good.
     pub fn run_control(&mut self) {
+        let control_is_effectively_enabled = self.control_is_effectively_enabled();
         // Collect control tasks (we do that in any case to not let get channels full).
-        // TODO-high Collecting into a vec is actually not necessary because we can just use
-        //  self.receiver.try_recv().ok() (just like the iterator itself).
-        let control_tasks: SmallVec<[ControlMainTask; CONTROL_TASK_BULK_SIZE]> = self
-            .basics
-            .channels
-            .control_task_receiver
-            .try_iter()
-            .take(CONTROL_TASK_BULK_SIZE)
-            .collect();
-        // It's possible that control is disabled because another instance cancels us. In that case
-        // the RealTimeProcessor won't know about it and keeps sending MIDI. Stop it here!
-        if !self.control_is_effectively_enabled() {
-            return;
+        let mut count = 0;
+        while let Ok(task) = self.basics.channels.control_task_receiver.try_recv() {
+            // It's possible that control is disabled because another instance cancels us. In that case
+            // the RealTimeProcessor won't know about it and keeps sending MIDI. Stop it here!
+            if control_is_effectively_enabled {
+                self.process_control_task(task);
+            }
+            count += 1;
+            if count == CONTROL_TASK_BULK_SIZE {
+                break;
+            }
         }
-        self.process_control_tasks(control_tasks.into_iter());
         self.poll_control();
     }
 
-    fn process_control_tasks(&mut self, control_tasks: impl Iterator<Item = ControlMainTask>) {
-        for task in control_tasks {
-            use ControlMainTask::*;
-            match task {
-                Control {
-                    compartment,
-                    mapping_id,
-                    value,
-                    options,
-                } => {
-                    let _ = self.control(compartment, mapping_id, value, options);
-                }
-                LogControlInput {
-                    value,
-                    match_result,
-                } => {
-                    log_control_input(
-                        self.instance_id(),
-                        format!("{} ({})", format_midi_source_value(&value), match_result),
-                    );
-                }
-                LogLearnInput { msg } => {
-                    log_learn_input(self.instance_id(), format_incoming_midi_message(msg));
-                }
-                LogTargetOutput { event } => {
-                    log_target_output(self.instance_id(), format_raw_midi(event.bytes()));
-                }
+    fn process_control_task(&mut self, task: ControlMainTask) {
+        use ControlMainTask::*;
+        match task {
+            Control {
+                compartment,
+                mapping_id,
+                value,
+                options,
+            } => {
+                let _ = self.control(compartment, mapping_id, value, options);
+            }
+            LogControlInput {
+                value,
+                match_result,
+            } => {
+                log_control_input(
+                    self.instance_id(),
+                    format!("{} ({})", format_midi_source_value(&value), match_result),
+                );
+            }
+            LogLearnInput { msg } => {
+                log_learn_input(self.instance_id(), format_incoming_midi_message(msg));
+            }
+            LogTargetOutput { event } => {
+                log_target_output(self.instance_id(), format_raw_midi(event.bytes()));
             }
         }
     }
@@ -746,17 +741,15 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn process_feedback_tasks(&mut self) {
-        let feedback_tasks: SmallVec<[FeedbackMainTask; FEEDBACK_TASK_BULK_SIZE]> = self
-            .basics
-            .channels
-            .feedback_task_receiver
-            .try_iter()
-            .take(FEEDBACK_TASK_BULK_SIZE)
-            .collect();
-        for task in feedback_tasks {
+        let mut count = 0;
+        while let Ok(task) = self.basics.channels.feedback_task_receiver.try_recv() {
             use FeedbackMainTask::*;
             match task {
                 TargetTouched => self.process_target_touched_event(),
+            }
+            count += 1;
+            if count == FEEDBACK_TASK_BULK_SIZE {
+                break;
             }
         }
     }
@@ -802,20 +795,18 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn process_parameter_tasks(&mut self) {
-        let parameter_tasks: SmallVec<[ParameterMainTask; PARAMETER_TASK_BULK_SIZE]> = self
-            .basics
-            .channels
-            .parameter_task_receiver
-            .try_iter()
-            .take(PARAMETER_TASK_BULK_SIZE)
-            .collect();
-        for task in parameter_tasks {
+        let mut count = 0;
+        while let Ok(task) = self.basics.channels.parameter_task_receiver.try_recv() {
             use ParameterMainTask::*;
             match task {
                 UpdateAllParameters(parameters) => {
                     self.update_all_parameters(parameters);
                 }
                 UpdateParameter { index, value } => self.update_single_parameter(index, value),
+            }
+            count += 1;
+            if count == PARAMETER_TASK_BULK_SIZE {
+                break;
             }
         }
     }
@@ -973,18 +964,8 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
     }
 
     fn process_normal_tasks_from_session(&mut self) {
-        // We could also iterate directly while keeping the receiver open. But that would (for
-        // good reason) prevent us from calling other methods that mutably borrow
-        // self. To at least avoid heap allocations, we use a smallvec.
-        let normal_tasks: SmallVec<[NormalMainTask; NORMAL_TASK_BULK_SIZE]> = self
-            .basics
-            .channels
-            .normal_task_receiver
-            .try_iter()
-            .take(NORMAL_TASK_BULK_SIZE)
-            .collect();
-        let normal_task_count = normal_tasks.len();
-        for task in normal_tasks {
+        let mut count = 0;
+        while let Ok(task) = self.basics.channels.normal_task_receiver.try_recv() {
             use NormalMainTask::*;
             match task {
                 UpdateSettings {
@@ -1023,7 +1004,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                     self.send_all_feedback();
                 }
                 LogDebugInfo => {
-                    self.log_debug_info(normal_task_count);
+                    self.log_debug_info();
                 }
                 LogMapping(compartment, mapping_id) => {
                     self.log_mapping(compartment, mapping_id);
@@ -1059,6 +1040,10 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 UseIntegrationTestFeedbackSender(sender) => {
                     self.basics.channels.integration_test_feedback_sender = Some(sender);
                 }
+            }
+            count += 1;
+            if count == NORMAL_TASK_BULK_SIZE {
+                break;
             }
         }
     }
@@ -1950,7 +1935,7 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
         }
     }
 
-    fn log_debug_info(&mut self, task_count: usize) {
+    fn log_debug_info(&mut self) {
         // Summary
         let msg = format!(
             "\n\
@@ -1963,7 +1948,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
             - Enabled non-virtual controller mapping count: {} \n\
             - Total virtual controller mapping count: {} \n\
             - Enabled virtual controller mapping count: {} \n\
-            - Normal task count: {} \n\
             - Control task count: {} \n\
             - Feedback task count: {} \n\
             - Parameter values: {:?} \n\
@@ -1985,7 +1969,6 @@ impl<EH: DomainEventHandler> MainProcessor<EH> {
                 .values()
                 .filter(|m| m.control_is_effectively_on() || m.feedback_is_effectively_on())
                 .count(),
-            task_count,
             self.basics.channels.control_task_receiver.len(),
             self.basics.channels.feedback_task_receiver.len(),
             self.collections.parameters,
