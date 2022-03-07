@@ -2,12 +2,13 @@ use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
-    get_source_frame_rate, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier,
-    PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequestInfo, SupplyResponse, WithFrameRate, WithSource,
+    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest,
+    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse,
+    WithMaterialInfo, WithSource,
 };
+use crate::ClipEngineResult;
 use crossbeam_channel::{Receiver, Sender};
-use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz, OwnedPcmSource};
+use reaper_medium::{BorrowedMidiEventList, OwnedPcmSource};
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -53,7 +54,7 @@ pub enum CacheResponse {
 
 #[derive(Debug)]
 pub struct CachedData {
-    sample_rate: Hz,
+    material_info: AudioMaterialInfo,
     content: OwnedAudioBuffer,
 }
 
@@ -126,12 +127,15 @@ pub fn keep_processing_cache_requests(receiver: Receiver<CacheRequest>) {
                 mut source,
                 response_sender,
             } => {
-                let original_sample_rate = get_source_frame_rate(&source);
+                let audio_material_info = match source.material_info() {
+                    Ok(MaterialInfo::Audio(i)) => i,
+                    _ => continue,
+                };
                 let mut content =
-                    OwnedAudioBuffer::new(source.channel_count(), source.frame_count());
+                    OwnedAudioBuffer::new(source.channel_count(), audio_material_info.length);
                 let request = SupplyAudioRequest {
                     start_frame: 0,
-                    dest_sample_rate: original_sample_rate,
+                    dest_sample_rate: None,
                     info: SupplyRequestInfo {
                         audio_block_frame_offset: 0,
                         requester: "cache",
@@ -143,7 +147,7 @@ pub fn keep_processing_cache_requests(receiver: Receiver<CacheRequest>) {
                 };
                 source.supply_audio(&request, &mut content.to_buf_mut());
                 let cached_data = CachedData {
-                    sample_rate: original_sample_rate,
+                    material_info: audio_material_info,
                     content,
                 };
                 // If the clip is not interested in the cached data anymore, so what.
@@ -166,7 +170,7 @@ impl<S: AudioSupplier + WithSource> AudioSupplier for Cache<S> {
             Some(d) => d,
         };
         let buf = d.content.to_buf();
-        supply_audio_material(request, dest_buffer, d.sample_rate, |input| {
+        supply_audio_material(request, dest_buffer, |input| {
             transfer_samples_from_buffer(buf, input)
         })
     }
@@ -176,16 +180,6 @@ impl<S: AudioSupplier + WithSource> AudioSupplier for Cache<S> {
             d.content.to_buf().channel_count()
         } else {
             self.supplier.channel_count()
-        }
-    }
-}
-
-impl<S: WithFrameRate> WithFrameRate for Cache<S> {
-    fn frame_rate(&self) -> Option<Hz> {
-        if let Some(d) = &self.cached_data {
-            Some(d.sample_rate)
-        } else {
-            self.supplier.frame_rate()
         }
     }
 }
@@ -201,18 +195,13 @@ impl<S: MidiSupplier> MidiSupplier for Cache<S> {
     }
 }
 
-impl<S: ExactFrameCount> ExactFrameCount for Cache<S> {
-    fn frame_count(&self) -> usize {
+impl<S: WithMaterialInfo> WithMaterialInfo for Cache<S> {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         if let Some(d) = &self.cached_data {
-            d.content.to_buf().frame_count()
+            Ok(MaterialInfo::Audio(d.material_info.clone()))
         } else {
-            self.supplier.frame_count()
+            self.supplier.material_info()
         }
-    }
-}
-impl<S: ExactDuration> ExactDuration for Cache<S> {
-    fn duration(&self) -> DurationInSeconds {
-        self.supplier.duration()
     }
 }
 

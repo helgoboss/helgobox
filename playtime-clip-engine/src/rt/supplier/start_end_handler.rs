@@ -4,11 +4,12 @@ use crate::rt::supplier::fade_util::{
 };
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
-    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate,
+    midi_util, AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest,
+    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
 };
+use crate::ClipEngineResult;
 use playtime_api::MidiResetMessageRange;
-use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz};
+use reaper_medium::BorrowedMidiEventList;
 
 #[derive(Debug)]
 pub struct StartEndHandler<S> {
@@ -55,7 +56,7 @@ impl<S> StartEndHandler<S> {
     }
 }
 
-impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for StartEndHandler<S> {
+impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for StartEndHandler<S> {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -68,11 +69,12 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for StartEndHandler<S> {
         if self.enabled_for_start {
             apply_fade_in_starting_at_zero(dest_buffer, request.start_frame, START_END_FADE_LENGTH);
         }
+        let frame_count = self.supplier.material_info().unwrap().frame_count();
         if self.enabled_for_end {
             apply_fade_out_ending_at(
                 dest_buffer,
                 request.start_frame,
-                self.supplier.frame_count(),
+                frame_count,
                 START_END_FADE_LENGTH,
             );
         }
@@ -84,7 +86,7 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for StartEndHandler<S> {
     }
 }
 
-impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for StartEndHandler<S> {
+impl<S: MidiSupplier> MidiSupplier for StartEndHandler<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
@@ -120,20 +122,8 @@ impl<S: PreBufferSourceSkill> PreBufferSourceSkill for StartEndHandler<S> {
     }
 }
 
-impl<S: WithFrameRate> WithFrameRate for StartEndHandler<S> {
-    fn frame_rate(&self) -> Option<Hz> {
-        self.supplier.frame_rate()
-    }
-}
-
-impl<S: ExactFrameCount> ExactFrameCount for StartEndHandler<S> {
-    fn frame_count(&self) -> usize {
-        self.supplier.frame_count()
-    }
-}
-
-impl<S: ExactDuration + WithFrameRate + ExactFrameCount> ExactDuration for StartEndHandler<S> {
-    fn duration(&self) -> DurationInSeconds {
-        self.supplier.duration()
+impl<S: WithMaterialInfo> WithMaterialInfo for StartEndHandler<S> {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        self.supplier.material_info()
     }
 }

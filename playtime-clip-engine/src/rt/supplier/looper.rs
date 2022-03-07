@@ -1,12 +1,13 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
+    midi_util, AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest,
     PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo,
-    SupplyResponse, SupplyResponseStatus, WithFrameRate,
+    SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
 };
+use crate::ClipEngineResult;
 use playtime_api::MidiResetMessageRange;
-use reaper_medium::{BorrowedMidiEventList, Hz};
+use reaper_medium::BorrowedMidiEventList;
 
 #[derive(Debug)]
 pub struct Looper<S> {
@@ -71,7 +72,7 @@ impl LoopBehavior {
     }
 }
 
-impl<S: ExactFrameCount> Looper<S> {
+impl<S: WithMaterialInfo> Looper<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             loop_behavior: Default::default(),
@@ -107,17 +108,24 @@ impl<S: ExactFrameCount> Looper<S> {
     }
 
     pub fn get_cycle_at_frame(&self, frame: isize) -> usize {
+        self.get_cycle_at_frame_internal(
+            frame,
+            self.supplier.material_info().unwrap().frame_count(),
+        )
+    }
+
+    fn get_cycle_at_frame_internal(&self, frame: isize, frame_count: usize) -> usize {
         if frame < 0 {
             return 0;
         }
-        frame as usize / self.supplier.frame_count()
+        frame as usize / frame_count
     }
 
-    fn check_relevance(&self, start_frame: isize) -> Option<RelevantData> {
+    fn check_relevance(&self, start_frame: isize, frame_count: usize) -> Option<RelevantData> {
         if !self.enabled {
             return None;
         }
-        let current_cycle = self.get_cycle_at_frame(start_frame);
+        let current_cycle = self.get_cycle_at_frame_internal(start_frame, frame_count);
         let cycle_in_scope = self
             .loop_behavior
             .last_cycle_to_be_played()
@@ -157,19 +165,20 @@ impl RelevantData {
     }
 }
 
-impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
+impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Looper<S> {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        let data = match self.check_relevance(request.start_frame) {
+        let supplier_frame_count = self.supplier.material_info().unwrap().frame_count();
+        let data = match self.check_relevance(request.start_frame, supplier_frame_count) {
             None => {
                 return self.supplier.supply_audio(request, dest_buffer);
             }
             Some(d) => d,
         };
-        let modulo_start_frame = data.modulo_start_frame(self.supplier.frame_count());
+        let modulo_start_frame = data.modulo_start_frame(supplier_frame_count);
         let modulo_request = SupplyAudioRequest {
             start_frame: modulo_start_frame,
             dest_sample_rate: request.dest_sample_rate,
@@ -225,25 +234,28 @@ impl<S: AudioSupplier + ExactFrameCount> AudioSupplier for Looper<S> {
     }
 }
 
-impl<S: WithFrameRate> WithFrameRate for Looper<S> {
-    fn frame_rate(&self) -> Option<Hz> {
-        self.supplier.frame_rate()
+impl<S: WithMaterialInfo> WithMaterialInfo for Looper<S> {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        // TODO-medium It's not relevant at the moment, but for the sake of completeness, we should
+        //  probably set the length to infinite.
+        self.supplier.material_info()
     }
 }
 
-impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
+impl<S: MidiSupplier + WithMaterialInfo> MidiSupplier for Looper<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        let data = match self.check_relevance(request.start_frame) {
+        let supplier_frame_count = self.supplier.material_info().unwrap().frame_count();
+        let data = match self.check_relevance(request.start_frame, supplier_frame_count) {
             None => {
                 return self.supplier.supply_midi(request, event_list);
             }
             Some(d) => d,
         };
-        let modulo_start_frame = data.modulo_start_frame(self.supplier.frame_count());
+        let modulo_start_frame = data.modulo_start_frame(supplier_frame_count);
         let modulo_request = SupplyMidiRequest {
             start_frame: modulo_start_frame,
             dest_frame_count: request.dest_frame_count,
@@ -316,15 +328,16 @@ impl<S: MidiSupplier + ExactFrameCount> MidiSupplier for Looper<S> {
     }
 }
 
-impl<S: PreBufferSourceSkill + ExactFrameCount> PreBufferSourceSkill for Looper<S> {
+impl<S: PreBufferSourceSkill + WithMaterialInfo> PreBufferSourceSkill for Looper<S> {
     fn pre_buffer(&mut self, request: PreBufferFillRequest) {
-        let data = match self.check_relevance(request.start_frame) {
+        let supplier_frame_count = self.supplier.material_info().unwrap().frame_count();
+        let data = match self.check_relevance(request.start_frame, supplier_frame_count) {
             None => {
                 return self.supplier.pre_buffer(request);
             }
             Some(d) => d,
         };
-        let modulo_start_frame = data.modulo_start_frame(self.supplier.frame_count());
+        let modulo_start_frame = data.modulo_start_frame(supplier_frame_count);
         let inner_request = PreBufferFillRequest {
             start_frame: modulo_start_frame,
             ..request

@@ -1,14 +1,14 @@
 use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::rt::supplier::{
-    AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
-    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithFrameRate, WithSource,
+    AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
+    WithMaterialInfo, WithSource,
 };
 use crate::ClipEngineResult;
 use core::cmp;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use derive_more::Display;
-use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz, OwnedPcmSource};
+use reaper_medium::{BorrowedMidiEventList, OwnedPcmSource};
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -46,14 +46,12 @@ impl PreBufferSender for Sender<PreBufferRequest> {
 #[derive(Debug)]
 pub struct PreBufferedBlock {
     start_frame: isize,
-    frame_rate: Hz,
     buffer: OwnedAudioBuffer,
     response: SupplyResponse,
 }
 
 struct MatchCriteria {
     start_frame: isize,
-    frame_rate: Hz,
     /// This is just a wish. We are also satisfied if the block offers less frames.
     desired_frame_count: usize,
 }
@@ -74,9 +72,6 @@ impl PreBufferedBlock {
     /// It returns the range of this block which can be used to fill the
     fn matches(&self, criteria: &MatchCriteria) -> Result<Range<usize>, MatchError> {
         let self_buffer = self.buffer.to_buf();
-        if self.frame_rate != criteria.frame_rate {
-            return Err(MatchError::WrongFrameRate);
-        }
         // At this point we know the channel count is correct.
         let offset = criteria.start_frame - self.start_frame;
         if offset < 0 {
@@ -150,8 +145,6 @@ impl PreBufferedBlock {
 
 #[derive(Copy, Clone, Debug)]
 enum MatchError {
-    /// Frame rate of the pre-buffered block doesn't match the requested frame rate.
-    WrongFrameRate,
     /// Start frame of the pre-buffered block is in the future but all of its material would
     /// belong into the requested block.
     BlockContainsOnlyRelevantMaterialButStartFrameIsInFuture,
@@ -322,7 +315,6 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         let mut remaining_dest_buffer = dest_buffer.slice_mut(frame_offset..);
         let criteria = MatchCriteria {
             start_frame: request.start_frame + frame_offset as isize,
-            frame_rate: request.dest_sample_rate,
             desired_frame_count: remaining_dest_buffer.frame_count(),
         };
         // Try to fill at least the beginning of the remaining portion of the requested material
@@ -436,7 +428,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBufferSourceSkill for PreBuff
     }
 }
 
-impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
+impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -444,10 +436,7 @@ impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier fo
     ) -> SupplyResponse {
         // Below logic is built upon assumption that in/out frame rates equal and
         // therefore number of consumed frames == number of written frames.
-        debug_assert_eq!(
-            request.dest_sample_rate,
-            self.supplier.frame_rate().unwrap()
-        );
+        debug_assert!(request.dest_sample_rate.is_none());
         if !self.enabled {
             return self.supplier.supply_audio(request, dest_buffer);
         }
@@ -488,7 +477,6 @@ impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier fo
                             request.start_frame,
                             &response,
                         ),
-                        frame_rate: request.dest_sample_rate,
                     };
                     // self.pre_buffer_internal(fill_request);
                     // Second, let's drain all non-matching blocks. Not useful!
@@ -504,12 +492,6 @@ impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier fo
     }
 }
 
-impl<S: WithFrameRate> WithFrameRate for PreBuffer<S> {
-    fn frame_rate(&self) -> Option<Hz> {
-        self.supplier.frame_rate()
-    }
-}
-
 impl<S: MidiSupplier> MidiSupplier for PreBuffer<S> {
     fn supply_midi(
         &mut self,
@@ -521,14 +503,9 @@ impl<S: MidiSupplier> MidiSupplier for PreBuffer<S> {
     }
 }
 
-impl<S: ExactFrameCount> ExactFrameCount for PreBuffer<S> {
-    fn frame_count(&self) -> usize {
-        self.supplier.frame_count()
-    }
-}
-impl<S: ExactDuration> ExactDuration for PreBuffer<S> {
-    fn duration(&self) -> DurationInSeconds {
-        self.supplier.duration()
+impl<S: WithMaterialInfo> WithMaterialInfo for PreBuffer<S> {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        self.supplier.material_info()
     }
 }
 
@@ -612,7 +589,6 @@ impl PreBufferWorker {
             .ok_or("instance doesn't exist")?;
         let filling_state = FillingState {
             next_start_frame: args.start_frame,
-            required_frame_rate: args.frame_rate,
         };
         instance.state = InstanceState::Filling(filling_state);
         Ok(())
@@ -645,7 +621,7 @@ impl Instance {
         let mut buffer = get_spare_buffer(source_channel_count);
         let request = SupplyAudioRequest {
             start_frame: state.next_start_frame,
-            dest_sample_rate: state.required_frame_rate,
+            dest_sample_rate: None,
             info: SupplyRequestInfo {
                 audio_block_frame_offset: 0,
                 requester: "pre-buffer",
@@ -660,7 +636,6 @@ impl Instance {
             .supply_audio(&request, &mut buffer.to_buf_mut());
         let block = PreBufferedBlock {
             start_frame: state.next_start_frame,
-            frame_rate: state.required_frame_rate,
             buffer,
             response,
         };
@@ -695,7 +670,6 @@ enum InstanceState {
 
 struct FillingState {
     next_start_frame: isize,
-    required_frame_rate: Hz,
 }
 
 pub fn keep_processing_pre_buffer_requests(receiver: Receiver<PreBufferRequest>) {

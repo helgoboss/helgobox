@@ -1,6 +1,6 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus, WithFrameRate,
+    AudioSupplier, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
 };
 use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
@@ -77,7 +77,7 @@ impl<S> Resampler<S> {
     }
 }
 
-impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
+impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Resampler<S> {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -86,17 +86,14 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
         if !self.enabled {
             return self.supplier.supply_audio(request, dest_buffer);
         }
-        let source_frame_rate = match self.supplier.frame_rate() {
-            None => {
-                // Nothing to resample at the moment.
-                return self.supplier.supply_audio(request, dest_buffer);
-            }
-            Some(r) => r,
-        };
+        let source_frame_rate = self.supplier.material_info().unwrap().frame_rate();
+        let dest_frame_rate = request
+            .dest_sample_rate
+            .unwrap_or_else(|| source_frame_rate);
         let dest_frame_rate = if self.responsible_for_audio_time_stretching {
-            Hz::new(request.dest_sample_rate.get() / self.tempo_factor)
+            Hz::new(dest_frame_rate.get() / self.tempo_factor)
         } else {
-            request.dest_sample_rate
+            dest_frame_rate
         };
         if source_frame_rate == dest_frame_rate {
             return self.supplier.supply_audio(request, dest_buffer);
@@ -141,7 +138,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
             // Feed resampler buffer with source material.
             let inner_request = SupplyAudioRequest {
                 start_frame: request.start_frame + total_num_frames_consumed as isize,
-                dest_sample_rate: source_frame_rate,
+                dest_sample_rate: None,
                 info: SupplyRequestInfo {
                     audio_block_frame_offset: request.info.audio_block_frame_offset
                         + total_num_frames_written,
@@ -202,26 +199,8 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
     }
 }
 
-impl<S: PreBufferSourceSkill + WithFrameRate> PreBufferSourceSkill for Resampler<S> {
+impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Resampler<S> {
     fn pre_buffer(&mut self, request: PreBufferFillRequest) {
-        if !self.enabled {
-            self.supplier.pre_buffer(request);
-            return;
-        }
-        let source_frame_rate = match self.supplier.frame_rate() {
-            None => return self.supplier.pre_buffer(request),
-            Some(r) => r,
-        };
-        let inner_request = PreBufferFillRequest {
-            frame_rate: source_frame_rate,
-            ..request
-        };
-        self.supplier.pre_buffer(inner_request);
-    }
-}
-
-impl<S: WithFrameRate> WithFrameRate for Resampler<S> {
-    fn frame_rate(&self) -> Option<Hz> {
-        self.supplier.frame_rate()
+        self.supplier.pre_buffer(request);
     }
 }

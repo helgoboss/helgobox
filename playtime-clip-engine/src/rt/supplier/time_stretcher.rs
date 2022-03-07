@@ -1,10 +1,12 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus, WithFrameRate,
+    AudioSupplier, MaterialInfo, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus,
+    WithMaterialInfo,
 };
 use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
 };
+use crate::ClipEngineResult;
 use crossbeam_channel::Receiver;
 use playtime_api::VirtualTimeStretchMode;
 use reaper_high::Reaper;
@@ -74,7 +76,7 @@ impl<S> TimeStretcher<S> {
     }
 }
 
-impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
+impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for TimeStretcher<S> {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -83,14 +85,8 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
         if !self.enabled || !self.responsible_for_audio_time_stretching {
             return self.supplier.supply_audio(request, dest_buffer);
         }
-        let source_frame_rate = match self.supplier.frame_rate() {
-            None => {
-                // Nothing to stretch at the moment.
-                return self.supplier.supply_audio(request, dest_buffer);
-            }
-            Some(r) => r,
-        };
-        debug_assert_eq!(request.dest_sample_rate, source_frame_rate);
+        let source_frame_rate = self.supplier.material_info().unwrap().frame_rate();
+        debug_assert!(request.dest_sample_rate.is_none());
         let mut total_num_frames_consumed = 0usize;
         let mut total_num_frames_written = 0usize;
         // I think it makes sense to set both the output and the input sample rate to the sample
@@ -113,7 +109,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
             // necessary).
             let inner_request = SupplyAudioRequest {
                 start_frame: request.start_frame + total_num_frames_consumed as isize,
-                dest_sample_rate: source_frame_rate,
+                dest_sample_rate: None,
                 info: SupplyRequestInfo {
                     // Here we should not add total_num_frames_written because it doesn't grow
                     // proportionally to the number of consumed source frames. It yields 0 in the
@@ -215,9 +211,11 @@ impl<S: PreBufferSourceSkill> PreBufferSourceSkill for TimeStretcher<S> {
     }
 }
 
-impl<S: WithFrameRate> WithFrameRate for TimeStretcher<S> {
-    fn frame_rate(&self) -> Option<Hz> {
-        self.supplier.frame_rate()
+impl<S: WithMaterialInfo> WithMaterialInfo for TimeStretcher<S> {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        // TODO-medium It's not important at the moment but for the sake of completeness, some
+        //  timing-related properties of the material info should probably be changed here.
+        self.supplier.material_info()
     }
 }
 

@@ -2,7 +2,6 @@ use crate::conversion_util::adjust_proportionally_positive;
 use crate::rt::buffer::{AudioBuf, AudioBufMut};
 use crate::rt::supplier::log_util::print_distance_from_beat_start_at;
 use crate::rt::supplier::{SupplyAudioRequest, SupplyResponse, SupplyResponseStatus};
-use reaper_medium::Hz;
 use std::cmp;
 
 /// Helper function for suppliers that read from sources and don't want to deal with
@@ -10,12 +9,11 @@ use std::cmp;
 pub fn supply_audio_material(
     request: &SupplyAudioRequest,
     dest_buffer: &mut AudioBufMut,
-    source_sample_rate: Hz,
     supply_inner: impl FnOnce(SourceMaterialRequest) -> SupplyResponse,
 ) -> SupplyResponse {
     // We never let the PCM source or our buffers do the resampling itself. Our higher-level
     // suppliers take care of that (time stretcher or resampler).
-    debug_assert_eq!(request.dest_sample_rate, source_sample_rate);
+    debug_assert!(request.dest_sample_rate.is_none());
     let ideal_num_consumed_frames = dest_buffer.frame_count();
     let ideal_end_frame = request.start_frame + ideal_num_consumed_frames as isize;
     if ideal_end_frame <= 0 {
@@ -56,8 +54,6 @@ pub fn supply_audio_material(
             let req = SourceMaterialRequest {
                 start_frame: 0,
                 dest_buffer: &mut shifted_dest_buffer,
-                source_sample_rate,
-                dest_sample_rate: request.dest_sample_rate,
             };
             // rt_debug!(
             //     "Before source: start = {}, source sr = {}, dest sr = {}",
@@ -85,8 +81,6 @@ pub fn supply_audio_material(
             let req = SourceMaterialRequest {
                 start_frame: request.start_frame as usize,
                 dest_buffer,
-                source_sample_rate,
-                dest_sample_rate: request.dest_sample_rate,
             };
             // rt_debug!(
             //     "In source: start = {}, source sr = {}, dest sr = {}",
@@ -100,8 +94,6 @@ pub fn supply_audio_material(
 pub struct SourceMaterialRequest<'a, 'b> {
     pub start_frame: usize,
     pub dest_buffer: &'a mut AudioBufMut<'b>,
-    pub source_sample_rate: Hz,
-    pub dest_sample_rate: Hz,
 }
 
 pub fn transfer_samples_from_buffer(buf: AudioBuf, req: SourceMaterialRequest) -> SupplyResponse {

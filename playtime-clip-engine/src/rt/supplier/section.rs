@@ -1,18 +1,17 @@
-use crate::conversion_util::{
-    convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
-};
+use crate::conversion_util::convert_duration_in_seconds_to_frames;
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::fade_util::{
     apply_fade_in_starting_at_zero, apply_fade_out_ending_at, SECTION_FADE_LENGTH,
 };
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
-    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo,
-    SupplyResponse, SupplyResponseStatus, WithFrameRate,
+    midi_util, AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
+    PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
 };
-use playtime_api::MidiResetMessageRange;
-use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz};
+use crate::ClipEngineResult;
+use playtime_api::{MidiResetMessageRange, PositiveSecond};
+use reaper_medium::{BorrowedMidiEventList, DurationInSeconds};
 
 #[derive(Debug)]
 pub struct Section<S> {
@@ -33,7 +32,7 @@ impl Boundary {
     }
 }
 
-impl<S: WithFrameRate + ExactFrameCount> Section<S> {
+impl<S> Section<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             supplier,
@@ -71,34 +70,39 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
         &mut self.supplier
     }
 
+    pub fn set_bounds_in_seconds(
+        &mut self,
+        start: PositiveSecond,
+        length: Option<PositiveSecond>,
+    ) -> ClipEngineResult<()>
+    where
+        S: WithMaterialInfo,
+    {
+        let source_frame_rate = self.supplier.material_info()?.frame_rate();
+        let start_frame = convert_duration_in_seconds_to_frames(
+            DurationInSeconds::new(start.get()),
+            source_frame_rate,
+        );
+        let frame_count = length.map(|l| {
+            convert_duration_in_seconds_to_frames(
+                DurationInSeconds::new(l.get()),
+                source_frame_rate,
+            )
+        });
+        self.set_bounds(start_frame, frame_count);
+        Ok(())
+    }
+
     fn get_instruction(
         &mut self,
         request: &impl SupplyRequest,
         dest_frame_count: usize,
-        dest_frame_rate: Hz,
-        is_midi: bool,
     ) -> Instruction {
         if self.boundary.is_default() {
             return Instruction::Bypass;
         }
         // Section is set (start and/or length).
-        let source_frame_rate = self
-            .supplier
-            .frame_rate()
-            .expect("supplier doesn't have frame rate yet");
-        if !is_midi {
-            debug_assert_eq!(source_frame_rate, dest_frame_rate);
-        }
-        let ideal_num_frames_to_be_consumed = if is_midi {
-            convert_duration_in_frames_to_other_frame_rate(
-                dest_frame_count,
-                dest_frame_rate,
-                source_frame_rate,
-            )
-        } else {
-            // For audio, the source and destination frame rates are always equal in our chain setup.
-            dest_frame_count
-        };
+        let ideal_num_frames_to_be_consumed = dest_frame_count;
         let ideal_end_frame_in_section =
             request.start_frame() + ideal_num_frames_to_be_consumed as isize;
         if ideal_end_frame_in_section <= 0 {
@@ -138,16 +142,7 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
                     };
                 let bounded_num_frames_to_be_consumed =
                     (effective_end_frame_in_source - start_frame_in_source) as usize;
-                let bounded_num_frames_to_be_written = if is_midi {
-                    convert_duration_in_frames_to_other_frame_rate(
-                        bounded_num_frames_to_be_consumed,
-                        source_frame_rate,
-                        dest_frame_rate,
-                    )
-                } else {
-                    // For audio, the source and destination frame rate are always equal in our chain setup.
-                    bounded_num_frames_to_be_consumed
-                };
+                let bounded_num_frames_to_be_written = bounded_num_frames_to_be_consumed;
                 let phase_two = PhaseTwo::Bounded {
                     reached_bound,
                     bounded_num_frames_to_be_consumed,
@@ -214,20 +209,23 @@ impl<S: WithFrameRate + ExactFrameCount> Section<S> {
             }
         }
     }
+
+    fn calculate_new_frame_count(&self, supplier_frame_count: usize) -> usize {
+        if let Some(length) = self.boundary.length {
+            length
+        } else {
+            supplier_frame_count.saturating_sub(self.boundary.start_frame)
+        }
+    }
 }
 
-impl<S: AudioSupplier + WithFrameRate + ExactFrameCount> AudioSupplier for Section<S> {
+impl<S: AudioSupplier> AudioSupplier for Section<S> {
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        let data = match self.get_instruction(
-            request,
-            dest_buffer.frame_count(),
-            request.dest_sample_rate,
-            false,
-        ) {
+        let data = match self.get_instruction(request, dest_buffer.frame_count()) {
             Instruction::Bypass => {
                 return self.supplier.supply_audio(request, dest_buffer);
             }
@@ -265,18 +263,13 @@ impl<S: AudioSupplier + WithFrameRate + ExactFrameCount> AudioSupplier for Secti
     }
 }
 
-impl<S: MidiSupplier + WithFrameRate + ExactFrameCount> MidiSupplier for Section<S> {
+impl<S: MidiSupplier> MidiSupplier for Section<S> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        let data = match self.get_instruction(
-            request,
-            request.dest_frame_count,
-            request.dest_sample_rate,
-            true,
-        ) {
+        let data = match self.get_instruction(request, request.dest_frame_count) {
             Instruction::Bypass => {
                 return self.supplier.supply_midi(request, event_list);
             }
@@ -332,38 +325,57 @@ impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Section<S> {
     }
 }
 
-impl<S: WithFrameRate> WithFrameRate for Section<S> {
-    fn frame_rate(&self) -> Option<Hz> {
-        self.supplier.frame_rate()
-    }
-}
-
-impl<S: ExactFrameCount> ExactFrameCount for Section<S> {
-    fn frame_count(&self) -> usize {
+impl<S: WithMaterialInfo> WithMaterialInfo for Section<S> {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        let inner_material_info = self.supplier.material_info()?;
         if self.boundary.is_default() {
-            return self.supplier.frame_count();
+            return Ok(inner_material_info);
         }
-        if let Some(length) = self.boundary.length {
-            length
-        } else {
-            let source_frame_count = self.supplier.frame_count();
-            source_frame_count.saturating_sub(self.boundary.start_frame)
-        }
+        let material_info = match inner_material_info {
+            MaterialInfo::Audio(i) => {
+                let i = AudioMaterialInfo {
+                    length: self.calculate_new_frame_count(i.length),
+                    ..i
+                };
+                MaterialInfo::Audio(i)
+            }
+            MaterialInfo::Midi(i) => {
+                let i = MidiMaterialInfo {
+                    length: self.calculate_new_frame_count(i.length),
+                };
+                MaterialInfo::Midi(i)
+            }
+        };
+        Ok(material_info)
     }
 }
 
-impl<S: ExactDuration + WithFrameRate + ExactFrameCount> ExactDuration for Section<S> {
-    fn duration(&self) -> DurationInSeconds {
-        if self.boundary == Default::default() {
-            return self.supplier.duration();
-        };
-        let frame_rate = match self.frame_rate() {
-            None => return DurationInSeconds::MIN,
-            Some(r) => r,
-        };
-        convert_duration_in_frames_to_seconds(self.frame_count(), frame_rate)
-    }
-}
+// impl<S: ExactFrameCount> ExactFrameCount for Section<S> {
+//     fn frame_count(&self) -> usize {
+//         if self.boundary.is_default() {
+//             return self.supplier.frame_count();
+//         }
+//         if let Some(length) = self.boundary.length {
+//             length
+//         } else {
+//             let source_frame_count = self.supplier.frame_count();
+//             source_frame_count.saturating_sub(self.boundary.start_frame)
+//         }
+//     }
+// }
+
+// impl<S: ExactDuration + WithFrameRate + ExactFrameCount> ExactDuration for Section<S> {
+//     fn duration(&self) -> DurationInSeconds {
+//         if self.boundary == Default::default() {
+//             return self.supplier.duration();
+//         };
+//         let frame_rate = match self.frame_rate() {
+//             None => return DurationInSeconds::MIN,
+//             Some(r) => r,
+//         };
+//         convert_duration_in_frames_to_seconds(self.frame_count(), frame_rate)
+//     }
+// }
 
 enum Instruction {
     Bypass,

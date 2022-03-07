@@ -1,10 +1,13 @@
+use crate::conversion_util::convert_duration_in_seconds_to_frames;
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, PreBufferFillRequest,
-    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo,
-    SupplyResponse, WithFrameRate,
+    AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo, SupplyResponse,
+    WithMaterialInfo,
 };
-use reaper_medium::{BorrowedMidiEventList, DurationInSeconds, Hz};
+use crate::ClipEngineResult;
+use playtime_api::PositiveBeat;
+use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds};
 
 #[derive(Debug)]
 pub struct Downbeat<S> {
@@ -37,6 +40,21 @@ impl<S> Downbeat<S> {
 
     pub fn downbeat_frame(&self) -> usize {
         self.downbeat_frame
+    }
+
+    pub fn set_downbeat_in_beats(&mut self, beat: PositiveBeat, tempo: Bpm) -> ClipEngineResult<()>
+    where
+        S: WithMaterialInfo,
+    {
+        let source_frame_frate = self.supplier.material_info()?.frame_rate();
+        let bps = tempo.get() / 60.0;
+        let second = beat.get() / bps;
+        let frame = convert_duration_in_seconds_to_frames(
+            DurationInSeconds::new(second),
+            source_frame_frate,
+        );
+        self.set_downbeat_frame(frame);
+        Ok(())
     }
 
     pub fn set_downbeat_frame(&mut self, frame: usize) {
@@ -124,21 +142,9 @@ impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Downbeat<S> {
     }
 }
 
-impl<S: WithFrameRate> WithFrameRate for Downbeat<S> {
-    fn frame_rate(&self) -> Option<Hz> {
-        self.supplier.frame_rate()
-    }
-}
-
-impl<S: ExactFrameCount> ExactFrameCount for Downbeat<S> {
-    fn frame_count(&self) -> usize {
-        self.supplier.frame_count()
-    }
-}
-
-impl<S: ExactDuration> ExactDuration for Downbeat<S> {
-    fn duration(&self) -> DurationInSeconds {
-        self.supplier.duration()
+impl<S: WithMaterialInfo> WithMaterialInfo for Downbeat<S> {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        self.supplier.material_info()
     }
 }
 

@@ -1,13 +1,13 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
     AudioSupplier, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse, WithFrameRate,
+    SupplyMidiRequest, SupplyResponse,
 };
 use helgoboss_midi::{
     RawShortMessage, ShortMessage, ShortMessageFactory, StructuredShortMessage, U7,
 };
 use reaper_high::Reaper;
-use reaper_medium::{BorrowedMidiEventList, Db, Hz, VolumeSliderValue};
+use reaper_medium::{BorrowedMidiEventList, Db, VolumeSliderValue};
 use std::cmp;
 
 #[derive(Debug)]
@@ -58,12 +58,6 @@ impl<S: AudioSupplier> AudioSupplier for Amplifier<S> {
 
     fn channel_count(&self) -> usize {
         self.supplier.channel_count()
-    }
-}
-
-impl<S: WithFrameRate> WithFrameRate for Amplifier<S> {
-    fn frame_rate(&self) -> Option<Hz> {
-        self.supplier.frame_rate()
     }
 }
 

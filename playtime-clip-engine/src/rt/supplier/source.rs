@@ -7,9 +7,10 @@ use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, SourceMaterialRequest};
 use crate::rt::supplier::log_util::print_distance_from_beat_start_at;
 use crate::rt::supplier::{
-    AudioSupplier, ExactDuration, ExactFrameCount, MidiSupplier, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse, WithFrameRate, WithSource, WithTempo,
+    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource, WithTempo,
 };
+use crate::ClipEngineResult;
 use reaper_medium::{
     BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
     PcmSourceTransfer, PositionInSeconds,
@@ -21,9 +22,7 @@ impl AudioSupplier for OwnedPcmSource {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        supply_audio_material(request, dest_buffer, get_source_frame_rate(self), |input| {
-            transfer_audio(self, input)
-        })
+        supply_audio_material(request, dest_buffer, |input| transfer_audio(self, input))
     }
 
     fn channel_count(&self) -> usize {
@@ -32,44 +31,49 @@ impl AudioSupplier for OwnedPcmSource {
     }
 }
 
-impl WithFrameRate for OwnedPcmSource {
-    fn frame_rate(&self) -> Option<Hz> {
-        Some(get_source_frame_rate(self))
-    }
-}
-
-impl ExactDuration for OwnedPcmSource {
-    fn duration(&self) -> DurationInSeconds {
-        if pcm_source_is_midi(self) {
-            // For MIDI, get_length() takes the current project tempo in account ... which is not
-            // what we want because we want to do all the tempo calculations ourselves and treat
-            // MIDI/audio the same wherever possible.
-            let beats = self
-                .get_length_beats()
-                .expect("MIDI source must have length in beats");
-            let beats_per_minute = MIDI_BASE_BPM;
-            let beats_per_second = beats_per_minute / 60.0;
-            DurationInSeconds::new(beats.get() / beats_per_second)
+impl WithMaterialInfo for OwnedPcmSource {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        let info = if pcm_source_is_midi(self) {
+            let info = MidiMaterialInfo {
+                length: calculate_midi_frame_count(self),
+            };
+            MaterialInfo::Midi(info)
         } else {
-            self.get_length().unwrap_or(DurationInSeconds::ZERO)
-        }
+            let sample_rate = self
+                .get_sample_rate()
+                .expect("audio source should expose frame rate");
+            let info = AudioMaterialInfo {
+                channel_count: self
+                    .get_num_channels()
+                    .expect("audio source should report channel count")
+                    as usize,
+                length: calculate_audio_frame_count(self, sample_rate),
+                sample_rate,
+            };
+            MaterialInfo::Audio(info)
+        };
+        Ok(info)
     }
 }
 
-impl ExactFrameCount for OwnedPcmSource {
-    fn frame_count(&self) -> usize {
-        convert_duration_in_seconds_to_frames(self.duration(), get_source_frame_rate(self))
-    }
+fn calculate_audio_frame_count(source: &OwnedPcmSource, sample_rate: Hz) -> usize {
+    let length_in_seconds = source.get_length().unwrap_or(DurationInSeconds::ZERO);
+    convert_duration_in_seconds_to_frames(length_in_seconds, sample_rate)
 }
 
-pub fn get_source_frame_rate(source: &BorrowedPcmSource) -> Hz {
-    if pcm_source_is_midi(source) {
-        Hz::new(MIDI_FRAME_RATE)
-    } else {
-        source
-            .get_sample_rate()
-            .expect("audio source should expose frame rate")
-    }
+fn calculate_midi_frame_count(source: &OwnedPcmSource) -> usize {
+    let length_in_beats = source
+        .get_length_beats()
+        .expect("MIDI source must have length in beats");
+    let length_in_seconds = {
+        // For MIDI, get_length() takes the current project tempo in account ... which is not
+        // what we want because we want to do all the tempo calculations ourselves and treat
+        // MIDI/audio the same wherever possible.
+        let beats_per_minute = MIDI_BASE_BPM;
+        let beats_per_second = beats_per_minute / 60.0;
+        DurationInSeconds::new(length_in_beats.get() / beats_per_second)
+    };
+    convert_duration_in_seconds_to_frames(length_in_seconds, Hz::new(MIDI_FRAME_RATE))
 }
 
 impl MidiSupplier for OwnedPcmSource {
@@ -131,7 +135,7 @@ impl MidiSupplier for OwnedPcmSource {
             num_midi_frames_consumed,
             num_dest_frames_written,
             request.start_frame,
-            self.frame_count(),
+            calculate_midi_frame_count(self),
         )
     }
 }
@@ -157,12 +161,13 @@ impl WithSource for OwnedPcmSource {
 }
 
 fn transfer_audio(source: &OwnedPcmSource, req: SourceMaterialRequest) -> SupplyResponse {
-    let time_s = convert_duration_in_frames_to_seconds(req.start_frame, req.source_sample_rate);
+    let source_sample_rate = source.get_sample_rate().unwrap();
+    let time_s = convert_duration_in_frames_to_seconds(req.start_frame, source_sample_rate);
     let num_frames_written = unsafe {
         let mut transfer = PcmSourceTransfer::default();
         // Both channel count and sample rate should be the one from the source itself!
         transfer.set_nch(source.channel_count() as _);
-        transfer.set_sample_rate(req.dest_sample_rate);
+        transfer.set_sample_rate(source_sample_rate);
         // The rest depends on the given parameters
         transfer.set_length(req.dest_buffer.frame_count() as _);
         transfer.set_samples(req.dest_buffer.data_as_mut_ptr());
@@ -176,7 +181,7 @@ fn transfer_audio(source: &OwnedPcmSource, req: SourceMaterialRequest) -> Supply
         num_frames_written,
         num_frames_written,
         req.start_frame as isize,
-        source.frame_count(),
+        calculate_audio_frame_count(source, source_sample_rate),
     )
 }
 

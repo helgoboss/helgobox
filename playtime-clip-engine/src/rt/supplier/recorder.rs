@@ -7,9 +7,9 @@ use crate::rt::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
-    AudioSupplier, Cache, CacheRequest, CacheResponseChannel, ExactDuration, ExactFrameCount,
+    AudioMaterialInfo, AudioSupplier, Cache, CacheRequest, CacheResponseChannel, MaterialInfo,
     MidiSupplier, PreBuffer, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithFrameRate, WithSource,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource,
     MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::{ClipRecordInput, RecordTiming};
@@ -459,6 +459,13 @@ impl Recorder {
         }
     }
 
+    pub fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        match self.state.as_ref().unwrap() {
+            State::Ready(s) => s.cache.source().material_info(),
+            State::Recording(s) => todo!(),
+        }
+    }
+
     /// This must not be done in a real-time thread!
     pub fn prepare_recording(
         &mut self,
@@ -757,7 +764,7 @@ impl AudioSupplier for Recorder {
                         // We know that the frame rates should be equal because this is audio and we
                         // do resampling in upper layers.
                         debug!("Using temporary buffer");
-                        supply_audio_material(request, dest_buffer, s.frame_rate, |input| {
+                        supply_audio_material(request, dest_buffer, |input| {
                             transfer_samples_from_buffer(s.temporary_audio_buffer.to_buf(), input)
                         });
                         // Under the assumption that the frame rates are equal (which we asserted),
@@ -819,57 +826,29 @@ impl PreBufferSourceSkill for Recorder {
     }
 }
 
-impl ExactFrameCount for Recorder {
-    fn frame_count(&self) -> usize {
+impl WithMaterialInfo for Recorder {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         let cache = match self.state.as_ref().unwrap() {
             State::Ready(s) => &s.cache,
             State::Recording(s) => match &s.kind_state {
                 KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
-                    return convert_duration_in_seconds_to_frames(s.source_duration, s.frame_rate);
+                    let info = AudioMaterialInfo {
+                        channel_count: s.temporary_audio_buffer.to_buf().channel_count(),
+                        length: convert_duration_in_seconds_to_frames(
+                            s.source_duration,
+                            s.frame_rate,
+                        ),
+                        sample_rate: s.frame_rate,
+                    };
+                    return Ok(MaterialInfo::Audio(info));
                 }
                 _ => s
                     .old_cache
                     .as_ref()
-                    .expect("attempt to query frame count without source"),
+                    .ok_or("attempt to query material info without source")?,
             },
         };
-        cache.frame_count()
-    }
-}
-
-impl ExactDuration for Recorder {
-    fn duration(&self) -> DurationInSeconds {
-        let cache = match self.state.as_ref().unwrap() {
-            State::Ready(s) => &s.cache,
-            State::Recording(s) => match &s.kind_state {
-                KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
-                    return s.source_duration
-                }
-                _ => s
-                    .old_cache
-                    .as_ref()
-                    .expect("attempt to query duration without source"),
-            },
-        };
-        cache.duration()
-    }
-}
-
-impl WithFrameRate for Recorder {
-    fn frame_rate(&self) -> Option<Hz> {
-        let cache = match self.state.as_ref().unwrap() {
-            State::Ready(s) => &s.cache,
-            State::Recording(s) => match &s.kind_state {
-                KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
-                    return Some(s.frame_rate)
-                }
-                _ => s
-                    .old_cache
-                    .as_ref()
-                    .expect("attempt to query frame rate without source"),
-            },
-        };
-        cache.frame_rate()
+        cache.material_info()
     }
 }
 

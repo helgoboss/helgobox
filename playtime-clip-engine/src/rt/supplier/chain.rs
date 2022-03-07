@@ -1,9 +1,9 @@
 use crate::conversion_util::convert_duration_in_seconds_to_frames;
 use crate::rt::supplier::{
-    Amplifier, AudioSupplier, Downbeat, ExactDuration, ExactFrameCount, InteractionHandler,
-    LoopBehavior, Looper, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, Recorder,
-    Resampler, Section, StartEndHandler, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
-    TimeStretcher, WithFrameRate,
+    Amplifier, AudioSupplier, Downbeat, InteractionHandler, LoopBehavior, Looper, MaterialInfo,
+    MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, Recorder, Resampler, Section,
+    StartEndHandler, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
+    WithMaterialInfo,
 };
 use crate::rt::AudioBufMut;
 use crate::{ClipEngineResult, Timeline};
@@ -97,27 +97,12 @@ impl SupplierChain {
             .set_volume(reaper_medium::Db::new(volume.get()));
     }
 
-    pub fn set_section_in_seconds(
+    pub fn set_section_bounds_in_seconds(
         &mut self,
         start: PositiveSecond,
         length: Option<PositiveSecond>,
     ) -> ClipEngineResult<()> {
-        let source_frame_frate = self
-            .section()
-            .frame_rate()
-            .ok_or("can't calculate section frame at the moment because no source available")?;
-        let start_frame = convert_duration_in_seconds_to_frames(
-            DurationInSeconds::new(start.get()),
-            source_frame_frate,
-        );
-        let frame_count = length.map(|l| {
-            convert_duration_in_seconds_to_frames(
-                DurationInSeconds::new(l.get()),
-                source_frame_frate,
-            )
-        });
-        self.section_mut().set_bounds(start_frame, frame_count);
-        Ok(())
+        self.section_mut().set_bounds_in_seconds(start, length)
     }
 
     pub fn set_downbeat_in_beats(
@@ -125,18 +110,7 @@ impl SupplierChain {
         beat: PositiveBeat,
         tempo: Bpm,
     ) -> ClipEngineResult<()> {
-        let source_frame_frate = self
-            .downbeat()
-            .frame_rate()
-            .ok_or("can't calculate downbeat frame at the moment because no source available")?;
-        let bps = tempo.get() / 60.0;
-        let second = beat.get() / bps;
-        let frame = convert_duration_in_seconds_to_frames(
-            DurationInSeconds::new(second),
-            source_frame_frate,
-        );
-        self.downbeat_mut().set_downbeat_frame(frame);
-        Ok(())
+        self.downbeat_mut().set_downbeat_in_beats(beat, tempo)
     }
 
     pub fn set_downbeat_in_frames(&mut self, frame: usize) {
@@ -244,17 +218,18 @@ impl SupplierChain {
     }
 
     pub fn source_frame_rate_in_ready_state(&self) -> Hz {
-        self.recorder()
-            .frame_rate()
-            .expect("recorder couldn't provide frame rate even though clip is in ready state")
+        // TODO-high CONTINUE Instead of exposing the frame rate, return directly what's needed.
+        self.recorder().material_info().unwrap().frame_rate()
     }
 
     pub fn section_frame_count_in_ready_state(&self) -> usize {
-        self.section().frame_count()
+        // TODO-high CONTINUE Instead of exposing the frame count, return directly what's needed.
+        self.section().material_info().unwrap().frame_count()
     }
 
     pub fn section_duration_in_ready_state(&self) -> DurationInSeconds {
-        self.section().duration()
+        // TODO-high CONTINUE Instead of exposing the frame count, return directly what's needed.
+        self.section().material_info().unwrap().duration()
     }
 
     fn amplifier(&self) -> &AmplifierTail {

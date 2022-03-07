@@ -226,7 +226,7 @@ impl Clip {
             SupplierChain::new(Recorder::ready(pcm_source, recorder_equipment));
         supplier_chain.set_volume(api_clip.volume);
         supplier_chain
-            .set_section_in_seconds(api_clip.section.start_pos, api_clip.section.length)?;
+            .set_section_bounds_in_seconds(api_clip.section.start_pos, api_clip.section.length)?;
         supplier_chain.set_midi_reset_msg_range_for_interaction(
             api_clip.midi_settings.interaction_reset_settings,
         );
@@ -1041,7 +1041,7 @@ impl ReadyState {
     ) -> SupplyResponse {
         let request = SupplyAudioRequest {
             start_frame,
-            dest_sample_rate,
+            dest_sample_rate: Some(dest_sample_rate),
             info: SupplyRequestInfo {
                 audio_block_frame_offset: 0,
                 requester: "root-audio",
@@ -1251,9 +1251,6 @@ impl ReadyState {
         }
         let req = PreBufferFillRequest {
             start_frame: next_expected_pos,
-            // TODO-high-prebuffer These shouldn't be fixed values. If pre-buffering turns out to work nicely,
-            //  we must somehow
-            frame_rate: Hz::new(48000.0),
         };
         supplier_chain.pre_buffer(req);
     }
