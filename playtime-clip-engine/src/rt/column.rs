@@ -34,6 +34,7 @@ pub struct Column {
     event_sender: Sender<ColumnEvent>,
     /// Enough reserved memory to hold one audio block of an arbitrary size.
     mix_buffer_chunk: Vec<f64>,
+    timeline_was_paused_in_last_block: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -215,6 +216,7 @@ impl Column {
             // Sized to hold pretty any audio block imaginable. Vastly oversized for the majority
             // of use cases but 1 MB memory per column ... okay for now, on the safe side.
             mix_buffer_chunk: OwnedAudioBuffer::new(MAX_CHANNEL_COUNT, MAX_BLOCK_SIZE).into_inner(),
+            timeline_was_paused_in_last_block: false,
         }
     }
 
@@ -447,12 +449,18 @@ impl Column {
             }
             // Get main timeline info
             let timeline = clip_timeline(self.project, false);
+            // Handle sync to project pause
             if !timeline.is_running() {
-                // Main timeline is paused. Don't play, we don't want to play the same buffer
-                // repeatedly!
-                // TODO-high Pausing main transport and continuing has timing issues.
+                // Main timeline is paused.
+                self.timeline_was_paused_in_last_block = true;
                 return;
             }
+            let resync = if self.timeline_was_paused_in_last_block {
+                self.timeline_was_paused_in_last_block = false;
+                true
+            } else {
+                false
+            };
             // Get samples
             let timeline_cursor_pos = timeline.cursor_pos();
             let timeline_tempo = timeline.tempo_at(timeline_cursor_pos);
@@ -484,6 +492,7 @@ impl Column {
                     timeline: &timeline,
                     timeline_cursor_pos,
                     timeline_tempo,
+                    resync,
                 };
                 if let Ok(outcome) = slot.process(&mut inner_args) {
                     if outcome.num_audio_frames_written > 0 {

@@ -783,17 +783,22 @@ impl ReadyState {
         let go = if let Some(pos) = s.pos {
             // Already counting in or playing.
             if let Some(seek_pos) = s.seek_pos {
+                // Seek requested
                 self.calculate_seek_go(supplier_chain, pos, seek_pos)
+            } else if args.resync {
+                // Resync requested
+                debug!("RESYNC!!!");
+                self.go(s, args, supplier_chain, &general_info)
             } else {
-                // No seek requested
-                let compare = self.resolve_virtual_pos(
+                // Normal situation: Continue playing
+                let compare_pos = self.resolve_virtual_pos(
                     s.virtual_pos,
                     args,
                     general_info.clip_tempo_factor,
                     supplier_chain,
                 );
-                if compare != pos {
-                    debug!("ATTENTION: compare {} != pos {}", compare, pos);
+                if compare_pos != pos {
+                    debug!("ATTENTION: compare pos {} != pos {}", compare_pos, pos);
                 }
                 Go {
                     pos,
@@ -802,20 +807,7 @@ impl ReadyState {
             }
         } else {
             // Not counting in or playing yet.
-            let pos = self.resolve_virtual_pos(
-                s.virtual_pos,
-                args,
-                general_info.clip_tempo_factor,
-                supplier_chain,
-            );
-            if supplier_chain.is_playing_already(pos) {
-                debug!("Install immediate start interaction because material playing already");
-                supplier_chain.install_immediate_start_interaction(pos);
-            }
-            Go {
-                pos,
-                ..Go::default()
-            }
+            self.go(s, args, supplier_chain, &general_info)
         };
         // Resolve potential quantized stop position if not yet done.
         if let Some(StopRequest::Quantized(quantized_pos)) = s.stop_request {
@@ -901,6 +893,29 @@ impl ReadyState {
             ReadySubState::Stopped
         };
         outcome.clip_playing_outcome
+    }
+
+    fn go(
+        &mut self,
+        playing_state: PlayingState,
+        args: &ClipProcessArgs,
+        supplier_chain: &mut SupplierChain,
+        general_info: &SupplyRequestGeneralInfo,
+    ) -> Go {
+        let pos = self.resolve_virtual_pos(
+            playing_state.virtual_pos,
+            args,
+            general_info.clip_tempo_factor,
+            supplier_chain,
+        );
+        if supplier_chain.is_playing_already(pos) {
+            debug!("Install immediate start interaction because material playing already");
+            supplier_chain.install_immediate_start_interaction(pos);
+        }
+        Go {
+            pos,
+            ..Go::default()
+        }
     }
 
     fn calculate_seek_go(
@@ -1774,6 +1789,8 @@ pub struct ClipProcessArgs<'a, 'b> {
     pub timeline: &'a HybridTimeline,
     pub timeline_cursor_pos: PositionInSeconds,
     pub timeline_tempo: Bpm,
+    /// Tells the clip to re-calculate its ideal play position (set when doing resume-from-pause).
+    pub resync: bool,
 }
 
 struct LogNaturalDeviationArgs<T: Timeline> {
