@@ -32,9 +32,9 @@ use reaper_high::{
 };
 use reaper_medium::{BookmarkId, MasterTrackBehavior};
 use serde::{Deserialize, Serialize};
-use smallvec::alloc::fmt::Formatter;
 use std::error::Error;
 use std::fmt;
+use std::fmt::Formatter;
 use wildmatch::WildMatch;
 
 /// Maximum number of "allow multiple" resolves (e.g. affected <Selected> tracks).
@@ -372,7 +372,7 @@ impl TrackRouteSelector {
 }
 
 impl fmt::Display for VirtualTrackRoute {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use TrackRouteSelector::*;
         match &self.selector {
             Dynamic(_) => f.write_str("<Dynamic>"),

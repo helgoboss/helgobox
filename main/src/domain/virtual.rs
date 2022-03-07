@@ -4,9 +4,8 @@ use ascii::{AsciiString, ToAsciiChar};
 use helgoboss_learn::{
     AbsoluteValue, ControlType, ControlValue, FeedbackValue, SourceCharacter, Target, UnitValue,
 };
-use smallvec::alloc::fmt::Formatter;
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
@@ -210,7 +209,7 @@ impl Default for VirtualControlElementId {
 }
 
 impl Display for VirtualControlElement {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use VirtualControlElement::*;
         match self {
             Multi(id) => write!(f, "Multi {}", id),
