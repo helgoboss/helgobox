@@ -370,13 +370,6 @@ impl Column {
         }
     }
 
-    fn get_num_channels(&self) -> Option<u32> {
-        // TODO-high We should return the maximum channel count over all clips.
-        //  In get_samples(), we should convert interleaved buffer accordingly.
-        //  Probably a good idea to cache the max channel count.
-        Some(2)
-    }
-
     fn duration(&self) -> DurationInSeconds {
         DurationInSeconds::MAX
     }
@@ -555,7 +548,7 @@ impl CustomPcmSource for SharedColumn {
     }
 
     fn get_num_channels(&mut self) -> Option<u32> {
-        self.lock().get_num_channels()
+        unimplemented!()
     }
 
     fn get_sample_rate(&mut self) -> Option<Hz> {
