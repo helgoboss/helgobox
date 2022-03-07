@@ -229,6 +229,10 @@ impl Slot {
         }
     }
 
+    pub fn clip_channel_count(&self) -> ClipEngineResult<usize> {
+        Ok(self.get_clip()?.channel_count())
+    }
+
     pub fn process(
         &mut self,
         args: &mut ClipProcessArgs,

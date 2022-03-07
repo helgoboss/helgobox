@@ -160,9 +160,11 @@ fn transfer_audio(source: &OwnedPcmSource, req: SourceMaterialRequest) -> Supply
     let time_s = convert_duration_in_frames_to_seconds(req.start_frame, req.source_sample_rate);
     let num_frames_written = unsafe {
         let mut transfer = PcmSourceTransfer::default();
-        transfer.set_nch(req.dest_buffer.channel_count() as _);
-        transfer.set_length(req.dest_buffer.frame_count() as _);
+        // Both channel count and sample rate should be the one from the source itself!
+        transfer.set_nch(source.channel_count() as _);
         transfer.set_sample_rate(req.dest_sample_rate);
+        // The rest depends on the given parameters
+        transfer.set_length(req.dest_buffer.frame_count() as _);
         transfer.set_samples(req.dest_buffer.data_as_mut_ptr());
         transfer.set_time_s(time_s.into());
         source.get_samples(&transfer);

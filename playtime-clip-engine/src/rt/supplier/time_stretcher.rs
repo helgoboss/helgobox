@@ -99,15 +99,16 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for TimeStretcher<S> {
         // TODO-medium Setting this right at the beginning should be enough.
         let api = self.api.as_mut().as_mut();
         api.set_srate(source_frame_rate.get());
-        let dest_nch = dest_buffer.channel_count();
-        api.set_nch(dest_nch as _);
+        let source_channel_count = self.supplier.channel_count();
+        api.set_nch(source_channel_count as _);
         api.set_tempo(self.tempo_factor);
         let reached_end = loop {
             // Get time stretcher buffer.
             let buffer_frame_count = 128usize;
             let stretch_buffer = api.GetBuffer(buffer_frame_count as _);
-            let mut stretch_buffer =
-                unsafe { AudioBufMut::from_raw(stretch_buffer, dest_nch, buffer_frame_count) };
+            let mut stretch_buffer = unsafe {
+                AudioBufMut::from_raw(stretch_buffer, source_channel_count, buffer_frame_count)
+            };
             // Fill buffer with a minimum amount of source data (so that we never consume more than
             // necessary).
             let inner_request = SupplyAudioRequest {

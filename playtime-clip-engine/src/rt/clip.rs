@@ -451,6 +451,10 @@ impl Clip {
         self.supplier_chain.is_midi()
     }
 
+    pub fn channel_count(&self) -> usize {
+        self.supplier_chain.channel_count()
+    }
+
     pub fn play_state(&self) -> ClipPlayState {
         use ClipState::*;
         match &self.state {
@@ -1250,7 +1254,6 @@ impl ReadyState {
             // TODO-high-prebuffer These shouldn't be fixed values. If pre-buffering turns out to work nicely,
             //  we must somehow
             frame_rate: Hz::new(48000.0),
-            channel_count: 2,
         };
         supplier_chain.pre_buffer(req);
     }
@@ -1783,6 +1786,8 @@ pub enum ClipStopBehavior {
 }
 
 pub struct ClipProcessArgs<'a, 'b> {
+    /// The destination buffer dictates the desired output frame count but it doesn't dictate the
+    /// channel count! Its channel count should always match the channel count of the clip itself.
     pub dest_buffer: &'a mut AudioBufMut<'b>,
     pub dest_sample_rate: Hz,
     pub midi_event_list: &'a mut BorrowedMidiEventList,

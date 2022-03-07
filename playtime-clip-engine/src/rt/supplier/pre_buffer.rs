@@ -53,7 +53,6 @@ pub struct PreBufferedBlock {
 
 struct MatchCriteria {
     start_frame: isize,
-    channel_count: usize,
     frame_rate: Hz,
     /// This is just a wish. We are also satisfied if the block offers less frames.
     desired_frame_count: usize,
@@ -75,9 +74,6 @@ impl PreBufferedBlock {
     /// It returns the range of this block which can be used to fill the
     fn matches(&self, criteria: &MatchCriteria) -> Result<Range<usize>, MatchError> {
         let self_buffer = self.buffer.to_buf();
-        if self_buffer.channel_count() != criteria.channel_count {
-            return Err(MatchError::WrongChannelCount);
-        }
         if self.frame_rate != criteria.frame_rate {
             return Err(MatchError::WrongFrameRate);
         }
@@ -154,8 +150,6 @@ impl PreBufferedBlock {
 
 #[derive(Copy, Clone, Debug)]
 enum MatchError {
-    /// Channel count of the pre-buffered block doesn't match the requested channel count.
-    WrongChannelCount,
     /// Frame rate of the pre-buffered block doesn't match the requested frame rate.
     WrongFrameRate,
     /// Start frame of the pre-buffered block is in the future but all of its material would
@@ -325,11 +319,9 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         dest_buffer: &mut AudioBufMut,
         frame_offset: usize,
     ) -> Result<StepSuccess, StepFailure> {
-        let requested_channel_count = dest_buffer.channel_count();
         let mut remaining_dest_buffer = dest_buffer.slice_mut(frame_offset..);
         let criteria = MatchCriteria {
             start_frame: request.start_frame + frame_offset as isize,
-            channel_count: requested_channel_count,
             frame_rate: request.dest_sample_rate,
             desired_frame_count: remaining_dest_buffer.frame_count(),
         };
@@ -497,7 +489,6 @@ impl<S: AudioSupplier + WithFrameRate + Clone + Send + 'static> AudioSupplier fo
                             &response,
                         ),
                         frame_rate: request.dest_sample_rate,
-                        channel_count: dest_buffer.channel_count(),
                     };
                     // self.pre_buffer_internal(fill_request);
                     // Second, let's drain all non-matching blocks. Not useful!
@@ -554,7 +545,7 @@ impl<S: WithSource> WithSource for PreBuffer<S> {
 #[derive(Default)]
 struct PreBufferWorker {
     instances: HashMap<PreBufferInstanceId, Instance, BuildHasherDefault<XxHash64>>,
-    spare_buffers: Vec<OwnedAudioBuffer>,
+    spare_buffer_chunks: Vec<Vec<f64>>,
 }
 
 impl PreBufferWorker {
@@ -583,12 +574,15 @@ impl PreBufferWorker {
     }
 
     pub fn fill_all(&mut self) {
-        let spare_buffers = &mut self.spare_buffers;
+        let spare_buffer_chunks = &mut self.spare_buffer_chunks;
         let mut get_spare_buffer = |channel_count: usize| {
-            iter::repeat_with(|| spare_buffers.pop())
+            iter::repeat_with(|| spare_buffer_chunks.pop())
                 .take_while(|buffer| buffer.is_some())
                 .flatten()
-                .find(|buffer| buffer.to_buf().channel_count() == channel_count)
+                .find_map(|chunk| {
+                    OwnedAudioBuffer::try_recycle(chunk, channel_count, PRE_BUFFERED_BLOCK_LENGTH)
+                        .ok()
+                })
                 .unwrap_or_else(|| OwnedAudioBuffer::new(channel_count, PRE_BUFFERED_BLOCK_LENGTH))
         };
         self.instances.retain(|_, instance| {
@@ -603,7 +597,7 @@ impl PreBufferWorker {
     }
 
     fn recycle(&mut self, block: PreBufferedBlock) {
-        self.spare_buffers.push(block.buffer);
+        self.spare_buffer_chunks.push(block.buffer.into_inner());
     }
 
     fn keep_filling_from(
@@ -619,7 +613,6 @@ impl PreBufferWorker {
         let filling_state = FillingState {
             next_start_frame: args.start_frame,
             required_frame_rate: args.frame_rate,
-            required_channel_count: args.channel_count,
         };
         instance.state = InstanceState::Filling(filling_state);
         Ok(())
@@ -648,7 +641,8 @@ impl Instance {
             Initialized => return Err(FillError::NotFilling),
             Filling(s) => s,
         };
-        let mut buffer = get_spare_buffer(state.required_channel_count);
+        let source_channel_count = self.supplier.channel_count();
+        let mut buffer = get_spare_buffer(source_channel_count);
         let request = SupplyAudioRequest {
             start_frame: state.next_start_frame,
             dest_sample_rate: state.required_frame_rate,
@@ -702,7 +696,6 @@ enum InstanceState {
 struct FillingState {
     next_start_frame: isize,
     required_frame_rate: Hz,
-    required_channel_count: usize,
 }
 
 pub fn keep_processing_pre_buffer_requests(receiver: Receiver<PreBufferRequest>) {

@@ -99,18 +99,19 @@ impl<'a> AudioBufMut<'a> {
     ///
     /// Returns an error if the size of the given data chunk isn't large enough.
     pub fn from_slice(
-        data: &'a mut [f64],
+        chunk: &'a mut [f64],
         channel_count: usize,
         frame_count: usize,
     ) -> Result<Self, &'static str> {
         if frame_count == 0 {
             panic!("attempt to create buffer from sliced data with a frame count of zero");
         }
-        if channel_count * frame_count >= data.len() {
+        let required_slice_length = channel_count * frame_count;
+        if chunk.len() < required_slice_length {
             return Err("given slice not large enough");
         }
         let buf = AudioBufMut {
-            data,
+            data: &mut chunk[0..required_slice_length],
             frame_count,
             channel_count,
         };
@@ -137,10 +138,6 @@ impl<'a> AudioBufMut<'a> {
 }
 
 impl<T: AsRef<[f64]>> AbstractAudioBuf<T> {
-    pub fn interleaved_length(&self) -> usize {
-        self.channel_count * self.channel_count
-    }
-
     /// Destination buffer must have the same number of channels and frames.
     pub fn copy_to(&self, dest: &mut AudioBufMut) {
         if dest.channel_count() != self.channel_count() {

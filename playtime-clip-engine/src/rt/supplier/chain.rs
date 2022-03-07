@@ -42,7 +42,7 @@ impl SupplierChain {
         // Configure resampler
         let resampler = chain.resampler_mut();
         resampler.set_enabled(true);
-        // Configure time stratcher
+        // Configure time stretcher
         let time_stretcher = chain.time_stretcher_mut();
         time_stretcher.set_enabled(true);
         // Configure downbeat

@@ -150,7 +150,6 @@ pub struct SupplyRequestInfo {
 pub struct PreBufferFillRequest {
     pub start_frame: isize,
     pub frame_rate: Hz,
-    pub channel_count: usize,
 }
 
 #[derive(Clone, Debug)]

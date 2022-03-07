@@ -166,7 +166,7 @@ impl<S: AudioSupplier + WithFrameRate> AudioSupplier for Resampler<S> {
                     offset_buffer.data_as_mut_ptr(),
                     num_source_frames_to_write,
                     offset_buffer.frame_count() as _,
-                    dest_buffer.channel_count() as _,
+                    source_channel_count as _,
                 )
             };
             total_num_frames_written += num_frames_written as usize;

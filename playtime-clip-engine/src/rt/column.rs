@@ -469,9 +469,18 @@ impl Column {
             // rt_debug!("block sr = {}, block length = {}, block time = {}, timeline cursor pos = {}, timeline cursor frame = {}",
             //          sample_rate, args.block.length(), args.block.time_s(), timeline_cursor_pos, timeline_cursor_frame);
             for (row, slot) in self.slots.iter_mut().enumerate() {
+                // Our strategy is to always write all available source channels into the mix
+                // buffer. From a performance perspective, it would actually be enough to take
+                // only as many channels as we need (= track channel count). However, always using
+                // the source channel count as reference is much simpler, in particular when it
+                // comes to caching and pre-buffering. Also, in practice this is rarely an issue.
+                // Most samples out there used in typical stereo track setups have no more than 2
+                // channels. And if they do, the user can always down-mix to the desired channel
+                // count up-front.
+                let clip_channel_count = slot.clip_channel_count().unwrap_or(0);
                 let mut mix_buffer = AudioBufMut::from_slice(
                     &mut self.mix_buffer_chunk,
-                    output_channel_count,
+                    clip_channel_count,
                     output_frame_count,
                 )
                 .unwrap();
@@ -494,7 +503,12 @@ impl Column {
                             .modify_frames(|sample| {
                                 // TODO-high-performance This is a hot code path. We might want to skip bound checks
                                 //  in sample_value_at().
-                                sample.value + mix_buffer.sample_value_at(sample.index).unwrap()
+                                if sample.index.channel < clip_channel_count {
+                                    sample.value + mix_buffer.sample_value_at(sample.index).unwrap()
+                                } else {
+                                    // Clip doesn't have material on this channel.
+                                    0.0
+                                }
                             })
                     }
                     if let Some(changed_play_state) = outcome.changed_play_state {
