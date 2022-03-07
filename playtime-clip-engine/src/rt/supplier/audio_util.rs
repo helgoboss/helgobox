@@ -2,6 +2,7 @@ use crate::conversion_util::adjust_proportionally_positive;
 use crate::rt::buffer::{AudioBuf, AudioBufMut};
 use crate::rt::supplier::log_util::print_distance_from_beat_start_at;
 use crate::rt::supplier::{SupplyAudioRequest, SupplyResponse, SupplyResponseStatus};
+use reaper_medium::Hz;
 use std::cmp;
 
 /// Helper function for suppliers that read from sources and don't want to deal with
@@ -9,11 +10,13 @@ use std::cmp;
 pub fn supply_audio_material(
     request: &SupplyAudioRequest,
     dest_buffer: &mut AudioBufMut,
+    source_frame_rate: Hz,
     supply_inner: impl FnOnce(SourceMaterialRequest) -> SupplyResponse,
 ) -> SupplyResponse {
-    // We never let the PCM source or our buffers do the resampling itself. Our higher-level
-    // suppliers take care of that (time stretcher or resampler).
-    debug_assert!(request.dest_sample_rate.is_none());
+    #[cfg(debug_assertions)]
+    {
+        request.assert_wants_source_frame_rate(source_frame_rate);
+    }
     let ideal_num_consumed_frames = dest_buffer.frame_count();
     let ideal_end_frame = request.start_frame + ideal_num_consumed_frames as isize;
     if ideal_end_frame <= 0 {

@@ -172,7 +172,7 @@ impl<S: AudioSupplier + WithSource> AudioSupplier for Cache<S> {
             Some(d) => d,
         };
         let buf = d.content.to_buf();
-        supply_audio_material(request, dest_buffer, |input| {
+        supply_audio_material(request, dest_buffer, d.material_info.sample_rate, |input| {
             transfer_samples_from_buffer(buf, input)
         })
     }

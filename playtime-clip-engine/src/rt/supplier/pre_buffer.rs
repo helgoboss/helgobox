@@ -434,11 +434,14 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        // Below logic is built upon assumption that in/out frame rates equal and
-        // therefore number of consumed frames == number of written frames.
-        debug_assert!(request.dest_sample_rate.is_none());
         if !self.enabled {
             return self.supplier.supply_audio(request, dest_buffer);
+        }
+        #[cfg(debug_assertions)]
+        {
+            request.assert_wants_source_frame_rate(
+                self.supplier.material_info().unwrap().frame_rate(),
+            );
         }
         // Return silence until frame 0 reached, if allowed.
         let initial_frame_offset = if self.skip_count_in_phase_material {

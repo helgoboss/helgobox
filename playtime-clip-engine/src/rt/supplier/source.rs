@@ -22,7 +22,10 @@ impl AudioSupplier for OwnedPcmSource {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        supply_audio_material(request, dest_buffer, |input| transfer_audio(self, input))
+        let source_frame_rate = get_audio_source_frame_rate(self);
+        supply_audio_material(request, dest_buffer, source_frame_rate, |input| {
+            transfer_audio(self, input)
+        })
     }
 }
 
@@ -34,9 +37,7 @@ impl WithMaterialInfo for OwnedPcmSource {
             };
             MaterialInfo::Midi(info)
         } else {
-            let sample_rate = self
-                .get_sample_rate()
-                .expect("audio source should expose frame rate");
+            let sample_rate = get_audio_source_frame_rate(self);
             let info = AudioMaterialInfo {
                 channel_count: get_audio_source_channel_count(self),
                 length: calculate_audio_frame_count(self, sample_rate),
@@ -46,6 +47,12 @@ impl WithMaterialInfo for OwnedPcmSource {
         };
         Ok(info)
     }
+}
+
+fn get_audio_source_frame_rate(source: &OwnedPcmSource) -> Hz {
+    source
+        .get_sample_rate()
+        .expect("audio source should expose frame rate")
 }
 
 fn get_audio_source_channel_count(source: &OwnedPcmSource) -> usize {

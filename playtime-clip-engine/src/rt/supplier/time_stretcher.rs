@@ -87,7 +87,10 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for TimeStretcher<S> {
         }
         let material_info = self.supplier.material_info().unwrap();
         let source_frame_rate = material_info.frame_rate();
-        debug_assert!(request.dest_sample_rate.is_none());
+        #[cfg(debug_assertions)]
+        {
+            request.assert_wants_source_frame_rate(source_frame_rate);
+        }
         let mut total_num_frames_consumed = 0usize;
         let mut total_num_frames_written = 0usize;
         // I think it makes sense to set both the output and the input sample rate to the sample

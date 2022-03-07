@@ -764,7 +764,7 @@ impl AudioSupplier for Recorder {
                         // We know that the frame rates should be equal because this is audio and we
                         // do resampling in upper layers.
                         debug!("Using temporary buffer");
-                        supply_audio_material(request, dest_buffer, |input| {
+                        supply_audio_material(request, dest_buffer, s.frame_rate, |input| {
                             transfer_samples_from_buffer(s.temporary_audio_buffer.to_buf(), input)
                         });
                         // Under the assumption that the frame rates are equal (which we asserted),

@@ -162,6 +162,20 @@ pub struct SupplyAudioRequest<'a> {
     pub general_info: &'a SupplyRequestGeneralInfo,
 }
 
+impl<'a> SupplyAudioRequest<'a> {
+    /// Can be used by code that's built upon the assumption that in/out frame rates equal and
+    /// therefore number of consumed frames == number of written frames.
+    ///
+    /// In our supplier chain, this assumption is for most suppliers true because we don't let the
+    /// PCM source or our buffers do the resampling itself. The higher-level resample supplier
+    /// takes care of that.
+    pub fn assert_wants_source_frame_rate(&self, source_frame_rate: Hz) {
+        if let Some(dest_sample_rate) = self.dest_sample_rate {
+            assert_eq!(dest_sample_rate, source_frame_rate);
+        }
+    }
+}
+
 impl<'a> SupplyRequest for SupplyAudioRequest<'a> {
     fn start_frame(&self) -> isize {
         self.start_frame
