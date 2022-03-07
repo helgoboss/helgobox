@@ -182,10 +182,11 @@ fn transfer_audio(source: &OwnedPcmSource, req: SourceMaterialRequest) -> Supply
 
 /// We could use just any unit to represent a position within a MIDI source, but we choose frames
 /// with regard to the following frame rate. Choosing frames allows us to treat MIDI similar to
-/// audio, which results in fewer special cases. The frame rate of 1,024,000 is also the unit which
-/// is used in REAPER's MIDI events, so this corresponds nicely to the audio world where one sample
-/// frame is the smallest possible unit.
-pub const MIDI_FRAME_RATE: f64 = 1_024_000.0;
+/// audio, which results in fewer special cases. The frame rate of 169,344,000 is a multiple of
+/// all common sample rates and PPQs. This prevents rounding issues (advice from Justin).
+/// Initially I wanted to take 1,024,000 because it is the unit which is used in REAPER's MIDI
+/// events, but it's not a multiple of common sample rates and PPQs.
+pub const MIDI_FRAME_RATE: f64 = 169_344_000.0;
 
 /// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
 /// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample

@@ -805,6 +805,8 @@ impl ReadyState {
                     supplier_chain,
                 );
                 if compare_pos != pos {
+                    // This happened when the MIDI_FRAME_RATE wasn't a multiple of the sample rate
+                    // and PPQ.
                     debug!("ATTENTION: compare pos {} != pos {}", compare_pos, pos);
                 }
                 Go {
