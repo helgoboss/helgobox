@@ -10,7 +10,7 @@ use reaper_medium::{
 };
 use std::fmt::Debug;
 
-pub trait AudioSupplier: Debug {
+pub trait AudioSupplier: Debug + WithMaterialInfo {
     /// Writes a portion of audio material into the given destination buffer so that it completely
     /// fills that buffer.
     fn supply_audio(
@@ -18,9 +18,6 @@ pub trait AudioSupplier: Debug {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse;
-
-    /// How many channels the supplied audio material consists of.
-    fn channel_count(&self) -> usize;
 }
 
 pub trait PreBufferSourceSkill: Debug {
@@ -39,11 +36,6 @@ pub trait MidiSupplier: Debug {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse;
-}
-
-pub trait WithTempo {
-    /// Native tempo if applicable.
-    fn tempo(&self) -> Option<Bpm>;
 }
 
 pub trait WithSource {
@@ -70,6 +62,13 @@ pub enum MaterialInfo {
 }
 
 impl MaterialInfo {
+    pub fn channel_count(&self) -> usize {
+        match self {
+            MaterialInfo::Audio(i) => i.channel_count,
+            MaterialInfo::Midi(_) => 0,
+        }
+    }
+
     pub fn frame_rate(&self) -> Hz {
         match self {
             MaterialInfo::Audio(i) => i.sample_rate,

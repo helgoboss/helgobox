@@ -85,7 +85,8 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for TimeStretcher<S> {
         if !self.enabled || !self.responsible_for_audio_time_stretching {
             return self.supplier.supply_audio(request, dest_buffer);
         }
-        let source_frame_rate = self.supplier.material_info().unwrap().frame_rate();
+        let material_info = self.supplier.material_info().unwrap();
+        let source_frame_rate = material_info.frame_rate();
         debug_assert!(request.dest_sample_rate.is_none());
         let mut total_num_frames_consumed = 0usize;
         let mut total_num_frames_written = 0usize;
@@ -95,7 +96,7 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for TimeStretcher<S> {
         // TODO-medium Setting this right at the beginning should be enough.
         let api = self.api.as_mut().as_mut();
         api.set_srate(source_frame_rate.get());
-        let source_channel_count = self.supplier.channel_count();
+        let source_channel_count = material_info.channel_count();
         api.set_nch(source_channel_count as _);
         api.set_tempo(self.tempo_factor);
         let reached_end = loop {
@@ -172,10 +173,6 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for TimeStretcher<S> {
                 SupplyResponseStatus::PleaseContinue
             },
         }
-    }
-
-    fn channel_count(&self) -> usize {
-        self.supplier.channel_count()
     }
 }
 

@@ -4,9 +4,11 @@ use crate::rt::supplier::fade_util::{
 };
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
+    midi_util, AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest,
+    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse,
+    SupplyResponseStatus, WithMaterialInfo,
 };
+use crate::ClipEngineResult;
 use playtime_api::MidiResetMessageRange;
 use reaper_medium::BorrowedMidiEventList;
 use std::cmp;
@@ -267,10 +269,6 @@ impl<S: AudioSupplier> AudioSupplier for InteractionHandler<S> {
             }
         }
     }
-
-    fn channel_count(&self) -> usize {
-        self.supplier.channel_count()
-    }
 }
 
 impl<S: MidiSupplier> MidiSupplier for InteractionHandler<S> {
@@ -356,6 +354,12 @@ impl<S: MidiSupplier> MidiSupplier for InteractionHandler<S> {
                 }
             }
         }
+    }
+}
+
+impl<S: WithMaterialInfo> WithMaterialInfo for InteractionHandler<S> {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        self.supplier.material_info()
     }
 }
 

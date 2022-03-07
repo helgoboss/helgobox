@@ -8,7 +8,7 @@ use crate::rt::supplier::audio_util::{supply_audio_material, SourceMaterialReque
 use crate::rt::supplier::log_util::print_distance_from_beat_start_at;
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource, WithTempo,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource,
 };
 use crate::ClipEngineResult;
 use reaper_medium::{
@@ -24,11 +24,6 @@ impl AudioSupplier for OwnedPcmSource {
     ) -> SupplyResponse {
         supply_audio_material(request, dest_buffer, |input| transfer_audio(self, input))
     }
-
-    fn channel_count(&self) -> usize {
-        self.get_num_channels()
-            .expect("source doesn't report channel count") as usize
-    }
 }
 
 impl WithMaterialInfo for OwnedPcmSource {
@@ -43,10 +38,7 @@ impl WithMaterialInfo for OwnedPcmSource {
                 .get_sample_rate()
                 .expect("audio source should expose frame rate");
             let info = AudioMaterialInfo {
-                channel_count: self
-                    .get_num_channels()
-                    .expect("audio source should report channel count")
-                    as usize,
+                channel_count: get_audio_source_channel_count(self),
                 length: calculate_audio_frame_count(self, sample_rate),
                 sample_rate,
             };
@@ -54,6 +46,12 @@ impl WithMaterialInfo for OwnedPcmSource {
         };
         Ok(info)
     }
+}
+
+fn get_audio_source_channel_count(source: &OwnedPcmSource) -> usize {
+    source
+        .get_num_channels()
+        .expect("audio source should report channel count") as usize
 }
 
 fn calculate_audio_frame_count(source: &OwnedPcmSource, sample_rate: Hz) -> usize {
@@ -140,16 +138,6 @@ impl MidiSupplier for OwnedPcmSource {
     }
 }
 
-impl WithTempo for OwnedPcmSource {
-    fn tempo(&self) -> Option<Bpm> {
-        if pcm_source_is_midi(self) {
-            Some(Bpm::new(MIDI_BASE_BPM))
-        } else {
-            None
-        }
-    }
-}
-
 impl WithSource for OwnedPcmSource {
     fn source(&self) -> &OwnedPcmSource {
         self
@@ -166,7 +154,7 @@ fn transfer_audio(source: &OwnedPcmSource, req: SourceMaterialRequest) -> Supply
     let num_frames_written = unsafe {
         let mut transfer = PcmSourceTransfer::default();
         // Both channel count and sample rate should be the one from the source itself!
-        transfer.set_nch(source.channel_count() as _);
+        transfer.set_nch(get_audio_source_channel_count(source) as _);
         transfer.set_sample_rate(source_sample_rate);
         // The rest depends on the given parameters
         transfer.set_length(req.dest_buffer.frame_count() as _);

@@ -10,7 +10,7 @@ use crate::rt::supplier::{
     AudioSupplier, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, Recorder,
     RecorderEquipment, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
     SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
-    WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
+    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::{ClipEngineResult, QuantizedPosition};
@@ -452,7 +452,10 @@ impl Clip {
     }
 
     pub fn channel_count(&self) -> usize {
-        self.supplier_chain.channel_count()
+        self.supplier_chain
+            .material_info()
+            .map(|i| i.channel_count())
+            .unwrap_or(0)
     }
 
     pub fn play_state(&self) -> ClipPlayState {

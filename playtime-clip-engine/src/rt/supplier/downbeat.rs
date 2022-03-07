@@ -99,10 +99,6 @@ impl<S: AudioSupplier> AudioSupplier for Downbeat<S> {
         };
         self.supplier.supply_audio(&inner_request, dest_buffer)
     }
-
-    fn channel_count(&self) -> usize {
-        self.supplier.channel_count()
-    }
 }
 
 impl<S: MidiSupplier> MidiSupplier for Downbeat<S> {

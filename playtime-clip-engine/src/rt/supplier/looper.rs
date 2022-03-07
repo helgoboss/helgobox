@@ -228,10 +228,6 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Looper<S> {
             }
         }
     }
-
-    fn channel_count(&self) -> usize {
-        self.supplier.channel_count()
-    }
 }
 
 impl<S: WithMaterialInfo> WithMaterialInfo for Looper<S> {

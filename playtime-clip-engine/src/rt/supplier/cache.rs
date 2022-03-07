@@ -131,8 +131,10 @@ pub fn keep_processing_cache_requests(receiver: Receiver<CacheRequest>) {
                     Ok(MaterialInfo::Audio(i)) => i,
                     _ => continue,
                 };
-                let mut content =
-                    OwnedAudioBuffer::new(source.channel_count(), audio_material_info.length);
+                let mut content = OwnedAudioBuffer::new(
+                    audio_material_info.channel_count,
+                    audio_material_info.length,
+                );
                 let request = SupplyAudioRequest {
                     start_frame: 0,
                     dest_sample_rate: None,
@@ -173,14 +175,6 @@ impl<S: AudioSupplier + WithSource> AudioSupplier for Cache<S> {
         supply_audio_material(request, dest_buffer, |input| {
             transfer_samples_from_buffer(buf, input)
         })
-    }
-
-    fn channel_count(&self) -> usize {
-        if let Some(d) = &self.cached_data {
-            d.content.to_buf().channel_count()
-        } else {
-            self.supplier.channel_count()
-        }
     }
 }
 

@@ -1,8 +1,9 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse,
+    AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
 };
+use crate::ClipEngineResult;
 use helgoboss_midi::{
     RawShortMessage, ShortMessage, ShortMessageFactory, StructuredShortMessage, U7,
 };
@@ -55,10 +56,6 @@ impl<S: AudioSupplier> AudioSupplier for Amplifier<S> {
         }
         response
     }
-
-    fn channel_count(&self) -> usize {
-        self.supplier.channel_count()
-    }
 }
 
 impl<S: MidiSupplier> MidiSupplier for Amplifier<S> {
@@ -88,6 +85,12 @@ impl<S: MidiSupplier> MidiSupplier for Amplifier<S> {
             }
         }
         response
+    }
+}
+
+impl<S: WithMaterialInfo> WithMaterialInfo for Amplifier<S> {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        self.supplier.material_info()
     }
 }
 

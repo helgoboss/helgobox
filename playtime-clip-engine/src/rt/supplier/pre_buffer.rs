@@ -486,10 +486,6 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
             }
         }
     }
-
-    fn channel_count(&self) -> usize {
-        self.supplier.channel_count()
-    }
 }
 
 impl<S: MidiSupplier> MidiSupplier for PreBuffer<S> {
@@ -617,7 +613,11 @@ impl Instance {
             Initialized => return Err(FillError::NotFilling),
             Filling(s) => s,
         };
-        let source_channel_count = self.supplier.channel_count();
+        let material_info = self
+            .supplier
+            .material_info()
+            .map_err(|_| FillError::MaterialUnavailable)?;
+        let source_channel_count = material_info.channel_count();
         let mut buffer = get_spare_buffer(source_channel_count);
         let request = SupplyAudioRequest {
             start_frame: state.next_start_frame,
@@ -661,6 +661,7 @@ enum FillError {
     NotFilling,
     ConsumerGone,
     Full,
+    MaterialUnavailable,
 }
 
 enum InstanceState {

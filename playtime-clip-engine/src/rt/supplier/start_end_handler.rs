@@ -80,10 +80,6 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for StartEndHandler<S> {
         }
         response
     }
-
-    fn channel_count(&self) -> usize {
-        self.supplier.channel_count()
-    }
 }
 
 impl<S: MidiSupplier> MidiSupplier for StartEndHandler<S> {

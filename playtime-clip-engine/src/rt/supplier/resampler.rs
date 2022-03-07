@@ -1,10 +1,12 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
+    AudioSupplier, MaterialInfo, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus,
+    WithMaterialInfo,
 };
 use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
 };
+use crate::ClipEngineResult;
 use playtime_api::VirtualResampleMode;
 use reaper_high::Reaper;
 use reaper_low::raw;
@@ -86,7 +88,8 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Resampler<S> {
         if !self.enabled {
             return self.supplier.supply_audio(request, dest_buffer);
         }
-        let source_frame_rate = self.supplier.material_info().unwrap().frame_rate();
+        let material_info = self.supplier.material_info().unwrap();
+        let source_frame_rate = material_info.frame_rate();
         let dest_frame_rate = request
             .dest_sample_rate
             .unwrap_or_else(|| source_frame_rate);
@@ -100,7 +103,7 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Resampler<S> {
         }
         let mut total_num_frames_consumed = 0usize;
         let mut total_num_frames_written = 0usize;
-        let source_channel_count = self.supplier.channel_count();
+        let source_channel_count = material_info.channel_count();
         let api = self.api.as_mut().as_mut();
         api.SetRates(source_frame_rate.get(), dest_frame_rate.get());
         // Set ResamplePrepare's out_samples to refer to request a specific number of input samples.
@@ -183,9 +186,11 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Resampler<S> {
             },
         }
     }
+}
 
-    fn channel_count(&self) -> usize {
-        self.supplier.channel_count()
+impl<S: WithMaterialInfo> WithMaterialInfo for Resampler<S> {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        self.supplier.material_info()
     }
 }
 

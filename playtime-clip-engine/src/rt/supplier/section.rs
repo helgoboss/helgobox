@@ -257,10 +257,6 @@ impl<S: AudioSupplier> AudioSupplier for Section<S> {
         }
         self.generate_outer_response(inner_response, data.phase_two)
     }
-
-    fn channel_count(&self) -> usize {
-        self.supplier.channel_count()
-    }
 }
 
 impl<S: MidiSupplier> MidiSupplier for Section<S> {

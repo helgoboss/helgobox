@@ -783,22 +783,6 @@ impl AudioSupplier for Recorder {
         };
         cache.supply_audio(request, dest_buffer)
     }
-
-    fn channel_count(&self) -> usize {
-        let cache = match self.state.as_ref().unwrap() {
-            State::Ready(s) => &s.cache,
-            State::Recording(s) => match &s.kind_state {
-                KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
-                    return s.temporary_audio_buffer.to_buf().channel_count();
-                }
-                _ => s
-                    .old_cache
-                    .as_ref()
-                    .expect("attempt to get channel count while recording with no previous source"),
-            },
-        };
-        cache.channel_count()
-    }
 }
 
 impl MidiSupplier for Recorder {

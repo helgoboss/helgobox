@@ -314,10 +314,6 @@ impl AudioSupplier for SupplierChain {
     ) -> SupplyResponse {
         self.head.supply_audio(request, dest_buffer)
     }
-
-    fn channel_count(&self) -> usize {
-        self.head.channel_count()
-    }
 }
 
 impl MidiSupplier for SupplierChain {
@@ -327,6 +323,12 @@ impl MidiSupplier for SupplierChain {
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
         self.head.supply_midi(request, event_list)
+    }
+}
+
+impl WithMaterialInfo for SupplierChain {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        self.head.material_info()
     }
 }
 
