@@ -489,11 +489,13 @@ impl Column {
                 };
                 if let Ok(outcome) = slot.process(&mut inner_args) {
                     if outcome.num_audio_frames_written > 0 {
-                        output_buffer.modify_frames(|sample| {
-                            // TODO-high-performance This is a hot code path. We might want to skip bound checks
-                            //  in sample_value_at().
-                            sample.value + mix_buffer.sample_value_at(sample.index).unwrap()
-                        })
+                        output_buffer
+                            .slice_mut(0..outcome.num_audio_frames_written)
+                            .modify_frames(|sample| {
+                                // TODO-high-performance This is a hot code path. We might want to skip bound checks
+                                //  in sample_value_at().
+                                sample.value + mix_buffer.sample_value_at(sample.index).unwrap()
+                            })
                     }
                     if let Some(changed_play_state) = outcome.changed_play_state {
                         self.event_sender
