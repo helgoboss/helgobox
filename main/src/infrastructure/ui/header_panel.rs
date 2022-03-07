@@ -472,7 +472,7 @@ impl HeaderPanel {
                         menu(
                             format!("<Add link from FX \"{}\" to ...>", fx_id),
                             main_preset_manager
-                                .presets()
+                                .preset_iter()
                                 .map(move |p| {
                                     let fx_id = fx_id.clone();
                                     let preset_id = p.id().to_owned();
@@ -498,7 +498,7 @@ impl HeaderPanel {
                             .chain(once(item("<Remove link>", move || {
                                 MenuAction::RemovePresetLink(fx_id_1)
                             })))
-                            .chain(main_preset_manager.presets().map(move |p| {
+                            .chain(main_preset_manager.preset_iter().map(move |p| {
                                 let fx_id = fx_id_2.clone();
                                 let preset_id = p.id().to_owned();
                                 item_with_opts(
@@ -1285,30 +1285,15 @@ impl HeaderPanel {
 
     fn fill_preset_combo_box(&self) {
         let combo = self.view.require_control(root::ID_PRESET_COMBO_BOX);
-        let vec = vec![(-1isize, "<None>".to_string())];
-        // TODO-high Use new App::preset_manager() method.
-        match self.active_compartment() {
-            MappingCompartment::ControllerMappings => combo.fill_combo_box_with_data_small(
-                vec.into_iter().chain(
-                    App::get()
-                        .controller_preset_manager()
-                        .borrow()
-                        .presets()
-                        .enumerate()
-                        .map(|(i, c)| (i as isize, c.to_string())),
-                ),
-            ),
-            MappingCompartment::MainMappings => combo.fill_combo_box_with_data_small(
-                vec.into_iter().chain(
-                    App::get()
-                        .main_preset_manager()
-                        .borrow()
-                        .presets()
-                        .enumerate()
-                        .map(|(i, c)| (i as isize, c.to_string())),
-                ),
-            ),
-        };
+        let preset_manager = App::get().preset_manager(self.active_compartment());
+        let all_entries = [(-1isize, "<None>".to_string())].into_iter().chain(
+            preset_manager
+                .preset_infos()
+                .into_iter()
+                .enumerate()
+                .map(|(i, info)| (i as isize, info.name)),
+        );
+        combo.fill_combo_box_with_data_small(all_entries);
     }
 
     fn invalidate_preset_combo_box_value(&self) {

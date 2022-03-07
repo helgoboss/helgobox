@@ -1,7 +1,7 @@
 use crate::application::{ControllerPreset, Preset, PresetManager};
 use crate::domain::MappingCompartment;
 use crate::infrastructure::data::{
-    CompartmentModelData, ExtendedPresetManager, FileBasedPresetManager, PresetData,
+    CompartmentModelData, ExtendedPresetManager, FileBasedPresetManager, PresetData, PresetInfo,
 };
 
 use crate::base::default_util::is_default;
@@ -36,6 +36,10 @@ impl ExtendedPresetManager for SharedControllerPresetManager {
 
     fn remove_preset(&mut self, id: &str) -> Result<(), &'static str> {
         self.borrow_mut().remove_preset(id)
+    }
+
+    fn preset_infos(&self) -> Vec<PresetInfo> {
+        self.borrow().preset_infos()
     }
 }
 

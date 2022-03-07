@@ -421,7 +421,7 @@ fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipReco
                 None => return true,
                 Some(f) => f,
             };
-            // TODO-high Support particular channels, mono and multi-channel
+            // TODO-high-record Support particular channels, mono and multi-channel
             let _input_channel_count = args.reg.input_nch();
             let left_buffer = (get_buffer)(false, 6);
             let right_buffer = (get_buffer)(false, 7);

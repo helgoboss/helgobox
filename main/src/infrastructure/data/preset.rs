@@ -24,6 +24,11 @@ pub trait ExtendedPresetManager {
     fn find_index_by_id(&self, id: &str) -> Option<usize>;
     fn find_id_by_index(&self, index: usize) -> Option<String>;
     fn remove_preset(&mut self, id: &str) -> Result<(), &'static str>;
+    fn preset_infos(&self) -> Vec<PresetInfo>;
+}
+
+pub struct PresetInfo {
+    pub name: String,
 }
 
 impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
@@ -76,7 +81,7 @@ impl<P: Preset, PD: PresetData<P = P>> FileBasedPresetManager<P, PD> {
         Ok(())
     }
 
-    pub fn presets(&self) -> impl Iterator<Item = &P> + ExactSizeIterator {
+    pub fn preset_iter(&self) -> impl Iterator<Item = &P> + ExactSizeIterator {
         self.presets.iter()
     }
 
@@ -184,9 +189,18 @@ impl<P: Preset, PD: PresetData<P = P>> ExtendedPresetManager for FileBasedPreset
         let _ = self.load_presets();
         Ok(())
     }
+
+    fn preset_infos(&self) -> Vec<PresetInfo> {
+        self.presets
+            .iter()
+            .map(|p| PresetInfo {
+                name: p.name().to_owned(),
+            })
+            .collect()
+    }
 }
 
-impl<P: Preset, PD: PresetData<P = P>> PresetManager for FileBasedPresetManager<P, PD> {
+impl<P: Preset + Clone, PD: PresetData<P = P>> PresetManager for FileBasedPresetManager<P, PD> {
     type PresetType = P;
 
     fn find_by_id(&self, id: &str) -> Option<P> {
