@@ -1,4 +1,5 @@
 use crate::conversion_util::convert_duration_in_frames_to_seconds;
+use crate::mutex_util::non_blocking_lock;
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{get_cycle_at_frame, MIDI_FRAME_RATE};
 use crate::ClipEngineResult;
@@ -326,7 +327,7 @@ impl SupplyResponse {
 
 impl<T: WithMaterialInfo> WithMaterialInfo for Arc<Mutex<T>> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        self.lock().unwrap().material_info()
+        non_blocking_lock(&*self, "material info").material_info()
     }
 }
 
@@ -336,7 +337,7 @@ impl<T: AudioSupplier> AudioSupplier for Arc<Mutex<T>> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        self.lock().unwrap().supply_audio(request, dest_buffer)
+        non_blocking_lock(&*self, "supply audio").supply_audio(request, dest_buffer)
     }
 }
 
@@ -346,12 +347,12 @@ impl<T: MidiSupplier> MidiSupplier for Arc<Mutex<T>> {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        self.lock().unwrap().supply_midi(request, event_list)
+        non_blocking_lock(&*self, "supply MIDI").supply_midi(request, event_list)
     }
 }
 
 impl<T: PreBufferSourceSkill> PreBufferSourceSkill for Arc<Mutex<T>> {
     fn pre_buffer(&mut self, request: PreBufferFillRequest) {
-        self.lock().unwrap().pre_buffer(request);
+        non_blocking_lock(&*self, "pre-buffer").pre_buffer(request);
     }
 }

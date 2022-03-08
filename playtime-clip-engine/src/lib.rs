@@ -13,6 +13,8 @@ mod file_util;
 
 mod conversion_util;
 
+mod mutex_util;
+
 type ClipEngineResult<T> = Result<T, &'static str>;
 
 /// Must be called as early as possible.

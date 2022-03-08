@@ -1,3 +1,4 @@
+use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
     MaterialInfo, PreBufferRequest, RecorderEquipment, WriteAudioRequest, WriteMidiRequest,
 };
@@ -51,10 +52,7 @@ impl SharedColumn {
     }
 
     pub fn lock(&self) -> MutexGuard<Column> {
-        match self.0.lock() {
-            Ok(g) => g,
-            Err(e) => e.into_inner(),
-        }
+        non_blocking_lock(&self.0, "real-time column")
     }
 
     pub fn downgrade(&self) -> WeakColumn {

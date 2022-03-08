@@ -1,4 +1,5 @@
 use crate::main::{ClipSlotCoordinates, MainMatrixCommandSender};
+use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
     ColumnPlayClipArgs, ColumnStopClipArgs, RelevantPlayStateChange, SharedColumn,
     SlotProcessTransportChangeArgs, TransportChange, WeakColumn,
@@ -68,10 +69,7 @@ impl SharedMatrix {
     ///
     /// Then we have no contention and this is super fast.
     pub fn lock(&self) -> MutexGuard<Matrix> {
-        match self.0.lock() {
-            Ok(g) => g,
-            Err(e) => e.into_inner(),
-        }
+        non_blocking_lock(&self.0, "real-time matrix")
     }
 
     pub fn downgrade(&self) -> WeakMatrix {

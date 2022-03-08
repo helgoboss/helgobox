@@ -379,6 +379,7 @@ impl RealTimeProcessorLocker for SharedRealTimeProcessor {
     /// hide that error with lots of follow-up poisoning errors! This is a kind of
     /// recovery mechanism.
     fn lock_recover(&self) -> MutexGuard<RealTimeProcessor> {
+        // TODO-high Maybe use non_blocking_lock (panic if would block)?
         match self.lock() {
             Ok(guard) => guard,
             Err(e) => e.into_inner(),
