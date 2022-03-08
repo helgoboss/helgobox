@@ -482,22 +482,27 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
         match self.use_pre_buffers_as_far_as_possible(request, dest_buffer, initial_frame_offset) {
             Ok(response) => response,
             Err(step_failure) => {
-                let response = self.query_supplier_for_remaining_portion(
-                    request,
-                    dest_buffer,
-                    step_failure.frame_offset,
+                let mut remaining_dest_buffer = dest_buffer.slice_mut(step_failure.frame_offset..);
+                remaining_dest_buffer.clear();
+                let response = SupplyResponse::please_continue(
+                    step_failure.frame_offset + remaining_dest_buffer.frame_count(),
                 );
+                // let response = self.query_supplier_for_remaining_portion(
+                //     request,
+                //     dest_buffer,
+                //     step_failure.frame_offset,
+                // );
                 if step_failure.non_matching_block_count > 0 {
                     // We found non-matching blocks.
                     // First, we can assume that the pre-buffer worker somehow is somehow on the
                     // wrong track. "Recalibrate" it.
-                    // TODO-high-prebuffer recalibrate ... maybe not necessary
-                    let _fill_request = PreBufferFillRequest {
-                        start_frame: calculate_next_reasonable_frame(
-                            request.start_frame,
-                            &response,
-                        ),
-                    };
+                    // TODO-high-prebuffer recalibrate ... maybe counter-productive
+                    // let _fill_request = PreBufferFillRequest {
+                    //     start_frame: calculate_next_reasonable_frame(
+                    //         request.start_frame,
+                    //         &response,
+                    //     ),
+                    // };
                     // self.pre_buffer_internal(fill_request);
                     // Second, let's drain all non-matching blocks. Not useful!
                     self.recycle_next_n_blocks(step_failure.non_matching_block_count);
@@ -665,7 +670,7 @@ fn calculate_next_reasonable_frame(current_frame: isize, response: &SupplyRespon
     use SupplyResponseStatus::*;
     match response.status {
         PleaseContinue => current_frame + response.num_frames_consumed as isize,
-        // Starting over pre-buffering the start is a good default because we do looping mostly.
+        // Starting over pre-buffering the start is a good default.
         ReachedEnd { .. } => 0,
     }
 }
