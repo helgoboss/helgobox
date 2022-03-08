@@ -1004,7 +1004,6 @@ impl ReadyState {
         supplier_chain: &mut SupplierChain,
         material_info: &MaterialInfo,
     ) -> FillSamplesOutcome {
-        supplier_chain.prepare_supply();
         let dest_sample_rate = Hz::new(args.dest_sample_rate.get() * sample_rate_factor);
         let is_midi = material_info.is_midi();
         let response = if is_midi {

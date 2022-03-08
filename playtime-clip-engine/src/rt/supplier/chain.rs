@@ -1,3 +1,4 @@
+use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
     Amplifier, AudioSupplier, Downbeat, InteractionHandler, LoopBehavior, Looper, MaterialInfo,
     MidiSupplier, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions,
@@ -123,13 +124,13 @@ impl SupplierChain {
             cache_miss_behavior: PreBufferCacheMissBehavior::OutputSilence,
             recalibrate_on_cache_miss: false,
         };
+        let mut looper = Looper::new(Section::new(StartEndHandler::new(recorder)));
+        looper.set_enabled(true);
         let mut chain = Self {
             head: {
                 Amplifier::new(Resampler::new(InteractionHandler::new(TimeStretcher::new(
                     Downbeat::new(PreBuffer::new(
-                        Arc::new(Mutex::new(Looper::new(Section::new(StartEndHandler::new(
-                            recorder,
-                        ))))),
+                        Arc::new(Mutex::new(looper)),
                         pre_buffer_request_sender,
                         pre_buffer_options,
                     )),
@@ -149,9 +150,6 @@ impl SupplierChain {
         let pre_buffer = chain.pre_buffer_mut();
         pre_buffer.set_enabled(true);
         pre_buffer.invalidate_material_info_cache();
-        // Configure looper
-        // TODO-high-prebuffer OK, fire and forget
-        chain.pre_buffer_wormhole().looper().set_enabled(true);
         chain
     }
 
@@ -200,17 +198,6 @@ impl SupplierChain {
     pub fn set_volume(&mut self, volume: Db) {
         self.amplifier_mut()
             .set_volume(reaper_medium::Db::new(volume.get()));
-    }
-
-    pub fn set_section_bounds_in_seconds(
-        &mut self,
-        start: PositiveSecond,
-        length: Option<PositiveSecond>,
-    ) -> ClipEngineResult<()> {
-        // TODO-high-prebuffer OK, fire and forget
-        self.pre_buffer_wormhole()
-            .section()
-            .set_bounds_in_seconds(start, length)
     }
 
     pub fn set_downbeat_in_beats(
@@ -328,25 +315,6 @@ impl SupplierChain {
         self.interaction_handler_mut().reset();
     }
 
-    pub fn prepare_supply(&mut self) {
-        // TODO-high-prebuffer OK, must be integrated into async processing function
-        // TODO-high improve guard ... pass by reference?
-        let (enabled_for_start, enabled_for_end) = {
-            let mut entrance = self.pre_buffer_wormhole();
-            let section = entrance.section();
-            // If section start is > 0, the section will take care of applying start fades.
-            let enabled_for_start = section.start_frame() == 0;
-            // If section end is set, the section will take care of applying end fades.
-            let enabled_for_end = section.length().is_none();
-            (enabled_for_start, enabled_for_end)
-        };
-        // TODO-high-prebuffer OK, fire and forget
-        let mut entrance = self.pre_buffer_wormhole();
-        let mut start_end_handler = entrance.start_end_handler();
-        start_end_handler.set_enabled_for_start(enabled_for_start);
-        start_end_handler.set_enabled_for_end(enabled_for_end);
-    }
-
     pub fn reset_for_play(&mut self, looped: bool) {
         self.interaction_handler_mut().reset();
         self.resampler_mut().reset_buffers_and_latency();
@@ -370,6 +338,28 @@ impl SupplierChain {
         self.pre_buffer_wormhole()
             .section()
             .set_bounds(start_frame, length);
+        self.on_section_updated(start_frame > 0, length.is_some());
+    }
+
+    pub fn set_section_bounds_in_seconds(
+        &mut self,
+        start: PositiveSecond,
+        length: Option<PositiveSecond>,
+    ) -> ClipEngineResult<()> {
+        // TODO-high-prebuffer OK, fire and forget
+        self.pre_buffer_wormhole()
+            .section()
+            .set_bounds_in_seconds(start, length)?;
+        self.on_section_updated(start.get() > 0.0, length.is_some());
+        Ok(())
+    }
+
+    fn on_section_updated(&mut self, start_is_set: bool, length_is_set: bool) {
+        // TODO-high-prebuffer OK, fire and forget
+        let mut entrance = self.pre_buffer_wormhole();
+        let mut start_end_handler = entrance.start_end_handler();
+        start_end_handler.set_enabled_for_start(!start_is_set);
+        start_end_handler.set_enabled_for_end(!length_is_set);
     }
 
     pub fn downbeat_pos_during_recording(&self, timeline: &dyn Timeline) -> DurationInSeconds {
@@ -436,10 +426,10 @@ impl SupplierChain {
     ///
     /// This method panics if the mutex is locked!
     fn pre_buffer_wormhole(&self) -> MutexGuard<LooperTail> {
-        self.pre_buffer()
-            .supplier()
-            .try_lock()
-            .expect("attempt to access pre-buffer wormhole from chain while locked")
+        non_blocking_lock(
+            self.pre_buffer().supplier(),
+            "attempt to access pre-buffer wormhole from chain while locked",
+        )
     }
 }
 

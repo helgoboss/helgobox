@@ -41,11 +41,26 @@ pub struct PreBufferOptions {
     pub recalibrate_on_cache_miss: bool,
 }
 
+/// Decides what to do if the pre-buffer doesn't contain usable data.
 #[derive(Copy, Clone, Debug)]
 pub enum PreBufferCacheMissBehavior {
+    /// Simply outputs silence.
+    ///
+    /// Safest but also the most silent option ;)
     OutputSilence,
-    QuerySupplierIfUncontended,
+    /// Falls back to querying the supplier directly.
+    ///
+    /// It's risky:
+    ///
+    /// - Might block due to mutex contention (if the underlying supplier is a mutex)
+    /// - Might block due to file system access
     QuerySupplierEvenIfContended,
+    /// Falls back to querying the supplier only if it's uncontended.
+    ///
+    /// Still risky:
+    ///
+    /// - Might block due to file system access
+    QuerySupplierIfUncontended,
 }
 
 trait PreBufferSender {
