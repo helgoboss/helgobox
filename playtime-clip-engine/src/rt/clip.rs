@@ -7,13 +7,14 @@ use crate::conversion_util::{
 use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, Recorder,
-    RecorderEquipment, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
+    AudioSupplier, MidiSupplier, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
+    Recorder, RecorderEquipment, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
     SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
     WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::{ClipEngineResult, QuantizedPosition};
+use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
@@ -210,7 +211,8 @@ impl Clip {
     pub fn ready(
         api_clip: &api::Clip,
         permanent_project: Option<Project>,
-        recorder_equipment: RecorderEquipment,
+        recorder_equipment: &RecorderEquipment,
+        pre_buffer_request_sender: &Sender<PreBufferRequest>,
     ) -> ClipEngineResult<Self> {
         let pcm_source = create_pcm_source_from_api_source(&api_clip.source, permanent_project)?;
         let mut ready_state = ReadyState {
@@ -222,8 +224,10 @@ impl Clip {
                 time_base: api_clip.time_base,
             },
         };
-        let mut supplier_chain =
-            SupplierChain::new(Recorder::ready(pcm_source, recorder_equipment));
+        let mut supplier_chain = SupplierChain::new(
+            Recorder::ready(pcm_source, recorder_equipment.clone()),
+            pre_buffer_request_sender.clone(),
+        );
         supplier_chain.set_volume(api_clip.volume);
         supplier_chain
             .set_section_bounds_in_seconds(api_clip.section.start_pos, api_clip.section.length)?;
@@ -253,6 +257,7 @@ impl Clip {
         args: ClipRecordArgs,
         project: Option<Project>,
         equipment: RecorderEquipment,
+        pre_buffer_request_sender: Sender<PreBufferRequest>,
     ) -> Self {
         let timeline = clip_timeline(project, false);
         let trigger_timeline_pos = timeline.cursor_pos();
@@ -274,7 +279,7 @@ impl Clip {
             args.timing,
         );
         Self {
-            supplier_chain: SupplierChain::new(recorder),
+            supplier_chain: SupplierChain::new(recorder, pre_buffer_request_sender),
             state: ClipState::Recording(recording_state),
             project,
             shared_pos: Default::default(),
@@ -427,12 +432,11 @@ impl Clip {
             return;
         }
         self.supplier_chain
-            .recorder_mut()
             .write_midi(request, DurationInSeconds::new(record_pos.get()));
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
-        self.supplier_chain.recorder_mut().write_audio(request);
+        self.supplier_chain.write_audio(request);
     }
 
     pub fn set_volume(&mut self, volume: Db) {
@@ -1376,7 +1380,7 @@ impl ReadyState {
         let timeline = clip_timeline(project, false);
         let trigger_timeline_pos = timeline.cursor_pos();
         let tempo = timeline.tempo_at(trigger_timeline_pos);
-        supplier_chain.recorder_mut().prepare_recording(
+        supplier_chain.prepare_recording(
             args.input,
             project,
             trigger_timeline_pos,
@@ -1555,7 +1559,7 @@ impl RecordingState {
                     // Zero point of recording hasn't even been reached yet. Try to roll back.
                     if let Some(rollback_data) = &self.rollback_data {
                         // We have a previous source that we can roll back to.
-                        supplier_chain.recorder_mut().rollback_recording().unwrap();
+                        supplier_chain.rollback_recording().unwrap();
                         let ready_state = ReadyState {
                             state: ReadySubState::Stopped,
                             persistent_data: rollback_data.persistent_data,
@@ -1572,9 +1576,7 @@ impl RecordingState {
                         self.looped = false;
                     } else {
                         // End not scheduled yet. Schedule end.
-                        supplier_chain
-                            .recorder_mut()
-                            .schedule_end(next_bar, &args.timeline);
+                        supplier_chain.schedule_end_of_recording(next_bar, &args.timeline);
                         self.timing = Synced {
                             start_bar,
                             end_bar: Some(next_bar),
@@ -1634,10 +1636,7 @@ impl RecordingState {
         supplier_chain: &mut SupplierChain,
         timeline: &dyn Timeline,
     ) -> ReadyState {
-        let outcome = supplier_chain
-            .recorder_mut()
-            .commit_recording(timeline)
-            .unwrap();
+        let outcome = supplier_chain.commit_recording(timeline).unwrap();
         // Calculate section boundaries
         // Set section boundaries for perfect timing.
         supplier_chain.set_section_bounds(outcome.section_start_frame, outcome.section_frame_count);

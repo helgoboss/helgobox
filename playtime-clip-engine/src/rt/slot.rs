@@ -1,5 +1,7 @@
 use crate::metrics_util::measure_time;
-use crate::rt::supplier::{RecorderEquipment, WriteAudioRequest, WriteMidiRequest};
+use crate::rt::supplier::{
+    PreBufferRequest, RecorderEquipment, WriteAudioRequest, WriteMidiRequest,
+};
 use crate::rt::SlotInstruction::KeepSlot;
 use crate::rt::{
     Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipRecordInput,
@@ -7,6 +9,7 @@ use crate::rt::{
 };
 use crate::timeline::HybridTimeline;
 use crate::ClipEngineResult;
+use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api::{
     AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, Db, VirtualResampleMode,
@@ -90,7 +93,8 @@ impl Slot {
         behavior: RecordBehavior,
         input: ClipRecordInput,
         project: Option<Project>,
-        equipment: RecorderEquipment,
+        equipment: &RecorderEquipment,
+        pre_buffer_request_sender: &Sender<PreBufferRequest>,
     ) -> ClipEngineResult<()> {
         use RecordBehavior::*;
         match behavior {
@@ -106,7 +110,14 @@ impl Slot {
                     detect_downbeat,
                 };
                 match &mut self.clip {
-                    None => self.clip = Some(Clip::recording(args, project, equipment)),
+                    None => {
+                        self.clip = Some(Clip::recording(
+                            args,
+                            project,
+                            equipment.clone(),
+                            pre_buffer_request_sender.clone(),
+                        ))
+                    }
                     Some(clip) => clip.record(args),
                 }
             }

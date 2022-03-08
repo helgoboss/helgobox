@@ -312,20 +312,6 @@ impl<S: MidiSupplier> MidiSupplier for Section<S> {
     }
 }
 
-impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Section<S> {
-    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
-        if self.boundary.is_default() {
-            self.supplier.pre_buffer(request);
-            return;
-        }
-        let inner_request = PreBufferFillRequest {
-            start_frame: request.start_frame + self.boundary.start_frame as isize,
-            ..request
-        };
-        self.supplier.pre_buffer(inner_request);
-    }
-}
-
 impl<S: WithMaterialInfo> WithMaterialInfo for Section<S> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         let inner_material_info = self.supplier.material_info()?;
@@ -350,33 +336,6 @@ impl<S: WithMaterialInfo> WithMaterialInfo for Section<S> {
         Ok(material_info)
     }
 }
-
-// impl<S: ExactFrameCount> ExactFrameCount for Section<S> {
-//     fn frame_count(&self) -> usize {
-//         if self.boundary.is_default() {
-//             return self.supplier.frame_count();
-//         }
-//         if let Some(length) = self.boundary.length {
-//             length
-//         } else {
-//             let source_frame_count = self.supplier.frame_count();
-//             source_frame_count.saturating_sub(self.boundary.start_frame)
-//         }
-//     }
-// }
-
-// impl<S: ExactDuration + WithFrameRate + ExactFrameCount> ExactDuration for Section<S> {
-//     fn duration(&self) -> DurationInSeconds {
-//         if self.boundary == Default::default() {
-//             return self.supplier.duration();
-//         };
-//         let frame_rate = match self.frame_rate() {
-//             None => return DurationInSeconds::MIN,
-//             Some(r) => r,
-//         };
-//         convert_duration_in_frames_to_seconds(self.frame_count(), frame_rate)
-//     }
-// }
 
 enum Instruction {
     Bypass,

@@ -1,16 +1,20 @@
 use crate::rt::supplier::{
     Amplifier, AudioSupplier, Downbeat, InteractionHandler, LoopBehavior, Looper, MaterialInfo,
-    MidiSupplier, PreBuffer, PreBufferFillRequest, PreBufferSourceSkill, Recorder, Resampler,
-    Section, StartEndHandler, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
-    WithMaterialInfo,
+    MidiSupplier, PreBuffer, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
+    Recorder, RecordingOutcome, Resampler, Section, StartEndHandler, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest,
+    WriteMidiRequest,
 };
-use crate::rt::AudioBufMut;
+use crate::rt::{AudioBufMut, ClipRecordInput, RecordTiming};
 use crate::{ClipEngineResult, Timeline};
+use crossbeam_channel::Sender;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, Db, MidiResetMessageRange, PositiveBeat,
     PositiveSecond, VirtualResampleMode,
 };
-use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz};
+use reaper_high::Project;
+use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 /// The head of the supplier chain (just an alias).
 type Head = AmplifierTail;
@@ -59,7 +63,7 @@ type TimeStretcherTail = TimeStretcher<DownbeatTail>;
 /// express by cheaply converting pre-buffer requests. In general, we don't want to pre-buffer
 /// more non-destructive changes than necessary, especially not the sudden changes (because that
 /// would introduce a latency).
-type DownbeatTail = Downbeat<LooperTail>;
+type DownbeatTail = Downbeat<PreBufferTail>;
 
 /// Pre-buffer asynchronously loads a small amount of audio source material into memory before it's
 /// being played. That's important because the inner-most source usually reads audio material
@@ -69,7 +73,7 @@ type DownbeatTail = Downbeat<LooperTail>;
 /// material in advance. The looper knows best which material comes next. If it would sit below
 /// the looper and it would reach end of material, it doesn't have anything in hand to decide what
 /// needs to be pre-buffered next.
-type PreBufferTail = PreBuffer<LooperTail>;
+type PreBufferTail = PreBuffer<Arc<Mutex<LooperTail>>>;
 
 /// Looper optionally repeats the material.
 ///
@@ -98,7 +102,7 @@ type StartEndHandlerTail = StartEndHandler<RecorderTail>;
 /// When it comes to playing (not recording), it basically represents the source = the inner-most
 /// material.
 ///
-/// It's hard-coded to sit on top of `Cache<PreBuffer<OwnedPcmSource>>` because it's responsible
+/// It's hard-coded to sit on top of `Cache<OwnedPcmSource>` because it's responsible
 /// for swapping an old source with a newly recorded source.
 type RecorderTail = Recorder;
 
@@ -108,11 +112,16 @@ pub struct SupplierChain {
 }
 
 impl SupplierChain {
-    pub fn new(recorder: Recorder) -> Self {
+    pub fn new(recorder: Recorder, pre_buffer_request_sender: Sender<PreBufferRequest>) -> Self {
         let mut chain = Self {
             head: {
                 Amplifier::new(Resampler::new(InteractionHandler::new(TimeStretcher::new(
-                    Downbeat::new(Looper::new(Section::new(StartEndHandler::new(recorder)))),
+                    Downbeat::new(PreBuffer::new(
+                        Arc::new(Mutex::new(Looper::new(Section::new(StartEndHandler::new(
+                            recorder,
+                        ))))),
+                        pre_buffer_request_sender,
+                    )),
                 ))))
             },
         };
@@ -125,17 +134,16 @@ impl SupplierChain {
         // Configure downbeat
         let downbeat = chain.downbeat_mut();
         downbeat.set_enabled(true);
+        // Configure pre-buffer
+        let pre_buffer = chain.pre_buffer_mut();
+        pre_buffer.set_enabled(true);
         // Configure looper
-        let looper = chain.looper_mut();
-        looper.set_enabled(true);
-        // Configure recorder
-        let recorder = chain.recorder_mut();
-        recorder.set_pre_buffering_enabled(true).unwrap();
+        chain.entrance().looper().set_enabled(true);
         chain
     }
 
     pub fn is_midi(&self) -> bool {
-        self.recorder().is_midi()
+        self.entrance().recorder().is_midi()
     }
 
     pub fn is_playing_already(&self, pos: isize) -> bool {
@@ -148,12 +156,13 @@ impl SupplierChain {
     }
 
     pub fn set_audio_fades_enabled_for_source(&mut self, enabled: bool) {
-        self.start_end_handler_mut()
+        self.entrance()
+            .start_end_handler()
             .set_audio_fades_enabled(enabled);
     }
 
     pub fn set_midi_reset_msg_range_for_section(&mut self, range: MidiResetMessageRange) {
-        self.section_mut().set_midi_reset_msg_range(range);
+        self.entrance().section().set_midi_reset_msg_range(range);
     }
 
     pub fn set_midi_reset_msg_range_for_interaction(&mut self, range: MidiResetMessageRange) {
@@ -162,11 +171,13 @@ impl SupplierChain {
     }
 
     pub fn set_midi_reset_msg_range_for_loop(&mut self, range: MidiResetMessageRange) {
-        self.looper_mut().set_midi_reset_msg_range(range);
+        self.entrance().looper().set_midi_reset_msg_range(range);
     }
 
     pub fn set_midi_reset_msg_range_for_source(&mut self, range: MidiResetMessageRange) {
-        self.start_end_handler_mut().set_midi_reset_msg_range(range);
+        self.entrance()
+            .start_end_handler()
+            .set_midi_reset_msg_range(range);
     }
 
     pub fn set_volume(&mut self, volume: Db) {
@@ -179,7 +190,9 @@ impl SupplierChain {
         start: PositiveSecond,
         length: Option<PositiveSecond>,
     ) -> ClipEngineResult<()> {
-        self.section_mut().set_bounds_in_seconds(start, length)
+        self.entrance()
+            .section()
+            .set_bounds_in_seconds(start, length)
     }
 
     pub fn set_downbeat_in_beats(
@@ -198,11 +211,49 @@ impl SupplierChain {
         self.resampler_mut().set_mode(mode);
     }
 
+    pub fn schedule_end_of_recording(&mut self, end_bar: i32, timeline: &dyn Timeline) {
+        todo!()
+    }
+
+    pub fn write_midi(&mut self, request: WriteMidiRequest, pos: DurationInSeconds) {
+        todo!()
+    }
+
+    pub fn write_audio(&mut self, request: WriteAudioRequest) {
+        todo!()
+    }
+
+    pub fn rollback_recording(&mut self) -> ClipEngineResult<()> {
+        todo!()
+    }
+
+    pub fn commit_recording(
+        &mut self,
+        timeline: &dyn Timeline,
+    ) -> ClipEngineResult<RecordingOutcome> {
+        todo!()
+    }
+
+    /// This must not be done in a real-time thread!
+    pub fn prepare_recording(
+        &mut self,
+        input: ClipRecordInput,
+        project: Option<Project>,
+        trigger_timeline_pos: PositionInSeconds,
+        tempo: Bpm,
+        detect_downbeat: bool,
+        timing: RecordTiming,
+    ) {
+        todo!()
+    }
+
     pub fn set_audio_cache_behavior(
         &mut self,
         cache_behavior: AudioCacheBehavior,
     ) -> ClipEngineResult<()> {
-        self.recorder_mut().set_audio_cache_behavior(cache_behavior)
+        self.entrance()
+            .recorder()
+            .set_audio_cache_behavior(cache_behavior)
     }
 
     pub fn set_audio_time_stretch_mode(&mut self, mode: AudioTimeStretchMode) {
@@ -225,7 +276,8 @@ impl SupplierChain {
     }
 
     pub fn set_looped(&mut self, looped: bool) {
-        self.looper_mut()
+        self.entrance()
+            .looper()
             .set_loop_behavior(LoopBehavior::from_bool(looped));
     }
 
@@ -259,12 +311,18 @@ impl SupplierChain {
     }
 
     pub fn prepare_supply(&mut self) {
-        let section = self.section();
-        // If section start is > 0, the section will take care of applying start fades.
-        let enabled_for_start = section.start_frame() == 0;
-        // If section end is set, the section will take care of applying end fades.
-        let enabled_for_end = section.length().is_none();
-        let start_end_handler = self.start_end_handler_mut();
+        // TODO-high improve guard ... pass by reference?
+        let (enabled_for_start, enabled_for_end) = {
+            let mut entrance = self.entrance();
+            let section = entrance.section();
+            // If section start is > 0, the section will take care of applying start fades.
+            let enabled_for_start = section.start_frame() == 0;
+            // If section end is set, the section will take care of applying end fades.
+            let enabled_for_end = section.length().is_none();
+            (enabled_for_start, enabled_for_end)
+        };
+        let mut entrance = self.entrance();
+        let mut start_end_handler = entrance.start_end_handler();
         start_end_handler.set_enabled_for_start(enabled_for_start);
         start_end_handler.set_enabled_for_end(enabled_for_end);
     }
@@ -273,37 +331,53 @@ impl SupplierChain {
         self.interaction_handler_mut().reset();
         self.resampler_mut().reset_buffers_and_latency();
         self.time_stretcher_mut().reset_buffers_and_latency();
-        self.looper_mut()
+        self.entrance()
+            .looper()
             .set_loop_behavior(LoopBehavior::from_bool(looped));
     }
 
     pub fn get_cycle_at_frame(&self, frame: isize) -> usize {
-        self.looper().get_cycle_at_frame(frame)
+        self.entrance().looper().get_cycle_at_frame(frame)
     }
 
     pub fn keep_playing_until_end_of_current_cycle(&mut self, pos: isize) {
-        self.looper_mut()
+        self.entrance()
+            .looper()
             .keep_playing_until_end_of_current_cycle(pos);
     }
 
     pub fn set_section_bounds(&mut self, start_frame: usize, length: Option<usize>) {
-        self.section_mut().set_bounds(start_frame, length);
+        self.entrance().section().set_bounds(start_frame, length);
     }
 
     pub fn downbeat_pos_during_recording(&self, timeline: &dyn Timeline) -> DurationInSeconds {
-        self.recorder().downbeat_pos_during_recording(timeline)
+        self.entrance()
+            .recorder()
+            .downbeat_pos_during_recording(timeline)
     }
 
     pub fn source_frame_rate_in_ready_state(&self) -> Hz {
-        self.recorder().material_info().unwrap().frame_rate()
+        self.entrance()
+            .recorder()
+            .material_info()
+            .unwrap()
+            .frame_rate()
     }
 
     pub fn section_frame_count_in_ready_state(&self) -> usize {
-        self.section().material_info().unwrap().frame_count()
+        self.entrance()
+            .section()
+            .material_info()
+            .unwrap()
+            .frame_count()
     }
 
     pub fn section_duration_in_ready_state(&self) -> DurationInSeconds {
-        self.section().material_info().unwrap().duration()
+        self.entrance()
+            .section()
+            .material_info()
+            .unwrap()
+            .duration()
     }
 
     fn amplifier(&self) -> &AmplifierTail {
@@ -346,37 +420,44 @@ impl SupplierChain {
         self.time_stretcher_mut().supplier_mut()
     }
 
-    fn looper(&self) -> &LooperTail {
+    fn pre_buffer(&self) -> &PreBufferTail {
         self.downbeat().supplier()
     }
 
-    fn looper_mut(&mut self) -> &mut LooperTail {
+    fn pre_buffer_mut(&mut self) -> &mut PreBufferTail {
         self.downbeat_mut().supplier_mut()
     }
 
-    fn section(&self) -> &SectionTail {
-        self.looper().supplier()
+    fn entrance(&self) -> MutexGuard<LooperTail> {
+        self.pre_buffer().supplier().lock().unwrap()
+    }
+}
+
+trait Entrance {
+    fn looper(&mut self) -> &mut LooperTail;
+
+    fn section(&mut self) -> &mut SectionTail;
+
+    fn start_end_handler(&mut self) -> &mut StartEndHandlerTail;
+
+    fn recorder(&mut self) -> &mut RecorderTail;
+}
+
+impl<'a> Entrance for MutexGuard<'a, LooperTail> {
+    fn looper(&mut self) -> &mut LooperTail {
+        self
     }
 
-    fn section_mut(&mut self) -> &mut SectionTail {
-        self.looper_mut().supplier_mut()
+    fn section(&mut self) -> &mut SectionTail {
+        self.supplier_mut()
     }
 
-    fn start_end_handler(&self) -> &StartEndHandlerTail {
-        self.section().supplier()
+    fn start_end_handler(&mut self) -> &mut StartEndHandlerTail {
+        self.section().supplier_mut()
     }
 
-    fn start_end_handler_mut(&mut self) -> &mut StartEndHandlerTail {
-        self.section_mut().supplier_mut()
-    }
-
-    fn recorder(&self) -> &RecorderTail {
-        self.start_end_handler().supplier()
-    }
-
-    // TODO-medium Don't expose.
-    pub fn recorder_mut(&mut self) -> &mut RecorderTail {
-        self.start_end_handler_mut().supplier_mut()
+    fn recorder(&mut self) -> &mut RecorderTail {
+        self.start_end_handler().supplier_mut()
     }
 }
 

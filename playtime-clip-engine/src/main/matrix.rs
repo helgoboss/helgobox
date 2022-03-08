@@ -1,7 +1,8 @@
 use crate::main::{Column, Slot};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
-    keep_processing_recorder_requests, keep_stretching, RecorderEquipment, StretchWorkerRequest,
+    keep_processing_recorder_requests, keep_stretching, PreBufferRequest, RecorderEquipment,
+    StretchWorkerRequest,
 };
 use crate::rt::{
     ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs, QualifiedClipChangedEvent,
@@ -33,6 +34,7 @@ pub struct Matrix<H> {
     #[allow(dead_code)]
     stretch_worker_sender: Sender<StretchWorkerRequest>,
     recorder_equipment: RecorderEquipment,
+    pre_buffer_request_sender: Sender<PreBufferRequest>,
     columns: Vec<Column>,
     containing_track: Option<Track>,
     command_receiver: Receiver<MatrixCommand>,
@@ -135,8 +137,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             recorder_equipment: RecorderEquipment {
                 recorder_request_sender,
                 cache_request_sender,
-                pre_buffer_request_sender,
             },
+            pre_buffer_request_sender,
             columns: vec![],
             containing_track,
             command_receiver: main_command_receiver,
@@ -178,6 +180,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 api_column,
                 permanent_project,
                 &self.recorder_equipment,
+                &self.pre_buffer_request_sender,
                 &self.settings,
             )?;
             self.rt_command_sender.insert_column(i, column.source());
@@ -371,7 +374,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let task = get_column_mut(&mut self.columns, coordinates.column())?.record_clip(
             coordinates.row(),
             behavior,
-            self.recorder_equipment.clone(),
+            &self.recorder_equipment,
+            &self.pre_buffer_request_sender,
         )?;
         self.handler.request_recording_input(task);
         Ok(())

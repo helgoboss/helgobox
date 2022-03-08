@@ -8,9 +8,8 @@ use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, Cache, CacheRequest, CacheResponseChannel, MaterialInfo,
-    MidiSupplier, PreBuffer, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource,
-    MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
+    WithSource, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::{ClipRecordInput, RecordTiming};
 use crate::timeline::{clip_timeline, Timeline};
@@ -30,13 +29,6 @@ use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut, NonNull};
 
-// TODO-high-prebuffer The PreBuffer sitting on top of the source is maybe not the best idea because once
-//  completely played, it will jump back to source-zero, not section-zero, so we will run into a
-//  cache miss when repeated. But even that is not perfect, just think of loops that don't start
-//  from the start again ... maybe it should sit above looper then. The obvious downside is that
-//  instant changes of permanent-section/loop/start-end-fade settings will not take effect
-//  immediately. Since all those are not intended for real-time changes though, a cache miss would
-//  be acceptable.
 // TODO-high-prebuffer In addition we should deploy a start-buffer that always keeps the start completely in
 //  memory. Because sudden restarts (e.g. retriggers) are the main reason why we could still run
 //  into a cache miss. That start-buffer should take the downbeat setting into account. It must
@@ -44,7 +36,7 @@ use std::ptr::{null, null_mut, NonNull};
 //  on top of the pre-buffer and serve samples at the beginning by itself, leaving the pre-buffer
 //  out of the equation. It should forward pre-buffer requests to the pre-buffer but modify them
 //  by using the end of the start-buffer cache as the minimum pre-buffer position.
-type RecorderCache = Cache<PreBuffer<OwnedPcmSource>>;
+type RecorderCache = Cache<OwnedPcmSource>;
 
 #[derive(Debug)]
 pub struct Recorder {
@@ -52,7 +44,6 @@ pub struct Recorder {
     request_sender: Sender<RecorderRequest>,
     response_channel: ResponseChannel,
     cache_request_sender: Sender<CacheRequest>,
-    pre_buffer_request_sender: Sender<PreBufferRequest>,
 }
 
 #[derive(Debug)]
@@ -154,7 +145,6 @@ impl RecordingState {
         request_sender: &Sender<RecorderRequest>,
         response_sender: &Sender<RecorderResponse>,
         cache_request_sender: &Sender<CacheRequest>,
-        pre_buffer_request_sender: &Sender<PreBufferRequest>,
     ) -> (ClipEngineResult<RecordingOutcome>, State) {
         use KindSpecificRecordingState::*;
         use State::*;
@@ -203,11 +193,7 @@ impl RecordingState {
             Midi(ss) => {
                 let source_duration = ss.new_source.get_length().unwrap();
                 let ready_state = ReadyState {
-                    cache: create_recorder_cache(
-                        ss.new_source,
-                        cache_request_sender.clone(),
-                        pre_buffer_request_sender.clone(),
-                    ),
+                    cache: create_recorder_cache(ss.new_source, cache_request_sender.clone()),
                 };
                 (Ready(ready_state), source_duration)
             }
@@ -313,20 +299,14 @@ pub struct WriteAudioRequest<'a> {
 fn create_recorder_cache(
     source: OwnedPcmSource,
     cache_request_sender: Sender<CacheRequest>,
-    pre_buffer_request_sender: Sender<PreBufferRequest>,
 ) -> RecorderCache {
-    Cache::new(
-        PreBuffer::new(source, pre_buffer_request_sender),
-        cache_request_sender,
-        CacheResponseChannel::new(),
-    )
+    Cache::new(source, cache_request_sender, CacheResponseChannel::new())
 }
 
 #[derive(Clone, Debug)]
 pub struct RecorderEquipment {
     pub recorder_request_sender: Sender<RecorderRequest>,
     pub cache_request_sender: Sender<CacheRequest>,
-    pub pre_buffer_request_sender: Sender<PreBufferRequest>,
 }
 
 impl Drop for Recorder {
@@ -339,11 +319,7 @@ impl Recorder {
     /// Okay to call in real-time thread.
     pub fn ready(source: OwnedPcmSource, equipment: RecorderEquipment) -> Self {
         let ready_state = ReadyState {
-            cache: create_recorder_cache(
-                source,
-                equipment.cache_request_sender.clone(),
-                equipment.pre_buffer_request_sender.clone(),
-            ),
+            cache: create_recorder_cache(source, equipment.cache_request_sender.clone()),
         };
         Self::new(State::Ready(ready_state), equipment)
     }
@@ -375,7 +351,6 @@ impl Recorder {
             state: Some(state),
             request_sender: equipment.recorder_request_sender.clone(),
             cache_request_sender: equipment.cache_request_sender.clone(),
-            pre_buffer_request_sender: equipment.pre_buffer_request_sender,
             response_channel: ResponseChannel::new(),
         }
     }
@@ -399,18 +374,6 @@ impl Recorder {
                 Ok(())
             }
             State::Recording(_) => Err("can't set audio cache behavior while recording"),
-        }
-    }
-
-    pub fn set_pre_buffering_enabled(&mut self, enabled: bool) -> ClipEngineResult<()> {
-        match self.state.as_mut().unwrap() {
-            State::Ready(s) => {
-                s.cache.supplier_mut().set_enabled(enabled);
-                Ok(())
-            }
-            State::Recording(_) => {
-                Err("can't enable/disable pre-buffering behavior while recording")
-            }
         }
     }
 
@@ -506,7 +469,6 @@ impl Recorder {
                 &self.request_sender,
                 &self.response_channel.sender,
                 &self.cache_request_sender,
-                &self.pre_buffer_request_sender,
             ),
         };
         self.state = Some(next_state);
@@ -671,7 +633,6 @@ impl Recorder {
                                 cache: create_recorder_cache(
                                     source,
                                     self.cache_request_sender.clone(),
-                                    self.pre_buffer_request_sender.clone(),
                                 ),
                             };
                             Ready(ready_state)
@@ -797,14 +758,6 @@ impl MidiSupplier for Recorder {
                 .expect("attempt to play back MIDI without source"),
         };
         cache.supply_midi(request, event_list)
-    }
-}
-impl PreBufferSourceSkill for Recorder {
-    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
-        match self.state.as_mut().unwrap() {
-            State::Ready(s) => s.cache.pre_buffer(request),
-            State::Recording(_) => {}
-        }
     }
 }
 

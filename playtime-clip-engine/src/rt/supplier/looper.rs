@@ -323,21 +323,3 @@ impl<S: MidiSupplier + WithMaterialInfo> MidiSupplier for Looper<S> {
         }
     }
 }
-
-impl<S: PreBufferSourceSkill + WithMaterialInfo> PreBufferSourceSkill for Looper<S> {
-    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
-        let supplier_frame_count = self.supplier.material_info().unwrap().frame_count();
-        let data = match self.check_relevance(request.start_frame, supplier_frame_count) {
-            None => {
-                return self.supplier.pre_buffer(request);
-            }
-            Some(d) => d,
-        };
-        let modulo_start_frame = data.modulo_start_frame(supplier_frame_count);
-        let inner_request = PreBufferFillRequest {
-            start_frame: modulo_start_frame,
-            ..request
-        };
-        self.supplier.pre_buffer(inner_request);
-    }
-}

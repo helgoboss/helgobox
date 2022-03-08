@@ -6,6 +6,7 @@ use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OwnedPcmSource, PositionInSeconds,
 };
 use std::fmt::Debug;
+use std::sync::{Arc, Mutex};
 
 pub trait AudioSupplier: Debug + WithMaterialInfo {
     /// Writes a portion of audio material into the given destination buffer so that it completely
@@ -307,5 +308,37 @@ impl SupplyResponse {
                 SupplyResponseStatus::ReachedEnd { num_frames_written }
             },
         }
+    }
+}
+
+impl<T: WithMaterialInfo> WithMaterialInfo for Arc<Mutex<T>> {
+    fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        self.lock().unwrap().material_info()
+    }
+}
+
+impl<T: AudioSupplier> AudioSupplier for Arc<Mutex<T>> {
+    fn supply_audio(
+        &mut self,
+        request: &SupplyAudioRequest,
+        dest_buffer: &mut AudioBufMut,
+    ) -> SupplyResponse {
+        self.lock().unwrap().supply_audio(request, dest_buffer)
+    }
+}
+
+impl<T: MidiSupplier> MidiSupplier for Arc<Mutex<T>> {
+    fn supply_midi(
+        &mut self,
+        request: &SupplyMidiRequest,
+        event_list: &mut BorrowedMidiEventList,
+    ) -> SupplyResponse {
+        self.lock().unwrap().supply_midi(request, event_list)
+    }
+}
+
+impl<T: PreBufferSourceSkill> PreBufferSourceSkill for Arc<Mutex<T>> {
+    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
+        self.lock().unwrap().pre_buffer(request);
     }
 }

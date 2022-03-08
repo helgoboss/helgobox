@@ -1,12 +1,12 @@
 use crate::main::{Clip, ClipRecordTask, MatrixSettings, Slot};
-use crate::rt::supplier::RecorderEquipment;
+use crate::rt::supplier::{PreBufferRequest, RecorderEquipment};
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs,
     ColumnPlayClipArgs, ColumnSetClipLoopedArgs, ColumnStopClipArgs, RecordBehavior, SharedColumn,
     WeakColumn,
 };
 use crate::{clip_timeline, rt, ClipEngineResult};
-use crossbeam_channel::Receiver;
+use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
@@ -77,6 +77,7 @@ impl Column {
         api_column: api::Column,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
+        pre_buffer_request_sender: &Sender<PreBufferRequest>,
         matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
         self.clear_slots();
@@ -114,6 +115,7 @@ impl Column {
                     clip,
                     permanent_project,
                     recorder_equipment,
+                    pre_buffer_request_sender,
                     matrix_settings,
                 )?;
             }
@@ -185,11 +187,13 @@ impl Column {
         mut clip: Clip,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
+        pre_buffer_request_sender: &Sender<PreBufferRequest>,
         matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
         let rt_clip = clip.create_real_time_clip(
             permanent_project,
             recorder_equipment,
+            pre_buffer_request_sender,
             matrix_settings,
             &self.settings,
         )?;
@@ -312,9 +316,12 @@ impl Column {
         &mut self,
         slot_index: usize,
         behavior: RecordBehavior,
-        equipment: RecorderEquipment,
+        equipment: &RecorderEquipment,
+        pre_buffer_request_sender: &Sender<PreBufferRequest>,
     ) -> ClipEngineResult<ClipRecordTask> {
-        self.with_source_mut(|s| s.record_clip(slot_index, behavior, equipment))?;
+        self.with_source_mut(|s| {
+            s.record_clip(slot_index, behavior, equipment, pre_buffer_request_sender)
+        })?;
         let task = ClipRecordTask {
             column_source: self.column_source.clone(),
             slot_index,

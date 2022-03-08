@@ -112,12 +112,6 @@ impl<S: MidiSupplier> MidiSupplier for StartEndHandler<S> {
     }
 }
 
-impl<S: PreBufferSourceSkill> PreBufferSourceSkill for StartEndHandler<S> {
-    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
-        self.supplier.pre_buffer(request);
-    }
-}
-
 impl<S: WithMaterialInfo> WithMaterialInfo for StartEndHandler<S> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         self.supplier.material_info()

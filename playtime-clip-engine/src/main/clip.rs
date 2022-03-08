@@ -2,9 +2,10 @@ use crate::conversion_util::{
     adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
 };
 use crate::main::{ColumnSettings, MatrixSettings};
-use crate::rt::supplier::RecorderEquipment;
+use crate::rt::supplier::{PreBufferRequest, RecorderEquipment};
 use crate::rt::{calc_tempo_factor, determine_tempo_from_time_base, ClipPlayState, SharedPos};
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
+use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{AudioCacheBehavior, AudioTimeStretchMode, Db, VirtualResampleMode};
@@ -44,13 +45,15 @@ impl Clip {
         &self,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
+        pre_buffer_request_sender: &Sender<PreBufferRequest>,
         matrix_settings: &MatrixSettings,
         column_settings: &ColumnSettings,
     ) -> ClipEngineResult<rt::Clip> {
         let mut rt_clip = rt::Clip::ready(
             &self.persistent_data,
             permanent_project,
-            recorder_equipment.clone(),
+            recorder_equipment,
+            pre_buffer_request_sender,
         )?;
         rt_clip.set_audio_resample_mode(
             self.effective_audio_resample_mode(matrix_settings, column_settings),

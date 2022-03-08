@@ -1,4 +1,6 @@
-use crate::rt::supplier::{RecorderEquipment, WriteAudioRequest, WriteMidiRequest};
+use crate::rt::supplier::{
+    PreBufferRequest, RecorderEquipment, WriteAudioRequest, WriteMidiRequest,
+};
 use crate::rt::{
     AudioBufMut, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordInput, ClipStopArgs,
     OwnedAudioBuffer, RecordBehavior, Slot, SlotProcessTransportChangeArgs,
@@ -315,13 +317,15 @@ impl Column {
         &mut self,
         index: usize,
         behavior: RecordBehavior,
-        equipment: RecorderEquipment,
+        equipment: &RecorderEquipment,
+        pre_buffer_request_sender: &Sender<PreBufferRequest>,
     ) -> ClipEngineResult<()> {
         get_slot_mut_insert(&mut self.slots, index).record_clip(
             behavior,
             ClipRecordInput::Audio,
             self.project,
             equipment,
+            pre_buffer_request_sender,
         )
     }
 

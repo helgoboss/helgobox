@@ -208,13 +208,3 @@ impl<S: WithSource> WithSource for Cache<S> {
         self.supplier.source_mut()
     }
 }
-
-impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Cache<S> {
-    fn pre_buffer(&mut self, request: PreBufferFillRequest) {
-        if self.cached_data.is_some() {
-            // No need to pre-buffer anything if we have everything cached in-memory anyway.
-            return;
-        }
-        self.supplier.pre_buffer(request);
-    }
-}

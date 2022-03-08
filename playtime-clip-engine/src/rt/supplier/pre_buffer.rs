@@ -203,6 +203,14 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         }
     }
 
+    pub fn supplier(&self) -> &S {
+        &self.supplier
+    }
+
+    pub fn supplier_mut(&mut self) -> &mut S {
+        &mut self.supplier
+    }
+
     fn pre_buffer_internal(&mut self, args: PreBufferFillRequest) {
         // Not sufficiently thought about what to do if consumer wants to pre-buffer from a negative
         // start frame. Probably normalization to 0 because we know we sit on the source. Let's see.
