@@ -314,10 +314,9 @@ impl<S: MidiSupplier> MidiSupplier for InteractionHandler<S> {
                     self.interaction = None;
                     return SupplyResponse::exceeded_end();
                 }
-                // TODO-high CONTINUE This is probably wrong because dest_frame_count is in dest
-                //  frame rate and distance_to_interaction in source frame rate. With MIDI, it's
-                //  not as with audio in that those frame rates are equal in the lower parts of
-                //  our chain!
+                // This logic assumes that the destination frame rate is comparable to the
+                // source frame rate. The resampler (which currently sits on top of this supplier)
+                // takes care of that.
                 let num_frames_to_write =
                     cmp::min(request.dest_frame_count, distance_to_interaction as usize);
                 let inner_request = SupplyMidiRequest {

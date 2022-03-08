@@ -87,10 +87,11 @@ impl MidiSupplier for OwnedPcmSource {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        let source_frame_rate = Hz::new(MIDI_FRAME_RATE);
-        // TODO-high CONTINUE Make dest sample rate optional and assert similar like audio?
-        //  Check in section at least (which relies on that)!
-        assert_eq!(request.dest_sample_rate, source_frame_rate);
+        // This logic assumes that the destination frame rate is comparable to the source frame
+        // rate. The resampler makes sure of it. However, it's not necessarily equal since we use
+        // frame rate changes for tempo changes. It's only equal if the clip is played in
+        // MIDI_BASE_BPM.
+        let frame_rate = request.dest_sample_rate;
         let num_frames_to_be_consumed = request.dest_frame_count;
         if request.start_frame == 0 {
             print_distance_from_beat_start_at(request, 0, "(MIDI, start_frame = 0)");
@@ -110,10 +111,10 @@ impl MidiSupplier for OwnedPcmSource {
         // For MIDI it seems to be okay to start at a negative position. The source
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
-        let time_s = convert_position_in_frames_to_seconds(request.start_frame, source_frame_rate);
+        let time_s = convert_position_in_frames_to_seconds(request.start_frame, frame_rate);
         let num_midi_frames_consumed = unsafe {
             let mut transfer = PcmSourceTransfer::default();
-            transfer.set_sample_rate(source_frame_rate);
+            transfer.set_sample_rate(frame_rate);
             transfer.set_length(num_frames_to_be_consumed as i32);
             transfer.set_time_s(time_s);
             // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while

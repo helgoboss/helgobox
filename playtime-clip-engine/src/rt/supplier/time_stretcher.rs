@@ -1,3 +1,4 @@
+use crate::conversion_util::{adjust_anti_proportionally_positive, adjust_proportionally_positive};
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
     AudioSupplier, MaterialInfo, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus,
@@ -185,23 +186,9 @@ impl<S: MidiSupplier> MidiSupplier for TimeStretcher<S> {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        if !self.enabled {
-            return self.supplier.supply_midi(request, event_list);
-        }
-        let request = SupplyMidiRequest {
-            start_frame: request.start_frame,
-            dest_frame_count: request.dest_frame_count,
-            dest_sample_rate: Hz::new(request.dest_sample_rate.get() / self.tempo_factor),
-            info: SupplyRequestInfo {
-                audio_block_frame_offset: request.info.audio_block_frame_offset,
-                requester: "time-stretcher-midi",
-                note: "",
-                is_realtime: false,
-            },
-            parent_request: Some(request),
-            general_info: request.general_info,
-        };
-        self.supplier.supply_midi(&request, event_list)
+        // With MIDI, the resampler takes care of adjusting the tempo (since it needs to adjust
+        // the frame rate anyway).
+        self.supplier.supply_midi(request, event_list)
     }
 }
 

@@ -14,9 +14,13 @@ use playtime_api::{
 use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz};
 
 type Head = AmplifierTail;
-type AmplifierTail = Amplifier<InteractionHandlerTail>;
-type InteractionHandlerTail = InteractionHandler<ResamplerTail>;
-type ResamplerTail = Resampler<TimeStretcherTail>;
+type AmplifierTail = Amplifier<ResamplerTail>;
+// We have the resampler on top of the interaction handler because at the moment the interaction
+// handler logic is based on the assumption the input frame rate == output frame rate. If we want
+// to put the interaction handler above the resampler one day (e.g. for caching reasons), we first
+// must change the logic accordingly (doing some hypothetical frame rate conversions).
+type ResamplerTail = Resampler<InteractionHandlerTail>;
+type InteractionHandlerTail = InteractionHandler<TimeStretcherTail>;
 type TimeStretcherTail = TimeStretcher<DownbeatTail>;
 type DownbeatTail = Downbeat<LooperTail>;
 type LooperTail = Looper<SectionTail>;
@@ -34,7 +38,7 @@ impl SupplierChain {
     pub fn new(recorder: Recorder) -> Self {
         let mut chain = Self {
             head: {
-                Amplifier::new(InteractionHandler::new(Resampler::new(TimeStretcher::new(
+                Amplifier::new(Resampler::new(InteractionHandler::new(TimeStretcher::new(
                     Downbeat::new(Looper::new(Section::new(StartEndHandler::new(recorder)))),
                 ))))
             },
@@ -241,27 +245,27 @@ impl SupplierChain {
     }
 
     fn interaction_handler(&self) -> &InteractionHandlerTail {
-        self.amplifier().supplier()
-    }
-
-    fn interaction_handler_mut(&mut self) -> &mut InteractionHandlerTail {
-        self.amplifier_mut().supplier_mut()
-    }
-
-    fn resampler(&self) -> &ResamplerTail {
-        self.interaction_handler().supplier()
-    }
-
-    fn resampler_mut(&mut self) -> &mut ResamplerTail {
-        self.interaction_handler_mut().supplier_mut()
-    }
-
-    fn time_stretcher(&self) -> &TimeStretcherTail {
         self.resampler().supplier()
     }
 
-    fn time_stretcher_mut(&mut self) -> &mut TimeStretcherTail {
+    fn interaction_handler_mut(&mut self) -> &mut InteractionHandlerTail {
         self.resampler_mut().supplier_mut()
+    }
+
+    fn resampler(&self) -> &ResamplerTail {
+        self.amplifier().supplier()
+    }
+
+    fn resampler_mut(&mut self) -> &mut ResamplerTail {
+        self.amplifier_mut().supplier_mut()
+    }
+
+    fn time_stretcher(&self) -> &TimeStretcherTail {
+        self.interaction_handler().supplier()
+    }
+
+    fn time_stretcher_mut(&mut self) -> &mut TimeStretcherTail {
+        self.interaction_handler_mut().supplier_mut()
     }
 
     fn downbeat(&self) -> &DownbeatTail {

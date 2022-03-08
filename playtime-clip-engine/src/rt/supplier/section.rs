@@ -102,6 +102,9 @@ impl<S> Section<S> {
             return Instruction::Bypass;
         }
         // Section is set (start and/or length).
+        // This logic assumes that the destination frame rate is comparable to the
+        // source frame rate. The resampler (which sits on top of this supplier)
+        // takes care of that.
         let ideal_num_frames_to_be_consumed = dest_frame_count;
         let ideal_end_frame_in_section =
             request.start_frame() + ideal_num_frames_to_be_consumed as isize;

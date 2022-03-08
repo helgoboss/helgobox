@@ -212,8 +212,10 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
         }
         let num_frames_to_be_written = request.dest_frame_count;
         let request_ratio = num_frames_to_be_written as f64 / request.dest_sample_rate.get();
-        let num_frames_to_be_consumed =
-            adjust_proportionally_positive(source_frame_rate.get(), request_ratio);
+        let num_frames_to_be_consumed = adjust_proportionally_positive(
+            source_frame_rate.get(),
+            request_ratio * self.tempo_factor,
+        );
         let inner_request = SupplyMidiRequest {
             start_frame: request.start_frame,
             dest_frame_count: num_frames_to_be_consumed,
