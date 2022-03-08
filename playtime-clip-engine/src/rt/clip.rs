@@ -794,19 +794,22 @@ impl ReadyState {
                 self.calculate_seek_go(supplier_chain, pos, seek_pos)
             } else if args.resync {
                 // Resync requested
-                debug!("RESYNC!!!");
+                debug!("Resync");
                 self.go(s, args, supplier_chain, &general_info)
             } else {
                 // Normal situation: Continue playing
+                // Check if the resolve step would still arrive at the same result as our
+                // frame-advancing counter.
                 let compare_pos = self.resolve_virtual_pos(
                     s.virtual_pos,
                     args,
                     general_info.clip_tempo_factor,
                     supplier_chain,
+                    false,
                 );
-                if compare_pos != pos {
-                    // This happened when the MIDI_FRAME_RATE wasn't a multiple of the sample rate
-                    // and PPQ.
+                if supplier_chain.is_midi() && compare_pos != pos {
+                    // This happened a lot when the MIDI_FRAME_RATE wasn't a multiple of the sample
+                    // rate and PPQ.
                     debug!("ATTENTION: compare pos {} != pos {}", compare_pos, pos);
                 }
                 Go {
@@ -828,6 +831,7 @@ impl ReadyState {
                     args,
                     general_info.clip_tempo_factor,
                     supplier_chain,
+                    true,
                 );
                 // Derive stop position within material.
                 let stop_pos = go.pos - distance_from_quantized_stop_pos;
@@ -885,6 +889,7 @@ impl ReadyState {
             args,
             general_info.clip_tempo_factor,
             supplier_chain,
+            true,
         );
         if supplier_chain.is_playing_already(pos) {
             debug!("Install immediate start interaction because material playing already");
@@ -957,6 +962,7 @@ impl ReadyState {
         process_args: &ClipProcessArgs,
         clip_tempo_factor: f64,
         supplier_chain: &SupplierChain,
+        log_natural_deviation: bool,
     ) -> isize {
         use VirtualPosition::*;
         match virtual_pos {
@@ -966,6 +972,7 @@ impl ReadyState {
                 process_args,
                 clip_tempo_factor,
                 supplier_chain,
+                log_natural_deviation,
             ),
         }
     }
@@ -996,7 +1003,6 @@ impl ReadyState {
             ),
             SupplyResponseStatus::ReachedEnd { num_frames_written } => (num_frames_written, None),
         };
-        debug!("FRAMES CONSUMED: {}", response.num_frames_consumed);
         FillSamplesOutcome {
             clip_playing_outcome: ClipPlayingOutcome {
                 num_audio_frames_written: if is_midi { 0 } else { num_frames_written },
@@ -1118,6 +1124,7 @@ impl ReadyState {
         args: &ClipProcessArgs,
         clip_tempo_factor: f64,
         supplier_chain: &SupplierChain,
+        log_natural_deviation: bool,
     ) -> isize {
         // Basics
         let block_length_in_timeline_frames = args.dest_buffer.frame_count();
@@ -1130,7 +1137,7 @@ impl ReadyState {
             rel_pos_from_quant_in_secs,
             supplier_chain.source_frame_rate_in_ready_state(),
         );
-        if quantized_pos.denominator() == 1 {
+        if log_natural_deviation && quantized_pos.denominator() == 1 {
             // Quantization to bar
             if let Some(clip_tempo) = self.tempo(supplier_chain.is_midi()) {
                 // Plus, we react to tempo changes.
@@ -1171,10 +1178,6 @@ impl ReadyState {
             block_length_in_timeline_frames,
             timeline_frame_rate,
             source_frame_rate,
-        );
-        debug!(
-            "CALCULATED BLOCK LENGTH IN SOURCE FRAMES: {}",
-            block_length_in_source_frames
         );
         adjust_proportionally_in_blocks(
             rel_pos_from_quant_in_source_frames,
