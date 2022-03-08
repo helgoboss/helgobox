@@ -27,9 +27,8 @@ pub struct PreBuffer<S> {
     request_sender: Sender<PreBufferRequest>,
     supplier: S,
     consumer: Consumer<PreBufferedBlock>,
-    /// If we know the underlying supplier doesn't deliver count-in material, we should set this
-    /// to `true`. An important optimization that saves supplier queries.
     skip_count_in_phase_material: bool,
+    cached_material_info: Option<MaterialInfo>,
 }
 
 trait PreBufferSender {
@@ -181,7 +180,15 @@ impl PreBufferInstanceId {
 
 impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
     /// Don't call in real-time thread.
-    pub fn new(supplier: S, request_sender: Sender<PreBufferRequest>) -> Self {
+    ///
+    /// `skip_count_in_phase_material`: If we know the underlying supplier doesn't deliver count-in
+    /// material, we should set this to `true`. An important optimization that saves supplier
+    /// queries.
+    pub fn new(
+        supplier: S,
+        request_sender: Sender<PreBufferRequest>,
+        skip_count_in_phase_material: bool,
+    ) -> Self {
         let (producer, consumer) = RingBuffer::new(RING_BUFFER_BLOCK_COUNT);
         let id = PreBufferInstanceId::next();
         let request = PreBufferRequest::RegisterInstance {
@@ -196,10 +203,8 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
             request_sender,
             supplier,
             consumer,
-            // We know we sit right above the source and this one can't deliver material in the
-            // count-in phase. This is good for performance, especially when crossing the
-            // zero boundary.
-            skip_count_in_phase_material: true,
+            skip_count_in_phase_material,
+            cached_material_info: None,
         }
     }
 
@@ -218,6 +223,15 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
 
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
+    }
+
+    /// Invalidates the material info cache.
+    ///
+    /// This should be called whenever the underlying material info might change. However, it
+    /// accesses the supplier and therefore should be used with care (especially if the supplier
+    /// is a mutex).
+    pub fn invalidate_material_info_cache(&mut self) {
+        self.cached_material_info = self.supplier.material_info().ok();
     }
 
     fn recycle_next_n_blocks(&mut self, count: usize) {
@@ -439,18 +453,15 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
         if !self.enabled {
+            // Not enabled means we may access the supplier directly.
             return self.supplier.supply_audio(request, dest_buffer);
         }
-        // TODO-high Put this assertion into the worker thread (don't access supplier here because
-        //  it locks a contended mutex!)
         #[cfg(debug_assertions)]
         {
-            request.assert_wants_source_frame_rate(
-                self.supplier.material_info().unwrap().frame_rate(),
-            );
+            request.assert_wants_source_frame_rate(self.material_info().unwrap().frame_rate());
         }
-        // Return silence until frame 0 reached, if allowed.
         let initial_frame_offset = if self.skip_count_in_phase_material {
+            // Return silence until frame 0 reached, if allowed.
             use SkipCountInPhaseOutcome::*;
             match self.skip_count_in_phase(request.start_frame, dest_buffer) {
                 PureCountIn(response) => return response,
@@ -510,9 +521,10 @@ impl<S: MidiSupplier> MidiSupplier for PreBuffer<S> {
 
 impl<S: WithMaterialInfo> WithMaterialInfo for PreBuffer<S> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        // TODO-high The pre buffer should cache the material info because accessing the supplier
-        //  might be expensive / lock a contended mutex
-        self.supplier.material_info()
+        self.cached_material_info
+            .as_ref()
+            .cloned()
+            .ok_or("material info not cached")
     }
 }
 

@@ -63,6 +63,9 @@ type TimeStretcherTail = TimeStretcher<DownbeatTail>;
 /// express by cheaply converting pre-buffer requests. In general, we don't want to pre-buffer
 /// more non-destructive changes than necessary, especially not the sudden changes (because that
 /// would introduce a latency).
+///
+/// Also, the pre-buffer can apply an optimization if it can be sure that there's no material
+/// in the count-in phase, which is true for all material below the downbeat handler.
 type DownbeatTail = Downbeat<PreBufferTail>;
 
 /// Pre-buffer asynchronously loads a small amount of audio source material into memory before it's
@@ -115,13 +118,18 @@ impl SupplierChain {
     pub fn new(recorder: Recorder, pre_buffer_request_sender: Sender<PreBufferRequest>) -> Self {
         let mut chain = Self {
             head: {
+                let pre_buffer = PreBuffer::new(
+                    Arc::new(Mutex::new(Looper::new(Section::new(StartEndHandler::new(
+                        recorder,
+                    ))))),
+                    pre_buffer_request_sender,
+                    // We know we sit right above the source and this one can't deliver material in the
+                    // count-in phase. This is good for performance, especially when crossing the
+                    // zero boundary.
+                    true,
+                );
                 Amplifier::new(Resampler::new(InteractionHandler::new(TimeStretcher::new(
-                    Downbeat::new(PreBuffer::new(
-                        Arc::new(Mutex::new(Looper::new(Section::new(StartEndHandler::new(
-                            recorder,
-                        ))))),
-                        pre_buffer_request_sender,
-                    )),
+                    Downbeat::new(pre_buffer),
                 ))))
             },
         };
@@ -137,9 +145,10 @@ impl SupplierChain {
         // Configure pre-buffer
         let pre_buffer = chain.pre_buffer_mut();
         pre_buffer.set_enabled(true);
+        pre_buffer.invalidate_material_info_cache();
         // Configure looper
         // TODO-high-prebuffer OK, fire and forget
-        chain.entrance().looper().set_enabled(true);
+        chain.pre_buffer_wormhole().looper().set_enabled(true);
         chain
     }
 
@@ -154,14 +163,16 @@ impl SupplierChain {
 
     pub fn set_audio_fades_enabled_for_source(&mut self, enabled: bool) {
         // TODO-high-prebuffer OK, fire and forget
-        self.entrance()
+        self.pre_buffer_wormhole()
             .start_end_handler()
             .set_audio_fades_enabled(enabled);
     }
 
     pub fn set_midi_reset_msg_range_for_section(&mut self, range: MidiResetMessageRange) {
         // TODO-high-prebuffer OK, fire and forget
-        self.entrance().section().set_midi_reset_msg_range(range);
+        self.pre_buffer_wormhole()
+            .section()
+            .set_midi_reset_msg_range(range);
     }
 
     pub fn set_midi_reset_msg_range_for_interaction(&mut self, range: MidiResetMessageRange) {
@@ -171,12 +182,14 @@ impl SupplierChain {
 
     pub fn set_midi_reset_msg_range_for_loop(&mut self, range: MidiResetMessageRange) {
         // TODO-high-prebuffer OK, fire and forget
-        self.entrance().looper().set_midi_reset_msg_range(range);
+        self.pre_buffer_wormhole()
+            .looper()
+            .set_midi_reset_msg_range(range);
     }
 
     pub fn set_midi_reset_msg_range_for_source(&mut self, range: MidiResetMessageRange) {
         // TODO-high-prebuffer OK, fire and forget
-        self.entrance()
+        self.pre_buffer_wormhole()
             .start_end_handler()
             .set_midi_reset_msg_range(range);
     }
@@ -192,7 +205,7 @@ impl SupplierChain {
         length: Option<PositiveSecond>,
     ) -> ClipEngineResult<()> {
         // TODO-high-prebuffer OK, fire and forget
-        self.entrance()
+        self.pre_buffer_wormhole()
             .section()
             .set_bounds_in_seconds(start, length)
     }
@@ -254,7 +267,7 @@ impl SupplierChain {
         cache_behavior: AudioCacheBehavior,
     ) -> ClipEngineResult<()> {
         // TODO-high-prebuffer OK, fire and forget
-        self.entrance()
+        self.pre_buffer_wormhole()
             .recorder()
             .set_audio_cache_behavior(cache_behavior)
     }
@@ -280,7 +293,7 @@ impl SupplierChain {
 
     pub fn set_looped(&mut self, looped: bool) {
         // TODO-high-prebuffer OK, fire and forget
-        self.entrance()
+        self.pre_buffer_wormhole()
             .looper()
             .set_loop_behavior(LoopBehavior::from_bool(looped));
     }
@@ -316,7 +329,7 @@ impl SupplierChain {
         // TODO-high-prebuffer OK, must be integrated into async processing function
         // TODO-high improve guard ... pass by reference?
         let (enabled_for_start, enabled_for_end) = {
-            let mut entrance = self.entrance();
+            let mut entrance = self.pre_buffer_wormhole();
             let section = entrance.section();
             // If section start is > 0, the section will take care of applying start fades.
             let enabled_for_start = section.start_frame() == 0;
@@ -325,7 +338,7 @@ impl SupplierChain {
             (enabled_for_start, enabled_for_end)
         };
         // TODO-high-prebuffer OK, fire and forget
-        let mut entrance = self.entrance();
+        let mut entrance = self.pre_buffer_wormhole();
         let mut start_end_handler = entrance.start_end_handler();
         start_end_handler.set_enabled_for_start(enabled_for_start);
         start_end_handler.set_enabled_for_end(enabled_for_end);
@@ -336,7 +349,7 @@ impl SupplierChain {
         self.resampler_mut().reset_buffers_and_latency();
         self.time_stretcher_mut().reset_buffers_and_latency();
         // TODO-high-prebuffer OK, fire and forget
-        self.entrance()
+        self.pre_buffer_wormhole()
             .looper()
             .set_loop_behavior(LoopBehavior::from_bool(looped));
     }
@@ -344,19 +357,21 @@ impl SupplierChain {
     pub fn keep_playing_until_end_of_current_cycle(&mut self, pos: isize) {
         // TODO-high-prebuffer OK, fire and forget
         let _ = self
-            .entrance()
+            .pre_buffer_wormhole()
             .looper()
             .keep_playing_until_end_of_current_cycle(pos);
     }
 
     pub fn set_section_bounds(&mut self, start_frame: usize, length: Option<usize>) {
         // TODO-high-prebuffer OK, fire and forget
-        self.entrance().section().set_bounds(start_frame, length);
+        self.pre_buffer_wormhole()
+            .section()
+            .set_bounds(start_frame, length);
     }
 
     pub fn downbeat_pos_during_recording(&self, timeline: &dyn Timeline) -> DurationInSeconds {
-        // TODO-high-prebuffer OK, can be cached
-        self.entrance()
+        // While recording, the pre-buffer worker shouldn't buffer anything.
+        self.pre_buffer_wormhole()
             .recorder()
             .downbeat_pos_during_recording(timeline)
     }
@@ -409,8 +424,19 @@ impl SupplierChain {
         self.downbeat_mut().supplier_mut()
     }
 
-    fn entrance(&self) -> MutexGuard<LooperTail> {
-        self.pre_buffer().supplier().lock().unwrap()
+    /// Allows accessing the suppliers below the pre-buffer.
+    ///
+    /// Attention: This attempts to lock a mutex and panics if it's locked already. Therefore it can
+    /// be used only if one is sure that there can't be any contention!
+    ///
+    /// # Panics
+    ///
+    /// This method panics if the mutex is locked!
+    fn pre_buffer_wormhole(&self) -> MutexGuard<LooperTail> {
+        self.pre_buffer()
+            .supplier()
+            .try_lock()
+            .expect("attempt to access pre-buffer wormhole from chain while locked")
     }
 }
 
