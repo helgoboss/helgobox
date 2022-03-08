@@ -2,7 +2,9 @@ use crate::conversion_util::{
     adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
 };
 use crate::main::{ColumnSettings, MatrixSettings};
-use crate::rt::supplier::{MaterialInfo, PreBufferRequest, RecorderEquipment};
+use crate::rt::supplier::{
+    ChainPreBufferRequest, MaterialInfo, PreBufferRequest, RecorderEquipment,
+};
 use crate::rt::{calc_tempo_factor, determine_tempo_from_time_base, ClipPlayState, SharedPos};
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::Sender;
@@ -56,7 +58,7 @@ impl Clip {
         &self,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<PreBufferRequest>,
+        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
         matrix_settings: &MatrixSettings,
         column_settings: &ColumnSettings,
     ) -> ClipEngineResult<rt::Clip> {

@@ -1,6 +1,7 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
-    MaterialInfo, PreBufferRequest, RecorderEquipment, WriteAudioRequest, WriteMidiRequest,
+    ChainPreBufferRequest, MaterialInfo, PreBufferRequest, RecorderEquipment, WriteAudioRequest,
+    WriteMidiRequest,
 };
 use crate::rt::{
     AudioBufMut, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordInput, ClipStopArgs,
@@ -316,7 +317,7 @@ impl Column {
         index: usize,
         behavior: RecordBehavior,
         equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<PreBufferRequest>,
+        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
     ) -> ClipEngineResult<()> {
         get_slot_mut_insert(&mut self.slots, index).record_clip(
             behavior,

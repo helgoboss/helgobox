@@ -13,6 +13,7 @@ use rtrb::{Consumer, Producer, RingBuffer};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::BuildHasherDefault;
+use std::marker::PhantomData;
 use std::ops::Range;
 use std::sync::atomic;
 use std::sync::atomic::AtomicUsize;
@@ -21,14 +22,15 @@ use std::{iter, thread};
 use twox_hash::XxHash64;
 
 #[derive(Debug)]
-pub struct PreBuffer<S> {
+pub struct PreBuffer<S, F, C> {
     id: PreBufferInstanceId,
     enabled: bool,
-    request_sender: Sender<PreBufferRequest>,
+    request_sender: Sender<PreBufferRequest<S, C>>,
     supplier: S,
     consumer: Consumer<PreBufferedBlock>,
     cached_material_info: Option<MaterialInfo>,
     options: PreBufferOptions,
+    command_processor: F,
 }
 
 #[derive(Debug)]
@@ -64,12 +66,37 @@ pub enum PreBufferCacheMissBehavior {
 }
 
 trait PreBufferSender {
+    type Supplier;
+    type Command;
+
     fn recycle_block(&self, block: PreBufferedBlock);
+
+    fn keep_filling(&self, id: PreBufferInstanceId, args: PreBufferFillRequest);
+
+    fn send_command(&self, id: PreBufferInstanceId, command: Self::Command);
+
+    fn send_request(&self, request: PreBufferRequest<Self::Supplier, Self::Command>);
 }
 
-impl PreBufferSender for Sender<PreBufferRequest> {
+impl<S, C> PreBufferSender for Sender<PreBufferRequest<S, C>> {
+    type Supplier = S;
+    type Command = C;
+
     fn recycle_block(&self, block: PreBufferedBlock) {
         let request = PreBufferRequest::Recycle(block);
+        self.send_request(request);
+    }
+
+    fn keep_filling(&self, id: PreBufferInstanceId, args: PreBufferFillRequest) {
+        let request = PreBufferRequest::KeepFillingFrom { id, args };
+        self.send_request(request);
+    }
+
+    fn send_command(&self, id: PreBufferInstanceId, command: Self::Command) {
+        self.send_request(PreBufferRequest::SendCommand(id, command));
+    }
+
+    fn send_request(&self, request: PreBufferRequest<S, C>) {
         self.try_send(request).unwrap();
     }
 }
@@ -187,17 +214,18 @@ enum MatchError {
 }
 
 #[derive(Debug)]
-pub enum PreBufferRequest {
+pub enum PreBufferRequest<S, C> {
     RegisterInstance {
         id: PreBufferInstanceId,
         producer: Producer<PreBufferedBlock>,
-        supplier: Box<dyn AudioSupplier + Send + 'static>,
+        supplier: S,
     },
     Recycle(PreBufferedBlock),
     KeepFillingFrom {
         id: PreBufferInstanceId,
         args: crate::rt::supplier::PreBufferFillRequest,
     },
+    SendCommand(PreBufferInstanceId, C),
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Display)]
@@ -210,19 +238,20 @@ impl PreBufferInstanceId {
     }
 }
 
-impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
+impl<S: AudioSupplier + Clone + Send + 'static, F, C> PreBuffer<S, F, C> {
     /// Don't call in real-time thread.
     pub fn new(
         supplier: S,
-        request_sender: Sender<PreBufferRequest>,
+        request_sender: Sender<PreBufferRequest<S, C>>,
         options: PreBufferOptions,
+        process_command: F,
     ) -> Self {
         let (producer, consumer) = RingBuffer::new(RING_BUFFER_BLOCK_COUNT);
         let id = PreBufferInstanceId::next();
         let request = PreBufferRequest::RegisterInstance {
             id,
             producer,
-            supplier: Box::new(supplier.clone()),
+            supplier: supplier.clone(),
         };
         request_sender.try_send(request).unwrap();
         Self {
@@ -233,6 +262,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
             consumer,
             cached_material_info: None,
             options,
+            command_processor: process_command,
         }
     }
 
@@ -240,12 +270,29 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         &self.supplier
     }
 
+    pub fn send_command(&self, command: C) -> ClipEngineResult<()> {
+        if !self.enabled {
+            self.handle_command_directly(command);
+            return Ok(());
+        }
+        let material_info = self.material_info()?;
+        if material_info.is_midi() {
+            self.handle_command_directly(command);
+        } else {
+            self.request_sender.send_command(self.id, command);
+        }
+        Ok(())
+    }
+
+    fn handle_command_directly(&self, command: C) {
+        todo!()
+    }
+
     fn pre_buffer_internal(&mut self, args: PreBufferFillRequest) {
         // Not sufficiently thought about what to do if consumer wants to pre-buffer from a negative
         // start frame. Probably normalization to 0 because we know we sit on the source. Let's see.
         debug_assert!(args.start_frame >= 0);
-        let request = PreBufferRequest::KeepFillingFrom { id: self.id, args };
-        self.request_sender.try_send(request).unwrap();
+        self.request_sender.keep_filling(self.id, args);
         self.recycle_next_n_blocks(self.consumer.slots());
     }
 
@@ -468,13 +515,17 @@ struct ApplyOutcome {
     block_exhausted: bool,
 }
 
-impl<S: AudioSupplier + Clone + Send + 'static> PreBufferSourceSkill for PreBuffer<S> {
+impl<S: AudioSupplier + Clone + Send + 'static, F: Debug, C: Debug> PreBufferSourceSkill
+    for PreBuffer<S, F, C>
+{
     fn pre_buffer(&mut self, args: PreBufferFillRequest) {
         self.pre_buffer_internal(args);
     }
 }
 
-impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
+impl<S: AudioSupplier + Clone + Send + 'static, F: Debug, C: Debug> AudioSupplier
+    for PreBuffer<S, F, C>
+{
     fn supply_audio(
         &mut self,
         request: &SupplyAudioRequest,
@@ -549,7 +600,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
     }
 }
 
-impl<S: MidiSupplier> MidiSupplier for PreBuffer<S> {
+impl<S: MidiSupplier, F: Debug, C: Debug> MidiSupplier for PreBuffer<S, F, C> {
     fn supply_midi(
         &mut self,
         request: &SupplyMidiRequest,
@@ -560,7 +611,7 @@ impl<S: MidiSupplier> MidiSupplier for PreBuffer<S> {
     }
 }
 
-impl<S: WithMaterialInfo> WithMaterialInfo for PreBuffer<S> {
+impl<S: WithMaterialInfo, F, C> WithMaterialInfo for PreBuffer<S, F, C> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         self.cached_material_info
             .as_ref()
@@ -569,14 +620,19 @@ impl<S: WithMaterialInfo> WithMaterialInfo for PreBuffer<S> {
     }
 }
 
-#[derive(Default)]
-struct PreBufferWorker {
-    instances: HashMap<PreBufferInstanceId, Instance, BuildHasherDefault<XxHash64>>,
+struct PreBufferWorker<S, F, C> {
+    instances: HashMap<PreBufferInstanceId, Instance<S>, BuildHasherDefault<XxHash64>>,
     spare_buffer_chunks: Vec<Vec<f64>>,
+    command_processor: F,
+    phantom: PhantomData<C>,
 }
 
-impl PreBufferWorker {
-    pub fn process_request(&mut self, request: PreBufferRequest) {
+impl<S, F, C> PreBufferWorker<S, F, C>
+where
+    S: AudioSupplier + WithMaterialInfo,
+    F: CommandProcessor<Supplier = S, Command = C>,
+{
+    pub fn process_request(&mut self, request: PreBufferRequest<S, C>) {
         use PreBufferRequest::*;
         match request {
             RegisterInstance {
@@ -596,6 +652,14 @@ impl PreBufferWorker {
             }
             KeepFillingFrom { id, args } => {
                 let _ = self.keep_filling_from(id, args);
+            }
+            SendCommand(id, command) => {
+                let instance = match self.instances.get(&id) {
+                    None => return,
+                    Some(i) => i,
+                };
+                self.command_processor
+                    .process_command(command, &instance.supplier);
             }
         }
     }
@@ -619,7 +683,7 @@ impl PreBufferWorker {
         });
     }
 
-    fn register_instance(&mut self, id: PreBufferInstanceId, instance: Instance) {
+    fn register_instance(&mut self, id: PreBufferInstanceId, instance: Instance<S>) {
         self.instances.insert(id, instance);
     }
 
@@ -645,13 +709,13 @@ impl PreBufferWorker {
     }
 }
 
-struct Instance {
+struct Instance<S> {
     producer: Producer<PreBufferedBlock>,
-    supplier: Box<dyn AudioSupplier + Send + 'static>,
+    supplier: S,
     state: InstanceState,
 }
 
-impl Instance {
+impl<S: AudioSupplier + WithMaterialInfo> Instance<S> {
     pub fn fill(
         &mut self,
         mut get_spare_buffer: impl FnMut(usize) -> OwnedAudioBuffer,
@@ -727,8 +791,18 @@ struct FillingState {
     next_start_frame: isize,
 }
 
-pub fn keep_processing_pre_buffer_requests(receiver: Receiver<PreBufferRequest>) {
-    let mut worker = PreBufferWorker::default();
+pub fn keep_processing_pre_buffer_requests<S, C>(
+    receiver: Receiver<PreBufferRequest<S, C>>,
+    command_processor: impl CommandProcessor<Supplier = S, Command = C>,
+) where
+    S: AudioSupplier,
+{
+    let mut worker = PreBufferWorker {
+        instances: Default::default(),
+        spare_buffer_chunks: vec![],
+        command_processor,
+        phantom: PhantomData,
+    };
     loop {
         // At first take every incoming request serious so we can fill based on up-to-date demands.
         loop {
@@ -807,3 +881,10 @@ const RING_BUFFER_BLOCK_COUNT: usize = 2;
 // Quite stable. Misses start at 3x 960 bpm.
 // const PRE_BUFFERED_BLOCK_LENGTH: usize = 4096;
 // const RING_BUFFER_BLOCK_COUNT: usize = 1;
+
+pub trait CommandProcessor {
+    type Supplier;
+    type Command;
+
+    fn process_command(&self, command: Self::Command, supplier: &Self::Supplier);
+}

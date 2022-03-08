@@ -7,10 +7,11 @@ use crate::conversion_util::{
 use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest, PreBufferRequest,
-    PreBufferSourceSkill, Recorder, RecorderEquipment, SupplierChain, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
+    AudioSupplier, ChainPreBufferRequest, MaterialInfo, MidiSupplier, PreBufferFillRequest,
+    PreBufferRequest, PreBufferSourceSkill, Recorder, RecorderEquipment, SupplierChain,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo,
+    SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
+    MIDI_BASE_BPM,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::{ClipEngineResult, QuantizedPosition};
@@ -212,7 +213,7 @@ impl Clip {
         api_clip: &api::Clip,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<PreBufferRequest>,
+        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
     ) -> ClipEngineResult<Self> {
         let pcm_source = create_pcm_source_from_api_source(&api_clip.source, permanent_project)?;
         let mut ready_state = ReadyState {
@@ -259,7 +260,7 @@ impl Clip {
         args: ClipRecordArgs,
         project: Option<Project>,
         equipment: RecorderEquipment,
-        pre_buffer_request_sender: Sender<PreBufferRequest>,
+        pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
     ) -> Self {
         let timeline = clip_timeline(project, false);
         let trigger_timeline_pos = timeline.cursor_pos();

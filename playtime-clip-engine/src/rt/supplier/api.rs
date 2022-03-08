@@ -9,6 +9,7 @@ use reaper_medium::{
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
+// TODO-medium We can remove the WithMaterialInfo because we don't box anymore.
 pub trait AudioSupplier: Debug + WithMaterialInfo {
     /// Writes a portion of audio material into the given destination buffer so that it completely
     /// fills that buffer.

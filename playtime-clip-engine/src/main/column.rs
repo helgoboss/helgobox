@@ -1,6 +1,6 @@
 use crate::main::{Clip, ClipRecordTask, MatrixSettings, Slot};
 use crate::mutex_util::non_blocking_lock;
-use crate::rt::supplier::{PreBufferRequest, RecorderEquipment};
+use crate::rt::supplier::{ChainPreBufferRequest, PreBufferRequest, RecorderEquipment};
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ColumnCommandSender, ColumnEvent, ColumnFillSlotArgs,
     ColumnPlayClipArgs, ColumnSetClipLoopedArgs, ColumnStopClipArgs, RecordBehavior, SharedColumn,
@@ -78,7 +78,7 @@ impl Column {
         api_column: api::Column,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<PreBufferRequest>,
+        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
         matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
         self.clear_slots();
@@ -188,7 +188,7 @@ impl Column {
         mut clip: Clip,
         permanent_project: Option<Project>,
         recorder_equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<PreBufferRequest>,
+        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
         matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
         let rt_clip = clip.create_real_time_clip(
@@ -318,7 +318,7 @@ impl Column {
         slot_index: usize,
         behavior: RecordBehavior,
         equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<PreBufferRequest>,
+        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
     ) -> ClipEngineResult<ClipRecordTask> {
         self.with_source_mut(|s| {
             s.record_clip(slot_index, behavior, equipment, pre_buffer_request_sender)

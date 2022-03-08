@@ -1,10 +1,10 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
-    Amplifier, AudioSupplier, Downbeat, InteractionHandler, LoopBehavior, Looper, MaterialInfo,
-    MidiSupplier, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions,
-    PreBufferRequest, PreBufferSourceSkill, Recorder, RecordingOutcome, Resampler, Section,
-    StartEndHandler, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
-    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
+    Amplifier, AudioSupplier, CommandProcessor, Downbeat, InteractionHandler, LoopBehavior, Looper,
+    MaterialInfo, MidiSupplier, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest,
+    PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, Recorder, RecordingOutcome,
+    Resampler, Section, StartEndHandler, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
+    TimeStretcher, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::{AudioBufMut, ClipRecordInput, RecordTiming};
 use crate::{ClipEngineResult, Timeline};
@@ -77,7 +77,12 @@ type DownbeatTail = Downbeat<PreBufferTail>;
 /// material in advance. The looper knows best which material comes next. If it would sit below
 /// the looper and it would reach end of material, it doesn't have anything in hand to decide what
 /// needs to be pre-buffered next.
-type PreBufferTail = PreBuffer<Arc<Mutex<LooperTail>>>;
+type PreBufferTail =
+    PreBuffer<SharedLooperTail, ChainPreBufferCommandProcessor, ChainPreBufferCommand>;
+
+/// Everything below the pre-buffer is shared because we must access it from the pre-buffer worker
+/// thread as well. We make sure of having no contention when locking the mutex.
+type SharedLooperTail = Arc<Mutex<LooperTail>>;
 
 /// Looper optionally repeats the material.
 ///
@@ -116,7 +121,10 @@ pub struct SupplierChain {
 }
 
 impl SupplierChain {
-    pub fn new(recorder: Recorder, pre_buffer_request_sender: Sender<PreBufferRequest>) -> Self {
+    pub fn new(
+        recorder: Recorder,
+        pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
+    ) -> Self {
         let pre_buffer_options = PreBufferOptions {
             // We know we sit below the downbeat handler, so the underlying suppliers won't deliver
             // material in the count-in phase.
@@ -133,6 +141,7 @@ impl SupplierChain {
                         Arc::new(Mutex::new(looper)),
                         pre_buffer_request_sender,
                         pre_buffer_options,
+                        ChainPreBufferCommandProcessor,
                     )),
                 ))))
             },
@@ -163,6 +172,8 @@ impl SupplierChain {
     }
 
     pub fn set_audio_fades_enabled_for_source(&mut self, enabled: bool) {
+        let command = ChainPreBufferCommand::SetAudioFadesEnabledForSource(enabled);
+        self.pre_buffer_supplier().send_command(command);
         // TODO-high-prebuffer OK, fire and forget
         self.pre_buffer_wormhole()
             .start_end_handler()
@@ -409,7 +420,7 @@ impl SupplierChain {
         self.time_stretcher_mut().supplier_mut()
     }
 
-    fn pre_buffer(&self) -> &PreBufferTail {
+    fn pre_buffer_supplier(&self) -> &PreBufferTail {
         self.downbeat().supplier()
     }
 
@@ -427,7 +438,7 @@ impl SupplierChain {
     /// This method panics if the mutex is locked!
     fn pre_buffer_wormhole(&self) -> MutexGuard<LooperTail> {
         non_blocking_lock(
-            self.pre_buffer().supplier(),
+            self.pre_buffer_supplier().supplier(),
             "attempt to access pre-buffer wormhole from chain while locked",
         )
     }
@@ -490,5 +501,29 @@ impl WithMaterialInfo for SupplierChain {
 impl PreBufferSourceSkill for SupplierChain {
     fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         self.head.pre_buffer(request)
+    }
+}
+
+pub type ChainPreBufferRequest = PreBufferRequest<SharedLooperTail, ChainPreBufferCommand>;
+
+#[derive(Debug)]
+pub enum ChainPreBufferCommand {
+    SetAudioFadesEnabledForSource(bool),
+}
+
+#[derive(Debug)]
+pub struct ChainPreBufferCommandProcessor;
+
+impl CommandProcessor for ChainPreBufferCommandProcessor {
+    type Supplier = SharedLooperTail;
+    type Command = ChainPreBufferCommand;
+
+    fn process_command(&self, command: ChainPreBufferCommand, supplier: &SharedLooperTail) {
+        use ChainPreBufferCommand::*;
+        match command {
+            SetAudioFadesEnabledForSource(_) => {
+                todo!()
+            }
+        }
     }
 }

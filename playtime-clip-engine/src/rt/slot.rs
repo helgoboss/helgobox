@@ -1,6 +1,7 @@
 use crate::metrics_util::measure_time;
 use crate::rt::supplier::{
-    MaterialInfo, PreBufferRequest, RecorderEquipment, WriteAudioRequest, WriteMidiRequest,
+    ChainPreBufferRequest, MaterialInfo, PreBufferRequest, RecorderEquipment, WriteAudioRequest,
+    WriteMidiRequest,
 };
 use crate::rt::SlotInstruction::KeepSlot;
 use crate::rt::{
@@ -94,7 +95,7 @@ impl Slot {
         input: ClipRecordInput,
         project: Option<Project>,
         equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<PreBufferRequest>,
+        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
     ) -> ClipEngineResult<()> {
         use RecordBehavior::*;
         match behavior {

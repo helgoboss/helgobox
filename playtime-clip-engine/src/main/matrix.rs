@@ -1,8 +1,8 @@
 use crate::main::{Column, Slot};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
-    keep_processing_recorder_requests, keep_stretching, PreBufferRequest, RecorderEquipment,
-    StretchWorkerRequest,
+    keep_processing_recorder_requests, keep_stretching, ChainPreBufferCommandProcessor,
+    ChainPreBufferRequest, PreBufferRequest, RecorderEquipment, StretchWorkerRequest,
 };
 use crate::rt::{
     ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs, QualifiedClipChangedEvent,
@@ -34,7 +34,7 @@ pub struct Matrix<H> {
     #[allow(dead_code)]
     stretch_worker_sender: Sender<StretchWorkerRequest>,
     recorder_equipment: RecorderEquipment,
-    pre_buffer_request_sender: Sender<PreBufferRequest>,
+    pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
     columns: Vec<Column>,
     containing_track: Option<Track>,
     command_receiver: Receiver<MatrixCommand>,
@@ -124,7 +124,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             keep_processing_cache_requests(cache_request_receiver);
         });
         worker_pool.add_worker("Playtime pre-buffer worker", move || {
-            keep_processing_pre_buffer_requests(pre_buffer_request_receiver);
+            keep_processing_pre_buffer_requests(
+                pre_buffer_request_receiver,
+                ChainPreBufferCommandProcessor,
+            );
         });
         let project = containing_track.as_ref().map(|t| t.project());
         let rt_matrix = rt::Matrix::new(rt_command_receiver, main_command_sender, project);
