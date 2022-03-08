@@ -138,7 +138,7 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for TimeStretcher<S> {
             let inner_response = self
                 .supplier
                 .supply_audio(&inner_request, &mut stretch_buffer);
-            if inner_response.num_frames_consumed == 0 {
+            if inner_response.status.reached_end() {
                 break true;
             }
             total_num_frames_consumed += inner_response.num_frames_consumed;
