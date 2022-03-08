@@ -1,9 +1,9 @@
 use crate::rt::supplier::{
     Amplifier, AudioSupplier, Downbeat, InteractionHandler, LoopBehavior, Looper, MaterialInfo,
-    MidiSupplier, PreBuffer, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
-    Recorder, RecordingOutcome, Resampler, Section, StartEndHandler, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest,
-    WriteMidiRequest,
+    MidiSupplier, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions,
+    PreBufferRequest, PreBufferSourceSkill, Recorder, RecordingOutcome, Resampler, Section,
+    StartEndHandler, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
+    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::{AudioBufMut, ClipRecordInput, RecordTiming};
 use crate::{ClipEngineResult, Timeline};
@@ -116,20 +116,23 @@ pub struct SupplierChain {
 
 impl SupplierChain {
     pub fn new(recorder: Recorder, pre_buffer_request_sender: Sender<PreBufferRequest>) -> Self {
+        let pre_buffer_options = PreBufferOptions {
+            // We know we sit below the downbeat handler, so the underlying suppliers won't deliver
+            // material in the count-in phase.
+            skip_count_in_phase_material: true,
+            cache_miss_behavior: PreBufferCacheMissBehavior::OutputSilence,
+            recalibrate_on_cache_miss: false,
+        };
         let mut chain = Self {
             head: {
-                let pre_buffer = PreBuffer::new(
-                    Arc::new(Mutex::new(Looper::new(Section::new(StartEndHandler::new(
-                        recorder,
-                    ))))),
-                    pre_buffer_request_sender,
-                    // We know we sit right above the source and this one can't deliver material in the
-                    // count-in phase. This is good for performance, especially when crossing the
-                    // zero boundary.
-                    true,
-                );
                 Amplifier::new(Resampler::new(InteractionHandler::new(TimeStretcher::new(
-                    Downbeat::new(pre_buffer),
+                    Downbeat::new(PreBuffer::new(
+                        Arc::new(Mutex::new(Looper::new(Section::new(StartEndHandler::new(
+                            recorder,
+                        ))))),
+                        pre_buffer_request_sender,
+                        pre_buffer_options,
+                    )),
                 ))))
             },
         };

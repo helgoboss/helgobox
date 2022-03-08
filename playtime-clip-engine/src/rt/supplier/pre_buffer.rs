@@ -27,8 +27,25 @@ pub struct PreBuffer<S> {
     request_sender: Sender<PreBufferRequest>,
     supplier: S,
     consumer: Consumer<PreBufferedBlock>,
-    skip_count_in_phase_material: bool,
     cached_material_info: Option<MaterialInfo>,
+    options: PreBufferOptions,
+}
+
+#[derive(Debug)]
+pub struct PreBufferOptions {
+    /// If we know the underlying supplier doesn't deliver count-in material, we should set this to
+    /// `true`. An important optimization that prevents unnecessary supplier queries.
+    pub skip_count_in_phase_material: bool,
+    pub cache_miss_behavior: PreBufferCacheMissBehavior,
+    /// Doesn't seem to work well.
+    pub recalibrate_on_cache_miss: bool,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum PreBufferCacheMissBehavior {
+    OutputSilence,
+    QuerySupplierIfUncontended,
+    QuerySupplierEvenIfContended,
 }
 
 trait PreBufferSender {
@@ -180,14 +197,10 @@ impl PreBufferInstanceId {
 
 impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
     /// Don't call in real-time thread.
-    ///
-    /// `skip_count_in_phase_material`: If we know the underlying supplier doesn't deliver count-in
-    /// material, we should set this to `true`. An important optimization that saves supplier
-    /// queries.
     pub fn new(
         supplier: S,
         request_sender: Sender<PreBufferRequest>,
-        skip_count_in_phase_material: bool,
+        options: PreBufferOptions,
     ) -> Self {
         let (producer, consumer) = RingBuffer::new(RING_BUFFER_BLOCK_COUNT);
         let id = PreBufferInstanceId::next();
@@ -203,8 +216,8 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
             request_sender,
             supplier,
             consumer,
-            skip_count_in_phase_material,
             cached_material_info: None,
+            options,
         }
     }
 
@@ -460,7 +473,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
         {
             request.assert_wants_source_frame_rate(self.material_info().unwrap().frame_rate());
         }
-        let initial_frame_offset = if self.skip_count_in_phase_material {
+        let initial_frame_offset = if self.options.skip_count_in_phase_material {
             // Return silence until frame 0 reached, if allowed.
             use SkipCountInPhaseOutcome::*;
             match self.skip_count_in_phase(request.start_frame, dest_buffer) {
@@ -482,28 +495,36 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
         match self.use_pre_buffers_as_far_as_possible(request, dest_buffer, initial_frame_offset) {
             Ok(response) => response,
             Err(step_failure) => {
-                let mut remaining_dest_buffer = dest_buffer.slice_mut(step_failure.frame_offset..);
-                remaining_dest_buffer.clear();
-                let response = SupplyResponse::please_continue(
-                    step_failure.frame_offset + remaining_dest_buffer.frame_count(),
-                );
-                // let response = self.query_supplier_for_remaining_portion(
-                //     request,
-                //     dest_buffer,
-                //     step_failure.frame_offset,
-                // );
+                use PreBufferCacheMissBehavior::*;
+                let response = match self.options.cache_miss_behavior {
+                    OutputSilence => {
+                        let mut remaining_dest_buffer =
+                            dest_buffer.slice_mut(step_failure.frame_offset..);
+                        remaining_dest_buffer.clear();
+                        SupplyResponse::please_continue(
+                            step_failure.frame_offset + remaining_dest_buffer.frame_count(),
+                        )
+                    }
+                    QuerySupplierEvenIfContended => self.query_supplier_for_remaining_portion(
+                        request,
+                        dest_buffer,
+                        step_failure.frame_offset,
+                    ),
+                    QuerySupplierIfUncontended => todo!(),
+                };
                 if step_failure.non_matching_block_count > 0 {
                     // We found non-matching blocks.
                     // First, we can assume that the pre-buffer worker somehow is somehow on the
                     // wrong track. "Recalibrate" it.
-                    // TODO-high-prebuffer recalibrate ... maybe counter-productive
-                    // let _fill_request = PreBufferFillRequest {
-                    //     start_frame: calculate_next_reasonable_frame(
-                    //         request.start_frame,
-                    //         &response,
-                    //     ),
-                    // };
-                    // self.pre_buffer_internal(fill_request);
+                    if self.options.recalibrate_on_cache_miss {
+                        let fill_request = PreBufferFillRequest {
+                            start_frame: calculate_next_reasonable_frame(
+                                request.start_frame,
+                                &response,
+                            ),
+                        };
+                        self.pre_buffer_internal(fill_request);
+                    }
                     // Second, let's drain all non-matching blocks. Not useful!
                     self.recycle_next_n_blocks(step_failure.non_matching_block_count);
                 }
