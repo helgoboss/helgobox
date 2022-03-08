@@ -138,12 +138,9 @@ impl SupplierChain {
         let pre_buffer = chain.pre_buffer_mut();
         pre_buffer.set_enabled(true);
         // Configure looper
+        // TODO-high-prebuffer OK, fire and forget
         chain.entrance().looper().set_enabled(true);
         chain
-    }
-
-    pub fn is_midi(&self) -> bool {
-        self.entrance().recorder().is_midi()
     }
 
     pub fn is_playing_already(&self, pos: isize) -> bool {
@@ -156,12 +153,14 @@ impl SupplierChain {
     }
 
     pub fn set_audio_fades_enabled_for_source(&mut self, enabled: bool) {
+        // TODO-high-prebuffer OK, fire and forget
         self.entrance()
             .start_end_handler()
             .set_audio_fades_enabled(enabled);
     }
 
     pub fn set_midi_reset_msg_range_for_section(&mut self, range: MidiResetMessageRange) {
+        // TODO-high-prebuffer OK, fire and forget
         self.entrance().section().set_midi_reset_msg_range(range);
     }
 
@@ -171,10 +170,12 @@ impl SupplierChain {
     }
 
     pub fn set_midi_reset_msg_range_for_loop(&mut self, range: MidiResetMessageRange) {
+        // TODO-high-prebuffer OK, fire and forget
         self.entrance().looper().set_midi_reset_msg_range(range);
     }
 
     pub fn set_midi_reset_msg_range_for_source(&mut self, range: MidiResetMessageRange) {
+        // TODO-high-prebuffer OK, fire and forget
         self.entrance()
             .start_end_handler()
             .set_midi_reset_msg_range(range);
@@ -190,6 +191,7 @@ impl SupplierChain {
         start: PositiveSecond,
         length: Option<PositiveSecond>,
     ) -> ClipEngineResult<()> {
+        // TODO-high-prebuffer OK, fire and forget
         self.entrance()
             .section()
             .set_bounds_in_seconds(start, length)
@@ -251,6 +253,7 @@ impl SupplierChain {
         &mut self,
         cache_behavior: AudioCacheBehavior,
     ) -> ClipEngineResult<()> {
+        // TODO-high-prebuffer OK, fire and forget
         self.entrance()
             .recorder()
             .set_audio_cache_behavior(cache_behavior)
@@ -276,6 +279,7 @@ impl SupplierChain {
     }
 
     pub fn set_looped(&mut self, looped: bool) {
+        // TODO-high-prebuffer OK, fire and forget
         self.entrance()
             .looper()
             .set_loop_behavior(LoopBehavior::from_bool(looped));
@@ -287,9 +291,8 @@ impl SupplierChain {
     }
 
     pub fn install_immediate_start_interaction(&mut self, current_frame: isize) {
-        let is_midi = self.is_midi();
         self.interaction_handler_mut()
-            .start_immediately(current_frame, is_midi);
+            .start_immediately(current_frame);
     }
 
     pub fn stop_interaction_is_installed_already(&self) -> bool {
@@ -297,9 +300,8 @@ impl SupplierChain {
     }
 
     pub fn install_immediate_stop_interaction(&mut self, current_frame: isize) {
-        let is_midi = self.is_midi();
         self.interaction_handler_mut()
-            .stop_immediately(current_frame, is_midi);
+            .stop_immediately(current_frame);
     }
 
     pub fn schedule_stop_interaction_at(&mut self, frame: isize) {
@@ -311,6 +313,7 @@ impl SupplierChain {
     }
 
     pub fn prepare_supply(&mut self) {
+        // TODO-high-prebuffer OK, must be integrated into async processing function
         // TODO-high improve guard ... pass by reference?
         let (enabled_for_start, enabled_for_end) = {
             let mut entrance = self.entrance();
@@ -321,6 +324,7 @@ impl SupplierChain {
             let enabled_for_end = section.length().is_none();
             (enabled_for_start, enabled_for_end)
         };
+        // TODO-high-prebuffer OK, fire and forget
         let mut entrance = self.entrance();
         let mut start_end_handler = entrance.start_end_handler();
         start_end_handler.set_enabled_for_start(enabled_for_start);
@@ -331,53 +335,30 @@ impl SupplierChain {
         self.interaction_handler_mut().reset();
         self.resampler_mut().reset_buffers_and_latency();
         self.time_stretcher_mut().reset_buffers_and_latency();
+        // TODO-high-prebuffer OK, fire and forget
         self.entrance()
             .looper()
             .set_loop_behavior(LoopBehavior::from_bool(looped));
     }
 
-    pub fn get_cycle_at_frame(&self, frame: isize) -> usize {
-        self.entrance().looper().get_cycle_at_frame(frame)
-    }
-
     pub fn keep_playing_until_end_of_current_cycle(&mut self, pos: isize) {
-        self.entrance()
+        // TODO-high-prebuffer OK, fire and forget
+        let _ = self
+            .entrance()
             .looper()
             .keep_playing_until_end_of_current_cycle(pos);
     }
 
     pub fn set_section_bounds(&mut self, start_frame: usize, length: Option<usize>) {
+        // TODO-high-prebuffer OK, fire and forget
         self.entrance().section().set_bounds(start_frame, length);
     }
 
     pub fn downbeat_pos_during_recording(&self, timeline: &dyn Timeline) -> DurationInSeconds {
+        // TODO-high-prebuffer OK, can be cached
         self.entrance()
             .recorder()
             .downbeat_pos_during_recording(timeline)
-    }
-
-    pub fn source_frame_rate_in_ready_state(&self) -> Hz {
-        self.entrance()
-            .recorder()
-            .material_info()
-            .unwrap()
-            .frame_rate()
-    }
-
-    pub fn section_frame_count_in_ready_state(&self) -> usize {
-        self.entrance()
-            .section()
-            .material_info()
-            .unwrap()
-            .frame_count()
-    }
-
-    pub fn section_duration_in_ready_state(&self) -> DurationInSeconds {
-        self.entrance()
-            .section()
-            .material_info()
-            .unwrap()
-            .duration()
     }
 
     fn amplifier(&self) -> &AmplifierTail {

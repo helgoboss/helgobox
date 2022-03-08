@@ -218,16 +218,16 @@ impl Column {
                     play_state,
                 } => {
                     if let Ok(clip) = get_clip_mut(&mut self.slots, slot_index) {
-                        clip.update_play_state(play_state);
+                        let _ = clip.update_play_state(play_state);
                     }
                     Some((slot_index, ClipChangedEvent::PlayState(play_state)))
                 }
-                ClipFrameCountUpdated {
+                ClipMaterialInfoChanged {
                     slot_index,
-                    frame_count,
+                    material_info,
                 } => {
                     if let Ok(clip) = get_clip_mut(&mut self.slots, slot_index) {
-                        clip.update_frame_count(frame_count);
+                        let _ = clip.update_material_info(material_info);
                     }
                     None
                 }
@@ -240,7 +240,7 @@ impl Column {
         // Add position updates
         let pos_change_events = self.slots.iter().enumerate().filter_map(|(row, slot)| {
             let clip = slot.clip.as_ref()?;
-            if clip.play_state().is_advancing() {
+            if clip.play_state().ok()?.is_advancing() {
                 let proportional_pos = clip.proportional_pos().unwrap_or(UnitValue::MIN);
                 let event = ClipChangedEvent::ClipPosition(proportional_pos);
                 Some((row, event))
@@ -289,7 +289,7 @@ impl Column {
     ) -> ClipEngineResult<PositionInSeconds> {
         let clip = get_clip(&self.slots, slot_index)?;
         let timeline = clip_timeline(self.project, false);
-        Ok(clip.position_in_seconds(&timeline))
+        clip.position_in_seconds(&timeline)
     }
 
     pub fn clip_volume(&self, slot_index: usize) -> ClipEngineResult<Db> {
@@ -299,7 +299,7 @@ impl Column {
 
     pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<ClipPlayState> {
         let clip = get_clip(&self.slots, slot_index)?;
-        Ok(clip.play_state())
+        clip.play_state()
     }
 
     pub fn clip_repeated(&self, slot_index: usize) -> ClipEngineResult<bool> {

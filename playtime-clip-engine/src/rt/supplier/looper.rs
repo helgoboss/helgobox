@@ -102,30 +102,17 @@ impl<S: WithMaterialInfo> Looper<S> {
         self.loop_behavior = loop_behavior;
     }
 
-    pub fn keep_playing_until_end_of_current_cycle(&mut self, pos: isize) {
-        let last_cycle = self.get_cycle_at_frame(pos);
+    pub fn keep_playing_until_end_of_current_cycle(&mut self, pos: isize) -> ClipEngineResult<()> {
+        let last_cycle = get_cycle_at_frame(pos, self.supplier.material_info()?.frame_count());
         self.loop_behavior = LoopBehavior::UntilEndOfCycle(last_cycle);
-    }
-
-    pub fn get_cycle_at_frame(&self, frame: isize) -> usize {
-        self.get_cycle_at_frame_internal(
-            frame,
-            self.supplier.material_info().unwrap().frame_count(),
-        )
-    }
-
-    fn get_cycle_at_frame_internal(&self, frame: isize, frame_count: usize) -> usize {
-        if frame < 0 {
-            return 0;
-        }
-        frame as usize / frame_count
+        Ok(())
     }
 
     fn check_relevance(&self, start_frame: isize, frame_count: usize) -> Option<RelevantData> {
         if !self.enabled {
             return None;
         }
-        let current_cycle = self.get_cycle_at_frame_internal(start_frame, frame_count);
+        let current_cycle = get_cycle_at_frame(start_frame, frame_count);
         let cycle_in_scope = self
             .loop_behavior
             .last_cycle_to_be_played()
@@ -232,8 +219,6 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Looper<S> {
 
 impl<S: WithMaterialInfo> WithMaterialInfo for Looper<S> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        // TODO-medium It's not relevant at the moment, but for the sake of completeness, we should
-        //  probably set the length to infinite.
         self.supplier.material_info()
     }
 }
@@ -322,4 +307,11 @@ impl<S: MidiSupplier + WithMaterialInfo> MidiSupplier for Looper<S> {
             }
         }
     }
+}
+
+pub fn get_cycle_at_frame(frame: isize, frame_count: usize) -> usize {
+    if frame < 0 {
+        return 0;
+    }
+    frame as usize / frame_count
 }

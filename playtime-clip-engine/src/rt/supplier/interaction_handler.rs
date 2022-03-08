@@ -73,7 +73,7 @@ enum InteractionKind {
     Stop,
 }
 
-impl<S> InteractionHandler<S> {
+impl<S: WithMaterialInfo> InteractionHandler<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             interaction: None,
@@ -112,8 +112,8 @@ impl<S> InteractionHandler<S> {
     ///
     /// MIDI:
     /// - Installs some stop interaction reset messages.
-    pub fn start_immediately(&mut self, current_frame: isize, is_midi: bool) {
-        self.install_immediate_interaction(InteractionKind::Start, current_frame, is_midi);
+    pub fn start_immediately(&mut self, current_frame: isize) -> ClipEngineResult<()> {
+        self.install_immediate_interaction(InteractionKind::Start, current_frame)
     }
 
     /// Invokes a stop interaction.
@@ -124,8 +124,8 @@ impl<S> InteractionHandler<S> {
     ///
     /// MIDI:
     /// - Installs some stop interaction reset messages.
-    pub fn stop_immediately(&mut self, current_frame: isize, is_midi: bool) {
-        self.install_immediate_interaction(InteractionKind::Stop, current_frame, is_midi);
+    pub fn stop_immediately(&mut self, current_frame: isize) -> ClipEngineResult<()> {
+        self.install_immediate_interaction(InteractionKind::Stop, current_frame)
     }
 
     /// Schedules a stop interaction at the given position.
@@ -144,8 +144,8 @@ impl<S> InteractionHandler<S> {
         &mut self,
         kind: InteractionKind,
         current_frame: isize,
-        is_midi: bool,
-    ) {
+    ) -> ClipEngineResult<()> {
+        let is_midi = self.material_info()?.is_midi();
         let new_interaction = Interaction::immediate(kind, current_frame, is_midi);
         let new_interaction = if is_midi {
             Some(new_interaction)
@@ -155,6 +155,7 @@ impl<S> InteractionHandler<S> {
         if let Some(i) = new_interaction {
             self.interaction = Some(i)
         }
+        Ok(())
     }
 
     /// Shifts the frame of the given interaction in case there's a fade happening already in order

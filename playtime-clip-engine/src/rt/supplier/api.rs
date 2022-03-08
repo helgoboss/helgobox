@@ -1,6 +1,6 @@
 use crate::conversion_util::convert_duration_in_frames_to_seconds;
 use crate::rt::buffer::AudioBufMut;
-use crate::rt::supplier::MIDI_FRAME_RATE;
+use crate::rt::supplier::{get_cycle_at_frame, MIDI_FRAME_RATE};
 use crate::ClipEngineResult;
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OwnedPcmSource, PositionInSeconds,
@@ -50,16 +50,25 @@ pub trait SupplyRequest {
 }
 
 pub trait WithMaterialInfo {
+    /// Returns an error if no material available.
     fn material_info(&self) -> ClipEngineResult<MaterialInfo>;
 }
 
-#[derive(Debug)]
+/// Contains information about the material.
+///
+/// "Material" here usually means the inner-most material (the source). However, there's
+/// one exception: If a section is defined, that section will change the frame count.
+#[derive(Clone, Debug)]
 pub enum MaterialInfo {
     Audio(AudioMaterialInfo),
     Midi(MidiMaterialInfo),
 }
 
 impl MaterialInfo {
+    pub fn is_midi(&self) -> bool {
+        matches!(self, MaterialInfo::Midi(_))
+    }
+
     pub fn channel_count(&self) -> usize {
         match self {
             MaterialInfo::Audio(i) => i.channel_count,
@@ -70,7 +79,7 @@ impl MaterialInfo {
     pub fn frame_rate(&self) -> Hz {
         match self {
             MaterialInfo::Audio(i) => i.frame_rate,
-            MaterialInfo::Midi(i) => MIDI_FRAME_RATE,
+            MaterialInfo::Midi(_) => MIDI_FRAME_RATE,
         }
     }
 
@@ -87,6 +96,10 @@ impl MaterialInfo {
             MaterialInfo::Midi(i) => i.duration(),
         }
     }
+
+    pub fn get_cycle_at_frame(&self, frame: isize) -> usize {
+        get_cycle_at_frame(frame, self.frame_count())
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -102,7 +115,7 @@ impl AudioMaterialInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct MidiMaterialInfo {
     pub frame_count: usize,
 }

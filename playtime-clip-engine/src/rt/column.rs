@@ -1,5 +1,5 @@
 use crate::rt::supplier::{
-    PreBufferRequest, RecorderEquipment, WriteAudioRequest, WriteMidiRequest,
+    MaterialInfo, PreBufferRequest, RecorderEquipment, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::{
     AudioBufMut, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordInput, ClipStopArgs,
@@ -153,7 +153,7 @@ pub enum ColumnCommand {
 trait EventSender {
     fn clip_play_state_changed(&self, slot_index: usize, play_state: ClipPlayState);
 
-    fn clip_frame_count_updated(&self, slot_index: usize, frame_count: usize);
+    fn clip_material_info_changed(&self, slot_index: usize, material_info: MaterialInfo);
 
     fn dispose(&self, garbage: ColumnGarbage);
 
@@ -169,10 +169,10 @@ impl EventSender for Sender<ColumnEvent> {
         self.send_event(event);
     }
 
-    fn clip_frame_count_updated(&self, slot_index: usize, frame_count: usize) {
-        let event = ColumnEvent::ClipFrameCountUpdated {
+    fn clip_material_info_changed(&self, slot_index: usize, material_info: MaterialInfo) {
+        let event = ColumnEvent::ClipMaterialInfoChanged {
             slot_index,
-            frame_count,
+            material_info,
         };
         self.send_event(event);
     }
@@ -223,10 +223,10 @@ impl Column {
     }
 
     fn fill_slot(&mut self, args: ColumnFillSlotArgs) {
-        let frame_count = args.clip.effective_frame_count();
+        let material_info = args.clip.material_info().unwrap();
         get_slot_mut_insert(&mut self.slots, args.slot_index).fill(args.clip);
         self.event_sender
-            .clip_frame_count_updated(args.slot_index, frame_count);
+            .clip_material_info_changed(args.slot_index, material_info);
     }
 
     pub fn slot(&self, index: usize) -> ClipEngineResult<&Slot> {
@@ -481,7 +481,11 @@ impl Column {
                 // Most samples out there used in typical stereo track setups have no more than 2
                 // channels. And if they do, the user can always down-mix to the desired channel
                 // count up-front.
-                let clip_channel_count = slot.clip_channel_count().unwrap_or(0);
+                let clip_material_info = match slot.material_info() {
+                    Ok(i) => i,
+                    Err(_) => continue,
+                };
+                let clip_channel_count = clip_material_info.channel_count();
                 let mut mix_buffer = AudioBufMut::from_slice(
                     &mut self.mix_buffer_chunk,
                     clip_channel_count,
@@ -721,9 +725,9 @@ pub enum ColumnEvent {
         slot_index: usize,
         play_state: ClipPlayState,
     },
-    ClipFrameCountUpdated {
+    ClipMaterialInfoChanged {
         slot_index: usize,
-        frame_count: usize,
+        material_info: MaterialInfo,
     },
     Dispose(ColumnGarbage),
 }

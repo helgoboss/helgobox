@@ -7,10 +7,10 @@ use crate::conversion_util::{
 use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, MidiSupplier, PreBufferFillRequest, PreBufferRequest, PreBufferSourceSkill,
-    Recorder, RecorderEquipment, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
-    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
+    AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest, PreBufferRequest,
+    PreBufferSourceSkill, Recorder, RecorderEquipment, SupplierChain, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
+    SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::{ClipEngineResult, QuantizedPosition};
@@ -242,8 +242,10 @@ impl Clip {
             .set_midi_reset_msg_range_for_loop(api_clip.midi_settings.loop_reset_settings);
         supplier_chain
             .set_audio_fades_enabled_for_source(api_clip.audio_settings.apply_source_fades);
-        ready_state.update_supplier_chain_from_persistent_data(&mut supplier_chain)?;
-        ready_state.pre_buffer(&mut supplier_chain, 0);
+        let material_info = supplier_chain.material_info()?;
+        ready_state
+            .update_supplier_chain_from_persistent_data(&mut supplier_chain, &material_info)?;
+        ready_state.pre_buffer(&mut supplier_chain, 0, &material_info);
         let clip = Self {
             supplier_chain,
             state: ClipState::Ready(ready_state),
@@ -379,11 +381,11 @@ impl Clip {
         }
     }
 
-    pub fn seek(&mut self, desired_pos: UnitValue) {
+    pub fn seek(&mut self, desired_pos: UnitValue) -> ClipEngineResult<()> {
         use ClipState::*;
         match &mut self.state {
             Ready(s) => s.seek(desired_pos, &self.supplier_chain),
-            Recording(_) => {}
+            Recording(_) => Err("recording"),
         }
     }
 
@@ -447,19 +449,8 @@ impl Clip {
         self.shared_pos.clone()
     }
 
-    pub fn source_frame_rate(&self) -> Hz {
-        self.supplier_chain.source_frame_rate_in_ready_state()
-    }
-
-    pub fn is_midi(&self) -> bool {
-        self.supplier_chain.is_midi()
-    }
-
-    pub fn channel_count(&self) -> usize {
-        self.supplier_chain
-            .material_info()
-            .map(|i| i.channel_count())
-            .unwrap_or(0)
+    pub fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        self.supplier_chain.material_info()
     }
 
     pub fn play_state(&self) -> ClipPlayState {
@@ -470,16 +461,12 @@ impl Clip {
         }
     }
 
-    pub fn position_in_seconds(&self, timeline_tempo: Bpm) -> Option<PositionInSeconds> {
+    pub fn position_in_seconds(&self, timeline_tempo: Bpm) -> ClipEngineResult<PositionInSeconds> {
         use ClipState::*;
         match &self.state {
-            Ready(s) => Some(s.position_in_seconds(timeline_tempo, &self.supplier_chain)),
-            Recording(_) => None,
+            Ready(s) => s.position_in_seconds(timeline_tempo, &self.supplier_chain),
+            Recording(_) => Err("recording"),
         }
-    }
-
-    pub fn effective_frame_count(&self) -> usize {
-        self.supplier_chain.section_frame_count_in_ready_state()
     }
 
     pub fn process(&mut self, args: &mut ClipProcessArgs) -> ClipPlayingOutcome {
@@ -515,14 +502,18 @@ impl ReadyState {
         &self,
         timeline_tempo: Bpm,
         supplier_chain: &SupplierChain,
-    ) -> PositionInSeconds {
-        let source_pos_in_source_frames = self.frame_within_reaper_source(supplier_chain);
+    ) -> ClipEngineResult<PositionInSeconds> {
+        let material_info = supplier_chain.material_info()?;
+        let source_pos_in_source_frames = self.frame_within_reaper_source(&material_info);
         let source_pos_in_secs = convert_position_in_frames_to_seconds(
             source_pos_in_source_frames,
-            supplier_chain.source_frame_rate_in_ready_state(),
+            material_info.frame_rate(),
         );
-        let tempo_factor = self.calc_tempo_factor(timeline_tempo, supplier_chain.is_midi());
-        adjust_pos_in_secs_anti_proportionally(source_pos_in_secs, tempo_factor)
+        let tempo_factor = self.calc_tempo_factor(timeline_tempo, material_info.is_midi());
+        Ok(adjust_pos_in_secs_anti_proportionally(
+            source_pos_in_secs,
+            tempo_factor,
+        ))
     }
 
     /// Returns `None` if time base is not "Beat".
@@ -530,7 +521,7 @@ impl ReadyState {
         determine_tempo_from_time_base(&self.persistent_data.time_base, is_midi)
     }
 
-    fn frame_within_reaper_source(&self, supplier_chain: &SupplierChain) -> isize {
+    fn frame_within_reaper_source(&self, material_info: &MaterialInfo) -> isize {
         use ReadySubState::*;
         let absolute_frame = match self.state {
             Playing(PlayingState {
@@ -543,14 +534,14 @@ impl ReadyState {
             Paused(s) => s.pos as isize,
             _ => return 0,
         };
-        self.modulo_frame(absolute_frame, supplier_chain)
+        self.modulo_frame(absolute_frame, material_info)
     }
 
-    fn modulo_frame(&self, frame: isize, supplier_chain: &SupplierChain) -> isize {
+    fn modulo_frame(&self, frame: isize, material_info: &MaterialInfo) -> isize {
         if frame < 0 {
             frame
         } else {
-            frame % supplier_chain.section_frame_count_in_ready_state() as isize
+            frame % material_info.frame_count() as isize
         }
     }
 
@@ -568,6 +559,7 @@ impl ReadyState {
     fn update_supplier_chain_from_persistent_data(
         &self,
         supplier_chain: &mut SupplierChain,
+        material_info: &MaterialInfo,
     ) -> ClipEngineResult<()> {
         supplier_chain.set_looped(self.persistent_data.looped);
         match &self.persistent_data.time_base {
@@ -577,7 +569,7 @@ impl ReadyState {
             }
             ClipTimeBase::Beat(b) => {
                 supplier_chain.set_time_stretching_enabled(true);
-                let tempo = determine_tempo_from_beat_time_base(b, supplier_chain.is_midi());
+                let tempo = determine_tempo_from_beat_time_base(b, material_info.is_midi());
                 supplier_chain.set_downbeat_in_beats(b.downbeat, tempo)?;
             }
         }
@@ -790,16 +782,26 @@ impl ReadyState {
         args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
     ) -> ClipPlayingOutcome {
-        let general_info = self.prepare_playing(args, supplier_chain);
+        let material_info = match supplier_chain.material_info() {
+            Ok(i) => i,
+            Err(_) => return Default::default(),
+        };
+        let general_info = self.prepare_playing(args, supplier_chain, material_info.is_midi());
         let go = if let Some(pos) = s.pos {
             // Already counting in or playing.
             if let Some(seek_pos) = s.seek_pos {
                 // Seek requested
-                self.calculate_seek_go(supplier_chain, pos, seek_pos)
+                self.calculate_seek_go(supplier_chain, pos, seek_pos, &material_info)
             } else if args.resync {
                 // Resync requested
                 debug!("Resync");
-                self.go(s, args, supplier_chain, &general_info)
+                self.go(
+                    s,
+                    args,
+                    supplier_chain,
+                    general_info.clip_tempo_factor,
+                    &material_info,
+                )
             } else {
                 // Normal situation: Continue playing
                 // Check if the resolve step would still arrive at the same result as our
@@ -808,10 +810,10 @@ impl ReadyState {
                     s.virtual_pos,
                     args,
                     general_info.clip_tempo_factor,
-                    supplier_chain,
                     false,
+                    &material_info,
                 );
-                if supplier_chain.is_midi() && compare_pos != pos {
+                if material_info.is_midi() && compare_pos != pos {
                     // This happened a lot when the MIDI_FRAME_RATE wasn't a multiple of the sample
                     // rate and PPQ.
                     debug!("ATTENTION: compare pos {} != pos {}", compare_pos, pos);
@@ -823,7 +825,13 @@ impl ReadyState {
             }
         } else {
             // Not counting in or playing yet.
-            self.go(s, args, supplier_chain, &general_info)
+            self.go(
+                s,
+                args,
+                supplier_chain,
+                general_info.clip_tempo_factor,
+                &material_info,
+            )
         };
         // Resolve potential quantized stop position if not yet done.
         if let Some(StopRequest::Quantized(quantized_pos)) = s.stop_request {
@@ -834,12 +842,12 @@ impl ReadyState {
                     quantized_pos,
                     args,
                     general_info.clip_tempo_factor,
-                    supplier_chain,
                     true,
+                    &material_info,
                 );
                 // Derive stop position within material.
                 let stop_pos = go.pos - distance_from_quantized_stop_pos;
-                let mod_stop_pos = self.modulo_frame(stop_pos, supplier_chain);
+                let mod_stop_pos = self.modulo_frame(stop_pos, &material_info);
                 debug!(
                     "Calculated stop position {} (mod_stop_pos = {}, go pos = {}, distance = {}, quantized pos = {:?}, tempo factor = {:?})",
                     stop_pos, mod_stop_pos, go.pos, distance_from_quantized_stop_pos, quantized_pos, general_info.clip_tempo_factor
@@ -853,6 +861,7 @@ impl ReadyState {
             &general_info,
             go.sample_rate_factor,
             supplier_chain,
+            &material_info,
         );
         self.state = if let Some(next_frame) = outcome.next_frame {
             // There's still something to play.
@@ -874,7 +883,7 @@ impl ReadyState {
             // We have reached the natural or scheduled-stop (at end of clip) end. Everything that
             // needed to be played has been played in previous blocks. Audio fade outs have been
             // applied as well, so no need to go to suspending state first. Go right to stop!
-            self.pre_buffer(supplier_chain, 0);
+            self.pre_buffer(supplier_chain, 0, &material_info);
             self.reset_for_play(supplier_chain);
             ReadySubState::Stopped
         };
@@ -886,14 +895,15 @@ impl ReadyState {
         playing_state: PlayingState,
         args: &ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
-        general_info: &SupplyRequestGeneralInfo,
+        clip_tempo_factor: f64,
+        material_info: &MaterialInfo,
     ) -> Go {
         let pos = self.resolve_virtual_pos(
             playing_state.virtual_pos,
             args,
-            general_info.clip_tempo_factor,
-            supplier_chain,
+            clip_tempo_factor,
             true,
+            material_info,
         );
         if supplier_chain.is_playing_already(pos) {
             debug!("Install immediate start interaction because material playing already");
@@ -910,9 +920,10 @@ impl ReadyState {
         supplier_chain: &mut SupplierChain,
         pos: MaterialPos,
         seek_pos: usize,
+        material_info: &MaterialInfo,
     ) -> Go {
         // Seek requested.
-        if supplier_chain.is_midi() {
+        if material_info.is_midi() {
             // MIDI. Let's jump to the position directly.
             Go {
                 pos: seek_pos as isize,
@@ -927,12 +938,12 @@ impl ReadyState {
                 let seek_pos = if pos < seek_pos {
                     seek_pos
                 } else {
-                    seek_pos + supplier_chain.section_frame_count_in_ready_state()
+                    seek_pos + material_info.frame_count()
                 };
                 // We might need to fast-forward.
                 let real_distance = seek_pos - pos;
                 let desired_distance_in_secs = DurationInSeconds::new(0.300);
-                let source_frame_rate = supplier_chain.source_frame_rate_in_ready_state();
+                let source_frame_rate = material_info.frame_rate();
                 let desired_distance = convert_duration_in_seconds_to_frames(
                     desired_distance_in_secs,
                     source_frame_rate,
@@ -965,8 +976,8 @@ impl ReadyState {
         virtual_pos: VirtualPosition,
         process_args: &ClipProcessArgs,
         clip_tempo_factor: f64,
-        supplier_chain: &SupplierChain,
         log_natural_deviation: bool,
+        material_info: &MaterialInfo,
     ) -> isize {
         use VirtualPosition::*;
         match virtual_pos {
@@ -975,8 +986,8 @@ impl ReadyState {
                 qp,
                 process_args,
                 clip_tempo_factor,
-                supplier_chain,
                 log_natural_deviation,
+                material_info,
             ),
         }
     }
@@ -991,10 +1002,11 @@ impl ReadyState {
         info: &SupplyRequestGeneralInfo,
         sample_rate_factor: f64,
         supplier_chain: &mut SupplierChain,
+        material_info: &MaterialInfo,
     ) -> FillSamplesOutcome {
         supplier_chain.prepare_supply();
         let dest_sample_rate = Hz::new(args.dest_sample_rate.get() * sample_rate_factor);
-        let is_midi = supplier_chain.is_midi();
+        let is_midi = material_info.is_midi();
         let response = if is_midi {
             self.fill_samples_midi(args, start_frame, info, dest_sample_rate, supplier_chain)
         } else {
@@ -1066,8 +1078,9 @@ impl ReadyState {
         &mut self,
         args: &ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
+        is_midi: bool,
     ) -> SupplyRequestGeneralInfo {
-        let tempo_factor = self.calc_tempo_factor(args.timeline_tempo, supplier_chain.is_midi());
+        let tempo_factor = self.calc_tempo_factor(args.timeline_tempo, is_midi);
         let general_info = SupplyRequestGeneralInfo {
             audio_block_timeline_cursor_pos: args.timeline_cursor_pos,
             audio_block_length: args.dest_buffer.frame_count(),
@@ -1127,23 +1140,21 @@ impl ReadyState {
         quantized_pos: QuantizedPosition,
         args: &ClipProcessArgs,
         clip_tempo_factor: f64,
-        supplier_chain: &SupplierChain,
         log_natural_deviation: bool,
+        material_info: &MaterialInfo,
     ) -> isize {
         // Basics
         let block_length_in_timeline_frames = args.dest_buffer.frame_count();
-        let source_frame_rate = supplier_chain.source_frame_rate_in_ready_state();
+        let source_frame_rate = material_info.frame_rate();
         let timeline_frame_rate = args.dest_sample_rate;
         // Essential calculation
         let quantized_timeline_pos = args.timeline.pos_of_quantized_pos(quantized_pos);
         let rel_pos_from_quant_in_secs = args.timeline_cursor_pos - quantized_timeline_pos;
-        let rel_pos_from_quant_in_source_frames = convert_position_in_seconds_to_frames(
-            rel_pos_from_quant_in_secs,
-            supplier_chain.source_frame_rate_in_ready_state(),
-        );
+        let rel_pos_from_quant_in_source_frames =
+            convert_position_in_seconds_to_frames(rel_pos_from_quant_in_secs, source_frame_rate);
         if log_natural_deviation && quantized_pos.denominator() == 1 {
             // Quantization to bar
-            if let Some(clip_tempo) = self.tempo(supplier_chain.is_midi()) {
+            if let Some(clip_tempo) = self.tempo(material_info.is_midi()) {
                 // Plus, we react to tempo changes.
                 let args = LogNaturalDeviationArgs {
                     start_bar: quantized_pos.position() as _,
@@ -1152,11 +1163,10 @@ impl ReadyState {
                     timeline_cursor_pos: args.timeline_cursor_pos,
                     clip_tempo_factor,
                     timeline_frame_rate,
-                    source_frame_rate,
                     start_bar_timeline_pos: quantized_timeline_pos,
                     clip_tempo,
                 };
-                self.log_natural_deviation(args, supplier_chain);
+                self.log_natural_deviation(args, material_info);
             }
         }
         //region Description
@@ -1196,13 +1206,24 @@ impl ReadyState {
         args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
     ) -> (ClipPlayingOutcome, Option<RecordingState>) {
-        let general_info = self.prepare_playing(args, supplier_chain);
+        let material_info = match supplier_chain.material_info() {
+            Ok(i) => i,
+            Err(_) => return (Default::default(), None),
+        };
+        let general_info = self.prepare_playing(args, supplier_chain, material_info.is_midi());
         // TODO-medium We could do that already when changing to suspended. That saves us the
         //  check if a stop interaction is installed already.
         if !supplier_chain.stop_interaction_is_installed_already() {
             supplier_chain.install_immediate_stop_interaction(s.pos);
         }
-        let outcome = self.fill_samples(args, s.pos, &general_info, 1.0, supplier_chain);
+        let outcome = self.fill_samples(
+            args,
+            s.pos,
+            &general_info,
+            1.0,
+            supplier_chain,
+            &material_info,
+        );
         self.state = if let Some(next_frame) = outcome.next_frame {
             // Suspension not finished yet.
             ReadySubState::Suspending(SuspendingState {
@@ -1217,7 +1238,7 @@ impl ReadyState {
                 Playing(s) => ReadySubState::Playing(s),
                 Paused => ReadySubState::Paused(PausedState { pos: s.pos }),
                 Stopped => {
-                    self.pre_buffer(supplier_chain, 0);
+                    self.pre_buffer(supplier_chain, 0, &material_info);
                     ReadySubState::Stopped
                 }
                 Recording(s) => return (outcome.clip_playing_outcome, Some(s)),
@@ -1226,8 +1247,13 @@ impl ReadyState {
         (outcome.clip_playing_outcome, None)
     }
 
-    fn pre_buffer(&mut self, supplier_chain: &mut SupplierChain, next_expected_pos: isize) {
-        if supplier_chain.is_midi() {
+    fn pre_buffer(
+        &mut self,
+        supplier_chain: &mut SupplierChain,
+        next_expected_pos: isize,
+        material_info: &MaterialInfo,
+    ) {
+        if material_info.is_midi() {
             return;
         }
         let req = PreBufferFillRequest {
@@ -1243,10 +1269,11 @@ impl ReadyState {
     fn log_natural_deviation(
         &self,
         args: LogNaturalDeviationArgs<impl Timeline>,
-        supplier_chain: &SupplierChain,
+        material_info: &MaterialInfo,
     ) {
         // Assuming a constant tempo and time signature during one cycle
-        let clip_duration = supplier_chain.section_duration_in_ready_state();
+        let clip_duration = material_info.duration();
+        let source_frame_rate = material_info.frame_rate();
         let beat_count = calculate_beat_count(args.clip_tempo, clip_duration);
         let bar_count = (beat_count as f64 / 4.0).ceil() as u32;
         let end_bar = args.start_bar + bar_count as i32;
@@ -1264,18 +1291,15 @@ impl ReadyState {
             timeline_cycle_length_in_secs,
             args.timeline_frame_rate,
         );
-        let timeline_cycle_length_in_source_frames = convert_duration_in_seconds_to_frames(
-            timeline_cycle_length_in_secs,
-            args.source_frame_rate,
-        );
+        let timeline_cycle_length_in_source_frames =
+            convert_duration_in_seconds_to_frames(timeline_cycle_length_in_secs, source_frame_rate);
         // Source cycle length
-        let source_cycle_length_in_secs = supplier_chain.section_duration_in_ready_state();
+        let source_cycle_length_in_secs = clip_duration;
         let source_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
             source_cycle_length_in_secs,
             args.timeline_frame_rate,
         );
-        let source_cycle_length_in_source_frames =
-            supplier_chain.section_frame_count_in_ready_state();
+        let source_cycle_length_in_source_frames = material_info.frame_count();
         // Block length
         let block_length_in_timeline_frames = args.block_length;
         let block_length_in_secs = convert_duration_in_frames_to_seconds(
@@ -1285,7 +1309,7 @@ impl ReadyState {
         let block_length_in_source_frames = convert_duration_in_frames_to_other_frame_rate(
             block_length_in_timeline_frames,
             args.timeline_frame_rate,
-            args.source_frame_rate,
+            source_frame_rate,
         );
         // Block count and remainder
         let num_full_blocks = source_cycle_length_in_source_frames / block_length_in_source_frames;
@@ -1299,12 +1323,12 @@ impl ReadyState {
         let adjusted_block_length_in_timeline_frames =
             convert_duration_in_frames_to_other_frame_rate(
                 adjusted_block_length_in_source_frames,
-                args.source_frame_rate,
+                source_frame_rate,
                 args.timeline_frame_rate,
             );
         let adjusted_block_length_in_secs = convert_duration_in_frames_to_seconds(
             adjusted_block_length_in_source_frames,
-            args.source_frame_rate,
+            source_frame_rate,
         );
         let adjusted_remainder_in_source_frames = adjust_proportionally_positive(
             remainder_in_source_frames as f64,
@@ -1313,12 +1337,12 @@ impl ReadyState {
         // Source cycle remainder
         let adjusted_remainder_in_timeline_frames = convert_duration_in_frames_to_other_frame_rate(
             adjusted_remainder_in_source_frames,
-            args.source_frame_rate,
+            source_frame_rate,
             args.timeline_frame_rate,
         );
         let adjusted_remainder_in_secs = convert_duration_in_frames_to_seconds(
             adjusted_remainder_in_source_frames,
-            args.source_frame_rate,
+            source_frame_rate,
         );
         let block_index = (args.timeline_cursor_pos.get() / block_length_in_secs.get()) as isize;
         debug!(
@@ -1455,8 +1479,13 @@ impl ReadyState {
         }
     }
 
-    pub fn seek(&mut self, desired_pos: UnitValue, supplier_chain: &SupplierChain) {
-        let frame_count = supplier_chain.section_frame_count_in_ready_state();
+    pub fn seek(
+        &mut self,
+        desired_pos: UnitValue,
+        supplier_chain: &SupplierChain,
+    ) -> ClipEngineResult<()> {
+        let material_info = supplier_chain.material_info()?;
+        let frame_count = material_info.frame_count();
         let desired_frame = adjust_proportionally_positive(frame_count as f64, desired_pos.get());
         use ReadySubState::*;
         match self.state {
@@ -1465,7 +1494,7 @@ impl ReadyState {
                 if let Some(pos) = s.pos {
                     if supplier_chain.is_playing_already(pos) {
                         let up_cycled_frame =
-                            self.up_cycle_frame(desired_frame, pos, frame_count, supplier_chain);
+                            self.up_cycle_frame(desired_frame, pos, frame_count, &material_info);
                         self.state = Playing(PlayingState {
                             seek_pos: Some(up_cycled_frame),
                             ..s
@@ -1475,12 +1504,13 @@ impl ReadyState {
             }
             Paused(s) => {
                 let up_cycled_frame =
-                    self.up_cycle_frame(desired_frame, s.pos, frame_count, supplier_chain);
+                    self.up_cycle_frame(desired_frame, s.pos, frame_count, &material_info);
                 self.state = Paused(PausedState {
                     pos: up_cycled_frame as isize,
                 });
             }
         }
+        Ok(())
     }
 
     fn up_cycle_frame(
@@ -1488,9 +1518,9 @@ impl ReadyState {
         frame: usize,
         offset_pos: isize,
         frame_count: usize,
-        supplier_chain: &SupplierChain,
+        material_info: &MaterialInfo,
     ) -> usize {
-        let current_cycle = supplier_chain.get_cycle_at_frame(offset_pos);
+        let current_cycle = material_info.get_cycle_at_frame(offset_pos);
         current_cycle * frame_count + frame
     }
 
@@ -1779,7 +1809,6 @@ struct LogNaturalDeviationArgs<T: Timeline> {
     // timeline_tempo: Bpm,
     clip_tempo_factor: f64,
     timeline_frame_rate: Hz,
-    source_frame_rate: Hz,
     start_bar_timeline_pos: PositionInSeconds,
     clip_tempo: Bpm,
 }

@@ -199,8 +199,6 @@ impl<S: PreBufferSourceSkill> PreBufferSourceSkill for TimeStretcher<S> {
 
 impl<S: WithMaterialInfo> WithMaterialInfo for TimeStretcher<S> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        // TODO-medium It's not important at the moment but for the sake of completeness, some
-        //  timing-related properties of the material info should probably be changed here.
         self.supplier.material_info()
     }
 }

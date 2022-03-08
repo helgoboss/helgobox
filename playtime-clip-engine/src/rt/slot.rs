@@ -1,6 +1,6 @@
 use crate::metrics_util::measure_time;
 use crate::rt::supplier::{
-    PreBufferRequest, RecorderEquipment, WriteAudioRequest, WriteMidiRequest,
+    MaterialInfo, PreBufferRequest, RecorderEquipment, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::SlotInstruction::KeepSlot;
 use crate::rt::{
@@ -240,8 +240,8 @@ impl Slot {
         }
     }
 
-    pub fn clip_channel_count(&self) -> ClipEngineResult<usize> {
-        Ok(self.get_clip()?.channel_count())
+    pub fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        self.get_clip()?.material_info()
     }
 
     pub fn process(

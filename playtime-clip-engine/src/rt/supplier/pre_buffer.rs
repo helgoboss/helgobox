@@ -207,10 +207,6 @@ impl<S: AudioSupplier + Clone + Send + 'static> PreBuffer<S> {
         &self.supplier
     }
 
-    pub fn supplier_mut(&mut self) -> &mut S {
-        &mut self.supplier
-    }
-
     fn pre_buffer_internal(&mut self, args: PreBufferFillRequest) {
         // Not sufficiently thought about what to do if consumer wants to pre-buffer from a negative
         // start frame. Probably normalization to 0 because we know we sit on the source. Let's see.
@@ -445,6 +441,8 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
         if !self.enabled {
             return self.supplier.supply_audio(request, dest_buffer);
         }
+        // TODO-high Put this assertion into the worker thread (don't access supplier here because
+        //  it locks a contended mutex!)
         #[cfg(debug_assertions)]
         {
             request.assert_wants_source_frame_rate(
@@ -482,7 +480,7 @@ impl<S: AudioSupplier + Clone + Send + 'static> AudioSupplier for PreBuffer<S> {
                     // We found non-matching blocks.
                     // First, we can assume that the pre-buffer worker somehow is somehow on the
                     // wrong track. "Recalibrate" it.
-                    // TODO-high-prebuffer
+                    // TODO-high-prebuffer recalibrate ... maybe not necessary
                     let _fill_request = PreBufferFillRequest {
                         start_frame: calculate_next_reasonable_frame(
                             request.start_frame,
@@ -512,17 +510,9 @@ impl<S: MidiSupplier> MidiSupplier for PreBuffer<S> {
 
 impl<S: WithMaterialInfo> WithMaterialInfo for PreBuffer<S> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        // TODO-high The pre buffer should cache the material info because accessing the supplier
+        //  might be expensive / lock a contended mutex
         self.supplier.material_info()
-    }
-}
-
-impl<S: WithSource> WithSource for PreBuffer<S> {
-    fn source(&self) -> &OwnedPcmSource {
-        self.supplier.source()
-    }
-
-    fn source_mut(&mut self) -> &mut OwnedPcmSource {
-        self.supplier.source_mut()
     }
 }
 
