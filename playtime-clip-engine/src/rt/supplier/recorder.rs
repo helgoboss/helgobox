@@ -462,7 +462,7 @@ impl Recorder {
     pub fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         match self.state.as_ref().unwrap() {
             State::Ready(s) => s.cache.source().material_info(),
-            State::Recording(s) => todo!(),
+            State::Recording(_) => todo!(),
         }
     }
 
@@ -606,10 +606,8 @@ impl Recorder {
                                 .into_iter()
                                 .find(|e| e.message().is_note_on())
                             {
-                                let block_frame = convert_duration_in_seconds_to_frames(
-                                    pos,
-                                    Hz::new(MIDI_FRAME_RATE),
-                                );
+                                let block_frame =
+                                    convert_duration_in_seconds_to_frames(pos, MIDI_FRAME_RATE);
                                 let event_frame = block_frame + evt.frame_offset().get() as usize;
                                 p.first_play_frame = Some(event_frame);
                             }
@@ -818,11 +816,11 @@ impl WithMaterialInfo for Recorder {
                 KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
                     let info = AudioMaterialInfo {
                         channel_count: s.temporary_audio_buffer.to_buf().channel_count(),
-                        length: convert_duration_in_seconds_to_frames(
+                        frame_count: convert_duration_in_seconds_to_frames(
                             s.source_duration,
                             s.frame_rate,
                         ),
-                        sample_rate: s.frame_rate,
+                        frame_rate: s.frame_rate,
                     };
                     return Ok(MaterialInfo::Audio(info));
                 }
@@ -868,7 +866,7 @@ impl RecordingPhase {
             ClipRecordInput::Midi => {
                 // MIDI starts in phase two because source start position and frame rate are clear
                 // right from he start.
-                empty.advance(trigger_timeline_pos, Hz::new(MIDI_FRAME_RATE))
+                empty.advance(trigger_timeline_pos, MIDI_FRAME_RATE)
             }
             ClipRecordInput::Audio => RecordingPhase::Empty(empty),
         }

@@ -12,8 +12,8 @@ use crate::rt::supplier::{
 };
 use crate::ClipEngineResult;
 use reaper_medium::{
-    BorrowedMidiEventList, BorrowedPcmSource, Bpm, DurationInSeconds, Hz, OwnedPcmSource,
-    PcmSourceTransfer, PositionInSeconds,
+    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer,
+    PositionInSeconds,
 };
 
 impl AudioSupplier for OwnedPcmSource {
@@ -33,15 +33,15 @@ impl WithMaterialInfo for OwnedPcmSource {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         let info = if pcm_source_is_midi(self) {
             let info = MidiMaterialInfo {
-                length: calculate_midi_frame_count(self),
+                frame_count: calculate_midi_frame_count(self),
             };
             MaterialInfo::Midi(info)
         } else {
             let sample_rate = get_audio_source_frame_rate(self);
             let info = AudioMaterialInfo {
                 channel_count: get_audio_source_channel_count(self),
-                length: calculate_audio_frame_count(self, sample_rate),
-                sample_rate,
+                frame_count: calculate_audio_frame_count(self, sample_rate),
+                frame_rate: sample_rate,
             };
             MaterialInfo::Audio(info)
         };
@@ -78,7 +78,7 @@ fn calculate_midi_frame_count(source: &OwnedPcmSource) -> usize {
         let beats_per_second = beats_per_minute / 60.0;
         DurationInSeconds::new(length_in_beats.get() / beats_per_second)
     };
-    convert_duration_in_seconds_to_frames(length_in_seconds, Hz::new(MIDI_FRAME_RATE))
+    convert_duration_in_seconds_to_frames(length_in_seconds, MIDI_FRAME_RATE)
 }
 
 impl MidiSupplier for OwnedPcmSource {
@@ -180,7 +180,7 @@ fn transfer_audio(source: &OwnedPcmSource, req: SourceMaterialRequest) -> Supply
 /// all common sample rates and PPQs. This prevents rounding issues (advice from Justin).
 /// Initially I wanted to take 1,024,000 because it is the unit which is used in REAPER's MIDI
 /// events, but it's not a multiple of common sample rates and PPQs.
-pub const MIDI_FRAME_RATE: f64 = 169_344_000.0;
+pub const MIDI_FRAME_RATE: Hz = unsafe { Hz::new_unchecked(169_344_000.0) };
 
 /// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
 /// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample

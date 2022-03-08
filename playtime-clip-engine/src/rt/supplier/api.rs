@@ -1,12 +1,9 @@
-use crate::conversion_util::{
-    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-};
+use crate::conversion_util::convert_duration_in_frames_to_seconds;
 use crate::rt::buffer::AudioBufMut;
-use crate::rt::supplier::{MIDI_BASE_BPM, MIDI_FRAME_RATE};
+use crate::rt::supplier::MIDI_FRAME_RATE;
 use crate::ClipEngineResult;
 use reaper_medium::{
-    BorrowedMidiEventList, Bpm, DurationInBeats, DurationInSeconds, Hz, OwnedPcmSource,
-    PositionInSeconds,
+    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OwnedPcmSource, PositionInSeconds,
 };
 use std::fmt::Debug;
 
@@ -71,15 +68,15 @@ impl MaterialInfo {
 
     pub fn frame_rate(&self) -> Hz {
         match self {
-            MaterialInfo::Audio(i) => i.sample_rate,
-            MaterialInfo::Midi(i) => i.frame_rate(),
+            MaterialInfo::Audio(i) => i.frame_rate,
+            MaterialInfo::Midi(i) => MIDI_FRAME_RATE,
         }
     }
 
     pub fn frame_count(&self) -> usize {
         match self {
-            MaterialInfo::Audio(i) => i.frame_count(),
-            MaterialInfo::Midi(i) => i.frame_count(),
+            MaterialInfo::Audio(i) => i.frame_count,
+            MaterialInfo::Midi(i) => i.frame_count,
         }
     }
 
@@ -94,51 +91,24 @@ impl MaterialInfo {
 #[derive(Clone, Debug)]
 pub struct AudioMaterialInfo {
     pub channel_count: usize,
-    // pub length: DurationInSeconds,
-    pub length: usize,
-    pub sample_rate: Hz,
+    pub frame_count: usize,
+    pub frame_rate: Hz,
 }
 
 impl AudioMaterialInfo {
-    pub fn frame_count(&self) -> usize {
-        // convert_duration_in_seconds_to_frames(self.length, self.sample_rate)
-        self.length
-    }
-
     pub fn duration(&self) -> DurationInSeconds {
-        convert_duration_in_frames_to_seconds(self.frame_count(), self.sample_rate)
+        convert_duration_in_frames_to_seconds(self.frame_count, self.frame_rate)
     }
 }
 
 #[derive(Debug)]
 pub struct MidiMaterialInfo {
-    // pub length: DurationInBeats,
-    pub length: usize,
+    pub frame_count: usize,
 }
 
 impl MidiMaterialInfo {
-    // pub fn length_in_seconds(&self) -> DurationInSeconds {
-    //     // For MIDI, get_length() takes the current project tempo in account ... which is not
-    //     // what we want because we want to do all the tempo calculations ourselves and treat
-    //     // MIDI/audio the same wherever possible.
-    //     let beats_per_minute = MIDI_BASE_BPM;
-    //     let beats_per_second = beats_per_minute / 60.0;
-    //     DurationInSeconds::new(self.length.get() / beats_per_second)
-    // }
-
-    pub fn frame_count(&self) -> usize {
-        // convert_duration_in_seconds_to_frames(self.length_in_seconds(), Hz::new(MIDI_FRAME_RATE))
-        self.length
-    }
-
     pub fn duration(&self) -> DurationInSeconds {
-        convert_duration_in_frames_to_seconds(self.frame_count(), self.frame_rate())
-    }
-
-    // TODO-high Check that this is not used in situations where we know it's MIDI already. Because
-    //  then we can just use MIDI_FRAME_RATE directly. Also introduce a constant Hz (unchecked)!
-    pub fn frame_rate(&self) -> Hz {
-        Hz::new(MIDI_FRAME_RATE)
+        convert_duration_in_frames_to_seconds(self.frame_count, MIDI_FRAME_RATE)
     }
 }
 

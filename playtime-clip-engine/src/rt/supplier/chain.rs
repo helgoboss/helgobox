@@ -1,4 +1,3 @@
-use crate::conversion_util::convert_duration_in_seconds_to_frames;
 use crate::rt::supplier::{
     Amplifier, AudioSupplier, Downbeat, InteractionHandler, LoopBehavior, Looper, MaterialInfo,
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, Recorder, Resampler, Section,
@@ -16,7 +15,7 @@ use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz};
 type Head = AmplifierTail;
 type AmplifierTail = Amplifier<ResamplerTail>;
 // We have the resampler on top of the interaction handler because at the moment the interaction
-// handler logic is based on the assumption the input frame rate == output frame rate. If we want
+// handler logic is based on the assumption that input frame rate == output frame rate. If we want
 // to put the interaction handler above the resampler one day (e.g. for caching reasons), we first
 // must change the logic accordingly (doing some hypothetical frame rate conversions).
 type ResamplerTail = Resampler<InteractionHandlerTail>;
@@ -222,17 +221,14 @@ impl SupplierChain {
     }
 
     pub fn source_frame_rate_in_ready_state(&self) -> Hz {
-        // TODO-high CONTINUE Instead of exposing the frame rate, return directly what's needed.
         self.recorder().material_info().unwrap().frame_rate()
     }
 
     pub fn section_frame_count_in_ready_state(&self) -> usize {
-        // TODO-high CONTINUE Instead of exposing the frame count, return directly what's needed.
         self.section().material_info().unwrap().frame_count()
     }
 
     pub fn section_duration_in_ready_state(&self) -> DurationInSeconds {
-        // TODO-high CONTINUE Instead of exposing the frame count, return directly what's needed.
         self.section().material_info().unwrap().duration()
     }
 

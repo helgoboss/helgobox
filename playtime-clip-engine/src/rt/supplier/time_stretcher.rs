@@ -1,4 +1,3 @@
-use crate::conversion_util::{adjust_anti_proportionally_positive, adjust_proportionally_positive};
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
     AudioSupplier, MaterialInfo, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus,
@@ -12,7 +11,7 @@ use crossbeam_channel::Receiver;
 use playtime_api::VirtualTimeStretchMode;
 use reaper_high::Reaper;
 use reaper_low::raw::REAPER_PITCHSHIFT_API_VER;
-use reaper_medium::{BorrowedMidiEventList, Hz, OwnedReaperPitchShift};
+use reaper_medium::{BorrowedMidiEventList, OwnedReaperPitchShift};
 
 #[derive(Debug)]
 pub struct TimeStretcher<S> {

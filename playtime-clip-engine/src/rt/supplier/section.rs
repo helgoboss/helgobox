@@ -335,14 +335,14 @@ impl<S: WithMaterialInfo> WithMaterialInfo for Section<S> {
         let material_info = match inner_material_info {
             MaterialInfo::Audio(i) => {
                 let i = AudioMaterialInfo {
-                    length: self.calculate_new_frame_count(i.length),
+                    frame_count: self.calculate_new_frame_count(i.frame_count),
                     ..i
                 };
                 MaterialInfo::Audio(i)
             }
             MaterialInfo::Midi(i) => {
                 let i = MidiMaterialInfo {
-                    length: self.calculate_new_frame_count(i.length),
+                    frame_count: self.calculate_new_frame_count(i.frame_count),
                 };
                 MaterialInfo::Midi(i)
             }

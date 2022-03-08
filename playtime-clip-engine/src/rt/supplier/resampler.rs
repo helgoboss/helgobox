@@ -204,7 +204,7 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
         if !self.enabled {
             return self.supplier.supply_midi(request, event_list);
         }
-        let source_frame_rate = Hz::new(MIDI_FRAME_RATE);
+        let source_frame_rate = MIDI_FRAME_RATE;
         if request.dest_sample_rate == source_frame_rate {
             // Should never be the case because we have an artificial fixed MIDI frame rate that
             // is unlike any realistic sample rate.
