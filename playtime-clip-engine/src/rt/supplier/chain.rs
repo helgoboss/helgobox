@@ -1,7 +1,7 @@
 use crate::rt::supplier::{
     Amplifier, AudioSupplier, Downbeat, InteractionHandler, LoopBehavior, Looper, MaterialInfo,
-    MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, Recorder, Resampler, Section,
-    StartEndHandler, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
+    MidiSupplier, PreBuffer, PreBufferFillRequest, PreBufferSourceSkill, Recorder, Resampler,
+    Section, StartEndHandler, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
     WithMaterialInfo,
 };
 use crate::rt::AudioBufMut;
@@ -12,20 +12,94 @@ use playtime_api::{
 };
 use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz};
 
+/// The head of the supplier chain (just an alias).
 type Head = AmplifierTail;
+
+/// Responsible for changing the volume.
+///
+/// It sits on top of everything because volume changes are fast and shouldn't be cached because
+/// they can happen very suddenly (e.g. in response to different velocity values).
 type AmplifierTail = Amplifier<ResamplerTail>;
-// We have the resampler on top of the interaction handler because at the moment the interaction
-// handler logic is based on the assumption that input frame rate == output frame rate. If we want
-// to put the interaction handler above the resampler one day (e.g. for caching reasons), we first
-// must change the logic accordingly (doing some hypothetical frame rate conversions).
+
+/// Resampler takes care of converting between the requested destination (= output) frame rate
+/// and the frame rate of the inner material. It's also responsible for changing the tempo of MIDI
+/// material and optionally even audio material (VariSpeed = not preserving pitch).
+///
+/// We have the resampler on top of the interaction handler because at the moment the interaction
+/// handler logic is based on the assumption that input frame rate == output frame rate. If we want
+/// to put the interaction handler above the resampler one day (e.g. for caching reasons), we first
+/// must change the logic accordingly (doing some frame rate conversions).
+///
+/// At the moment, I think resampling results don't need to be pre-buffered. However, as soon as
+/// we decide that they do, the interaction handler should definitely move above the resampler.
 type ResamplerTail = Resampler<InteractionHandlerTail>;
+
+/// Interaction handler handles sudden interactions, introducing proper fades and reset messages.
+///
+/// It sits on top of almost everything because it's fast and shouldn't be cached (because
+/// interactions are by definition very sudden events).
 type InteractionHandlerTail = InteractionHandler<TimeStretcherTail>;
+
+/// Time stretcher is responsible for stretching audio material while preserving its pitch.
+///
+/// It sits on top of the (downbeat-shifted) looper (not deeper) because it greedily grabs
+/// material from its supplier - a kind of internal look-ahead/pre-buffering. If it would reach the
+/// end of material and we want to start the next loop cycle, it wouldn't have material ready and
+/// would need to start pre-buffering from scratch. Not good.
+///
+/// It sits above the pre-buffer at the moment although time-stretching results also should be
+/// pre-buffered (because time stretching is slow). Pre-buffering time-stretching results probably
+/// has some special needs that we don't handle yet. Let's see.
 type TimeStretcherTail = TimeStretcher<DownbeatTail>;
+
+/// Downbeat handler sits on top of the looper because it moves the complete loop to the left
+/// (it helps imagining the material as items in the arrangement view).
+///
+/// It even sits on top of the pre-buffer because it just moves the material, which is easy to
+/// express by cheaply converting pre-buffer requests. In general, we don't want to pre-buffer
+/// more non-destructive changes than necessary, especially not the sudden changes (because that
+/// would introduce a latency).
 type DownbeatTail = Downbeat<LooperTail>;
+
+/// Pre-buffer asynchronously loads a small amount of audio source material into memory before it's
+/// being played. That's important because the inner-most source usually reads audio material
+/// directly from disk and disk access can be slow.
+///
+/// It sits above the looper (not just above the inner-most source), because it needs to grab
+/// material in advance. The looper knows best which material comes next. If it would sit below
+/// the looper and it would reach end of material, it doesn't have anything in hand to decide what
+/// needs to be pre-buffered next.
+type PreBufferTail = PreBuffer<LooperTail>;
+
+/// Looper optionally repeats the material.
+///
+/// It sits above the section because the section needs to be looped, not the full source.
 type LooperTail = Looper<SectionTail>;
+
+/// Section handler optionally plays just a certain portion of the material. It can also be used to
+/// add silence after end of material.
+///
+/// It sits above the start-end handler because it has its own non-optional section
+/// start-end handling. It could probably also sit below the start-end handler and the start-end
+/// handler could be configured to handle section start-end as well, but at the moment it's fine as
+/// it is.
 type SectionTail = Section<StartEndHandlerTail>;
+
+/// Start-end handler introduces fades and reset messages to "fix" the source material and make it
+/// ready for being looped.
+///
+/// It sits on top of the recorder (representing the inner-most source) because it's
+/// optional and intended to really affect only the inner-most source, not the section or loop
+/// (which have their own start-end handling).
 type StartEndHandlerTail = StartEndHandler<RecorderTail>;
-// Recorder is hard-coded to sit on top of Cache<PreBuffer<OwnedPcmSource>>.
+
+/// Recorder takes care of recording and swapping sources.
+///
+/// When it comes to playing (not recording), it basically represents the source = the inner-most
+/// material.
+///
+/// It's hard-coded to sit on top of `Cache<PreBuffer<OwnedPcmSource>>` because it's responsible
+/// for swapping an old source with a newly recorded source.
 type RecorderTail = Recorder;
 
 #[derive(Debug)]
