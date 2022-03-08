@@ -135,6 +135,8 @@ impl MidiMaterialInfo {
         convert_duration_in_frames_to_seconds(self.frame_count(), self.frame_rate())
     }
 
+    // TODO-high Check that this is not used in situations where we know it's MIDI already. Because
+    //  then we can just use MIDI_FRAME_RATE directly. Also introduce a constant Hz (unchecked)!
     pub fn frame_rate(&self) -> Hz {
         Hz::new(MIDI_FRAME_RATE)
     }

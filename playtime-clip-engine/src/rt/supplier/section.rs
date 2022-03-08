@@ -117,6 +117,8 @@ impl<S> Section<S> {
         //                 length: Some(1_024_000),
         //             }
         //  Let's deal with that as soon as we add support for customizable downbeats.
+        //  MAYBE was caused by the fact that we didn't upscale to MIDI frame rate before?
+        //  (which we now do in resampler)
         // Determine source range
         let start_frame_in_source = self.boundary.start_frame as isize + request.start_frame();
         let (phase_two, num_frames_to_be_written) = match self.boundary.length {
@@ -142,10 +144,6 @@ impl<S> Section<S> {
                     };
                 let bounded_num_frames_to_be_consumed =
                     (effective_end_frame_in_source - start_frame_in_source) as usize;
-                // TODO-high CONTINUE This is probably wrong because dest_frame_count is in dest
-                //  frame rate and bounded_num_frames_to_be_written in source frame rate. With MIDI, it's
-                //  not as with audio in that those frame rates are equal in the lower parts of
-                //  our chain!
                 let bounded_num_frames_to_be_written = bounded_num_frames_to_be_consumed;
                 let phase_two = PhaseTwo::Bounded {
                     reached_bound,

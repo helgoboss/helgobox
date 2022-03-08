@@ -87,20 +87,18 @@ impl MidiSupplier for OwnedPcmSource {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        let midi_frame_rate = Hz::new(MIDI_FRAME_RATE);
-        debug!("DEST SAMPLE RATE: {:?}", request.dest_sample_rate);
-        // As with audio, the ratio between output frame count and output sample rate determines
-        // the playback tempo.
-        let input_ratio = request.dest_frame_count as f64 / request.dest_sample_rate.get();
-        let num_midi_frames_requested =
-            adjust_proportionally_positive(midi_frame_rate.get(), input_ratio);
+        let source_frame_rate = Hz::new(MIDI_FRAME_RATE);
+        // TODO-high CONTINUE Make dest sample rate optional and assert similar like audio?
+        //  Check in section at least (which relies on that)!
+        assert_eq!(request.dest_sample_rate, source_frame_rate);
+        let num_frames_to_be_consumed = request.dest_frame_count;
         if request.start_frame == 0 {
             print_distance_from_beat_start_at(request, 0, "(MIDI, start_frame = 0)");
         } else if request.start_frame < 0
-            && (request.start_frame + num_midi_frames_requested as isize) >= 0
+            && (request.start_frame + num_frames_to_be_consumed as isize) >= 0
         {
             let distance_to_zero_in_midi_frames = (-request.start_frame) as usize;
-            let ratio = request.dest_frame_count as f64 / num_midi_frames_requested as f64;
+            let ratio = request.dest_frame_count as f64 / num_frames_to_be_consumed as f64;
             let distance_to_zero_in_dest_frames =
                 adjust_proportionally_positive(distance_to_zero_in_midi_frames as f64, ratio);
             print_distance_from_beat_start_at(
@@ -112,11 +110,11 @@ impl MidiSupplier for OwnedPcmSource {
         // For MIDI it seems to be okay to start at a negative position. The source
         // will ignore positions < 0.0 and add events >= 0.0 with the correct frame
         // offset.
-        let time_s = convert_position_in_frames_to_seconds(request.start_frame, midi_frame_rate);
+        let time_s = convert_position_in_frames_to_seconds(request.start_frame, source_frame_rate);
         let num_midi_frames_consumed = unsafe {
             let mut transfer = PcmSourceTransfer::default();
-            transfer.set_sample_rate(midi_frame_rate);
-            transfer.set_length(num_midi_frames_requested as i32);
+            transfer.set_sample_rate(source_frame_rate);
+            transfer.set_length(num_frames_to_be_consumed as i32);
             transfer.set_time_s(time_s);
             // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while
             // playing instead of REAPER letting use its generic mechanism that leads to duplicate
@@ -129,17 +127,11 @@ impl MidiSupplier for OwnedPcmSource {
             self.get_samples(&transfer);
             transfer.samples_out() as usize
         };
-        let num_dest_frames_written = if num_midi_frames_consumed == num_midi_frames_requested {
-            request.dest_frame_count
-        } else {
-            let ratio = num_midi_frames_consumed as f64 / num_midi_frames_requested as f64;
-            adjust_proportionally_positive(request.dest_frame_count as f64, ratio)
-        };
         // The lower the sample rate, the higher the tempo, the more inner source material we
         // effectively grabbed.
         SupplyResponse::limited_by_total_frame_count(
             num_midi_frames_consumed,
-            num_dest_frames_written,
+            num_midi_frames_consumed,
             request.start_frame,
             calculate_midi_frame_count(self),
         )

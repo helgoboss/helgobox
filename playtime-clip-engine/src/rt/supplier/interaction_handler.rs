@@ -203,6 +203,11 @@ impl<S: AudioSupplier> AudioSupplier for InteractionHandler<S> {
             }
             Some(i) => i,
         };
+        #[cfg(debug_assertions)]
+        {
+            let source_frame_rate = self.supplier.material_info().unwrap().frame_rate();
+            request.assert_wants_source_frame_rate(source_frame_rate);
+        }
         use InteractionKind::*;
         let distance_from_fade_begin = request.start_frame - interaction.fade_begin_frame();
         match interaction.kind {

@@ -1,7 +1,8 @@
+use crate::conversion_util::adjust_proportionally_positive;
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
     AudioSupplier, MaterialInfo, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus,
-    WithMaterialInfo,
+    WithMaterialInfo, MIDI_FRAME_RATE,
 };
 use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
@@ -145,7 +146,7 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Resampler<S> {
                 info: SupplyRequestInfo {
                     audio_block_frame_offset: request.info.audio_block_frame_offset
                         + total_num_frames_written,
-                    requester: "active-resampler",
+                    requester: "resampler-audio",
                     note: "",
                     is_realtime: false,
                 },
@@ -200,7 +201,52 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        self.supplier.supply_midi(request, event_list)
+        if !self.enabled {
+            return self.supplier.supply_midi(request, event_list);
+        }
+        let source_frame_rate = Hz::new(MIDI_FRAME_RATE);
+        if request.dest_sample_rate == source_frame_rate {
+            // Should never be the case because we have an artificial fixed MIDI frame rate that
+            // is unlike any realistic sample rate.
+            return self.supplier.supply_midi(request, event_list);
+        }
+        let num_frames_to_be_written = request.dest_frame_count;
+        let request_ratio = num_frames_to_be_written as f64 / request.dest_sample_rate.get();
+        let num_frames_to_be_consumed =
+            adjust_proportionally_positive(source_frame_rate.get(), request_ratio);
+        let inner_request = SupplyMidiRequest {
+            start_frame: request.start_frame,
+            dest_frame_count: num_frames_to_be_consumed,
+            dest_sample_rate: source_frame_rate,
+            info: SupplyRequestInfo {
+                audio_block_frame_offset: request.info.audio_block_frame_offset,
+                requester: "resampler-midi",
+                note: "",
+                is_realtime: true,
+            },
+            parent_request: Some(request),
+            general_info: request.general_info,
+        };
+        let inner_response = self.supplier.supply_midi(&inner_request, event_list);
+        SupplyResponse {
+            num_frames_consumed: inner_response.num_frames_consumed,
+            status: {
+                use SupplyResponseStatus::*;
+                match inner_response.status {
+                    PleaseContinue => PleaseContinue,
+                    ReachedEnd { num_frames_written } => {
+                        let response_ratio =
+                            num_frames_to_be_written as f64 / num_frames_to_be_consumed as f64;
+                        ReachedEnd {
+                            num_frames_written: adjust_proportionally_positive(
+                                num_frames_written as f64,
+                                response_ratio,
+                            ),
+                        }
+                    }
+                }
+            },
+        }
     }
 }
 
