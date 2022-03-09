@@ -350,7 +350,7 @@ where
 
     /// # Errors
     ///
-    /// Returns an error if the material can't or doesn't need to be buffered. In that case,
+    /// Returns an error if the material can't or doesn't need to be buffered. In that case
     /// it just leaves the pre-buffer disabled.
     pub fn enable(&mut self) -> ClipEngineResult<()> {
         if self.state.is_enabled() {

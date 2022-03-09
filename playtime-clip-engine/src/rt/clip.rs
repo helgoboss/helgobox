@@ -797,13 +797,15 @@ impl ReadyState {
             } else if args.resync {
                 // Resync requested
                 debug!("Resync");
-                self.go(
+                let go = self.go(
                     s,
                     args,
                     supplier_chain,
                     general_info.clip_tempo_factor,
                     &material_info,
-                )
+                );
+                self.pre_buffer(supplier_chain, go.pos, &material_info);
+                go
             } else {
                 // Normal situation: Continue playing
                 // Check if the resolve step would still arrive at the same result as our
