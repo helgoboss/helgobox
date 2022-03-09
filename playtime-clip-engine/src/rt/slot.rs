@@ -112,12 +112,13 @@ impl Slot {
                 };
                 match &mut self.clip {
                     None => {
-                        self.clip = Some(Clip::recording(
+                        let clip = Clip::recording(
                             args,
                             project,
                             equipment.clone(),
                             pre_buffer_request_sender.clone(),
-                        ))
+                        )?;
+                        self.clip = Some(clip)
                     }
                     Some(clip) => clip.record(args),
                 }

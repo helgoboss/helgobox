@@ -228,7 +228,7 @@ impl Clip {
         let mut supplier_chain = SupplierChain::new(
             Recorder::ready(pcm_source, recorder_equipment.clone()),
             pre_buffer_request_sender.clone(),
-        );
+        )?;
         supplier_chain.set_volume(api_clip.volume);
         supplier_chain
             .set_section_bounds_in_seconds(api_clip.section.start_pos, api_clip.section.length);
@@ -261,7 +261,7 @@ impl Clip {
         project: Option<Project>,
         equipment: RecorderEquipment,
         pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
-    ) -> Self {
+    ) -> ClipEngineResult<Self> {
         let timeline = clip_timeline(project, false);
         let trigger_timeline_pos = timeline.cursor_pos();
         let tempo = timeline.tempo_at(trigger_timeline_pos);
@@ -281,12 +281,13 @@ impl Clip {
             args.detect_downbeat,
             args.timing,
         );
-        Self {
-            supplier_chain: SupplierChain::new(recorder, pre_buffer_request_sender),
+        let clip = Self {
+            supplier_chain: SupplierChain::new(recorder, pre_buffer_request_sender)?,
             state: ClipState::Recording(recording_state),
             project,
             shared_pos: Default::default(),
-        }
+        };
+        Ok(clip)
     }
 
     pub fn set_audio_resample_mode(&mut self, mode: VirtualResampleMode) {

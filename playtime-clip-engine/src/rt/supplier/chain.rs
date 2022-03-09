@@ -124,7 +124,7 @@ impl SupplierChain {
     pub fn new(
         recorder: Recorder,
         pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
-    ) -> Self {
+    ) -> ClipEngineResult<Self> {
         let pre_buffer_options = PreBufferOptions {
             // We know we sit below the downbeat handler, so the underlying suppliers won't deliver
             // material in the count-in phase.
@@ -157,9 +157,8 @@ impl SupplierChain {
         downbeat.set_enabled(true);
         // Configure pre-buffer
         let pre_buffer = chain.pre_buffer_mut();
-        pre_buffer.set_enabled(true);
-        pre_buffer.invalidate_material_info_cache();
-        chain
+        let _ = pre_buffer.enable();
+        Ok(chain)
     }
 
     pub fn is_playing_already(&self, pos: isize) -> bool {
@@ -284,7 +283,12 @@ impl SupplierChain {
         self.pre_buffer_supplier().send_command(command);
         // Enable/disable pre-buffer accordingly (pre-buffering not necessary if we have the
         // complete source material in memory already).
-        self.pre_buffer_mut().set_enabled(pre_buffer_enabled);
+        let pre_buffer = self.pre_buffer_mut();
+        if pre_buffer_enabled {
+            pre_buffer.enable();
+        } else {
+            pre_buffer.disable();
+        }
         Ok(())
     }
 
