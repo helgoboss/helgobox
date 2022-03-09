@@ -238,7 +238,11 @@ impl PreBufferInstanceId {
     }
 }
 
-impl<S: AudioSupplier + Clone + Send + 'static, F, C> PreBuffer<S, F, C> {
+impl<S, F, C> PreBuffer<S, F, C>
+where
+    S: AudioSupplier + Clone + Send + 'static,
+    F: CommandProcessor<Supplier = S, Command = C>,
+{
     /// Don't call in real-time thread.
     pub fn new(
         supplier: S,
@@ -285,7 +289,8 @@ impl<S: AudioSupplier + Clone + Send + 'static, F, C> PreBuffer<S, F, C> {
     }
 
     fn handle_command_directly(&self, command: C) {
-        todo!()
+        self.command_processor
+            .process_command(command, &self.supplier);
     }
 
     fn pre_buffer_internal(&mut self, args: PreBufferFillRequest) {
@@ -515,16 +520,22 @@ struct ApplyOutcome {
     block_exhausted: bool,
 }
 
-impl<S: AudioSupplier + Clone + Send + 'static, F: Debug, C: Debug> PreBufferSourceSkill
-    for PreBuffer<S, F, C>
+impl<S, F, C> PreBufferSourceSkill for PreBuffer<S, F, C>
+where
+    S: AudioSupplier + Clone + Send + 'static,
+    F: Debug + CommandProcessor<Supplier = S, Command = C>,
+    C: Debug,
 {
     fn pre_buffer(&mut self, args: PreBufferFillRequest) {
         self.pre_buffer_internal(args);
     }
 }
 
-impl<S: AudioSupplier + Clone + Send + 'static, F: Debug, C: Debug> AudioSupplier
-    for PreBuffer<S, F, C>
+impl<S, F, C> AudioSupplier for PreBuffer<S, F, C>
+where
+    S: AudioSupplier + Clone + Send + 'static,
+    F: Debug + CommandProcessor<Supplier = S, Command = C>,
+    C: Debug,
 {
     fn supply_audio(
         &mut self,
@@ -576,7 +587,7 @@ impl<S: AudioSupplier + Clone + Send + 'static, F: Debug, C: Debug> AudioSupplie
                         dest_buffer,
                         step_failure.frame_offset,
                     ),
-                    QuerySupplierIfUncontended => todo!(),
+                    QuerySupplierIfUncontended => unimplemented!(),
                 };
                 if step_failure.non_matching_block_count > 0 {
                     // We found non-matching blocks.

@@ -231,7 +231,7 @@ impl Clip {
         );
         supplier_chain.set_volume(api_clip.volume);
         supplier_chain
-            .set_section_bounds_in_seconds(api_clip.section.start_pos, api_clip.section.length)?;
+            .set_section_bounds_in_seconds(api_clip.section.start_pos, api_clip.section.length);
         supplier_chain.set_midi_reset_msg_range_for_interaction(
             api_clip.midi_settings.interaction_reset_settings,
         );

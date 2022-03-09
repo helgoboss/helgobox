@@ -174,17 +174,11 @@ impl SupplierChain {
     pub fn set_audio_fades_enabled_for_source(&mut self, enabled: bool) {
         let command = ChainPreBufferCommand::SetAudioFadesEnabledForSource(enabled);
         self.pre_buffer_supplier().send_command(command);
-        // TODO-high-prebuffer OK, fire and forget
-        self.pre_buffer_wormhole()
-            .start_end_handler()
-            .set_audio_fades_enabled(enabled);
     }
 
     pub fn set_midi_reset_msg_range_for_section(&mut self, range: MidiResetMessageRange) {
-        // TODO-high-prebuffer OK, fire and forget
-        self.pre_buffer_wormhole()
-            .section()
-            .set_midi_reset_msg_range(range);
+        let command = ChainPreBufferCommand::SetMidiResetMsgRangeForSection(range);
+        self.pre_buffer_supplier().send_command(command);
     }
 
     pub fn set_midi_reset_msg_range_for_interaction(&mut self, range: MidiResetMessageRange) {
@@ -193,17 +187,13 @@ impl SupplierChain {
     }
 
     pub fn set_midi_reset_msg_range_for_loop(&mut self, range: MidiResetMessageRange) {
-        // TODO-high-prebuffer OK, fire and forget
-        self.pre_buffer_wormhole()
-            .looper()
-            .set_midi_reset_msg_range(range);
+        let command = ChainPreBufferCommand::SetMidiResetMsgRangeForLoop(range);
+        self.pre_buffer_supplier().send_command(command);
     }
 
     pub fn set_midi_reset_msg_range_for_source(&mut self, range: MidiResetMessageRange) {
-        // TODO-high-prebuffer OK, fire and forget
-        self.pre_buffer_wormhole()
-            .start_end_handler()
-            .set_midi_reset_msg_range(range);
+        let command = ChainPreBufferCommand::SetMidiResetMsgRangeForSource(range);
+        self.pre_buffer_supplier().send_command(command);
     }
 
     pub fn set_volume(&mut self, volume: Db) {
@@ -228,26 +218,36 @@ impl SupplierChain {
     }
 
     pub fn schedule_end_of_recording(&mut self, end_bar: i32, timeline: &dyn Timeline) {
-        todo!()
+        // When recording, there's no contention.
+        self.pre_buffer_wormhole()
+            .recorder()
+            .schedule_end(end_bar, timeline);
     }
 
     pub fn write_midi(&mut self, request: WriteMidiRequest, pos: DurationInSeconds) {
-        todo!()
+        // When recording, there's no contention.
+        self.pre_buffer_wormhole()
+            .recorder()
+            .write_midi(request, pos);
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
-        todo!()
+        // When recording, there's no contention.
+        self.pre_buffer_wormhole().recorder().write_audio(request);
     }
 
     pub fn rollback_recording(&mut self) -> ClipEngineResult<()> {
-        todo!()
+        // When recording, there's no contention.
+        self.pre_buffer_wormhole().recorder().rollback_recording()
     }
 
     pub fn commit_recording(
         &mut self,
         timeline: &dyn Timeline,
     ) -> ClipEngineResult<RecordingOutcome> {
-        todo!()
+        self.pre_buffer_wormhole()
+            .recorder()
+            .commit_recording(timeline)
     }
 
     /// This must not be done in a real-time thread!
@@ -260,17 +260,32 @@ impl SupplierChain {
         detect_downbeat: bool,
         timing: RecordTiming,
     ) {
-        todo!()
+        // When recording, there's no contention.
+        self.pre_buffer_wormhole().recorder().prepare_recording(
+            input,
+            project,
+            trigger_timeline_pos,
+            tempo,
+            detect_downbeat,
+            timing,
+        );
     }
 
     pub fn set_audio_cache_behavior(
         &mut self,
         cache_behavior: AudioCacheBehavior,
     ) -> ClipEngineResult<()> {
-        // TODO-high-prebuffer OK, fire and forget
-        self.pre_buffer_wormhole()
-            .recorder()
-            .set_audio_cache_behavior(cache_behavior)
+        use AudioCacheBehavior::*;
+        let pre_buffer_enabled = match &cache_behavior {
+            DirectFromDisk => true,
+            CacheInMemory => false,
+        };
+        let command = ChainPreBufferCommand::SetAudioCacheBehavior(cache_behavior);
+        self.pre_buffer_supplier().send_command(command);
+        // Enable/disable pre-buffer accordingly (pre-buffering not necessary if we have the
+        // complete source material in memory already).
+        self.pre_buffer_mut().set_enabled(pre_buffer_enabled);
+        Ok(())
     }
 
     pub fn set_audio_time_stretch_mode(&mut self, mode: AudioTimeStretchMode) {
@@ -293,10 +308,8 @@ impl SupplierChain {
     }
 
     pub fn set_looped(&mut self, looped: bool) {
-        // TODO-high-prebuffer OK, fire and forget
-        self.pre_buffer_wormhole()
-            .looper()
-            .set_loop_behavior(LoopBehavior::from_bool(looped));
+        let command = ChainPreBufferCommand::SetLooped(looped);
+        self.pre_buffer_supplier().send_command(command);
     }
 
     pub fn set_tempo_factor(&mut self, tempo_factor: f64) {
@@ -330,47 +343,26 @@ impl SupplierChain {
         self.interaction_handler_mut().reset();
         self.resampler_mut().reset_buffers_and_latency();
         self.time_stretcher_mut().reset_buffers_and_latency();
-        // TODO-high-prebuffer OK, fire and forget
-        self.pre_buffer_wormhole()
-            .looper()
-            .set_loop_behavior(LoopBehavior::from_bool(looped));
+        self.set_looped(looped);
     }
 
     pub fn keep_playing_until_end_of_current_cycle(&mut self, pos: isize) {
-        // TODO-high-prebuffer OK, fire and forget
-        let _ = self
-            .pre_buffer_wormhole()
-            .looper()
-            .keep_playing_until_end_of_current_cycle(pos);
+        let command = ChainPreBufferCommand::KeepPlayingUntilEndOfCurrentCycle { pos };
+        self.pre_buffer_supplier().send_command(command);
     }
 
-    pub fn set_section_bounds(&mut self, start_frame: usize, length: Option<usize>) {
-        // TODO-high-prebuffer OK, fire and forget
-        self.pre_buffer_wormhole()
-            .section()
-            .set_bounds(start_frame, length);
-        self.on_section_updated(start_frame > 0, length.is_some());
+    pub fn set_section_bounds(&mut self, start: usize, length: Option<usize>) {
+        let command = ChainPreBufferCommand::SetSectionBoundsInFrames { start, length };
+        self.pre_buffer_supplier().send_command(command);
     }
 
     pub fn set_section_bounds_in_seconds(
         &mut self,
         start: PositiveSecond,
         length: Option<PositiveSecond>,
-    ) -> ClipEngineResult<()> {
-        // TODO-high-prebuffer OK, fire and forget
-        self.pre_buffer_wormhole()
-            .section()
-            .set_bounds_in_seconds(start, length)?;
-        self.on_section_updated(start.get() > 0.0, length.is_some());
-        Ok(())
-    }
-
-    fn on_section_updated(&mut self, start_is_set: bool, length_is_set: bool) {
-        // TODO-high-prebuffer OK, fire and forget
-        let mut entrance = self.pre_buffer_wormhole();
-        let mut start_end_handler = entrance.start_end_handler();
-        start_end_handler.set_enabled_for_start(!start_is_set);
-        start_end_handler.set_enabled_for_end(!length_is_set);
+    ) {
+        let command = ChainPreBufferCommand::SetSectionBoundsInSeconds { start, length };
+        self.pre_buffer_supplier().send_command(command);
     }
 
     pub fn downbeat_pos_during_recording(&self, timeline: &dyn Timeline) -> DurationInSeconds {
@@ -509,6 +501,22 @@ pub type ChainPreBufferRequest = PreBufferRequest<SharedLooperTail, ChainPreBuff
 #[derive(Debug)]
 pub enum ChainPreBufferCommand {
     SetAudioFadesEnabledForSource(bool),
+    SetMidiResetMsgRangeForSection(MidiResetMessageRange),
+    SetMidiResetMsgRangeForLoop(MidiResetMessageRange),
+    SetMidiResetMsgRangeForSource(MidiResetMessageRange),
+    SetAudioCacheBehavior(AudioCacheBehavior),
+    SetLooped(bool),
+    KeepPlayingUntilEndOfCurrentCycle {
+        pos: isize,
+    },
+    SetSectionBoundsInFrames {
+        start: usize,
+        length: Option<usize>,
+    },
+    SetSectionBoundsInSeconds {
+        start: PositiveSecond,
+        length: Option<PositiveSecond>,
+    },
 }
 
 #[derive(Debug)]
@@ -519,11 +527,57 @@ impl CommandProcessor for ChainPreBufferCommandProcessor {
     type Command = ChainPreBufferCommand;
 
     fn process_command(&self, command: ChainPreBufferCommand, supplier: &SharedLooperTail) {
+        let mut entrance = non_blocking_lock(&*supplier, "command processing");
         use ChainPreBufferCommand::*;
         match command {
-            SetAudioFadesEnabledForSource(_) => {
-                todo!()
+            SetAudioFadesEnabledForSource(enabled) => {
+                entrance
+                    .start_end_handler()
+                    .set_audio_fades_enabled(enabled);
+            }
+            SetMidiResetMsgRangeForSection(range) => {
+                entrance.section().set_midi_reset_msg_range(range);
+            }
+            SetMidiResetMsgRangeForLoop(range) => {
+                entrance.looper().set_midi_reset_msg_range(range);
+            }
+            SetMidiResetMsgRangeForSource(range) => {
+                entrance.start_end_handler().set_midi_reset_msg_range(range);
+            }
+            SetAudioCacheBehavior(behavior) => {
+                entrance.recorder().set_audio_cache_behavior(behavior);
+            }
+            SetLooped(looped) => entrance
+                .looper()
+                .set_loop_behavior(LoopBehavior::from_bool(looped)),
+            KeepPlayingUntilEndOfCurrentCycle { pos } => {
+                entrance
+                    .looper()
+                    .keep_playing_until_end_of_current_cycle(pos);
+            }
+            SetSectionBoundsInFrames { start, length } => {
+                entrance.section().set_bounds(start, length);
+                configure_start_end_handler_on_section_change(
+                    entrance.start_end_handler(),
+                    start > 0,
+                    length.is_some(),
+                );
+            }
+            SetSectionBoundsInSeconds { start, length } => {
+                entrance.section().set_bounds_in_seconds(start, length);
+                configure_start_end_handler_on_section_change(
+                    entrance.start_end_handler(),
+                    start.get() > 0.0,
+                    length.is_some(),
+                );
             }
         }
     }
+}
+
+fn configure_start_end_handler_on_section_change(
+    start_end_handler: &mut StartEndHandlerTail,
+    start_is_set: bool,
+    length_is_set: bool,
+) {
 }
