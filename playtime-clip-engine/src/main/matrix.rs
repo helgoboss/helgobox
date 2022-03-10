@@ -163,7 +163,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
     pub fn load(&mut self, api_matrix: api::Matrix) -> ClipEngineResult<()> {
         self.clear_columns();
         let permanent_project = self.permanent_project();
-        // Settings
+        // Main settings
         self.settings.common_tempo_range = api_matrix.common_tempo_range;
         self.settings.audio_resample_mode =
             api_matrix.clip_play_settings.audio_settings.resample_mode;
@@ -173,6 +173,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             .time_stretch_mode;
         self.settings.audio_cache_behavior =
             api_matrix.clip_play_settings.audio_settings.cache_behavior;
+        self.settings.clip_record_settings = api_matrix.clip_record_settings;
+        // Real-time settings
         self.rt_settings.clip_play_start_timing = api_matrix.clip_play_settings.start_timing;
         self.rt_settings.clip_play_stop_timing = api_matrix.clip_play_settings.stop_timing;
         self.rt_command_sender

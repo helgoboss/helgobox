@@ -18,7 +18,7 @@ pub struct Clip {
     // unnecessary data inside.
     persistent_data: api::Clip,
     runtime_data: Option<ClipRuntimeData>,
-    recording: bool,
+    recording_requested: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -46,7 +46,7 @@ impl Clip {
         Clip {
             persistent_data: api_clip,
             runtime_data: None,
-            recording: false,
+            recording_requested: false,
         }
     }
 
@@ -54,8 +54,19 @@ impl Clip {
         self.persistent_data.clone()
     }
 
-    pub fn mark_recording(&mut self) {
-        self.recording = true;
+    pub fn notify_recording_requested(&mut self) -> ClipEngineResult<()> {
+        if self.recording_requested {
+            return Err("recording has already been requested");
+        }
+        if self.play_state() == Ok(ClipPlayState::Recording) {
+            return Err("already recording");
+        }
+        self.recording_requested = true;
+        Ok(())
+    }
+
+    pub fn notify_recording_request_response(&mut self) {
+        self.recording_requested = false;
     }
 
     pub fn create_real_time_clip(
@@ -177,8 +188,13 @@ impl Clip {
         self.persistent_data.volume
     }
 
+    pub fn recording_requested(&self) -> bool {
+        self.recording_requested
+    }
+
     pub fn play_state(&self) -> ClipEngineResult<ClipPlayState> {
-        if self.recording {
+        if self.recording_requested {
+            // Report optimistically that we are recording already.
             return Ok(ClipPlayState::Recording);
         }
         Ok(self.runtime_data()?.play_state)

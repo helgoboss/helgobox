@@ -98,12 +98,14 @@ impl Slot {
         use SlotRecordInstruction::*;
         match instruction {
             NewClip(c) => {
+                debug!("Record new clip");
                 if self.clip.is_some() {
                     return Err(RecordClipError::new("slot not empty", NewClip(c)));
                 }
                 self.clip = Some(c);
             }
             ExistingClip(args) => {
+                debug!("Record existing clip");
                 let clip = match self.clip.as_mut() {
                     None => {
                         return Err(RecordClipError::new("slot empty", ExistingClip(args)));
@@ -113,11 +115,13 @@ impl Slot {
                 clip.record(args);
             }
             MidiOverdub => {
+                debug!("MIDI overdub");
                 let clip = self
                     .clip
                     .as_mut()
                     .ok_or(RecordClipError::new("slot empty", MidiOverdub))?;
-                clip.midi_overdub();
+                clip.midi_overdub()
+                    .map_err(|msg| RecordClipError::new(msg, MidiOverdub))?;
             }
         }
         Ok(())

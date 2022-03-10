@@ -337,11 +337,11 @@ impl Clip {
         }
     }
 
-    pub fn midi_overdub(&mut self) {
+    pub fn midi_overdub(&mut self) -> ClipEngineResult<()> {
         use ClipState::*;
         match &mut self.state {
             Ready(s) => s.midi_overdub(),
-            Recording(_) => {}
+            Recording(_) => Err("clip recording"),
         }
     }
 
@@ -1356,7 +1356,7 @@ impl ReadyState {
         );
     }
 
-    pub fn midi_overdub(&mut self) {
+    pub fn midi_overdub(&mut self) -> ClipEngineResult<()> {
         use ReadySubState::*;
         // TODO-medium Maybe we should start to play if not yet playing
         if let Playing(s) = self.state {
@@ -1364,6 +1364,9 @@ impl ReadyState {
                 overdubbing: true,
                 ..s
             });
+            Ok(())
+        } else {
+            Err("clip not playing")
         }
     }
 

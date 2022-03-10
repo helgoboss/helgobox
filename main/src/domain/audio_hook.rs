@@ -231,6 +231,7 @@ impl RealearnAudioHook {
     fn process_clip_record_tasks(&mut self, args: &OnAudioBufferArgs) {
         if let Some(t) = &mut self.clip_record_task {
             if !process_clip_record_task(args, t) {
+                tracing_debug!("Clearing clip record task from audio hook");
                 self.clip_record_task = None;
             }
         }

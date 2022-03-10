@@ -13,26 +13,27 @@ impl Slot {
     }
 
     pub fn clip(&self) -> Option<&Clip> {
-        match &self.state {
-            SlotState::Empty => None,
-            SlotState::RecordingFromScratch => None,
-            SlotState::Filled(clip) => Some(clip),
+        if let SlotState::Filled(clip) = &self.state {
+            Some(clip)
+        } else {
+            None
         }
     }
 
     pub fn clip_mut(&mut self) -> Option<&mut Clip> {
-        match &mut self.state {
-            SlotState::Empty => None,
-            SlotState::RecordingFromScratch => None,
-            SlotState::Filled(clip) => Some(clip),
+        if let SlotState::Filled(clip) = &mut self.state {
+            Some(clip)
+        } else {
+            None
         }
     }
 
     pub fn play_state(&self) -> ClipEngineResult<ClipPlayState> {
+        use SlotState::*;
         match &self.state {
-            SlotState::Empty => Err("slot empty"),
-            SlotState::RecordingFromScratch => Ok(ClipPlayState::Recording),
-            SlotState::Filled(clip) => clip.play_state(),
+            Empty => Err("slot empty"),
+            RecordingFromScratchRequested | RecordingFromScratch => Ok(ClipPlayState::Recording),
+            Filled(clip) => clip.play_state(),
         }
     }
 
@@ -41,15 +42,35 @@ impl Slot {
     }
 
     /// Important to call on recording in order to allow for idempotence.
-    pub fn mark_recording(&mut self) {
+    pub fn notify_recording_requested(&mut self) -> ClipEngineResult<()> {
         use SlotState::*;
         match &mut self.state {
             Empty => {
-                self.state = RecordingFromScratch;
+                self.state = RecordingFromScratchRequested;
+                Ok(())
             }
-            RecordingFromScratch => {}
+            Filled(clip) => clip.notify_recording_requested(),
+            RecordingFromScratchRequested => Err("recording has already been requested"),
+            RecordingFromScratch => Err("is recording already"),
+        }
+    }
+
+    pub fn notify_recording_request_response(&mut self, successful: bool) -> ClipEngineResult<()> {
+        use SlotState::*;
+        match &mut self.state {
+            Empty => Err("recording was not requested"),
+            RecordingFromScratchRequested => {
+                self.state = if successful {
+                    RecordingFromScratch
+                } else {
+                    Empty
+                };
+                Ok(())
+            }
+            RecordingFromScratch => Err("recording already"),
             Filled(clip) => {
-                clip.mark_recording();
+                clip.notify_recording_request_response();
+                Ok(())
             }
         }
     }
@@ -59,6 +80,8 @@ impl Slot {
 pub enum SlotState {
     /// Slot is empty.
     Empty,
+    /// Slot is still kind of empty but recording a totally new clip has been requested.
+    RecordingFromScratchRequested,
     /// Slot is still kind of empty but a totally new clip is being recorded right now.
     RecordingFromScratch,
     /// Slot has a clip.

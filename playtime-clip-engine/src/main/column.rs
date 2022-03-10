@@ -254,6 +254,15 @@ impl Column {
                     None
                 }
                 Dispose(_) => None,
+                RecordRequestProcessed {
+                    slot_index,
+                    successful,
+                    ..
+                } => {
+                    let slot = get_slot_mut_insert(&mut self.slots, slot_index);
+                    slot.notify_recording_request_response(successful).unwrap();
+                    None
+                }
             };
             if let Some(evt) = change_event {
                 change_events.push(evt);
@@ -349,10 +358,16 @@ impl Column {
         // Check preconditions.
         let (has_existing_clip, midi_overdub_if_input_is_midi) = match slot.state() {
             SlotState::Empty => (false, false),
+            SlotState::RecordingFromScratchRequested => {
+                return Err("recording requested already (from scratch)");
+            }
             SlotState::RecordingFromScratch => {
                 return Err("recording already (from scratch)");
             }
             SlotState::Filled(clip) => {
+                if clip.recording_requested() {
+                    return Err("recording requested already (with existing clip)");
+                }
                 if clip.play_state() == Ok(ClipPlayState::Recording) {
                     return Err("recording already (with existing clip)");
                 }
@@ -406,7 +421,7 @@ impl Column {
         };
         // Above code was only for checking preconditions and preparing stuff.
         // Here we do the actual state changes and distribute tasks.
-        slot.mark_recording();
+        slot.notify_recording_requested()?;
         self.rt_command_sender.record_clip(slot_index, instruction);
         handler.request_recording_input(record_task);
         Ok(())

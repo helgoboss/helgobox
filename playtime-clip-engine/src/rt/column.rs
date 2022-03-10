@@ -160,6 +160,13 @@ trait EventSender {
 
     fn clip_material_info_changed(&self, slot_index: usize, material_info: MaterialInfo);
 
+    fn record_request_processed(
+        &self,
+        slot_index: usize,
+        successful: bool,
+        original_instruction: Option<SlotRecordInstruction>,
+    );
+
     fn dispose(&self, garbage: ColumnGarbage);
 
     fn send_event(&self, event: ColumnEvent);
@@ -178,6 +185,20 @@ impl EventSender for Sender<ColumnEvent> {
         let event = ColumnEvent::ClipMaterialInfoChanged {
             slot_index,
             material_info,
+        };
+        self.send_event(event);
+    }
+
+    fn record_request_processed(
+        &self,
+        slot_index: usize,
+        successful: bool,
+        original_instruction: Option<SlotRecordInstruction>,
+    ) {
+        let event = ColumnEvent::RecordRequestProcessed {
+            slot_index,
+            successful,
+            original_instruction,
         };
         self.send_event(event);
     }
@@ -318,20 +339,17 @@ impl Column {
         Ok(get_slot(&self.slots, index)?.clip()?.play_state())
     }
 
-    fn record_clip(
-        &mut self,
-        slot_index: usize,
-        instruction: SlotRecordInstruction,
-    ) -> ClipEngineResult<()> {
+    fn record_clip(&mut self, slot_index: usize, instruction: SlotRecordInstruction) {
         let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-        match slot.record_clip(instruction) {
-            Ok(_) => Ok(()),
+        let (successful, instruction) = match slot.record_clip(instruction) {
+            Ok(_) => (true, None),
             Err(e) => {
-                self.event_sender
-                    .dispose(ColumnGarbage::SlotRecordInstruction(e.instruction));
-                Err(e.message)
+                debug!("Error recording clip: {}", e.message);
+                (false, Some(e.instruction))
             }
-        }
+        };
+        self.event_sender
+            .record_request_processed(slot_index, successful, instruction);
     }
 
     pub fn pause_clip(&mut self, index: usize) -> ClipEngineResult<()> {
@@ -422,7 +440,7 @@ impl Column {
                     self.set_clip_looped(args).unwrap();
                 }
                 RecordClip(args) => {
-                    self.record_clip(args.slot_index, args.instruction).unwrap();
+                    self.record_clip(args.slot_index, args.instruction);
                 }
             }
         }
@@ -749,11 +767,16 @@ pub enum ColumnEvent {
         slot_index: usize,
         material_info: MaterialInfo,
     },
+    RecordRequestProcessed {
+        slot_index: usize,
+        successful: bool,
+        /// Just for disposing
+        original_instruction: Option<SlotRecordInstruction>,
+    },
     Dispose(ColumnGarbage),
 }
 
 #[derive(Debug)]
 pub enum ColumnGarbage {
     FillSlotArgs(Box<Option<ColumnFillSlotArgs>>),
-    SlotRecordInstruction(SlotRecordInstruction),
 }
