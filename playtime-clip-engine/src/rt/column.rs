@@ -2,7 +2,7 @@ use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     AudioBufMut, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipStopArgs,
-    OwnedAudioBuffer, Slot, SlotProcessTransportChangeArgs,
+    OwnedAudioBuffer, RecordClipError, Slot, SlotProcessTransportChangeArgs, SlotRecordInstruction,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -125,10 +125,10 @@ impl ColumnCommandSender {
         self.send_source_task(ColumnCommand::SetClipVolume(args));
     }
 
-    pub fn record_clip(&self, slot_index: usize, args: ClipRecordArgs) {
+    pub fn record_clip(&self, slot_index: usize, instruction: SlotRecordInstruction) {
         let args = ColumnRecordClipArgs {
             slot_index,
-            clip_args: args,
+            instruction,
         };
         self.send_source_task(ColumnCommand::RecordClip(args));
     }
@@ -318,8 +318,20 @@ impl Column {
         Ok(get_slot(&self.slots, index)?.clip()?.play_state())
     }
 
-    pub fn record_clip(&mut self, slot_index: usize, args: ClipRecordArgs) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, slot_index).record_clip(args)
+    fn record_clip(
+        &mut self,
+        slot_index: usize,
+        instruction: SlotRecordInstruction,
+    ) -> ClipEngineResult<()> {
+        let slot = get_slot_mut_insert(&mut self.slots, slot_index);
+        match slot.record_clip(instruction) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                self.event_sender
+                    .dispose(ColumnGarbage::SlotRecordInstruction(e.instruction));
+                Err(e.message)
+            }
+        }
     }
 
     pub fn pause_clip(&mut self, index: usize) -> ClipEngineResult<()> {
@@ -384,31 +396,33 @@ impl Column {
                         .dispose(ColumnGarbage::FillSlotArgs(boxed_args))
                 }
                 SetClipAudioResampleMode(args) => {
-                    let _ = self.set_clip_audio_resample_mode(args.slot_index, args.mode);
+                    self.set_clip_audio_resample_mode(args.slot_index, args.mode)
+                        .unwrap();
                 }
                 SetClipAudioTimeStretchMode(args) => {
-                    let _ = self.set_clip_audio_time_stretch_mode(args.slot_index, args.mode);
+                    self.set_clip_audio_time_stretch_mode(args.slot_index, args.mode)
+                        .unwrap();
                 }
                 PlayClip(args) => {
-                    let _ = self.play_clip(args);
+                    self.play_clip(args).unwrap();
                 }
                 StopClip(args) => {
-                    let _ = self.stop_clip(args);
+                    self.stop_clip(args).unwrap();
                 }
                 PauseClip(args) => {
-                    let _ = self.pause_clip(args.index);
+                    self.pause_clip(args.index).unwrap();
                 }
                 SetClipVolume(args) => {
-                    let _ = self.set_clip_volume(args.slot_index, args.volume);
+                    self.set_clip_volume(args.slot_index, args.volume).unwrap();
                 }
                 SeekClip(args) => {
-                    let _ = self.seek_clip(args.index, args.desired_pos);
+                    self.seek_clip(args.index, args.desired_pos).unwrap();
                 }
                 SetClipLooped(args) => {
-                    let _ = self.set_clip_looped(args);
+                    self.set_clip_looped(args).unwrap();
                 }
                 RecordClip(args) => {
-                    let _ = self.record_clip(args.slot_index, args.clip_args);
+                    self.record_clip(args.slot_index, args.instruction).unwrap();
                 }
             }
         }
@@ -686,7 +700,7 @@ pub struct ColumnSetClipVolumeArgs {
 #[derive(Debug)]
 pub struct ColumnRecordClipArgs {
     pub slot_index: usize,
-    pub clip_args: ClipRecordArgs,
+    pub instruction: SlotRecordInstruction,
 }
 
 #[derive(Debug)]
@@ -733,4 +747,5 @@ pub enum ColumnEvent {
 #[derive(Debug)]
 pub enum ColumnGarbage {
     FillSlotArgs(Box<Option<ColumnFillSlotArgs>>),
+    SlotRecordInstruction(SlotRecordInstruction),
 }

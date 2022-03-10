@@ -7,7 +7,7 @@ use crate::rt::supplier::{ChainPreBufferRequest, RecorderEquipment};
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ClipRecordArgs, ColumnCommandSender, ColumnEvent,
     ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipLoopedArgs, ColumnStopClipArgs,
-    SharedColumn, WeakColumn,
+    SharedColumn, SlotRecordInstruction, WeakColumn,
 };
 use crate::{clip_timeline, rt, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
@@ -17,7 +17,7 @@ use playtime_api as api;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, ChannelRange, ClipPlayStartTiming,
     ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, Db,
-    MatrixClipRecordSettings, RecordOrigin, VirtualResampleMode,
+    MatrixClipRecordSettings, MidiClipRecordMode, RecordOrigin, VirtualResampleMode,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
@@ -219,7 +219,8 @@ impl Column {
             &self.settings,
         )?;
         clip.connect_to(&rt_clip);
-        get_slot_mut(&mut self.slots, row).clip = Some(clip);
+        let slot = get_slot_mut_insert(&mut self.slots, row);
+        slot.clip = Some(clip);
         let args = ColumnFillSlotArgs {
             slot_index: row,
             clip: rt_clip,
@@ -238,7 +239,7 @@ impl Column {
                     slot_index,
                     play_state,
                 } => {
-                    if let Ok(clip) = get_clip_mut(&mut self.slots, slot_index) {
+                    if let Ok(clip) = get_clip_mut_insert_slot(&mut self.slots, slot_index) {
                         let _ = clip.update_play_state(play_state);
                     }
                     Some((slot_index, ClipChangedEvent::PlayState(play_state)))
@@ -247,7 +248,7 @@ impl Column {
                     slot_index,
                     material_info,
                 } => {
-                    if let Ok(clip) = get_clip_mut(&mut self.slots, slot_index) {
+                    if let Ok(clip) = get_clip_mut_insert_slot(&mut self.slots, slot_index) {
                         let _ = clip.update_material_info(material_info);
                     }
                     None
@@ -290,14 +291,14 @@ impl Column {
     }
 
     pub fn set_clip_volume(&mut self, slot_index: usize, volume: Db) -> ClipEngineResult<()> {
-        let clip = get_clip_mut(&mut self.slots, slot_index)?;
+        let clip = get_clip_mut_insert_slot(&mut self.slots, slot_index)?;
         clip.set_volume(volume);
         self.rt_command_sender.set_clip_volume(slot_index, volume);
         Ok(())
     }
 
     pub fn toggle_clip_looped(&mut self, slot_index: usize) -> ClipEngineResult<ClipChangedEvent> {
-        let clip = get_clip_mut(&mut self.slots, slot_index)?;
+        let clip = get_clip_mut_insert_slot(&mut self.slots, slot_index)?;
         let looped = clip.toggle_looped();
         let args = ColumnSetClipLoopedArgs { slot_index, looped };
         self.rt_command_sender.set_clip_looped(args);
@@ -347,26 +348,54 @@ impl Column {
         let task = self.create_clip_record_task(slot_index, containing_track)?;
         let recording_equipment = task.input.create_recording_equipment(self.project);
         let is_midi = recording_equipment.is_midi();
-        let args = ClipRecordArgs {
-            parent_play_start_timing: self
-                .rt_settings
-                .clip_play_start_timing
-                .unwrap_or(parent_play_start_timing),
-            recording_equipment,
-            start_timing: matrix_settings.start_timing.clone(),
-            midi_record_mode: matrix_settings.midi_settings.record_mode,
-            length: matrix_settings.duration.clone(),
-            looped: matrix_settings.looped,
-            detect_downbeat: if is_midi {
-                matrix_settings.midi_settings.detect_downbeat
-            } else {
-                matrix_settings.audio_settings.detect_downbeat
+        let (has_clip, midi_overdub) = match self.slots.get(slot_index) {
+            None => (false, false),
+            Some(slot) => match &slot.clip {
+                None => (false, false),
+                Some(clip) => {
+                    let midi_overdub = if is_midi {
+                        use MidiClipRecordMode::*;
+                        match matrix_settings.midi_settings.record_mode {
+                            Normal => false,
+                            Overdub => clip.material_info().map(|i| i.is_midi()).unwrap_or(false),
+                            Replace => todo!(),
+                        }
+                    } else {
+                        false
+                    };
+                    (true, midi_overdub)
+                }
             },
-            equipment: equipment.clone(),
-            pre_buffer_request_sender: pre_buffer_request_sender.clone(),
-            project: self.project,
         };
-        self.rt_command_sender.record_clip(slot_index, args);
+        let instruction = if midi_overdub {
+            SlotRecordInstruction::MidiOverdub
+        } else {
+            let args = ClipRecordArgs {
+                parent_play_start_timing: self
+                    .rt_settings
+                    .clip_play_start_timing
+                    .unwrap_or(parent_play_start_timing),
+                recording_equipment,
+                start_timing: matrix_settings.start_timing.clone(),
+                midi_record_mode: matrix_settings.midi_settings.record_mode,
+                length: matrix_settings.duration.clone(),
+                looped: matrix_settings.looped,
+                detect_downbeat: if is_midi {
+                    matrix_settings.midi_settings.detect_downbeat
+                } else {
+                    matrix_settings.audio_settings.detect_downbeat
+                },
+                equipment: equipment.clone(),
+                pre_buffer_request_sender: pre_buffer_request_sender.clone(),
+                project: self.project,
+            };
+            if has_clip {
+                SlotRecordInstruction::ExistingClip(args)
+            } else {
+                SlotRecordInstruction::NewClip(rt::Clip::recording(args)?)
+            }
+        };
+        self.rt_command_sender.record_clip(slot_index, instruction);
         handler.request_recording_input(task);
         Ok(())
     }
@@ -510,14 +539,17 @@ fn get_slot(slots: &[Slot], slot_index: usize) -> ClipEngineResult<&Slot> {
     slots.get(slot_index).ok_or(SLOT_DOESNT_EXIST)
 }
 
-fn get_clip_mut(slots: &mut Vec<Slot>, slot_index: usize) -> ClipEngineResult<&mut Clip> {
-    get_slot_mut(slots, slot_index)
+fn get_clip_mut_insert_slot(
+    slots: &mut Vec<Slot>,
+    slot_index: usize,
+) -> ClipEngineResult<&mut Clip> {
+    get_slot_mut_insert(slots, slot_index)
         .clip
         .as_mut()
         .ok_or(SLOT_NOT_FILLED)
 }
 
-fn get_slot_mut(slots: &mut Vec<Slot>, slot_index: usize) -> &mut Slot {
+fn get_slot_mut_insert(slots: &mut Vec<Slot>, slot_index: usize) -> &mut Slot {
     if slot_index >= slots.len() {
         slots.resize_with(slot_index + 1, Default::default);
     }

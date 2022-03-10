@@ -3,7 +3,7 @@ use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::SlotInstruction::KeepSlot;
 use crate::rt::{
     Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipStopArgs,
-    SlotInstruction,
+    SlotInstruction, SlotRecordInstruction,
 };
 use crate::timeline::HybridTimeline;
 use crate::ClipEngineResult;
@@ -85,32 +85,39 @@ impl Slot {
         Ok(())
     }
 
-    pub fn record_clip(&mut self, args: ClipRecordArgs) -> ClipEngineResult<()> {
-        // If input kind is MIDI && MIDI mode is overdub && clip exists && clip material is MIDI, then call
-        // overdub. Otherwise proceed as Normal.
-        match self.clip.as_mut() {
-            None => {
-                // Slot still empty
-                let clip = Clip::recording(args)?;
-                self.clip = Some(clip)
-            }
-            Some(c) => {
-                // Slot filled
-                let midi_overdub = if args.recording_equipment.is_midi() {
-                    use MidiClipRecordMode::*;
-                    match args.midi_record_mode {
-                        Normal => false,
-                        Overdub => c.material_info().map(|i| i.is_midi()).unwrap_or(false),
-                        Replace => todo!(),
-                    }
-                } else {
-                    false
-                };
-                if midi_overdub {
-                    c.midi_overdub();
-                } else {
-                    c.record(args);
+    /// # Errors
+    ///
+    /// Returns an error either if the instruction is to record on the given new clip but the slot
+    /// is not empty, or if the instruction is to record on an existing clip but the slot is empty.
+    ///
+    /// In both cases, it returns the instruction itself so it can be disposed appropriately.
+    pub fn record_clip(
+        &mut self,
+        instruction: SlotRecordInstruction,
+    ) -> Result<(), RecordClipError> {
+        use SlotRecordInstruction::*;
+        match instruction {
+            NewClip(c) => {
+                if self.clip.is_some() {
+                    return Err(RecordClipError::new("slot not empty", NewClip(c)));
                 }
+                self.clip = Some(c);
+            }
+            ExistingClip(args) => {
+                let clip = match self.clip.as_mut() {
+                    None => {
+                        return Err(RecordClipError::new("slot empty", ExistingClip(args)));
+                    }
+                    Some(c) => c,
+                };
+                clip.record(args);
+            }
+            MidiOverdub => {
+                let clip = self
+                    .clip
+                    .as_mut()
+                    .ok_or(RecordClipError::new("slot empty", MidiOverdub))?;
+                clip.midi_overdub();
             }
         }
         Ok(())
@@ -337,4 +344,18 @@ fn play_clip_by_transport(
     };
     clip.play(args).unwrap();
     SlotInstruction::KeepSlot
+}
+
+pub struct RecordClipError {
+    pub message: &'static str,
+    pub instruction: SlotRecordInstruction,
+}
+
+impl RecordClipError {
+    pub const fn new(message: &'static str, instruction: SlotRecordInstruction) -> Self {
+        Self {
+            message,
+            instruction,
+        }
+    }
 }

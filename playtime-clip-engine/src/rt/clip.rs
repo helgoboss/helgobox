@@ -1738,6 +1738,13 @@ impl VirtualPosition {
 }
 
 #[derive(Debug)]
+pub enum SlotRecordInstruction {
+    NewClip(Clip),
+    ExistingClip(ClipRecordArgs),
+    MidiOverdub,
+}
+
+#[derive(Debug)]
 pub struct ClipRecordArgs {
     pub parent_play_start_timing: ClipPlayStartTiming,
     pub recording_equipment: RecordingEquipment,

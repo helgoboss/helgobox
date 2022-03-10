@@ -135,6 +135,11 @@ impl Clip {
         self.runtime_data = Some(runtime_data);
     }
 
+    pub fn material_info(&self) -> Option<&MaterialInfo> {
+        let runtime_data = self.runtime_data.as_ref()?;
+        Some(&runtime_data.material_info)
+    }
+
     pub fn data(&self) -> &api::Clip {
         &self.persistent_data
     }
