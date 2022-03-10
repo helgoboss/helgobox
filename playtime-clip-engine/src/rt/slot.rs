@@ -5,7 +5,7 @@ use crate::rt::supplier::{
 };
 use crate::rt::SlotInstruction::KeepSlot;
 use crate::rt::{
-    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipRecordInput,
+    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipRecordInputKind,
     ClipStopArgs, RecordBehavior, SlotInstruction,
 };
 use crate::timeline::HybridTimeline;
@@ -13,7 +13,8 @@ use crate::ClipEngineResult;
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api::{
-    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, Db, VirtualResampleMode,
+    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, Db, MidiClipRecordMode,
+    VirtualResampleMode,
 };
 use reaper_high::Project;
 use reaper_medium::{Bpm, PlayState, PositionInSeconds};
@@ -43,18 +44,18 @@ impl Slot {
     }
 
     pub fn clip(&self) -> ClipEngineResult<&Clip> {
-        self.get_clip()
+        self.clip_internal()
     }
 
     pub fn clip_mut(&mut self) -> ClipEngineResult<&mut Clip> {
-        self.get_clip_mut()
+        self.clip_mut_internal()
     }
 
     pub fn set_clip_audio_resample_mode(
         &mut self,
         mode: VirtualResampleMode,
     ) -> ClipEngineResult<()> {
-        self.get_clip_mut()?.set_audio_resample_mode(mode);
+        self.clip_mut_internal()?.set_audio_resample_mode(mode);
         Ok(())
     }
 
@@ -62,13 +63,13 @@ impl Slot {
         &mut self,
         mode: AudioTimeStretchMode,
     ) -> ClipEngineResult<()> {
-        self.get_clip_mut()?.set_audio_time_stretch_mode(mode);
+        self.clip_mut_internal()?.set_audio_time_stretch_mode(mode);
         Ok(())
     }
 
     /// Plays the clip if this slot contains one.
     pub fn play_clip(&mut self, args: ClipPlayArgs) -> ClipEngineResult<()> {
-        let outcome = self.get_clip_mut()?.play(args)?;
+        let outcome = self.clip_mut_internal()?.play(args)?;
         self.runtime_data.last_play = Some(LastPlay {
             was_quantized: outcome.virtual_pos.is_quantized(),
         });
@@ -78,84 +79,74 @@ impl Slot {
     /// Stops the clip if this slot contains one.
     pub fn stop_clip(&mut self, args: ClipStopArgs) -> ClipEngineResult<()> {
         self.runtime_data.stop_was_caused_by_transport_change = false;
-        if self.get_clip_mut()?.stop(args) == SlotInstruction::ClearSlot {
+        if self.clip_mut_internal()?.stop(args) == SlotInstruction::ClearSlot {
             self.clip = None;
         }
         Ok(())
     }
 
     pub fn set_clip_looped(&mut self, repeated: bool) -> ClipEngineResult<()> {
-        self.get_clip_mut()?.set_looped(repeated);
+        self.clip_mut_internal()?.set_looped(repeated);
         Ok(())
     }
 
-    pub fn record_clip(
-        &mut self,
-        behavior: RecordBehavior,
-        input: ClipRecordInput,
-        project: Option<Project>,
-        equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
-    ) -> ClipEngineResult<()> {
-        use RecordBehavior::*;
-        match behavior {
-            Normal {
-                looped,
-                timing,
-                detect_downbeat,
-            } => {
-                let args = ClipRecordArgs {
-                    looped,
-                    input,
-                    timing,
-                    detect_downbeat,
-                };
-                match &mut self.clip {
-                    None => {
-                        let clip = Clip::recording(
-                            args,
-                            project,
-                            equipment.clone(),
-                            pre_buffer_request_sender.clone(),
-                        )?;
-                        self.clip = Some(clip)
-                    }
-                    Some(clip) => clip.record(args),
-                }
+    pub fn record_clip(&mut self, args: ClipRecordArgs) -> ClipEngineResult<()> {
+        // If input kind is MIDI && MIDI mode is overdub && clip exists && clip material is MIDI, then call
+        // overdub. Otherwise proceed as Normal.
+        match self.clip.as_mut() {
+            None => {
+                // Slot still empty
+                let clip = Clip::recording(args)?;
+                self.clip = Some(clip)
             }
-            MidiOverdub => {
-                self.get_clip_mut()?.midi_overdub();
+            Some(c) => {
+                // Slot filled
+                let midi_overdub = if args.input_kind.is_midi() {
+                    use MidiClipRecordMode::*;
+                    match args.midi_record_mode {
+                        Normal => false,
+                        Overdub => c.material_info().map(|i| i.is_midi()).unwrap_or(false),
+                        Replace => todo!(),
+                    }
+                } else {
+                    false
+                };
+                if midi_overdub {
+                    c.midi_overdub();
+                } else {
+                    c.record(args);
+                }
             }
         }
         Ok(())
     }
 
     pub fn pause_clip(&mut self) -> ClipEngineResult<()> {
-        self.get_clip_mut()?.pause();
+        self.clip_mut_internal()?.pause();
         Ok(())
     }
 
     pub fn seek_clip(&mut self, desired_pos: UnitValue) -> ClipEngineResult<()> {
-        self.get_clip_mut()?.seek(desired_pos);
+        self.clip_mut_internal()?.seek(desired_pos);
         Ok(())
     }
 
-    pub fn clip_record_input(&self) -> Option<ClipRecordInput> {
-        self.get_clip().ok()?.record_input()
+    pub fn clip_record_input(&self) -> Option<ClipRecordInputKind> {
+        self.clip_internal().ok()?.record_input()
     }
 
     pub fn write_clip_midi(&mut self, request: WriteMidiRequest) -> ClipEngineResult<()> {
-        self.get_clip_mut()?.write_midi(request);
+        self.clip_mut_internal()?.write_midi(request);
         Ok(())
     }
 
     pub fn write_clip_audio(&mut self, request: WriteAudioRequest) -> ClipEngineResult<()> {
-        self.get_clip_mut()?.write_audio(request);
+        self.clip_mut_internal()?.write_audio(request);
         Ok(())
     }
 
     pub fn set_clip_volume(&mut self, volume: Db) -> ClipEngineResult<()> {
-        self.get_clip_mut()?.set_volume(volume);
+        self.clip_mut_internal()?.set_volume(volume);
         Ok(())
     }
 
@@ -243,7 +234,7 @@ impl Slot {
     }
 
     pub fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        self.get_clip()?.material_info()
+        self.clip_internal()?.material_info()
     }
 
     pub fn process(
@@ -251,7 +242,7 @@ impl Slot {
         args: &mut ClipProcessArgs,
     ) -> ClipEngineResult<SlotProcessingOutcome> {
         measure_time("slot.process.time", || {
-            let clip = self.get_clip_mut()?;
+            let clip = self.clip_mut_internal()?;
             let clip_outcome = clip.process(args);
             let play_state = clip.play_state();
             let last_play_state = self.runtime_data.last_play_state;
@@ -270,11 +261,11 @@ impl Slot {
         })
     }
 
-    fn get_clip(&self) -> ClipEngineResult<&Clip> {
+    fn clip_internal(&self) -> ClipEngineResult<&Clip> {
         self.clip.as_ref().ok_or(SLOT_NOT_FILLED)
     }
 
-    fn get_clip_mut(&mut self) -> ClipEngineResult<&mut Clip> {
+    fn clip_mut_internal(&mut self) -> ClipEngineResult<&mut Clip> {
         self.clip.as_mut().ok_or(SLOT_NOT_FILLED)
     }
 }

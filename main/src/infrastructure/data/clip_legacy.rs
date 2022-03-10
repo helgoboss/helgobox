@@ -26,7 +26,7 @@ pub(super) fn create_clip_matrix_from_legacy_slots(
                         clip_play_settings: api::ColumnClipPlaySettings {
                             track: output
                                 .resolve_track(containing_track.cloned())?
-                                .map(|t| api::TrackId(t.guid().to_string_without_braces())),
+                                .map(|t| api::TrackId::new(t.guid().to_string_without_braces())),
                             ..Default::default()
                         },
                         clip_record_settings: Default::default(),

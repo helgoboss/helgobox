@@ -639,6 +639,10 @@ impl QuantizedPosition {
         self.position
     }
 
+    pub fn quantization(&self) -> EvenQuantization {
+        EvenQuantization::new(1, self.denominator).unwrap()
+    }
+
     /// The quotient that divides the bar into multiple equally-sized portions.
     ///
     /// E.g. 16 if it's a sixteenth note or 1 if it's a whole bar.

@@ -4,8 +4,9 @@ use crate::rt::supplier::{
     WriteMidiRequest,
 };
 use crate::rt::{
-    AudioBufMut, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordInput, ClipStopArgs,
-    OwnedAudioBuffer, RecordBehavior, Slot, SlotProcessTransportChangeArgs,
+    AudioBufMut, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs,
+    ClipRecordInputKind, ClipStopArgs, OwnedAudioBuffer, RecordBehavior, Slot,
+    SlotProcessTransportChangeArgs,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -128,6 +129,14 @@ impl ColumnCommandSender {
         self.send_source_task(ColumnCommand::SetClipVolume(args));
     }
 
+    pub fn record_clip(&self, slot_index: usize, args: ClipRecordArgs) {
+        let args = ColumnRecordClipArgs {
+            slot_index,
+            clip_args: args,
+        };
+        self.send_source_task(ColumnCommand::RecordClip(args));
+    }
+
     fn send_source_task(&self, task: ColumnCommand) {
         self.command_sender.try_send(task).unwrap();
     }
@@ -147,6 +156,7 @@ pub enum ColumnCommand {
     SeekClip(ColumnSeekClipArgs),
     SetClipVolume(ColumnSetClipVolumeArgs),
     SetClipLooped(ColumnSetClipLoopedArgs),
+    RecordClip(ColumnRecordClipArgs),
 }
 
 trait EventSender {
@@ -312,20 +322,8 @@ impl Column {
         Ok(get_slot(&self.slots, index)?.clip()?.play_state())
     }
 
-    pub fn record_clip(
-        &mut self,
-        index: usize,
-        behavior: RecordBehavior,
-        equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
-    ) -> ClipEngineResult<()> {
-        get_slot_mut_insert(&mut self.slots, index).record_clip(
-            behavior,
-            ClipRecordInput::Audio,
-            self.project,
-            equipment,
-            pre_buffer_request_sender,
-        )
+    pub fn record_clip(&mut self, slot_index: usize, args: ClipRecordArgs) -> ClipEngineResult<()> {
+        get_slot_mut_insert(&mut self.slots, slot_index).record_clip(args)
     }
 
     pub fn pause_clip(&mut self, index: usize) -> ClipEngineResult<()> {
@@ -336,7 +334,7 @@ impl Column {
         get_slot_mut_insert(&mut self.slots, index).seek_clip(desired_pos)
     }
 
-    pub fn clip_record_input(&self, index: usize) -> Option<ClipRecordInput> {
+    pub fn clip_record_input(&self, index: usize) -> Option<ClipRecordInputKind> {
         get_slot(&self.slots, index).ok()?.clip_record_input()
     }
 
@@ -416,6 +414,9 @@ impl Column {
                 }
                 SetClipLooped(args) => {
                     let _ = self.set_clip_looped(args);
+                }
+                RecordClip(args) => {
+                    let _ = self.record_clip(args.slot_index, args.clip_args);
                 }
             }
         }
@@ -688,6 +689,12 @@ pub struct ColumnSeekClipArgs {
 pub struct ColumnSetClipVolumeArgs {
     pub slot_index: usize,
     pub volume: Db,
+}
+
+#[derive(Debug)]
+pub struct ColumnRecordClipArgs {
+    pub slot_index: usize,
+    pub clip_args: ClipRecordArgs,
 }
 
 #[derive(Debug)]

@@ -2,12 +2,12 @@ use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
     Amplifier, AudioSupplier, CommandProcessor, Downbeat, InteractionHandler, LoopBehavior, Looper,
     MaterialInfo, MidiSupplier, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest,
-    PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, Recorder, RecordingOutcome,
-    Resampler, Section, StartEndHandler, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
-    TimeStretcher, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
+    PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordTiming, Recorder,
+    RecordingOutcome, Resampler, Section, StartEndHandler, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
 };
-use crate::rt::{AudioBufMut, ClipRecordInput, RecordTiming};
-use crate::{ClipEngineResult, Timeline};
+use crate::rt::{AudioBufMut, ClipRecordInputKind};
+use crate::{ClipEngineResult, QuantizedPosition, Timeline};
 use crossbeam_channel::Sender;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, Db, MidiResetMessageRange, PositiveBeat,
@@ -216,11 +216,11 @@ impl SupplierChain {
         self.resampler_mut().set_mode(mode);
     }
 
-    pub fn schedule_end_of_recording(&mut self, end_bar: i32, timeline: &dyn Timeline) {
+    pub fn schedule_end_of_recording(&mut self, end: QuantizedPosition, timeline: &dyn Timeline) {
         // When recording, there's no contention.
         self.pre_buffer_wormhole()
             .recorder()
-            .schedule_end(end_bar, timeline);
+            .schedule_end(end, timeline);
     }
 
     pub fn write_midi(&mut self, request: WriteMidiRequest, pos: DurationInSeconds) {
@@ -252,7 +252,7 @@ impl SupplierChain {
     /// This must not be done in a real-time thread!
     pub fn prepare_recording(
         &mut self,
-        input: ClipRecordInput,
+        input: ClipRecordInputKind,
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
         tempo: Bpm,

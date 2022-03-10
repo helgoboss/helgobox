@@ -168,7 +168,7 @@ pub struct MatrixClipRecordAudioSettings {
     pub detect_input: bool,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum RecordLength {
     /// Records open-ended until the user decides to stop.
@@ -200,7 +200,7 @@ impl Default for ClipRecordTimeBase {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipRecordStartTiming {
     /// Uses the global clip play start timing.
@@ -234,14 +234,18 @@ impl Default for ClipRecordStopTiming {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum MidiClipRecordMode {
     /// Creates an empty clip and records MIDI material in it.
     Normal,
     /// Records more material onto an existing clip, leaving existing material in place.
+    ///
+    /// Falls back to Normal when used on an empty slot.
     Overdub,
     /// Records more material onto an existing clip, overwriting existing material.
+    ///
+    /// Falls back to Normal when used on an empty slot.
     Replace,
 }
 
@@ -435,12 +439,12 @@ impl ColumnPlayMode {
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ColumnClipRecordSettings {
+    // TODO-clip-implement
+    pub origin: RecordOrigin,
     /// By default, Playtime records from the play track but this settings allows to override that.
     // TODO-clip-implement
     #[serde(skip_serializing_if = "Option::is_none")]
     pub track: Option<TrackId>,
-    // TODO-clip-implement
-    pub origin: TrackRecordOrigin,
 }
 
 #[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
@@ -549,14 +553,25 @@ pub struct ReaperPitchShiftMode {
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
-pub enum TrackRecordOrigin {
+pub enum RecordOrigin {
     /// Records using the hardware input set for the track (MIDI or stereo).
     TrackInput,
     /// Captures audio from the output of the track.
     TrackAudioOutput,
+    /// Records audio flowing into the FX input.
+    FxAudioInput(ChannelRange),
+    /// Records MIDI flowing into the FX input.
+    FxMidiInput,
 }
 
-impl Default for TrackRecordOrigin {
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ChannelRange {
+    pub first_channel_index: u32,
+    pub channel_count: u32,
+}
+
+impl Default for RecordOrigin {
     fn default() -> Self {
         Self::TrackInput
     }
@@ -835,7 +850,17 @@ pub struct TimeSignature {
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
-pub struct TrackId(pub String);
+pub struct TrackId(String);
+
+impl TrackId {
+    pub fn new(value: String) -> Self {
+        Self(value)
+    }
+
+    pub fn get(&self) -> &str {
+        &self.0
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Bpm(f64);

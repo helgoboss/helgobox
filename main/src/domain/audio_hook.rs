@@ -8,7 +8,7 @@ use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
 use playtime_clip_engine::global_steady_timeline_state;
 use playtime_clip_engine::main::ClipRecordTask;
 use playtime_clip_engine::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
-use playtime_clip_engine::rt::{AudioBuf, ClipRecordInput};
+use playtime_clip_engine::rt::{AudioBuf, ClipRecordInputKind, SharedColumn};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
@@ -389,13 +389,17 @@ impl RealTimeProcessorLocker for SharedRealTimeProcessor {
 
 /// Returns whether task still relevant.
 fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipRecordTask) -> bool {
-    let mut src = record_task.column_source.lock();
-    let input = match src.clip_record_input(record_task.slot_index) {
+    let column_source = match record_task.destination.column_source.upgrade() {
+        None => return false,
+        Some(s) => s,
+    };
+    let mut src = column_source.lock();
+    let input = match src.clip_record_input(record_task.destination.slot_index) {
         None => return false,
         Some(m) => m,
     };
     match input {
-        ClipRecordInput::Midi => {
+        ClipRecordInputKind::Midi => {
             for dev_id in 0..MidiInputDeviceId::MAX_DEVICE_COUNT {
                 let dev_id = MidiInputDeviceId::new(dev_id);
                 MidiInputDevice::new(dev_id).with_midi_input(|mi| {
@@ -412,11 +416,12 @@ fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipReco
                         block_length: args.len as _,
                         events: event_list,
                     };
-                    src.write_clip_midi(record_task.slot_index, req).unwrap();
+                    src.write_clip_midi(record_task.destination.slot_index, req)
+                        .unwrap();
                 });
             }
         }
-        ClipRecordInput::Audio => unsafe {
+        ClipRecordInputKind::Audio { .. } => unsafe {
             let reg = args.reg.get().as_ref();
             let get_buffer = match reg.GetBuffer {
                 None => return true,
@@ -437,7 +442,8 @@ fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipReco
                 left_buffer,
                 right_buffer,
             };
-            src.write_clip_audio(record_task.slot_index, req).unwrap();
+            src.write_clip_audio(record_task.destination.slot_index, req)
+                .unwrap();
         },
     }
     true

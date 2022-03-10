@@ -104,23 +104,7 @@ impl RealearnTarget for ClipTransportTarget {
                     }
                     RecordStop => {
                         if on {
-                            let timing = {
-                                let timeline = clip_timeline(Some(self.project), false);
-                                let next_bar = timeline.next_bar_at(timeline.cursor_pos());
-                                ClipRecordTiming::StartOnBarStopOnDemand {
-                                    start_bar: next_bar,
-                                }
-                            };
-                            matrix.record_clip_legacy(
-                                self.basics.slot_coordinates,
-                                RecordArgs {
-                                    kind: RecordKind::Normal {
-                                        looped: true,
-                                        timing,
-                                        detect_downbeat: true,
-                                    },
-                                },
-                            )?;
+                            matrix.record_clip(self.basics.slot_coordinates)?;
                         } else {
                             matrix.stop_clip(self.basics.slot_coordinates)?;
                         }

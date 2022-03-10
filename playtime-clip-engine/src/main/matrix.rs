@@ -5,22 +5,24 @@ use crate::rt::supplier::{
     ChainPreBufferRequest, PreBufferRequest, RecorderEquipment, StretchWorkerRequest,
 };
 use crate::rt::{
-    ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs, QualifiedClipChangedEvent,
-    RecordBehavior, RecordTiming, RtMatrixCommandSender, SharedColumn, WeakColumn,
+    ClipPlayState, ClipRecordInputKind, ColumnPlayClipArgs, ColumnStopClipArgs,
+    QualifiedClipChangedEvent, RecordBehavior, RtMatrixCommandSender, SharedColumn, WeakColumn,
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline};
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
+use helgoboss_midi::Channel;
 use playtime_api as api;
 use playtime_api::{
-    AudioCacheBehavior, AudioTimeStretchMode, ClipRecordStartTiming, ClipRecordStopTiming,
-    ClipRecordTimeBase, ClipSettingOverrideAfterRecording, Db, MatrixClipPlayAudioSettings,
-    MatrixClipPlaySettings, MatrixClipRecordAudioSettings, MatrixClipRecordMidiSettings,
-    MatrixClipRecordSettings, MidiClipRecordMode, RecordLength, TempoRange, VirtualResampleMode,
+    AudioCacheBehavior, AudioTimeStretchMode, ChannelRange, ClipRecordStartTiming,
+    ClipRecordStopTiming, ClipRecordTimeBase, ClipSettingOverrideAfterRecording, Db,
+    MatrixClipPlayAudioSettings, MatrixClipPlaySettings, MatrixClipRecordAudioSettings,
+    MatrixClipRecordMidiSettings, MatrixClipRecordSettings, MidiClipRecordMode, RecordLength,
+    TempoRange, VirtualResampleMode,
 };
 use reaper_high::{OrCurrentProject, Project, Track};
-use reaper_medium::{Bpm, PositionInSeconds};
+use reaper_medium::{Bpm, MidiInputDeviceId, PositionInSeconds};
 use std::thread;
 use std::thread::JoinHandle;
 
@@ -31,7 +33,6 @@ pub struct Matrix<H> {
     settings: MatrixSettings,
     rt_settings: rt::MatrixSettings,
     handler: H,
-    #[allow(dead_code)]
     stretch_worker_sender: Sender<StretchWorkerRequest>,
     recorder_equipment: RecorderEquipment,
     pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
@@ -49,6 +50,7 @@ pub struct MatrixSettings {
     pub audio_resample_mode: VirtualResampleMode,
     pub audio_time_stretch_mode: AudioTimeStretchMode,
     pub audio_cache_behavior: AudioCacheBehavior,
+    pub clip_record_settings: MatrixClipRecordSettings,
 }
 
 #[derive(Debug)]
@@ -342,46 +344,16 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         get_column(&self.columns, coordinates.column())?.clip_volume(coordinates.row())
     }
 
-    pub fn record_clip_legacy(
-        &mut self,
-        coordinates: ClipSlotCoordinates,
-        args: RecordArgs,
-    ) -> ClipEngineResult<()> {
-        let behavior = match args.kind {
-            RecordKind::Normal {
-                looped,
-                timing,
-                detect_downbeat,
-            } => RecordBehavior::Normal {
-                looped,
-                timing: match timing {
-                    ClipRecordTiming::StartImmediatelyStopOnDemand => RecordTiming::Unsynced,
-                    ClipRecordTiming::StartOnBarStopOnDemand { start_bar } => {
-                        RecordTiming::Synced {
-                            start_bar,
-                            end_bar: None,
-                        }
-                    }
-                    ClipRecordTiming::StartOnBarStopOnBar {
-                        start_bar,
-                        bar_count,
-                    } => RecordTiming::Synced {
-                        start_bar,
-                        end_bar: Some(start_bar + bar_count as i32),
-                    },
-                },
-                detect_downbeat,
-            },
-            RecordKind::MidiOverdub => RecordBehavior::MidiOverdub,
-        };
-        let task = get_column_mut(&mut self.columns, coordinates.column())?.record_clip(
+    pub fn record_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        get_column(&self.columns, coordinates.column())?.record_clip(
             coordinates.row(),
-            behavior,
+            &self.settings.clip_record_settings,
             &self.recorder_equipment,
             &self.pre_buffer_request_sender,
-        )?;
-        self.handler.request_recording_input(task);
-        Ok(())
+            &self.handler,
+            self.containing_track.as_ref(),
+            self.rt_settings.clip_play_start_timing,
+        )
     }
 
     pub fn pause_clip_legacy(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
@@ -448,8 +420,69 @@ impl ClipSlotCoordinates {
 
 #[derive(Debug)]
 pub struct ClipRecordTask {
-    pub column_source: SharedColumn,
+    pub input: ClipRecordInput,
+    pub destination: ClipRecordDestination,
+}
+
+#[derive(Debug)]
+pub struct ClipRecordDestination {
+    pub column_source: WeakColumn,
     pub slot_index: usize,
+}
+
+#[derive(Debug)]
+pub enum ClipRecordInput {
+    HardwareInput(ClipRecordHardwareInput),
+    FxInput(ClipRecordFxInput),
+}
+
+impl ClipRecordInput {
+    pub fn derive_kind(&self) -> ClipRecordInputKind {
+        use ClipRecordInput::*;
+        match &self {
+            HardwareInput(ClipRecordHardwareInput::Midi(_)) | FxInput(ClipRecordFxInput::Midi) => {
+                ClipRecordInputKind::Midi
+            }
+            HardwareInput(ClipRecordHardwareInput::Audio(virtual_input))
+            | FxInput(ClipRecordFxInput::Audio(virtual_input)) => {
+                let channel_count = match virtual_input {
+                    VirtualClipRecordAudioInput::Specific(range) => range.channel_count,
+                    VirtualClipRecordAudioInput::Detect { channel_count } => *channel_count,
+                };
+                ClipRecordInputKind::Audio { channel_count }
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ClipRecordHardwareInput {
+    Midi(VirtualClipRecordHardwareMidiInput),
+    Audio(VirtualClipRecordAudioInput),
+}
+
+#[derive(Debug)]
+pub enum ClipRecordFxInput {
+    Midi,
+    Audio(VirtualClipRecordAudioInput),
+}
+
+#[derive(Debug)]
+pub enum VirtualClipRecordHardwareMidiInput {
+    Specific(ClipRecordHardwareMidiInput),
+    Detect,
+}
+
+#[derive(Debug)]
+pub struct ClipRecordHardwareMidiInput {
+    pub device_id: Option<MidiInputDeviceId>,
+    pub channel: Option<Channel>,
+}
+
+#[derive(Debug)]
+pub enum VirtualClipRecordAudioInput {
+    Specific(ChannelRange),
+    Detect { channel_count: u32 },
 }
 
 pub trait ClipMatrixHandler {

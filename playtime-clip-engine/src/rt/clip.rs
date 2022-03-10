@@ -8,10 +8,10 @@ use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
     AudioSupplier, ChainPreBufferRequest, MaterialInfo, MidiSupplier, PreBufferFillRequest,
-    PreBufferRequest, PreBufferSourceSkill, Recorder, RecorderEquipment, SupplierChain,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo,
-    SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
-    MIDI_BASE_BPM,
+    PreBufferRequest, PreBufferSourceSkill, RecordTiming, Recorder, RecorderEquipment,
+    SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
+    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest,
+    WriteMidiRequest, MIDI_BASE_BPM,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::{ClipEngineResult, QuantizedPosition};
@@ -20,7 +20,8 @@ use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, BeatTimeBase, ClipPlayStartTiming,
-    ClipPlayStopTiming, ClipTimeBase, Db, EvenQuantization, VirtualResampleMode,
+    ClipPlayStopTiming, ClipRecordStartTiming, ClipTimeBase, Db, EvenQuantization,
+    MidiClipRecordMode, RecordLength, VirtualResampleMode,
 };
 use reaper_high::Project;
 use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds};
@@ -180,7 +181,7 @@ struct RecordingState {
     /// Implies play-after-record.
     pub looped: bool,
     pub timing: RecordTiming,
-    pub input: ClipRecordInput,
+    pub input_kind: ClipRecordInputKind,
     pub rollback_data: Option<RollbackData>,
 }
 
@@ -197,15 +198,6 @@ pub enum RecordBehavior {
         detect_downbeat: bool,
     },
     MidiOverdub,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum RecordTiming {
-    Unsynced,
-    Synced {
-        start_bar: i32,
-        end_bar: Option<i32>,
-    },
 }
 
 impl Clip {
@@ -256,35 +248,31 @@ impl Clip {
         Ok(clip)
     }
 
-    pub fn recording(
-        args: ClipRecordArgs,
-        project: Option<Project>,
-        equipment: RecorderEquipment,
-        pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
-    ) -> ClipEngineResult<Self> {
-        let timeline = clip_timeline(project, false);
+    pub fn recording(args: ClipRecordArgs) -> ClipEngineResult<Self> {
+        let timeline = clip_timeline(args.project, false);
         let trigger_timeline_pos = timeline.cursor_pos();
         let tempo = timeline.tempo_at(trigger_timeline_pos);
+        let timing = RecordTiming::from_args(&args, &timeline, trigger_timeline_pos);
         let recording_state = RecordingState {
             trigger_timeline_pos,
             looped: args.looped,
-            timing: args.timing,
-            input: args.input,
+            timing,
+            input_kind: args.input_kind,
             rollback_data: None,
         };
         let recorder = Recorder::recording(
-            args.input,
-            project,
+            args.input_kind,
+            args.project,
             trigger_timeline_pos,
             tempo,
-            equipment,
+            args.equipment,
             args.detect_downbeat,
-            args.timing,
+            timing,
         );
         let clip = Self {
-            supplier_chain: SupplierChain::new(recorder, pre_buffer_request_sender)?,
+            supplier_chain: SupplierChain::new(recorder, args.pre_buffer_request_sender)?,
             state: ClipState::Recording(recording_state),
-            project,
+            project: args.project,
             shared_pos: Default::default(),
         };
         Ok(clip)
@@ -391,7 +379,7 @@ impl Clip {
         }
     }
 
-    pub fn record_input(&self) -> Option<ClipRecordInput> {
+    pub fn record_input(&self) -> Option<ClipRecordInputKind> {
         use ClipState::*;
         match &self.state {
             Ready(s) => {
@@ -400,7 +388,7 @@ impl Clip {
                     Stopped | Suspending(_) | Paused(_) => None,
                     Playing(s) => {
                         if s.overdubbing {
-                            Some(ClipRecordInput::Midi)
+                            Some(ClipRecordInputKind::Midi)
                         } else {
                             None
                         }
@@ -408,7 +396,7 @@ impl Clip {
                 }
             }
             // TODO-medium When recording past end, return None (should usually not happen)
-            Recording(s) => Some(s.input),
+            Recording(s) => Some(s.input_kind),
         }
     }
 
@@ -1413,19 +1401,20 @@ impl ReadyState {
         let timeline = clip_timeline(project, false);
         let trigger_timeline_pos = timeline.cursor_pos();
         let tempo = timeline.tempo_at(trigger_timeline_pos);
+        let timing = RecordTiming::from_args(&args, &timeline, trigger_timeline_pos);
         supplier_chain.prepare_recording(
-            args.input,
+            args.input_kind,
             project,
             trigger_timeline_pos,
             tempo,
             args.detect_downbeat,
-            args.timing,
+            timing,
         );
         let recording_state = RecordingState {
             trigger_timeline_pos,
             looped: args.looped,
-            timing: args.timing,
-            input: args.input,
+            timing,
+            input_kind: args.input_kind,
             rollback_data: {
                 let data = RollbackData {
                     persistent_data: self.persistent_data,
@@ -1583,18 +1572,19 @@ impl RecordingState {
         args: ClipStopArgs,
         supplier_chain: &mut SupplierChain,
     ) -> RecordingStopOutcome {
-        use RecordTiming::*;
         use RecordingStopOutcome::*;
         match self.timing {
-            Unsynced => {
+            RecordTiming::Unsynced => {
                 let ready_state =
                     self.finish_recording(self.looped, None, supplier_chain, &args.timeline);
                 TransitionToReady(ready_state)
             }
-            Synced { start_bar, end_bar } => {
+            RecordTiming::Synced { start, end } => {
                 let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
-                let next_bar = args.timeline.next_bar_at(ref_pos);
-                if next_bar <= start_bar {
+                let next_qp = args
+                    .timeline
+                    .next_quantized_pos_at(ref_pos, start.quantization());
+                if next_qp.position() <= start.position() {
                     // Zero point of recording hasn't even been reached yet. Try to roll back.
                     if let Some(rollback_data) = &self.rollback_data {
                         // We have a previous source that we can roll back to.
@@ -1610,15 +1600,15 @@ impl RecordingState {
                     }
                 } else {
                     // We are recording already.
-                    if end_bar.is_some() {
+                    if end.is_some() {
                         // End already scheduled. Take care of stopping after recording.
                         self.looped = false;
                     } else {
                         // End not scheduled yet. Schedule end.
-                        supplier_chain.schedule_end_of_recording(next_bar, &args.timeline);
-                        self.timing = Synced {
-                            start_bar,
-                            end_bar: Some(next_bar),
+                        supplier_chain.schedule_end_of_recording(next_qp, &args.timeline);
+                        self.timing = RecordTiming::Synced {
+                            start,
+                            end: Some(next_qp),
                         };
                     }
                     KeepState
@@ -1633,11 +1623,14 @@ impl RecordingState {
         supplier_chain: &mut SupplierChain,
     ) -> Option<ReadyState> {
         if let RecordTiming::Synced {
-            start_bar,
-            end_bar: Some(end_bar),
+            start,
+            end: Some(end),
         } = self.timing
         {
-            if args.timeline.next_bar_at(args.timeline_cursor_pos) >= end_bar {
+            let next_qp = args
+                .timeline
+                .next_quantized_pos_at(args.timeline_cursor_pos, end.quantization());
+            if next_qp.position() >= end.position() {
                 // Close to scheduled recording end.
                 let block_length_in_timeline_frames = args.dest_buffer.frame_count();
                 let timeline_frame_rate = args.dest_sample_rate;
@@ -1647,12 +1640,12 @@ impl RecordingState {
                 );
                 let block_end_pos = args.timeline_cursor_pos + block_length_in_secs;
                 let downbeat_pos = supplier_chain.downbeat_pos_during_recording(&args.timeline);
-                let record_end_pos = args.timeline.pos_of_bar(end_bar) - downbeat_pos;
+                let record_end_pos = args.timeline.pos_of_quantized_pos(end) - downbeat_pos;
                 if block_end_pos >= record_end_pos {
                     // We have recorded the last block.
                     let ready_state = self.finish_recording(
                         self.looped,
-                        Some((start_bar, end_bar)),
+                        Some((start, end)),
                         supplier_chain,
                         &args.timeline,
                     );
@@ -1670,8 +1663,8 @@ impl RecordingState {
 
     fn finish_recording(
         self,
-        play_after: bool,
-        start_and_end_bar: Option<(i32, i32)>,
+        looped: bool,
+        start_and_end_pos: Option<(QuantizedPosition, QuantizedPosition)>,
         supplier_chain: &mut SupplierChain,
         timeline: &dyn Timeline,
     ) -> ReadyState {
@@ -1683,13 +1676,11 @@ impl RecordingState {
         supplier_chain.set_downbeat_in_frames(outcome.normalized_downbeat_frame);
         // Change state
         ReadyState {
-            state: if play_after {
+            state: if looped {
                 ReadySubState::Playing(PlayingState {
-                    virtual_pos: match start_and_end_bar {
+                    virtual_pos: match start_and_end_pos {
                         None => VirtualPosition::Now,
-                        Some((_, end_bar)) => VirtualPosition::Quantized(
-                            QuantizedPosition::new(end_bar as _, 1).unwrap(),
-                        ),
+                        Some((_, end)) => VirtualPosition::Quantized(end),
                     },
                     ..Default::default()
                 })
@@ -1701,7 +1692,7 @@ impl RecordingState {
                 start_timing: None,
                 // TODO-high-record Set stop timing
                 stop_timing: None,
-                looped: play_after,
+                looped,
                 // TODO-high-record Set time base
                 time_base: ClipTimeBase::Time,
             },
@@ -1772,20 +1763,27 @@ impl VirtualPosition {
     }
 }
 
+#[derive(Debug)]
 pub struct ClipRecordArgs {
+    pub parent_play_start_timing: ClipPlayStartTiming,
+    pub input_kind: ClipRecordInputKind,
+    pub start_timing: ClipRecordStartTiming,
+    pub midi_record_mode: MidiClipRecordMode,
+    pub length: RecordLength,
     pub looped: bool,
-    pub input: ClipRecordInput,
-    pub timing: RecordTiming,
     pub detect_downbeat: bool,
+    pub equipment: RecorderEquipment,
+    pub pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
+    pub project: Option<Project>,
 }
 
 #[derive(Copy, Clone, Debug)]
-pub enum ClipRecordInput {
+pub enum ClipRecordInputKind {
     Midi,
-    Audio,
+    Audio { channel_count: u32 },
 }
 
-impl ClipRecordInput {
+impl ClipRecordInputKind {
     pub fn is_midi(&self) -> bool {
         matches!(self, Self::Midi)
     }

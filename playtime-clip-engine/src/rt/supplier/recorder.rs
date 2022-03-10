@@ -11,12 +11,14 @@ use crate::rt::supplier::{
     MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
     WithSource, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
-use crate::rt::{ClipRecordInput, RecordTiming};
+use crate::rt::{ClipRecordArgs, ClipRecordInputKind};
 use crate::timeline::{clip_timeline, Timeline};
-use crate::ClipEngineResult;
+use crate::{ClipEngineResult, HybridTimeline, QuantizedPosition};
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_midi::ShortMessage;
-use playtime_api::AudioCacheBehavior;
+use playtime_api::{
+    AudioCacheBehavior, ClipPlayStartTiming, ClipRecordStartTiming, EvenQuantization, RecordLength,
+};
 use reaper_high::{OwnedSource, Project, Reaper};
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
@@ -248,11 +250,11 @@ struct RecordingMidiState {
 
 impl KindSpecificRecordingState {
     fn new(
-        input: ClipRecordInput,
+        input: ClipRecordInputKind,
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
     ) -> Self {
-        use ClipRecordInput::*;
+        use ClipRecordInputKind::*;
         match input {
             Midi => {
                 let recording_midi_state = RecordingMidiState {
@@ -261,7 +263,7 @@ impl KindSpecificRecordingState {
                 };
                 Self::Midi(recording_midi_state)
             }
-            Audio => {
+            Audio { .. } => {
                 let outcome = create_audio_sink(project);
                 let active_state = RecordingAudioActiveState {
                     file: outcome.file.clone(),
@@ -325,7 +327,7 @@ impl Recorder {
     }
 
     pub fn recording(
-        input: ClipRecordInput,
+        input: ClipRecordInputKind,
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
         tempo: Bpm,
@@ -397,7 +399,7 @@ impl Recorder {
         }
     }
 
-    pub fn schedule_end(&mut self, end_bar: i32, timeline: &dyn Timeline) {
+    pub fn schedule_end(&mut self, end: QuantizedPosition, timeline: &dyn Timeline) {
         match self.state.as_mut().unwrap() {
             State::Ready(_) => panic!("attempt to schedule recording end while recorder ready"),
             State::Recording(s) => {
@@ -406,7 +408,7 @@ impl Recorder {
                     RecordingPhase::Empty(_) => {
                         panic!("attempt to schedule recording end although no audio material arrived yet")
                     }
-                    RecordingPhase::OpenEnd(p) => EndScheduled(p.schedule_end(end_bar, timeline)),
+                    RecordingPhase::OpenEnd(p) => EndScheduled(p.schedule_end(end, timeline)),
                     // Idempotence
                     p => p,
                 };
@@ -432,7 +434,7 @@ impl Recorder {
     /// This must not be done in a real-time thread!
     pub fn prepare_recording(
         &mut self,
-        input: ClipRecordInput,
+        input: ClipRecordInputKind,
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
         tempo: Bpm,
@@ -807,7 +809,7 @@ impl RecordingPhase {
     fn initial_phase(
         timing: RecordTiming,
         tempo: Bpm,
-        input: ClipRecordInput,
+        input: ClipRecordInputKind,
         trigger_timeline_pos: PositionInSeconds,
     ) -> Self {
         let empty = EmptyPhase {
@@ -816,12 +818,12 @@ impl RecordingPhase {
             is_midi: input.is_midi(),
         };
         match input {
-            ClipRecordInput::Midi => {
+            ClipRecordInputKind::Midi => {
                 // MIDI starts in phase two because source start position and frame rate are clear
                 // right from he start.
                 empty.advance(trigger_timeline_pos, MIDI_FRAME_RATE)
             }
-            ClipRecordInput::Audio => RecordingPhase::Empty(empty),
+            ClipRecordInputKind::Audio { .. } => RecordingPhase::Empty(empty),
         }
     }
 
@@ -849,9 +851,9 @@ impl EmptyPhase {
         source_start_timeline_pos: PositionInSeconds,
         frame_rate: Hz,
     ) -> RecordingPhase {
-        let end_bar = match &self.timing {
+        let end = match &self.timing {
             RecordTiming::Unsynced => None,
-            RecordTiming::Synced { end_bar, .. } => *end_bar,
+            RecordTiming::Synced { end, .. } => *end,
         };
         let open_end_phase = OpenEndPhase {
             prev_phase: self,
@@ -859,10 +861,10 @@ impl EmptyPhase {
             frame_rate,
             first_play_frame: None,
         };
-        if let Some(end_bar) = end_bar {
+        if let Some(end) = end {
             // TODO-high-record Deal with end schulding when no audio material arrived yet
             let todo_timeline = clip_timeline(None, false);
-            RecordingPhase::EndScheduled(open_end_phase.schedule_end(end_bar, &todo_timeline))
+            RecordingPhase::EndScheduled(open_end_phase.schedule_end(end, &todo_timeline))
         } else {
             RecordingPhase::OpenEnd(open_end_phase)
         }
@@ -912,15 +914,19 @@ impl OpenEndPhase {
         }
     }
 
-    pub fn schedule_end(self, end_bar: i32, timeline: &dyn Timeline) -> EndScheduledPhase {
-        let start_bar = match self.prev_phase.timing {
+    pub fn schedule_end(
+        self,
+        end: QuantizedPosition,
+        timeline: &dyn Timeline,
+    ) -> EndScheduledPhase {
+        let start = match self.prev_phase.timing {
             RecordTiming::Unsynced => {
                 unimplemented!("scheduled end without scheduled start not supported")
             }
-            RecordTiming::Synced { start_bar, .. } => start_bar,
+            RecordTiming::Synced { start, .. } => start,
         };
-        let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
-        let quantized_record_end_timeline_pos = timeline.pos_of_bar(end_bar);
+        let quantized_record_start_timeline_pos = timeline.pos_of_quantized_pos(start);
+        let quantized_record_end_timeline_pos = timeline.pos_of_quantized_pos(end);
         let duration = quantized_record_end_timeline_pos - quantized_record_start_timeline_pos;
         let duration: DurationInSeconds = duration.try_into().expect("end bar pos < start bar pos");
         // Determine section data
@@ -952,8 +958,8 @@ impl OpenEndPhase {
                 non_normalized_downbeat_pos: DurationInSeconds::ZERO,
                 section_start_frame: 0,
             },
-            RecordTiming::Synced { start_bar, .. } => {
-                let quantized_record_start_timeline_pos = timeline.pos_of_bar(start_bar);
+            RecordTiming::Synced { start, .. } => {
+                let quantized_record_start_timeline_pos = timeline.pos_of_quantized_pos(start);
                 // TODO-high-record Depending on source_start_timeline_pos doesn't work when tempo changed
                 //  during recording. It would be better to advance frames just like we do it
                 //  when counting in (e.g. provide advance() function that's called in process()).
@@ -1054,4 +1060,55 @@ pub struct RecordingOutcome {
     /// If we have a section, then this corresponds to the duration of the section. If not,
     /// this corresponds to the duration of the source material.
     pub effective_duration: DurationInSeconds,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum RecordTiming {
+    Unsynced,
+    Synced {
+        start: QuantizedPosition,
+        end: Option<QuantizedPosition>,
+    },
+}
+
+impl RecordTiming {
+    pub fn from_args(
+        args: &ClipRecordArgs,
+        timeline: &HybridTimeline,
+        timeline_cursor_pos: PositionInSeconds,
+    ) -> Self {
+        use ClipRecordStartTiming::*;
+        match args.start_timing {
+            LikeClipPlayStartTiming => {
+                use ClipPlayStartTiming::*;
+                match args.parent_play_start_timing {
+                    Immediately => RecordTiming::Unsynced,
+                    Quantized(q) => {
+                        RecordTiming::resolve_synced(q, args.length, timeline, timeline_cursor_pos)
+                    }
+                }
+            }
+            Immediately => RecordTiming::Unsynced,
+            Quantized(q) => {
+                RecordTiming::resolve_synced(q, args.length, timeline, timeline_cursor_pos)
+            }
+        }
+    }
+
+    pub fn resolve_synced(
+        start: EvenQuantization,
+        length: RecordLength,
+        timeline: &HybridTimeline,
+        timeline_cursor_pos: PositionInSeconds,
+    ) -> Self {
+        let start = timeline.next_quantized_pos_at(timeline_cursor_pos, start);
+        let end = match length {
+            RecordLength::OpenEnd => None,
+            RecordLength::Quantized(q) => {
+                let resolved_start_pos = timeline.pos_of_quantized_pos(start);
+                Some(timeline.next_quantized_pos_at(resolved_start_pos, q))
+            }
+        };
+        Self::Synced { start, end }
+    }
 }
