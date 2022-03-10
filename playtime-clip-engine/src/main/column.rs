@@ -1,6 +1,6 @@
 use crate::main::{
     Clip, ClipMatrixHandler, ClipRecordDestination, ClipRecordFxInput, ClipRecordHardwareInput,
-    ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask, MatrixSettings, Slot,
+    ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask, MatrixSettings, Slot, SlotState,
     VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
 use crate::rt::supplier::{ChainPreBufferRequest, RecorderEquipment};
@@ -182,7 +182,7 @@ impl Column {
                     .iter()
                     .enumerate()
                     .filter_map(|(i, s)| {
-                        if let Some(clip) = &s.clip {
+                        if let Some(clip) = s.clip() {
                             let api_slot = api::Slot {
                                 row: i,
                                 clip: Some(clip.save()),
@@ -220,7 +220,7 @@ impl Column {
         )?;
         clip.connect_to(&rt_clip);
         let slot = get_slot_mut_insert(&mut self.slots, row);
-        slot.clip = Some(clip);
+        slot.fill_with(clip);
         let args = ColumnFillSlotArgs {
             slot_index: row,
             clip: rt_clip,
@@ -261,7 +261,7 @@ impl Column {
         }
         // Add position updates
         let pos_change_events = self.slots.iter().enumerate().filter_map(|(row, slot)| {
-            let clip = slot.clip.as_ref()?;
+            let clip = slot.clip()?;
             if clip.play_state().ok()?.is_advancing() {
                 let proportional_pos = clip.proportional_pos().unwrap_or(UnitValue::MIN);
                 let event = ClipChangedEvent::ClipPosition(proportional_pos);
@@ -335,7 +335,7 @@ impl Column {
     }
 
     pub fn record_clip<H: ClipMatrixHandler>(
-        &self,
+        &mut self,
         slot_index: usize,
         matrix_settings: &MatrixClipRecordSettings,
         equipment: &RecorderEquipment,
@@ -344,30 +344,39 @@ impl Column {
         containing_track: Option<&Track>,
         parent_play_start_timing: ClipPlayStartTiming,
     ) -> ClipEngineResult<()> {
-        // Prepare record task (for delivering the material to be recorded)
-        let task = self.create_clip_record_task(slot_index, containing_track)?;
-        let recording_equipment = task.input.create_recording_equipment(self.project);
-        let is_midi = recording_equipment.is_midi();
-        let (has_clip, midi_overdub) = match self.slots.get(slot_index) {
-            None => (false, false),
-            Some(slot) => match &slot.clip {
-                None => (false, false),
-                Some(clip) => {
-                    let midi_overdub = if is_midi {
-                        use MidiClipRecordMode::*;
-                        match matrix_settings.midi_settings.record_mode {
-                            Normal => false,
-                            Overdub => clip.material_info().map(|i| i.is_midi()).unwrap_or(false),
-                            Replace => todo!(),
-                        }
-                    } else {
-                        false
-                    };
-                    (true, midi_overdub)
+        // Insert slot if it doesn't exist already.
+        let slot = get_slot_mut_insert(&mut self.slots, slot_index);
+        // Check preconditions.
+        let (has_existing_clip, midi_overdub_if_input_is_midi) = match slot.state() {
+            SlotState::Empty => (false, false),
+            SlotState::RecordingFromScratch => {
+                return Err("recording already (from scratch)");
+            }
+            SlotState::Filled(clip) => {
+                if clip.play_state() == Ok(ClipPlayState::Recording) {
+                    return Err("recording already (with existing clip)");
                 }
-            },
+                use MidiClipRecordMode::*;
+                let want_overdub = match matrix_settings.midi_settings.record_mode {
+                    Normal => false,
+                    Overdub => clip.material_info().map(|i| i.is_midi()).unwrap_or(false),
+                    Replace => todo!(),
+                };
+                (true, want_overdub)
+            }
         };
-        let instruction = if midi_overdub {
+        // Prepare tasks, equipment, instructions.
+        let record_task = create_clip_record_task(
+            slot_index,
+            containing_track,
+            &self.settings,
+            self.project,
+            self.preview_register.as_ref(),
+            &self.column_source,
+        )?;
+        let recording_equipment = record_task.input.create_recording_equipment(self.project);
+        let input_is_midi = recording_equipment.is_midi();
+        let instruction = if input_is_midi && midi_overdub_if_input_is_midi {
             SlotRecordInstruction::MidiOverdub
         } else {
             let args = ClipRecordArgs {
@@ -380,7 +389,7 @@ impl Column {
                 midi_record_mode: matrix_settings.midi_settings.record_mode,
                 length: matrix_settings.duration.clone(),
                 looped: matrix_settings.looped,
-                detect_downbeat: if is_midi {
+                detect_downbeat: if input_is_midi {
                     matrix_settings.midi_settings.detect_downbeat
                 } else {
                     matrix_settings.audio_settings.detect_downbeat
@@ -389,73 +398,18 @@ impl Column {
                 pre_buffer_request_sender: pre_buffer_request_sender.clone(),
                 project: self.project,
             };
-            if has_clip {
+            if has_existing_clip {
                 SlotRecordInstruction::ExistingClip(args)
             } else {
                 SlotRecordInstruction::NewClip(rt::Clip::recording(args)?)
             }
         };
+        // Above code was only for checking preconditions and preparing stuff.
+        // Here we do the actual state changes and distribute tasks.
+        slot.mark_recording();
         self.rt_command_sender.record_clip(slot_index, instruction);
-        handler.request_recording_input(task);
+        handler.request_recording_input(record_task);
         Ok(())
-    }
-
-    fn create_clip_record_task(
-        &self,
-        slot_index: usize,
-        containing_track: Option<&Track>,
-    ) -> ClipEngineResult<ClipRecordTask> {
-        let task = ClipRecordTask {
-            input: {
-                use RecordOrigin::*;
-                match &self.settings.clip_record_settings.origin {
-                    TrackInput => {
-                        let track = self.resolve_recording_track()?;
-                        let track_input = track
-                            .recording_input()
-                            .ok_or("track doesn't have any recording input")?;
-                        let hw_input = translate_track_input_to_hw_input(track_input)?;
-                        ClipRecordInput::HardwareInput(hw_input)
-                    }
-                    TrackAudioOutput => {
-                        let track = self.resolve_recording_track()?;
-                        let containing_track = containing_track.ok_or("can't recording track audio output if Playtime runs in monitoring FX chain")?;
-                        track.add_send_to(containing_track);
-                        let channel_range = ChannelRange {
-                            first_channel_index: 0,
-                            channel_count: track.channel_count(),
-                        };
-                        ClipRecordInput::FxInput(ClipRecordFxInput::Audio(
-                            VirtualClipRecordAudioInput::Specific(channel_range),
-                        ))
-                    }
-                    FxAudioInput(range) => ClipRecordInput::FxInput(ClipRecordFxInput::Audio(
-                        VirtualClipRecordAudioInput::Specific(*range),
-                    )),
-                    FxMidiInput => ClipRecordInput::FxInput(ClipRecordFxInput::Midi),
-                }
-            },
-            destination: ClipRecordDestination {
-                column_source: self.column_source.downgrade(),
-                slot_index,
-            },
-        };
-        Ok(task)
-    }
-
-    fn resolve_recording_track(&self) -> ClipEngineResult<Track> {
-        if let Some(track_id) = &self.settings.clip_record_settings.track {
-            let track_guid = Guid::from_string_without_braces(track_id.get())?;
-            let track = self.project.or_current_project().track_by_guid(&track_guid);
-            if track.is_available() {
-                Ok(track)
-            } else {
-                Err("track not available")
-            }
-        } else {
-            let register = self.preview_register.as_ref().ok_or("column inactive")?;
-            register.track.clone().ok_or("no playback track set")
-        }
     }
 }
 
@@ -529,10 +483,7 @@ fn start_playing_preview(
 }
 
 fn get_clip(slots: &[Slot], slot_index: usize) -> ClipEngineResult<&Clip> {
-    get_slot(slots, slot_index)?
-        .clip
-        .as_ref()
-        .ok_or(SLOT_NOT_FILLED)
+    get_slot(slots, slot_index)?.clip().ok_or(SLOT_NOT_FILLED)
 }
 
 fn get_slot(slots: &[Slot], slot_index: usize) -> ClipEngineResult<&Slot> {
@@ -544,9 +495,15 @@ fn get_clip_mut_insert_slot(
     slot_index: usize,
 ) -> ClipEngineResult<&mut Clip> {
     get_slot_mut_insert(slots, slot_index)
-        .clip
-        .as_mut()
+        .clip_mut()
         .ok_or(SLOT_NOT_FILLED)
+}
+
+fn get_slot_insert(slots: &mut Vec<Slot>, slot_index: usize) -> &Slot {
+    if slot_index >= slots.len() {
+        slots.resize_with(slot_index + 1, Default::default);
+    }
+    slots.get_mut(slot_index).unwrap()
 }
 
 fn get_slot_mut_insert(slots: &mut Vec<Slot>, slot_index: usize) -> &mut Slot {
@@ -584,4 +541,71 @@ fn translate_track_input_to_hw_input(
         _ => return Err(""),
     };
     Ok(hw_input)
+}
+
+fn create_clip_record_task(
+    slot_index: usize,
+    containing_track: Option<&Track>,
+    column_settings: &ColumnSettings,
+    project: Option<Project>,
+    preview_register: Option<&PlayingPreviewRegister>,
+    column_source: &SharedColumn,
+) -> ClipEngineResult<ClipRecordTask> {
+    let task = ClipRecordTask {
+        input: {
+            use RecordOrigin::*;
+            match &column_settings.clip_record_settings.origin {
+                TrackInput => {
+                    let track =
+                        resolve_recording_track(column_settings, project, preview_register)?;
+                    let track_input = track
+                        .recording_input()
+                        .ok_or("track doesn't have any recording input")?;
+                    let hw_input = translate_track_input_to_hw_input(track_input)?;
+                    ClipRecordInput::HardwareInput(hw_input)
+                }
+                TrackAudioOutput => {
+                    let track =
+                        resolve_recording_track(column_settings, project, preview_register)?;
+                    let containing_track = containing_track.ok_or("can't recording track audio output if Playtime runs in monitoring FX chain")?;
+                    track.add_send_to(containing_track);
+                    let channel_range = ChannelRange {
+                        first_channel_index: 0,
+                        channel_count: track.channel_count(),
+                    };
+                    ClipRecordInput::FxInput(ClipRecordFxInput::Audio(
+                        VirtualClipRecordAudioInput::Specific(channel_range),
+                    ))
+                }
+                FxAudioInput(range) => ClipRecordInput::FxInput(ClipRecordFxInput::Audio(
+                    VirtualClipRecordAudioInput::Specific(*range),
+                )),
+                FxMidiInput => ClipRecordInput::FxInput(ClipRecordFxInput::Midi),
+            }
+        },
+        destination: ClipRecordDestination {
+            column_source: column_source.downgrade(),
+            slot_index,
+        },
+    };
+    Ok(task)
+}
+
+fn resolve_recording_track(
+    column_settings: &ColumnSettings,
+    project: Option<Project>,
+    preview_register: Option<&PlayingPreviewRegister>,
+) -> ClipEngineResult<Track> {
+    if let Some(track_id) = &column_settings.clip_record_settings.track {
+        let track_guid = Guid::from_string_without_braces(track_id.get())?;
+        let track = project.or_current_project().track_by_guid(&track_guid);
+        if track.is_available() {
+            Ok(track)
+        } else {
+            Err("track not available")
+        }
+    } else {
+        let register = preview_register.ok_or("column inactive")?;
+        register.track.clone().ok_or("no playback track set")
+    }
 }

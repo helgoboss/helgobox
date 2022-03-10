@@ -367,8 +367,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         get_column(&self.columns, coordinates.column())?.clip_volume(coordinates.row())
     }
 
-    pub fn record_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
-        get_column(&self.columns, coordinates.column())?.record_clip(
+    pub fn record_clip(&mut self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
+        get_column_mut(&mut self.columns, coordinates.column())?.record_clip(
             coordinates.row(),
             &self.settings.clip_record_settings,
             &self.recorder_equipment,

@@ -18,6 +18,7 @@ pub struct Clip {
     // unnecessary data inside.
     persistent_data: api::Clip,
     runtime_data: Option<ClipRuntimeData>,
+    recording: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -45,11 +46,16 @@ impl Clip {
         Clip {
             persistent_data: api_clip,
             runtime_data: None,
+            recording: false,
         }
     }
 
     pub fn save(&self) -> api::Clip {
         self.persistent_data.clone()
+    }
+
+    pub fn mark_recording(&mut self) {
+        self.recording = true;
     }
 
     pub fn create_real_time_clip(
@@ -66,6 +72,16 @@ impl Clip {
             recorder_equipment,
             pre_buffer_request_sender,
         )?;
+        self.configure_real_time_clip(matrix_settings, column_settings, &mut rt_clip);
+        Ok(rt_clip)
+    }
+
+    fn configure_real_time_clip(
+        &self,
+        matrix_settings: &MatrixSettings,
+        column_settings: &ColumnSettings,
+        rt_clip: &mut rt::Clip,
+    ) {
         rt_clip.set_audio_resample_mode(
             self.effective_audio_resample_mode(matrix_settings, column_settings),
         );
@@ -75,7 +91,6 @@ impl Clip {
         rt_clip.set_audio_cache_behavior(
             self.effective_audio_cache_behavior(matrix_settings, column_settings),
         );
-        Ok(rt_clip)
     }
 
     fn effective_audio_resample_mode(
@@ -163,6 +178,9 @@ impl Clip {
     }
 
     pub fn play_state(&self) -> ClipEngineResult<ClipPlayState> {
+        if self.recording {
+            return Ok(ClipPlayState::Recording);
+        }
         Ok(self.runtime_data()?.play_state)
     }
 
