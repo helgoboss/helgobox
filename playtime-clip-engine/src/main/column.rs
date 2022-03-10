@@ -320,8 +320,8 @@ impl Column {
     }
 
     pub fn clip_play_state(&self, slot_index: usize) -> ClipEngineResult<ClipPlayState> {
-        let clip = get_clip(&self.slots, slot_index)?;
-        clip.play_state()
+        let slot = get_slot(&self.slots, slot_index)?;
+        slot.play_state()
     }
 
     pub fn clip_repeated(&self, slot_index: usize) -> ClipEngineResult<bool> {

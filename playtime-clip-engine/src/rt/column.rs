@@ -487,11 +487,19 @@ impl Column {
                 // Most samples out there used in typical stereo track setups have no more than 2
                 // channels. And if they do, the user can always down-mix to the desired channel
                 // count up-front.
-                let clip_material_info = match slot.material_info() {
-                    Ok(i) => i,
-                    Err(_) => continue,
+                let clip_channel_count = match slot.clip() {
+                    Err(_) => {
+                        // If the slot doesn't have any clip, there's nothing useful it can process.
+                        continue;
+                    }
+                    Ok(clip) => match clip.material_info() {
+                        Ok(info) => info.channel_count(),
+                        // If the clip doesn't have material, it's probably recording. We still
+                        // allow the slot to process because it could propagate some play state
+                        // changes. With a channel count of zero though.
+                        Err(_) => 0,
+                    },
                 };
-                let clip_channel_count = clip_material_info.channel_count();
                 let mut mix_buffer = AudioBufMut::from_slice(
                     &mut self.mix_buffer_chunk,
                     clip_channel_count,

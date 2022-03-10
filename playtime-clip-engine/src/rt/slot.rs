@@ -230,10 +230,6 @@ impl Slot {
         }
     }
 
-    pub fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        self.clip_internal()?.material_info()
-    }
-
     pub fn process(
         &mut self,
         args: &mut ClipProcessArgs,

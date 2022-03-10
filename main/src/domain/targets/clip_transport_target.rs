@@ -101,7 +101,15 @@ impl RealearnTarget for ClipTransportTarget {
                     }
                     RecordStop => {
                         if on {
-                            matrix.record_clip(self.basics.slot_coordinates)?;
+                            match matrix.record_clip(self.basics.slot_coordinates) {
+                                Ok(_) => {
+                                    tracing_debug!("Record slot");
+                                }
+                                Err(e) => {
+                                    tracing_debug!("Error when recording slot: {}", e);
+                                    return Err(e);
+                                }
+                            }
                         } else {
                             matrix.stop_clip(self.basics.slot_coordinates)?;
                         }
