@@ -11,11 +11,10 @@ use crate::rt::supplier::{
     MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
     WithSource, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
-use crate::rt::{ClipRecordArgs, ClipRecordInputKind};
+use crate::rt::ClipRecordArgs;
 use crate::timeline::{clip_timeline, Timeline};
 use crate::{ClipEngineResult, HybridTimeline, QuantizedPosition};
 use crossbeam_channel::{Receiver, Sender};
-use helgoboss_midi::ShortMessage;
 use playtime_api::{
     AudioCacheBehavior, ClipPlayStartTiming, ClipRecordStartTiming, EvenQuantization, RecordLength,
 };
@@ -249,27 +248,22 @@ struct RecordingMidiState {
 }
 
 impl KindSpecificRecordingState {
-    fn new(
-        input: ClipRecordInputKind,
-        project: Option<Project>,
-        trigger_timeline_pos: PositionInSeconds,
-    ) -> Self {
-        use ClipRecordInputKind::*;
-        match input {
-            Midi => {
+    fn new(equipment: RecordingEquipment, trigger_timeline_pos: PositionInSeconds) -> Self {
+        use RecordingEquipment::*;
+        match equipment {
+            Midi(equipment) => {
                 let recording_midi_state = RecordingMidiState {
-                    new_source: create_empty_midi_source(),
+                    new_source: equipment.empty_midi_source,
                     _source_start_timeline_pos: trigger_timeline_pos,
                 };
                 Self::Midi(recording_midi_state)
             }
-            Audio { .. } => {
-                let outcome = create_audio_sink(project);
+            Audio(equipment) => {
                 let active_state = RecordingAudioActiveState {
-                    file: outcome.file.clone(),
-                    file_clone: outcome.file,
-                    sink: outcome.sink,
-                    temporary_audio_buffer: OwnedAudioBuffer::new(2, 48000 * 10),
+                    file: equipment.file,
+                    file_clone: equipment.file_clone,
+                    sink: equipment.pcm_sink,
+                    temporary_audio_buffer: equipment.temporary_audio_buffer,
                     next_record_start_frame: 0,
                 };
                 let recording_audio_state = RecordingAudioState::Active(active_state);
@@ -327,17 +321,21 @@ impl Recorder {
     }
 
     pub fn recording(
-        input: ClipRecordInputKind,
+        recording_equipment: RecordingEquipment,
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
         tempo: Bpm,
-        equipment: RecorderEquipment,
+        recorder_equipment: RecorderEquipment,
         detect_downbeat: bool,
         timing: RecordTiming,
     ) -> Self {
-        let kind_state = KindSpecificRecordingState::new(input, project, trigger_timeline_pos);
-        let initial_phase =
-            RecordingPhase::initial_phase(timing, tempo, input, trigger_timeline_pos);
+        let initial_phase = RecordingPhase::initial_phase(
+            timing,
+            tempo,
+            recording_equipment.is_midi(),
+            trigger_timeline_pos,
+        );
+        let kind_state = KindSpecificRecordingState::new(recording_equipment, trigger_timeline_pos);
         let recording_state = RecordingState {
             kind_state,
             old_cache: None,
@@ -345,7 +343,7 @@ impl Recorder {
             detect_downbeat,
             phase: Some(initial_phase),
         };
-        Self::new(State::Recording(recording_state), equipment)
+        Self::new(State::Recording(recording_state), recorder_equipment)
     }
 
     fn new(state: State, equipment: RecorderEquipment) -> Self {
@@ -434,7 +432,7 @@ impl Recorder {
     /// This must not be done in a real-time thread!
     pub fn prepare_recording(
         &mut self,
-        input: ClipRecordInputKind,
+        equipment: RecordingEquipment,
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
         tempo: Bpm,
@@ -447,9 +445,9 @@ impl Recorder {
             Recording(s) => s.old_cache,
         };
         let initial_phase =
-            RecordingPhase::initial_phase(timing, tempo, input, trigger_timeline_pos);
+            RecordingPhase::initial_phase(timing, tempo, equipment.is_midi(), trigger_timeline_pos);
         let recording_state = RecordingState {
-            kind_state: KindSpecificRecordingState::new(input, project, trigger_timeline_pos),
+            kind_state: KindSpecificRecordingState::new(equipment, trigger_timeline_pos),
             old_cache,
             project,
             detect_downbeat,
@@ -568,7 +566,7 @@ impl Recorder {
                             if let Some(evt) = request
                                 .events
                                 .into_iter()
-                                .find(|e| e.message().is_note_on())
+                                .find(|e| crate::midi_util::is_play_message(e.message()))
                             {
                                 let block_frame =
                                     convert_duration_in_seconds_to_frames(pos, MIDI_FRAME_RATE);
@@ -663,6 +661,52 @@ impl Recorder {
     }
 }
 
+#[derive(Debug)]
+pub enum RecordingEquipment {
+    Midi(MidiRecordingEquipment),
+    Audio(AudioRecordingEquipment),
+}
+
+impl RecordingEquipment {
+    pub fn is_midi(&self) -> bool {
+        matches!(self, Self::Midi(_))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct MidiRecordingEquipment {
+    empty_midi_source: OwnedPcmSource,
+}
+
+impl MidiRecordingEquipment {
+    pub fn new() -> Self {
+        Self {
+            empty_midi_source: create_empty_midi_source(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct AudioRecordingEquipment {
+    pcm_sink: OwnedPcmSink,
+    temporary_audio_buffer: OwnedAudioBuffer,
+    file: PathBuf,
+    file_clone: PathBuf,
+}
+
+impl AudioRecordingEquipment {
+    pub fn new(project: Option<Project>, channel_count: usize) -> Self {
+        let sink_outcome = create_audio_sink(project);
+        Self {
+            pcm_sink: sink_outcome.sink,
+            // TODO-high Choose size wisely and explain
+            temporary_audio_buffer: OwnedAudioBuffer::new(channel_count, 48000 * 10),
+            file: sink_outcome.file.clone(),
+            file_clone: sink_outcome.file,
+        }
+    }
+}
+
 /// Returns an empty MIDI source prepared for recording.
 fn create_empty_midi_source() -> OwnedPcmSource {
     let mut source = OwnedSource::from_type("MIDI").unwrap();
@@ -679,6 +723,7 @@ fn create_empty_midi_source() -> OwnedPcmSource {
     source.into_raw()
 }
 
+/// Project is necessary to create the sink.
 fn create_audio_sink(project: Option<Project>) -> AudioSinkOutcome {
     let proj_ptr = project.map(|p| p.raw().as_ptr()).unwrap_or(null_mut());
     let file_name = get_path_for_new_media_file("clip-audio", "wav", project);
@@ -809,21 +854,20 @@ impl RecordingPhase {
     fn initial_phase(
         timing: RecordTiming,
         tempo: Bpm,
-        input: ClipRecordInputKind,
+        is_midi: bool,
         trigger_timeline_pos: PositionInSeconds,
     ) -> Self {
         let empty = EmptyPhase {
             tempo,
             timing,
-            is_midi: input.is_midi(),
+            is_midi,
         };
-        match input {
-            ClipRecordInputKind::Midi => {
-                // MIDI starts in phase two because source start position and frame rate are clear
-                // right from he start.
-                empty.advance(trigger_timeline_pos, MIDI_FRAME_RATE)
-            }
-            ClipRecordInputKind::Audio { .. } => RecordingPhase::Empty(empty),
+        if is_midi {
+            // MIDI starts in phase two because source start position and frame rate are clear
+            // right from he start.
+            empty.advance(trigger_timeline_pos, MIDI_FRAME_RATE)
+        } else {
+            RecordingPhase::Empty(empty)
         }
     }
 

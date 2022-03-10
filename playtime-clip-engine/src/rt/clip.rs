@@ -8,7 +8,7 @@ use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
     AudioSupplier, ChainPreBufferRequest, MaterialInfo, MidiSupplier, PreBufferFillRequest,
-    PreBufferRequest, PreBufferSourceSkill, RecordTiming, Recorder, RecorderEquipment,
+    PreBufferSourceSkill, RecordTiming, Recorder, RecorderEquipment, RecordingEquipment,
     SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
     SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest,
     WriteMidiRequest, MIDI_BASE_BPM,
@@ -181,7 +181,6 @@ struct RecordingState {
     /// Implies play-after-record.
     pub looped: bool,
     pub timing: RecordTiming,
-    pub input_kind: ClipRecordInputKind,
     pub rollback_data: Option<RollbackData>,
 }
 
@@ -257,11 +256,10 @@ impl Clip {
             trigger_timeline_pos,
             looped: args.looped,
             timing,
-            input_kind: args.input_kind,
             rollback_data: None,
         };
         let recorder = Recorder::recording(
-            args.input_kind,
+            args.recording_equipment,
             args.project,
             trigger_timeline_pos,
             tempo,
@@ -287,9 +285,7 @@ impl Clip {
     }
 
     pub fn set_audio_cache_behavior(&mut self, cache_behavior: AudioCacheBehavior) {
-        self.supplier_chain
-            .set_audio_cache_behavior(cache_behavior)
-            .unwrap();
+        self.supplier_chain.set_audio_cache_behavior(cache_behavior);
     }
 
     /// Plays the clip if it's not recording.
@@ -376,27 +372,6 @@ impl Clip {
         match &mut self.state {
             Ready(s) => s.seek(desired_pos, &self.supplier_chain),
             Recording(_) => Err("recording"),
-        }
-    }
-
-    pub fn record_input(&self) -> Option<ClipRecordInputKind> {
-        use ClipState::*;
-        match &self.state {
-            Ready(s) => {
-                use ReadySubState::*;
-                match s.state {
-                    Stopped | Suspending(_) | Paused(_) => None,
-                    Playing(s) => {
-                        if s.overdubbing {
-                            Some(ClipRecordInputKind::Midi)
-                        } else {
-                            None
-                        }
-                    }
-                }
-            }
-            // TODO-medium When recording past end, return None (should usually not happen)
-            Recording(s) => Some(s.input_kind),
         }
     }
 
@@ -1403,7 +1378,7 @@ impl ReadyState {
         let tempo = timeline.tempo_at(trigger_timeline_pos);
         let timing = RecordTiming::from_args(&args, &timeline, trigger_timeline_pos);
         supplier_chain.prepare_recording(
-            args.input_kind,
+            args.recording_equipment,
             project,
             trigger_timeline_pos,
             tempo,
@@ -1414,7 +1389,6 @@ impl ReadyState {
             trigger_timeline_pos,
             looped: args.looped,
             timing,
-            input_kind: args.input_kind,
             rollback_data: {
                 let data = RollbackData {
                     persistent_data: self.persistent_data,
@@ -1766,7 +1740,7 @@ impl VirtualPosition {
 #[derive(Debug)]
 pub struct ClipRecordArgs {
     pub parent_play_start_timing: ClipPlayStartTiming,
-    pub input_kind: ClipRecordInputKind,
+    pub recording_equipment: RecordingEquipment,
     pub start_timing: ClipRecordStartTiming,
     pub midi_record_mode: MidiClipRecordMode,
     pub length: RecordLength,
@@ -1775,18 +1749,6 @@ pub struct ClipRecordArgs {
     pub equipment: RecorderEquipment,
     pub pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
     pub project: Option<Project>,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub enum ClipRecordInputKind {
-    Midi,
-    Audio { channel_count: u32 },
-}
-
-impl ClipRecordInputKind {
-    pub fn is_midi(&self) -> bool {
-        matches!(self, Self::Midi)
-    }
 }
 
 #[derive(PartialEq, Debug)]

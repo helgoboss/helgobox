@@ -1,12 +1,14 @@
+use crate::main::row::Row;
 use crate::main::{Column, Slot};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
-    keep_processing_recorder_requests, keep_stretching, ChainPreBufferCommandProcessor,
-    ChainPreBufferRequest, PreBufferRequest, RecorderEquipment, StretchWorkerRequest,
+    keep_processing_recorder_requests, keep_stretching, AudioRecordingEquipment,
+    ChainPreBufferCommandProcessor, ChainPreBufferRequest, MidiRecordingEquipment,
+    RecorderEquipment, RecordingEquipment, StretchWorkerRequest,
 };
 use crate::rt::{
-    ClipPlayState, ClipRecordInputKind, ColumnPlayClipArgs, ColumnStopClipArgs,
-    QualifiedClipChangedEvent, RecordBehavior, RtMatrixCommandSender, SharedColumn, WeakColumn,
+    ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs, QualifiedClipChangedEvent,
+    RtMatrixCommandSender, WeakColumn,
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline};
@@ -23,8 +25,8 @@ use playtime_api::{
 };
 use reaper_high::{OrCurrentProject, Project, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId, PositionInSeconds};
-use std::thread;
 use std::thread::JoinHandle;
+use std::{cmp, thread};
 
 #[derive(Debug)]
 pub struct Matrix<H> {
@@ -37,6 +39,7 @@ pub struct Matrix<H> {
     recorder_equipment: RecorderEquipment,
     pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
     columns: Vec<Column>,
+    rows: Vec<Row>,
     containing_track: Option<Track>,
     command_receiver: Receiver<MatrixCommand>,
     rt_command_sender: Sender<rt::MatrixCommand>,
@@ -145,6 +148,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             },
             pre_buffer_request_sender,
             columns: vec![],
+            rows: vec![],
             containing_track,
             command_receiver: main_command_receiver,
             rt_command_sender,
@@ -191,6 +195,14 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             self.rt_command_sender.insert_column(i, column.source());
             self.columns.push(column);
         }
+        // Rows
+        self.rows = api_matrix
+            .rows
+            .unwrap_or_default()
+            .into_iter()
+            .map(|_| Row {})
+            .collect();
+        // Emit event
         self.handler.emit_event(ClipMatrixEvent::AllClipsChanged);
         Ok(())
     }
@@ -242,9 +254,10 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         self.rt_command_sender.clear_columns();
     }
 
-    pub fn slot(&self, coordinates: ClipSlotCoordinates) -> Option<&Slot> {
-        let column = get_column(&self.columns, coordinates.column).ok()?;
-        column.slot(coordinates.row())
+    pub fn slot(&mut self, coordinates: ClipSlotCoordinates) -> Option<&Slot> {
+        let row_count = self.row_count();
+        let column = get_column_mut(&mut self.columns, coordinates.column).ok()?;
+        column.slot(coordinates.row(), row_count)
     }
 
     pub fn play_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
@@ -338,6 +351,16 @@ impl<H: ClipMatrixHandler> Matrix<H> {
 
     pub fn column_count(&self) -> usize {
         self.columns.len()
+    }
+
+    pub fn row_count(&self) -> usize {
+        let max_slot_count_per_col = self
+            .columns
+            .iter()
+            .map(|c| c.slot_count())
+            .max()
+            .unwrap_or(0);
+        cmp::max(self.rows.len(), max_slot_count_per_col)
     }
 
     pub fn clip_volume(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<Db> {
@@ -437,11 +460,12 @@ pub enum ClipRecordInput {
 }
 
 impl ClipRecordInput {
-    pub fn derive_kind(&self) -> ClipRecordInputKind {
+    /// Project is necessary to create an audio sink.
+    pub fn create_recording_equipment(&self, project: Option<Project>) -> RecordingEquipment {
         use ClipRecordInput::*;
         match &self {
             HardwareInput(ClipRecordHardwareInput::Midi(_)) | FxInput(ClipRecordFxInput::Midi) => {
-                ClipRecordInputKind::Midi
+                RecordingEquipment::Midi(MidiRecordingEquipment::new())
             }
             HardwareInput(ClipRecordHardwareInput::Audio(virtual_input))
             | FxInput(ClipRecordFxInput::Audio(virtual_input)) => {
@@ -449,7 +473,8 @@ impl ClipRecordInput {
                     VirtualClipRecordAudioInput::Specific(range) => range.channel_count,
                     VirtualClipRecordAudioInput::Detect { channel_count } => *channel_count,
                 };
-                ClipRecordInputKind::Audio { channel_count }
+                let equipment = AudioRecordingEquipment::new(project, channel_count as _);
+                RecordingEquipment::Audio(equipment)
             }
         }
     }
@@ -473,7 +498,7 @@ pub enum VirtualClipRecordHardwareMidiInput {
     Detect,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct ClipRecordHardwareMidiInput {
     pub device_id: Option<MidiInputDeviceId>,
     pub channel: Option<Channel>,

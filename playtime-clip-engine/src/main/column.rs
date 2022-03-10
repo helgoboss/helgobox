@@ -1,14 +1,13 @@
 use crate::main::{
     Clip, ClipMatrixHandler, ClipRecordDestination, ClipRecordFxInput, ClipRecordHardwareInput,
-    ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask, ClipRecordTiming, MatrixSettings,
-    Slot, VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
+    ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask, MatrixSettings, Slot,
+    VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
-use crate::mutex_util::non_blocking_lock;
-use crate::rt::supplier::{ChainPreBufferRequest, PreBufferRequest, RecorderEquipment};
+use crate::rt::supplier::{ChainPreBufferRequest, RecorderEquipment};
 use crate::rt::{
-    ClipChangedEvent, ClipPlayState, ClipRecordArgs, ClipRecordInputKind, ColumnCommandSender,
-    ColumnEvent, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipLoopedArgs,
-    ColumnStopClipArgs, RecordBehavior, SharedColumn, WeakColumn,
+    ClipChangedEvent, ClipPlayState, ClipRecordArgs, ColumnCommandSender, ColumnEvent,
+    ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipLoopedArgs, ColumnStopClipArgs,
+    SharedColumn, WeakColumn,
 };
 use crate::{clip_timeline, rt, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
@@ -27,7 +26,6 @@ use reaper_medium::{
     OwnedPreviewRegister, PositionInSeconds, ReaperMutex, ReaperVolumeValue, RecordingInput,
 };
 use std::ptr::NonNull;
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub type SharedRegister = Arc<ReaperMutex<OwnedPreviewRegister>>;
@@ -136,8 +134,23 @@ impl Column {
         self.rt_command_sender.clear_slots();
     }
 
-    pub fn slot(&self, index: usize) -> Option<&Slot> {
+    /// Is mutable because empty slots are created lazily up to `row_count`.
+    pub(super) fn slot(&mut self, index: usize, row_count: usize) -> Option<&Slot> {
+        self.upsize_if_necessary(row_count);
         self.slots.get(index)
+    }
+
+    fn upsize_if_necessary(&mut self, row_count: usize) {
+        if self.slots.len() < row_count {
+            self.slots.resize_with(row_count, Default::default);
+        }
+    }
+
+    /// Returns the actual number of slots in this column.
+    ///
+    /// Just interesting for internal usage. For external usage, the matrix row count is important.
+    pub(super) fn slot_count(&self) -> usize {
+        self.slots.len()
     }
 
     pub fn save(&self) -> api::Column {
@@ -332,18 +345,19 @@ impl Column {
     ) -> ClipEngineResult<()> {
         // Prepare record task (for delivering the material to be recorded)
         let task = self.create_clip_record_task(slot_index, containing_track)?;
-        let input_kind = task.input.derive_kind();
+        let recording_equipment = task.input.create_recording_equipment(self.project);
+        let is_midi = recording_equipment.is_midi();
         let args = ClipRecordArgs {
             parent_play_start_timing: self
                 .rt_settings
                 .clip_play_start_timing
                 .unwrap_or(parent_play_start_timing),
-            input_kind,
+            recording_equipment,
             start_timing: matrix_settings.start_timing.clone(),
             midi_record_mode: matrix_settings.midi_settings.record_mode,
             length: matrix_settings.duration.clone(),
             looped: matrix_settings.looped,
-            detect_downbeat: if input_kind.is_midi() {
+            detect_downbeat: if is_midi {
                 matrix_settings.midi_settings.detect_downbeat
             } else {
                 matrix_settings.audio_settings.detect_downbeat

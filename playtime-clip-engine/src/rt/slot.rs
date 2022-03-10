@@ -1,22 +1,17 @@
 use crate::metrics_util::measure_time;
-use crate::rt::supplier::{
-    ChainPreBufferRequest, MaterialInfo, PreBufferRequest, RecorderEquipment, WriteAudioRequest,
-    WriteMidiRequest,
-};
+use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::SlotInstruction::KeepSlot;
 use crate::rt::{
-    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipRecordInputKind,
-    ClipStopArgs, RecordBehavior, SlotInstruction,
+    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipStopArgs,
+    SlotInstruction,
 };
 use crate::timeline::HybridTimeline;
 use crate::ClipEngineResult;
-use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api::{
     AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, Db, MidiClipRecordMode,
     VirtualResampleMode,
 };
-use reaper_high::Project;
 use reaper_medium::{Bpm, PlayState, PositionInSeconds};
 
 #[derive(Debug, Default)]
@@ -101,7 +96,7 @@ impl Slot {
             }
             Some(c) => {
                 // Slot filled
-                let midi_overdub = if args.input_kind.is_midi() {
+                let midi_overdub = if args.recording_equipment.is_midi() {
                     use MidiClipRecordMode::*;
                     match args.midi_record_mode {
                         Normal => false,
@@ -127,12 +122,7 @@ impl Slot {
     }
 
     pub fn seek_clip(&mut self, desired_pos: UnitValue) -> ClipEngineResult<()> {
-        self.clip_mut_internal()?.seek(desired_pos);
-        Ok(())
-    }
-
-    pub fn clip_record_input(&self) -> Option<ClipRecordInputKind> {
-        self.clip_internal().ok()?.record_input()
+        self.clip_mut_internal()?.seek(desired_pos)
     }
 
     pub fn write_clip_midi(&mut self, request: WriteMidiRequest) -> ClipEngineResult<()> {

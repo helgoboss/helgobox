@@ -3,10 +3,11 @@ use crate::rt::supplier::{
     Amplifier, AudioSupplier, CommandProcessor, Downbeat, InteractionHandler, LoopBehavior, Looper,
     MaterialInfo, MidiSupplier, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest,
     PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordTiming, Recorder,
-    RecordingOutcome, Resampler, Section, StartEndHandler, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
+    RecordingEquipment, RecordingOutcome, Resampler, Section, StartEndHandler, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest,
+    WriteMidiRequest,
 };
-use crate::rt::{AudioBufMut, ClipRecordInputKind};
+use crate::rt::AudioBufMut;
 use crate::{ClipEngineResult, QuantizedPosition, Timeline};
 use crossbeam_channel::Sender;
 use playtime_api::{
@@ -14,7 +15,7 @@ use playtime_api::{
     PositiveSecond, VirtualResampleMode,
 };
 use reaper_high::Project;
-use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds};
+use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, PositionInSeconds};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// The head of the supplier chain (just an alias).
@@ -252,7 +253,7 @@ impl SupplierChain {
     /// This must not be done in a real-time thread!
     pub fn prepare_recording(
         &mut self,
-        input: ClipRecordInputKind,
+        equipment: RecordingEquipment,
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
         tempo: Bpm,
@@ -261,7 +262,7 @@ impl SupplierChain {
     ) {
         // When recording, there's no contention.
         self.pre_buffer_wormhole().recorder().prepare_recording(
-            input,
+            equipment,
             project,
             trigger_timeline_pos,
             tempo,
@@ -270,10 +271,7 @@ impl SupplierChain {
         );
     }
 
-    pub fn set_audio_cache_behavior(
-        &mut self,
-        cache_behavior: AudioCacheBehavior,
-    ) -> ClipEngineResult<()> {
+    pub fn set_audio_cache_behavior(&mut self, cache_behavior: AudioCacheBehavior) {
         use AudioCacheBehavior::*;
         let pre_buffer_enabled = match &cache_behavior {
             DirectFromDisk => true,
@@ -285,11 +283,10 @@ impl SupplierChain {
         // complete source material in memory already).
         let pre_buffer = self.pre_buffer_mut();
         if pre_buffer_enabled {
-            pre_buffer.enable();
+            let _ = pre_buffer.enable();
         } else {
             pre_buffer.disable();
         }
-        Ok(())
     }
 
     pub fn set_audio_time_stretch_mode(&mut self, mode: AudioTimeStretchMode) {
@@ -323,7 +320,8 @@ impl SupplierChain {
 
     pub fn install_immediate_start_interaction(&mut self, current_frame: isize) {
         self.interaction_handler_mut()
-            .start_immediately(current_frame);
+            .start_immediately(current_frame)
+            .unwrap();
     }
 
     pub fn stop_interaction_is_installed_already(&self) -> bool {
@@ -332,7 +330,8 @@ impl SupplierChain {
 
     pub fn install_immediate_stop_interaction(&mut self, current_frame: isize) {
         self.interaction_handler_mut()
-            .stop_immediately(current_frame);
+            .stop_immediately(current_frame)
+            .unwrap();
     }
 
     pub fn schedule_stop_interaction_at(&mut self, frame: isize) {
@@ -549,7 +548,10 @@ impl CommandProcessor for ChainPreBufferCommandProcessor {
                 entrance.start_end_handler().set_midi_reset_msg_range(range);
             }
             SetAudioCacheBehavior(behavior) => {
-                entrance.recorder().set_audio_cache_behavior(behavior);
+                entrance
+                    .recorder()
+                    .set_audio_cache_behavior(behavior)
+                    .unwrap();
             }
             SetLooped(looped) => entrance
                 .looper()
@@ -557,7 +559,8 @@ impl CommandProcessor for ChainPreBufferCommandProcessor {
             KeepPlayingUntilEndOfCurrentCycle { pos } => {
                 entrance
                     .looper()
-                    .keep_playing_until_end_of_current_cycle(pos);
+                    .keep_playing_until_end_of_current_cycle(pos)
+                    .unwrap();
             }
             SetSectionBoundsInFrames { start, length } => {
                 entrance.section().set_bounds(start, length);
@@ -568,7 +571,10 @@ impl CommandProcessor for ChainPreBufferCommandProcessor {
                 );
             }
             SetSectionBoundsInSeconds { start, length } => {
-                entrance.section().set_bounds_in_seconds(start, length);
+                entrance
+                    .section()
+                    .set_bounds_in_seconds(start, length)
+                    .unwrap();
                 configure_start_end_handler_on_section_change(
                     entrance.start_end_handler(),
                     start.get() > 0.0,
@@ -584,4 +590,8 @@ fn configure_start_end_handler_on_section_change(
     start_is_set: bool,
     length_is_set: bool,
 ) {
+    // Let the section handle the start/end fades etc. if appropriate (in order to not have
+    // unnecessary fades).
+    start_end_handler.set_enabled_for_start(!start_is_set);
+    start_end_handler.set_enabled_for_end(!length_is_set);
 }

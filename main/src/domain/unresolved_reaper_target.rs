@@ -476,7 +476,7 @@ impl VirtualClipSlot {
             }
         };
         let slot_exists = BackboneState::get()
-            .with_clip_matrix(context.control_context.instance_state, |matrix| {
+            .with_clip_matrix_mut(context.control_context.instance_state, |matrix| {
                 matrix.slot(coordinates).is_some()
             })?;
         if !slot_exists {

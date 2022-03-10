@@ -1,6 +1,7 @@
 mod clip;
 mod column;
 mod matrix;
+mod row;
 mod slot;
 mod source_util;
 

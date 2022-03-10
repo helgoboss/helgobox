@@ -1,12 +1,8 @@
 use crate::mutex_util::non_blocking_lock;
-use crate::rt::supplier::{
-    ChainPreBufferRequest, MaterialInfo, PreBufferRequest, RecorderEquipment, WriteAudioRequest,
-    WriteMidiRequest,
-};
+use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    AudioBufMut, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs,
-    ClipRecordInputKind, ClipStopArgs, OwnedAudioBuffer, RecordBehavior, Slot,
-    SlotProcessTransportChangeArgs,
+    AudioBufMut, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipStopArgs,
+    OwnedAudioBuffer, Slot, SlotProcessTransportChangeArgs,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -332,10 +328,6 @@ impl Column {
 
     fn seek_clip(&mut self, index: usize, desired_pos: UnitValue) -> ClipEngineResult<()> {
         get_slot_mut_insert(&mut self.slots, index).seek_clip(desired_pos)
-    }
-
-    pub fn clip_record_input(&self, index: usize) -> Option<ClipRecordInputKind> {
-        get_slot(&self.slots, index).ok()?.clip_record_input()
     }
 
     pub fn write_clip_midi(

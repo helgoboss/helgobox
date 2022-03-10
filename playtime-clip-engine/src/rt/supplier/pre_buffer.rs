@@ -2,13 +2,13 @@ use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest,
     PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithMaterialInfo, WithSource,
+    SupplyResponseStatus, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
 use core::cmp;
 use crossbeam_channel::{Receiver, Sender, TryRecvError};
 use derive_more::Display;
-use reaper_medium::{BorrowedMidiEventList, OwnedPcmSource};
+use reaper_medium::BorrowedMidiEventList;
 use rtrb::{Consumer, Producer, RingBuffer};
 use std::collections::HashMap;
 use std::fmt::Debug;

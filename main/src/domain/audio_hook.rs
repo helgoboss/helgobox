@@ -4,11 +4,14 @@ use crate::domain::{
 };
 use assert_no_alloc::*;
 use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
-use helgoboss_midi::{DataEntryByteOrder, RawShortMessage};
+use helgoboss_midi::{Channel, DataEntryByteOrder, RawShortMessage};
 use playtime_clip_engine::global_steady_timeline_state;
-use playtime_clip_engine::main::ClipRecordTask;
+use playtime_clip_engine::main::{
+    ClipRecordDestination, ClipRecordHardwareInput, ClipRecordHardwareMidiInput,
+    VirtualClipRecordHardwareMidiInput,
+};
 use playtime_clip_engine::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
-use playtime_clip_engine::rt::{AudioBuf, ClipRecordInputKind, SharedColumn};
+use playtime_clip_engine::rt::{AudioBuf, ClipPlayState, Column};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
@@ -42,7 +45,13 @@ pub enum NormalAudioHookTask {
     RemoveRealTimeProcessor(InstanceId),
     StartCapturingMidi(MidiCaptureSender),
     StopCapturingMidi,
-    StartClipRecording(ClipRecordTask),
+    StartClipRecording(HardwareInputClipRecordTask),
+}
+
+#[derive(Debug)]
+pub struct HardwareInputClipRecordTask {
+    pub input: ClipRecordHardwareInput,
+    pub destination: ClipRecordDestination,
 }
 
 /// A global feedback task (which is potentially sent very frequently).
@@ -63,7 +72,7 @@ pub struct RealearnAudioHook {
     feedback_task_receiver: crossbeam_channel::Receiver<FeedbackAudioHookTask>,
     time_of_last_run: Option<Instant>,
     garbage_bin: GarbageBin,
-    clip_record_task: Option<ClipRecordTask>,
+    clip_record_task: Option<HardwareInputClipRecordTask>,
     initialized: bool,
 }
 
@@ -269,7 +278,7 @@ impl RealearnAudioHook {
         }
     }
 
-    fn process_add_remove_tasks(&mut self) {
+    fn process_normal_tasks(&mut self) {
         for task in self
             .normal_task_receiver
             .try_iter()
@@ -344,7 +353,7 @@ impl OnAudioBuffer for RealearnAudioHook {
             self.process_feedback_tasks();
             self.call_real_time_processors(&args, might_be_rebirth);
             self.process_clip_record_tasks(&args);
-            self.process_add_remove_tasks();
+            self.process_normal_tasks();
         });
     }
 }
@@ -388,40 +397,67 @@ impl RealTimeProcessorLocker for SharedRealTimeProcessor {
 }
 
 /// Returns whether task still relevant.
-fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipRecordTask) -> bool {
+fn process_clip_record_task(
+    args: &OnAudioBufferArgs,
+    record_task: &mut HardwareInputClipRecordTask,
+) -> bool {
     let column_source = match record_task.destination.column_source.upgrade() {
         None => return false,
         Some(s) => s,
     };
     let mut src = column_source.lock();
-    let input = match src.clip_record_input(record_task.destination.slot_index) {
-        None => return false,
-        Some(m) => m,
-    };
-    match input {
-        ClipRecordInputKind::Midi => {
-            for dev_id in 0..MidiInputDeviceId::MAX_DEVICE_COUNT {
-                let dev_id = MidiInputDeviceId::new(dev_id);
-                MidiInputDevice::new(dev_id).with_midi_input(|mi| {
-                    let mi = match mi {
-                        None => return,
-                        Some(m) => m,
-                    };
-                    let event_list = mi.get_read_buf();
-                    if event_list.get_size() == 0 {
-                        return;
+    if src.clip_play_state(record_task.destination.slot_index) != Ok(ClipPlayState::Recording) {
+        return false;
+    }
+    match &mut record_task.input {
+        ClipRecordHardwareInput::Midi(input) => {
+            use VirtualClipRecordHardwareMidiInput::*;
+            let specific_input = match input {
+                Specific(s) => *s,
+                Detect => {
+                    // Detect
+                    match find_first_dev_with_play_msg() {
+                        None => {
+                            // No play message detected so far in any input device.
+                            return true;
+                        }
+                        Some(dev_id) => {
+                            // Found first play message in this device. Leave "Detect" mode and
+                            // capture from this specific device from now on.
+                            let specific_input = ClipRecordHardwareMidiInput {
+                                device_id: Some(dev_id),
+                                channel: None,
+                            };
+                            *input = Specific(specific_input);
+                            specific_input
+                        }
                     }
-                    let req = WriteMidiRequest {
-                        input_sample_rate: args.srate,
-                        block_length: args.len as _,
-                        events: event_list,
-                    };
-                    src.write_clip_midi(record_task.destination.slot_index, req)
-                        .unwrap();
-                });
+                }
+            };
+            if let Some(dev_id) = specific_input.device_id {
+                // Read from specific MIDI input device
+                let dev = Reaper::get().midi_input_device_by_id(dev_id);
+                shovel_midi_to_clip_slot(
+                    args,
+                    &mut src,
+                    record_task.destination.slot_index,
+                    dev,
+                    specific_input.channel,
+                );
+            } else {
+                // Read from all open MIDI input devices
+                for dev in Reaper::get().midi_input_devices() {
+                    shovel_midi_to_clip_slot(
+                        args,
+                        &mut src,
+                        record_task.destination.slot_index,
+                        dev,
+                        specific_input.channel,
+                    );
+                }
             }
         }
-        ClipRecordInputKind::Audio { .. } => unsafe {
+        ClipRecordHardwareInput::Audio(input) => unsafe {
             let reg = args.reg.get().as_ref();
             let get_buffer = match reg.GetBuffer {
                 None => return true,
@@ -447,4 +483,45 @@ fn process_clip_record_task(args: &OnAudioBufferArgs, record_task: &mut ClipReco
         },
     }
     true
+}
+
+fn find_first_dev_with_play_msg() -> Option<MidiInputDeviceId> {
+    for dev in Reaper::get().midi_input_devices() {
+        let contains_play_msg = dev.with_midi_input(|mi| match mi {
+            None => false,
+            Some(mi) => mi
+                .get_read_buf()
+                .into_iter()
+                .any(|e| playtime_clip_engine::midi_util::is_play_message(e.message())),
+        });
+        if contains_play_msg {
+            return Some(dev.id());
+        }
+    }
+    None
+}
+
+fn shovel_midi_to_clip_slot(
+    args: &OnAudioBufferArgs,
+    src: &mut MutexGuard<Column>,
+    slot_index: usize,
+    dev: MidiInputDevice,
+    channel: Option<Channel>,
+) {
+    dev.with_midi_input(|mi| {
+        let mi = match mi {
+            None => return,
+            Some(m) => m,
+        };
+        let events = mi.get_read_buf();
+        if events.get_size() == 0 {
+            return;
+        }
+        let req = WriteMidiRequest {
+            input_sample_rate: args.srate,
+            block_length: args.len as _,
+            events,
+        };
+        src.write_clip_midi(slot_index, req).unwrap();
+    });
 }

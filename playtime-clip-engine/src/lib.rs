@@ -15,6 +15,8 @@ mod conversion_util;
 
 mod mutex_util;
 
+pub mod midi_util;
+
 type ClipEngineResult<T> = Result<T, &'static str>;
 
 /// Must be called as early as possible.

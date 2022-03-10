@@ -8,10 +8,12 @@ use rxrust::prelude::*;
 
 use crate::base::Prop;
 use crate::domain::{
-    BackboneState, GroupId, InstanceId, MappingCompartment, MappingId, NormalAudioHookTask,
-    NormalRealTimeTask, QualifiedMappingId, RealTimeSender, Tag,
+    BackboneState, GroupId, HardwareInputClipRecordTask, InstanceId, MappingCompartment, MappingId,
+    NormalAudioHookTask, NormalRealTimeTask, QualifiedMappingId, RealTimeSender, Tag,
 };
-use playtime_clip_engine::main::{ClipMatrixEvent, ClipMatrixHandler, ClipRecordTask, Matrix};
+use playtime_clip_engine::main::{
+    ClipMatrixEvent, ClipMatrixHandler, ClipRecordInput, ClipRecordTask, Matrix,
+};
 use playtime_clip_engine::rt;
 
 pub type SharedInstanceState = Rc<RefCell<InstanceState>>;
@@ -102,9 +104,20 @@ impl RealearnClipMatrixHandler {
 
 impl ClipMatrixHandler for RealearnClipMatrixHandler {
     fn request_recording_input(&self, task: ClipRecordTask) {
-        self.audio_hook_task_sender
-            .send(NormalAudioHookTask::StartClipRecording(task))
-            .unwrap()
+        match task.input {
+            ClipRecordInput::HardwareInput(input) => {
+                let hw_task = HardwareInputClipRecordTask {
+                    input,
+                    destination: task.destination,
+                };
+                self.audio_hook_task_sender
+                    .send(NormalAudioHookTask::StartClipRecording(hw_task))
+                    .unwrap()
+            }
+            ClipRecordInput::FxInput(_) => {
+                todo!()
+            }
+        }
     }
 
     fn emit_event(&self, event: ClipMatrixEvent) {
