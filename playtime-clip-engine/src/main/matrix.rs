@@ -222,26 +222,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                     cache_behavior: self.settings.audio_cache_behavior.clone(),
                 },
             },
-            clip_record_settings: MatrixClipRecordSettings {
-                start_timing: ClipRecordStartTiming::LikeClipPlayStartTiming,
-                stop_timing: ClipRecordStopTiming::LikeClipRecordStartTiming,
-                duration: RecordLength::OpenEnd,
-                play_start_timing: ClipSettingOverrideAfterRecording::Inherit,
-                play_stop_timing: ClipSettingOverrideAfterRecording::Inherit,
-                time_base: ClipRecordTimeBase::Time,
-                looped: false,
-                lead_tempo: false,
-                midi_settings: MatrixClipRecordMidiSettings {
-                    record_mode: MidiClipRecordMode::Normal,
-                    detect_downbeat: false,
-                    detect_input: false,
-                    auto_quantize: false,
-                },
-                audio_settings: MatrixClipRecordAudioSettings {
-                    detect_downbeat: false,
-                    detect_input: false,
-                },
-            },
+            clip_record_settings: self.settings.clip_record_settings.clone(),
             common_tempo_range: self.settings.common_tempo_range,
         }
     }

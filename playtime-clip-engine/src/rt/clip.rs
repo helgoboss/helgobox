@@ -386,8 +386,8 @@ impl Clip {
                     overdubbing: true, ..
                 }) = s.state
                 {
-                    self.position_in_seconds(timeline.tempo_at(timeline_cursor_pos))
-                        .unwrap_or_default()
+                    let tempo = timeline.tempo_at(timeline_cursor_pos);
+                    self.position_in_seconds(tempo).unwrap_or_default()
                 } else {
                     return;
                 }
@@ -475,10 +475,9 @@ impl ReadyState {
             material_info.frame_rate(),
         );
         let tempo_factor = self.calc_tempo_factor(timeline_tempo, material_info.is_midi());
-        Ok(adjust_pos_in_secs_anti_proportionally(
-            source_pos_in_secs,
-            tempo_factor,
-        ))
+        let tempo_adjusted_pos =
+            adjust_pos_in_secs_anti_proportionally(source_pos_in_secs, tempo_factor);
+        Ok(tempo_adjusted_pos)
     }
 
     /// Returns `None` if time base is not "Beat".

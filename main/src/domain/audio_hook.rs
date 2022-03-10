@@ -507,7 +507,7 @@ fn shovel_midi_to_clip_slot(
     src: &mut MutexGuard<Column>,
     slot_index: usize,
     dev: MidiInputDevice,
-    channel: Option<Channel>,
+    channel_filter: Option<Channel>,
 ) {
     dev.with_midi_input(|mi| {
         let mi = match mi {
@@ -522,6 +522,7 @@ fn shovel_midi_to_clip_slot(
             input_sample_rate: args.srate,
             block_length: args.len as _,
             events,
+            channel_filter,
         };
         src.write_clip_midi(slot_index, req).unwrap();
     });

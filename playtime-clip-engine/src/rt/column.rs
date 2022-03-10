@@ -9,6 +9,7 @@ use crate::ClipEngineResult;
 use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
+use helgoboss_midi::Channel;
 use playtime_api::{
     AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
     VirtualResampleMode,

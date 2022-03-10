@@ -15,6 +15,7 @@ use crate::rt::ClipRecordArgs;
 use crate::timeline::{clip_timeline, Timeline};
 use crate::{ClipEngineResult, HybridTimeline, QuantizedPosition};
 use crossbeam_channel::{Receiver, Sender};
+use helgoboss_midi::{Channel, ShortMessage};
 use playtime_api::{
     AudioCacheBehavior, ClipPlayStartTiming, ClipRecordStartTiming, EvenQuantization, RecordLength,
 };
@@ -282,6 +283,8 @@ pub struct WriteMidiRequest<'a> {
     pub input_sample_rate: Hz,
     pub block_length: usize,
     pub events: &'a BorrowedMidiEventList,
+    // TODO-high Filtering to one channel not supported at the moment.
+    pub channel_filter: Option<Channel>,
 }
 
 #[derive(Copy, Clone)]
@@ -292,6 +295,7 @@ pub struct WriteAudioRequest<'a> {
     pub right_buffer: AudioBuf<'a>,
 }
 
+// TODO-high This allocates but is used in functions that are not supposed to allocate!
 fn create_recorder_cache(
     source: OwnedPcmSource,
     cache_request_sender: Sender<CacheRequest>,
@@ -596,6 +600,10 @@ impl Recorder {
             // Not used
             overwrite_actives: null_mut(),
         };
+        debug!(
+            "Write MIDI: Pos = {} at sample rate {}",
+            pos, request.input_sample_rate
+        );
         unsafe {
             source.extended(
                 PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
