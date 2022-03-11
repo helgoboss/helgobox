@@ -65,7 +65,7 @@ pub fn create_api_source_from_pcm_source(
 }
 
 /// Takes care of making the path project-relative (if a project is given).
-fn create_file_api_source(project: Option<Project>, file: &Path) -> api::Source {
+pub fn create_file_api_source(project: Option<Project>, file: &Path) -> api::Source {
     api::Source::File(api::FileSource {
         path: make_relative(project, file),
     })

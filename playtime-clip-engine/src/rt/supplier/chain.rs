@@ -1,11 +1,11 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
-    Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
-    LoopBehavior, Looper, MaterialInfo, MidiSupplier, PreBuffer, PreBufferCacheMissBehavior,
-    PreBufferFillRequest, PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordTiming,
-    Recorder, RecordingEquipment, RecordingInfo, RecordingOutcome, Resampler, Section,
-    StartEndHandler, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
-    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
+    Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, CompleteRecordingData,
+    Downbeat, InteractionHandler, LoopBehavior, Looper, MaterialInfo, MidiSupplier, PreBuffer,
+    PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions, PreBufferRequest,
+    PreBufferSourceSkill, RecordTiming, Recorder, RecordingEquipment, RecordingInfo,
+    RecordingOutcome, Resampler, Section, StartEndHandler, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::AudioBufMut;
 use crate::{ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};

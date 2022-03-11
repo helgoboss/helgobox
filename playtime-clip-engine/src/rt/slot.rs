@@ -275,13 +275,14 @@ impl Slot {
         self.process_stop_instruction(instruction)
     }
 
-    pub fn process(
+    pub fn process<H: HandleStopEvent>(
         &mut self,
         args: &mut ClipProcessArgs,
+        event_handler: &H,
     ) -> ClipEngineResult<SlotProcessingOutcome> {
         measure_time("slot.process.time", || {
             let clip = self.clip_mut_internal()?;
-            let clip_outcome = clip.process(args);
+            let clip_outcome = clip.process(args, event_handler);
             let play_state = clip.play_state();
             let last_play_state = self.runtime_data.last_play_state;
             let changed_play_state = if play_state == last_play_state {

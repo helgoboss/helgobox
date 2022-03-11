@@ -6,11 +6,11 @@ use crate::conversion_util::{
 use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, ChainEquipment, MaterialInfo, MidiSupplier, PreBufferFillRequest,
-    PreBufferSourceSkill, RecordTiming, Recorder, RecorderRequest, RecordingEquipment,
-    SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
-    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest,
-    WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    AudioSupplier, ChainEquipment, KindSpecificRecordingOutcome, MaterialInfo, MidiSupplier,
+    PreBufferFillRequest, PreBufferSourceSkill, RecordTiming, Recorder, RecorderRequest,
+    RecordingEquipment, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
+    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::{ClipEngineResult, ErrorWithPayload, QuantizedPosition};
@@ -20,7 +20,7 @@ use playtime_api as api;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, BeatTimeBase, ClipPlayStartTiming,
     ClipPlayStopTiming, ClipRecordStartTiming, ClipTimeBase, Db, EvenQuantization,
-    MidiClipRecordMode, RecordLength, VirtualResampleMode,
+    MidiClipRecordMode, PositiveSecond, RecordLength, VirtualResampleMode,
 };
 use reaper_high::Project;
 use reaper_medium::{
@@ -315,7 +315,7 @@ impl Clip {
             }
             Recording(s) => {
                 use ClipRecordingStopOutcome::*;
-                match s.stop(args, &mut self.supplier_chain) {
+                match s.stop(args, &mut self.supplier_chain, event_handler) {
                     KeepState => StopSlotInstruction::KeepSlot,
                     TransitionToReady(ready_state) => {
                         self.state = Ready(ready_state);
@@ -445,7 +445,11 @@ impl Clip {
         }
     }
 
-    pub fn process(&mut self, args: &mut ClipProcessArgs) -> ClipPlayingOutcome {
+    pub fn process<H: HandleStopEvent>(
+        &mut self,
+        args: &mut ClipProcessArgs,
+        event_handler: &H,
+    ) -> ClipPlayingOutcome {
         use ClipState::*;
         let (outcome, changed_state) = match &mut self.state {
             Ready(s) => {
@@ -454,7 +458,7 @@ impl Clip {
                 (Some(outcome), changed_state.map(Recording))
             }
             Recording(s) => {
-                let changed_state = s.process(args, &mut self.supplier_chain);
+                let changed_state = s.process(args, &mut self.supplier_chain, event_handler);
                 (None, changed_state.map(Ready))
             }
         };
@@ -462,7 +466,7 @@ impl Clip {
             self.state = s;
             if s.is_playing() {
                 // Changed from record to playing. Don't miss any samples!
-                Some(self.process(args))
+                Some(self.process(args, event_handler))
             } else {
                 outcome
             }
@@ -631,7 +635,7 @@ impl ReadyState {
                         ..s
                     });
                     if let Some(mirror_source) = supplier_chain.take_midi_overdub_mirror_source() {
-                        event_handler.finished_midi_overdub(mirror_source);
+                        event_handler.midi_overdub_finished(mirror_source);
                     }
                     if !args.enforce_play_stop {
                         // Continue playing
@@ -1303,16 +1307,22 @@ impl RecordingState {
         self.looped = looped;
     }
 
-    pub fn stop(
+    pub fn stop<H: HandleStopEvent>(
         &mut self,
         args: ClipStopArgs,
         supplier_chain: &mut SupplierChain,
+        event_handler: &H,
     ) -> ClipRecordingStopOutcome {
         use ClipRecordingStopOutcome::*;
         match self.timing {
             RecordTiming::Unsynced => {
-                let ready_state =
-                    self.finish_recording(self.looped, None, supplier_chain, &args.timeline);
+                let ready_state = self.finish_recording(
+                    self.looped,
+                    None,
+                    supplier_chain,
+                    &args.timeline,
+                    event_handler,
+                );
                 TransitionToReady(ready_state)
             }
             RecordTiming::Synced { start, end } => {
@@ -1325,6 +1335,7 @@ impl RecordingState {
                     if let Some(rollback_data) = &self.rollback_data {
                         // We have a previous source that we can roll back to.
                         supplier_chain.rollback_recording().unwrap();
+                        event_handler.normal_recording_finished(NormalRecordingOutcome::Cancelled);
                         let ready_state = ReadyState {
                             state: ReadySubState::Stopped,
                             persistent_data: rollback_data.persistent_data,
@@ -1353,10 +1364,11 @@ impl RecordingState {
         }
     }
 
-    fn process(
+    fn process<H: HandleStopEvent>(
         &mut self,
         args: &mut ClipProcessArgs,
         supplier_chain: &mut SupplierChain,
+        event_handler: &H,
     ) -> Option<ReadyState> {
         // Advance recording position (for MIDI mainly)
         {
@@ -1405,6 +1417,7 @@ impl RecordingState {
                         Some((start, end)),
                         supplier_chain,
                         &args.timeline,
+                        event_handler,
                     );
                     Some(ready_state)
                 } else {
@@ -1418,20 +1431,53 @@ impl RecordingState {
         }
     }
 
-    fn finish_recording(
+    fn finish_recording<H: HandleStopEvent>(
         self,
         looped: bool,
         start_and_end_pos: Option<(QuantizedPosition, QuantizedPosition)>,
         supplier_chain: &mut SupplierChain,
         timeline: &HybridTimeline,
+        event_handler: &H,
     ) -> ReadyState {
         let outcome = supplier_chain.commit_recording(timeline).unwrap();
         // Calculate section boundaries
         // Set section boundaries for perfect timing.
-        supplier_chain.set_section_bounds(outcome.section_start_frame, outcome.section_frame_count);
+        supplier_chain.set_section_bounds(
+            outcome.data.section_start_frame,
+            outcome.data.section_frame_count,
+        );
         // Set downbeat.
-        supplier_chain.set_downbeat_in_frames(outcome.normalized_downbeat_frame);
+        supplier_chain.set_downbeat_in_frames(outcome.data.normalized_downbeat_frame);
         // Change state
+        let persistent_data = PersistentPlayData {
+            // TODO-high-record Set start timing
+            start_timing: None,
+            // TODO-high-record Set stop timing
+            stop_timing: None,
+            looped,
+            // TODO-high-record Set time base
+            time_base: ClipTimeBase::Time,
+        };
+        // Send event
+        let committed_recording = CommittedRecording {
+            kind_specific: outcome.kind_specific,
+            time_base: persistent_data.time_base,
+            start_timing: persistent_data.start_timing,
+            stop_timing: persistent_data.stop_timing,
+            looped,
+            // TODO-high-record Set from here correctly
+            // TODO-high-record Load/save all those correctly in main thread
+            volume: api::Db::new(0.0).unwrap(),
+            section: api::Section {
+                start_pos: PositiveSecond::new(0.0).unwrap(),
+                length: None,
+            },
+            audio_settings: Default::default(),
+            midi_settings: Default::default(),
+        };
+        event_handler
+            .normal_recording_finished(NormalRecordingOutcome::Committed(committed_recording));
+        // Prepare ready state
         ReadyState {
             state: if looped {
                 ReadySubState::Playing(PlayingState {
@@ -1444,16 +1490,7 @@ impl RecordingState {
             } else {
                 ReadySubState::Stopped
             },
-            // TODO-high Transfer result to main thread: All data we need to build the API clip.
-            persistent_data: PersistentPlayData {
-                // TODO-high-record Set start timing
-                start_timing: None,
-                // TODO-high-record Set stop timing
-                stop_timing: None,
-                looped,
-                // TODO-high-record Set time base
-                time_base: ClipTimeBase::Time,
-            },
+            persistent_data,
         }
     }
 }
@@ -1732,7 +1769,27 @@ struct FillSamplesOutcome {
 }
 
 pub trait HandleStopEvent {
-    fn finished_midi_overdub(&self, mirror_source: OwnedPcmSource);
+    fn midi_overdub_finished(&self, mirror_source: OwnedPcmSource);
+    fn normal_recording_finished(&self, outcome: NormalRecordingOutcome);
+}
+
+#[derive(Clone, Debug)]
+pub enum NormalRecordingOutcome {
+    Committed(CommittedRecording),
+    Cancelled,
+}
+
+#[derive(Clone, Debug)]
+pub struct CommittedRecording {
+    pub kind_specific: KindSpecificRecordingOutcome,
+    pub time_base: api::ClipTimeBase,
+    pub start_timing: Option<api::ClipPlayStartTiming>,
+    pub stop_timing: Option<api::ClipPlayStopTiming>,
+    pub looped: bool,
+    pub volume: api::Db,
+    pub section: api::Section,
+    pub audio_settings: api::ClipAudioSettings,
+    pub midi_settings: api::ClipMidiSettings,
 }
 
 fn log_natural_deviation(

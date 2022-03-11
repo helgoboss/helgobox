@@ -149,7 +149,7 @@ impl RecordingState {
     ) -> (ClipEngineResult<RecordingOutcome>, State) {
         use KindSpecificRecordingState::*;
         use State::*;
-        let (outcome, next_state) = match self.kind_state {
+        match self.kind_state {
             Audio(ss) => {
                 let sss = match ss {
                     RecordingAudioState::Active(s) => s,
@@ -184,31 +184,53 @@ impl RecordingState {
                     file: sss.file_clone,
                     source_duration,
                 };
-                let outcome = self.phase.unwrap().commit(source_duration, timeline);
-                let recording_state = RecordingState {
-                    kind_state: Audio(RecordingAudioState::Finishing(finishing_state)),
-                    phase: {
-                        let new_phase = match outcome.clone() {
-                            Ok(outcome) => RecordingPhase::Committed(outcome),
-                            Err(e) => e.payload,
+                let next_kind_state = Audio(RecordingAudioState::Finishing(finishing_state));
+                match self.phase.unwrap().commit(source_duration, timeline) {
+                    Ok(complete_data) => {
+                        let recording_state = RecordingState {
+                            kind_state: next_kind_state,
+                            phase: Some(RecordingPhase::Committed(complete_data.clone())),
+                            ..self
                         };
-                        Some(new_phase)
-                    },
-                    ..self
-                };
-                (outcome, Recording(recording_state))
+                        let outcome = RecordingOutcome {
+                            data: complete_data,
+                            kind_specific: KindSpecificRecordingOutcome::Audio {
+                                path: sss.file_clone_2,
+                            },
+                        };
+                        (Ok(outcome), Recording(recording_state))
+                    }
+                    Err(e) => {
+                        let recording_state = RecordingState {
+                            kind_state: next_kind_state,
+                            phase: Some(e.payload),
+                            ..self
+                        };
+                        (Err(e.message), Recording(recording_state))
+                    }
+                }
             }
             Midi(ss) => {
                 let source_duration = ss.new_source.get_length().unwrap();
-                let outcome = self.phase.unwrap().commit(source_duration, timeline);
+                let outcome = match self.phase.unwrap().commit(source_duration, timeline) {
+                    Ok(complete_data) => {
+                        let outcome = RecordingOutcome {
+                            data: complete_data,
+                            kind_specific: KindSpecificRecordingOutcome::Midi {
+                                mirror_source: ss.mirror_source,
+                            },
+                        };
+                        Ok(outcome)
+                    }
+                    Err(e) => Err(e.message),
+                };
                 let ready_state = ReadyState {
                     source: ss.new_source,
                     midi_overdub_mirror_source: None,
                 };
                 (outcome, Ready(ready_state))
             }
-        };
-        (outcome.map_err(|e| e.message), next_state)
+        }
     }
 }
 
@@ -228,6 +250,7 @@ enum RecordingAudioState {
 struct RecordingAudioActiveState {
     file: PathBuf,
     file_clone: PathBuf,
+    file_clone_2: PathBuf,
     sink: OwnedPcmSink,
     temporary_audio_buffer: OwnedAudioBuffer,
     next_record_start_frame: usize,
@@ -258,19 +281,16 @@ impl RecordingAudioFinishingState {
 struct RecordingMidiState {
     new_source: OwnedPcmSource,
     mirror_source: OwnedPcmSource,
-    // TODO-high-record Use
-    _source_start_timeline_pos: PositionInSeconds,
 }
 
 impl KindSpecificRecordingState {
-    fn new(equipment: RecordingEquipment, trigger_timeline_pos: PositionInSeconds) -> Self {
+    fn new(equipment: RecordingEquipment) -> Self {
         use RecordingEquipment::*;
         match equipment {
             Midi(equipment) => {
                 let recording_midi_state = RecordingMidiState {
                     new_source: equipment.empty_midi_source,
                     mirror_source: equipment.empty_midi_source_mirror,
-                    _source_start_timeline_pos: trigger_timeline_pos,
                 };
                 Self::Midi(recording_midi_state)
             }
@@ -278,6 +298,7 @@ impl KindSpecificRecordingState {
                 let active_state = RecordingAudioActiveState {
                     file: equipment.file,
                     file_clone: equipment.file_clone,
+                    file_clone_2: equipment.file_clone_2,
                     sink: equipment.pcm_sink,
                     temporary_audio_buffer: equipment.temporary_audio_buffer,
                     next_record_start_frame: 0,
@@ -342,7 +363,7 @@ impl Recorder {
             recording_equipment.is_midi(),
             trigger_timeline_pos,
         );
-        let kind_state = KindSpecificRecordingState::new(recording_equipment, trigger_timeline_pos);
+        let kind_state = KindSpecificRecordingState::new(recording_equipment);
         let recording_state = RecordingState {
             kind_state,
             old_source: None,
@@ -436,7 +457,7 @@ impl Recorder {
         let initial_phase =
             RecordingPhase::initial_phase(timing, tempo, equipment.is_midi(), trigger_timeline_pos);
         let recording_state = RecordingState {
-            kind_state: KindSpecificRecordingState::new(equipment, trigger_timeline_pos),
+            kind_state: KindSpecificRecordingState::new(equipment),
             old_source,
             project,
             detect_downbeat,
@@ -724,6 +745,7 @@ pub struct AudioRecordingEquipment {
     temporary_audio_buffer: OwnedAudioBuffer,
     file: PathBuf,
     file_clone: PathBuf,
+    file_clone_2: PathBuf,
 }
 
 impl AudioRecordingEquipment {
@@ -734,7 +756,8 @@ impl AudioRecordingEquipment {
             // TODO-high Choose size wisely and explain
             temporary_audio_buffer: OwnedAudioBuffer::new(channel_count, 48000 * 10),
             file: sink_outcome.file.clone(),
-            file_clone: sink_outcome.file,
+            file_clone: sink_outcome.file.clone(),
+            file_clone_2: sink_outcome.file,
         }
     }
 }
@@ -867,7 +890,7 @@ enum RecordingPhase {
     /// Section frame count is clear.
     EndScheduled(EndScheduledPhase),
     /// Source duration is clear.
-    Committed(RecordingOutcome),
+    Committed(CompleteRecordingData),
 }
 
 impl RecordingPhase {
@@ -926,7 +949,7 @@ impl RecordingPhase {
         self,
         source_duration: DurationInSeconds,
         timeline: &HybridTimeline,
-    ) -> Result<RecordingOutcome, ErrorWithPayload<Self>> {
+    ) -> Result<CompleteRecordingData, ErrorWithPayload<Self>> {
         use RecordingPhase::*;
         match self {
             Empty(p) => Err(ErrorWithPayload::new(
@@ -935,7 +958,7 @@ impl RecordingPhase {
             )),
             OpenEnd(p) => Ok(p.commit(source_duration, timeline)),
             EndScheduled(p) => Ok(p.commit(source_duration)),
-            Committed(outcome) => Ok(outcome),
+            Committed(complete_data) => Ok(complete_data),
         }
     }
 }
@@ -1000,11 +1023,11 @@ impl OpenEndPhase {
         self,
         source_duration: DurationInSeconds,
         timeline: &dyn Timeline,
-    ) -> RecordingOutcome {
+    ) -> CompleteRecordingData {
         let snapshot = self.snapshot(timeline);
         // TODO-high-record Deal with immediate recording stop
         let fake_duration = DurationInSeconds::ZERO;
-        RecordingOutcome {
+        CompleteRecordingData {
             frame_rate: self.frame_rate,
             tempo: self.prev_phase.tempo,
             is_midi: self.prev_phase.is_midi,
@@ -1137,8 +1160,8 @@ struct EndScheduledPhase {
 }
 
 impl EndScheduledPhase {
-    pub fn commit(self, source_duration: DurationInSeconds) -> RecordingOutcome {
-        RecordingOutcome {
+    pub fn commit(self, source_duration: DurationInSeconds) -> CompleteRecordingData {
+        CompleteRecordingData {
             frame_rate: self.prev_phase.frame_rate,
             tempo: self.prev_phase.prev_phase.tempo,
             is_midi: self.prev_phase.prev_phase.is_midi,
@@ -1155,6 +1178,18 @@ impl EndScheduledPhase {
 
 #[derive(Clone, Debug)]
 pub struct RecordingOutcome {
+    pub data: CompleteRecordingData,
+    pub kind_specific: KindSpecificRecordingOutcome,
+}
+
+#[derive(Clone, Debug)]
+pub enum KindSpecificRecordingOutcome {
+    Midi { mirror_source: OwnedPcmSource },
+    Audio { path: PathBuf },
+}
+
+#[derive(Clone, Debug)]
+pub struct CompleteRecordingData {
     pub frame_rate: Hz,
     pub tempo: Bpm,
     pub is_midi: bool,

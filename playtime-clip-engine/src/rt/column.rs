@@ -2,8 +2,8 @@ use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     AudioBufMut, BasicAudioRequestProps, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
-    ClipStopArgs, HandleStopEvent, OwnedAudioBuffer, Slot, SlotProcessTransportChangeArgs,
-    SlotRecordInstruction,
+    ClipStopArgs, HandleStopEvent, NormalRecordingOutcome, OwnedAudioBuffer, Slot,
+    SlotProcessTransportChangeArgs, SlotRecordInstruction,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -170,6 +170,8 @@ trait EventSender {
 
     fn midi_overdub_finished(&self, slot_index: usize, mirror_source: OwnedPcmSource);
 
+    fn normal_recording_finished(&self, slot_index: usize, outcome: NormalRecordingOutcome);
+
     fn dispose(&self, garbage: ColumnGarbage);
 
     fn send_event(&self, event: ColumnEvent);
@@ -210,6 +212,14 @@ impl EventSender for Sender<ColumnEvent> {
         let event = ColumnEvent::MidiOverdubFinished {
             slot_index,
             mirror_source,
+        };
+        self.send_event(event);
+    }
+
+    fn normal_recording_finished(&self, slot_index: usize, outcome: NormalRecordingOutcome) {
+        let event = ColumnEvent::NormalRecordingFinished {
+            slot_index,
+            outcome,
         };
         self.send_event(event);
     }
@@ -559,7 +569,8 @@ impl Column {
                     timeline_tempo,
                     resync,
                 };
-                if let Ok(outcome) = slot.process(&mut inner_args) {
+                let event_handler = ClipEventHandler::new(&self.event_sender, row);
+                if let Ok(outcome) = slot.process(&mut inner_args, &event_handler) {
                     if outcome.num_audio_frames_written > 0 {
                         output_buffer
                             .slice_mut(0..outcome.num_audio_frames_written)
@@ -800,6 +811,10 @@ pub enum ColumnEvent {
         slot_index: usize,
         mirror_source: OwnedPcmSource,
     },
+    NormalRecordingFinished {
+        slot_index: usize,
+        outcome: NormalRecordingOutcome,
+    },
     Dispose(ColumnGarbage),
 }
 
@@ -823,8 +838,13 @@ impl<'a> ClipEventHandler<'a> {
 }
 
 impl<'a> HandleStopEvent for ClipEventHandler<'a> {
-    fn finished_midi_overdub(&self, mirror_source: OwnedPcmSource) {
+    fn midi_overdub_finished(&self, mirror_source: OwnedPcmSource) {
         self.event_sender
             .midi_overdub_finished(self.slot_index, mirror_source);
+    }
+
+    fn normal_recording_finished(&self, outcome: NormalRecordingOutcome) {
+        self.event_sender
+            .normal_recording_finished(self.slot_index, outcome);
     }
 }

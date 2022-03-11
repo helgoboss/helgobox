@@ -2,18 +2,22 @@ use crate::conversion_util::{
     adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
 };
 use crate::main::{
-    create_pcm_source_from_api_source, source_util, ColumnSettings, CreateApiSourceMode,
-    MatrixSettings,
+    create_file_api_source, create_pcm_source_from_api_source, source_util, ColumnSettings,
+    CreateApiSourceMode, MatrixSettings,
 };
-use crate::rt::supplier::{ChainEquipment, MaterialInfo, RecorderRequest};
-use crate::rt::{calc_tempo_factor, determine_tempo_from_time_base, ClipPlayState, SharedPos};
+use crate::rt::supplier::{
+    ChainEquipment, KindSpecificRecordingOutcome, MaterialInfo, RecorderRequest,
+};
+use crate::rt::{
+    calc_tempo_factor, determine_tempo_from_time_base, ClipPlayState, CommittedRecording, SharedPos,
+};
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
-use playtime_api::{AudioCacheBehavior, AudioTimeStretchMode, Db, VirtualResampleMode};
+use playtime_api::{AudioCacheBehavior, AudioTimeStretchMode, Db, FileSource, VirtualResampleMode};
 use reaper_high::{OwnedSource, Project};
-use reaper_medium::{Bpm, OwnedPcmSource, PositionInSeconds};
+use reaper_medium::{BorrowedPcmSource, Bpm, OwnedPcmSource, PositionInSeconds};
 
 #[derive(Clone, Debug)]
 pub struct Clip {
@@ -21,6 +25,8 @@ pub struct Clip {
     // unnecessary data inside.
     persistent_data: api::Clip,
     runtime_data: Option<ClipRuntimeData>,
+    /// `true` for the short moment while recording was requested (using the chain of an existing
+    /// clip) but has not yet been acknowledged from a real-time thread.
     recording_requested: bool,
 }
 
@@ -45,12 +51,42 @@ impl ClipRuntimeData {
 }
 
 impl Clip {
-    pub fn load(api_clip: api::Clip) -> Clip {
-        Clip {
+    pub fn load(api_clip: api::Clip) -> Self {
+        Self {
             persistent_data: api_clip,
             runtime_data: None,
             recording_requested: false,
         }
+    }
+
+    pub fn from_recording(
+        recording: CommittedRecording,
+        temporary_project: Option<Project>,
+    ) -> ClipEngineResult<Self> {
+        use KindSpecificRecordingOutcome::*;
+        let api_source = match recording.kind_specific {
+            Midi { mirror_source } => {
+                create_api_source_from_mirror_source(mirror_source, temporary_project)?
+            }
+            Audio { path } => create_file_api_source(temporary_project, &path),
+        };
+        let clip = Self {
+            persistent_data: api::Clip {
+                source: api_source,
+                time_base: recording.time_base,
+                start_timing: recording.start_timing,
+                stop_timing: recording.stop_timing,
+                looped: recording.looped,
+                volume: recording.volume,
+                color: api::ClipColor::PlayTrackColor,
+                section: recording.section,
+                audio_settings: recording.audio_settings,
+                midi_settings: recording.midi_settings,
+            },
+            runtime_data: None,
+            recording_requested: false,
+        };
+        Ok(clip)
     }
 
     pub fn save(&self) -> api::Clip {
@@ -77,12 +113,7 @@ impl Clip {
         mirror_source: OwnedPcmSource,
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<()> {
-        let api_source = source_util::create_api_source_from_pcm_source(
-            &OwnedSource::new(mirror_source),
-            CreateApiSourceMode::AllowEmbeddedData,
-            temporary_project,
-        )
-        .map_err(|_| "failed creating API source from mirror source")?;
+        let api_source = create_api_source_from_mirror_source(mirror_source, temporary_project)?;
         self.persistent_data.source = api_source;
         Ok(())
     }
@@ -296,3 +327,15 @@ fn get_runtime_data_mut(
 }
 
 const CLIP_RUNTIME_DATA_UNAVAILABLE: &str = "clip runtime data unavailable";
+
+fn create_api_source_from_mirror_source(
+    mirror_source: OwnedPcmSource,
+    temporary_project: Option<Project>,
+) -> ClipEngineResult<api::Source> {
+    let api_source = source_util::create_api_source_from_pcm_source(
+        &OwnedSource::new(mirror_source),
+        CreateApiSourceMode::AllowEmbeddedData,
+        temporary_project,
+    );
+    api_source.map_err(|_| "failed creating API source from mirror source")
+}

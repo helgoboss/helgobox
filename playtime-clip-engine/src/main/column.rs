@@ -273,6 +273,15 @@ impl Column {
                         .unwrap();
                     None
                 }
+                ColumnEvent::NormalRecordingFinished {
+                    slot_index,
+                    outcome,
+                } => {
+                    let slot = get_slot_mut_insert(&mut self.slots, slot_index);
+                    slot.notify_normal_recording_finished(outcome, self.project)
+                        .unwrap();
+                    None
+                }
             };
             if let Some(evt) = change_event {
                 change_events.push(evt);
