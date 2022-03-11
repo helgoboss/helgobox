@@ -249,8 +249,13 @@ impl Clip {
         Ok(clip)
     }
 
-    pub fn recording(args: ClipRecordArgs) -> ClipEngineResult<Self> {
-        let timeline = clip_timeline(args.project, false);
+    pub fn recording(
+        args: ClipRecordArgs,
+        chain_equipment: ChainEquipment,
+        recorder_request_sender: Sender<RecorderRequest>,
+        project: Option<Project>,
+    ) -> ClipEngineResult<Self> {
+        let timeline = clip_timeline(project, false);
         let trigger_timeline_pos = timeline.cursor_pos();
         let tempo = timeline.tempo_at(trigger_timeline_pos);
         let timing = RecordTiming::from_args(&args, &timeline, trigger_timeline_pos);
@@ -262,17 +267,17 @@ impl Clip {
         };
         let recorder = Recorder::recording(
             args.recording_equipment,
-            args.project,
+            project,
             trigger_timeline_pos,
             tempo,
-            args.recorder_request_sender,
+            recorder_request_sender,
             args.detect_downbeat,
             timing,
         );
         let clip = Self {
-            supplier_chain: SupplierChain::new(recorder, args.chain_equipment)?,
+            supplier_chain: SupplierChain::new(recorder, chain_equipment)?,
             state: ClipState::Recording(recording_state),
-            project: args.project,
+            project,
             shared_pos: Default::default(),
         };
         Ok(clip)
@@ -309,10 +314,11 @@ impl Clip {
         use ClipState::*;
         match &mut self.state {
             Ready(s) => {
-                let outcome = s.stop(args, &mut self.supplier_chain, event_handler);
+                s.stop(args, &mut self.supplier_chain, event_handler);
                 StopSlotInstruction::KeepSlot
             }
             Recording(s) => {
+                // TODO-high Transfer result to main thread: All data we need to build the API clip.
                 use ClipRecordingStopOutcome::*;
                 match s.stop(args, &mut self.supplier_chain) {
                     KeepState => StopSlotInstruction::KeepSlot,
@@ -1778,9 +1784,6 @@ pub struct ClipRecordArgs {
     pub length: RecordLength,
     pub looped: bool,
     pub detect_downbeat: bool,
-    pub chain_equipment: ChainEquipment,
-    pub recorder_request_sender: Sender<RecorderRequest>,
-    pub project: Option<Project>,
 }
 
 #[derive(PartialEq, Debug)]

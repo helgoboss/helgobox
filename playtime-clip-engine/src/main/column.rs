@@ -434,14 +434,17 @@ impl Column {
                 } else {
                     matrix_settings.audio_settings.detect_downbeat
                 },
-                chain_equipment: chain_equipment.clone(),
-                recorder_request_sender: recorder_request_sender.clone(),
-                project: self.project,
             };
             if has_existing_clip {
                 SlotRecordInstruction::ExistingClip(args)
             } else {
-                SlotRecordInstruction::NewClip(rt::Clip::recording(args)?)
+                let recording_clip = rt::Clip::recording(
+                    args,
+                    chain_equipment.clone(),
+                    recorder_request_sender.clone(),
+                    self.project,
+                )?;
+                SlotRecordInstruction::NewClip(recording_clip)
             }
         };
         // Above code was only for checking preconditions and preparing stuff.
@@ -537,13 +540,6 @@ fn get_clip_mut_insert_slot(
     get_slot_mut_insert(slots, slot_index)
         .clip_mut()
         .ok_or(SLOT_NOT_FILLED)
-}
-
-fn get_slot_insert(slots: &mut Vec<Slot>, slot_index: usize) -> &Slot {
-    if slot_index >= slots.len() {
-        slots.resize_with(slot_index + 1, Default::default);
-    }
-    slots.get_mut(slot_index).unwrap()
 }
 
 fn get_slot_mut_insert(slots: &mut Vec<Slot>, slot_index: usize) -> &mut Slot {

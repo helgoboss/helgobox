@@ -78,6 +78,7 @@ impl<S: WithSource> Cache<S> {
         &mut self.supplier
     }
 
+    // TODO-high Don't forget to disable the cache / rebuild it after recording new audio material.
     pub fn set_audio_cache_behavior(&mut self, cache_behavior: AudioCacheBehavior) {
         use AudioCacheBehavior::*;
         let cache_enabled = match cache_behavior {
@@ -96,7 +97,7 @@ impl<S: WithSource> Cache<S> {
     ///
     /// Don't call in real-time thread. If this is necessary one day, no problem: Clone the source
     /// in advance.
-    pub fn enable(&mut self) {
+    fn enable(&mut self) {
         if self.cached_data.is_some() {
             return;
         }
@@ -117,7 +118,7 @@ impl<S: WithSource> Cache<S> {
     }
 
     /// Disables the cache and clears it, releasing the consumed memory.
-    pub fn disable(&mut self) {
+    fn disable(&mut self) {
         if let Some(cached_data) = self.cached_data.take() {
             let request = CacheRequest::DiscardCachedData(cached_data);
             self.request_sender.try_send(request).unwrap();

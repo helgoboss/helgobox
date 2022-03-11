@@ -273,10 +273,6 @@ impl KindSpecificRecordingState {
             }
         }
     }
-
-    pub fn is_midi(&self) -> bool {
-        matches!(self, Self::Midi(_))
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -874,7 +870,7 @@ impl RecordingPhase {
         };
         if is_midi {
             // MIDI starts in phase two because source start position and frame rate are clear
-            // right from he start.
+            // right from the start.
             empty.advance(trigger_timeline_pos, MIDI_FRAME_RATE)
         } else {
             RecordingPhase::Empty(empty)
@@ -1171,7 +1167,7 @@ impl WithSource for Recorder {
     fn source(&self) -> Option<&OwnedPcmSource> {
         match self.state.as_ref().unwrap() {
             State::Ready(s) => Some(&s.source),
-            State::Recording(s) => None,
+            State::Recording(_) => None,
         }
     }
 }
