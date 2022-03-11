@@ -1,7 +1,7 @@
 use crate::conversion_util::{
     adjust_proportionally_positive, convert_duration_in_frames_to_other_frame_rate,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
+    convert_position_in_seconds_to_frames,
 };
 use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
@@ -10,7 +10,7 @@ use crate::rt::supplier::{
     PreBufferSourceSkill, RecordTiming, Recorder, RecorderRequest, RecordingEquipment,
     SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
     SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest,
-    WriteMidiRequest, MIDI_BASE_BPM,
+    WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::{ClipEngineResult, ErrorWithPayload, QuantizedPosition};
@@ -177,8 +177,7 @@ enum StateAfterSuspension {
 
 #[derive(Copy, Clone, Debug)]
 struct RecordingState {
-    /// Timeline position at which recording was triggered.
-    pub trigger_timeline_pos: PositionInSeconds,
+    pub pos: MaterialPos,
     /// Implies play-after-record.
     pub looped: bool,
     pub timing: RecordTiming,
@@ -256,11 +255,13 @@ impl Clip {
         project: Option<Project>,
     ) -> ClipEngineResult<Self> {
         let timeline = clip_timeline(project, false);
-        let trigger_timeline_pos = timeline.cursor_pos();
-        let tempo = timeline.tempo_at(trigger_timeline_pos);
-        let timing = RecordTiming::from_args(&args, &timeline, trigger_timeline_pos);
+        let timeline_cursor_pos = timeline.cursor_pos();
+        let tempo = timeline.tempo_at(timeline_cursor_pos);
+        let timing = RecordTiming::from_args(&args, &timeline, timeline_cursor_pos);
+        // TODO-high CONTINUE Don't resolve here already because this is called in main thread!
+        let initial_pos = resolve_initial_recording_pos(timing, &timeline, timeline_cursor_pos);
         let recording_state = RecordingState {
-            trigger_timeline_pos,
+            pos: initial_pos,
             looped: args.looped,
             timing,
             rollback_data: None,
@@ -268,7 +269,7 @@ impl Clip {
         let recorder = Recorder::recording(
             args.recording_equipment,
             project,
-            trigger_timeline_pos,
+            timeline_cursor_pos,
             tempo,
             recorder_request_sender,
             args.detect_downbeat,
@@ -394,31 +395,29 @@ impl Clip {
 
     pub fn write_midi(&mut self, request: WriteMidiRequest) {
         use ClipState::*;
-        let record_pos = match &self.state {
-            Ready(s) => {
-                use ReadySubState::*;
-                if let Playing(PlayingState {
-                    overdubbing: true, ..
-                }) = s.state
-                {
-                    s.position_in_seconds_in_source_tempo(&self.supplier_chain)
-                        .unwrap_or_default()
-                } else {
-                    return;
+        let source_frame = match &self.state {
+            Ready(s) => match s.state {
+                ReadySubState::Playing(PlayingState {
+                    overdubbing: true,
+                    pos: Some(pos),
+                    ..
+                }) => {
+                    let material_info = match self.supplier_chain.material_info() {
+                        Ok(i) => i,
+                        Err(_) => return,
+                    };
+                    modulo_frame(pos, material_info.frame_count())
                 }
-            }
-            // TODO-high-record Depending on the trigger timeline pos is not good with tempo changes.
-            Recording(s) => {
-                let timeline = clip_timeline(self.project, false);
-                let timeline_cursor_pos = timeline.cursor_pos();
-                timeline_cursor_pos - s.trigger_timeline_pos
-            }
+                _ => return,
+            },
+            Recording(s) => s.pos,
         };
-        if record_pos < PositionInSeconds::ZERO {
+        if source_frame < 0 {
             return;
         }
-        self.supplier_chain
-            .write_midi(request, DurationInSeconds::new(record_pos.get()));
+        let source_seconds =
+            convert_duration_in_frames_to_seconds(source_frame as usize, MIDI_FRAME_RATE);
+        self.supplier_chain.write_midi(request, source_seconds);
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
@@ -474,47 +473,9 @@ impl Clip {
 }
 
 impl ReadyState {
-    pub fn position_in_seconds_in_source_tempo(
-        &self,
-        supplier_chain: &SupplierChain,
-    ) -> ClipEngineResult<PositionInSeconds> {
-        let material_info = supplier_chain.material_info()?;
-        let source_pos_in_source_frames = self.frame_within_reaper_source(&material_info);
-        let source_pos_in_seconds = convert_position_in_frames_to_seconds(
-            source_pos_in_source_frames,
-            material_info.frame_rate(),
-        );
-        Ok(source_pos_in_seconds)
-    }
-
     /// Returns `None` if time base is not "Beat".
     fn tempo(&self, is_midi: bool) -> Option<Bpm> {
         determine_tempo_from_time_base(&self.persistent_data.time_base, is_midi)
-    }
-
-    /// This returns a frame position modulo frame count.
-    fn frame_within_reaper_source(&self, material_info: &MaterialInfo) -> isize {
-        use ReadySubState::*;
-        let absolute_frame = match self.state {
-            Playing(PlayingState {
-                seek_pos: Some(pos),
-                ..
-            }) => pos as isize,
-            Playing(PlayingState { pos: Some(pos), .. })
-            | Suspending(SuspendingState { pos, .. }) => pos,
-            // Pause position is modulo already.
-            Paused(s) => s.pos as isize,
-            _ => return 0,
-        };
-        self.modulo_frame(absolute_frame, material_info)
-    }
-
-    fn modulo_frame(&self, frame: isize, material_info: &MaterialInfo) -> isize {
-        if frame < 0 {
-            frame
-        } else {
-            frame % material_info.frame_count() as isize
-        }
     }
 
     pub fn set_looped(&mut self, looped: bool, supplier_chain: &mut SupplierChain) {
@@ -794,12 +755,13 @@ impl ReadyState {
                 // Normal situation: Continue playing
                 // Check if the resolve step would still arrive at the same result as our
                 // frame-advancing counter.
-                let compare_pos = self.resolve_virtual_pos(
+                let compare_pos = resolve_virtual_pos(
                     s.virtual_pos,
                     args,
                     general_info.clip_tempo_factor,
                     false,
                     &material_info,
+                    None,
                 );
                 if material_info.is_midi() && compare_pos != pos {
                     // This happened a lot when the MIDI_FRAME_RATE wasn't a multiple of the sample
@@ -826,16 +788,17 @@ impl ReadyState {
             if !supplier_chain.stop_interaction_is_installed_already() {
                 // We have a quantized stop request. Calculate distance from quantized position.
                 // This should be a negative position because we should be left of the stop.
-                let distance_from_quantized_stop_pos = self.calc_distance_from_quantized_pos(
-                    quantized_pos,
+                let distance_from_quantized_stop_pos = resolve_virtual_pos(
+                    VirtualPosition::Quantized(quantized_pos),
                     args,
                     general_info.clip_tempo_factor,
-                    true,
+                    false,
                     &material_info,
+                    None,
                 );
                 // Derive stop position within material.
                 let stop_pos = go.pos - distance_from_quantized_stop_pos;
-                let mod_stop_pos = self.modulo_frame(stop_pos, &material_info);
+                let mod_stop_pos = modulo_frame(stop_pos, material_info.frame_count());
                 debug!(
                     "Calculated stop position {} (mod_stop_pos = {}, go pos = {}, distance = {}, quantized pos = {:?}, tempo factor = {:?})",
                     stop_pos, mod_stop_pos, go.pos, distance_from_quantized_stop_pos, quantized_pos, general_info.clip_tempo_factor
@@ -886,12 +849,14 @@ impl ReadyState {
         clip_tempo_factor: f64,
         material_info: &MaterialInfo,
     ) -> Go {
-        let pos = self.resolve_virtual_pos(
+        let tempo = self.tempo(material_info.is_midi());
+        let pos = resolve_virtual_pos(
             playing_state.virtual_pos,
             args,
             clip_tempo_factor,
             true,
             material_info,
+            tempo,
         );
         if supplier_chain.is_playing_already(pos) {
             debug!("Install immediate start interaction because material playing already");
@@ -956,27 +921,6 @@ impl ReadyState {
                 sample_rate_factor,
                 new_seek_pos,
             }
-        }
-    }
-
-    fn resolve_virtual_pos(
-        &self,
-        virtual_pos: VirtualPosition,
-        process_args: &ClipProcessArgs,
-        clip_tempo_factor: f64,
-        log_natural_deviation: bool,
-        material_info: &MaterialInfo,
-    ) -> isize {
-        use VirtualPosition::*;
-        match virtual_pos {
-            Now => 0,
-            Quantized(qp) => self.calc_distance_from_quantized_pos(
-                qp,
-                process_args,
-                clip_tempo_factor,
-                log_natural_deviation,
-                material_info,
-            ),
         }
     }
 
@@ -1087,106 +1031,6 @@ impl ReadyState {
         }
     }
 
-    /// So, this is how we do play scheduling. Whenever the preview register
-    /// calls get_samples() and we are in a fresh ScheduledOrPlaying state, the
-    /// relative number of count-in frames will be determined. Based on the given
-    /// absolute bar for which the clip is scheduled.
-    ///
-    /// 1. We use a *relative* count-in (instead of just
-    /// using the absolute scheduled-play position and check if we reached it)
-    /// in order to respect arbitrary tempo changes during the count-in phase and
-    /// still end up starting on the correct point in time. Okay, we could reach
-    /// the same goal also by regularly checking whether we finally reached the
-    /// start of the bar. But first, we need the relative count-in anyway for pickup beats,
-    /// which start to play during count-in time. And second, just counting is cheaper
-    /// than repeatedly doing time/beat mapping.
-    ///
-    /// 2. We resolve the count-in length here, not at the time the play is requested.
-    /// Reason: Here we have block information such as block length and frame rate available.
-    /// That's not an urgent reason ... we could always cache this information and thus make it
-    /// available in the play request itself. Or we make sure that play/stop is always triggered
-    /// via receiving in get_samples()! That's good! TODO-medium Implement it.
-    /// In the past there were more urgent reasons but they are gone. I'll document them here
-    /// because they might remove doubt in case of possible future refactorings:
-    ///
-    /// 2a) The play request didn't happen in a real-time thread but in the main thread.
-    /// At that time it was important to resolve in get_samples() because the start time of the
-    /// next bar at play-request time was not necessarily the same as the one in the get_samples()
-    /// call, which would lead to wrong results. However, today, play requests always happen in
-    /// the real-time thread (a change introduced in favor of a lock-free design).
-    ///
-    /// 2b) I still thought that it would be better to do it here in case "Live FX multiprocessing"
-    /// is enabled. If this is enabled, it means get_samples() will in most situations be called in
-    /// a different real-time thread (some REAPER worker thread) than the play-request code
-    /// (audio interface thread). I worried that GetPlayPosition2Ex() in the worker thread would
-    /// return a different position as the audio interface thread would do. However, Justin
-    /// assured that the worker threads are designed to be synchronous with the audio interface
-    /// thread and they return the same values. So this is not a reason anymore.
-    fn calc_distance_from_quantized_pos(
-        &self,
-        quantized_pos: QuantizedPosition,
-        args: &ClipProcessArgs,
-        clip_tempo_factor: f64,
-        log_natural_deviation: bool,
-        material_info: &MaterialInfo,
-    ) -> isize {
-        // Basics
-        let block_length_in_timeline_frames = args.dest_buffer.frame_count();
-        let source_frame_rate = material_info.frame_rate();
-        let timeline_frame_rate = args.dest_sample_rate;
-        // Essential calculation
-        let quantized_timeline_pos = args.timeline.pos_of_quantized_pos(quantized_pos);
-        let rel_pos_from_quant_in_secs = args.timeline_cursor_pos - quantized_timeline_pos;
-        let rel_pos_from_quant_in_source_frames =
-            convert_position_in_seconds_to_frames(rel_pos_from_quant_in_secs, source_frame_rate);
-        if log_natural_deviation && quantized_pos.denominator() == 1 {
-            // Quantization to bar
-            if let Some(clip_tempo) = self.tempo(material_info.is_midi()) {
-                // Plus, we react to tempo changes.
-                let args = LogNaturalDeviationArgs {
-                    start_bar: quantized_pos.position() as _,
-                    block_length: args.dest_buffer.frame_count(),
-                    timeline: &args.timeline,
-                    timeline_cursor_pos: args.timeline_cursor_pos,
-                    clip_tempo_factor,
-                    timeline_frame_rate,
-                    start_bar_timeline_pos: quantized_timeline_pos,
-                    clip_tempo,
-                };
-                self.log_natural_deviation(args, material_info);
-            }
-        }
-        //region Description
-        // Now we have a countdown/position in source frames, but it doesn't yet
-        // take the tempo adjustment of the source into account.
-        // Once we have initialized the countdown with the first value, each
-        // get_samples() call - including this one - will advance it by a frame
-        // count that ideally = block length in source frames * tempo factor.
-        // We use this countdown approach for two reasons.
-        //
-        // 1. In order to allow tempo changes during count-in time.
-        // 2. If the downbeat is > 0, the count-in phase plays source material already.
-        //
-        // Especially (2) means that the count-in phase will not always have that
-        // ideal length which makes the source frame ZERO be perfectly aligned with
-        // the ZERO of the timeline bar. I think this is unavoidable when dealing
-        // with material that needs sample-rate conversion and/or time
-        // stretching. So if one of this is involved, this is just an estimation.
-        // However, in real-world scenarios this usually results in slight start
-        // deviations around 0-5ms, so it still makes sense musically.
-        //endregion
-        let block_length_in_source_frames = convert_duration_in_frames_to_other_frame_rate(
-            block_length_in_timeline_frames,
-            timeline_frame_rate,
-            source_frame_rate,
-        );
-        adjust_proportionally_in_blocks(
-            rel_pos_from_quant_in_source_frames,
-            clip_tempo_factor,
-            block_length_in_source_frames,
-        )
-    }
-
     fn process_suspending(
         &mut self,
         s: SuspendingState,
@@ -1253,124 +1097,6 @@ impl ReadyState {
         supplier_chain.reset_for_play(self.persistent_data.looped);
     }
 
-    fn log_natural_deviation(
-        &self,
-        args: LogNaturalDeviationArgs<impl Timeline>,
-        material_info: &MaterialInfo,
-    ) {
-        // Assuming a constant tempo and time signature during one cycle
-        let clip_duration = material_info.duration();
-        let source_frame_rate = material_info.frame_rate();
-        let beat_count = calculate_beat_count(args.clip_tempo, clip_duration);
-        let bar_count = (beat_count as f64 / 4.0).ceil() as u32;
-        let end_bar = args.start_bar + bar_count as i32;
-        let end_bar_timeline_pos = args.timeline.pos_of_bar(end_bar);
-        debug_assert!(
-            end_bar_timeline_pos > args.start_bar_timeline_pos,
-            "end_bar_timeline_pos {} <= start_bar_timeline_pos {}",
-            end_bar_timeline_pos,
-            args.start_bar_timeline_pos
-        );
-        // Timeline cycle length
-        let timeline_cycle_length_in_secs =
-            (end_bar_timeline_pos - args.start_bar_timeline_pos).abs();
-        let timeline_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
-            timeline_cycle_length_in_secs,
-            args.timeline_frame_rate,
-        );
-        let timeline_cycle_length_in_source_frames =
-            convert_duration_in_seconds_to_frames(timeline_cycle_length_in_secs, source_frame_rate);
-        // Source cycle length
-        let source_cycle_length_in_secs = clip_duration;
-        let source_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
-            source_cycle_length_in_secs,
-            args.timeline_frame_rate,
-        );
-        let source_cycle_length_in_source_frames = material_info.frame_count();
-        // Block length
-        let block_length_in_timeline_frames = args.block_length;
-        let block_length_in_secs = convert_duration_in_frames_to_seconds(
-            block_length_in_timeline_frames,
-            args.timeline_frame_rate,
-        );
-        let block_length_in_source_frames = convert_duration_in_frames_to_other_frame_rate(
-            block_length_in_timeline_frames,
-            args.timeline_frame_rate,
-            source_frame_rate,
-        );
-        // Block count and remainder
-        let num_full_blocks = source_cycle_length_in_source_frames / block_length_in_source_frames;
-        let remainder_in_source_frames =
-            source_cycle_length_in_source_frames % block_length_in_source_frames;
-        // Tempo-adjusted
-        let adjusted_block_length_in_source_frames = adjust_proportionally_positive(
-            block_length_in_source_frames as f64,
-            args.clip_tempo_factor,
-        );
-        let adjusted_block_length_in_timeline_frames =
-            convert_duration_in_frames_to_other_frame_rate(
-                adjusted_block_length_in_source_frames,
-                source_frame_rate,
-                args.timeline_frame_rate,
-            );
-        let adjusted_block_length_in_secs = convert_duration_in_frames_to_seconds(
-            adjusted_block_length_in_source_frames,
-            source_frame_rate,
-        );
-        let adjusted_remainder_in_source_frames = adjust_proportionally_positive(
-            remainder_in_source_frames as f64,
-            args.clip_tempo_factor,
-        );
-        // Source cycle remainder
-        let adjusted_remainder_in_timeline_frames = convert_duration_in_frames_to_other_frame_rate(
-            adjusted_remainder_in_source_frames,
-            source_frame_rate,
-            args.timeline_frame_rate,
-        );
-        let adjusted_remainder_in_secs = convert_duration_in_frames_to_seconds(
-            adjusted_remainder_in_source_frames,
-            source_frame_rate,
-        );
-        let block_index = (args.timeline_cursor_pos.get() / block_length_in_secs.get()) as isize;
-        debug!(
-            "\n\
-            # Natural deviation report\n\
-            Block index: {},\n\
-            Tempo factor: {:.3}\n\
-            Bars: {} ({} - {})\n\
-            Start bar position: {:.3}s\n\
-            Source cycle length: {:.3}ms (= {} timeline frames = {} source frames)\n\
-            Timeline cycle length: {:.3}ms (= {} timeline frames = {} source frames)\n\
-            Block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
-            Tempo-adjusted block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
-            Number of full blocks: {}\n\
-            Tempo-adjusted remainder per cycle: {:.3}ms (= {} timeline frames = {} source frames)\n\
-            ",
-            block_index,
-            args.clip_tempo_factor,
-            bar_count,
-            args.start_bar,
-            end_bar,
-            args.start_bar_timeline_pos.get(),
-            source_cycle_length_in_secs.get() * 1000.0,
-            source_cycle_length_in_timeline_frames,
-            source_cycle_length_in_source_frames,
-            timeline_cycle_length_in_secs.get() * 1000.0,
-            timeline_cycle_length_in_timeline_frames,
-            timeline_cycle_length_in_source_frames,
-            block_length_in_secs.get() * 1000.0,
-            block_length_in_timeline_frames,
-            block_length_in_source_frames,
-            adjusted_block_length_in_secs.get() * 1000.0,
-            adjusted_block_length_in_timeline_frames,
-            adjusted_block_length_in_source_frames,
-            num_full_blocks,
-            adjusted_remainder_in_secs.get() * 1000.0,
-            adjusted_remainder_in_timeline_frames,
-            adjusted_remainder_in_source_frames,
-        );
-    }
-
     pub fn midi_overdub(
         &mut self,
         args: ClipMidiOverdubArgs,
@@ -1397,19 +1123,20 @@ impl ReadyState {
         supplier_chain: &mut SupplierChain,
     ) -> Option<RecordingState> {
         let timeline = clip_timeline(project, false);
-        let trigger_timeline_pos = timeline.cursor_pos();
-        let tempo = timeline.tempo_at(trigger_timeline_pos);
-        let timing = RecordTiming::from_args(&args, &timeline, trigger_timeline_pos);
+        let timeline_cursor_pos = timeline.cursor_pos();
+        let tempo = timeline.tempo_at(timeline_cursor_pos);
+        let timing = RecordTiming::from_args(&args, &timeline, timeline_cursor_pos);
+        let initial_pos = resolve_initial_recording_pos(timing, &timeline, timeline_cursor_pos);
         supplier_chain.prepare_recording(
             args.recording_equipment,
             project,
-            trigger_timeline_pos,
+            timeline_cursor_pos,
             tempo,
             args.detect_downbeat,
             timing,
         );
         let recording_state = RecordingState {
-            trigger_timeline_pos,
+            pos: initial_pos,
             looped: args.looped,
             timing,
             rollback_data: {
@@ -1806,14 +1533,13 @@ pub struct ClipProcessArgs<'a, 'b> {
 }
 
 struct LogNaturalDeviationArgs<T: Timeline> {
-    start_bar: i32,
+    quantized_pos: QuantizedPosition,
     block_length: usize,
     timeline: T,
     timeline_cursor_pos: PositionInSeconds,
     // timeline_tempo: Bpm,
     clip_tempo_factor: f64,
     timeline_frame_rate: Hz,
-    start_bar_timeline_pos: PositionInSeconds,
     clip_tempo: Bpm,
 }
 
@@ -1949,4 +1675,281 @@ struct FillSamplesOutcome {
 
 pub trait HandleStopEvent {
     fn finished_midi_overdub(&self, mirror_source: OwnedPcmSource);
+}
+
+fn log_natural_deviation(
+    args: LogNaturalDeviationArgs<impl Timeline>,
+    material_info: &MaterialInfo,
+) {
+    if args.quantized_pos.denominator() != 1 {
+        // This is not a quantization to a single bar. Never tested with that.
+        return;
+    }
+    let start_bar = args.quantized_pos.position() as i32;
+    let start_bar_timeline_pos = args.timeline.pos_of_quantized_pos(args.quantized_pos);
+    // Assuming a constant tempo and time signature during one cycle
+    let clip_duration = material_info.duration();
+    let source_frame_rate = material_info.frame_rate();
+    let beat_count = calculate_beat_count(args.clip_tempo, clip_duration);
+    let bar_count = (beat_count as f64 / 4.0).ceil() as u32;
+    let end_bar = start_bar + bar_count as i32;
+    let end_bar_timeline_pos = args.timeline.pos_of_bar(end_bar);
+    debug_assert!(
+        end_bar_timeline_pos > start_bar_timeline_pos,
+        "end_bar_timeline_pos {} <= start_bar_timeline_pos {}",
+        end_bar_timeline_pos,
+        start_bar_timeline_pos
+    );
+    // Timeline cycle length
+    let timeline_cycle_length_in_secs = (end_bar_timeline_pos - start_bar_timeline_pos).abs();
+    let timeline_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
+        timeline_cycle_length_in_secs,
+        args.timeline_frame_rate,
+    );
+    let timeline_cycle_length_in_source_frames =
+        convert_duration_in_seconds_to_frames(timeline_cycle_length_in_secs, source_frame_rate);
+    // Source cycle length
+    let source_cycle_length_in_secs = clip_duration;
+    let source_cycle_length_in_timeline_frames = convert_duration_in_seconds_to_frames(
+        source_cycle_length_in_secs,
+        args.timeline_frame_rate,
+    );
+    let source_cycle_length_in_source_frames = material_info.frame_count();
+    // Block length
+    let block_length_in_timeline_frames = args.block_length;
+    let block_length_in_secs = convert_duration_in_frames_to_seconds(
+        block_length_in_timeline_frames,
+        args.timeline_frame_rate,
+    );
+    let block_length_in_source_frames = convert_duration_in_frames_to_other_frame_rate(
+        block_length_in_timeline_frames,
+        args.timeline_frame_rate,
+        source_frame_rate,
+    );
+    // Block count and remainder
+    let num_full_blocks = source_cycle_length_in_source_frames / block_length_in_source_frames;
+    let remainder_in_source_frames =
+        source_cycle_length_in_source_frames % block_length_in_source_frames;
+    // Tempo-adjusted
+    let adjusted_block_length_in_source_frames = adjust_proportionally_positive(
+        block_length_in_source_frames as f64,
+        args.clip_tempo_factor,
+    );
+    let adjusted_block_length_in_timeline_frames = convert_duration_in_frames_to_other_frame_rate(
+        adjusted_block_length_in_source_frames,
+        source_frame_rate,
+        args.timeline_frame_rate,
+    );
+    let adjusted_block_length_in_secs = convert_duration_in_frames_to_seconds(
+        adjusted_block_length_in_source_frames,
+        source_frame_rate,
+    );
+    let adjusted_remainder_in_source_frames =
+        adjust_proportionally_positive(remainder_in_source_frames as f64, args.clip_tempo_factor);
+    // Source cycle remainder
+    let adjusted_remainder_in_timeline_frames = convert_duration_in_frames_to_other_frame_rate(
+        adjusted_remainder_in_source_frames,
+        source_frame_rate,
+        args.timeline_frame_rate,
+    );
+    let adjusted_remainder_in_secs = convert_duration_in_frames_to_seconds(
+        adjusted_remainder_in_source_frames,
+        source_frame_rate,
+    );
+    let block_index = (args.timeline_cursor_pos.get() / block_length_in_secs.get()) as isize;
+    debug!(
+        "\n\
+            # Natural deviation report\n\
+            Block index: {},\n\
+            Tempo factor: {:.3}\n\
+            Bars: {} ({} - {})\n\
+            Start bar position: {:.3}s\n\
+            Source cycle length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+            Timeline cycle length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+            Block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+            Tempo-adjusted block length: {:.3}ms (= {} timeline frames = {} source frames)\n\
+            Number of full blocks: {}\n\
+            Tempo-adjusted remainder per cycle: {:.3}ms (= {} timeline frames = {} source frames)\n\
+            ",
+        block_index,
+        args.clip_tempo_factor,
+        bar_count,
+        start_bar,
+        end_bar,
+        start_bar_timeline_pos.get(),
+        source_cycle_length_in_secs.get() * 1000.0,
+        source_cycle_length_in_timeline_frames,
+        source_cycle_length_in_source_frames,
+        timeline_cycle_length_in_secs.get() * 1000.0,
+        timeline_cycle_length_in_timeline_frames,
+        timeline_cycle_length_in_source_frames,
+        block_length_in_secs.get() * 1000.0,
+        block_length_in_timeline_frames,
+        block_length_in_source_frames,
+        adjusted_block_length_in_secs.get() * 1000.0,
+        adjusted_block_length_in_timeline_frames,
+        adjusted_block_length_in_source_frames,
+        num_full_blocks,
+        adjusted_remainder_in_secs.get() * 1000.0,
+        adjusted_remainder_in_timeline_frames,
+        adjusted_remainder_in_source_frames,
+    );
+}
+
+fn resolve_initial_recording_pos(
+    timing: RecordTiming,
+    timeline: &HybridTimeline,
+    timeline_cursor_pos: PositionInSeconds,
+) -> isize {
+    match timing {
+        RecordTiming::Unsynced => 0,
+        RecordTiming::Synced { start, .. } => {
+            let equipment = QuantizedPosCalcEquipment {
+                timeline: &timeline,
+                block_length: todo!(),
+                timeline_frame_rate: todo!(),
+                timeline_cursor_pos,
+                clip_tempo_factor: todo!(),
+                source_frame_rate: todo!(),
+            };
+            calc_distance_from_quantized_pos(start, equipment)
+        }
+    }
+}
+
+fn resolve_virtual_pos(
+    virtual_pos: VirtualPosition,
+    process_args: &ClipProcessArgs,
+    clip_tempo_factor: f64,
+    log_natural_deviation_enabled: bool,
+    material_info: &MaterialInfo,
+    // Used for logging natural deviation.
+    clip_tempo: Option<Bpm>,
+) -> isize {
+    use VirtualPosition::*;
+    match virtual_pos {
+        Now => 0,
+        Quantized(qp) => {
+            let equipment = QuantizedPosCalcEquipment {
+                timeline: process_args.timeline,
+                block_length: process_args.dest_buffer.frame_count(),
+                timeline_frame_rate: process_args.dest_sample_rate,
+                timeline_cursor_pos: process_args.timeline_cursor_pos,
+                clip_tempo_factor,
+                source_frame_rate: material_info.frame_rate(),
+            };
+            let pos = calc_distance_from_quantized_pos(qp, equipment);
+            if log_natural_deviation_enabled {
+                // Quantization to bar
+                if let Some(clip_tempo) = clip_tempo {
+                    // Plus, we react to tempo changes.
+                    let args = LogNaturalDeviationArgs {
+                        quantized_pos: qp,
+                        block_length: process_args.dest_buffer.frame_count(),
+                        timeline: process_args.timeline,
+                        timeline_cursor_pos: process_args.timeline_cursor_pos,
+                        clip_tempo_factor,
+                        timeline_frame_rate: process_args.dest_sample_rate,
+                        clip_tempo,
+                    };
+                    log_natural_deviation(args, material_info);
+                }
+            }
+            pos
+        }
+    }
+}
+
+pub struct QuantizedPosCalcEquipment<'a> {
+    pub timeline: &'a HybridTimeline,
+    pub block_length: usize,
+    pub timeline_frame_rate: Hz,
+    pub timeline_cursor_pos: PositionInSeconds,
+    pub clip_tempo_factor: f64,
+    pub source_frame_rate: Hz,
+}
+
+/// So, this is how we do play scheduling. Whenever the preview register
+/// calls get_samples() and we are in a fresh ScheduledOrPlaying state, the
+/// relative number of count-in frames will be determined. Based on the given
+/// absolute bar for which the clip is scheduled.
+///
+/// 1. We use a *relative* count-in (instead of just
+/// using the absolute scheduled-play position and check if we reached it)
+/// in order to respect arbitrary tempo changes during the count-in phase and
+/// still end up starting on the correct point in time. Okay, we could reach
+/// the same goal also by regularly checking whether we finally reached the
+/// start of the bar. But first, we need the relative count-in anyway for pickup beats,
+/// which start to play during count-in time. And second, just counting is cheaper
+/// than repeatedly doing time/beat mapping.
+///
+/// 2. We resolve the count-in length here, not at the time the play is requested.
+/// Reason: Here we have block information such as block length and frame rate available.
+/// That's not an urgent reason ... we could always cache this information and thus make it
+/// available in the play request itself. Or we make sure that play/stop is always triggered
+/// via receiving in get_samples()! That's good! TODO-medium Implement it.
+/// In the past there were more urgent reasons but they are gone. I'll document them here
+/// because they might remove doubt in case of possible future refactorings:
+///
+/// 2a) The play request didn't happen in a real-time thread but in the main thread.
+/// At that time it was important to resolve in get_samples() because the start time of the
+/// next bar at play-request time was not necessarily the same as the one in the get_samples()
+/// call, which would lead to wrong results. However, today, play requests always happen in
+/// the real-time thread (a change introduced in favor of a lock-free design).
+///
+/// 2b) I still thought that it would be better to do it here in case "Live FX multiprocessing"
+/// is enabled. If this is enabled, it means get_samples() will in most situations be called in
+/// a different real-time thread (some REAPER worker thread) than the play-request code
+/// (audio interface thread). I worried that GetPlayPosition2Ex() in the worker thread would
+/// return a different position as the audio interface thread would do. However, Justin
+/// assured that the worker threads are designed to be synchronous with the audio interface
+/// thread and they return the same values. So this is not a reason anymore.
+fn calc_distance_from_quantized_pos(
+    quantized_pos: QuantizedPosition,
+    equipment: QuantizedPosCalcEquipment,
+) -> isize {
+    // Essential calculation
+    let quantized_timeline_pos = equipment.timeline.pos_of_quantized_pos(quantized_pos);
+    let rel_pos_from_quant_in_secs = equipment.timeline_cursor_pos - quantized_timeline_pos;
+    let rel_pos_from_quant_in_source_frames = convert_position_in_seconds_to_frames(
+        rel_pos_from_quant_in_secs,
+        equipment.source_frame_rate,
+    );
+    //region Description
+    // Now we have a countdown/position in source frames, but it doesn't yet
+    // take the tempo adjustment of the source into account.
+    // Once we have initialized the countdown with the first value, each
+    // get_samples() call - including this one - will advance it by a frame
+    // count that ideally = block length in source frames * tempo factor.
+    // We use this countdown approach for two reasons.
+    //
+    // 1. In order to allow tempo changes during count-in time.
+    // 2. If the downbeat is > 0, the count-in phase plays source material already.
+    //
+    // Especially (2) means that the count-in phase will not always have that
+    // ideal length which makes the source frame ZERO be perfectly aligned with
+    // the ZERO of the timeline bar. I think this is unavoidable when dealing
+    // with material that needs sample-rate conversion and/or time
+    // stretching. So if one of this is involved, this is just an estimation.
+    // However, in real-world scenarios this usually results in slight start
+    // deviations around 0-5ms, so it still makes sense musically.
+    //endregion
+    let block_length_in_source_frames = convert_duration_in_frames_to_other_frame_rate(
+        equipment.block_length,
+        equipment.timeline_frame_rate,
+        equipment.source_frame_rate,
+    );
+    adjust_proportionally_in_blocks(
+        rel_pos_from_quant_in_source_frames,
+        equipment.clip_tempo_factor,
+        block_length_in_source_frames,
+    )
+}
+
+fn modulo_frame(frame: isize, frame_count: usize) -> isize {
+    if frame < 0 {
+        frame
+    } else {
+        frame % frame_count as isize
+    }
 }
