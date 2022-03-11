@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use crossbeam_channel::{Receiver, Sender};
+use playtime_api::AudioCacheBehavior;
 use reaper_medium::{BorrowedMidiEventList, OwnedPcmSource};
 
 use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
@@ -60,15 +61,11 @@ pub struct CachedData {
 }
 
 impl<S: WithSource> Cache<S> {
-    pub fn new(
-        supplier: S,
-        request_sender: Sender<CacheRequest>,
-        response_channel: CacheResponseChannel,
-    ) -> Self {
+    pub fn new(supplier: S, request_sender: Sender<CacheRequest>) -> Self {
         Self {
             cached_data: None,
             request_sender,
-            response_channel,
+            response_channel: CacheResponseChannel::new(),
             supplier,
         }
     }
@@ -81,17 +78,37 @@ impl<S: WithSource> Cache<S> {
         &mut self.supplier
     }
 
+    pub fn set_audio_cache_behavior(&mut self, cache_behavior: AudioCacheBehavior) {
+        use AudioCacheBehavior::*;
+        let cache_enabled = match cache_behavior {
+            DirectFromDisk => false,
+            CacheInMemory => true,
+        };
+        if cache_enabled {
+            self.enable();
+        } else {
+            self.disable();
+        }
+    }
+
     /// If not cached already, triggers building the cache asynchronously, caching all supplied
     /// audio data in memory.
     ///
     /// Don't call in real-time thread. If this is necessary one day, no problem: Clone the source
     /// in advance.
     pub fn enable(&mut self) {
-        if self.cached_data.is_some() || pcm_source_is_midi(self.supplier.source()) {
+        if self.cached_data.is_some() {
+            return;
+        }
+        let source = match self.supplier.source() {
+            None => return,
+            Some(s) => s,
+        };
+        if pcm_source_is_midi(source) {
             return;
         }
         let request = CacheRequest::CacheSource {
-            source: self.supplier.source().clone(),
+            source: source.clone(),
             response_sender: self.response_channel.sender.clone(),
         };
         self.request_sender
@@ -197,15 +214,5 @@ impl<S: WithMaterialInfo> WithMaterialInfo for Cache<S> {
         } else {
             self.supplier.material_info()
         }
-    }
-}
-
-impl<S: WithSource> WithSource for Cache<S> {
-    fn source(&self) -> &OwnedPcmSource {
-        self.supplier.source()
-    }
-
-    fn source_mut(&mut self) -> &mut OwnedPcmSource {
-        self.supplier.source_mut()
     }
 }

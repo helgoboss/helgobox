@@ -1,11 +1,11 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
-    Amplifier, AudioSupplier, CommandProcessor, Downbeat, InteractionHandler, LoopBehavior, Looper,
-    MaterialInfo, MidiSupplier, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest,
-    PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordTiming, Recorder,
-    RecordingEquipment, RecordingOutcome, Resampler, Section, StartEndHandler, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest,
-    WriteMidiRequest,
+    Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
+    LoopBehavior, Looper, MaterialInfo, MidiSupplier, PreBuffer, PreBufferCacheMissBehavior,
+    PreBufferFillRequest, PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordTiming,
+    Recorder, RecordingEquipment, RecordingOutcome, Resampler, Section, StartEndHandler,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo,
+    WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::AudioBufMut;
 use crate::{ClipEngineResult, QuantizedPosition, Timeline};
@@ -107,15 +107,24 @@ type SectionTail = Section<StartEndHandlerTail>;
 /// It sits on top of the recorder (representing the inner-most source) because it's
 /// optional and intended to really affect only the inner-most source, not the section or loop
 /// (which have their own start-end handling).
-type StartEndHandlerTail = StartEndHandler<RecorderTail>;
+type StartEndHandlerTail = StartEndHandler<CacheTail>;
+
+/// Cache handler optionally caches the complete original source material in memory.
+///
+/// It sits on top of recorder so that recorder doesn't have to deal with swapping caches (it has
+/// to do enough already).
+///
+/// It sits below the other suppliers because if we cache a big chunk in memory, we want to be sure
+/// we can reuse it in lots of different ways.
+type CacheTail = Cache<RecorderTail>;
 
 /// Recorder takes care of recording and swapping sources.
 ///
 /// When it comes to playing (not recording), it basically represents the source = the inner-most
 /// material.
 ///
-/// It's hard-coded to sit on top of `Cache<OwnedPcmSource>` because it's responsible
-/// for swapping an old source with a newly recorded source.
+/// It's hard-coded to sit on top of `OwnedPcmSource` because it's responsible for swapping an old
+/// source with a newly recorded source.
 type RecorderTail = Recorder;
 
 #[derive(Debug)]
@@ -124,10 +133,7 @@ pub struct SupplierChain {
 }
 
 impl SupplierChain {
-    pub fn new(
-        recorder: Recorder,
-        pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
-    ) -> ClipEngineResult<Self> {
+    pub fn new(recorder: Recorder, equipment: ChainEquipment) -> ClipEngineResult<Self> {
         let pre_buffer_options = PreBufferOptions {
             // We know we sit below the downbeat handler, so the underlying suppliers won't deliver
             // material in the count-in phase.
@@ -135,14 +141,17 @@ impl SupplierChain {
             cache_miss_behavior: PreBufferCacheMissBehavior::OutputSilence,
             recalibrate_on_cache_miss: false,
         };
-        let mut looper = Looper::new(Section::new(StartEndHandler::new(recorder)));
+        let mut looper = Looper::new(Section::new(StartEndHandler::new(Cache::new(
+            recorder,
+            equipment.cache_request_sender,
+        ))));
         looper.set_enabled(true);
         let mut chain = Self {
             head: {
                 Amplifier::new(Resampler::new(InteractionHandler::new(TimeStretcher::new(
                     Downbeat::new(PreBuffer::new(
                         Arc::new(Mutex::new(looper)),
-                        pre_buffer_request_sender,
+                        equipment.pre_buffer_request_sender,
                         pre_buffer_options,
                         ChainPreBufferCommandProcessor,
                     )),
@@ -462,6 +471,8 @@ trait Entrance {
 
     fn start_end_handler(&mut self) -> &mut StartEndHandlerTail;
 
+    fn cache(&mut self) -> &mut CacheTail;
+
     fn recorder(&mut self) -> &mut RecorderTail;
 }
 
@@ -478,8 +489,12 @@ impl<'a> Entrance for MutexGuard<'a, LooperTail> {
         self.section().supplier_mut()
     }
 
-    fn recorder(&mut self) -> &mut RecorderTail {
+    fn cache(&mut self) -> &mut CacheTail {
         self.start_end_handler().supplier_mut()
+    }
+
+    fn recorder(&mut self) -> &mut RecorderTail {
+        self.cache().supplier_mut()
     }
 }
 
@@ -564,10 +579,7 @@ impl CommandProcessor for ChainPreBufferCommandProcessor {
                 entrance.start_end_handler().set_midi_reset_msg_range(range);
             }
             SetAudioCacheBehavior(behavior) => {
-                entrance
-                    .recorder()
-                    .set_audio_cache_behavior(behavior)
-                    .unwrap();
+                entrance.cache().set_audio_cache_behavior(behavior);
             }
             SetLooped(looped) => entrance
                 .looper()
@@ -610,4 +622,10 @@ fn configure_start_end_handler_on_section_change(
     // unnecessary fades).
     start_end_handler.set_enabled_for_start(!start_is_set);
     start_end_handler.set_enabled_for_end(!length_is_set);
+}
+
+#[derive(Clone, Debug)]
+pub struct ChainEquipment {
+    pub pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
+    pub cache_request_sender: Sender<CacheRequest>,
 }

@@ -4,21 +4,18 @@ use crate::conversion_util::{
 };
 use crate::file_util::get_path_for_new_media_file;
 use crate::rt::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
-use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, Cache, CacheRequest, CacheResponseChannel, MaterialInfo,
-    MidiSupplier, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
-    WithSource, MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSupplier, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource, MIDI_BASE_BPM,
+    MIDI_FRAME_RATE,
 };
 use crate::rt::ClipRecordArgs;
 use crate::timeline::{clip_timeline, Timeline};
 use crate::{ClipEngineResult, HybridTimeline, QuantizedPosition};
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_midi::Channel;
-use playtime_api::{
-    AudioCacheBehavior, ClipPlayStartTiming, ClipRecordStartTiming, EvenQuantization, RecordLength,
-};
+use playtime_api::{ClipPlayStartTiming, ClipRecordStartTiming, EvenQuantization, RecordLength};
 use reaper_high::{OwnedSource, Project, Reaper};
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
@@ -38,14 +35,12 @@ use std::ptr::{null, null_mut, NonNull};
 //  on top of the pre-buffer and serve samples at the beginning by itself, leaving the pre-buffer
 //  out of the equation. It should forward pre-buffer requests to the pre-buffer but modify them
 //  by using the end of the start-buffer cache as the minimum pre-buffer position.
-type RecorderCache = Cache<OwnedPcmSource>;
 
 #[derive(Debug)]
 pub struct Recorder {
     state: Option<State>,
     request_sender: Sender<RecorderRequest>,
     response_channel: ResponseChannel,
-    cache_request_sender: Sender<CacheRequest>,
 }
 
 #[derive(Debug)]
@@ -68,7 +63,7 @@ pub enum RecorderRequest {
     DiscardAudioRecordingFinishingData {
         temporary_audio_buffer: OwnedAudioBuffer,
         file: PathBuf,
-        old_cache: Option<RecorderCache>,
+        old_source: Option<OwnedPcmSource>,
     },
 }
 
@@ -128,7 +123,7 @@ enum State {
 
 #[derive(Debug)]
 struct ReadyState {
-    cache: RecorderCache,
+    source: OwnedPcmSource,
     /// For sending the result of overdubbing back to the main thread, we keep a mirror of the
     /// original source to which we apply the same modifications.
     midi_overdub_mirror_source: Option<OwnedPcmSource>,
@@ -137,7 +132,7 @@ struct ReadyState {
 #[derive(Debug)]
 struct RecordingState {
     kind_state: KindSpecificRecordingState,
-    old_cache: Option<RecorderCache>,
+    old_source: Option<OwnedPcmSource>,
     project: Option<Project>,
     detect_downbeat: bool,
     phase: Option<RecordingPhase>,
@@ -150,7 +145,6 @@ impl RecordingState {
         timeline: &dyn Timeline,
         request_sender: &Sender<RecorderRequest>,
         response_sender: &Sender<RecorderResponse>,
-        cache_request_sender: &Sender<CacheRequest>,
     ) -> (ClipEngineResult<RecordingOutcome>, State) {
         use KindSpecificRecordingState::*;
         use State::*;
@@ -199,7 +193,7 @@ impl RecordingState {
             Midi(ss) => {
                 let source_duration = ss.new_source.get_length().unwrap();
                 let ready_state = ReadyState {
-                    cache: create_recorder_cache(ss.new_source, cache_request_sender.clone()),
+                    source: ss.new_source,
                     midi_overdub_mirror_source: None,
                 };
                 (Ready(ready_state), source_duration)
@@ -302,20 +296,6 @@ pub struct WriteAudioRequest<'a> {
     pub right_buffer: AudioBuf<'a>,
 }
 
-// TODO-high This allocates but is used in functions that are not supposed to allocate!
-fn create_recorder_cache(
-    source: OwnedPcmSource,
-    cache_request_sender: Sender<CacheRequest>,
-) -> RecorderCache {
-    Cache::new(source, cache_request_sender, CacheResponseChannel::new())
-}
-
-#[derive(Clone, Debug)]
-pub struct RecorderEquipment {
-    pub recorder_request_sender: Sender<RecorderRequest>,
-    pub cache_request_sender: Sender<CacheRequest>,
-}
-
 impl Drop for Recorder {
     fn drop(&mut self) {
         debug!("Dropping recorder...");
@@ -324,12 +304,12 @@ impl Drop for Recorder {
 
 impl Recorder {
     /// Okay to call in real-time thread.
-    pub fn ready(source: OwnedPcmSource, equipment: RecorderEquipment) -> Self {
+    pub fn ready(source: OwnedPcmSource, request_sender: Sender<RecorderRequest>) -> Self {
         let ready_state = ReadyState {
-            cache: create_recorder_cache(source, equipment.cache_request_sender.clone()),
+            source,
             midi_overdub_mirror_source: None,
         };
-        Self::new(State::Ready(ready_state), equipment)
+        Self::new(State::Ready(ready_state), request_sender)
     }
 
     /// Okay to call in real-time thread.
@@ -338,7 +318,7 @@ impl Recorder {
         project: Option<Project>,
         trigger_timeline_pos: PositionInSeconds,
         tempo: Bpm,
-        recorder_equipment: RecorderEquipment,
+        request_sender: Sender<RecorderRequest>,
         detect_downbeat: bool,
         timing: RecordTiming,
     ) -> Self {
@@ -351,19 +331,18 @@ impl Recorder {
         let kind_state = KindSpecificRecordingState::new(recording_equipment, trigger_timeline_pos);
         let recording_state = RecordingState {
             kind_state,
-            old_cache: None,
+            old_source: None,
             project,
             detect_downbeat,
             phase: Some(initial_phase),
         };
-        Self::new(State::Recording(recording_state), recorder_equipment)
+        Self::new(State::Recording(recording_state), request_sender)
     }
 
-    fn new(state: State, equipment: RecorderEquipment) -> Self {
+    fn new(state: State, request_sender: Sender<RecorderRequest>) -> Self {
         Self {
             state: Some(state),
-            request_sender: equipment.recorder_request_sender.clone(),
-            cache_request_sender: equipment.cache_request_sender.clone(),
+            request_sender,
             response_channel: ResponseChannel::new(),
         }
     }
@@ -386,28 +365,6 @@ impl Recorder {
         match self.state.as_mut().unwrap() {
             State::Ready(s) => s.midi_overdub_mirror_source.take(),
             State::Recording(_) => None,
-        }
-    }
-
-    pub fn set_audio_cache_behavior(
-        &mut self,
-        cache_behavior: AudioCacheBehavior,
-    ) -> ClipEngineResult<()> {
-        match self.state.as_mut().unwrap() {
-            State::Ready(s) => {
-                use AudioCacheBehavior::*;
-                let cache_enabled = match cache_behavior {
-                    DirectFromDisk => false,
-                    CacheInMemory => true,
-                };
-                if cache_enabled {
-                    s.cache.enable();
-                } else {
-                    s.cache.disable();
-                }
-                Ok(())
-            }
-            State::Recording(_) => Err("can't set audio cache behavior while recording"),
         }
     }
 
@@ -449,20 +406,6 @@ impl Recorder {
         }
     }
 
-    pub fn is_midi(&self) -> bool {
-        match self.state.as_ref().unwrap() {
-            State::Ready(s) => pcm_source_is_midi(s.cache.source()),
-            State::Recording(s) => s.kind_state.is_midi(),
-        }
-    }
-
-    pub fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        match self.state.as_ref().unwrap() {
-            State::Ready(s) => s.cache.source().material_info(),
-            State::Recording(_) => todo!(),
-        }
-    }
-
     /// This must not be done in a real-time thread!
     pub fn prepare_recording(
         &mut self,
@@ -474,15 +417,15 @@ impl Recorder {
         timing: RecordTiming,
     ) {
         use State::*;
-        let old_cache = match self.state.take().unwrap() {
-            Ready(s) => Some(s.cache),
-            Recording(s) => s.old_cache,
+        let old_source = match self.state.take().unwrap() {
+            Ready(s) => Some(s.source),
+            Recording(s) => s.old_source,
         };
         let initial_phase =
             RecordingPhase::initial_phase(timing, tempo, equipment.is_midi(), trigger_timeline_pos);
         let recording_state = RecordingState {
             kind_state: KindSpecificRecordingState::new(equipment, trigger_timeline_pos),
-            old_cache,
+            old_source,
             project,
             detect_downbeat,
             phase: Some(initial_phase),
@@ -502,7 +445,6 @@ impl Recorder {
                 timeline,
                 &self.request_sender,
                 &self.response_channel.sender,
-                &self.cache_request_sender,
             ),
         };
         self.state = Some(next_state);
@@ -514,9 +456,9 @@ impl Recorder {
         let (res, next_state) = match self.state.take().unwrap() {
             Ready(s) => (Ok(()), Ready(s)),
             Recording(s) => {
-                if let Some(old_source) = s.old_cache {
+                if let Some(old_source) = s.old_source {
                     let ready_state = ReadyState {
-                        cache: old_source,
+                        source: old_source,
                         midi_overdub_mirror_source: None,
                     };
                     (Ok(()), Ready(ready_state))
@@ -621,11 +563,11 @@ impl Recorder {
                 (new_source, Some(mirror_source))
             }
             State::Ready(ReadyState {
-                cache,
+                source,
                 midi_overdub_mirror_source: mirror_midi_source,
             }) => {
                 // Overdubbing existing clip
-                (cache.source_mut(), mirror_midi_source.as_mut())
+                (source, mirror_midi_source.as_mut())
             }
             _ => return,
         };
@@ -653,7 +595,8 @@ impl Recorder {
         // TODO-high overdub: use double-source strategy to actually save overdubbed material
         debug!(
             "Write MIDI: Pos = {} at sample rate {}",
-            pos, request.input_sample_rate
+            pos.get(),
+            request.input_sample_rate.get()
         );
         unsafe {
             source.extended(
@@ -686,21 +629,18 @@ impl Recorder {
                     Recording(RecordingState {
                         kind_state:
                             KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)),
-                        old_cache,
+                        old_source,
                         ..
                     }) => match r.source {
                         Ok(source) => {
                             let request = RecorderRequest::DiscardAudioRecordingFinishingData {
                                 temporary_audio_buffer: s.temporary_audio_buffer,
                                 file: s.file,
-                                old_cache,
+                                old_source,
                             };
                             let _ = self.request_sender.try_send(request);
                             let ready_state = ReadyState {
-                                cache: create_recorder_cache(
-                                    source,
-                                    self.cache_request_sender.clone(),
-                                ),
+                                source,
                                 midi_overdub_mirror_source: None,
                             };
                             Ready(ready_state)
@@ -830,8 +770,8 @@ impl AudioSupplier for Recorder {
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
         self.process_worker_response();
-        let cache = match self.state.as_mut().unwrap() {
-            State::Ready(s) => &mut s.cache,
+        let source = match self.state.as_mut().unwrap() {
+            State::Ready(s) => &mut s.source,
             State::Recording(s) => {
                 match &s.kind_state {
                     KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
@@ -848,7 +788,7 @@ impl AudioSupplier for Recorder {
                         return SupplyResponse::please_continue(dest_buffer.frame_count());
                     }
                     _ => {
-                        if let Some(s) = &mut s.old_cache {
+                        if let Some(s) = &mut s.old_source {
                             return s.supply_audio(request, dest_buffer);
                         } else {
                             panic!("attempt to play back audio material while recording with no previous source")
@@ -857,7 +797,7 @@ impl AudioSupplier for Recorder {
                 }
             }
         };
-        cache.supply_audio(request, dest_buffer)
+        source.supply_audio(request, dest_buffer)
     }
 }
 
@@ -867,21 +807,21 @@ impl MidiSupplier for Recorder {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        let cache = match self.state.as_mut().unwrap() {
-            State::Ready(s) => &mut s.cache,
+        let source = match self.state.as_mut().unwrap() {
+            State::Ready(s) => &mut s.source,
             State::Recording(s) => s
-                .old_cache
+                .old_source
                 .as_mut()
                 .expect("attempt to play back MIDI without source"),
         };
-        cache.supply_midi(request, event_list)
+        source.supply_midi(request, event_list)
     }
 }
 
 impl WithMaterialInfo for Recorder {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        let cache = match self.state.as_ref().unwrap() {
-            State::Ready(s) => &s.cache,
+        let source = match self.state.as_ref().unwrap() {
+            State::Ready(s) => &s.source,
             State::Recording(s) => match &s.kind_state {
                 KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
                     let info = AudioMaterialInfo {
@@ -895,12 +835,12 @@ impl WithMaterialInfo for Recorder {
                     return Ok(MaterialInfo::Audio(info));
                 }
                 _ => s
-                    .old_cache
+                    .old_source
                     .as_ref()
                     .ok_or("attempt to query material info without source")?,
             },
         };
-        cache.material_info()
+        source.material_info()
     }
 }
 
@@ -1224,5 +1164,14 @@ impl RecordTiming {
             }
         };
         Self::Synced { start, end }
+    }
+}
+
+impl WithSource for Recorder {
+    fn source(&self) -> Option<&OwnedPcmSource> {
+        match self.state.as_ref().unwrap() {
+            State::Ready(s) => Some(&s.source),
+            State::Recording(s) => None,
+        }
     }
 }

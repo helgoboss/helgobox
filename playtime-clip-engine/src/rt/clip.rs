@@ -6,8 +6,8 @@ use crate::conversion_util::{
 use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, ChainPreBufferRequest, MaterialInfo, MidiSupplier, PreBufferFillRequest,
-    PreBufferSourceSkill, RecordTiming, Recorder, RecorderEquipment, RecordingEquipment,
+    AudioSupplier, ChainEquipment, MaterialInfo, MidiSupplier, PreBufferFillRequest,
+    PreBufferSourceSkill, RecordTiming, Recorder, RecorderRequest, RecordingEquipment,
     SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
     SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest,
     WriteMidiRequest, MIDI_BASE_BPM,
@@ -205,8 +205,8 @@ impl Clip {
     pub fn ready(
         api_clip: &api::Clip,
         permanent_project: Option<Project>,
-        recorder_equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
+        chain_equipment: &ChainEquipment,
+        recorder_request_sender: &Sender<RecorderRequest>,
     ) -> ClipEngineResult<Self> {
         let pcm_source = create_pcm_source_from_api_source(&api_clip.source, permanent_project)?;
         let mut ready_state = ReadyState {
@@ -219,8 +219,8 @@ impl Clip {
             },
         };
         let mut supplier_chain = SupplierChain::new(
-            Recorder::ready(pcm_source, recorder_equipment.clone()),
-            pre_buffer_request_sender.clone(),
+            Recorder::ready(pcm_source, recorder_request_sender.clone()),
+            chain_equipment.clone(),
         )?;
         supplier_chain.set_volume(api_clip.volume);
         supplier_chain
@@ -265,12 +265,12 @@ impl Clip {
             args.project,
             trigger_timeline_pos,
             tempo,
-            args.equipment,
+            args.recorder_request_sender,
             args.detect_downbeat,
             timing,
         );
         let clip = Self {
-            supplier_chain: SupplierChain::new(recorder, args.pre_buffer_request_sender)?,
+            supplier_chain: SupplierChain::new(recorder, args.chain_equipment)?,
             state: ClipState::Recording(recording_state),
             project: args.project,
             shared_pos: Default::default(),
@@ -1778,8 +1778,8 @@ pub struct ClipRecordArgs {
     pub length: RecordLength,
     pub looped: bool,
     pub detect_downbeat: bool,
-    pub equipment: RecorderEquipment,
-    pub pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
+    pub chain_equipment: ChainEquipment,
+    pub recorder_request_sender: Sender<RecorderRequest>,
     pub project: Option<Project>,
 }
 

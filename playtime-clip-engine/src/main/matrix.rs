@@ -2,9 +2,9 @@ use crate::main::row::Row;
 use crate::main::{Column, Slot};
 use crate::rt::supplier::{
     keep_processing_cache_requests, keep_processing_pre_buffer_requests,
-    keep_processing_recorder_requests, keep_stretching, AudioRecordingEquipment,
-    ChainPreBufferCommandProcessor, ChainPreBufferRequest, MidiRecordingEquipment,
-    RecorderEquipment, RecordingEquipment, StretchWorkerRequest,
+    keep_processing_recorder_requests, keep_stretching, AudioRecordingEquipment, ChainEquipment,
+    ChainPreBufferCommandProcessor, MidiRecordingEquipment, RecorderRequest, RecordingEquipment,
+    StretchWorkerRequest,
 };
 use crate::rt::{
     ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs, QualifiedClipChangedEvent,
@@ -33,8 +33,8 @@ pub struct Matrix<H> {
     rt_settings: rt::MatrixSettings,
     handler: H,
     stretch_worker_sender: Sender<StretchWorkerRequest>,
-    recorder_equipment: RecorderEquipment,
-    pre_buffer_request_sender: Sender<ChainPreBufferRequest>,
+    chain_equipment: ChainEquipment,
+    recorder_request_sender: Sender<RecorderRequest>,
     columns: Vec<Column>,
     rows: Vec<Row>,
     containing_track: Option<Track>,
@@ -139,11 +139,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             rt_settings: Default::default(),
             handler,
             stretch_worker_sender,
-            recorder_equipment: RecorderEquipment {
-                recorder_request_sender,
+            chain_equipment: ChainEquipment {
                 cache_request_sender,
+                pre_buffer_request_sender,
             },
-            pre_buffer_request_sender,
+            recorder_request_sender,
             columns: vec![],
             rows: vec![],
             containing_track,
@@ -187,8 +187,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             column.load(
                 api_column,
                 permanent_project,
-                &self.recorder_equipment,
-                &self.pre_buffer_request_sender,
+                &self.chain_equipment,
+                &self.recorder_request_sender,
                 &self.settings,
             )?;
             self.rt_command_sender.insert_column(i, column.source());
@@ -351,8 +351,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         get_column_mut(&mut self.columns, coordinates.column())?.record_clip(
             coordinates.row(),
             &self.settings.clip_record_settings,
-            &self.recorder_equipment,
-            &self.pre_buffer_request_sender,
+            &self.chain_equipment,
+            &self.recorder_request_sender,
             &self.handler,
             self.containing_track.as_ref(),
             self.rt_settings.clip_play_start_timing,

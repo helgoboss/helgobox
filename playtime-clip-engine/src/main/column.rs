@@ -3,7 +3,7 @@ use crate::main::{
     ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask, MatrixSettings, Slot, SlotState,
     VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
-use crate::rt::supplier::{ChainPreBufferRequest, RecorderEquipment};
+use crate::rt::supplier::{ChainEquipment, RecorderRequest};
 use crate::rt::{
     ClipChangedEvent, ClipMidiOverdubArgs, ClipPlayState, ClipRecordArgs, ColumnCommandSender,
     ColumnEvent, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipLoopedArgs,
@@ -82,8 +82,8 @@ impl Column {
         &mut self,
         api_column: api::Column,
         permanent_project: Option<Project>,
-        recorder_equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
+        chain_equipment: &ChainEquipment,
+        recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
         self.clear_slots();
@@ -120,8 +120,8 @@ impl Column {
                     api_slot.row,
                     clip,
                     permanent_project,
-                    recorder_equipment,
-                    pre_buffer_request_sender,
+                    chain_equipment,
+                    recorder_request_sender,
                     matrix_settings,
                 )?;
             }
@@ -207,14 +207,14 @@ impl Column {
         row: usize,
         mut clip: Clip,
         permanent_project: Option<Project>,
-        recorder_equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
+        chain_equipment: &ChainEquipment,
+        recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
         let rt_clip = clip.create_real_time_clip(
             permanent_project,
-            recorder_equipment,
-            pre_buffer_request_sender,
+            chain_equipment,
+            recorder_request_sender,
             matrix_settings,
             &self.settings,
         )?;
@@ -357,8 +357,8 @@ impl Column {
         &mut self,
         slot_index: usize,
         matrix_settings: &MatrixClipRecordSettings,
-        equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
+        chain_equipment: &ChainEquipment,
+        recorder_request_sender: &Sender<RecorderRequest>,
         handler: &H,
         containing_track: Option<&Track>,
         parent_play_start_timing: ClipPlayStartTiming,
@@ -434,8 +434,8 @@ impl Column {
                 } else {
                     matrix_settings.audio_settings.detect_downbeat
                 },
-                equipment: equipment.clone(),
-                pre_buffer_request_sender: pre_buffer_request_sender.clone(),
+                chain_equipment: chain_equipment.clone(),
+                recorder_request_sender: recorder_request_sender.clone(),
                 project: self.project,
             };
             if has_existing_clip {

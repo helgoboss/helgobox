@@ -5,7 +5,7 @@ use crate::main::{
     create_pcm_source_from_api_source, source_util, ColumnSettings, CreateApiSourceMode,
     MatrixSettings,
 };
-use crate::rt::supplier::{ChainPreBufferRequest, MaterialInfo, RecorderEquipment};
+use crate::rt::supplier::{ChainEquipment, MaterialInfo, RecorderRequest};
 use crate::rt::{calc_tempo_factor, determine_tempo_from_time_base, ClipPlayState, SharedPos};
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::Sender;
@@ -90,16 +90,16 @@ impl Clip {
     pub fn create_real_time_clip(
         &self,
         permanent_project: Option<Project>,
-        recorder_equipment: &RecorderEquipment,
-        pre_buffer_request_sender: &Sender<ChainPreBufferRequest>,
+        chain_equipment: &ChainEquipment,
+        recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
         column_settings: &ColumnSettings,
     ) -> ClipEngineResult<rt::Clip> {
         let mut rt_clip = rt::Clip::ready(
             &self.persistent_data,
             permanent_project,
-            recorder_equipment,
-            pre_buffer_request_sender,
+            chain_equipment,
+            recorder_request_sender,
         )?;
         self.configure_real_time_clip(matrix_settings, column_settings, &mut rt_clip);
         Ok(rt_clip)

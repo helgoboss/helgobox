@@ -39,9 +39,7 @@ pub trait MidiSupplier: Debug {
 }
 
 pub trait WithSource {
-    fn source(&self) -> &OwnedPcmSource;
-
-    fn source_mut(&mut self) -> &mut OwnedPcmSource;
+    fn source(&self) -> Option<&OwnedPcmSource>;
 }
 
 pub trait SupplyRequest {

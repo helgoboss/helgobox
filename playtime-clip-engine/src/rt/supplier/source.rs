@@ -144,12 +144,8 @@ impl MidiSupplier for OwnedPcmSource {
 }
 
 impl WithSource for OwnedPcmSource {
-    fn source(&self) -> &OwnedPcmSource {
-        self
-    }
-
-    fn source_mut(&mut self) -> &mut OwnedPcmSource {
-        self
+    fn source(&self) -> Option<&OwnedPcmSource> {
+        Some(self)
     }
 }
 
