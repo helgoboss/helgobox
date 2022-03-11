@@ -313,6 +313,7 @@ impl Column {
                     stop_timing: None,
                     timeline: &args.timeline,
                     ref_pos: Some(ref_pos),
+                    enforce_play_stop: true,
                 };
                 let event_handler = ClipEventHandler::new(&self.event_sender, i);
                 let _ = slot.stop_clip(stop_args, &event_handler);
@@ -339,6 +340,7 @@ impl Column {
             stop_timing: None,
             timeline: &args.timeline,
             ref_pos: args.ref_pos,
+            enforce_play_stop: false,
         };
         let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
         let event_handler = ClipEventHandler::new(&self.event_sender, args.slot_index);

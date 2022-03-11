@@ -204,10 +204,11 @@ impl Slot {
                                     play_clip_by_transport(clip, args)
                                 }
                                 ScheduledForPlay | Playing | ScheduledForStop => {
+                                    // Retrigger (timeline switch)
                                     play_clip_by_transport(clip, args)
                                 }
-                                _ => {
-                                    // Stop and forget (because we have a timeline switch).
+                                Stopped | Paused | Recording => {
+                                    // Stop and forget.
                                     self.runtime_data.stop_clip_by_transport(
                                         clip,
                                         args,
@@ -218,7 +219,7 @@ impl Slot {
                             }
                         }
                         StopAfterPlay => match state {
-                            ScheduledForPlay | Playing | ScheduledForStop
+                            ScheduledForPlay | Playing | ScheduledForStop | Recording
                                 if last_play.was_quantized =>
                             {
                                 // Stop and memorize
@@ -322,6 +323,7 @@ impl RuntimeData {
             stop_timing: Some(ClipPlayStopTiming::Immediately),
             timeline: args.timeline,
             ref_pos: Some(args.timeline_cursor_pos),
+            enforce_play_stop: true,
         };
         clip.stop(args, event_handler)
     }

@@ -314,7 +314,6 @@ impl Clip {
                 StopSlotInstruction::KeepSlot
             }
             Recording(s) => {
-                // TODO-high Transfer result to main thread: All data we need to build the API clip.
                 use ClipRecordingStopOutcome::*;
                 match s.stop(args, &mut self.supplier_chain) {
                     KeepState => StopSlotInstruction::KeepSlot,
@@ -611,6 +610,10 @@ impl ReadyState {
         }
     }
 
+    /// Stops the clip.
+    ///
+    /// By default, if it's overdubbing, it just stops the overdubbing (a second call will make
+    /// it stop playing).
     pub fn stop<H: HandleStopEvent>(
         &mut self,
         args: ClipStopArgs,
@@ -622,7 +625,7 @@ impl ReadyState {
             Stopped => {}
             Playing(s) => {
                 if s.overdubbing {
-                    // Currently recording overdub. Stop recording, continue playing.
+                    // Currently recording overdub. Stop recording.
                     self.state = Playing(PlayingState {
                         overdubbing: false,
                         ..s
@@ -630,61 +633,60 @@ impl ReadyState {
                     if let Some(mirror_source) = supplier_chain.take_midi_overdub_mirror_source() {
                         event_handler.finished_midi_overdub(mirror_source);
                     }
-                } else {
-                    // Just playing, not recording.
-                    if let Some(pos) = s.pos {
-                        if s.stop_request.is_none() {
-                            // Not yet scheduled for stop.
-                            self.state = if supplier_chain.is_playing_already(pos) {
-                                // Playing
-                                let resolved_stop_timing = self.resolve_stop_timing(&args);
-                                use ConcreteClipPlayStopTiming::*;
-                                match resolved_stop_timing {
-                                    Immediately => {
-                                        // Immediately. Transition to stop.
-                                        Suspending(SuspendingState {
-                                            next_state: StateAfterSuspension::Stopped,
-                                            pos,
-                                        })
-                                    }
-                                    Quantized(q) => {
-                                        let ref_pos = args
-                                            .ref_pos
-                                            .unwrap_or_else(|| args.timeline.cursor_pos());
-                                        let quantized_pos =
-                                            args.timeline.next_quantized_pos_at(ref_pos, q);
+                    if !args.enforce_play_stop {
+                        // Continue playing
+                        return;
+                    }
+                }
+                // Just playing, not recording.
+                if let Some(pos) = s.pos {
+                    if s.stop_request.is_none() {
+                        // Not yet scheduled for stop.
+                        self.state = if supplier_chain.is_playing_already(pos) {
+                            // Playing
+                            let resolved_stop_timing = self.resolve_stop_timing(&args);
+                            use ConcreteClipPlayStopTiming::*;
+                            match resolved_stop_timing {
+                                Immediately => {
+                                    // Immediately. Transition to stop.
+                                    Suspending(SuspendingState {
+                                        next_state: StateAfterSuspension::Stopped,
+                                        pos,
+                                    })
+                                }
+                                Quantized(q) => {
+                                    let ref_pos =
+                                        args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
+                                    let quantized_pos =
+                                        args.timeline.next_quantized_pos_at(ref_pos, q);
+                                    Playing(PlayingState {
+                                        stop_request: Some(StopRequest::Quantized(quantized_pos)),
+                                        ..s
+                                    })
+                                }
+                                UntilEndOfClip => {
+                                    if self.persistent_data.looped {
+                                        // Schedule
+                                        supplier_chain.keep_playing_until_end_of_current_cycle(pos);
                                         Playing(PlayingState {
-                                            stop_request: Some(StopRequest::Quantized(
-                                                quantized_pos,
-                                            )),
+                                            stop_request: Some(StopRequest::AtEndOfClip),
                                             ..s
                                         })
-                                    }
-                                    UntilEndOfClip => {
-                                        if self.persistent_data.looped {
-                                            // Schedule
-                                            supplier_chain
-                                                .keep_playing_until_end_of_current_cycle(pos);
-                                            Playing(PlayingState {
-                                                stop_request: Some(StopRequest::AtEndOfClip),
-                                                ..s
-                                            })
-                                        } else {
-                                            // Scheduling stop of a non-repeated clip doesn't make
-                                            // sense.
-                                            self.state
-                                        }
+                                    } else {
+                                        // Scheduling stop of a non-repeated clip doesn't make
+                                        // sense.
+                                        self.state
                                     }
                                 }
-                            } else {
-                                // Not yet playing. Backpedal.
-                                Stopped
-                            };
-                        }
-                    } else {
-                        // Not yet playing. Backpedal.
-                        self.state = Stopped;
+                            }
+                        } else {
+                            // Not yet playing. Backpedal.
+                            Stopped
+                        };
                     }
+                } else {
+                    // Not yet playing. Backpedal.
+                    self.state = Stopped;
                 }
             }
             Paused(_) => {
@@ -1442,6 +1444,7 @@ impl RecordingState {
             } else {
                 ReadySubState::Stopped
             },
+            // TODO-high Transfer result to main thread: All data we need to build the API clip.
             persistent_data: PersistentPlayData {
                 // TODO-high-record Set start timing
                 start_timing: None,
@@ -1497,6 +1500,9 @@ pub struct ClipStopArgs<'a> {
     pub timeline: &'a HybridTimeline,
     /// Set this if you already have the current timeline position or want to stop a batch of clips.
     pub ref_pos: Option<PositionInSeconds>,
+    /// If this is `true` and the clip is overdubbing, it not just stops overdubbing but also
+    /// playing the clip.
+    pub enforce_play_stop: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
