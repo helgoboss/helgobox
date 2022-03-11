@@ -15,7 +15,7 @@ use crate::rt::ClipRecordArgs;
 use crate::timeline::{clip_timeline, Timeline};
 use crate::{ClipEngineResult, HybridTimeline, QuantizedPosition};
 use crossbeam_channel::{Receiver, Sender};
-use helgoboss_midi::{Channel, ShortMessage};
+use helgoboss_midi::Channel;
 use playtime_api::{
     AudioCacheBehavior, ClipPlayStartTiming, ClipRecordStartTiming, EvenQuantization, RecordLength,
 };
@@ -129,6 +129,9 @@ enum State {
 #[derive(Debug)]
 struct ReadyState {
     cache: RecorderCache,
+    /// For sending the result of overdubbing back to the main thread, we keep a mirror of the
+    /// original source to which we apply the same modifications.
+    midi_overdub_mirror_source: Option<OwnedPcmSource>,
 }
 
 #[derive(Debug)]
@@ -141,6 +144,7 @@ struct RecordingState {
 }
 
 impl RecordingState {
+    // May be called in real-time thread.
     pub fn commit_recording(
         self,
         timeline: &dyn Timeline,
@@ -196,6 +200,7 @@ impl RecordingState {
                 let source_duration = ss.new_source.get_length().unwrap();
                 let ready_state = ReadyState {
                     cache: create_recorder_cache(ss.new_source, cache_request_sender.clone()),
+                    midi_overdub_mirror_source: None,
                 };
                 (Ready(ready_state), source_duration)
             }
@@ -244,6 +249,7 @@ struct RecordingAudioFinishingState {
 #[derive(Debug)]
 struct RecordingMidiState {
     new_source: OwnedPcmSource,
+    mirror_source: OwnedPcmSource,
     // TODO-high-record Use
     _source_start_timeline_pos: PositionInSeconds,
 }
@@ -255,6 +261,7 @@ impl KindSpecificRecordingState {
             Midi(equipment) => {
                 let recording_midi_state = RecordingMidiState {
                     new_source: equipment.empty_midi_source,
+                    mirror_source: equipment.empty_midi_source_mirror,
                     _source_start_timeline_pos: trigger_timeline_pos,
                 };
                 Self::Midi(recording_midi_state)
@@ -283,7 +290,7 @@ pub struct WriteMidiRequest<'a> {
     pub input_sample_rate: Hz,
     pub block_length: usize,
     pub events: &'a BorrowedMidiEventList,
-    // TODO-high Filtering to one channel not supported at the moment.
+    // TODO-medium Filtering to one channel not supported at the moment.
     pub channel_filter: Option<Channel>,
 }
 
@@ -320,10 +327,12 @@ impl Recorder {
     pub fn ready(source: OwnedPcmSource, equipment: RecorderEquipment) -> Self {
         let ready_state = ReadyState {
             cache: create_recorder_cache(source, equipment.cache_request_sender.clone()),
+            midi_overdub_mirror_source: None,
         };
         Self::new(State::Ready(ready_state), equipment)
     }
 
+    /// Okay to call in real-time thread.
     pub fn recording(
         recording_equipment: RecordingEquipment,
         project: Option<Project>,
@@ -356,6 +365,27 @@ impl Recorder {
             request_sender: equipment.recorder_request_sender.clone(),
             cache_request_sender: equipment.cache_request_sender.clone(),
             response_channel: ResponseChannel::new(),
+        }
+    }
+
+    pub fn register_midi_overdub_mirror_source(&mut self, mirror_source: OwnedPcmSource) {
+        match self.state.as_mut().unwrap() {
+            State::Ready(s) => {
+                if s.midi_overdub_mirror_source.is_some() {
+                    panic!("recorder already has MIDI overdub mirror source");
+                }
+                s.midi_overdub_mirror_source = Some(mirror_source);
+            }
+            State::Recording(_) => {
+                panic!("recorder can't take MIDI overdub mirror source because it's recording");
+            }
+        }
+    }
+
+    pub fn take_midi_overdub_mirror_source(&mut self) -> Option<OwnedPcmSource> {
+        match self.state.as_mut().unwrap() {
+            State::Ready(s) => s.midi_overdub_mirror_source.take(),
+            State::Recording(_) => None,
         }
     }
 
@@ -485,7 +515,10 @@ impl Recorder {
             Ready(s) => (Ok(()), Ready(s)),
             Recording(s) => {
                 if let Some(old_source) = s.old_cache {
-                    let ready_state = ReadyState { cache: old_source };
+                    let ready_state = ReadyState {
+                        cache: old_source,
+                        midi_overdub_mirror_source: None,
+                    };
                     (Ok(()), Ready(ready_state))
                 } else {
                     (Err("nothing to roll back to"), Recording(s))
@@ -553,11 +586,13 @@ impl Recorder {
 
     /// The given position is interpreted as position within the source at [`MIDI_BASE_BPM`].
     pub fn write_midi(&mut self, request: WriteMidiRequest, pos: DurationInSeconds) {
-        let source = match self.state.as_mut().unwrap() {
+        let (source, mirror_source) = match self.state.as_mut().unwrap() {
             State::Recording(RecordingState {
                 kind_state:
                     KindSpecificRecordingState::Midi(RecordingMidiState {
-                        new_source: source, ..
+                        new_source,
+                        mirror_source,
+                        ..
                     }),
                 detect_downbeat,
                 phase,
@@ -583,10 +618,15 @@ impl Recorder {
                     }
                     _ => {}
                 };
-                source
+                (new_source, Some(mirror_source))
             }
-            // Overdubbing existing clip
-            State::Ready(ReadyState { cache }) => cache.source_mut(),
+            State::Ready(ReadyState {
+                cache,
+                midi_overdub_mirror_source: mirror_midi_source,
+            }) => {
+                // Overdubbing existing clip
+                (cache.source_mut(), mirror_midi_source.as_mut())
+            }
             _ => return,
         };
         let mut write_struct = midi_realtime_write_struct_t {
@@ -622,6 +662,14 @@ impl Recorder {
                 null_mut(),
                 null_mut(),
             );
+            if let Some(s) = mirror_source {
+                s.extended(
+                    PCM_SOURCE_EXT_ADDMIDIEVENTS as _,
+                    &mut write_struct as *mut _ as _,
+                    null_mut(),
+                    null_mut(),
+                );
+            }
         }
     }
 
@@ -653,6 +701,7 @@ impl Recorder {
                                     source,
                                     self.cache_request_sender.clone(),
                                 ),
+                                midi_overdub_mirror_source: None,
                             };
                             Ready(ready_state)
                         }
@@ -695,12 +744,14 @@ impl RecordingEquipment {
 #[derive(Clone, Debug)]
 pub struct MidiRecordingEquipment {
     empty_midi_source: OwnedPcmSource,
+    empty_midi_source_mirror: OwnedPcmSource,
 }
 
 impl MidiRecordingEquipment {
     pub fn new() -> Self {
         Self {
             empty_midi_source: create_empty_midi_source(),
+            empty_midi_source_mirror: create_empty_midi_source(),
         }
     }
 }

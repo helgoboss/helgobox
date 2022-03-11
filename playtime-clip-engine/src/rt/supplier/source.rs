@@ -13,7 +13,6 @@ use crate::rt::supplier::{
 use crate::ClipEngineResult;
 use reaper_medium::{
     BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer,
-    PositionInSeconds,
 };
 
 impl AudioSupplier for OwnedPcmSource {

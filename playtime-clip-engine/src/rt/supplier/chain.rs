@@ -15,7 +15,9 @@ use playtime_api::{
     PositiveSecond, VirtualResampleMode,
 };
 use reaper_high::Project;
-use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, PositionInSeconds};
+use reaper_medium::{
+    BorrowedMidiEventList, Bpm, DurationInSeconds, OwnedPcmSource, PositionInSeconds,
+};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// The head of the supplier chain (just an alias).
@@ -215,6 +217,20 @@ impl SupplierChain {
 
     pub fn set_audio_resample_mode(&mut self, mode: VirtualResampleMode) {
         self.resampler_mut().set_mode(mode);
+    }
+
+    pub fn register_midi_overdub_mirror_source(&mut self, mirror_source: OwnedPcmSource) {
+        // With MIDI, there's no contention.
+        self.pre_buffer_wormhole()
+            .recorder()
+            .register_midi_overdub_mirror_source(mirror_source)
+    }
+
+    pub fn take_midi_overdub_mirror_source(&mut self) -> Option<OwnedPcmSource> {
+        // With MIDI, there's no contention.
+        self.pre_buffer_wormhole()
+            .recorder()
+            .take_midi_overdub_mirror_source()
     }
 
     pub fn schedule_end_of_recording(&mut self, end: QuantizedPosition, timeline: &dyn Timeline) {

@@ -1,6 +1,8 @@
 use crate::main::Clip;
 use crate::rt::ClipPlayState;
 use crate::ClipEngineResult;
+use reaper_high::Project;
+use reaper_medium::OwnedPcmSource;
 
 #[derive(Clone, Debug, Default)]
 pub struct Slot {
@@ -55,7 +57,10 @@ impl Slot {
         }
     }
 
-    pub fn notify_recording_request_response(&mut self, successful: bool) -> ClipEngineResult<()> {
+    pub fn notify_recording_request_acknowledged(
+        &mut self,
+        successful: bool,
+    ) -> ClipEngineResult<()> {
         use SlotState::*;
         match &mut self.state {
             Empty => Err("recording was not requested"),
@@ -69,9 +74,21 @@ impl Slot {
             }
             RecordingFromScratch => Err("recording already"),
             Filled(clip) => {
-                clip.notify_recording_request_response();
+                clip.notify_recording_request_acknowledged();
                 Ok(())
             }
+        }
+    }
+
+    pub fn notify_midi_overdub_finished(
+        &mut self,
+        mirror_source: OwnedPcmSource,
+        temporary_project: Option<Project>,
+    ) -> ClipEngineResult<()> {
+        use SlotState::*;
+        match &mut self.state {
+            Filled(clip) => clip.notify_midi_overdub_finished(mirror_source, temporary_project),
+            _ => Err("slot was not filled and thus couldn't have been MIDI-overdubbed"),
         }
     }
 }

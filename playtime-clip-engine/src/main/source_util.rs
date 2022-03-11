@@ -2,7 +2,7 @@ use crate::file_util::get_path_for_new_media_file;
 use crate::rt::supplier::MIDI_BASE_BPM;
 use crate::ClipEngineResult;
 use playtime_api as api;
-use reaper_high::{Item, OwnedSource, Project, ReaperSource};
+use reaper_high::{BorrowedSource, Item, OwnedSource, Project, ReaperSource};
 use reaper_medium::{MidiImportBehavior, OwnedPcmSource};
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -31,22 +31,24 @@ pub fn create_api_source_from_item(
     create_api_source_from_pcm_source(&root_pcm_source, mode, item.project())
 }
 
-enum CreateApiSourceMode {
+pub enum CreateApiSourceMode {
     AllowEmbeddedData,
     ForceExportToFile { file_base_name: String },
 }
 
-fn create_api_source_from_pcm_source(
-    pcm_source: &ReaperSource,
+/// Project is used for making a file path relative and/or for determining the directory of a file
+/// to be exported.
+pub fn create_api_source_from_pcm_source(
+    pcm_source: &BorrowedSource,
     mode: CreateApiSourceMode,
     project: Option<Project>,
 ) -> Result<api::Source, Box<dyn Error>> {
     let pcm_source_type = pcm_source.r#type();
-    let content = if let Some(source_file) = pcm_source.file_name() {
-        create_file_api_source(project, &source_file)
+    if let Some(source_file) = pcm_source.file_name() {
+        Ok(create_file_api_source(project, &source_file))
     } else if matches!(pcm_source_type.as_str(), "MIDI" | "MIDIPOOL") {
         use CreateApiSourceMode::*;
-        match mode {
+        let api_source = match mode {
             AllowEmbeddedData => create_midi_chunk_source(pcm_source.state_chunk()),
             ForceExportToFile { file_base_name } => {
                 let file_name = get_path_for_new_media_file(&file_base_name, "mid", project);
@@ -55,11 +57,11 @@ fn create_api_source_from_pcm_source(
                     .map_err(|_| "couldn't export MIDI source to file")?;
                 create_file_api_source(project, &file_name)
             }
-        }
+        };
+        Ok(api_source)
     } else {
-        return Err(format!("item source incompatible (type {})", pcm_source_type).into());
-    };
-    Ok(content)
+        Err(format!("item source incompatible (type {})", pcm_source_type).into())
+    }
 }
 
 /// Takes care of making the path project-relative (if a project is given).

@@ -1,15 +1,14 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    AudioBufMut, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipStopArgs,
-    OwnedAudioBuffer, RecordClipError, Slot, SlotProcessTransportChangeArgs, SlotRecordInstruction,
+    AudioBufMut, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipStopArgs, HandleStopEvent,
+    OwnedAudioBuffer, Slot, SlotProcessTransportChangeArgs, SlotRecordInstruction,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
 use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
-use helgoboss_midi::Channel;
 use playtime_api::{
     AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
     VirtualResampleMode,
@@ -161,12 +160,14 @@ trait EventSender {
 
     fn clip_material_info_changed(&self, slot_index: usize, material_info: MaterialInfo);
 
-    fn record_request_processed(
+    fn record_request_acknowledged(
         &self,
         slot_index: usize,
         successful: bool,
         original_instruction: Option<SlotRecordInstruction>,
     );
+
+    fn midi_overdub_finished(&self, slot_index: usize, mirror_source: OwnedPcmSource);
 
     fn dispose(&self, garbage: ColumnGarbage);
 
@@ -190,16 +191,24 @@ impl EventSender for Sender<ColumnEvent> {
         self.send_event(event);
     }
 
-    fn record_request_processed(
+    fn record_request_acknowledged(
         &self,
         slot_index: usize,
         successful: bool,
         original_instruction: Option<SlotRecordInstruction>,
     ) {
-        let event = ColumnEvent::RecordRequestProcessed {
+        let event = ColumnEvent::RecordRequestAcknowledged {
             slot_index,
             successful,
             original_instruction,
+        };
+        self.send_event(event);
+    }
+
+    fn midi_overdub_finished(&self, slot_index: usize, mirror_source: OwnedPcmSource) {
+        let event = ColumnEvent::MidiOverdubFinished {
+            slot_index,
+            mirror_source,
         };
         self.send_event(event);
     }
@@ -291,7 +300,7 @@ impl Column {
             .unwrap_or(args.parent_stop_timing);
         let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
         if self.settings.play_mode.is_exclusive() {
-            for (_, slot) in self
+            for (i, slot) in self
                 .slots
                 .iter_mut()
                 .enumerate()
@@ -304,7 +313,8 @@ impl Column {
                     timeline: &args.timeline,
                     ref_pos: Some(ref_pos),
                 };
-                let _ = slot.stop_clip(stop_args);
+                let event_handler = ClipEventHandler::new(&self.event_sender, i);
+                let _ = slot.stop_clip(stop_args, &event_handler);
             }
         }
         let clip_args = ClipPlayArgs {
@@ -329,7 +339,9 @@ impl Column {
             timeline: &args.timeline,
             ref_pos: args.ref_pos,
         };
-        get_slot_mut(&mut self.slots, args.slot_index)?.stop_clip(clip_args)
+        let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
+        let event_handler = ClipEventHandler::new(&self.event_sender, args.slot_index);
+        slot.stop_clip(clip_args, &event_handler)
     }
 
     pub fn set_clip_looped(&mut self, args: ColumnSetClipLoopedArgs) -> ClipEngineResult<()> {
@@ -346,11 +358,11 @@ impl Column {
             Ok(_) => (true, None),
             Err(e) => {
                 debug!("Error recording clip: {}", e.message);
-                (false, Some(e.instruction))
+                (false, Some(e.payload))
             }
         };
         self.event_sender
-            .record_request_processed(slot_index, successful, instruction);
+            .record_request_acknowledged(slot_index, successful, instruction);
     }
 
     pub fn pause_clip(&mut self, index: usize) -> ClipEngineResult<()> {
@@ -389,8 +401,9 @@ impl Column {
                 .unwrap_or(args.parent_clip_play_start_timing),
             ..args
         };
-        for slot in &mut self.slots {
-            slot.process_transport_change(&args);
+        for (i, slot) in self.slots.iter_mut().enumerate() {
+            let event_handler = ClipEventHandler::new(&self.event_sender, i);
+            slot.process_transport_change(&args, &event_handler);
         }
     }
 
@@ -768,11 +781,15 @@ pub enum ColumnEvent {
         slot_index: usize,
         material_info: MaterialInfo,
     },
-    RecordRequestProcessed {
+    RecordRequestAcknowledged {
         slot_index: usize,
         successful: bool,
         /// Just for disposing
         original_instruction: Option<SlotRecordInstruction>,
+    },
+    MidiOverdubFinished {
+        slot_index: usize,
+        mirror_source: OwnedPcmSource,
     },
     Dispose(ColumnGarbage),
 }
@@ -780,4 +797,25 @@ pub enum ColumnEvent {
 #[derive(Debug)]
 pub enum ColumnGarbage {
     FillSlotArgs(Box<Option<ColumnFillSlotArgs>>),
+}
+
+struct ClipEventHandler<'a> {
+    slot_index: usize,
+    event_sender: &'a Sender<ColumnEvent>,
+}
+
+impl<'a> ClipEventHandler<'a> {
+    pub fn new(event_sender: &'a Sender<ColumnEvent>, slot_index: usize) -> Self {
+        Self {
+            slot_index,
+            event_sender,
+        }
+    }
+}
+
+impl<'a> HandleStopEvent for ClipEventHandler<'a> {
+    fn finished_midi_overdub(&self, mirror_source: OwnedPcmSource) {
+        self.event_sender
+            .midi_overdub_finished(self.slot_index, mirror_source);
+    }
 }

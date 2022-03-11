@@ -1,16 +1,15 @@
 use crate::metrics_util::measure_time;
-use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
-use crate::rt::SlotInstruction::KeepSlot;
+use crate::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
+use crate::rt::StopSlotInstruction::KeepSlot;
 use crate::rt::{
-    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipStopArgs,
-    SlotInstruction, SlotRecordInstruction,
+    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipStopArgs, HandleStopEvent,
+    SlotRecordInstruction, StopSlotInstruction,
 };
 use crate::timeline::HybridTimeline;
-use crate::ClipEngineResult;
+use crate::{ClipEngineResult, ErrorWithPayload};
 use helgoboss_learn::UnitValue;
 use playtime_api::{
-    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, Db, MidiClipRecordMode,
-    VirtualResampleMode,
+    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, Db, VirtualResampleMode,
 };
 use reaper_medium::{Bpm, PlayState, PositionInSeconds};
 
@@ -72,12 +71,25 @@ impl Slot {
     }
 
     /// Stops the clip if this slot contains one.
-    pub fn stop_clip(&mut self, args: ClipStopArgs) -> ClipEngineResult<()> {
+    pub fn stop_clip<H: HandleStopEvent>(
+        &mut self,
+        args: ClipStopArgs,
+        event_handler: &H,
+    ) -> ClipEngineResult<()> {
         self.runtime_data.stop_was_caused_by_transport_change = false;
-        if self.clip_mut_internal()?.stop(args) == SlotInstruction::ClearSlot {
-            self.clip = None;
-        }
+        let instruction = self.clip_mut_internal()?.stop(args, event_handler);
+        self.process_stop_instruction(instruction);
         Ok(())
+    }
+
+    fn process_stop_instruction(&mut self, instruction: StopSlotInstruction) {
+        use StopSlotInstruction::*;
+        match instruction {
+            KeepSlot => {}
+            ClearSlot => {
+                self.clip = None;
+            }
+        }
     }
 
     pub fn set_clip_looped(&mut self, repeated: bool) -> ClipEngineResult<()> {
@@ -94,37 +106,39 @@ impl Slot {
     pub fn record_clip(
         &mut self,
         instruction: SlotRecordInstruction,
-    ) -> Result<(), RecordClipError> {
+    ) -> Result<(), ErrorWithPayload<SlotRecordInstruction>> {
         use SlotRecordInstruction::*;
         match instruction {
             NewClip(c) => {
                 debug!("Record new clip");
                 if self.clip.is_some() {
-                    return Err(RecordClipError::new("slot not empty", NewClip(c)));
+                    return Err(ErrorWithPayload::new("slot not empty", NewClip(c)));
                 }
                 self.clip = Some(c);
+                Ok(())
             }
             ExistingClip(args) => {
                 debug!("Record existing clip");
                 let clip = match self.clip.as_mut() {
                     None => {
-                        return Err(RecordClipError::new("slot empty", ExistingClip(args)));
+                        return Err(ErrorWithPayload::new("slot empty", ExistingClip(args)));
                     }
                     Some(c) => c,
                 };
-                clip.record(args);
+                clip.record(args).map_err(|e| e.map_payload(ExistingClip))
             }
-            MidiOverdub => {
+            MidiOverdub(args) => {
                 debug!("MIDI overdub");
-                let clip = self
-                    .clip
-                    .as_mut()
-                    .ok_or(RecordClipError::new("slot empty", MidiOverdub))?;
-                clip.midi_overdub()
-                    .map_err(|msg| RecordClipError::new(msg, MidiOverdub))?;
+                let clip = match self.clip.as_mut() {
+                    None => {
+                        return Err(ErrorWithPayload::new("slot empty", MidiOverdub(args)));
+                    }
+                    Some(c) => c,
+                };
+                clip.midi_overdub(args)
+                    .map_err(|e| e.map_payload(MidiOverdub))
             }
         }
-        Ok(())
     }
 
     pub fn pause_clip(&mut self) -> ClipEngineResult<()> {
@@ -151,8 +165,12 @@ impl Slot {
         Ok(())
     }
 
-    pub fn process_transport_change(&mut self, args: &SlotProcessTransportChangeArgs) {
-        let slot_instruction = {
+    pub fn process_transport_change<H: HandleStopEvent>(
+        &mut self,
+        args: &SlotProcessTransportChangeArgs,
+        event_handler: &H,
+    ) {
+        let instruction = {
             let clip = match &mut self.clip {
                 None => return,
                 Some(c) => c,
@@ -184,7 +202,12 @@ impl Slot {
                                 }
                                 _ => {
                                     // Stop and forget (because we have a timeline switch).
-                                    self.runtime_data.stop_clip_by_transport(clip, args, false)
+                                    self.runtime_data.stop_clip_by_transport(
+                                        clip,
+                                        args,
+                                        false,
+                                        event_handler,
+                                    )
                                 }
                             }
                         }
@@ -193,16 +216,29 @@ impl Slot {
                                 if last_play.was_quantized =>
                             {
                                 // Stop and memorize
-                                self.runtime_data.stop_clip_by_transport(clip, args, true)
+                                self.runtime_data.stop_clip_by_transport(
+                                    clip,
+                                    args,
+                                    true,
+                                    event_handler,
+                                )
                             }
                             _ => {
                                 // Stop and forget
-                                self.runtime_data.stop_clip_by_transport(clip, args, false)
+                                self.runtime_data.stop_clip_by_transport(
+                                    clip,
+                                    args,
+                                    false,
+                                    event_handler,
+                                )
                             }
                         },
-                        StopAfterPause => {
-                            self.runtime_data.stop_clip_by_transport(clip, args, false)
-                        }
+                        StopAfterPause => self.runtime_data.stop_clip_by_transport(
+                            clip,
+                            args,
+                            false,
+                            event_handler,
+                        ),
                     }
                 }
                 TransportChange::PlayCursorJump => {
@@ -229,9 +265,7 @@ impl Slot {
                 }
             }
         };
-        if slot_instruction == SlotInstruction::ClearSlot {
-            self.clip = None;
-        }
+        self.process_stop_instruction(instruction)
     }
 
     pub fn process(
@@ -268,20 +302,22 @@ impl Slot {
 }
 
 impl RuntimeData {
-    fn stop_clip_by_transport(
+    fn stop_clip_by_transport<H: HandleStopEvent>(
         &mut self,
         clip: &mut Clip,
         args: &SlotProcessTransportChangeArgs,
         keep_starting_with_transport: bool,
-    ) -> SlotInstruction {
+        event_handler: &H,
+    ) -> StopSlotInstruction {
         self.stop_was_caused_by_transport_change = keep_starting_with_transport;
-        clip.stop(ClipStopArgs {
+        let args = ClipStopArgs {
             parent_start_timing: args.parent_clip_play_start_timing,
             parent_stop_timing: args.parent_clip_play_stop_timing,
             stop_timing: Some(ClipPlayStopTiming::Immediately),
             timeline: args.timeline,
             ref_pos: Some(args.timeline_cursor_pos),
-        })
+        };
+        clip.stop(args, event_handler)
     }
 }
 
@@ -336,26 +372,12 @@ pub struct SlotProcessingOutcome {
 fn play_clip_by_transport(
     clip: &mut Clip,
     args: &SlotProcessTransportChangeArgs,
-) -> SlotInstruction {
+) -> StopSlotInstruction {
     let args = ClipPlayArgs {
         parent_start_timing: args.parent_clip_play_start_timing,
         timeline: args.timeline,
         ref_pos: Some(args.timeline_cursor_pos),
     };
     clip.play(args).unwrap();
-    SlotInstruction::KeepSlot
-}
-
-pub struct RecordClipError {
-    pub message: &'static str,
-    pub instruction: SlotRecordInstruction,
-}
-
-impl RecordClipError {
-    pub const fn new(message: &'static str, instruction: SlotRecordInstruction) -> Self {
-        Self {
-            message,
-            instruction,
-        }
-    }
+    StopSlotInstruction::KeepSlot
 }

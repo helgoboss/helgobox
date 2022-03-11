@@ -5,9 +5,9 @@ use crate::main::{
 };
 use crate::rt::supplier::{ChainPreBufferRequest, RecorderEquipment};
 use crate::rt::{
-    ClipChangedEvent, ClipPlayState, ClipRecordArgs, ColumnCommandSender, ColumnEvent,
-    ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipLoopedArgs, ColumnStopClipArgs,
-    SharedColumn, SlotRecordInstruction, WeakColumn,
+    ClipChangedEvent, ClipMidiOverdubArgs, ClipPlayState, ClipRecordArgs, ColumnCommandSender,
+    ColumnEvent, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipLoopedArgs,
+    ColumnStopClipArgs, SharedColumn, SlotRecordInstruction, WeakColumn,
 };
 use crate::{clip_timeline, rt, ClipEngineResult};
 use crossbeam_channel::{Receiver, Sender};
@@ -254,13 +254,23 @@ impl Column {
                     None
                 }
                 Dispose(_) => None,
-                RecordRequestProcessed {
+                RecordRequestAcknowledged {
                     slot_index,
                     successful,
                     ..
                 } => {
                     let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-                    slot.notify_recording_request_response(successful).unwrap();
+                    slot.notify_recording_request_acknowledged(successful)
+                        .unwrap();
+                    None
+                }
+                MidiOverdubFinished {
+                    slot_index,
+                    mirror_source,
+                } => {
+                    let slot = get_slot_mut_insert(&mut self.slots, slot_index);
+                    slot.notify_midi_overdub_finished(mirror_source, self.project)
+                        .unwrap();
                     None
                 }
             };
@@ -356,8 +366,8 @@ impl Column {
         // Insert slot if it doesn't exist already.
         let slot = get_slot_mut_insert(&mut self.slots, slot_index);
         // Check preconditions.
-        let (has_existing_clip, midi_overdub_if_input_is_midi) = match slot.state() {
-            SlotState::Empty => (false, false),
+        let (has_existing_clip, midi_overdub_mirror_source) = match slot.state() {
+            SlotState::Empty => (false, None),
             SlotState::RecordingFromScratchRequested => {
                 return Err("recording requested already (from scratch)");
             }
@@ -372,12 +382,20 @@ impl Column {
                     return Err("recording already (with existing clip)");
                 }
                 use MidiClipRecordMode::*;
-                let want_overdub = match matrix_settings.midi_settings.record_mode {
+                let want_midi_overdub = match matrix_settings.midi_settings.record_mode {
                     Normal => false,
-                    Overdub => clip.material_info().map(|i| i.is_midi()).unwrap_or(false),
+                    Overdub => {
+                        // Only allow MIDI overdub is existing clip is a MIDI clip already.
+                        clip.material_info().map(|i| i.is_midi()).unwrap_or(false)
+                    }
                     Replace => todo!(),
                 };
-                (true, want_overdub)
+                let mirror_source = if want_midi_overdub {
+                    Some(clip.create_mirror_source_for_midi_overdub(self.project)?)
+                } else {
+                    None
+                };
+                (true, mirror_source)
             }
         };
         // Prepare tasks, equipment, instructions.
@@ -391,8 +409,15 @@ impl Column {
         )?;
         let recording_equipment = record_task.input.create_recording_equipment(self.project);
         let input_is_midi = recording_equipment.is_midi();
-        let instruction = if input_is_midi && midi_overdub_if_input_is_midi {
-            SlotRecordInstruction::MidiOverdub
+        let midi_overdub_mirror_source = if input_is_midi {
+            midi_overdub_mirror_source
+        } else {
+            // Want overdub but we have a audio input, so don't use overdub mode after all.
+            None
+        };
+        let instruction = if let Some(mirror_source) = midi_overdub_mirror_source {
+            let args = ClipMidiOverdubArgs { mirror_source };
+            SlotRecordInstruction::MidiOverdub(args)
         } else {
             let args = ClipRecordArgs {
                 parent_play_start_timing: self

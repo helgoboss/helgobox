@@ -1,7 +1,10 @@
 use crate::conversion_util::{
     adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
 };
-use crate::main::{ColumnSettings, MatrixSettings};
+use crate::main::{
+    create_pcm_source_from_api_source, source_util, ColumnSettings, CreateApiSourceMode,
+    MatrixSettings,
+};
 use crate::rt::supplier::{ChainPreBufferRequest, MaterialInfo, RecorderEquipment};
 use crate::rt::{calc_tempo_factor, determine_tempo_from_time_base, ClipPlayState, SharedPos};
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
@@ -9,8 +12,8 @@ use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{AudioCacheBehavior, AudioTimeStretchMode, Db, VirtualResampleMode};
-use reaper_high::Project;
-use reaper_medium::{Bpm, PositionInSeconds};
+use reaper_high::{OwnedSource, Project};
+use reaper_medium::{Bpm, OwnedPcmSource, PositionInSeconds};
 
 #[derive(Clone, Debug)]
 pub struct Clip {
@@ -65,8 +68,23 @@ impl Clip {
         Ok(())
     }
 
-    pub fn notify_recording_request_response(&mut self) {
+    pub fn notify_recording_request_acknowledged(&mut self) {
         self.recording_requested = false;
+    }
+
+    pub fn notify_midi_overdub_finished(
+        &mut self,
+        mirror_source: OwnedPcmSource,
+        temporary_project: Option<Project>,
+    ) -> ClipEngineResult<()> {
+        let api_source = source_util::create_api_source_from_pcm_source(
+            &OwnedSource::new(mirror_source),
+            CreateApiSourceMode::AllowEmbeddedData,
+            temporary_project,
+        )
+        .map_err(|_| "failed creating API source from mirror source")?;
+        self.persistent_data.source = api_source;
+        Ok(())
     }
 
     pub fn create_real_time_clip(
@@ -85,6 +103,13 @@ impl Clip {
         )?;
         self.configure_real_time_clip(matrix_settings, column_settings, &mut rt_clip);
         Ok(rt_clip)
+    }
+
+    pub fn create_mirror_source_for_midi_overdub(
+        &self,
+        permanent_project: Option<Project>,
+    ) -> ClipEngineResult<OwnedPcmSource> {
+        create_pcm_source_from_api_source(&self.persistent_data.source, permanent_project)
     }
 
     fn configure_real_time_clip(

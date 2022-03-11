@@ -1,8 +1,7 @@
 use crate::conversion_util::{
-    adjust_pos_in_secs_anti_proportionally, adjust_proportionally_positive,
-    convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
-    convert_duration_in_seconds_to_frames, convert_position_in_frames_to_seconds,
-    convert_position_in_seconds_to_frames,
+    adjust_proportionally_positive, convert_duration_in_frames_to_other_frame_rate,
+    convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
+    convert_position_in_frames_to_seconds, convert_position_in_seconds_to_frames,
 };
 use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
@@ -14,7 +13,7 @@ use crate::rt::supplier::{
     WriteMidiRequest, MIDI_BASE_BPM,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
-use crate::{ClipEngineResult, QuantizedPosition};
+use crate::{ClipEngineResult, ErrorWithPayload, QuantizedPosition};
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
@@ -24,7 +23,9 @@ use playtime_api::{
     MidiClipRecordMode, RecordLength, VirtualResampleMode,
 };
 use reaper_high::Project;
-use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, PositionInSeconds};
+use reaper_medium::{
+    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OwnedPcmSource, PositionInSeconds,
+};
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
 
@@ -200,6 +201,7 @@ pub enum RecordBehavior {
 }
 
 impl Clip {
+    /// Must not call in real-time thread!
     pub fn ready(
         api_clip: &api::Clip,
         permanent_project: Option<Project>,
@@ -299,23 +301,28 @@ impl Clip {
 
     /// Stops the clip playing or recording.
     #[must_use]
-    pub fn stop(&mut self, args: ClipStopArgs) -> SlotInstruction {
+    pub fn stop<H: HandleStopEvent>(
+        &mut self,
+        args: ClipStopArgs,
+        event_handler: &H,
+    ) -> StopSlotInstruction {
         use ClipState::*;
-        use RecordingStopOutcome::*;
-        let outcome = match &mut self.state {
+        match &mut self.state {
             Ready(s) => {
-                s.stop(args, &mut self.supplier_chain);
-                KeepState
+                let outcome = s.stop(args, &mut self.supplier_chain, event_handler);
+                StopSlotInstruction::KeepSlot
             }
-            Recording(s) => s.stop(args, &mut self.supplier_chain),
-        };
-        match outcome {
-            KeepState => SlotInstruction::KeepSlot,
-            TransitionToReady(ready_state) => {
-                self.state = Ready(ready_state);
-                SlotInstruction::KeepSlot
+            Recording(s) => {
+                use ClipRecordingStopOutcome::*;
+                match s.stop(args, &mut self.supplier_chain) {
+                    KeepState => StopSlotInstruction::KeepSlot,
+                    TransitionToReady(ready_state) => {
+                        self.state = Ready(ready_state);
+                        StopSlotInstruction::KeepSlot
+                    }
+                    ClearSlot => StopSlotInstruction::ClearSlot,
+                }
             }
-            ClearSlot => SlotInstruction::ClearSlot,
         }
     }
 
@@ -337,15 +344,18 @@ impl Clip {
         }
     }
 
-    pub fn midi_overdub(&mut self) -> ClipEngineResult<()> {
+    pub fn midi_overdub(
+        &mut self,
+        args: ClipMidiOverdubArgs,
+    ) -> Result<(), ErrorWithPayload<ClipMidiOverdubArgs>> {
         use ClipState::*;
         match &mut self.state {
-            Ready(s) => s.midi_overdub(),
-            Recording(_) => Err("clip recording"),
+            Ready(s) => s.midi_overdub(args, &mut self.supplier_chain),
+            Recording(_) => Err(ErrorWithPayload::new("clip is recording", args)),
         }
     }
 
-    pub fn record(&mut self, args: ClipRecordArgs) {
+    pub fn record(&mut self, args: ClipRecordArgs) -> Result<(), ErrorWithPayload<ClipRecordArgs>> {
         use ClipState::*;
         match &mut self.state {
             Ready(s) => {
@@ -354,8 +364,9 @@ impl Clip {
                 {
                     self.state = Recording(recording_state);
                 }
+                Ok(())
             }
-            Recording(_) => {}
+            Recording(_) => Err(ErrorWithPayload::new("already recording", args)),
         }
     }
 
@@ -631,7 +642,12 @@ impl ReadyState {
         }
     }
 
-    pub fn stop(&mut self, args: ClipStopArgs, supplier_chain: &mut SupplierChain) {
+    pub fn stop<H: HandleStopEvent>(
+        &mut self,
+        args: ClipStopArgs,
+        supplier_chain: &mut SupplierChain,
+        event_handler: &H,
+    ) {
         use ReadySubState::*;
         match self.state {
             Stopped => {}
@@ -641,7 +657,10 @@ impl ReadyState {
                     self.state = Playing(PlayingState {
                         overdubbing: false,
                         ..s
-                    })
+                    });
+                    if let Some(mirror_source) = supplier_chain.take_midi_overdub_mirror_source() {
+                        event_handler.finished_midi_overdub(mirror_source);
+                    }
                 } else {
                     // Just playing, not recording.
                     if let Some(pos) = s.pos {
@@ -1346,17 +1365,22 @@ impl ReadyState {
         );
     }
 
-    pub fn midi_overdub(&mut self) -> ClipEngineResult<()> {
+    pub fn midi_overdub(
+        &mut self,
+        args: ClipMidiOverdubArgs,
+        supplier_chain: &mut SupplierChain,
+    ) -> Result<(), ErrorWithPayload<ClipMidiOverdubArgs>> {
         use ReadySubState::*;
         // TODO-medium Maybe we should start to play if not yet playing
         if let Playing(s) = self.state {
+            supplier_chain.register_midi_overdub_mirror_source(args.mirror_source);
             self.state = Playing(PlayingState {
                 overdubbing: true,
                 ..s
             });
             Ok(())
         } else {
-            Err("clip not playing")
+            Err(ErrorWithPayload::new("clip not playing", args))
         }
     }
 
@@ -1538,8 +1562,8 @@ impl RecordingState {
         &mut self,
         args: ClipStopArgs,
         supplier_chain: &mut SupplierChain,
-    ) -> RecordingStopOutcome {
-        use RecordingStopOutcome::*;
+    ) -> ClipRecordingStopOutcome {
+        use ClipRecordingStopOutcome::*;
         match self.timing {
             RecordTiming::Unsynced => {
                 let ready_state =
@@ -1667,13 +1691,12 @@ impl RecordingState {
     }
 }
 
-#[derive(PartialEq)]
-pub enum SlotInstruction {
+pub enum StopSlotInstruction {
     KeepSlot,
     ClearSlot,
 }
 
-enum RecordingStopOutcome {
+enum ClipRecordingStopOutcome {
     KeepState,
     TransitionToReady(ReadyState),
     ClearSlot,
@@ -1734,7 +1757,16 @@ impl VirtualPosition {
 pub enum SlotRecordInstruction {
     NewClip(Clip),
     ExistingClip(ClipRecordArgs),
-    MidiOverdub,
+    MidiOverdub(ClipMidiOverdubArgs),
+}
+
+#[derive(Debug)]
+pub struct ClipMidiOverdubArgs {
+    /// A clone of the current source into which the same overdub events are going to be written.
+    ///
+    /// Can then be sent back to the main thread so it can be saved correctly (without having to
+    /// interfere with the real-time threads).  
+    pub mirror_source: OwnedPcmSource,
 }
 
 #[derive(Debug)]
@@ -1910,4 +1942,8 @@ pub struct ClipPlayingOutcome {
 struct FillSamplesOutcome {
     clip_playing_outcome: ClipPlayingOutcome,
     next_frame: Option<isize>,
+}
+
+pub trait HandleStopEvent {
+    fn finished_midi_overdub(&self, mirror_source: OwnedPcmSource);
 }
