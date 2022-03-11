@@ -438,7 +438,7 @@ fn process_clip_record_task(
             if let Some(dev_id) = specific_input.device_id {
                 // Read from specific MIDI input device
                 let dev = Reaper::get().midi_input_device_by_id(dev_id);
-                shovel_midi_to_clip_slot(
+                write_midi_to_clip_slot(
                     args,
                     &mut src,
                     record_task.destination.slot_index,
@@ -448,7 +448,7 @@ fn process_clip_record_task(
             } else {
                 // Read from all open MIDI input devices
                 for dev in Reaper::get().midi_input_devices() {
-                    shovel_midi_to_clip_slot(
+                    write_midi_to_clip_slot(
                         args,
                         &mut src,
                         record_task.destination.slot_index,
@@ -502,7 +502,7 @@ fn find_first_dev_with_play_msg() -> Option<MidiInputDeviceId> {
     None
 }
 
-fn shovel_midi_to_clip_slot(
+fn write_midi_to_clip_slot(
     args: &OnAudioBufferArgs,
     src: &mut MutexGuard<Column>,
     slot_index: usize,

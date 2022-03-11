@@ -2,8 +2,8 @@ use crate::metrics_util::measure_time;
 use crate::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
 use crate::rt::StopSlotInstruction::KeepSlot;
 use crate::rt::{
-    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipStopArgs, HandleStopEvent,
-    SlotRecordInstruction, StopSlotInstruction,
+    BasicAudioRequestProps, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipStopArgs,
+    HandleStopEvent, SlotRecordInstruction, StopSlotInstruction,
 };
 use crate::timeline::HybridTimeline;
 use crate::{ClipEngineResult, ErrorWithPayload};
@@ -106,15 +106,20 @@ impl Slot {
     pub fn record_clip(
         &mut self,
         instruction: SlotRecordInstruction,
+        audio_request_props: BasicAudioRequestProps,
     ) -> Result<(), ErrorWithPayload<SlotRecordInstruction>> {
         use SlotRecordInstruction::*;
         match instruction {
-            NewClip(c) => {
+            NewClip(instruction) => {
                 debug!("Record new clip");
                 if self.clip.is_some() {
-                    return Err(ErrorWithPayload::new("slot not empty", NewClip(c)));
+                    return Err(ErrorWithPayload::new(
+                        "slot not empty",
+                        NewClip(instruction),
+                    ));
                 }
-                self.clip = Some(c);
+                let clip = Clip::recording(instruction, audio_request_props);
+                self.clip = Some(clip);
                 Ok(())
             }
             ExistingClip(args) => {
@@ -125,7 +130,8 @@ impl Slot {
                     }
                     Some(c) => c,
                 };
-                clip.record(args).map_err(|e| e.map_payload(ExistingClip))
+                clip.record(args, audio_request_props)
+                    .map_err(|e| e.map_payload(ExistingClip))
             }
             MidiOverdub(args) => {
                 debug!("MIDI overdub");

@@ -3,12 +3,12 @@ use crate::rt::supplier::{
     Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
     LoopBehavior, Looper, MaterialInfo, MidiSupplier, PreBuffer, PreBufferCacheMissBehavior,
     PreBufferFillRequest, PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, RecordTiming,
-    Recorder, RecordingEquipment, RecordingOutcome, Resampler, Section, StartEndHandler,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo,
-    WriteAudioRequest, WriteMidiRequest,
+    Recorder, RecordingEquipment, RecordingInfo, RecordingOutcome, Resampler, Section,
+    StartEndHandler, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher,
+    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::AudioBufMut;
-use crate::{ClipEngineResult, QuantizedPosition, Timeline};
+use crate::{ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};
 use crossbeam_channel::Sender;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, Db, MidiResetMessageRange, PositiveBeat,
@@ -173,6 +173,14 @@ impl SupplierChain {
         Ok(chain)
     }
 
+    /// Returns some basic info about the recorded material, if any is recorded.
+    ///
+    /// Only call during recording, otherwise might lock mutex!
+    pub fn recording_info(&self) -> Option<RecordingInfo> {
+        // When recording, there's no contention.
+        self.pre_buffer_wormhole().recorder().recording_info()
+    }
+
     pub fn is_playing_already(&self, pos: isize) -> bool {
         let downbeat_correct_pos = pos + self.downbeat().downbeat_frame() as isize;
         downbeat_correct_pos >= 0
@@ -268,7 +276,7 @@ impl SupplierChain {
 
     pub fn commit_recording(
         &mut self,
-        timeline: &dyn Timeline,
+        timeline: &HybridTimeline,
     ) -> ClipEngineResult<RecordingOutcome> {
         self.pre_buffer_wormhole()
             .recorder()

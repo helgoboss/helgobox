@@ -1,8 +1,9 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
-    AudioBufMut, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipStopArgs, HandleStopEvent,
-    OwnedAudioBuffer, Slot, SlotProcessTransportChangeArgs, SlotRecordInstruction,
+    AudioBufMut, BasicAudioRequestProps, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
+    ClipStopArgs, HandleStopEvent, OwnedAudioBuffer, Slot, SlotProcessTransportChangeArgs,
+    SlotRecordInstruction,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -352,9 +353,14 @@ impl Column {
         Ok(get_slot(&self.slots, index)?.clip()?.play_state())
     }
 
-    fn record_clip(&mut self, slot_index: usize, instruction: SlotRecordInstruction) {
+    fn record_clip(
+        &mut self,
+        slot_index: usize,
+        instruction: SlotRecordInstruction,
+        audio_request_props: BasicAudioRequestProps,
+    ) {
         let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-        let (successful, instruction) = match slot.record_clip(instruction) {
+        let (successful, instruction) = match slot.record_clip(instruction, audio_request_props) {
             Ok(_) => (true, None),
             Err(e) => {
                 debug!("Error recording clip: {}", e.message);
@@ -411,7 +417,7 @@ impl Column {
         DurationInSeconds::MAX
     }
 
-    fn process_commands(&mut self) {
+    fn process_commands(&mut self, audio_request_props: BasicAudioRequestProps) {
         while let Ok(task) = self.command_receiver.try_recv() {
             use ColumnCommand::*;
             match task {
@@ -454,7 +460,7 @@ impl Column {
                     self.set_clip_looped(args).unwrap();
                 }
                 RecordClip(args) => {
-                    self.record_clip(args.slot_index, args.instruction);
+                    self.record_clip(args.slot_index, args.instruction, audio_request_props);
                 }
             }
         }
@@ -469,7 +475,8 @@ impl Column {
         // thread outside of assert_no_alloc.
         let _ = std::thread::current().id();
         assert_no_alloc(|| {
-            self.process_commands();
+            let request_props = BasicAudioRequestProps::from_transfer(args.block);
+            self.process_commands(request_props);
             // Make sure that in any case, we are only queried once per time, without retries.
             // TODO-medium This mechanism of advancing the position on every call by
             //  the block duration relies on the fact that the preview

@@ -12,7 +12,7 @@ use crate::rt::supplier::{
 };
 use crate::rt::ClipRecordArgs;
 use crate::timeline::{clip_timeline, Timeline};
-use crate::{ClipEngineResult, HybridTimeline, QuantizedPosition};
+use crate::{ClipEngineResult, ErrorWithPayload, HybridTimeline, QuantizedPosition};
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_midi::Channel;
 use playtime_api::{ClipPlayStartTiming, ClipRecordStartTiming, EvenQuantization, RecordLength};
@@ -135,6 +135,7 @@ struct RecordingState {
     old_source: Option<OwnedPcmSource>,
     project: Option<Project>,
     detect_downbeat: bool,
+    /// If this is `None`, a transition failed and it's a programming error!
     phase: Option<RecordingPhase>,
 }
 
@@ -142,13 +143,13 @@ impl RecordingState {
     // May be called in real-time thread.
     pub fn commit_recording(
         self,
-        timeline: &dyn Timeline,
+        timeline: &HybridTimeline,
         request_sender: &Sender<RecorderRequest>,
         response_sender: &Sender<RecorderResponse>,
     ) -> (ClipEngineResult<RecordingOutcome>, State) {
         use KindSpecificRecordingState::*;
         use State::*;
-        let (next_state, source_duration) = match self.kind_state {
+        let (outcome, next_state) = match self.kind_state {
             Audio(ss) => {
                 let sss = match ss {
                     RecordingAudioState::Active(s) => s,
@@ -183,31 +184,31 @@ impl RecordingState {
                     file: sss.file_clone,
                     source_duration,
                 };
+                let outcome = self.phase.unwrap().commit(source_duration, timeline);
                 let recording_state = RecordingState {
                     kind_state: Audio(RecordingAudioState::Finishing(finishing_state)),
-                    phase: Some(RecordingPhase::Committed),
+                    phase: {
+                        let new_phase = match outcome.clone() {
+                            Ok(outcome) => RecordingPhase::Committed(outcome),
+                            Err(e) => e.payload,
+                        };
+                        Some(new_phase)
+                    },
                     ..self
                 };
-                (Recording(recording_state), source_duration)
+                (outcome, Recording(recording_state))
             }
             Midi(ss) => {
                 let source_duration = ss.new_source.get_length().unwrap();
+                let outcome = self.phase.unwrap().commit(source_duration, timeline);
                 let ready_state = ReadyState {
                     source: ss.new_source,
                     midi_overdub_mirror_source: None,
                 };
-                (Ready(ready_state), source_duration)
+                (outcome, Ready(ready_state))
             }
         };
-        let outcome = match self.phase.unwrap() {
-            RecordingPhase::Empty(_) => {
-                Err("attempt to commit recording although no material arrived yet")
-            }
-            RecordingPhase::OpenEnd(p) => Ok(p.commit(source_duration, timeline)),
-            RecordingPhase::EndScheduled(p) => Ok(p.commit(source_duration)),
-            RecordingPhase::Committed => Err("already committed"),
-        };
-        (outcome, next_state)
+        (outcome.map_err(|e| e.message), next_state)
     }
 }
 
@@ -238,6 +239,19 @@ struct RecordingAudioFinishingState {
     frame_rate: Hz,
     source_duration: DurationInSeconds,
     file: PathBuf,
+}
+
+impl RecordingAudioFinishingState {
+    pub fn audio_material_info(&self) -> AudioMaterialInfo {
+        AudioMaterialInfo {
+            channel_count: self.temporary_audio_buffer.to_buf().channel_count(),
+            frame_count: convert_duration_in_seconds_to_frames(
+                self.source_duration,
+                self.frame_rate,
+            ),
+            frame_rate: self.frame_rate,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -272,6 +286,10 @@ impl KindSpecificRecordingState {
                 Self::Audio(recording_audio_state)
             }
         }
+    }
+
+    pub fn is_midi(&self) -> bool {
+        matches!(self, KindSpecificRecordingState::Midi(_))
     }
 }
 
@@ -376,9 +394,7 @@ impl Recorder {
                     // Should usually not be called here. But we can provide a current snapshot.
                     OpenEnd(p) => p.snapshot(timeline).non_normalized_downbeat_pos,
                     EndScheduled(p) => p.non_normalized_downbeat_pos,
-                    Committed => panic!(
-                        "attempt to query downbeat position when recording already committed"
-                    ),
+                    Committed(p) => p.non_normalized_downbeat_pos,
                 }
             }
         }
@@ -432,7 +448,7 @@ impl Recorder {
     /// Can be called in a real-time thread (doesn't allocate).
     pub fn commit_recording(
         &mut self,
-        timeline: &dyn Timeline,
+        timeline: &HybridTimeline,
     ) -> ClipEngineResult<RecordingOutcome> {
         use State::*;
         let (res, next_state) = match self.state.take().unwrap() {
@@ -608,6 +624,16 @@ impl Recorder {
                     null_mut(),
                     null_mut(),
                 );
+            }
+        }
+    }
+
+    pub fn recording_info(&self) -> Option<RecordingInfo> {
+        match self.state.as_ref().unwrap() {
+            State::Ready(_) => None,
+            State::Recording(s) => {
+                let info = s.phase.as_ref().unwrap().recording_info();
+                Some(info)
             }
         }
     }
@@ -816,31 +842,19 @@ impl MidiSupplier for Recorder {
 
 impl WithMaterialInfo for Recorder {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
-        let source = match self.state.as_ref().unwrap() {
-            State::Ready(s) => &s.source,
+        match self.state.as_ref().unwrap() {
+            State::Ready(s) => s.source.material_info(),
             State::Recording(s) => match &s.kind_state {
                 KindSpecificRecordingState::Audio(RecordingAudioState::Finishing(s)) => {
-                    let info = AudioMaterialInfo {
-                        channel_count: s.temporary_audio_buffer.to_buf().channel_count(),
-                        frame_count: convert_duration_in_seconds_to_frames(
-                            s.source_duration,
-                            s.frame_rate,
-                        ),
-                        frame_rate: s.frame_rate,
-                    };
-                    return Ok(MaterialInfo::Audio(info));
+                    Ok(MaterialInfo::Audio(s.audio_material_info()))
                 }
-                _ => s
-                    .old_source
-                    .as_ref()
-                    .ok_or("attempt to query material info without source")?,
+                _ => Err("attempt to query material info while recording"),
             },
-        };
-        source.material_info()
+        }
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum RecordingPhase {
     /// We have a provisional section start position already but some important material info is
     /// not available yet (audio only).
@@ -853,7 +867,7 @@ enum RecordingPhase {
     /// Section frame count is clear.
     EndScheduled(EndScheduledPhase),
     /// Source duration is clear.
-    Committed,
+    Committed(RecordingOutcome),
 }
 
 impl RecordingPhase {
@@ -883,12 +897,50 @@ impl RecordingPhase {
             Empty(_) => None,
             OpenEnd(s) => Some(s.frame_rate),
             EndScheduled(s) => Some(s.prev_phase.frame_rate),
-            Committed => None,
+            Committed(s) => Some(s.frame_rate),
+        }
+    }
+
+    fn recording_info(&self) -> RecordingInfo {
+        use RecordingPhase::*;
+        let empty_phase = match self {
+            Empty(s) => s,
+            OpenEnd(s) => &s.prev_phase,
+            EndScheduled(s) => &s.prev_phase.prev_phase,
+            Committed(s) => {
+                return RecordingInfo {
+                    timing: s.timing,
+                    is_midi: s.is_midi,
+                    initial_tempo: s.tempo,
+                };
+            }
+        };
+        RecordingInfo {
+            timing: empty_phase.timing,
+            is_midi: empty_phase.is_midi,
+            initial_tempo: empty_phase.tempo,
+        }
+    }
+
+    fn commit(
+        self,
+        source_duration: DurationInSeconds,
+        timeline: &HybridTimeline,
+    ) -> Result<RecordingOutcome, ErrorWithPayload<Self>> {
+        use RecordingPhase::*;
+        match self {
+            Empty(p) => Err(ErrorWithPayload::new(
+                "attempt to commit recording although no material arrived yet",
+                Empty(p),
+            )),
+            OpenEnd(p) => Ok(p.commit(source_duration, timeline)),
+            EndScheduled(p) => Ok(p.commit(source_duration)),
+            Committed(outcome) => Ok(outcome),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct EmptyPhase {
     tempo: Bpm,
     timing: RecordTiming,
@@ -929,7 +981,7 @@ impl EmptyPhase {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct OpenEndPhase {
     prev_phase: EmptyPhase,
     source_start_timeline_pos: PositionInSeconds,
@@ -956,11 +1008,13 @@ impl OpenEndPhase {
             frame_rate: self.frame_rate,
             tempo: self.prev_phase.tempo,
             is_midi: self.prev_phase.is_midi,
+            timing: self.prev_phase.timing,
             source_duration,
             section_start_frame: snapshot.section_start_frame,
             normalized_downbeat_frame: snapshot.normalized_downbeat_frame,
             section_frame_count: None,
             effective_duration: fake_duration,
+            non_normalized_downbeat_pos: snapshot.non_normalized_downbeat_pos,
         }
     }
 
@@ -1072,7 +1126,7 @@ impl OpenEndPhase {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct EndScheduledPhase {
     prev_phase: OpenEndPhase,
     section_frame_count: Option<usize>,
@@ -1088,11 +1142,13 @@ impl EndScheduledPhase {
             frame_rate: self.prev_phase.frame_rate,
             tempo: self.prev_phase.prev_phase.tempo,
             is_midi: self.prev_phase.prev_phase.is_midi,
+            timing: self.prev_phase.prev_phase.timing,
             source_duration,
             section_start_frame: self.section_start_frame,
             normalized_downbeat_frame: self.normalized_downbeat_frame,
             section_frame_count: self.section_frame_count,
             effective_duration: self.effective_duration,
+            non_normalized_downbeat_pos: self.non_normalized_downbeat_pos,
         }
     }
 }
@@ -1102,11 +1158,13 @@ pub struct RecordingOutcome {
     pub frame_rate: Hz,
     pub tempo: Bpm,
     pub is_midi: bool,
+    pub timing: RecordTiming,
     /// Duration of the source material.
     pub source_duration: DurationInSeconds,
     pub section_start_frame: usize,
     pub section_frame_count: Option<usize>,
     pub normalized_downbeat_frame: usize,
+    pub non_normalized_downbeat_pos: DurationInSeconds,
     /// If we have a section, then this corresponds to the duration of the section. If not,
     /// this corresponds to the duration of the source material.
     pub effective_duration: DurationInSeconds,
@@ -1170,4 +1228,10 @@ impl WithSource for Recorder {
             State::Recording(_) => None,
         }
     }
+}
+
+pub struct RecordingInfo {
+    pub timing: RecordTiming,
+    pub is_midi: bool,
+    pub initial_tempo: Bpm,
 }

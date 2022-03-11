@@ -3,13 +3,13 @@ use crate::main::{
     ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask, MatrixSettings, Slot, SlotState,
     VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
-use crate::rt::supplier::{ChainEquipment, RecorderRequest};
+use crate::rt::supplier::{ChainEquipment, RecordTiming, Recorder, RecorderRequest, SupplierChain};
 use crate::rt::{
-    ClipChangedEvent, ClipMidiOverdubArgs, ClipPlayState, ClipRecordArgs, ColumnCommandSender,
-    ColumnEvent, ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipLoopedArgs,
-    ColumnStopClipArgs, SharedColumn, SlotRecordInstruction, WeakColumn,
+    ClipChangedEvent, ClipPlayState, ClipRecordArgs, ColumnCommandSender, ColumnEvent,
+    ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipLoopedArgs, ColumnStopClipArgs,
+    MidiOverdubInstruction, NewClipInstruction, SharedColumn, SlotRecordInstruction, WeakColumn,
 };
-use crate::{clip_timeline, rt, ClipEngineResult};
+use crate::{clip_timeline, rt, ClipEngineResult, Timeline};
 use crossbeam_channel::{Receiver, Sender};
 use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
@@ -416,9 +416,11 @@ impl Column {
             None
         };
         let instruction = if let Some(mirror_source) = midi_overdub_mirror_source {
-            let args = ClipMidiOverdubArgs { mirror_source };
+            // We can do MIDI overdub. This is the easiest thing and needs almost no preparation.
+            let args = MidiOverdubInstruction { mirror_source };
             SlotRecordInstruction::MidiOverdub(args)
         } else {
+            // We record completely new material.
             let args = ClipRecordArgs {
                 parent_play_start_timing: self
                     .rt_settings
@@ -436,15 +438,40 @@ impl Column {
                 },
             };
             if has_existing_clip {
+                // There's a clip already. That makes it easy because we have the clip struct
+                // already, including the complete clip supplier chain, and can reuse it.
                 SlotRecordInstruction::ExistingClip(args)
             } else {
-                let recording_clip = rt::Clip::recording(
-                    args,
-                    chain_equipment.clone(),
-                    recorder_request_sender.clone(),
+                // There's no clip yet so we need to create the clip including the complete supplier
+                // chain from scratch. We need to do create much of the stuff here already because
+                // we must not allocate in the real-time thread. However, we can't create the
+                // complete clip because we don't have enough information (block length, timeline
+                // frame rate) available at this point to resolve the initial recording position.
+                let timeline = clip_timeline(self.project, false);
+                let timeline_cursor_pos = timeline.cursor_pos();
+                let tempo = timeline.tempo_at(timeline_cursor_pos);
+                let timing = RecordTiming::from_args(&args, &timeline, timeline_cursor_pos);
+                let recorder = Recorder::recording(
+                    args.recording_equipment,
                     self.project,
-                )?;
-                SlotRecordInstruction::NewClip(recording_clip)
+                    timeline_cursor_pos,
+                    tempo,
+                    recorder_request_sender.clone(),
+                    args.detect_downbeat,
+                    timing,
+                );
+                let supplier_chain = SupplierChain::new(recorder, chain_equipment.clone())?;
+                let new_clip_instruction = NewClipInstruction {
+                    supplier_chain,
+                    project: self.project,
+                    shared_pos: Default::default(),
+                    timeline,
+                    timeline_cursor_pos,
+                    timing,
+                    looped: false,
+                    is_midi: input_is_midi,
+                };
+                SlotRecordInstruction::NewClip(new_clip_instruction)
             }
         };
         // Above code was only for checking preconditions and preparing stuff.

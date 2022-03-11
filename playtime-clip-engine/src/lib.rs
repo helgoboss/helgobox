@@ -19,6 +19,7 @@ pub mod midi_util;
 
 type ClipEngineResult<T> = Result<T, &'static str>;
 
+#[derive(Clone)]
 pub struct ErrorWithPayload<T> {
     pub message: &'static str,
     pub payload: T,
