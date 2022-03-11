@@ -1,4 +1,5 @@
 use crate::file_util::get_path_for_new_media_file;
+use crate::rt::supplier::MIDI_BASE_BPM;
 use crate::ClipEngineResult;
 use playtime_api as api;
 use reaper_high::{Item, OwnedSource, Project, ReaperSource};
@@ -107,9 +108,21 @@ pub fn create_pcm_source_from_api_source(
             source.set_state_chunk("<SOURCE MIDI\n", chunk)?;
             // Make sure we don't have any association to some item on the timeline (or in
             // another slot) because that could lead to unpleasant surprises.
+            source.remove_from_midi_pool().map_err(|e| e.message())?;
+            // Setting the source preview tempo is absolutely essential. It decouples the playing
+            // of the source from REAPER's project position and tempo. We set it to a constant tempo
+            // because we control the tempo on-the-fly by modifying the frame rate when requesting
+            // material.
+            // There are alternatives to setting the preview tempo, in particular doing the
+            // following when playing the material:
+            //
+            //      transfer.set_force_bpm(MIDI_BASE_BPM);
+            //      transfer.set_absolute_time_s(PositionInSeconds::ZERO);
+            //
+            // However,
             source
-                .remove_from_midi_pool()
-                .map_err(|_| "couldn't unpool MIDI")?;
+                .set_preview_tempo(MIDI_BASE_BPM)
+                .map_err(|e| e.message())?;
             source
         }
     };

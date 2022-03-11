@@ -551,6 +551,7 @@ impl Recorder {
         state.next_record_start_frame += num_frames_written;
     }
 
+    /// The given position is interpreted as position within the source at [`MIDI_BASE_BPM`].
     pub fn write_midi(&mut self, request: WriteMidiRequest, pos: DurationInSeconds) {
         let source = match self.state.as_mut().unwrap() {
             State::Recording(RecordingState {
@@ -572,6 +573,7 @@ impl Recorder {
                                 .into_iter()
                                 .find(|e| crate::midi_util::is_play_message(e.message()))
                             {
+                                // TODO-high The frame rate is now different.
                                 let block_frame =
                                     convert_duration_in_seconds_to_frames(pos, MIDI_FRAME_RATE);
                                 let event_frame = block_frame + evt.frame_offset().get() as usize;
@@ -588,9 +590,17 @@ impl Recorder {
             _ => return,
         };
         let mut write_struct = midi_realtime_write_struct_t {
+            // Time within the source at MIDI_BASE_BPM.
             global_time: pos.get(),
             srate: request.input_sample_rate.get(),
             item_playrate: 1.0,
+            // This is the item position minus project start offset (project time of the start of
+            // the MIDI source). The overdub mechanism would look at it in order to determine the
+            // tempo. However, we want to work independently from REAPER's main timeline:
+            // At source creation time, we set the source preview tempo to a constant value because
+            // we control the tempo by modifying the frame rate (which allows us to do it while
+            // playing). This in turn makes the overdub ignore project time, so the project tempo
+            // and thus global_item_time doesn't matter anymore.
             global_item_time: 0.0,
             length: request.block_length as _,
             // Overdub
@@ -600,6 +610,7 @@ impl Recorder {
             // Not used
             overwrite_actives: null_mut(),
         };
+        // TODO-high overdub: use double-source strategy to actually save overdubbed material
         debug!(
             "Write MIDI: Pos = {} at sample rate {}",
             pos, request.input_sample_rate
@@ -927,7 +938,7 @@ impl EmptyPhase {
     /// This tempo factor must be used to adjust positions and durations that are measured using the
     /// actual recording tempo in order to conform to the normalized tempo.
     fn midi_tempo_factor(&self) -> f64 {
-        self.tempo.get() / MIDI_BASE_BPM
+        self.tempo.get() / MIDI_BASE_BPM.get()
     }
 }
 

@@ -376,8 +376,6 @@ impl Clip {
     }
 
     pub fn write_midi(&mut self, request: WriteMidiRequest) {
-        let timeline = clip_timeline(self.project, false);
-        let timeline_cursor_pos = timeline.cursor_pos();
         use ClipState::*;
         let record_pos = match &self.state {
             Ready(s) => {
@@ -386,14 +384,18 @@ impl Clip {
                     overdubbing: true, ..
                 }) = s.state
                 {
-                    let tempo = timeline.tempo_at(timeline_cursor_pos);
-                    self.position_in_seconds(tempo).unwrap_or_default()
+                    s.position_in_seconds_in_source_tempo(&self.supplier_chain)
+                        .unwrap_or_default()
                 } else {
                     return;
                 }
             }
             // TODO-high-record Depending on the trigger timeline pos is not good with tempo changes.
-            Recording(s) => timeline_cursor_pos - s.trigger_timeline_pos,
+            Recording(s) => {
+                let timeline = clip_timeline(self.project, false);
+                let timeline_cursor_pos = timeline.cursor_pos();
+                timeline_cursor_pos - s.trigger_timeline_pos
+            }
         };
         if record_pos < PositionInSeconds::ZERO {
             return;
@@ -426,14 +428,6 @@ impl Clip {
         }
     }
 
-    pub fn position_in_seconds(&self, timeline_tempo: Bpm) -> ClipEngineResult<PositionInSeconds> {
-        use ClipState::*;
-        match &self.state {
-            Ready(s) => s.position_in_seconds(timeline_tempo, &self.supplier_chain),
-            Recording(_) => Err("recording"),
-        }
-    }
-
     pub fn process(&mut self, args: &mut ClipProcessArgs) -> ClipPlayingOutcome {
         use ClipState::*;
         let (outcome, changed_state) = match &mut self.state {
@@ -463,21 +457,17 @@ impl Clip {
 }
 
 impl ReadyState {
-    pub fn position_in_seconds(
+    pub fn position_in_seconds_in_source_tempo(
         &self,
-        timeline_tempo: Bpm,
         supplier_chain: &SupplierChain,
     ) -> ClipEngineResult<PositionInSeconds> {
         let material_info = supplier_chain.material_info()?;
         let source_pos_in_source_frames = self.frame_within_reaper_source(&material_info);
-        let source_pos_in_secs = convert_position_in_frames_to_seconds(
+        let source_pos_in_seconds = convert_position_in_frames_to_seconds(
             source_pos_in_source_frames,
             material_info.frame_rate(),
         );
-        let tempo_factor = self.calc_tempo_factor(timeline_tempo, material_info.is_midi());
-        let tempo_adjusted_pos =
-            adjust_pos_in_secs_anti_proportionally(source_pos_in_secs, tempo_factor);
-        Ok(tempo_adjusted_pos)
+        Ok(source_pos_in_seconds)
     }
 
     /// Returns `None` if time base is not "Beat".
@@ -485,6 +475,7 @@ impl ReadyState {
         determine_tempo_from_time_base(&self.persistent_data.time_base, is_midi)
     }
 
+    /// This returns a frame position modulo frame count.
     fn frame_within_reaper_source(&self, material_info: &MaterialInfo) -> isize {
         use ReadySubState::*;
         let absolute_frame = match self.state {
@@ -788,7 +779,7 @@ impl ReadyState {
                 if material_info.is_midi() && compare_pos != pos {
                     // This happened a lot when the MIDI_FRAME_RATE wasn't a multiple of the sample
                     // rate and PPQ.
-                    debug!("ATTENTION: compare pos {} != pos {}", compare_pos, pos);
+                    // debug!("ATTENTION: compare pos {} != pos {}", compare_pos, pos);
                 }
                 Go {
                     pos,
@@ -1902,7 +1893,7 @@ pub fn calc_tempo_factor(clip_tempo: Bpm, timeline_tempo: Bpm) -> f64 {
 
 fn determine_tempo_from_beat_time_base(beat_time_base: &BeatTimeBase, is_midi: bool) -> Bpm {
     if is_midi {
-        Bpm::new(MIDI_BASE_BPM)
+        MIDI_BASE_BPM
     } else {
         let tempo = beat_time_base
             .audio_tempo

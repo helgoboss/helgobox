@@ -67,16 +67,18 @@ fn calculate_audio_frame_count(source: &OwnedPcmSource, sample_rate: Hz) -> usiz
 }
 
 fn calculate_midi_frame_count(source: &OwnedPcmSource) -> usize {
-    let length_in_beats = source
-        .get_length_beats()
-        .expect("MIDI source must have length in beats");
-    let length_in_seconds = {
+    let length_in_seconds = if let Some(length_in_beats) = source.get_length_beats() {
         // For MIDI, get_length() takes the current project tempo in account ... which is not
         // what we want because we want to do all the tempo calculations ourselves and treat
         // MIDI/audio the same wherever possible.
         let beats_per_minute = MIDI_BASE_BPM;
-        let beats_per_second = beats_per_minute / 60.0;
+        let beats_per_second = beats_per_minute.get() / 60.0;
         DurationInSeconds::new(length_in_beats.get() / beats_per_second)
+    } else {
+        // If we don't get a length in beats, this either means we have set a preview tempo
+        // on the source or the source has IGNTEMPO set to 1. Either way we will take the
+        // reported length.
+        source.get_length().unwrap()
     };
     convert_duration_in_seconds_to_frames(length_in_seconds, MIDI_FRAME_RATE)
 }
@@ -117,15 +119,18 @@ impl MidiSupplier for OwnedPcmSource {
             transfer.set_sample_rate(frame_rate);
             transfer.set_length(num_frames_to_be_consumed as i32);
             transfer.set_time_s(time_s);
-            // Force MIDI tempo, then *we* can deal with on-the-fly tempo changes that occur while
-            // playing instead of REAPER letting use its generic mechanism that leads to duplicate
-            // notes, probably through internal position changes. Setting the absolute time to
-            // zero prevents repeated notes when turning the tempo down. According to Justin this
-            // prevents the "re-sync-on-project-change logic".
-            transfer.set_force_bpm(Bpm::new(MIDI_BASE_BPM));
-            transfer.set_absolute_time_s(PositionInSeconds::ZERO);
             transfer.set_midi_event_list(event_list);
             self.get_samples(&transfer);
+            // In the past, we did the following in order to deal with on-the-fly tempo changes that
+            // occur while playing instead of REAPER letting use its generic mechanism that leads
+            // to repeated notes, probably through internal position changes.
+            //
+            //      transfer.set_force_bpm(MIDI_BASE_BPM);
+            //      transfer.set_absolute_time_s(PositionInSeconds::ZERO);
+            //
+            // However, now we set the constant preview tempo at source creation time, which makes
+            // the source completely project tempo/pos-independent, also when doing recording via
+            // midi_realtime_write_struct_t. So that's not necessary anymore
             transfer.samples_out() as usize
         };
         // The lower the sample rate, the higher the tempo, the more inner source material we
@@ -185,4 +190,4 @@ pub const MIDI_FRAME_RATE: Hz = unsafe { Hz::new_unchecked(169_344_000.0) };
 /// MIDI data is tempo-less. But pretending that all MIDI clips have a fixed tempo allows us to
 /// treat MIDI similar to audio. E.g. if we want it to play faster, we just lower the output sample
 /// rate. Plus, we can use the same time stretching supplier. Fewer special cases, nice!
-pub const MIDI_BASE_BPM: f64 = 120.0;
+pub const MIDI_BASE_BPM: Bpm = unsafe { Bpm::new_unchecked(120.0) };
