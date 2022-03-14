@@ -2,28 +2,30 @@ use crate::conversion_util::{
     adjust_pos_in_secs_anti_proportionally, convert_position_in_frames_to_seconds,
 };
 use crate::main::{
-    create_file_api_source, create_pcm_source_from_api_source, source_util, ColumnSettings,
-    CreateApiSourceMode, MatrixSettings,
+    create_file_api_source, create_pcm_source_from_api_source, source_util, CreateApiSourceMode,
 };
 use crate::rt::supplier::{
     ChainEquipment, KindSpecificRecordingOutcome, MaterialInfo, RecorderRequest,
 };
+use crate::rt::tempo_util::determine_tempo_from_time_base;
 use crate::rt::{
-    calc_tempo_factor, determine_tempo_from_time_base, ClipPlayState, CommittedRecording, SharedPos,
+    calc_tempo_factor, ClipPlayState, CommittedRecording, OverridableMatrixSettings,
+    ProcessingRelevantClipSettings, SharedPos,
 };
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
-use playtime_api::{AudioCacheBehavior, AudioTimeStretchMode, Db, FileSource, VirtualResampleMode};
+use playtime_api::{ClipColor, Db};
 use reaper_high::{OwnedSource, Project};
-use reaper_medium::{BorrowedPcmSource, Bpm, OwnedPcmSource, PositionInSeconds};
+use reaper_medium::{Bpm, OwnedPcmSource, PositionInSeconds};
 
 #[derive(Clone, Debug)]
 pub struct Clip {
     // Unlike Column and Matrix, we use the API clip here directly because there's almost no
     // unnecessary data inside.
-    persistent_data: api::Clip,
+    source: api::Source,
+    processing_relevant_settings: ProcessingRelevantClipSettings,
     runtime_data: Option<ClipRuntimeData>,
     /// `true` for the short moment while recording was requested (using the chain of an existing
     /// clip) but has not yet been acknowledged from a real-time thread.
@@ -53,7 +55,8 @@ impl ClipRuntimeData {
 impl Clip {
     pub fn load(api_clip: api::Clip) -> Self {
         Self {
-            persistent_data: api_clip,
+            processing_relevant_settings: ProcessingRelevantClipSettings::from_api(&api_clip),
+            source: api_clip.source,
             runtime_data: None,
             recording_requested: false,
         }
@@ -71,26 +74,27 @@ impl Clip {
             Audio { path } => create_file_api_source(temporary_project, &path),
         };
         let clip = Self {
-            persistent_data: api::Clip {
-                source: api_source,
-                time_base: recording.time_base,
-                start_timing: recording.start_timing,
-                stop_timing: recording.stop_timing,
-                looped: recording.looped,
-                volume: recording.volume,
-                color: api::ClipColor::PlayTrackColor,
-                section: recording.section,
-                audio_settings: recording.audio_settings,
-                midi_settings: recording.midi_settings,
-            },
+            source: api_source,
             runtime_data: None,
             recording_requested: false,
+            processing_relevant_settings: recording.clip_settings,
         };
         Ok(clip)
     }
 
     pub fn save(&self) -> api::Clip {
-        self.persistent_data.clone()
+        api::Clip {
+            source: self.source.clone(),
+            time_base: self.processing_relevant_settings.time_base,
+            start_timing: self.processing_relevant_settings.start_timing,
+            stop_timing: self.processing_relevant_settings.stop_timing,
+            looped: self.processing_relevant_settings.looped,
+            volume: self.processing_relevant_settings.volume,
+            color: ClipColor::PlayTrackColor,
+            section: self.processing_relevant_settings.section,
+            audio_settings: self.processing_relevant_settings.audio_settings,
+            midi_settings: self.processing_relevant_settings.midi_settings,
+        }
     }
 
     pub fn notify_recording_requested(&mut self) -> ClipEngineResult<()> {
@@ -114,7 +118,7 @@ impl Clip {
         temporary_project: Option<Project>,
     ) -> ClipEngineResult<()> {
         let api_source = create_api_source_from_mirror_source(mirror_source, temporary_project)?;
-        self.persistent_data.source = api_source;
+        self.source = api_source;
         Ok(())
     }
 
@@ -123,67 +127,25 @@ impl Clip {
         permanent_project: Option<Project>,
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
-        matrix_settings: &MatrixSettings,
-        column_settings: &ColumnSettings,
+        matrix_settings: &OverridableMatrixSettings,
+        column_settings: &rt::ColumnSettings,
     ) -> ClipEngineResult<rt::Clip> {
-        let mut rt_clip = rt::Clip::ready(
-            &self.persistent_data,
+        rt::Clip::ready(
+            &self.source,
+            matrix_settings,
+            column_settings,
+            &self.processing_relevant_settings,
             permanent_project,
             chain_equipment,
             recorder_request_sender,
-        )?;
-        self.configure_real_time_clip(matrix_settings, column_settings, &mut rt_clip);
-        Ok(rt_clip)
+        )
     }
 
     pub fn create_mirror_source_for_midi_overdub(
         &self,
         permanent_project: Option<Project>,
     ) -> ClipEngineResult<OwnedPcmSource> {
-        create_pcm_source_from_api_source(&self.persistent_data.source, permanent_project)
-    }
-
-    fn configure_real_time_clip(
-        &self,
-        matrix_settings: &MatrixSettings,
-        column_settings: &ColumnSettings,
-        rt_clip: &mut rt::Clip,
-    ) {
-        rt_clip.set_audio_resample_mode(
-            self.effective_audio_resample_mode(matrix_settings, column_settings),
-        );
-        rt_clip.set_audio_time_stretch_mode(
-            self.effective_audio_time_stretch_mode(matrix_settings, column_settings),
-        );
-        rt_clip.set_audio_cache_behavior(
-            self.effective_audio_cache_behavior(matrix_settings, column_settings),
-        );
-    }
-
-    fn effective_audio_resample_mode(
-        &self,
-        matrix_settings: &MatrixSettings,
-        column_settings: &ColumnSettings,
-    ) -> VirtualResampleMode {
-        self.persistent_data
-            .audio_settings
-            .resample_mode
-            .clone()
-            .or_else(|| column_settings.audio_resample_mode.clone())
-            .unwrap_or_else(|| matrix_settings.audio_resample_mode.clone())
-    }
-
-    fn effective_audio_time_stretch_mode(
-        &self,
-        matrix_settings: &MatrixSettings,
-        column_settings: &ColumnSettings,
-    ) -> AudioTimeStretchMode {
-        self.persistent_data
-            .audio_settings
-            .time_stretch_mode
-            .clone()
-            .or_else(|| column_settings.audio_time_stretch_mode.clone())
-            .unwrap_or_else(|| matrix_settings.audio_time_stretch_mode.clone())
+        create_pcm_source_from_api_source(&self.source, permanent_project)
     }
 
     fn runtime_data(&self) -> ClipEngineResult<&ClipRuntimeData> {
@@ -192,19 +154,6 @@ impl Clip {
 
     fn runtime_data_mut(&mut self) -> ClipEngineResult<&mut ClipRuntimeData> {
         get_runtime_data_mut(&mut self.runtime_data)
-    }
-
-    fn effective_audio_cache_behavior(
-        &self,
-        matrix_settings: &MatrixSettings,
-        column_settings: &ColumnSettings,
-    ) -> AudioCacheBehavior {
-        self.persistent_data
-            .audio_settings
-            .cache_behavior
-            .clone()
-            .or_else(|| column_settings.audio_cache_behavior.clone())
-            .unwrap_or_else(|| matrix_settings.audio_cache_behavior.clone())
     }
 
     /// Connects the given real-time clip to the main clip.
@@ -222,26 +171,22 @@ impl Clip {
         Some(&runtime_data.material_info)
     }
 
-    pub fn data(&self) -> &api::Clip {
-        &self.persistent_data
-    }
-
-    pub fn data_mut(&mut self) -> &mut api::Clip {
-        &mut self.persistent_data
+    pub fn looped(&self) -> bool {
+        self.processing_relevant_settings.looped
     }
 
     pub fn toggle_looped(&mut self) -> bool {
-        let looped_new = !self.persistent_data.looped;
-        self.persistent_data.looped = looped_new;
+        let looped_new = !self.processing_relevant_settings.looped;
+        self.processing_relevant_settings.looped = looped_new;
         looped_new
     }
 
     pub fn set_volume(&mut self, volume: Db) {
-        self.persistent_data.volume = volume;
+        self.processing_relevant_settings.volume = volume;
     }
 
     pub fn volume(&self) -> Db {
-        self.persistent_data.volume
+        self.processing_relevant_settings.volume
     }
 
     pub fn recording_requested(&self) -> bool {
@@ -310,7 +255,7 @@ impl Clip {
     /// Returns `None` if time base is not "Beat" or if no runtime data is available.
     fn tempo(&self) -> Option<Bpm> {
         determine_tempo_from_time_base(
-            &self.persistent_data.time_base,
+            &self.processing_relevant_settings.time_base,
             self.runtime_data().ok()?.material_info.is_midi(),
         )
     }

@@ -19,8 +19,8 @@ use playtime_api::{ClipPlayStartTiming, ClipRecordStartTiming, EvenQuantization,
 use reaper_high::{OwnedSource, Project, Reaper};
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
-    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, MidiImportBehavior, OwnedPcmSink,
-    OwnedPcmSource, PositionInSeconds,
+    BorrowedMidiEventList, Bpm, DurationInBeats, DurationInSeconds, Hz, MidiImportBehavior,
+    OwnedPcmSink, OwnedPcmSource, PositionInSeconds, TimeSignature,
 };
 use std::cmp;
 use std::convert::TryInto;
@@ -308,10 +308,6 @@ impl KindSpecificRecordingState {
             }
         }
     }
-
-    pub fn is_midi(&self) -> bool {
-        matches!(self, KindSpecificRecordingState::Midi(_))
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -348,27 +344,14 @@ impl Recorder {
     }
 
     /// Okay to call in real-time thread.
-    pub fn recording(
-        recording_equipment: RecordingEquipment,
-        project: Option<Project>,
-        trigger_timeline_pos: PositionInSeconds,
-        tempo: Bpm,
-        request_sender: Sender<RecorderRequest>,
-        detect_downbeat: bool,
-        timing: RecordTiming,
-    ) -> Self {
-        let initial_phase = RecordingPhase::initial_phase(
-            timing,
-            tempo,
-            recording_equipment.is_midi(),
-            trigger_timeline_pos,
-        );
-        let kind_state = KindSpecificRecordingState::new(recording_equipment);
+    pub fn recording(args: RecordingArgs, request_sender: Sender<RecorderRequest>) -> Self {
+        let initial_phase = RecordingPhase::initial_phase(&args);
+        let kind_state = KindSpecificRecordingState::new(args.equipment);
         let recording_state = RecordingState {
             kind_state,
             old_source: None,
-            project,
-            detect_downbeat,
+            project: args.project,
+            detect_downbeat: args.detect_downbeat,
             phase: Some(initial_phase),
         };
         Self::new(State::Recording(recording_state), request_sender)
@@ -440,27 +423,18 @@ impl Recorder {
     }
 
     /// This must not be done in a real-time thread!
-    pub fn prepare_recording(
-        &mut self,
-        equipment: RecordingEquipment,
-        project: Option<Project>,
-        trigger_timeline_pos: PositionInSeconds,
-        tempo: Bpm,
-        detect_downbeat: bool,
-        timing: RecordTiming,
-    ) {
+    pub fn prepare_recording(&mut self, args: RecordingArgs) {
         use State::*;
         let old_source = match self.state.take().unwrap() {
             Ready(s) => Some(s.source),
             Recording(s) => s.old_source,
         };
-        let initial_phase =
-            RecordingPhase::initial_phase(timing, tempo, equipment.is_midi(), trigger_timeline_pos);
+        let initial_phase = RecordingPhase::initial_phase(&args);
         let recording_state = RecordingState {
-            kind_state: KindSpecificRecordingState::new(equipment),
+            kind_state: KindSpecificRecordingState::new(args.equipment),
             old_source,
-            project,
-            detect_downbeat,
+            project: args.project,
+            detect_downbeat: args.detect_downbeat,
             phase: Some(initial_phase),
         };
         self.state = Some(Recording(recording_state));
@@ -894,21 +868,18 @@ enum RecordingPhase {
 }
 
 impl RecordingPhase {
-    fn initial_phase(
-        timing: RecordTiming,
-        tempo: Bpm,
-        is_midi: bool,
-        trigger_timeline_pos: PositionInSeconds,
-    ) -> Self {
+    fn initial_phase(args: &RecordingArgs) -> Self {
+        let is_midi = args.equipment.is_midi();
         let empty = EmptyPhase {
-            tempo,
-            timing,
+            tempo: args.tempo,
+            time_signature: args.time_signature,
+            timing: args.timing,
             is_midi,
         };
         if is_midi {
             // MIDI starts in phase two because source start position and frame rate are clear
             // right from the start.
-            empty.advance(trigger_timeline_pos, MIDI_FRAME_RATE)
+            empty.advance(args.timeline_cursor_pos, MIDI_FRAME_RATE)
         } else {
             RecordingPhase::Empty(empty)
         }
@@ -966,6 +937,7 @@ impl RecordingPhase {
 #[derive(Clone, Debug)]
 struct EmptyPhase {
     tempo: Bpm,
+    time_signature: TimeSignature,
     timing: RecordTiming,
     is_midi: bool,
 }
@@ -1030,6 +1002,7 @@ impl OpenEndPhase {
         CompleteRecordingData {
             frame_rate: self.frame_rate,
             tempo: self.prev_phase.tempo,
+            time_signature: self.prev_phase.time_signature,
             is_midi: self.prev_phase.is_midi,
             timing: self.prev_phase.timing,
             source_duration,
@@ -1164,6 +1137,7 @@ impl EndScheduledPhase {
         CompleteRecordingData {
             frame_rate: self.prev_phase.frame_rate,
             tempo: self.prev_phase.prev_phase.tempo,
+            time_signature: self.prev_phase.prev_phase.time_signature,
             is_midi: self.prev_phase.prev_phase.is_midi,
             timing: self.prev_phase.prev_phase.timing,
             source_duration,
@@ -1192,17 +1166,41 @@ pub enum KindSpecificRecordingOutcome {
 pub struct CompleteRecordingData {
     pub frame_rate: Hz,
     pub tempo: Bpm,
+    pub time_signature: TimeSignature,
     pub is_midi: bool,
     pub timing: RecordTiming,
     /// Duration of the source material.
     pub source_duration: DurationInSeconds,
     pub section_start_frame: usize,
     pub section_frame_count: Option<usize>,
+    /// Not tempo-adjusted.
     pub normalized_downbeat_frame: usize,
+    /// Tempo-adjusted.
     pub non_normalized_downbeat_pos: DurationInSeconds,
     /// If we have a section, then this corresponds to the duration of the section. If not,
     /// this corresponds to the duration of the source material.
     pub effective_duration: DurationInSeconds,
+}
+
+impl CompleteRecordingData {
+    pub fn section_start_pos_in_seconds(&self) -> DurationInSeconds {
+        convert_duration_in_frames_to_seconds(self.section_start_frame, self.frame_rate)
+    }
+
+    pub fn section_length_in_seconds(&self) -> Option<DurationInSeconds> {
+        let section_frame_count = self.section_frame_count?;
+        Some(convert_duration_in_frames_to_seconds(
+            section_frame_count,
+            self.frame_rate,
+        ))
+    }
+
+    pub fn downbeat_in_beats(&self) -> DurationInBeats {
+        let downbeat_in_secs =
+            convert_duration_in_frames_to_seconds(self.normalized_downbeat_frame, self.frame_rate);
+        let bps = self.tempo.get() / 60.0;
+        DurationInBeats::new(downbeat_in_secs.get() * bps)
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1221,20 +1219,26 @@ impl RecordTiming {
         timeline_cursor_pos: PositionInSeconds,
     ) -> Self {
         use ClipRecordStartTiming::*;
-        match args.start_timing {
+        match args.settings.start_timing {
             LikeClipPlayStartTiming => {
                 use ClipPlayStartTiming::*;
-                match args.parent_play_start_timing {
+                match args.global_play_start_timing {
                     Immediately => RecordTiming::Unsynced,
-                    Quantized(q) => {
-                        RecordTiming::resolve_synced(q, args.length, timeline, timeline_cursor_pos)
-                    }
+                    Quantized(q) => RecordTiming::resolve_synced(
+                        q,
+                        args.settings.duration,
+                        timeline,
+                        timeline_cursor_pos,
+                    ),
                 }
             }
             Immediately => RecordTiming::Unsynced,
-            Quantized(q) => {
-                RecordTiming::resolve_synced(q, args.length, timeline, timeline_cursor_pos)
-            }
+            Quantized(q) => RecordTiming::resolve_synced(
+                q,
+                args.settings.duration,
+                timeline,
+                timeline_cursor_pos,
+            ),
         }
     }
 
@@ -1269,4 +1273,14 @@ pub struct RecordingInfo {
     pub timing: RecordTiming,
     pub is_midi: bool,
     pub initial_tempo: Bpm,
+}
+
+pub struct RecordingArgs {
+    pub equipment: RecordingEquipment,
+    pub project: Option<Project>,
+    pub timeline_cursor_pos: PositionInSeconds,
+    pub tempo: Bpm,
+    pub time_signature: TimeSignature,
+    pub detect_downbeat: bool,
+    pub timing: RecordTiming,
 }

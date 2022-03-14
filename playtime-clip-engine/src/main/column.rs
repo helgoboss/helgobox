@@ -3,11 +3,14 @@ use crate::main::{
     ClipRecordHardwareMidiInput, ClipRecordInput, ClipRecordTask, MatrixSettings, Slot, SlotState,
     VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
-use crate::rt::supplier::{ChainEquipment, RecordTiming, Recorder, RecorderRequest, SupplierChain};
+use crate::rt::supplier::{
+    ChainEquipment, RecordTiming, Recorder, RecorderRequest, RecordingArgs, SupplierChain,
+};
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ClipRecordArgs, ColumnCommandSender, ColumnEvent,
     ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipLoopedArgs, ColumnStopClipArgs,
-    MidiOverdubInstruction, NewClipInstruction, SharedColumn, SlotRecordInstruction, WeakColumn,
+    MidiOverdubInstruction, NewClipInstruction, OverridableMatrixSettings, SharedColumn,
+    SlotRecordInstruction, WeakColumn,
 };
 use crate::{clip_timeline, rt, ClipEngineResult, Timeline};
 use crossbeam_channel::{Receiver, Sender};
@@ -15,9 +18,8 @@ use enumflags2::BitFlags;
 use helgoboss_learn::UnitValue;
 use playtime_api as api;
 use playtime_api::{
-    AudioCacheBehavior, AudioTimeStretchMode, ChannelRange, ClipPlayStartTiming,
-    ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings, Db,
-    MatrixClipRecordSettings, MidiClipRecordMode, RecordOrigin, VirtualResampleMode,
+    ChannelRange, ColumnClipPlayAudioSettings, ColumnClipPlaySettings, ColumnClipRecordSettings,
+    Db, MatrixClipRecordSettings, MidiClipRecordMode, RecordOrigin,
 };
 use reaper_high::{Guid, OrCurrentProject, Project, Reaper, Track};
 use reaper_low::raw::preview_register_t;
@@ -44,9 +46,6 @@ pub struct Column {
 
 #[derive(Clone, Debug, Default)]
 pub struct ColumnSettings {
-    pub audio_resample_mode: Option<VirtualResampleMode>,
-    pub audio_time_stretch_mode: Option<AudioTimeStretchMode>,
-    pub audio_cache_behavior: Option<AudioCacheBehavior>,
     pub clip_record_settings: ColumnClipRecordSettings,
 }
 
@@ -99,19 +98,21 @@ impl Column {
             track,
         ));
         // Settings
-        self.settings.audio_resample_mode =
+        self.rt_settings.audio_resample_mode =
             api_column.clip_play_settings.audio_settings.resample_mode;
-        self.settings.audio_time_stretch_mode = api_column
+        self.rt_settings.audio_time_stretch_mode = api_column
             .clip_play_settings
             .audio_settings
             .time_stretch_mode;
-        self.settings.audio_cache_behavior =
+        self.rt_settings.audio_cache_behavior =
             api_column.clip_play_settings.audio_settings.cache_behavior;
         self.rt_settings.play_mode = api_column.clip_play_settings.mode.unwrap_or_default();
         self.rt_settings.clip_play_start_timing = api_column.clip_play_settings.start_timing;
         self.rt_settings.clip_play_stop_timing = api_column.clip_play_settings.stop_timing;
         self.rt_command_sender
             .update_settings(self.rt_settings.clone());
+        self.rt_command_sender
+            .update_matrix_settings(matrix_settings.overridable.clone());
         // Slots
         for api_slot in api_column.slots.unwrap_or_default() {
             if let Some(api_clip) = api_slot.clip {
@@ -164,12 +165,12 @@ impl Column {
             clip_play_settings: ColumnClipPlaySettings {
                 mode: Some(self.rt_settings.play_mode),
                 track: track_id,
-                start_timing: None,
-                stop_timing: None,
+                start_timing: self.rt_settings.clip_play_start_timing,
+                stop_timing: self.rt_settings.clip_play_stop_timing,
                 audio_settings: ColumnClipPlayAudioSettings {
-                    resample_mode: self.settings.audio_resample_mode.clone(),
-                    time_stretch_mode: self.settings.audio_time_stretch_mode.clone(),
-                    cache_behavior: self.settings.audio_cache_behavior.clone(),
+                    resample_mode: self.rt_settings.audio_resample_mode.clone(),
+                    time_stretch_mode: self.rt_settings.audio_time_stretch_mode.clone(),
+                    cache_behavior: self.rt_settings.audio_cache_behavior.clone(),
                 },
             },
             clip_record_settings: ColumnClipRecordSettings {
@@ -215,8 +216,8 @@ impl Column {
             permanent_project,
             chain_equipment,
             recorder_request_sender,
-            matrix_settings,
-            &self.settings,
+            &matrix_settings.overridable,
+            &self.rt_settings,
         )?;
         clip.connect_to(&rt_clip);
         let slot = get_slot_mut_insert(&mut self.slots, row);
@@ -352,9 +353,9 @@ impl Column {
         slot.play_state()
     }
 
-    pub fn clip_repeated(&self, slot_index: usize) -> ClipEngineResult<bool> {
+    pub fn clip_looped(&self, slot_index: usize) -> ClipEngineResult<bool> {
         let clip = get_clip(&self.slots, slot_index)?;
-        Ok(clip.data().looped)
+        Ok(clip.looped())
     }
 
     pub fn proportional_clip_position(&self, slot_index: usize) -> ClipEngineResult<UnitValue> {
@@ -365,12 +366,12 @@ impl Column {
     pub fn record_clip<H: ClipMatrixHandler>(
         &mut self,
         slot_index: usize,
-        matrix_settings: &MatrixClipRecordSettings,
+        matrix_record_settings: &MatrixClipRecordSettings,
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
         handler: &H,
         containing_track: Option<&Track>,
-        parent_play_start_timing: ClipPlayStartTiming,
+        overridable_matrix_settings: &OverridableMatrixSettings,
     ) -> ClipEngineResult<()> {
         // Insert slot if it doesn't exist already.
         let slot = get_slot_mut_insert(&mut self.slots, slot_index);
@@ -391,7 +392,7 @@ impl Column {
                     return Err("recording already (with existing clip)");
                 }
                 use MidiClipRecordMode::*;
-                let want_midi_overdub = match matrix_settings.midi_settings.record_mode {
+                let want_midi_overdub = match matrix_record_settings.midi_settings.record_mode {
                     Normal => false,
                     Overdub => {
                         // Only allow MIDI overdub is existing clip is a MIDI clip already.
@@ -431,20 +432,9 @@ impl Column {
         } else {
             // We record completely new material.
             let args = ClipRecordArgs {
-                parent_play_start_timing: self
-                    .rt_settings
-                    .clip_play_start_timing
-                    .unwrap_or(parent_play_start_timing),
                 recording_equipment,
-                start_timing: matrix_settings.start_timing.clone(),
-                midi_record_mode: matrix_settings.midi_settings.record_mode,
-                length: matrix_settings.duration.clone(),
-                looped: matrix_settings.looped,
-                detect_downbeat: if input_is_midi {
-                    matrix_settings.midi_settings.detect_downbeat
-                } else {
-                    matrix_settings.audio_settings.detect_downbeat
-                },
+                settings: matrix_record_settings.clone(),
+                global_play_start_timing: overridable_matrix_settings.clip_play_start_timing,
             };
             if has_existing_clip {
                 // There's a clip already. That makes it easy because we have the clip struct
@@ -460,15 +450,17 @@ impl Column {
                 let timeline_cursor_pos = timeline.cursor_pos();
                 let tempo = timeline.tempo_at(timeline_cursor_pos);
                 let timing = RecordTiming::from_args(&args, &timeline, timeline_cursor_pos);
-                let recorder = Recorder::recording(
-                    args.recording_equipment,
-                    self.project,
+                let recording_args = RecordingArgs {
+                    equipment: args.recording_equipment,
+                    project: self.project,
                     timeline_cursor_pos,
                     tempo,
-                    recorder_request_sender.clone(),
-                    args.detect_downbeat,
+                    time_signature: timeline.time_signature_at(timeline_cursor_pos),
+                    detect_downbeat: matrix_record_settings
+                        .downbeat_detection_enabled(input_is_midi),
                     timing,
-                );
+                };
+                let recorder = Recorder::recording(recording_args, recorder_request_sender.clone());
                 let supplier_chain = SupplierChain::new(recorder, chain_equipment.clone())?;
                 let new_clip_instruction = NewClipInstruction {
                     supplier_chain,
@@ -477,8 +469,8 @@ impl Column {
                     timeline,
                     timeline_cursor_pos,
                     timing,
-                    looped: false,
                     is_midi: input_is_midi,
+                    settings: matrix_record_settings.clone(),
                 };
                 SlotRecordInstruction::NewClip(new_clip_instruction)
             }

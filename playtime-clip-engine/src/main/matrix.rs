@@ -7,8 +7,8 @@ use crate::rt::supplier::{
     StretchWorkerRequest,
 };
 use crate::rt::{
-    ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs, QualifiedClipChangedEvent,
-    RtMatrixCommandSender, WeakColumn,
+    ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs, OverridableMatrixSettings,
+    QualifiedClipChangedEvent, RtMatrixCommandSender, WeakColumn,
 };
 use crate::timeline::clip_timeline;
 use crate::{rt, ClipEngineResult, HybridTimeline};
@@ -17,8 +17,8 @@ use helgoboss_learn::UnitValue;
 use helgoboss_midi::Channel;
 use playtime_api as api;
 use playtime_api::{
-    AudioCacheBehavior, AudioTimeStretchMode, ChannelRange, Db, MatrixClipPlayAudioSettings,
-    MatrixClipPlaySettings, MatrixClipRecordSettings, TempoRange, VirtualResampleMode,
+    ChannelRange, Db, MatrixClipPlayAudioSettings, MatrixClipPlaySettings,
+    MatrixClipRecordSettings, TempoRange,
 };
 use reaper_high::{OrCurrentProject, Project, Track};
 use reaper_medium::{Bpm, MidiInputDeviceId, PositionInSeconds};
@@ -30,7 +30,6 @@ pub struct Matrix<H> {
     /// Don't lock this from the main thread, only from real-time threads!
     rt_matrix: rt::SharedMatrix,
     settings: MatrixSettings,
-    rt_settings: rt::MatrixSettings,
     handler: H,
     stretch_worker_sender: Sender<StretchWorkerRequest>,
     chain_equipment: ChainEquipment,
@@ -47,10 +46,8 @@ pub struct Matrix<H> {
 #[derive(Debug, Default)]
 pub struct MatrixSettings {
     pub common_tempo_range: TempoRange,
-    pub audio_resample_mode: VirtualResampleMode,
-    pub audio_time_stretch_mode: AudioTimeStretchMode,
-    pub audio_cache_behavior: AudioCacheBehavior,
     pub clip_record_settings: MatrixClipRecordSettings,
+    pub overridable: OverridableMatrixSettings,
 }
 
 #[derive(Debug)]
@@ -136,7 +133,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         Self {
             rt_matrix: rt::SharedMatrix::new(rt_matrix),
             settings: Default::default(),
-            rt_settings: Default::default(),
             handler,
             stretch_worker_sender,
             chain_equipment: ChainEquipment {
@@ -162,20 +158,19 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let permanent_project = self.permanent_project();
         // Main settings
         self.settings.common_tempo_range = api_matrix.common_tempo_range;
-        self.settings.audio_resample_mode =
+        self.settings.overridable.audio_resample_mode =
             api_matrix.clip_play_settings.audio_settings.resample_mode;
-        self.settings.audio_time_stretch_mode = api_matrix
+        self.settings.overridable.audio_time_stretch_mode = api_matrix
             .clip_play_settings
             .audio_settings
             .time_stretch_mode;
-        self.settings.audio_cache_behavior =
+        self.settings.overridable.audio_cache_behavior =
             api_matrix.clip_play_settings.audio_settings.cache_behavior;
         self.settings.clip_record_settings = api_matrix.clip_record_settings;
         // Real-time settings
-        self.rt_settings.clip_play_start_timing = api_matrix.clip_play_settings.start_timing;
-        self.rt_settings.clip_play_stop_timing = api_matrix.clip_play_settings.stop_timing;
-        self.rt_command_sender
-            .update_settings(self.rt_settings.clone());
+        self.settings.overridable.clip_play_start_timing =
+            api_matrix.clip_play_settings.start_timing;
+        self.settings.overridable.clip_play_stop_timing = api_matrix.clip_play_settings.stop_timing;
         // Columns
         for (i, api_column) in api_matrix
             .columns
@@ -211,12 +206,12 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             columns: Some(self.columns.iter().map(|column| column.save()).collect()),
             rows: None,
             clip_play_settings: MatrixClipPlaySettings {
-                start_timing: self.rt_settings.clip_play_start_timing,
-                stop_timing: self.rt_settings.clip_play_stop_timing,
+                start_timing: self.settings.overridable.clip_play_start_timing,
+                stop_timing: self.settings.overridable.clip_play_stop_timing,
                 audio_settings: MatrixClipPlayAudioSettings {
-                    resample_mode: self.settings.audio_resample_mode.clone(),
-                    time_stretch_mode: self.settings.audio_time_stretch_mode.clone(),
-                    cache_behavior: self.settings.audio_cache_behavior.clone(),
+                    resample_mode: self.settings.overridable.audio_resample_mode.clone(),
+                    time_stretch_mode: self.settings.overridable.audio_time_stretch_mode.clone(),
+                    cache_behavior: self.settings.overridable.audio_cache_behavior.clone(),
                 },
             },
             clip_record_settings: self.settings.clip_record_settings.clone(),
@@ -245,8 +240,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let column = get_column(&self.columns, coordinates.column)?;
         let args = ColumnPlayClipArgs {
             slot_index: coordinates.row,
-            parent_start_timing: self.rt_settings.clip_play_start_timing,
-            parent_stop_timing: self.rt_settings.clip_play_stop_timing,
             timeline,
             ref_pos: None,
         };
@@ -259,8 +252,6 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         let column = get_column(&self.columns, coordinates.column)?;
         let args = ColumnStopClipArgs {
             slot_index: coordinates.row,
-            parent_start_timing: self.rt_settings.clip_play_start_timing,
-            parent_stop_timing: self.rt_settings.clip_play_stop_timing,
             timeline,
             ref_pos: None,
         };
@@ -325,8 +316,8 @@ impl<H: ClipMatrixHandler> Matrix<H> {
         get_column(&self.columns, coordinates.column())?.clip_play_state(coordinates.row())
     }
 
-    pub fn clip_repeated(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<bool> {
-        get_column(&self.columns, coordinates.column())?.clip_repeated(coordinates.row())
+    pub fn clip_looped(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<bool> {
+        get_column(&self.columns, coordinates.column())?.clip_looped(coordinates.row())
     }
 
     pub fn column_count(&self) -> usize {
@@ -355,7 +346,7 @@ impl<H: ClipMatrixHandler> Matrix<H> {
             &self.recorder_request_sender,
             &self.handler,
             self.containing_track.as_ref(),
-            self.rt_settings.clip_play_start_timing,
+            &self.settings.overridable,
         )
     }
 

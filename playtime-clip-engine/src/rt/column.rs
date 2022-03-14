@@ -3,7 +3,7 @@ use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     AudioBufMut, BasicAudioRequestProps, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
     ClipStopArgs, HandleStopEvent, NormalRecordingOutcome, OwnedAudioBuffer, Slot,
-    SlotProcessTransportChangeArgs, SlotRecordInstruction,
+    SlotProcessTransportChangeArgs, SlotRecordInstruction, TransportChange,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -11,8 +11,8 @@ use assert_no_alloc::assert_no_alloc;
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_learn::UnitValue;
 use playtime_api::{
-    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, ColumnPlayMode, Db,
-    VirtualResampleMode,
+    AudioCacheBehavior, AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming,
+    ColumnPlayMode, Db, VirtualResampleMode,
 };
 use reaper_high::Project;
 use reaper_medium::{
@@ -28,6 +28,7 @@ use std::sync::{Arc, Mutex, MutexGuard, Weak};
 /// are private and called from the method that processes the incoming commands.
 #[derive(Debug)]
 pub struct Column {
+    matrix_settings: OverridableMatrixSettings,
     settings: ColumnSettings,
     slots: Vec<Slot>,
     /// Should be set to the project of the ReaLearn instance or `None` if on monitoring FX.
@@ -87,16 +88,12 @@ impl ColumnCommandSender {
         self.send_source_task(ColumnCommand::UpdateSettings(settings));
     }
 
+    pub fn update_matrix_settings(&self, settings: OverridableMatrixSettings) {
+        self.send_source_task(ColumnCommand::UpdateMatrixSettings(settings));
+    }
+
     pub fn fill_slot(&self, args: Box<Option<ColumnFillSlotArgs>>) {
         self.send_source_task(ColumnCommand::FillSlot(args));
-    }
-
-    pub fn set_clip_audio_resample_mode(&self, args: ColumnSetClipAudioResampleModeArgs) {
-        self.send_source_task(ColumnCommand::SetClipAudioResampleMode(args));
-    }
-
-    pub fn set_clip_audio_time_stretch_mode(&self, args: ColumnSetClipAudioTimeStretchModeArgs) {
-        self.send_source_task(ColumnCommand::SetClipAudioTimeStretchMode(args));
     }
 
     pub fn play_clip(&self, args: ColumnPlayClipArgs) {
@@ -143,10 +140,9 @@ impl ColumnCommandSender {
 pub enum ColumnCommand {
     ClearSlots,
     UpdateSettings(ColumnSettings),
+    UpdateMatrixSettings(OverridableMatrixSettings),
     // Boxed because comparatively large.
     FillSlot(Box<Option<ColumnFillSlotArgs>>),
-    SetClipAudioResampleMode(ColumnSetClipAudioResampleModeArgs),
-    SetClipAudioTimeStretchMode(ColumnSetClipAudioTimeStretchModeArgs),
     PlayClip(ColumnPlayClipArgs),
     StopClip(ColumnStopClipArgs),
     PauseClip(ColumnPauseClipArgs),
@@ -235,12 +231,21 @@ impl EventSender for Sender<ColumnEvent> {
 
 #[derive(Clone, Debug, Default)]
 pub struct ColumnSettings {
-    // TODO-low We could maybe also treat this like e.g. time stretch mode. Something that's
-    //  not always passed through the functions but updated whenever changed and propagated as effective
-    //  timing to the clip. Let's see what turns out to be the more practical design.
     pub clip_play_start_timing: Option<ClipPlayStartTiming>,
     pub clip_play_stop_timing: Option<ClipPlayStopTiming>,
+    pub audio_time_stretch_mode: Option<AudioTimeStretchMode>,
+    pub audio_resample_mode: Option<VirtualResampleMode>,
+    pub audio_cache_behavior: Option<AudioCacheBehavior>,
     pub play_mode: ColumnPlayMode,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct OverridableMatrixSettings {
+    pub clip_play_start_timing: ClipPlayStartTiming,
+    pub clip_play_stop_timing: ClipPlayStopTiming,
+    pub audio_time_stretch_mode: AudioTimeStretchMode,
+    pub audio_resample_mode: VirtualResampleMode,
+    pub audio_cache_behavior: AudioCacheBehavior,
 }
 
 const MAX_CHANNEL_COUNT: usize = 64;
@@ -257,6 +262,7 @@ impl Column {
     ) -> Self {
         debug!("Slot size: {}", std::mem::size_of::<Slot>());
         Self {
+            matrix_settings: Default::default(),
             settings: Default::default(),
             slots: Vec::with_capacity(MAX_SLOT_COUNT_WITHOUT_REALLOCATION),
             project: permanent_project,
@@ -284,31 +290,7 @@ impl Column {
         self.slots.get_mut(index).ok_or(SLOT_DOESNT_EXIST)
     }
 
-    fn set_clip_audio_resample_mode(
-        &mut self,
-        slot_index: usize,
-        mode: VirtualResampleMode,
-    ) -> ClipEngineResult<()> {
-        get_slot_mut(&mut self.slots, slot_index)?.set_clip_audio_resample_mode(mode)
-    }
-
-    fn set_clip_audio_time_stretch_mode(
-        &mut self,
-        slot_index: usize,
-        mode: AudioTimeStretchMode,
-    ) -> ClipEngineResult<()> {
-        get_slot_mut(&mut self.slots, slot_index)?.set_clip_audio_time_stretch_mode(mode)
-    }
-
     pub fn play_clip(&mut self, args: ColumnPlayClipArgs) -> ClipEngineResult<()> {
-        let parent_start_timing = self
-            .settings
-            .clip_play_start_timing
-            .unwrap_or(args.parent_start_timing);
-        let parent_stop_timing = self
-            .settings
-            .clip_play_stop_timing
-            .unwrap_or(args.parent_stop_timing);
         let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
         if self.settings.play_mode.is_exclusive() {
             for (i, slot) in self
@@ -318,39 +300,34 @@ impl Column {
                 .filter(|(i, _)| *i != args.slot_index)
             {
                 let stop_args = ClipStopArgs {
-                    parent_start_timing,
-                    parent_stop_timing,
                     stop_timing: None,
                     timeline: &args.timeline,
                     ref_pos: Some(ref_pos),
                     enforce_play_stop: true,
+                    matrix_settings: &self.matrix_settings,
+                    column_settings: &self.settings,
                 };
                 let event_handler = ClipEventHandler::new(&self.event_sender, i);
                 let _ = slot.stop_clip(stop_args, &event_handler);
             }
         }
         let clip_args = ClipPlayArgs {
-            parent_start_timing,
             timeline: &args.timeline,
             ref_pos: Some(ref_pos),
+            matrix_settings: &self.matrix_settings,
+            column_settings: &self.settings,
         };
         get_slot_mut(&mut self.slots, args.slot_index)?.play_clip(clip_args)
     }
 
     pub fn stop_clip(&mut self, args: ColumnStopClipArgs) -> ClipEngineResult<()> {
         let clip_args = ClipStopArgs {
-            parent_start_timing: self
-                .settings
-                .clip_play_start_timing
-                .unwrap_or(args.parent_start_timing),
-            parent_stop_timing: self
-                .settings
-                .clip_play_stop_timing
-                .unwrap_or(args.parent_stop_timing),
             stop_timing: None,
             timeline: &args.timeline,
             ref_pos: args.ref_pos,
             enforce_play_stop: false,
+            matrix_settings: &self.matrix_settings,
+            column_settings: &self.settings,
         };
         let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
         let event_handler = ClipEventHandler::new(&self.event_sender, args.slot_index);
@@ -411,13 +388,11 @@ impl Column {
         get_slot_mut_insert(&mut self.slots, slot_index).set_clip_volume(volume)
     }
 
-    pub fn process_transport_change(&mut self, args: SlotProcessTransportChangeArgs) {
+    pub fn process_transport_change(&mut self, args: ColumnProcessTransportChangeArgs) {
         let args = SlotProcessTransportChangeArgs {
-            parent_clip_play_start_timing: self
-                .settings
-                .clip_play_start_timing
-                .unwrap_or(args.parent_clip_play_start_timing),
-            ..args
+            column_args: args,
+            matrix_settings: &self.matrix_settings,
+            column_settings: &self.settings,
         };
         for (i, slot) in self.slots.iter_mut().enumerate() {
             let event_handler = ClipEventHandler::new(&self.event_sender, i);
@@ -439,19 +414,14 @@ impl Column {
                 UpdateSettings(s) => {
                     self.settings = s;
                 }
+                UpdateMatrixSettings(s) => {
+                    self.matrix_settings = s;
+                }
                 FillSlot(mut boxed_args) => {
                     let args = boxed_args.take().unwrap();
                     self.fill_slot(args);
                     self.event_sender
                         .dispose(ColumnGarbage::FillSlotArgs(boxed_args))
-                }
-                SetClipAudioResampleMode(args) => {
-                    self.set_clip_audio_resample_mode(args.slot_index, args.mode)
-                        .unwrap();
-                }
-                SetClipAudioTimeStretchMode(args) => {
-                    self.set_clip_audio_time_stretch_mode(args.slot_index, args.mode)
-                        .unwrap();
                 }
                 PlayClip(args) => {
                     self.play_clip(args).unwrap();
@@ -568,6 +538,8 @@ impl Column {
                     timeline_cursor_pos,
                     timeline_tempo,
                     resync,
+                    matrix_settings: &self.matrix_settings,
+                    column_settings: &self.settings,
                 };
                 let event_handler = ClipEventHandler::new(&self.event_sender, row);
                 if let Ok(outcome) = slot.process(&mut inner_args, &event_handler) {
@@ -723,8 +695,6 @@ pub struct ColumnSetClipAudioTimeStretchModeArgs {
 #[derive(Debug)]
 pub struct ColumnPlayClipArgs {
     pub slot_index: usize,
-    pub parent_start_timing: ClipPlayStartTiming,
-    pub parent_stop_timing: ClipPlayStopTiming,
     pub timeline: HybridTimeline,
     /// Set this if you already have the current timeline position or want to play a batch of clips.
     pub ref_pos: Option<PositionInSeconds>,
@@ -733,8 +703,6 @@ pub struct ColumnPlayClipArgs {
 #[derive(Debug)]
 pub struct ColumnStopClipArgs {
     pub slot_index: usize,
-    pub parent_start_timing: ClipPlayStartTiming,
-    pub parent_stop_timing: ClipPlayStopTiming,
     pub timeline: HybridTimeline,
     /// Set this if you already have the current timeline position or want to stop a batch of clips.
     pub ref_pos: Option<PositionInSeconds>,
@@ -847,4 +815,11 @@ impl<'a> HandleStopEvent for ClipEventHandler<'a> {
         self.event_sender
             .normal_recording_finished(self.slot_index, outcome);
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct ColumnProcessTransportChangeArgs<'a> {
+    pub change: TransportChange,
+    pub timeline: &'a HybridTimeline,
+    pub timeline_cursor_pos: PositionInSeconds,
 }

@@ -7,7 +7,7 @@ use helgoboss_learn::BASE_EPSILON;
 use playtime_api::EvenQuantization;
 use reaper_high::{Project, Reaper};
 use reaper_medium::{
-    Bpm, Hz, PlayState, PositionInQuarterNotes, PositionInSeconds, ProjectContext,
+    Bpm, Hz, PlayState, PositionInQuarterNotes, PositionInSeconds, ProjectContext, TimeSignature,
 };
 use static_assertions::const_assert;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -143,6 +143,13 @@ impl Timeline for ReaperTimeline {
             .medium_reaper()
             .time_map_2_get_divided_bpm_at_time(self.project_context, timeline_pos)
     }
+
+    fn time_signature_at(&self, timeline_pos: PositionInSeconds) -> TimeSignature {
+        Reaper::get()
+            .medium_reaper()
+            .time_map_2_time_to_beats(self.project_context, timeline_pos)
+            .time_signature
+    }
 }
 
 pub trait Timeline {
@@ -177,6 +184,8 @@ pub trait Timeline {
     fn follows_reaper_transport(&self) -> bool;
 
     fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm;
+
+    fn time_signature_at(&self, timeline_pos: PositionInSeconds) -> TimeSignature;
 }
 
 /// Self-made timeline state that is driven by the global audio hook.
@@ -199,7 +208,7 @@ impl<'a> SteadyTimeline<'a> {
         Self { state }
     }
 
-    fn time_signature_denominator(&self) -> u32 {
+    fn time_signature(&self) -> TimeSignature {
         // We could take the time signature from a particular project here (instead of from the
         // current project) but that wouldn't be consequent because the global
         // (project-independent) timeline state takes the tempo information always from the current
@@ -211,8 +220,6 @@ impl<'a> SteadyTimeline<'a> {
                 SteadyTimelineState::tempo_and_time_sig_ref_pos(),
             )
             .time_signature
-            .denominator
-            .get()
     }
 }
 
@@ -388,13 +395,13 @@ impl<'a> Timeline for SteadyTimeline<'a> {
         self.state.next_quantized_pos_at(
             timeline_pos,
             quantization,
-            self.time_signature_denominator(),
+            self.time_signature().denominator.get(),
         )
     }
 
     fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
         self.state
-            .pos_of_quantized_pos(quantized_pos, self.time_signature_denominator())
+            .pos_of_quantized_pos(quantized_pos, self.time_signature().denominator.get())
     }
 
     fn is_running(&self) -> bool {
@@ -407,6 +414,10 @@ impl<'a> Timeline for SteadyTimeline<'a> {
 
     fn tempo_at(&self, _timeline_pos: PositionInSeconds) -> Bpm {
         self.state.tempo()
+    }
+
+    fn time_signature_at(&self, _timeline_pos: PositionInSeconds) -> TimeSignature {
+        self.time_signature()
     }
 }
 
@@ -515,6 +526,10 @@ impl<T: Timeline> Timeline for &T {
     fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm {
         (*self).tempo_at(timeline_pos)
     }
+
+    fn time_signature_at(&self, timeline_pos: PositionInSeconds) -> TimeSignature {
+        (*self).time_signature_at(timeline_pos)
+    }
 }
 
 static GLOBAL_STEADY_TIMELINE_STATE: SteadyTimelineState = SteadyTimelineState::new();
@@ -596,6 +611,13 @@ impl Timeline for HybridTimeline {
         match self {
             HybridTimeline::ReaperProject(t) => t.tempo_at(timeline_pos),
             HybridTimeline::GlobalSteady(t) => t.tempo_at(timeline_pos),
+        }
+    }
+
+    fn time_signature_at(&self, timeline_pos: PositionInSeconds) -> TimeSignature {
+        match self {
+            HybridTimeline::ReaperProject(t) => t.time_signature_at(timeline_pos),
+            HybridTimeline::GlobalSteady(t) => t.time_signature_at(timeline_pos),
         }
     }
 }

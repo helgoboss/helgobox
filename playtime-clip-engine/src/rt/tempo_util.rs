@@ -1,4 +1,5 @@
-use playtime_api::TempoRange;
+use crate::rt::supplier::MIDI_BASE_BPM;
+use playtime_api::{BeatTimeBase, ClipTimeBase, TempoRange};
 use reaper_high::{Project, Reaper};
 use reaper_medium::{Bpm, DurationInSeconds, PositionInSeconds};
 
@@ -20,4 +21,24 @@ pub fn detect_tempo(
         bpm /= 2.0;
     }
     Bpm::new(bpm)
+}
+
+/// Returns `None` if time base is not "Beat".
+pub fn determine_tempo_from_time_base(time_base: &ClipTimeBase, is_midi: bool) -> Option<Bpm> {
+    use ClipTimeBase::*;
+    match time_base {
+        Time => None,
+        Beat(b) => Some(determine_tempo_from_beat_time_base(b, is_midi)),
+    }
+}
+
+pub fn determine_tempo_from_beat_time_base(beat_time_base: &BeatTimeBase, is_midi: bool) -> Bpm {
+    if is_midi {
+        MIDI_BASE_BPM
+    } else {
+        let tempo = beat_time_base
+            .audio_tempo
+            .expect("material has time base 'beat' but no tempo");
+        Bpm::new(tempo.get())
+    }
 }

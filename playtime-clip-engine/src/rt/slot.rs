@@ -3,15 +3,13 @@ use crate::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
 use crate::rt::StopSlotInstruction::KeepSlot;
 use crate::rt::{
     BasicAudioRequestProps, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipStopArgs,
-    HandleStopEvent, SlotRecordInstruction, StopSlotInstruction,
+    ColumnProcessTransportChangeArgs, ColumnSettings, HandleStopEvent, OverridableMatrixSettings,
+    SlotRecordInstruction, StopSlotInstruction,
 };
-use crate::timeline::HybridTimeline;
 use crate::{ClipEngineResult, ErrorWithPayload};
 use helgoboss_learn::UnitValue;
-use playtime_api::{
-    AudioTimeStretchMode, ClipPlayStartTiming, ClipPlayStopTiming, Db, VirtualResampleMode,
-};
-use reaper_medium::{Bpm, PlayState, PositionInSeconds};
+use playtime_api::{ClipPlayStopTiming, Db};
+use reaper_medium::{Bpm, PlayState};
 
 #[derive(Debug, Default)]
 pub struct Slot {
@@ -43,22 +41,6 @@ impl Slot {
 
     pub fn clip_mut(&mut self) -> ClipEngineResult<&mut Clip> {
         self.clip_mut_internal()
-    }
-
-    pub fn set_clip_audio_resample_mode(
-        &mut self,
-        mode: VirtualResampleMode,
-    ) -> ClipEngineResult<()> {
-        self.clip_mut_internal()?.set_audio_resample_mode(mode);
-        Ok(())
-    }
-
-    pub fn set_clip_audio_time_stretch_mode(
-        &mut self,
-        mode: AudioTimeStretchMode,
-    ) -> ClipEngineResult<()> {
-        self.clip_mut_internal()?.set_audio_time_stretch_mode(mode);
-        Ok(())
     }
 
     /// Plays the clip if this slot contains one.
@@ -93,8 +75,7 @@ impl Slot {
     }
 
     pub fn set_clip_looped(&mut self, repeated: bool) -> ClipEngineResult<()> {
-        self.clip_mut_internal()?.set_looped(repeated);
-        Ok(())
+        self.clip_mut_internal()?.set_looped(repeated)
     }
 
     /// # Errors
@@ -181,7 +162,7 @@ impl Slot {
                 None => return,
                 Some(c) => c,
             };
-            match args.change {
+            match args.column_args.change {
                 TransportChange::PlayState(rel_change) => {
                     // We have a relevant transport change.
                     let last_play = match self.runtime_data.last_play {
@@ -263,9 +244,10 @@ impl Slot {
                         return;
                     }
                     clip.play(ClipPlayArgs {
-                        parent_start_timing: args.parent_clip_play_start_timing,
-                        timeline: args.timeline,
-                        ref_pos: Some(args.timeline_cursor_pos),
+                        timeline: args.column_args.timeline,
+                        ref_pos: Some(args.column_args.timeline_cursor_pos),
+                        matrix_settings: args.matrix_settings,
+                        column_settings: args.column_settings,
                     })
                     .unwrap();
                     KeepSlot
@@ -319,12 +301,12 @@ impl RuntimeData {
     ) -> StopSlotInstruction {
         self.stop_was_caused_by_transport_change = keep_starting_with_transport;
         let args = ClipStopArgs {
-            parent_start_timing: args.parent_clip_play_start_timing,
-            parent_stop_timing: args.parent_clip_play_stop_timing,
             stop_timing: Some(ClipPlayStopTiming::Immediately),
-            timeline: args.timeline,
-            ref_pos: Some(args.timeline_cursor_pos),
+            timeline: args.column_args.timeline,
+            ref_pos: Some(args.column_args.timeline_cursor_pos),
             enforce_play_stop: true,
+            matrix_settings: args.matrix_settings,
+            column_settings: args.column_settings,
         };
         clip.stop(args, event_handler)
     }
@@ -336,11 +318,9 @@ pub struct SlotPollArgs {
 
 #[derive(Clone, Debug)]
 pub struct SlotProcessTransportChangeArgs<'a> {
-    pub change: TransportChange,
-    pub timeline: &'a HybridTimeline,
-    pub timeline_cursor_pos: PositionInSeconds,
-    pub parent_clip_play_start_timing: ClipPlayStartTiming,
-    pub parent_clip_play_stop_timing: ClipPlayStopTiming,
+    pub column_args: ColumnProcessTransportChangeArgs<'a>,
+    pub matrix_settings: &'a OverridableMatrixSettings,
+    pub column_settings: &'a ColumnSettings,
 }
 
 const SLOT_NOT_FILLED: &str = "slot not filled";
@@ -383,9 +363,10 @@ fn play_clip_by_transport(
     args: &SlotProcessTransportChangeArgs,
 ) -> StopSlotInstruction {
     let args = ClipPlayArgs {
-        parent_start_timing: args.parent_clip_play_start_timing,
-        timeline: args.timeline,
-        ref_pos: Some(args.timeline_cursor_pos),
+        timeline: args.column_args.timeline,
+        ref_pos: Some(args.column_args.timeline_cursor_pos),
+        matrix_settings: args.matrix_settings,
+        column_settings: args.column_settings,
     };
     clip.play(args).unwrap();
     StopSlotInstruction::KeepSlot

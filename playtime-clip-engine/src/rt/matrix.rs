@@ -1,12 +1,11 @@
 use crate::main::{ClipSlotCoordinates, MainMatrixCommandSender};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
-    ColumnPlayClipArgs, ColumnStopClipArgs, RelevantPlayStateChange, SharedColumn,
-    SlotProcessTransportChangeArgs, TransportChange, WeakColumn,
+    ColumnPlayClipArgs, ColumnProcessTransportChangeArgs, ColumnStopClipArgs,
+    RelevantPlayStateChange, SharedColumn, TransportChange, WeakColumn,
 };
 use crate::{clip_timeline, main, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
-use playtime_api::{ClipPlayStartTiming, ClipPlayStopTiming};
 use reaper_high::{Project, Reaper};
 use reaper_medium::{PlayState, ProjectContext, ReaperPointer};
 use std::borrow::BorrowMut;
@@ -39,19 +38,12 @@ const MAX_COLUMN_COUNT_WITHOUT_REALLOCATION: usize = 1000;
 /// the way to go.
 #[derive(Debug)]
 pub struct Matrix {
-    settings: MatrixSettings,
     columns: Vec<WeakColumn>,
     command_receiver: Receiver<MatrixCommand>,
     main_command_sender: Sender<main::MatrixCommand>,
     project: Option<Project>,
     last_project_play_state: PlayState,
     play_position_jump_detector: PlayPositionJumpDetector,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct MatrixSettings {
-    pub clip_play_start_timing: ClipPlayStartTiming,
-    pub clip_play_stop_timing: ClipPlayStopTiming,
 }
 
 #[derive(Clone, Debug)]
@@ -90,7 +82,6 @@ impl Matrix {
         project: Option<Project>,
     ) -> Self {
         Self {
-            settings: Default::default(),
             columns: Vec::with_capacity(MAX_COLUMN_COUNT_WITHOUT_REALLOCATION),
             command_receiver,
             main_command_sender: command_sender,
@@ -125,9 +116,6 @@ impl Matrix {
                         self.main_command_sender.throw_away(column);
                     }
                 }
-                UpdateSettings(s) => {
-                    self.settings = s;
-                }
             }
         }
     }
@@ -139,12 +127,10 @@ impl Matrix {
         if let Some(relevant) =
             RelevantPlayStateChange::from_play_state_change(last_play_state, new_play_state)
         {
-            let args = SlotProcessTransportChangeArgs {
+            let args = ColumnProcessTransportChangeArgs {
                 change: TransportChange::PlayState(relevant),
                 timeline: &timeline,
                 timeline_cursor_pos: timeline.cursor_pos(),
-                parent_clip_play_start_timing: self.settings.clip_play_start_timing,
-                parent_clip_play_stop_timing: self.settings.clip_play_stop_timing,
             };
             for column in self.columns.iter().filter_map(|c| c.upgrade()) {
                 column.lock().process_transport_change(args.clone());
@@ -160,12 +146,10 @@ impl Matrix {
             return;
         }
         let timeline = clip_timeline(self.project, true);
-        let args = SlotProcessTransportChangeArgs {
+        let args = ColumnProcessTransportChangeArgs {
             change: TransportChange::PlayCursorJump,
             timeline: &timeline,
             timeline_cursor_pos: timeline.cursor_pos(),
-            parent_clip_play_start_timing: self.settings.clip_play_start_timing,
-            parent_clip_play_stop_timing: self.settings.clip_play_stop_timing,
         };
         for column in self.columns.iter().filter_map(|c| c.upgrade()) {
             column.lock().process_transport_change(args.clone());
@@ -176,8 +160,6 @@ impl Matrix {
         let column = self.column_internal(coordinates.column())?;
         let args = ColumnPlayClipArgs {
             slot_index: coordinates.row(),
-            parent_start_timing: self.settings.clip_play_start_timing,
-            parent_stop_timing: self.settings.clip_play_stop_timing,
             // TODO-medium This could be optimized. In real-time context, getting the timeline only
             //  once per block could save some resources. Sample with clip stop.
             timeline: self.timeline(),
@@ -195,8 +177,6 @@ impl Matrix {
         let column = self.column_internal(coordinates.column())?;
         let args = ColumnStopClipArgs {
             slot_index: coordinates.row(),
-            parent_start_timing: self.settings.clip_play_start_timing,
-            parent_stop_timing: self.settings.clip_play_stop_timing,
             timeline: self.timeline(),
             ref_pos: None,
         };
@@ -228,24 +208,18 @@ pub enum MatrixCommand {
     InsertColumn(usize, WeakColumn),
     RemoveColumn(usize),
     ClearColumns,
-    UpdateSettings(MatrixSettings),
 }
 
 pub trait RtMatrixCommandSender {
     fn insert_column(&self, index: usize, source: WeakColumn);
     fn remove_column(&self, index: usize);
     fn clear_columns(&self);
-    fn update_settings(&self, settings: MatrixSettings);
     fn send_command(&self, command: MatrixCommand);
 }
 
 impl RtMatrixCommandSender for Sender<MatrixCommand> {
     fn insert_column(&self, index: usize, source: WeakColumn) {
         self.send_command(MatrixCommand::InsertColumn(index, source));
-    }
-
-    fn update_settings(&self, settings: MatrixSettings) {
-        self.send_command(MatrixCommand::UpdateSettings(settings))
     }
 
     fn remove_column(&self, index: usize) {

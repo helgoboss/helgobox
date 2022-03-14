@@ -206,7 +206,7 @@ impl<'a> Target<'a> for ClipTransportTarget {
                         clip_play_state_unit_value(self.basics.action, play_state)
                     }
                     Repeat => {
-                        let is_looped = matrix.clip_repeated(self.basics.slot_coordinates).ok()?;
+                        let is_looped = matrix.clip_looped(self.basics.slot_coordinates).ok()?;
                         transport_is_enabled_unit_value(is_looped)
                     }
                 };

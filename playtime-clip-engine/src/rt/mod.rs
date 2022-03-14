@@ -4,7 +4,7 @@ mod column;
 mod matrix;
 mod slot;
 mod source_util;
-mod tempo_util;
+pub mod tempo_util;
 
 pub mod supplier;
 

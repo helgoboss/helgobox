@@ -84,14 +84,12 @@ pub struct MatrixClipPlayAudioSettings {
 }
 
 /// Matrix-global settings related to recording clips.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordSettings {
-    // TODO-clip-implement
     pub start_timing: ClipRecordStartTiming,
     // TODO-clip-implement
     pub stop_timing: ClipRecordStopTiming,
-    // TODO-clip-implement
     pub duration: RecordLength,
     // TODO-clip-implement
     pub play_start_timing: ClipSettingOverrideAfterRecording<ClipPlayStartTiming>,
@@ -111,6 +109,62 @@ pub struct MatrixClipRecordSettings {
     pub audio_settings: MatrixClipRecordAudioSettings,
 }
 
+impl MatrixClipRecordSettings {
+    pub fn downbeat_detection_enabled(&self, is_midi: bool) -> bool {
+        if is_midi {
+            self.midi_settings.detect_downbeat
+        } else {
+            self.audio_settings.detect_downbeat
+        }
+    }
+
+    pub fn effective_play_start_timing(&self) -> Option<ClipPlayStartTiming> {
+        use ClipSettingOverrideAfterRecording::*;
+        match self.play_start_timing {
+            Inherit => None,
+            Override(t) => Some(t.value),
+            DeriveFromRecordTiming => self.start_timing.derive_play_start_timing(),
+        }
+    }
+
+    pub fn effective_play_stop_timing(&self) -> Option<ClipPlayStopTiming> {
+        use ClipSettingOverrideAfterRecording::*;
+        match self.play_stop_timing {
+            Inherit => None,
+            Override(t) => Some(t.value),
+            DeriveFromRecordTiming => self.stop_timing.derive_play_stop_timing(),
+        }
+    }
+
+    pub fn effective_play_time_base(
+        &self,
+        audio_tempo: Option<Bpm>,
+        time_signature: TimeSignature,
+        downbeat: PositiveBeat,
+    ) -> ClipTimeBase {
+        use ClipRecordTimeBase::*;
+        let beat_based = match self.time_base {
+            DeriveFromRecordTiming => match self.start_timing {
+                ClipRecordStartTiming::LikeClipPlayStartTiming => todo!(),
+                ClipRecordStartTiming::Immediately => false,
+                ClipRecordStartTiming::Quantized(_) => true,
+            },
+            Time => false,
+            Beat => true,
+        };
+        if beat_based {
+            let beat_time_base = BeatTimeBase {
+                audio_tempo,
+                time_signature,
+                downbeat,
+            };
+            ClipTimeBase::Beat(beat_time_base)
+        } else {
+            ClipTimeBase::Time
+        }
+    }
+}
+
 impl Default for MatrixClipRecordSettings {
     fn default() -> Self {
         Self {
@@ -128,7 +182,7 @@ impl Default for MatrixClipRecordSettings {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordMidiSettings {
     // TODO-clip-implement
@@ -156,7 +210,7 @@ impl Default for MatrixClipRecordMidiSettings {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct MatrixClipRecordAudioSettings {
     /// If `true`, attempts to detect the actual start of the recorded audio material and derives
@@ -183,10 +237,10 @@ impl Default for RecordLength {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipRecordTimeBase {
-    /// Derives the time base of the resulting clip from the clip start/stop timing.
+    /// Derives the time base of the resulting clip from the clip start timing.
     DeriveFromRecordTiming,
     /// Sets the time base of the recorded clip to [`ClipTimeBase::Time`].
     Time,
@@ -217,7 +271,33 @@ impl Default for ClipRecordStartTiming {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+impl ClipRecordStartTiming {
+    pub fn derive_play_start_timing(&self) -> Option<ClipPlayStartTiming> {
+        use ClipRecordStartTiming::*;
+        match self {
+            LikeClipPlayStartTiming => todo!(),
+            Immediately => Some(ClipPlayStartTiming::Immediately),
+            Quantized(q) => Some(ClipPlayStartTiming::Quantized(*q)),
+        }
+    }
+
+    pub fn suggests_beat_based_material(&self, play_start_timing: ClipPlayStartTiming) -> bool {
+        use ClipRecordStartTiming::*;
+        match self {
+            LikeClipPlayStartTiming => play_start_timing.suggests_beat_based_material(),
+            Immediately => false,
+            Quantized(_) => true,
+        }
+    }
+}
+
+impl Default for ClipRecordStopTiming {
+    fn default() -> Self {
+        Self::LikeClipRecordStartTiming
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipRecordStopTiming {
     /// Uses the record start timing.
@@ -228,9 +308,14 @@ pub enum ClipRecordStopTiming {
     Quantized(EvenQuantization),
 }
 
-impl Default for ClipRecordStopTiming {
-    fn default() -> Self {
-        Self::LikeClipRecordStartTiming
+impl ClipRecordStopTiming {
+    pub fn derive_play_stop_timing(&self) -> Option<ClipPlayStopTiming> {
+        use ClipRecordStopTiming::*;
+        match self {
+            LikeClipRecordStartTiming => todo!(),
+            Immediately => Some(ClipPlayStopTiming::Immediately),
+            Quantized(q) => Some(ClipPlayStopTiming::Quantized(*q)),
+        }
     }
 }
 
@@ -270,6 +355,16 @@ impl Default for ClipPlayStartTiming {
     }
 }
 
+impl ClipPlayStartTiming {
+    pub fn suggests_beat_based_material(&self) -> bool {
+        use ClipPlayStartTiming::*;
+        match self {
+            Immediately => false,
+            Quantized(_) => true,
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipPlayStopTiming {
@@ -289,15 +384,18 @@ impl Default for ClipPlayStopTiming {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipSettingOverrideAfterRecording<T> {
     /// Doesn't apply any override.
     Inherit,
     /// Overrides the setting with the given value.
     Override(Override<T>),
-    /// Overrides the setting with a value derived from the record timing.
-    OverrideFromRecordTiming,
+    /// Derives the setting from the record timing.
+    ///
+    /// If the record timing is set to the global clip timing, that means it will not apply any
+    /// override. If it's set to something specific, it will apply the appropriate override.
+    DeriveFromRecordTiming,
 }
 
 impl<T> Default for ClipSettingOverrideAfterRecording<T> {
@@ -306,7 +404,7 @@ impl<T> Default for ClipSettingOverrideAfterRecording<T> {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Override<T> {
     pub value: T,
@@ -483,7 +581,7 @@ pub struct Scene {
     pub time_signature: Option<TimeSignature>,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum AudioTimeStretchMode {
     /// Doesn't just stretch/squeeze the material but also changes the pitch.
@@ -502,7 +600,7 @@ impl Default for AudioTimeStretchMode {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum VirtualResampleMode {
     /// Uses the resample mode set as default for this REAPER project.
@@ -517,19 +615,19 @@ impl Default for VirtualResampleMode {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReaperResampleMode {
     pub mode: u32,
 }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TimeStretchMode {
     pub mode: VirtualTimeStretchMode,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum VirtualTimeStretchMode {
     /// Uses the pitch shift mode set as default for this REAPER project.
@@ -544,7 +642,7 @@ impl Default for VirtualTimeStretchMode {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReaperPitchShiftMode {
     pub mode: u32,
@@ -627,7 +725,7 @@ pub struct Clip {
     // canvas: Option<Canvas>,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ClipAudioSettings {
     /// Defines whether to apply automatic fades in order to fix potentially non-optimized source
@@ -689,7 +787,7 @@ impl Default for ClipAudioSettings {
 //     section_pos: PositionInSeconds,
 // }
 
-#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ClipMidiSettings {
     /// For fixing the source itself.
@@ -729,7 +827,7 @@ impl MidiResetMessages {
     }
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Section {
     /// Position in the source from which to start.
@@ -746,7 +844,7 @@ pub struct Section {
     pub length: Option<PositiveSecond>,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum AudioCacheBehavior {
     /// Loads directly from the disk.
@@ -914,6 +1012,8 @@ impl PositiveBeat {
 pub struct Db(f64);
 
 impl Db {
+    pub const ZERO: Db = Db(0.0);
+
     pub fn new(value: f64) -> PlaytimeApiResult<Self> {
         if value.is_nan() {
             return Err("dB value must not be NaN");
