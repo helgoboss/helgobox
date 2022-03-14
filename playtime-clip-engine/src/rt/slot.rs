@@ -20,13 +20,7 @@ pub struct Slot {
 #[derive(Debug, Default)]
 struct RuntimeData {
     last_play_state: ClipPlayState,
-    last_play: Option<LastPlay>,
     stop_was_caused_by_transport_change: bool,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct LastPlay {
-    was_quantized: bool,
 }
 
 impl Slot {
@@ -45,10 +39,7 @@ impl Slot {
 
     /// Plays the clip if this slot contains one.
     pub fn play_clip(&mut self, args: ClipPlayArgs) -> ClipEngineResult<()> {
-        let outcome = self.clip_mut_internal()?.play(args)?;
-        self.runtime_data.last_play = Some(LastPlay {
-            was_quantized: outcome.virtual_pos.is_quantized(),
-        });
+        self.clip_mut_internal()?.play(args)?;
         Ok(())
     }
 
@@ -165,11 +156,6 @@ impl Slot {
             match args.column_args.change {
                 TransportChange::PlayState(rel_change) => {
                     // We have a relevant transport change.
-                    let last_play = match self.runtime_data.last_play {
-                        None => return,
-                        Some(a) => a,
-                    };
-                    // Clip was started at least once already.
                     let state = clip.play_state();
                     use ClipPlayState::*;
                     use RelevantPlayStateChange::*;
@@ -200,9 +186,7 @@ impl Slot {
                             }
                         }
                         StopAfterPlay => match state {
-                            ScheduledForPlay | Playing | ScheduledForStop | Recording
-                                if last_play.was_quantized =>
-                            {
+                            ScheduledForPlay | Playing | ScheduledForStop | Recording => {
                                 // Stop and memorize
                                 self.runtime_data.stop_clip_by_transport(
                                     clip,
@@ -231,13 +215,6 @@ impl Slot {
                 }
                 TransportChange::PlayCursorJump => {
                     // The play cursor was repositioned.
-                    let last_play = match self.runtime_data.last_play {
-                        None => return,
-                        Some(a) => a,
-                    };
-                    if !last_play.was_quantized {
-                        return;
-                    }
                     let play_state = clip.play_state();
                     use ClipPlayState::*;
                     if !matches!(play_state, ScheduledForPlay | Playing | ScheduledForStop) {
