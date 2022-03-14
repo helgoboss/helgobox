@@ -79,6 +79,8 @@ impl Slot {
         &mut self,
         instruction: SlotRecordInstruction,
         audio_request_props: BasicAudioRequestProps,
+        matrix_settings: &OverridableMatrixSettings,
+        column_settings: &ColumnSettings,
     ) -> Result<(), ErrorWithPayload<SlotRecordInstruction>> {
         use SlotRecordInstruction::*;
         match instruction {
@@ -102,18 +104,21 @@ impl Slot {
                     }
                     Some(c) => c,
                 };
-                clip.record(args, audio_request_props)
+                clip.record(args, audio_request_props, matrix_settings, column_settings)
                     .map_err(|e| e.map_payload(ExistingClip))
             }
-            MidiOverdub(args) => {
+            MidiOverdub(instruction) => {
                 debug!("MIDI overdub");
                 let clip = match self.clip.as_mut() {
                     None => {
-                        return Err(ErrorWithPayload::new("slot empty", MidiOverdub(args)));
+                        return Err(ErrorWithPayload::new(
+                            "slot empty",
+                            MidiOverdub(instruction),
+                        ));
                     }
                     Some(c) => c,
                 };
-                clip.midi_overdub(args)
+                clip.midi_overdub(instruction)
                     .map_err(|e| e.map_payload(MidiOverdub))
             }
         }

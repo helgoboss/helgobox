@@ -118,26 +118,41 @@ impl MatrixClipRecordSettings {
         }
     }
 
-    pub fn effective_play_start_timing(&self) -> Option<ClipPlayStartTiming> {
+    pub fn effective_play_start_timing(
+        &self,
+        initial_play_start_timing: ClipPlayStartTiming,
+        current_play_start_timing: ClipPlayStartTiming,
+    ) -> Option<ClipPlayStartTiming> {
         use ClipSettingOverrideAfterRecording::*;
         match self.play_start_timing {
             Inherit => None,
             Override(t) => Some(t.value),
-            DeriveFromRecordTiming => self.start_timing.derive_play_start_timing(),
+            DeriveFromRecordTiming => self
+                .start_timing
+                .derive_play_start_timing(initial_play_start_timing, current_play_start_timing),
         }
     }
 
-    pub fn effective_play_stop_timing(&self) -> Option<ClipPlayStopTiming> {
+    pub fn effective_play_stop_timing(
+        &self,
+        initial_play_start_timing: ClipPlayStartTiming,
+        current_play_start_timing: ClipPlayStartTiming,
+    ) -> Option<ClipPlayStopTiming> {
         use ClipSettingOverrideAfterRecording::*;
         match self.play_stop_timing {
             Inherit => None,
             Override(t) => Some(t.value),
-            DeriveFromRecordTiming => self.stop_timing.derive_play_stop_timing(),
+            DeriveFromRecordTiming => self.stop_timing.derive_play_stop_timing(
+                self.start_timing,
+                initial_play_start_timing,
+                current_play_start_timing,
+            ),
         }
     }
 
     pub fn effective_play_time_base(
         &self,
+        initial_play_start_timing: ClipPlayStartTiming,
         audio_tempo: Option<Bpm>,
         time_signature: TimeSignature,
         downbeat: PositiveBeat,
@@ -145,7 +160,10 @@ impl MatrixClipRecordSettings {
         use ClipRecordTimeBase::*;
         let beat_based = match self.time_base {
             DeriveFromRecordTiming => match self.start_timing {
-                ClipRecordStartTiming::LikeClipPlayStartTiming => todo!(),
+                ClipRecordStartTiming::LikeClipPlayStartTiming => match initial_play_start_timing {
+                    ClipPlayStartTiming::Immediately => false,
+                    ClipPlayStartTiming::Quantized(_) => true,
+                },
                 ClipRecordStartTiming::Immediately => false,
                 ClipRecordStartTiming::Quantized(_) => true,
             },
@@ -257,7 +275,7 @@ impl Default for ClipRecordTimeBase {
 #[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind")]
 pub enum ClipRecordStartTiming {
-    /// Uses the global clip play start timing.
+    /// Uses the inherited clip play start timing (from column or matrix).
     LikeClipPlayStartTiming,
     /// Starts recording immediately.
     Immediately,
@@ -272,10 +290,20 @@ impl Default for ClipRecordStartTiming {
 }
 
 impl ClipRecordStartTiming {
-    pub fn derive_play_start_timing(&self) -> Option<ClipPlayStartTiming> {
+    pub fn derive_play_start_timing(
+        &self,
+        initial_play_start_timing: ClipPlayStartTiming,
+        current_play_start_timing: ClipPlayStartTiming,
+    ) -> Option<ClipPlayStartTiming> {
         use ClipRecordStartTiming::*;
         match self {
-            LikeClipPlayStartTiming => todo!(),
+            LikeClipPlayStartTiming => {
+                if initial_play_start_timing == current_play_start_timing {
+                    None
+                } else {
+                    Some(initial_play_start_timing)
+                }
+            }
             Immediately => Some(ClipPlayStartTiming::Immediately),
             Quantized(q) => Some(ClipPlayStartTiming::Quantized(*q)),
         }
@@ -309,10 +337,20 @@ pub enum ClipRecordStopTiming {
 }
 
 impl ClipRecordStopTiming {
-    pub fn derive_play_stop_timing(&self) -> Option<ClipPlayStopTiming> {
+    pub fn derive_play_stop_timing(
+        &self,
+        record_start_timing: ClipRecordStartTiming,
+        initial_play_start_timing: ClipPlayStartTiming,
+        current_play_start_timing: ClipPlayStartTiming,
+    ) -> Option<ClipPlayStopTiming> {
         use ClipRecordStopTiming::*;
         match self {
-            LikeClipRecordStartTiming => todo!(),
+            LikeClipRecordStartTiming => record_start_timing
+                .derive_play_start_timing(initial_play_start_timing, current_play_start_timing)
+                .map(|play_start_timing| match play_start_timing {
+                    ClipPlayStartTiming::Immediately => ClipPlayStopTiming::Immediately,
+                    ClipPlayStartTiming::Quantized(q) => ClipPlayStopTiming::Quantized(q),
+                }),
             Immediately => Some(ClipPlayStopTiming::Immediately),
             Quantized(q) => Some(ClipPlayStopTiming::Quantized(*q)),
         }

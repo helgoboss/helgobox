@@ -190,8 +190,9 @@ struct RecordingState {
     pub pos: MaterialPos,
     // TODO-high Make clear what's the difference of RecordTiming to the timing stored in the recorder.
     timing: RecordTiming,
-    pub rollback_data: Option<RollbackData>,
-    pub settings: MatrixClipRecordSettings,
+    rollback_data: Option<RollbackData>,
+    settings: MatrixClipRecordSettings,
+    initial_play_start_timing: ClipPlayStartTiming,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -242,7 +243,7 @@ impl Clip {
     }
 
     pub fn recording(
-        instruction: NewClipInstruction,
+        instruction: RecordNewClipInstruction,
         audio_request_props: BasicAudioRequestProps,
     ) -> Self {
         let tempo = instruction
@@ -261,6 +262,7 @@ impl Clip {
             rollback_data: None,
             timing: instruction.timing,
             settings: instruction.settings,
+            initial_play_start_timing: instruction.initial_play_start_timing,
         };
         Self {
             supplier_chain: instruction.supplier_chain,
@@ -340,16 +342,21 @@ impl Clip {
         &mut self,
         args: ClipRecordArgs,
         audio_request_props: BasicAudioRequestProps,
+        matrix_settings: &OverridableMatrixSettings,
+        column_settings: &ColumnSettings,
     ) -> Result<(), ErrorWithPayload<ClipRecordArgs>> {
         use ClipState::*;
         match &mut self.state {
             Ready(s) => {
-                if let Some(recording_state) = s.record(
+                let new_state = s.record(
                     args,
                     self.project,
                     &mut self.supplier_chain,
                     audio_request_props,
-                ) {
+                    matrix_settings,
+                    column_settings,
+                );
+                if let Some(recording_state) = new_state {
                     self.state = Recording(recording_state);
                 }
                 Ok(())
@@ -1064,11 +1071,21 @@ impl ReadyState {
         project: Option<Project>,
         supplier_chain: &mut SupplierChain,
         audio_request_props: BasicAudioRequestProps,
+        matrix_settings: &OverridableMatrixSettings,
+        column_settings: &ColumnSettings,
     ) -> Option<RecordingState> {
         let timeline = clip_timeline(project, false);
         let timeline_cursor_pos = timeline.cursor_pos();
         let tempo = timeline.tempo_at(timeline_cursor_pos);
-        let timing = RecordTiming::from_args(&args, &timeline, timeline_cursor_pos);
+        let initial_play_start_timing = column_settings
+            .clip_play_start_timing
+            .unwrap_or(matrix_settings.clip_play_start_timing);
+        let timing = RecordTiming::from_args(
+            &args,
+            &timeline,
+            timeline_cursor_pos,
+            initial_play_start_timing,
+        );
         let is_midi = args.recording_equipment.is_midi();
         let initial_pos = resolve_initial_recording_pos(
             timing,
@@ -1098,6 +1115,7 @@ impl ReadyState {
             },
             timing,
             settings: args.settings,
+            initial_play_start_timing,
         };
         use ReadySubState::*;
         match self.state {
@@ -1378,9 +1396,14 @@ impl RecordingState {
     ) -> ReadyState {
         debug!("Finishing recording");
         let outcome = supplier_chain.commit_recording(timeline).unwrap();
-        let clip_settings =
-            ProcessingRelevantClipSettings::derive_from_recording(&self.settings, &outcome.data)
-                .unwrap();
+        let clip_settings = ProcessingRelevantClipSettings::derive_from_recording(
+            &self.settings,
+            &outcome.data,
+            matrix_settings,
+            column_settings,
+            self.initial_play_start_timing,
+        );
+        let clip_settings = clip_settings.unwrap();
         let chain_settings = clip_settings.create_chain_settings(matrix_settings, column_settings);
         supplier_chain
             .configure_complete_chain(chain_settings)
@@ -1512,13 +1535,13 @@ impl VirtualPosition {
 
 #[derive(Debug)]
 pub enum SlotRecordInstruction {
-    NewClip(NewClipInstruction),
+    NewClip(RecordNewClipInstruction),
     ExistingClip(ClipRecordArgs),
     MidiOverdub(MidiOverdubInstruction),
 }
 
 #[derive(Debug)]
-pub struct NewClipInstruction {
+pub struct RecordNewClipInstruction {
     pub supplier_chain: SupplierChain,
     pub project: Option<Project>,
     pub shared_pos: SharedPos,
@@ -1527,6 +1550,7 @@ pub struct NewClipInstruction {
     pub timing: RecordTiming,
     pub is_midi: bool,
     pub settings: MatrixClipRecordSettings,
+    pub initial_play_start_timing: ClipPlayStartTiming,
 }
 
 #[derive(Debug)]
@@ -1542,7 +1566,6 @@ pub struct MidiOverdubInstruction {
 pub struct ClipRecordArgs {
     pub recording_equipment: RecordingEquipment,
     pub settings: MatrixClipRecordSettings,
-    pub global_play_start_timing: ClipPlayStartTiming,
 }
 
 #[derive(PartialEq, Debug)]
@@ -1749,10 +1772,18 @@ impl ProcessingRelevantClipSettings {
     pub fn derive_from_recording(
         record_settings: &MatrixClipRecordSettings,
         data: &CompleteRecordingData,
+        matrix_settings: &OverridableMatrixSettings,
+        column_settings: &ColumnSettings,
+        initial_play_start_timing: ClipPlayStartTiming,
     ) -> ClipEngineResult<Self> {
+        let current_play_start_timing = column_settings
+            .clip_play_start_timing
+            .unwrap_or(matrix_settings.clip_play_start_timing);
         let settings = Self {
-            start_timing: record_settings.effective_play_start_timing(),
-            stop_timing: record_settings.effective_play_stop_timing(),
+            start_timing: record_settings
+                .effective_play_start_timing(initial_play_start_timing, current_play_start_timing),
+            stop_timing: record_settings
+                .effective_play_stop_timing(initial_play_start_timing, current_play_start_timing),
             looped: record_settings.looped,
             time_base: {
                 let audio_tempo = if data.is_midi {
@@ -1761,6 +1792,7 @@ impl ProcessingRelevantClipSettings {
                     Some(api::Bpm::new(data.tempo.get())?)
                 };
                 record_settings.effective_play_time_base(
+                    initial_play_start_timing,
                     audio_tempo,
                     api::TimeSignature {
                         numerator: data.time_signature.numerator.get(),

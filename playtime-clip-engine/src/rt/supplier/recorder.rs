@@ -1217,12 +1217,13 @@ impl RecordTiming {
         args: &ClipRecordArgs,
         timeline: &HybridTimeline,
         timeline_cursor_pos: PositionInSeconds,
+        initial_play_start_timing: ClipPlayStartTiming,
     ) -> Self {
         use ClipRecordStartTiming::*;
         match args.settings.start_timing {
             LikeClipPlayStartTiming => {
                 use ClipPlayStartTiming::*;
-                match args.global_play_start_timing {
+                match initial_play_start_timing {
                     Immediately => RecordTiming::Unsynced,
                     Quantized(q) => RecordTiming::resolve_synced(
                         q,

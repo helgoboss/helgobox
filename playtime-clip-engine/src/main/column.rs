@@ -9,7 +9,7 @@ use crate::rt::supplier::{
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ClipRecordArgs, ColumnCommandSender, ColumnEvent,
     ColumnFillSlotArgs, ColumnPlayClipArgs, ColumnSetClipLoopedArgs, ColumnStopClipArgs,
-    MidiOverdubInstruction, NewClipInstruction, OverridableMatrixSettings, SharedColumn,
+    MidiOverdubInstruction, OverridableMatrixSettings, RecordNewClipInstruction, SharedColumn,
     SlotRecordInstruction, WeakColumn,
 };
 use crate::{clip_timeline, rt, ClipEngineResult, Timeline};
@@ -434,7 +434,6 @@ impl Column {
             let args = ClipRecordArgs {
                 recording_equipment,
                 settings: matrix_record_settings.clone(),
-                global_play_start_timing: overridable_matrix_settings.clip_play_start_timing,
             };
             if has_existing_clip {
                 // There's a clip already. That makes it easy because we have the clip struct
@@ -449,7 +448,16 @@ impl Column {
                 let timeline = clip_timeline(self.project, false);
                 let timeline_cursor_pos = timeline.cursor_pos();
                 let tempo = timeline.tempo_at(timeline_cursor_pos);
-                let timing = RecordTiming::from_args(&args, &timeline, timeline_cursor_pos);
+                let initial_play_start_timing = self
+                    .rt_settings
+                    .clip_play_start_timing
+                    .unwrap_or(overridable_matrix_settings.clip_play_start_timing);
+                let timing = RecordTiming::from_args(
+                    &args,
+                    &timeline,
+                    timeline_cursor_pos,
+                    initial_play_start_timing,
+                );
                 let recording_args = RecordingArgs {
                     equipment: args.recording_equipment,
                     project: self.project,
@@ -462,7 +470,7 @@ impl Column {
                 };
                 let recorder = Recorder::recording(recording_args, recorder_request_sender.clone());
                 let supplier_chain = SupplierChain::new(recorder, chain_equipment.clone())?;
-                let new_clip_instruction = NewClipInstruction {
+                let new_clip_instruction = RecordNewClipInstruction {
                     supplier_chain,
                     project: self.project,
                     shared_pos: Default::default(),
@@ -471,6 +479,7 @@ impl Column {
                     timing,
                     is_midi: input_is_midi,
                     settings: matrix_record_settings.clone(),
+                    initial_play_start_timing,
                 };
                 SlotRecordInstruction::NewClip(new_clip_instruction)
             }

@@ -349,7 +349,13 @@ impl Column {
         audio_request_props: BasicAudioRequestProps,
     ) {
         let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-        let (successful, instruction) = match slot.record_clip(instruction, audio_request_props) {
+        let result = slot.record_clip(
+            instruction,
+            audio_request_props,
+            &self.matrix_settings,
+            &self.settings,
+        );
+        let (successful, instruction) = match result {
             Ok(_) => (true, None),
             Err(e) => {
                 debug!("Error recording clip: {}", e.message);
