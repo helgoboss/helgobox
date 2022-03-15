@@ -271,7 +271,12 @@ impl Clip {
             }
             Recording(s) => {
                 use ClipRecordingStopOutcome::*;
-                match s.stop(args, &mut self.supplier_chain, event_handler) {
+                match s.stop(
+                    args,
+                    &mut self.supplier_chain,
+                    event_handler,
+                    &self.shared_pos,
+                ) {
                     KeepState => StopSlotInstruction::KeepSlot,
                     TransitionToReady(ready_state) => {
                         self.state = Ready(ready_state);
@@ -381,6 +386,7 @@ impl Clip {
                             event_handler,
                             args.matrix_settings,
                             args.column_settings,
+                            self.shared_pos.clone(),
                         );
                         self.state = Ready(ready_state);
                         false
@@ -1268,6 +1274,7 @@ impl RecordingState {
         args: ClipStopArgs,
         supplier_chain: &mut SupplierChain,
         event_handler: &H,
+        shared_pos: &SharedPos,
     ) -> ClipRecordingStopOutcome {
         let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
         match supplier_chain
@@ -1281,6 +1288,7 @@ impl RecordingState {
                     event_handler,
                     args.matrix_settings,
                     args.column_settings,
+                    shared_pos.clone(),
                 );
                 ClipRecordingStopOutcome::TransitionToReady(ready_state)
             }
@@ -1306,6 +1314,7 @@ impl RecordingState {
         event_handler: &H,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &ColumnSettings,
+        shared_pos: SharedPos,
     ) -> ReadyState {
         debug!("Finishing recording");
         let clip_settings = ProcessingRelevantClipSettings::derive_from_recording(
@@ -1336,9 +1345,13 @@ impl RecordingState {
             play_settings: clip_settings.create_play_settings(),
         };
         // Send event
+        let material_info = outcome.material_info();
         let committed_recording = CommittedRecording {
             kind_specific: outcome.kind_specific,
             clip_settings,
+            material_info,
+            shared_pos,
+            play_state: ready_state.play_state(),
         };
         event_handler
             .normal_recording_finished(NormalRecordingOutcome::Committed(committed_recording));
@@ -1643,6 +1656,9 @@ pub enum NormalRecordingOutcome {
 pub struct CommittedRecording {
     pub kind_specific: KindSpecificRecordingOutcome,
     pub clip_settings: ProcessingRelevantClipSettings,
+    pub material_info: MaterialInfo,
+    pub shared_pos: SharedPos,
+    pub play_state: ClipPlayState,
 }
 
 /// All settings of a clip that affect processing.

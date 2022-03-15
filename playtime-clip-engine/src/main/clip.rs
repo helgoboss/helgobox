@@ -71,11 +71,18 @@ impl Clip {
             Midi { mirror_source } => {
                 create_api_source_from_mirror_source(mirror_source, temporary_project)?
             }
-            Audio { path } => create_file_api_source(temporary_project, &path),
+            Audio { path, .. } => create_file_api_source(temporary_project, &path),
         };
         let clip = Self {
             source: api_source,
-            runtime_data: None,
+            runtime_data: {
+                let rd = ClipRuntimeData {
+                    play_state: recording.play_state,
+                    pos: recording.shared_pos,
+                    material_info: recording.material_info,
+                };
+                Some(rd)
+            },
             recording_requested: false,
             processing_relevant_settings: recording.clip_settings,
         };
@@ -122,15 +129,15 @@ impl Clip {
         Ok(())
     }
 
-    pub fn create_real_time_clip(
-        &self,
+    pub fn create_and_connect_real_time_clip(
+        &mut self,
         permanent_project: Option<Project>,
         chain_equipment: &ChainEquipment,
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &rt::ColumnSettings,
     ) -> ClipEngineResult<rt::Clip> {
-        rt::Clip::ready(
+        let rt_clip = rt::Clip::ready(
             &self.source,
             matrix_settings,
             column_settings,
@@ -138,7 +145,14 @@ impl Clip {
             permanent_project,
             chain_equipment,
             recorder_request_sender,
-        )
+        )?;
+        let runtime_data = ClipRuntimeData {
+            play_state: Default::default(),
+            pos: rt_clip.shared_pos(),
+            material_info: rt_clip.material_info().unwrap(),
+        };
+        self.runtime_data = Some(runtime_data);
+        Ok(rt_clip)
     }
 
     pub fn create_mirror_source_for_midi_overdub(
@@ -154,16 +168,6 @@ impl Clip {
 
     fn runtime_data_mut(&mut self) -> ClipEngineResult<&mut ClipRuntimeData> {
         get_runtime_data_mut(&mut self.runtime_data)
-    }
-
-    /// Connects the given real-time clip to the main clip.
-    pub fn connect_to(&mut self, rt_clip: &rt::Clip) {
-        let runtime_data = ClipRuntimeData {
-            play_state: Default::default(),
-            pos: rt_clip.shared_pos(),
-            material_info: rt_clip.material_info().unwrap(),
-        };
-        self.runtime_data = Some(runtime_data);
     }
 
     pub fn material_info(&self) -> Option<&MaterialInfo> {

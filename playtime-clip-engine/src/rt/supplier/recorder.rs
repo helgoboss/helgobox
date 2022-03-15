@@ -6,8 +6,9 @@ use crate::rt::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSupplier, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource, MIDI_FRAME_RATE,
+    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier, SectionBounds,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource,
+    MIDI_FRAME_RATE,
 };
 use crate::rt::{BasicAudioRequestProps, ClipRecordArgs, QuantizedPosCalcEquipment};
 use crate::timeline::{clip_timeline, Timeline};
@@ -708,6 +709,7 @@ impl RecordingState {
                 );
                 let outcome = KindSpecificRecordingOutcome::Audio {
                     path: active_state.file_clone,
+                    channel_count: active_state.temporary_audio_buffer.to_buf().channel_count(),
                 };
                 let recording_state = RecordingState {
                     kind_state: {
@@ -736,11 +738,14 @@ impl RecordingState {
         let recording_outcome = RecordingOutcome {
             data: CompleteRecordingData {
                 frame_rate: recording.frame_rate,
+                total_frame_count: recording.total_frame_offset,
                 tempo: self.tempo,
                 time_signature: self.time_signature,
                 is_midi,
-                section_start_frame: recording.num_count_in_frames,
-                section_frame_count: self.scheduled_end.map(|end| end.section_frame_count),
+                section_bounds: SectionBounds::new(
+                    recording.num_count_in_frames,
+                    self.scheduled_end.map(|end| end.section_frame_count),
+                ),
                 quantized_end_pos: self.scheduled_end.map(|end| end.quantized_end_pos),
                 normalized_downbeat_frame: 0,
             },
@@ -953,31 +958,53 @@ pub struct RecordingOutcome {
     pub kind_specific: KindSpecificRecordingOutcome,
 }
 
+impl RecordingOutcome {
+    pub fn material_info(&self) -> MaterialInfo {
+        use KindSpecificRecordingOutcome::*;
+        match &self.kind_specific {
+            Midi { .. } => MaterialInfo::Midi(MidiMaterialInfo {
+                frame_count: self.data.total_frame_count,
+            }),
+            Audio { channel_count, .. } => MaterialInfo::Audio(AudioMaterialInfo {
+                channel_count: *channel_count,
+                frame_count: self.data.effective_frame_count(),
+                frame_rate: self.data.frame_rate,
+            }),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum KindSpecificRecordingOutcome {
     Midi { mirror_source: OwnedPcmSource },
-    Audio { path: PathBuf },
+    Audio { path: PathBuf, channel_count: usize },
 }
 
 #[derive(Clone, Debug)]
 pub struct CompleteRecordingData {
     pub frame_rate: Hz,
+    /// Doesn't take section bounds into account.
+    pub total_frame_count: usize,
     pub tempo: Bpm,
     pub time_signature: TimeSignature,
     pub is_midi: bool,
-    pub section_start_frame: usize,
-    pub section_frame_count: Option<usize>,
+    pub section_bounds: SectionBounds,
     pub normalized_downbeat_frame: usize,
     pub quantized_end_pos: Option<QuantizedPosition>,
 }
 
 impl CompleteRecordingData {
+    pub fn effective_frame_count(&self) -> usize {
+        self.section_bounds
+            .calculate_frame_count(self.total_frame_count)
+    }
+
     pub fn section_start_pos_in_seconds(&self) -> DurationInSeconds {
-        convert_duration_in_frames_to_seconds(self.section_start_frame, self.frame_rate)
+        convert_duration_in_frames_to_seconds(self.section_bounds.start_frame(), self.frame_rate)
     }
 
     pub fn section_length_in_seconds(&self) -> Option<DurationInSeconds> {
-        let section_frame_count = self.section_frame_count?;
+        let section_frame_count = self.section_bounds.length()?;
         Some(convert_duration_in_frames_to_seconds(
             section_frame_count,
             self.frame_rate,

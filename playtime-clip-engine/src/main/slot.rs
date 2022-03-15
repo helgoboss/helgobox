@@ -100,10 +100,12 @@ impl Slot {
         match outcome {
             NormalRecordingOutcome::Committed(recording) => {
                 let clip = Clip::from_recording(recording, temporary_project)?;
+                debug!("Fill slot with clip: {:#?}", &clip);
                 self.state = SlotState::Filled(clip);
                 Ok(())
             }
             NormalRecordingOutcome::Cancelled => {
+                debug!("Recording cancelled");
                 use SlotState::*;
                 if matches!(
                     &self.state,

@@ -16,19 +16,42 @@ use reaper_medium::{BorrowedMidiEventList, DurationInSeconds};
 #[derive(Debug)]
 pub struct Section<S> {
     supplier: S,
-    boundary: Boundary,
+    bounds: SectionBounds,
     midi_reset_msg_range: MidiResetMessageRange,
 }
 
-#[derive(PartialEq, Debug, Default)]
-struct Boundary {
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
+pub struct SectionBounds {
     start_frame: usize,
     length: Option<usize>,
 }
 
-impl Boundary {
-    fn is_default(&self) -> bool {
+impl SectionBounds {
+    pub fn new(start_frame: usize, length: Option<usize>) -> Self {
+        Self {
+            start_frame,
+            length,
+        }
+    }
+
+    pub fn is_default(&self) -> bool {
         self == &Default::default()
+    }
+
+    pub fn calculate_frame_count(&self, supplier_frame_count: usize) -> usize {
+        if let Some(length) = self.length {
+            length
+        } else {
+            supplier_frame_count.saturating_sub(self.start_frame)
+        }
+    }
+
+    pub fn start_frame(&self) -> usize {
+        self.start_frame
+    }
+
+    pub fn length(&self) -> Option<usize> {
+        self.length
     }
 }
 
@@ -36,17 +59,17 @@ impl<S> Section<S> {
     pub fn new(supplier: S) -> Self {
         Self {
             supplier,
-            boundary: Default::default(),
+            bounds: Default::default(),
             midi_reset_msg_range: Default::default(),
         }
     }
 
     pub fn start_frame(&self) -> usize {
-        self.boundary.start_frame
+        self.bounds.start_frame
     }
 
     pub fn length(&self) -> Option<usize> {
-        self.boundary.length
+        self.bounds.length
     }
 
     pub fn set_midi_reset_msg_range(&mut self, range: MidiResetMessageRange) {
@@ -54,12 +77,12 @@ impl<S> Section<S> {
     }
 
     pub fn set_bounds(&mut self, start_frame: usize, length: Option<usize>) {
-        self.boundary.start_frame = start_frame;
-        self.boundary.length = length;
+        self.bounds.start_frame = start_frame;
+        self.bounds.length = length;
     }
 
     pub fn reset(&mut self) {
-        self.boundary = Default::default();
+        self.bounds = Default::default();
     }
 
     pub fn supplier(&self) -> &S {
@@ -98,7 +121,7 @@ impl<S> Section<S> {
         request: &impl SupplyRequest,
         dest_frame_count: usize,
     ) -> Instruction {
-        if self.boundary.is_default() {
+        if self.bounds.is_default() {
             return Instruction::Bypass;
         }
         // Section is set (start and/or length).
@@ -123,8 +146,8 @@ impl<S> Section<S> {
         //  MAYBE was caused by the fact that we didn't upscale to MIDI frame rate before?
         //  (which we now do in resampler)
         // Determine source range
-        let start_frame_in_source = self.boundary.start_frame as isize + request.start_frame();
-        let (phase_two, num_frames_to_be_written) = match self.boundary.length {
+        let start_frame_in_source = self.bounds.start_frame as isize + request.start_frame();
+        let (phase_two, num_frames_to_be_written) = match self.bounds.length {
             None => {
                 // Section doesn't have right bound (easy).
                 (PhaseTwo::Unbounded, dest_frame_count)
@@ -136,7 +159,7 @@ impl<S> Section<S> {
                     return Instruction::Return(SupplyResponse::exceeded_end());
                 }
                 // We are still within the section.
-                let right_bound_in_source = self.boundary.start_frame + length;
+                let right_bound_in_source = self.bounds.start_frame + length;
                 let ideal_end_frame_in_source =
                     start_frame_in_source + ideal_num_frames_to_be_consumed as isize;
                 let (reached_bound, effective_end_frame_in_source) =
@@ -214,14 +237,6 @@ impl<S> Section<S> {
             }
         }
     }
-
-    fn calculate_new_frame_count(&self, supplier_frame_count: usize) -> usize {
-        if let Some(length) = self.boundary.length {
-            length
-        } else {
-            supplier_frame_count.saturating_sub(self.boundary.start_frame)
-        }
-    }
 }
 
 impl<S: AudioSupplier> AudioSupplier for Section<S> {
@@ -249,10 +264,10 @@ impl<S: AudioSupplier> AudioSupplier for Section<S> {
         let inner_response = self
             .supplier
             .supply_audio(&inner_request, &mut inner_dest_buffer);
-        if self.boundary.start_frame > 0 {
+        if self.bounds.start_frame > 0 {
             apply_fade_in_starting_at_zero(dest_buffer, request.start_frame, SECTION_FADE_LENGTH);
         }
-        if let Some(length) = self.boundary.length {
+        if let Some(length) = self.bounds.length {
             apply_fade_out_ending_at(
                 dest_buffer,
                 request.start_frame,
@@ -315,20 +330,20 @@ impl<S: MidiSupplier> MidiSupplier for Section<S> {
 impl<S: WithMaterialInfo> WithMaterialInfo for Section<S> {
     fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         let inner_material_info = self.supplier.material_info()?;
-        if self.boundary.is_default() {
+        if self.bounds.is_default() {
             return Ok(inner_material_info);
         }
         let material_info = match inner_material_info {
             MaterialInfo::Audio(i) => {
                 let i = AudioMaterialInfo {
-                    frame_count: self.calculate_new_frame_count(i.frame_count),
+                    frame_count: self.bounds.calculate_frame_count(i.frame_count),
                     ..i
                 };
                 MaterialInfo::Audio(i)
             }
             MaterialInfo::Midi(i) => {
                 let i = MidiMaterialInfo {
-                    frame_count: self.calculate_new_frame_count(i.frame_count),
+                    frame_count: self.bounds.calculate_frame_count(i.frame_count),
                 };
                 MaterialInfo::Midi(i)
             }

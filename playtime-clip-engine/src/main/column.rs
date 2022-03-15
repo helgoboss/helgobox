@@ -213,14 +213,13 @@ impl Column {
         recorder_request_sender: &Sender<RecorderRequest>,
         matrix_settings: &MatrixSettings,
     ) -> ClipEngineResult<()> {
-        let rt_clip = clip.create_real_time_clip(
+        let rt_clip = clip.create_and_connect_real_time_clip(
             permanent_project,
             chain_equipment,
             recorder_request_sender,
             &matrix_settings.overridable,
             &self.rt_settings,
         )?;
-        clip.connect_to(&rt_clip);
         let slot = get_slot_mut_insert(&mut self.slots, row);
         slot.fill_with(clip);
         let args = ColumnFillSlotArgs {
