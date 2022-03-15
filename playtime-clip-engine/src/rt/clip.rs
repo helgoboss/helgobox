@@ -7,15 +7,15 @@ use crate::rt::buffer::AudioBufMut;
 use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::{
     AudioSupplier, ChainEquipment, ChainSettings, CompleteRecordingData,
-    KindSpecificRecordingOutcome, MaterialInfo, MidiSupplier, PollRecordingOutcome, RecordTiming,
-    Recorder, RecorderRequest, RecordingArgs, RecordingEquipment, RecordingOutcome,
-    StopRecordingOutcome, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
-    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    KindSpecificRecordingOutcome, MaterialInfo, MidiSupplier, PollRecordingOutcome, Recorder,
+    RecorderRequest, RecordingArgs, RecordingEquipment, RecordingOutcome, StopRecordingOutcome,
+    SupplierChain, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestGeneralInfo,
+    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest,
+    WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::determine_tempo_from_time_base;
 use crate::rt::{ColumnSettings, OverridableMatrixSettings};
-use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
+use crate::timeline::{HybridTimeline, Timeline};
 use crate::{ClipEngineResult, ErrorWithPayload, QuantizedPosition};
 use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
@@ -183,22 +183,11 @@ enum StateAfterSuspension {
 struct RecordingState {
     rollback_data: Option<RollbackData>,
     settings: MatrixClipRecordSettings,
-    initial_play_start_timing: ClipPlayStartTiming,
 }
 
 #[derive(Copy, Clone, Debug)]
 struct RollbackData {
     play_settings: PlaySettings,
-}
-
-#[derive(Copy, Clone)]
-pub enum RecordBehavior {
-    Normal {
-        looped: bool,
-        timing: RecordTiming,
-        detect_downbeat: bool,
-    },
-    MidiOverdub,
 }
 
 impl Clip {
@@ -237,7 +226,6 @@ impl Clip {
         let recording_state = RecordingState {
             rollback_data: None,
             settings: instruction.settings,
-            initial_play_start_timing: instruction.initial_play_start_timing,
         };
         Self {
             supplier_chain: instruction.supplier_chain,
@@ -1085,28 +1073,13 @@ impl ReadyState {
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &ColumnSettings,
     ) -> Option<RecordingState> {
-        let timeline = clip_timeline(project, false);
-        let timeline_cursor_pos = timeline.cursor_pos();
-        let tempo = timeline.tempo_at(timeline_cursor_pos);
-        let initial_play_start_timing = column_settings
-            .clip_play_start_timing
-            .unwrap_or(matrix_settings.clip_play_start_timing);
-        let timing = RecordTiming::from_args(
-            &args,
-            &timeline,
-            timeline_cursor_pos,
-            initial_play_start_timing,
-        );
-        let is_midi = args.recording_equipment.is_midi();
-        let recording_args = RecordingArgs {
-            equipment: args.recording_equipment,
+        let recording_args = RecordingArgs::from_stuff(
             project,
-            timeline_cursor_pos,
-            tempo,
-            time_signature: timeline.time_signature_at(timeline_cursor_pos),
-            detect_downbeat: args.settings.downbeat_detection_enabled(is_midi),
-            timing,
-        };
+            column_settings,
+            matrix_settings,
+            &args.settings,
+            args.recording_equipment,
+        );
         supplier_chain.prepare_recording(recording_args);
         let recording_state = RecordingState {
             rollback_data: {
@@ -1116,7 +1089,6 @@ impl ReadyState {
                 Some(data)
             },
             settings: args.settings,
-            initial_play_start_timing,
         };
         use ReadySubState::*;
         match self.state {
@@ -1315,7 +1287,6 @@ impl RecordingState {
             &outcome.data,
             matrix_settings,
             column_settings,
-            self.initial_play_start_timing,
         );
         let clip_settings = clip_settings.unwrap();
         let chain_settings = clip_settings.create_chain_settings(matrix_settings, column_settings);
@@ -1458,10 +1429,7 @@ pub struct RecordNewClipInstruction {
     pub shared_pos: SharedPos,
     pub timeline: HybridTimeline,
     pub timeline_cursor_pos: PositionInSeconds,
-    pub timing: RecordTiming,
-    pub is_midi: bool,
     pub settings: MatrixClipRecordSettings,
-    pub initial_play_start_timing: ClipPlayStartTiming,
 }
 
 #[derive(Debug)]
@@ -1689,16 +1657,19 @@ impl ProcessingRelevantClipSettings {
         data: &CompleteRecordingData,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &ColumnSettings,
-        initial_play_start_timing: ClipPlayStartTiming,
     ) -> ClipEngineResult<Self> {
         let current_play_start_timing = column_settings
             .clip_play_start_timing
             .unwrap_or(matrix_settings.clip_play_start_timing);
         let settings = Self {
-            start_timing: record_settings
-                .effective_play_start_timing(initial_play_start_timing, current_play_start_timing),
-            stop_timing: record_settings
-                .effective_play_stop_timing(initial_play_start_timing, current_play_start_timing),
+            start_timing: record_settings.effective_play_start_timing(
+                data.initial_play_start_timing,
+                current_play_start_timing,
+            ),
+            stop_timing: record_settings.effective_play_stop_timing(
+                data.initial_play_start_timing,
+                current_play_start_timing,
+            ),
             looped: record_settings.looped,
             time_base: {
                 let audio_tempo = if data.is_midi {
@@ -1707,7 +1678,7 @@ impl ProcessingRelevantClipSettings {
                     Some(api::Bpm::new(data.tempo.get())?)
                 };
                 record_settings.effective_play_time_base(
-                    initial_play_start_timing,
+                    data.initial_play_start_timing,
                     audio_tempo,
                     api::TimeSignature {
                         numerator: data.time_signature.numerator.get(),

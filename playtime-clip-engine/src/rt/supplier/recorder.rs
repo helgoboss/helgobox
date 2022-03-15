@@ -11,12 +11,17 @@ use crate::rt::supplier::{
     PositionTranslationSkill, SectionBounds, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
     WithMaterialInfo, WithSource, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
-use crate::rt::{BasicAudioRequestProps, ClipRecordArgs, QuantizedPosCalcEquipment};
+use crate::rt::{
+    BasicAudioRequestProps, ColumnSettings, OverridableMatrixSettings, QuantizedPosCalcEquipment,
+};
 use crate::timeline::{clip_timeline, Timeline};
 use crate::{ClipEngineResult, HybridTimeline, QuantizedPosition};
 use crossbeam_channel::{Receiver, Sender};
 use helgoboss_midi::Channel;
-use playtime_api::{ClipPlayStartTiming, ClipRecordStartTiming, EvenQuantization, RecordLength};
+use playtime_api::{
+    ClipPlayStartTiming, ClipRecordStartTiming, ClipRecordStopTiming, EvenQuantization,
+    MatrixClipRecordSettings, RecordLength,
+};
 use reaper_high::{OwnedSource, Project, Reaper};
 use reaper_low::raw::{midi_realtime_write_struct_t, PCM_SOURCE_EXT_ADDMIDIEVENTS};
 use reaper_medium::{
@@ -112,10 +117,13 @@ struct RecordingState {
     detect_downbeat: bool,
     tempo: Bpm,
     time_signature: TimeSignature,
-    timing: RecordTiming,
+    start_timing: RecordInteractionTiming,
+    stop_timing: RecordInteractionTiming,
     recording: Option<Recording>,
+    length: RecordLength,
     committed: bool,
     scheduled_end: Option<ScheduledEnd>,
+    initial_play_start_timing: ClipPlayStartTiming,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -229,10 +237,13 @@ impl Recorder {
             detect_downbeat: args.detect_downbeat,
             tempo: args.tempo,
             time_signature: args.time_signature,
-            timing: args.timing,
+            start_timing: args.start_timing,
+            stop_timing: args.stop_timing,
             recording: None,
+            length: args.length,
             committed: false,
             scheduled_end: None,
+            initial_play_start_timing: args.initial_play_start_timing,
         };
         Self::new(State::Recording(recording_state), request_sender)
     }
@@ -282,10 +293,13 @@ impl Recorder {
                     detect_downbeat: args.detect_downbeat,
                     tempo: args.tempo,
                     time_signature: args.time_signature,
-                    timing: args.timing,
+                    start_timing: args.start_timing,
+                    stop_timing: args.stop_timing,
                     recording: None,
+                    length: args.length,
                     committed: false,
                     scheduled_end: None,
+                    initial_play_start_timing: args.initial_play_start_timing,
                 };
                 (Ok(()), Recording(recording_state))
             }
@@ -441,20 +455,6 @@ impl Recorder {
         }
     }
 
-    pub fn recording_info(&self) -> Option<RecordingInfo> {
-        match self.state.as_ref().unwrap() {
-            State::Ready(_) => None,
-            State::Recording(s) => {
-                let info = RecordingInfo {
-                    timing: s.timing,
-                    is_midi: s.kind_state.is_midi(),
-                    initial_tempo: s.tempo,
-                };
-                Some(info)
-            }
-        }
-    }
-
     fn process_worker_response(&mut self) {
         let response = match self.response_channel.receiver.try_recv() {
             Ok(r) => r,
@@ -512,8 +512,8 @@ impl RecordingState {
         request_sender: &Sender<RecorderRequest>,
         response_sender: &Sender<RecorderResponse>,
     ) -> (ClipEngineResult<StopRecordingOutcome>, State) {
-        match self.timing {
-            RecordTiming::Unsynced => {
+        match self.stop_timing {
+            RecordInteractionTiming::Immediately => {
                 // Commit immediately
                 let (commit_result, next_state) =
                     self.commit_recording(request_sender, response_sender);
@@ -522,7 +522,7 @@ impl RecordingState {
                     next_state,
                 )
             }
-            RecordTiming::Synced { .. } => {
+            RecordInteractionTiming::Quantized(quantization) => {
                 if self.scheduled_end.is_some() {
                     return (Err("end scheduled already"), State::Recording(self));
                 }
@@ -548,7 +548,12 @@ impl RecordingState {
                     }
                 } else {
                     // Schedule end
-                    self.schedule_end(timeline, timeline_cursor_pos, audio_request_props);
+                    self.schedule_end(
+                        timeline,
+                        timeline_cursor_pos,
+                        audio_request_props,
+                        quantization,
+                    );
                     (
                         Ok(StopRecordingOutcome::EndScheduled),
                         State::Recording(self),
@@ -563,28 +568,20 @@ impl RecordingState {
         timeline: &HybridTimeline,
         timeline_cursor_pos: PositionInSeconds,
         audio_request_props: BasicAudioRequestProps,
+        quantization: EvenQuantization,
     ) {
         let total_frame_offset = match self.recording {
             None => 0,
             Some(r) => r.total_frame_offset,
         };
-        let quantized_end_pos =
-            timeline.next_quantized_pos_at(timeline_cursor_pos, EvenQuantization::ONE_BAR);
-        let equipment = QuantizedPosCalcEquipment::new_with_unmodified_tempo(
+        let scheduled_end = calculate_scheduled_end(
             timeline,
             timeline_cursor_pos,
-            timeline.tempo_at(timeline_cursor_pos),
             audio_request_props,
+            quantization,
+            total_frame_offset,
             self.kind_state.is_midi(),
         );
-        let distance_from_end = calc_distance_from_quantized_pos(quantized_end_pos, equipment);
-        assert!(distance_from_end < 0, "scheduled end before now");
-        let distance_to_end = (-distance_from_end) as usize;
-        let complete_length = total_frame_offset + distance_to_end;
-        let scheduled_end = ScheduledEnd {
-            quantized_end_pos,
-            complete_length,
-        };
         self.scheduled_end = Some(scheduled_end);
     }
 
@@ -640,7 +637,7 @@ impl RecordingState {
             let timeline = clip_timeline(self.project, false);
             let timeline_cursor_pos = timeline.cursor_pos();
             let num_count_in_frames = calc_num_count_in_frames(
-                self.timing,
+                self.start_timing,
                 &timeline,
                 timeline_cursor_pos,
                 timeline.tempo_at(timeline_cursor_pos),
@@ -658,6 +655,11 @@ impl RecordingState {
                 first_play_frame: None,
             };
             self.recording = Some(recording);
+            self.scheduled_end = self.calculate_initial_scheduled_end(
+                &timeline,
+                timeline_cursor_pos,
+                audio_request_props,
+            );
             (
                 PollRecordingOutcome::PleaseContinuePolling,
                 State::Recording(self),
@@ -749,10 +751,33 @@ impl RecordingState {
                 ),
                 quantized_end_pos: self.scheduled_end.map(|end| end.quantized_end_pos),
                 normalized_downbeat_frame: 0,
+                initial_play_start_timing: self.initial_play_start_timing,
             },
             kind_specific: kind_specific_outcome,
         };
         (recording_outcome, new_state)
+    }
+
+    fn calculate_initial_scheduled_end(
+        &self,
+        timeline: &HybridTimeline,
+        timeline_cursor_pos: PositionInSeconds,
+        audio_request_props: BasicAudioRequestProps,
+    ) -> Option<ScheduledEnd> {
+        match self.length {
+            RecordLength::OpenEnd => None,
+            RecordLength::Quantized(q) => {
+                let end = calculate_scheduled_end(
+                    timeline,
+                    timeline_cursor_pos,
+                    audio_request_props,
+                    q,
+                    0,
+                    self.kind_state.is_midi(),
+                );
+                Some(end)
+            }
+        }
     }
 }
 
@@ -993,6 +1018,7 @@ pub struct CompleteRecordingData {
     pub section_bounds: SectionBounds,
     pub normalized_downbeat_frame: usize,
     pub quantized_end_pos: Option<QuantizedPosition>,
+    pub initial_play_start_timing: ClipPlayStartTiming,
 }
 
 impl CompleteRecordingData {
@@ -1021,64 +1047,6 @@ impl CompleteRecordingData {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum RecordTiming {
-    Unsynced,
-    Synced {
-        start: QuantizedPosition,
-        end: Option<QuantizedPosition>,
-    },
-}
-
-impl RecordTiming {
-    pub fn from_args(
-        args: &ClipRecordArgs,
-        timeline: &HybridTimeline,
-        timeline_cursor_pos: PositionInSeconds,
-        initial_play_start_timing: ClipPlayStartTiming,
-    ) -> Self {
-        use ClipRecordStartTiming::*;
-        match args.settings.start_timing {
-            LikeClipPlayStartTiming => {
-                use ClipPlayStartTiming::*;
-                match initial_play_start_timing {
-                    Immediately => RecordTiming::Unsynced,
-                    Quantized(q) => RecordTiming::resolve_synced(
-                        q,
-                        args.settings.duration,
-                        timeline,
-                        timeline_cursor_pos,
-                    ),
-                }
-            }
-            Immediately => RecordTiming::Unsynced,
-            Quantized(q) => RecordTiming::resolve_synced(
-                q,
-                args.settings.duration,
-                timeline,
-                timeline_cursor_pos,
-            ),
-        }
-    }
-
-    pub fn resolve_synced(
-        start: EvenQuantization,
-        length: RecordLength,
-        timeline: &HybridTimeline,
-        timeline_cursor_pos: PositionInSeconds,
-    ) -> Self {
-        let start = timeline.next_quantized_pos_at(timeline_cursor_pos, start);
-        let end = match length {
-            RecordLength::OpenEnd => None,
-            RecordLength::Quantized(q) => {
-                let resolved_start_pos = timeline.pos_of_quantized_pos(start);
-                Some(timeline.next_quantized_pos_at(resolved_start_pos, q))
-            }
-        };
-        Self::Synced { start, end }
-    }
-}
-
 impl WithSource for Recorder {
     fn source(&self) -> Option<&OwnedPcmSource> {
         match self.state.as_ref().unwrap() {
@@ -1088,12 +1056,6 @@ impl WithSource for Recorder {
     }
 }
 
-pub struct RecordingInfo {
-    pub timing: RecordTiming,
-    pub is_midi: bool,
-    pub initial_tempo: Bpm,
-}
-
 pub struct RecordingArgs {
     pub equipment: RecordingEquipment,
     pub project: Option<Project>,
@@ -1101,11 +1063,89 @@ pub struct RecordingArgs {
     pub tempo: Bpm,
     pub time_signature: TimeSignature,
     pub detect_downbeat: bool,
-    pub timing: RecordTiming,
+    pub start_timing: RecordInteractionTiming,
+    pub stop_timing: RecordInteractionTiming,
+    pub length: RecordLength,
+    pub initial_play_start_timing: ClipPlayStartTiming,
+}
+
+impl RecordingArgs {
+    pub fn from_stuff(
+        project: Option<Project>,
+        column_settings: &ColumnSettings,
+        overridable_matrix_settings: &OverridableMatrixSettings,
+        matrix_record_settings: &MatrixClipRecordSettings,
+        recording_equipment: RecordingEquipment,
+    ) -> Self {
+        let timeline = clip_timeline(project, false);
+        let timeline_cursor_pos = timeline.cursor_pos();
+        let tempo = timeline.tempo_at(timeline_cursor_pos);
+        let initial_play_start_timing = column_settings
+            .clip_play_start_timing
+            .unwrap_or(overridable_matrix_settings.clip_play_start_timing);
+        let is_midi = recording_equipment.is_midi();
+        RecordingArgs {
+            equipment: recording_equipment,
+            project,
+            timeline_cursor_pos,
+            tempo,
+            time_signature: timeline.time_signature_at(timeline_cursor_pos),
+            detect_downbeat: matrix_record_settings.downbeat_detection_enabled(is_midi),
+            start_timing: RecordInteractionTiming::from_record_start_timing(
+                matrix_record_settings.start_timing,
+                initial_play_start_timing,
+            ),
+            stop_timing: RecordInteractionTiming::from_record_stop_timing(
+                matrix_record_settings.stop_timing,
+                matrix_record_settings.start_timing,
+                initial_play_start_timing,
+            ),
+            length: matrix_record_settings.duration,
+            initial_play_start_timing,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum RecordInteractionTiming {
+    Immediately,
+    Quantized(EvenQuantization),
+}
+
+impl RecordInteractionTiming {
+    pub fn from_record_start_timing(
+        timing: ClipRecordStartTiming,
+        play_start_timing: ClipPlayStartTiming,
+    ) -> Self {
+        use ClipRecordStartTiming::*;
+        match timing {
+            LikeClipPlayStartTiming => match play_start_timing {
+                ClipPlayStartTiming::Immediately => Self::Immediately,
+                ClipPlayStartTiming::Quantized(q) => Self::Quantized(q),
+            },
+            Immediately => Self::Immediately,
+            Quantized(q) => Self::Quantized(q),
+        }
+    }
+
+    pub fn from_record_stop_timing(
+        timing: ClipRecordStopTiming,
+        record_start_timing: ClipRecordStartTiming,
+        play_start_timing: ClipPlayStartTiming,
+    ) -> Self {
+        use ClipRecordStopTiming::*;
+        match timing {
+            LikeClipRecordStartTiming => {
+                Self::from_record_start_timing(record_start_timing, play_start_timing)
+            }
+            Immediately => Self::Immediately,
+            Quantized(q) => Self::Quantized(q),
+        }
+    }
 }
 
 fn calc_num_count_in_frames(
-    timing: RecordTiming,
+    timing: RecordInteractionTiming,
     timeline: &HybridTimeline,
     timeline_cursor_pos: PositionInSeconds,
     timeline_tempo: Bpm,
@@ -1113,8 +1153,8 @@ fn calc_num_count_in_frames(
     is_midi: bool,
 ) -> usize {
     match timing {
-        RecordTiming::Unsynced => 0,
-        RecordTiming::Synced { start, .. } => {
+        RecordInteractionTiming::Immediately => 0,
+        RecordInteractionTiming::Quantized(quantization) => {
             let equipment = QuantizedPosCalcEquipment::new_with_unmodified_tempo(
                 timeline,
                 timeline_cursor_pos,
@@ -1122,7 +1162,8 @@ fn calc_num_count_in_frames(
                 audio_request_props,
                 is_midi,
             );
-            let distance_from_start = calc_distance_from_quantized_pos(start, equipment);
+            let quantized_pos = timeline.next_quantized_pos_at(timeline_cursor_pos, quantization);
+            let distance_from_start = calc_distance_from_quantized_pos(quantized_pos, equipment);
             assert!(distance_from_start < 0);
             (-distance_from_start) as usize
         }
@@ -1277,5 +1318,31 @@ pub enum PollRecordingOutcome {
 impl PositionTranslationSkill for Recorder {
     fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
         play_pos
+    }
+}
+
+fn calculate_scheduled_end(
+    timeline: &HybridTimeline,
+    timeline_cursor_pos: PositionInSeconds,
+    audio_request_props: BasicAudioRequestProps,
+    quantization: EvenQuantization,
+    total_frame_offset: usize,
+    is_midi: bool,
+) -> ScheduledEnd {
+    let quantized_end_pos = timeline.next_quantized_pos_at(timeline_cursor_pos, quantization);
+    let equipment = QuantizedPosCalcEquipment::new_with_unmodified_tempo(
+        timeline,
+        timeline_cursor_pos,
+        timeline.tempo_at(timeline_cursor_pos),
+        audio_request_props,
+        is_midi,
+    );
+    let distance_from_end = calc_distance_from_quantized_pos(quantized_end_pos, equipment);
+    assert!(distance_from_end < 0, "scheduled end before now");
+    let distance_to_end = (-distance_from_end) as usize;
+    let complete_length = total_frame_offset + distance_to_end;
+    ScheduledEnd {
+        quantized_end_pos,
+        complete_length,
     }
 }

@@ -4,7 +4,7 @@ use crate::main::{
     VirtualClipRecordAudioInput, VirtualClipRecordHardwareMidiInput,
 };
 use crate::rt::supplier::{
-    ChainEquipment, RecordTiming, Recorder, RecorderRequest, RecordingArgs, SupplierChain,
+    ChainEquipment, Recorder, RecorderRequest, RecordingArgs, SupplierChain,
 };
 use crate::rt::{
     ClipChangedEvent, ClipPlayState, ClipRecordArgs, ColumnCommandSender, ColumnEvent,
@@ -446,29 +446,15 @@ impl Column {
                 // we must not allocate in the real-time thread. However, we can't create the
                 // complete clip because we don't have enough information (block length, timeline
                 // frame rate) available at this point to resolve the initial recording position.
+                let recording_args = RecordingArgs::from_stuff(
+                    self.project,
+                    &self.rt_settings,
+                    overridable_matrix_settings,
+                    &args.settings,
+                    args.recording_equipment,
+                );
                 let timeline = clip_timeline(self.project, false);
                 let timeline_cursor_pos = timeline.cursor_pos();
-                let tempo = timeline.tempo_at(timeline_cursor_pos);
-                let initial_play_start_timing = self
-                    .rt_settings
-                    .clip_play_start_timing
-                    .unwrap_or(overridable_matrix_settings.clip_play_start_timing);
-                let timing = RecordTiming::from_args(
-                    &args,
-                    &timeline,
-                    timeline_cursor_pos,
-                    initial_play_start_timing,
-                );
-                let recording_args = RecordingArgs {
-                    equipment: args.recording_equipment,
-                    project: self.project,
-                    timeline_cursor_pos,
-                    tempo,
-                    time_signature: timeline.time_signature_at(timeline_cursor_pos),
-                    detect_downbeat: matrix_record_settings
-                        .downbeat_detection_enabled(input_is_midi),
-                    timing,
-                };
                 let recorder = Recorder::recording(recording_args, recorder_request_sender.clone());
                 let supplier_chain = SupplierChain::new(recorder, chain_equipment.clone())?;
                 let new_clip_instruction = RecordNewClipInstruction {
@@ -477,10 +463,7 @@ impl Column {
                     shared_pos: Default::default(),
                     timeline,
                     timeline_cursor_pos,
-                    timing,
-                    is_midi: input_is_midi,
                     settings: matrix_record_settings.clone(),
-                    initial_play_start_timing,
                 };
                 SlotRecordInstruction::NewClip(new_clip_instruction)
             }

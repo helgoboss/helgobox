@@ -3,10 +3,9 @@ use crate::rt::supplier::{
     Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
     LoopBehavior, Looper, MaterialInfo, MidiSupplier, PollRecordingOutcome,
     PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest,
-    PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, Recorder, RecordingArgs,
-    RecordingInfo, Resampler, Section, StartEndHandler, StopRecordingOutcome, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest,
-    WriteMidiRequest,
+    PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, Recorder, RecordingArgs, Resampler,
+    Section, StartEndHandler, StopRecordingOutcome, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
 use crate::rt::{AudioBufMut, BasicAudioRequestProps};
@@ -213,14 +212,6 @@ impl SupplierChain {
             }
         }
         Ok(())
-    }
-
-    /// Returns some basic info about the recorded material, if any is recorded.
-    ///
-    /// Only call during recording, otherwise might lock mutex!
-    pub fn recording_info(&self) -> Option<RecordingInfo> {
-        // When recording, there's no contention.
-        self.pre_buffer_wormhole().recorder().recording_info()
     }
 
     pub fn is_playing_already(&self, pos: isize) -> bool {
