@@ -3,10 +3,12 @@ use crate::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
 use crate::rt::StopSlotInstruction::KeepSlot;
 use crate::rt::{
     Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordingPollArgs, ClipStopArgs,
-    ColumnProcessTransportChangeArgs, ColumnSettings, HandleStopEvent, OverridableMatrixSettings,
-    SlotRecordInstruction, StopSlotInstruction,
+    ColumnEvent, ColumnEventSender, ColumnGarbage, ColumnProcessTransportChangeArgs,
+    ColumnSettings, HandleStopEvent, OverridableMatrixSettings, SlotRecordInstruction,
+    StopSlotInstruction,
 };
 use crate::{ClipEngineResult, ErrorWithPayload};
+use crossbeam_channel::Sender;
 use helgoboss_learn::UnitValue;
 use playtime_api::{ClipPlayStopTiming, Db};
 use reaper_medium::PlayState;
@@ -60,26 +62,33 @@ impl Slot {
         &mut self,
         args: ClipStopArgs,
         event_handler: &H,
+        event_sender: &Sender<ColumnEvent>,
     ) -> ClipEngineResult<()> {
         self.runtime_data.stop_was_caused_by_transport_change = false;
         let instruction = self.clip_mut_internal()?.stop(args, event_handler);
-        self.process_stop_instruction(instruction);
+        self.process_stop_instruction(instruction, event_sender);
         Ok(())
     }
 
-    fn process_stop_instruction(&mut self, instruction: StopSlotInstruction) {
+    fn process_stop_instruction(
+        &mut self,
+        instruction: StopSlotInstruction,
+        event_sender: &Sender<ColumnEvent>,
+    ) {
         use StopSlotInstruction::*;
         match instruction {
             KeepSlot => {}
             ClearSlot => {
-                self.clear();
+                self.clear(event_sender);
             }
         }
     }
 
-    fn clear(&mut self) {
+    fn clear(&mut self, event_sender: &Sender<ColumnEvent>) {
         debug!("Clearing real-time slot");
-        self.clip = None;
+        if let Some(clip) = self.clip.take() {
+            event_sender.dispose(ColumnGarbage::Clip(clip));
+        };
         self.runtime_data = RuntimeData::default();
     }
 
@@ -169,6 +178,7 @@ impl Slot {
         &mut self,
         args: &SlotProcessTransportChangeArgs,
         event_handler: &H,
+        event_sender: &Sender<ColumnEvent>,
     ) {
         let instruction = {
             let clip = match &mut self.clip {
@@ -253,7 +263,7 @@ impl Slot {
                 }
             }
         };
-        self.process_stop_instruction(instruction)
+        self.process_stop_instruction(instruction, event_sender)
     }
 
     pub fn process<H: HandleStopEvent>(

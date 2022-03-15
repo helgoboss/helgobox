@@ -152,7 +152,7 @@ pub enum ColumnCommand {
     RecordClip(ColumnRecordClipArgs),
 }
 
-trait EventSender {
+pub trait ColumnEventSender {
     fn clip_play_state_changed(&self, slot_index: usize, play_state: ClipPlayState);
 
     fn clip_material_info_changed(&self, slot_index: usize, material_info: MaterialInfo);
@@ -173,7 +173,7 @@ trait EventSender {
     fn send_event(&self, event: ColumnEvent);
 }
 
-impl EventSender for Sender<ColumnEvent> {
+impl ColumnEventSender for Sender<ColumnEvent> {
     fn clip_play_state_changed(&self, slot_index: usize, play_state: ClipPlayState) {
         let event = ColumnEvent::ClipPlayStateChanged {
             slot_index,
@@ -313,7 +313,7 @@ impl Column {
                     audio_request_props,
                 };
                 let event_handler = ClipEventHandler::new(&self.event_sender, i);
-                let _ = slot.stop_clip(stop_args, &event_handler);
+                let _ = slot.stop_clip(stop_args, &event_handler, &self.event_sender);
             }
         }
         let clip_args = ClipPlayArgs {
@@ -341,7 +341,7 @@ impl Column {
         };
         let slot = get_slot_mut(&mut self.slots, args.slot_index)?;
         let event_handler = ClipEventHandler::new(&self.event_sender, args.slot_index);
-        slot.stop_clip(clip_args, &event_handler)
+        slot.stop_clip(clip_args, &event_handler, &self.event_sender)
     }
 
     pub fn set_clip_looped(&mut self, args: ColumnSetClipLoopedArgs) -> ClipEngineResult<()> {
@@ -422,7 +422,7 @@ impl Column {
         };
         for (i, slot) in self.slots.iter_mut().enumerate() {
             let event_handler = ClipEventHandler::new(&self.event_sender, i);
-            slot.process_transport_change(&args, &event_handler);
+            slot.process_transport_change(&args, &event_handler, &self.event_sender);
         }
     }
 
@@ -815,6 +815,7 @@ pub enum ColumnEvent {
 #[derive(Debug)]
 pub enum ColumnGarbage {
     FillSlotArgs(Box<Option<ColumnFillSlotArgs>>),
+    Clip(Clip),
 }
 
 struct ClipEventHandler<'a> {
