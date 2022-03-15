@@ -1,8 +1,9 @@
 use crate::main::{ClipSlotCoordinates, MainMatrixCommandSender};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
-    BasicAudioRequestProps, ColumnPlayClipArgs, ColumnProcessTransportChangeArgs,
-    ColumnStopClipArgs, RelevantPlayStateChange, SharedColumn, TransportChange, WeakColumn,
+    BasicAudioRequestProps, ColumnCommandSender, ColumnPlayClipArgs,
+    ColumnProcessTransportChangeArgs, ColumnStopClipArgs, RelevantPlayStateChange, SharedColumn,
+    TransportChange, WeakColumn,
 };
 use crate::{clip_timeline, main, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
@@ -38,12 +39,18 @@ const MAX_COLUMN_COUNT_WITHOUT_REALLOCATION: usize = 1000;
 /// the way to go.
 #[derive(Debug)]
 pub struct Matrix {
-    columns: Vec<WeakColumn>,
+    column_handles: Vec<ColumnHandle>,
     command_receiver: Receiver<MatrixCommand>,
     main_command_sender: Sender<main::MatrixCommand>,
     project: Option<Project>,
     last_project_play_state: PlayState,
     play_position_jump_detector: PlayPositionJumpDetector,
+}
+
+#[derive(Debug)]
+pub struct ColumnHandle {
+    pub pointer: WeakColumn,
+    pub command_sender: ColumnCommandSender,
 }
 
 #[derive(Clone, Debug)]
@@ -82,7 +89,7 @@ impl Matrix {
         project: Option<Project>,
     ) -> Self {
         Self {
-            columns: Vec::with_capacity(MAX_COLUMN_COUNT_WITHOUT_REALLOCATION),
+            column_handles: Vec::with_capacity(MAX_COLUMN_COUNT_WITHOUT_REALLOCATION),
             command_receiver,
             main_command_sender: command_sender,
             project,
@@ -105,16 +112,16 @@ impl Matrix {
         while let Ok(command) = self.command_receiver.try_recv() {
             use MatrixCommand::*;
             match command {
-                InsertColumn(index, source) => {
-                    self.columns.insert(index, source);
+                InsertColumn(index, handle) => {
+                    self.column_handles.insert(index, handle);
                 }
                 RemoveColumn(index) => {
-                    let column = self.columns.remove(index);
-                    self.main_command_sender.throw_away(column);
+                    let handle = self.column_handles.remove(index);
+                    self.main_command_sender.throw_away(handle);
                 }
                 ClearColumns => {
-                    for column in self.columns.drain(..) {
-                        self.main_command_sender.throw_away(column);
+                    for handles in self.column_handles.drain(..) {
+                        self.main_command_sender.throw_away(handles);
                     }
                 }
             }
@@ -137,7 +144,13 @@ impl Matrix {
                 timeline_cursor_pos: timeline.cursor_pos(),
                 audio_request_props,
             };
-            for column in self.columns.iter().filter_map(|c| c.upgrade()) {
+            for column in self
+                .column_handles
+                .iter()
+                .filter_map(|c| c.pointer.upgrade())
+            {
+                // TODO-high For the sake of uniformity, we should probably use the sender here
+                //  as well. It doesn't make any difference really, I guess.
                 column.lock().process_transport_change(args.clone());
             }
             true
@@ -160,7 +173,11 @@ impl Matrix {
             timeline_cursor_pos: timeline.cursor_pos(),
             audio_request_props,
         };
-        for column in self.columns.iter().filter_map(|c| c.upgrade()) {
+        for column in self
+            .column_handles
+            .iter()
+            .filter_map(|c| c.pointer.upgrade())
+        {
             column.lock().process_transport_change(args.clone());
         }
     }
@@ -208,27 +225,33 @@ impl Matrix {
     }
 
     fn column_internal(&self, index: usize) -> ClipEngineResult<SharedColumn> {
-        let column = self.columns.get(index).ok_or("column doesn't exist")?;
-        column.upgrade().ok_or("column doesn't exist anymore")
+        let column = self
+            .column_handles
+            .get(index)
+            .ok_or("column doesn't exist")?;
+        column
+            .pointer
+            .upgrade()
+            .ok_or("column doesn't exist anymore")
     }
 }
 
 pub enum MatrixCommand {
-    InsertColumn(usize, WeakColumn),
+    InsertColumn(usize, ColumnHandle),
     RemoveColumn(usize),
     ClearColumns,
 }
 
 pub trait RtMatrixCommandSender {
-    fn insert_column(&self, index: usize, source: WeakColumn);
+    fn insert_column(&self, index: usize, handle: ColumnHandle);
     fn remove_column(&self, index: usize);
     fn clear_columns(&self);
     fn send_command(&self, command: MatrixCommand);
 }
 
 impl RtMatrixCommandSender for Sender<MatrixCommand> {
-    fn insert_column(&self, index: usize, source: WeakColumn) {
-        self.send_command(MatrixCommand::InsertColumn(index, source));
+    fn insert_column(&self, index: usize, handle: ColumnHandle) {
+        self.send_command(MatrixCommand::InsertColumn(index, handle));
     }
 
     fn remove_column(&self, index: usize) {

@@ -7,7 +7,7 @@ use crate::rt::supplier::{
     StretchWorkerRequest,
 };
 use crate::rt::{
-    ClipPlayState, ColumnPlayClipArgs, ColumnStopClipArgs, OverridableMatrixSettings,
+    ClipPlayState, ColumnHandle, ColumnPlayClipArgs, ColumnStopClipArgs, OverridableMatrixSettings,
     QualifiedClipChangedEvent, RtMatrixCommandSender, WeakColumn,
 };
 use crate::timeline::clip_timeline;
@@ -52,17 +52,17 @@ pub struct MatrixSettings {
 
 #[derive(Debug)]
 pub enum MatrixCommand {
-    ThrowAway(WeakColumn),
+    ThrowAway(ColumnHandle),
 }
 
 pub trait MainMatrixCommandSender {
-    fn throw_away(&self, source: WeakColumn);
+    fn throw_away(&self, handle: ColumnHandle);
     fn send_command(&self, command: MatrixCommand);
 }
 
 impl MainMatrixCommandSender for Sender<MatrixCommand> {
-    fn throw_away(&self, source: WeakColumn) {
-        self.send_command(MatrixCommand::ThrowAway(source));
+    fn throw_away(&self, handle: ColumnHandle) {
+        self.send_command(MatrixCommand::ThrowAway(handle));
     }
 
     fn send_command(&self, command: MatrixCommand) {
@@ -186,7 +186,11 @@ impl<H: ClipMatrixHandler> Matrix<H> {
                 &self.recorder_request_sender,
                 &self.settings,
             )?;
-            self.rt_command_sender.insert_column(i, column.source());
+            let handle = ColumnHandle {
+                pointer: column.rt_column(),
+                command_sender: column.rt_command_sender(),
+            };
+            self.rt_command_sender.insert_column(i, handle);
             self.columns.push(column);
         }
         // Rows

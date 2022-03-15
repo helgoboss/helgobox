@@ -37,7 +37,7 @@ pub struct Column {
     settings: ColumnSettings,
     rt_settings: rt::ColumnSettings,
     rt_command_sender: ColumnCommandSender,
-    column_source: SharedColumn,
+    rt_column: SharedColumn,
     preview_register: Option<PlayingPreviewRegister>,
     slots: Vec<Slot>,
     event_receiver: Receiver<ColumnEvent>,
@@ -69,12 +69,16 @@ impl Column {
             //     PlayingPreviewRegister::new(shared_source.clone(), track.as_ref())
             // },
             preview_register: None,
-            column_source: shared_source,
+            rt_column: shared_source,
             rt_command_sender: ColumnCommandSender::new(command_sender),
             slots: vec![],
             event_receiver,
             project: permanent_project,
         }
+    }
+
+    pub fn rt_command_sender(&self) -> ColumnCommandSender {
+        self.rt_command_sender.clone()
     }
 
     pub fn load(
@@ -93,10 +97,7 @@ impl Column {
         } else {
             None
         };
-        self.preview_register = Some(PlayingPreviewRegister::new(
-            self.column_source.clone(),
-            track,
-        ));
+        self.preview_register = Some(PlayingPreviewRegister::new(self.rt_column.clone(), track));
         // Settings
         self.rt_settings.audio_resample_mode =
             api_column.clip_play_settings.audio_settings.resample_mode;
@@ -199,8 +200,8 @@ impl Column {
         }
     }
 
-    pub fn source(&self) -> WeakColumn {
-        self.column_source.downgrade()
+    pub fn rt_column(&self) -> WeakColumn {
+        self.rt_column.downgrade()
     }
 
     fn fill_slot_internal(
@@ -415,7 +416,7 @@ impl Column {
             &self.settings,
             self.project,
             self.preview_register.as_ref(),
-            &self.column_source,
+            &self.rt_column,
         )?;
         let recording_equipment = record_task.input.create_recording_equipment(self.project);
         let input_is_midi = recording_equipment.is_midi();
