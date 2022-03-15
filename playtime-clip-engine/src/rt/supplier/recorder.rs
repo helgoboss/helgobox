@@ -564,9 +564,9 @@ impl RecordingState {
         timeline_cursor_pos: PositionInSeconds,
         audio_request_props: BasicAudioRequestProps,
     ) {
-        let (total_frame_offset, num_count_in_frames) = match self.recording {
-            None => (0, 0),
-            Some(r) => (r.total_frame_offset, r.num_count_in_frames),
+        let total_frame_offset = match self.recording {
+            None => 0,
+            Some(r) => r.total_frame_offset,
         };
         let quantized_end_pos =
             timeline.next_quantized_pos_at(timeline_cursor_pos, EvenQuantization::ONE_BAR);
@@ -581,10 +581,9 @@ impl RecordingState {
         assert!(distance_from_end < 0, "scheduled end before now");
         let distance_to_end = (-distance_from_end) as usize;
         let complete_length = total_frame_offset + distance_to_end;
-        assert!(num_count_in_frames < complete_length);
         let scheduled_end = ScheduledEnd {
             quantized_end_pos,
-            section_frame_count: complete_length - num_count_in_frames,
+            complete_length,
         };
         self.scheduled_end = Some(scheduled_end);
     }
@@ -621,11 +620,7 @@ impl RecordingState {
             recording.total_frame_offset = next_frame_offset;
             // Commit recording if end exceeded
             if let Some(scheduled_end) = self.scheduled_end {
-                // TODO-high Instead of doing this subtraction here again, we could just keep
-                //  the total count in ScheduledEnd.
-                let frame_count_since_scheduled_start =
-                    next_frame_offset - recording.num_count_in_frames;
-                if frame_count_since_scheduled_start > scheduled_end.section_frame_count {
+                if next_frame_offset > scheduled_end.complete_length {
                     // Exceeded scheduled end.
                     let recording = *recording;
                     let (recording_outcome, next_state) =
@@ -747,7 +742,10 @@ impl RecordingState {
                 is_midi,
                 section_bounds: SectionBounds::new(
                     recording.num_count_in_frames,
-                    self.scheduled_end.map(|end| end.section_frame_count),
+                    self.scheduled_end.map(|end| {
+                        assert!(recording.num_count_in_frames < end.complete_length);
+                        end.complete_length - recording.num_count_in_frames
+                    }),
                 ),
                 quantized_end_pos: self.scheduled_end.map(|end| end.quantized_end_pos),
                 normalized_downbeat_frame: 0,
@@ -952,7 +950,8 @@ impl WithMaterialInfo for Recorder {
 #[derive(Copy, Clone, Debug)]
 struct ScheduledEnd {
     quantized_end_pos: QuantizedPosition,
-    section_frame_count: usize,
+    /// This is the length from start of material, not from the scheduled start point.
+    complete_length: usize,
 }
 
 #[derive(Clone, Debug)]
