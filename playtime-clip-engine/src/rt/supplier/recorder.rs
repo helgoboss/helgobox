@@ -1,5 +1,6 @@
 use crate::conversion_util::{
-    convert_duration_in_frames_to_other_frame_rate, convert_duration_in_frames_to_seconds,
+    adjust_proportionally_positive, convert_duration_in_frames_to_other_frame_rate,
+    convert_duration_in_frames_to_seconds,
 };
 use crate::file_util::get_path_for_new_media_file;
 use crate::rt::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
@@ -8,7 +9,7 @@ use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_fr
 use crate::rt::supplier::{
     AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier, SectionBounds,
     SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource,
-    MIDI_FRAME_RATE,
+    MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::{BasicAudioRequestProps, ClipRecordArgs, QuantizedPosCalcEquipment};
 use crate::timeline::{clip_timeline, Timeline};
@@ -609,10 +610,10 @@ impl RecordingState {
                     audio_request_props.frame_rate,
                     MIDI_FRAME_RATE,
                 );
-                // let tempo_factor = args.timeline_tempo.get() / ref_tempo.get();
-                // let tempo_adjusted_num_source_frames =
-                //     adjust_proportionally_positive(num_source_frames as f64, tempo_factor);
-                num_midi_frames
+                let timeline = clip_timeline(self.project, false);
+                let timeline_tempo = timeline.tempo_at(timeline.cursor_pos());
+                let tempo_factor = timeline_tempo.get() / MIDI_BASE_BPM.get();
+                adjust_proportionally_positive(num_midi_frames as f64, tempo_factor)
             } else {
                 audio_request_props.block_length
             };
@@ -1241,7 +1242,6 @@ fn write_midi(
         // Not used
         overwrite_actives: null_mut(),
     };
-    // TODO-high overdub: use double-source strategy to actually save overdubbed material
     debug!(
         "Write MIDI: Pos = {}s (= {} frames)",
         global_time.get(),
