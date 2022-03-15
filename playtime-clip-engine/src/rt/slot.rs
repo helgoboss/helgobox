@@ -72,10 +72,15 @@ impl Slot {
         match instruction {
             KeepSlot => {}
             ClearSlot => {
-                debug!("Clearing real-time slot");
-                self.clip = None;
+                self.clear();
             }
         }
+    }
+
+    fn clear(&mut self) {
+        debug!("Clearing real-time slot");
+        self.clip = None;
+        self.runtime_data = RuntimeData::default();
     }
 
     pub fn set_clip_looped(&mut self, repeated: bool) -> ClipEngineResult<()> {
