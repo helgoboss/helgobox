@@ -183,7 +183,7 @@ impl Matrix {
     }
 
     pub fn play_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
-        let column = self.column_internal(coordinates.column())?;
+        let handle = self.column_handle(coordinates.column())?;
         let args = ColumnPlayClipArgs {
             slot_index: coordinates.row(),
             // TODO-medium This could be optimized. In real-time context, getting the timeline only
@@ -195,18 +195,18 @@ impl Matrix {
             //  to implement to not do it ... same with clip stop.
             ref_pos: None,
         };
-        column.lock().borrow_mut().play_clip(args, todo!())?;
+        handle.command_sender.play_clip(args);
         Ok(())
     }
 
     pub fn stop_clip(&self, coordinates: ClipSlotCoordinates) -> ClipEngineResult<()> {
-        let column = self.column_internal(coordinates.column())?;
+        let handle = self.column_handle(coordinates.column())?;
         let args = ColumnStopClipArgs {
             slot_index: coordinates.row(),
             timeline: self.timeline(),
             ref_pos: None,
         };
-        column.lock().borrow_mut().stop_clip(args, todo!())?;
+        handle.command_sender.stop_clip(args);
         Ok(())
     }
 
@@ -225,14 +225,15 @@ impl Matrix {
     }
 
     fn column_internal(&self, index: usize) -> ClipEngineResult<SharedColumn> {
-        let column = self
-            .column_handles
-            .get(index)
-            .ok_or("column doesn't exist")?;
-        column
+        let handle = self.column_handle(index)?;
+        handle
             .pointer
             .upgrade()
             .ok_or("column doesn't exist anymore")
+    }
+
+    fn column_handle(&self, index: usize) -> ClipEngineResult<&ColumnHandle> {
+        self.column_handles.get(index).ok_or("column doesn't exist")
     }
 }
 
