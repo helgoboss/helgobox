@@ -530,18 +530,20 @@ impl RecordingState {
                     Some(r) => r.total_frame_offset < r.num_count_in_frames,
                 };
                 if rollback {
-                    // Zero point of recording hasn't even been reached yet. Try to roll back.
+                    // Zero point of recording hasn't even been reached yet. Cancel.
                     if let Some(old_source) = self.old_source {
+                        // There's an old source to roll back to.
                         let ready_state = ReadyState {
                             source: old_source,
                             midi_overdub_mirror_source: None,
                         };
                         (
-                            Ok(StopRecordingOutcome::RolledBack),
+                            Ok(StopRecordingOutcome::Canceled),
                             State::Ready(ready_state),
                         )
                     } else {
-                        (Err("nothing to roll back to"), State::Recording(self))
+                        // Nothing to roll back to. This whole chain will be removed in one moment.
+                        (Ok(StopRecordingOutcome::Canceled), State::Recording(self))
                     }
                 } else {
                     // Schedule end
@@ -1263,7 +1265,7 @@ fn write_midi(
 
 pub enum StopRecordingOutcome {
     Committed(RecordingOutcome),
-    RolledBack,
+    Canceled,
     EndScheduled,
 }
 

@@ -9,7 +9,7 @@ use crate::rt::{
 use crate::{ClipEngineResult, ErrorWithPayload};
 use helgoboss_learn::UnitValue;
 use playtime_api::{ClipPlayStopTiming, Db};
-use reaper_medium::{Bpm, PlayState};
+use reaper_medium::PlayState;
 
 #[derive(Debug, Default)]
 pub struct Slot {
@@ -72,6 +72,7 @@ impl Slot {
         match instruction {
             KeepSlot => {}
             ClearSlot => {
+                debug!("Clearing real-time slot");
                 self.clip = None;
             }
         }
@@ -285,6 +286,7 @@ impl Slot {
 }
 
 impl RuntimeData {
+    #[must_use]
     fn stop_clip_by_transport<H: HandleStopEvent>(
         &mut self,
         clip: &mut Clip,
@@ -304,10 +306,6 @@ impl RuntimeData {
         };
         clip.stop(args, event_handler)
     }
-}
-
-pub struct SlotPollArgs {
-    pub timeline_tempo: Bpm,
 }
 
 #[derive(Clone, Debug)]

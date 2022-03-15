@@ -147,16 +147,16 @@ impl RealearnTarget for ClipTransportTarget {
                 },
             )) if *sc == self.basics.slot_coordinates => {
                 use TransportAction::*;
-                match self.basics.action {
-                    PlayStop | PlayPause | Stop | Pause | RecordStop => match event {
-                        ClipChangedEvent::PlayState(new_state) => {
+                match event {
+                    ClipChangedEvent::PlayState(new_state) => match self.basics.action {
+                        PlayStop | PlayPause | Stop | Pause | RecordStop => {
                             let uv = clip_play_state_unit_value(self.basics.action, *new_state);
                             (true, Some(AbsoluteValue::Continuous(uv)))
                         }
                         _ => (false, None),
                     },
-                    Repeat => match event {
-                        ClipChangedEvent::ClipLooped(new_state) => (
+                    ClipChangedEvent::ClipLooped(new_state) => match self.basics.action {
+                        Repeat => (
                             true,
                             Some(AbsoluteValue::Continuous(transport_is_enabled_unit_value(
                                 *new_state,
@@ -164,6 +164,11 @@ impl RealearnTarget for ClipTransportTarget {
                         ),
                         _ => (false, None),
                     },
+                    ClipChangedEvent::Removed => {
+                        tracing_debug!("Reacting to clip-removed event");
+                        (true, None)
+                    }
+                    _ => (false, None),
                 }
             }
             _ => (false, None),

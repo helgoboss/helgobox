@@ -1,5 +1,5 @@
 use crate::main::Clip;
-use crate::rt::{ClipPlayState, NormalRecordingOutcome};
+use crate::rt::{ClipChangedEvent, ClipPlayState, NormalRecordingOutcome};
 use crate::ClipEngineResult;
 use reaper_high::Project;
 use reaper_medium::OwnedPcmSource;
@@ -96,24 +96,27 @@ impl Slot {
         &mut self,
         outcome: NormalRecordingOutcome,
         temporary_project: Option<Project>,
-    ) -> ClipEngineResult<()> {
+    ) -> ClipEngineResult<Option<ClipChangedEvent>> {
         match outcome {
             NormalRecordingOutcome::Committed(recording) => {
                 let clip = Clip::from_recording(recording, temporary_project)?;
                 debug!("Fill slot with clip: {:#?}", &clip);
                 self.state = SlotState::Filled(clip);
-                Ok(())
+                Ok(None)
             }
-            NormalRecordingOutcome::Cancelled => {
-                debug!("Recording cancelled");
+            NormalRecordingOutcome::Canceled => {
+                debug!("Recording canceled");
                 use SlotState::*;
-                if matches!(
-                    &self.state,
-                    RecordingFromScratch | RecordingFromScratchRequested
-                ) {
-                    self.state = SlotState::Empty;
+                match &mut self.state {
+                    Filled(clip) => {
+                        clip.notify_recording_canceled();
+                        Ok(None)
+                    }
+                    _ => {
+                        self.state = SlotState::Empty;
+                        Ok(Some(ClipChangedEvent::Removed))
+                    }
                 }
-                Ok(())
             }
         }
     }

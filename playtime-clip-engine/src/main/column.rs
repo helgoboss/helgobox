@@ -279,9 +279,10 @@ impl Column {
                     outcome,
                 } => {
                     let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-                    slot.notify_normal_recording_finished(outcome, self.project)
+                    let event = slot
+                        .notify_normal_recording_finished(outcome, self.project)
                         .unwrap();
-                    None
+                    event.map(|e| (slot_index, e))
                 }
             };
             if let Some(evt) = change_event {

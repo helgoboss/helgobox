@@ -129,6 +129,11 @@ impl Clip {
         Ok(())
     }
 
+    pub fn notify_recording_canceled(&mut self) {
+        // Just in case it hasn't been acknowledged yet.
+        self.recording_requested = false;
+    }
+
     pub fn create_and_connect_real_time_clip(
         &mut self,
         permanent_project: Option<Project>,

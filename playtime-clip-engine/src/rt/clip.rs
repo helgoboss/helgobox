@@ -1292,16 +1292,19 @@ impl RecordingState {
                 );
                 ClipRecordingStopOutcome::TransitionToReady(ready_state)
             }
-            StopRecordingOutcome::RolledBack => {
-                let rollback_data = &self
-                    .rollback_data
-                    .expect("recorder rolled back but no rollback data available");
-                event_handler.normal_recording_finished(NormalRecordingOutcome::Cancelled);
-                let ready_state = ReadyState {
-                    state: ReadySubState::Stopped,
-                    play_settings: rollback_data.play_settings,
-                };
-                ClipRecordingStopOutcome::TransitionToReady(ready_state)
+            StopRecordingOutcome::Canceled => {
+                event_handler.normal_recording_finished(NormalRecordingOutcome::Canceled);
+                if let Some(rollback_data) = &self.rollback_data {
+                    let ready_state = ReadyState {
+                        state: ReadySubState::Stopped,
+                        play_settings: rollback_data.play_settings,
+                    };
+                    debug!("Rolling back to old clip");
+                    ClipRecordingStopOutcome::TransitionToReady(ready_state)
+                } else {
+                    debug!("Clearing slot after recording canceled");
+                    ClipRecordingStopOutcome::ClearSlot
+                }
             }
             StopRecordingOutcome::EndScheduled => ClipRecordingStopOutcome::KeepState,
         }
@@ -1572,6 +1575,7 @@ pub enum ClipChangedEvent {
     ClipVolume(Db),
     ClipLooped(bool),
     ClipPosition(UnitValue),
+    Removed,
 }
 
 #[derive(Debug)]
@@ -1648,7 +1652,7 @@ pub trait HandleStopEvent {
 #[derive(Clone, Debug)]
 pub enum NormalRecordingOutcome {
     Committed(CommittedRecording),
-    Cancelled,
+    Canceled,
 }
 
 /// Holds the data of a successful recording (material and settings).
