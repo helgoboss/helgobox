@@ -1,8 +1,8 @@
 use crate::main::{ClipSlotCoordinates, MainMatrixCommandSender};
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::{
-    ColumnPlayClipArgs, ColumnProcessTransportChangeArgs, ColumnStopClipArgs,
-    RelevantPlayStateChange, SharedColumn, TransportChange, WeakColumn,
+    BasicAudioRequestProps, ColumnPlayClipArgs, ColumnProcessTransportChangeArgs,
+    ColumnStopClipArgs, RelevantPlayStateChange, SharedColumn, TransportChange, WeakColumn,
 };
 use crate::{clip_timeline, main, ClipEngineResult, HybridTimeline, Timeline};
 use crossbeam_channel::{Receiver, Sender};
@@ -91,15 +91,16 @@ impl Matrix {
         }
     }
 
-    pub fn poll(&mut self) {
+    pub fn poll(&mut self, audio_request_props: BasicAudioRequestProps) {
         if let Some(p) = self.project {
             if !p.is_available() {
                 return;
             }
         }
-        let relevant_transport_change_detected = self.detect_and_process_transport_change();
+        let relevant_transport_change_detected =
+            self.detect_and_process_transport_change(audio_request_props);
         if !relevant_transport_change_detected {
-            self.detect_and_process_play_position_jump();
+            self.detect_and_process_play_position_jump(audio_request_props);
         }
         while let Ok(command) = self.command_receiver.try_recv() {
             use MatrixCommand::*;
@@ -120,7 +121,10 @@ impl Matrix {
         }
     }
 
-    fn detect_and_process_transport_change(&mut self) -> bool {
+    fn detect_and_process_transport_change(
+        &mut self,
+        audio_request_props: BasicAudioRequestProps,
+    ) -> bool {
         let timeline = clip_timeline(self.project, false);
         let new_play_state = get_project_play_state(self.project);
         let last_play_state = mem::replace(&mut self.last_project_play_state, new_play_state);
@@ -131,6 +135,7 @@ impl Matrix {
                 change: TransportChange::PlayState(relevant),
                 timeline: &timeline,
                 timeline_cursor_pos: timeline.cursor_pos(),
+                audio_request_props,
             };
             for column in self.columns.iter().filter_map(|c| c.upgrade()) {
                 column.lock().process_transport_change(args.clone());
@@ -141,7 +146,10 @@ impl Matrix {
         }
     }
 
-    fn detect_and_process_play_position_jump(&mut self) {
+    fn detect_and_process_play_position_jump(
+        &mut self,
+        audio_request_props: BasicAudioRequestProps,
+    ) {
         if !self.play_position_jump_detector.detect_play_jump() {
             return;
         }
@@ -150,6 +158,7 @@ impl Matrix {
             change: TransportChange::PlayCursorJump,
             timeline: &timeline,
             timeline_cursor_pos: timeline.cursor_pos(),
+            audio_request_props,
         };
         for column in self.columns.iter().filter_map(|c| c.upgrade()) {
             column.lock().process_transport_change(args.clone());
@@ -169,7 +178,7 @@ impl Matrix {
             //  to implement to not do it ... same with clip stop.
             ref_pos: None,
         };
-        column.lock().borrow_mut().play_clip(args)?;
+        column.lock().borrow_mut().play_clip(args, todo!())?;
         Ok(())
     }
 
@@ -180,7 +189,7 @@ impl Matrix {
             timeline: self.timeline(),
             ref_pos: None,
         };
-        column.lock().borrow_mut().stop_clip(args)?;
+        column.lock().borrow_mut().stop_clip(args, todo!())?;
         Ok(())
     }
 

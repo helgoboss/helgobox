@@ -2,7 +2,7 @@ use crate::metrics_util::measure_time;
 use crate::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
 use crate::rt::StopSlotInstruction::KeepSlot;
 use crate::rt::{
-    BasicAudioRequestProps, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipStopArgs,
+    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordingPollArgs, ClipStopArgs,
     ColumnProcessTransportChangeArgs, ColumnSettings, HandleStopEvent, OverridableMatrixSettings,
     SlotRecordInstruction, StopSlotInstruction,
 };
@@ -31,6 +31,18 @@ impl Slot {
 
     pub fn clip(&self) -> ClipEngineResult<&Clip> {
         self.clip_internal()
+    }
+
+    /// See [`Clip::recording_poll`].
+    pub fn recording_poll<H: HandleStopEvent>(
+        &mut self,
+        args: ClipRecordingPollArgs,
+        event_handler: &H,
+    ) -> bool {
+        match self.clip_mut_internal() {
+            Ok(clip) => clip.recording_poll(args, event_handler),
+            Err(_) => false,
+        }
     }
 
     pub fn clip_mut(&mut self) -> ClipEngineResult<&mut Clip> {
@@ -78,7 +90,6 @@ impl Slot {
     pub fn record_clip(
         &mut self,
         instruction: SlotRecordInstruction,
-        audio_request_props: BasicAudioRequestProps,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &ColumnSettings,
     ) -> Result<(), ErrorWithPayload<SlotRecordInstruction>> {
@@ -92,7 +103,7 @@ impl Slot {
                         NewClip(instruction),
                     ));
                 }
-                let clip = Clip::recording(instruction, audio_request_props);
+                let clip = Clip::recording(instruction);
                 self.clip = Some(clip);
                 Ok(())
             }
@@ -104,7 +115,7 @@ impl Slot {
                     }
                     Some(c) => c,
                 };
-                clip.record(args, audio_request_props, matrix_settings, column_settings)
+                clip.record(args, matrix_settings, column_settings)
                     .map_err(|e| e.map_payload(ExistingClip))
             }
             MidiOverdub(instruction) => {
@@ -289,6 +300,7 @@ impl RuntimeData {
             enforce_play_stop: true,
             matrix_settings: args.matrix_settings,
             column_settings: args.column_settings,
+            audio_request_props: args.column_args.audio_request_props,
         };
         clip.stop(args, event_handler)
     }

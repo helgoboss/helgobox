@@ -2,6 +2,7 @@ mod buffer;
 mod clip;
 mod column;
 mod matrix;
+mod schedule_util;
 mod slot;
 mod source_util;
 pub mod tempo_util;

@@ -1,6 +1,7 @@
 use crate::domain::{
-    classify_midi_message, Event, Garbage, GarbageBin, IncomingMidiMessage, InstanceId,
-    MidiControlInput, MidiMessageClassification, MidiScanResult, MidiScanner, RealTimeProcessor,
+    classify_midi_message, AudioBlockProps, Event, Garbage, GarbageBin, IncomingMidiMessage,
+    InstanceId, MidiControlInput, MidiMessageClassification, MidiScanResult, MidiScanner,
+    RealTimeProcessor,
 };
 use assert_no_alloc::*;
 use helgoboss_learn::{MidiSourceValue, RawMidiEvent};
@@ -11,7 +12,7 @@ use playtime_clip_engine::main::{
     VirtualClipRecordHardwareMidiInput,
 };
 use playtime_clip_engine::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
-use playtime_clip_engine::rt::{AudioBuf, ClipPlayState, Column};
+use playtime_clip_engine::rt::{AudioBuf, BasicAudioRequestProps, ClipPlayState, Column};
 use reaper_high::{MidiInputDevice, MidiOutputDevice, Reaper};
 use reaper_medium::{
     MidiEvent, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBuffer, OnAudioBufferArgs,
@@ -157,10 +158,10 @@ impl RealearnAudioHook {
         }
     }
 
-    fn call_real_time_processors(&mut self, args: &OnAudioBufferArgs, might_be_rebirth: bool) {
+    fn call_real_time_processors(&mut self, block_props: AudioBlockProps, might_be_rebirth: bool) {
         match &mut self.state {
             AudioHookState::Normal => {
-                self.call_real_time_processors_in_normal_state(args, might_be_rebirth);
+                self.call_real_time_processors_in_normal_state(block_props, might_be_rebirth);
             }
             AudioHookState::LearningSource {
                 sender,
@@ -168,7 +169,7 @@ impl RealearnAudioHook {
             } => {
                 for (_, p) in self.real_time_processors.iter() {
                     p.lock_recover()
-                        .run_from_audio_hook_essential(args.len as _, might_be_rebirth);
+                        .run_from_audio_hook_essential(block_props, might_be_rebirth);
                 }
                 for dev in Reaper::get().midi_input_devices() {
                     dev.with_midi_input(|mi| {
@@ -191,7 +192,7 @@ impl RealearnAudioHook {
 
     fn call_real_time_processors_in_normal_state(
         &mut self,
-        args: &OnAudioBufferArgs,
+        block_props: AudioBlockProps,
         might_be_rebirth: bool,
     ) {
         // 1a. Drive real-time processors and determine used MIDI devices "on the go".
@@ -213,7 +214,7 @@ impl RealearnAudioHook {
             // stop doing so synchronously if the plug-in is
             // gone.
             let mut guard = p.lock_recover();
-            guard.run_from_audio_hook_all(args.len as _, might_be_rebirth);
+            guard.run_from_audio_hook_all(block_props, might_be_rebirth);
             if guard.control_is_globally_enabled() {
                 if let MidiControlInput::Device(dev_id) = guard.midi_control_input() {
                     midi_dev_id_is_used[dev_id.get() as usize] = true;
@@ -224,7 +225,7 @@ impl RealearnAudioHook {
         // 1b. Forward MIDI events from MIDI devices to ReaLearn instances and filter
         //     them globally if desired by the instance.
         if midi_devs_used_at_all {
-            self.distribute_midi_events_to_processors(args, &midi_dev_id_is_used);
+            self.distribute_midi_events_to_processors(block_props, &midi_dev_id_is_used);
         }
     }
 
@@ -239,7 +240,7 @@ impl RealearnAudioHook {
 
     fn distribute_midi_events_to_processors(
         &mut self,
-        args: &OnAudioBufferArgs,
+        block_props: AudioBlockProps,
         midi_dev_id_is_used: &[bool; MidiInputDeviceId::MAX_DEVICE_COUNT as usize],
     ) {
         for dev_id in 0..MidiInputDeviceId::MAX_DEVICE_COUNT {
@@ -254,10 +255,11 @@ impl RealearnAudioHook {
                     while let Some(res) = event_list.enum_items(bpos) {
                         // Current control mode is checked further down the callstack. No need to
                         // check it here.
-                        let our_event = match Event::from_reaper(res.midi_event, args.srate) {
-                            Err(_) => continue,
-                            Ok(e) => e,
-                        };
+                        let our_event =
+                            match Event::from_reaper(res.midi_event, block_props.frame_rate) {
+                                Err(_) => continue,
+                                Ok(e) => e,
+                            };
                         let mut filter_out_event = false;
                         for (_, p) in self.real_time_processors.iter() {
                             let mut guard = p.lock_recover();
@@ -343,7 +345,8 @@ impl OnAudioBuffer for RealearnAudioHook {
             self.initialized = true;
         }
         assert_no_alloc(|| {
-            global_steady_timeline_state().on_audio_buffer(args.len as u64, args.srate);
+            let block_props = AudioBlockProps::from_on_audio_buffer_args(&args);
+            global_steady_timeline_state().on_audio_buffer(block_props.to_playtime());
             let current_time = Instant::now();
             let time_of_last_run = self.time_of_last_run.replace(current_time);
             let might_be_rebirth = if let Some(time) = time_of_last_run {
@@ -352,7 +355,7 @@ impl OnAudioBuffer for RealearnAudioHook {
                 false
             };
             self.process_feedback_tasks();
-            self.call_real_time_processors(&args, might_be_rebirth);
+            self.call_real_time_processors(block_props, might_be_rebirth);
             self.process_clip_record_tasks(&args);
             self.process_normal_tasks();
         });
@@ -407,7 +410,8 @@ fn process_clip_record_task(
         Some(s) => s,
     };
     let mut src = column_source.lock();
-    if src.clip_play_state(record_task.destination.slot_index) != Ok(ClipPlayState::Recording) {
+    let block_props = BasicAudioRequestProps::from_on_audio_buffer_args(args);
+    if !src.recording_poll(record_task.destination.slot_index, block_props) {
         return false;
     }
     match &mut record_task.input {
@@ -439,7 +443,7 @@ fn process_clip_record_task(
                 // Read from specific MIDI input device
                 let dev = Reaper::get().midi_input_device_by_id(dev_id);
                 write_midi_to_clip_slot(
-                    args,
+                    block_props,
                     &mut src,
                     record_task.destination.slot_index,
                     dev,
@@ -449,7 +453,7 @@ fn process_clip_record_task(
                 // Read from all open MIDI input devices
                 for dev in Reaper::get().midi_input_devices() {
                     write_midi_to_clip_slot(
-                        args,
+                        block_props,
                         &mut src,
                         record_task.destination.slot_index,
                         dev,
@@ -474,8 +478,7 @@ fn process_clip_record_task(
             let left_buffer = AudioBuf::from_raw(left_buffer, 1, args.len as _);
             let right_buffer = AudioBuf::from_raw(right_buffer, 1, args.len as _);
             let req = WriteAudioRequest {
-                input_sample_rate: args.srate,
-                block_length: args.len as _,
+                audio_request_props: BasicAudioRequestProps::from_on_audio_buffer_args(args),
                 left_buffer,
                 right_buffer,
             };
@@ -503,7 +506,7 @@ fn find_first_dev_with_play_msg() -> Option<MidiInputDeviceId> {
 }
 
 fn write_midi_to_clip_slot(
-    args: &OnAudioBufferArgs,
+    block_props: BasicAudioRequestProps,
     src: &mut MutexGuard<Column>,
     slot_index: usize,
     dev: MidiInputDevice,
@@ -519,8 +522,7 @@ fn write_midi_to_clip_slot(
             return;
         }
         let req = WriteMidiRequest {
-            input_sample_rate: args.srate,
-            block_length: args.len as _,
+            audio_request_props: block_props,
             events,
             channel_filter,
         };

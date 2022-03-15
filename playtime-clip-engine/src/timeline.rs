@@ -1,6 +1,7 @@
 use crate::conversion_util::{
     convert_duration_in_frames_to_seconds, convert_position_in_seconds_to_frames,
 };
+use crate::rt::BasicAudioRequestProps;
 use crate::ClipEngineResult;
 use atomic::Atomic;
 use helgoboss_learn::BASE_EPSILON;
@@ -245,7 +246,7 @@ impl SteadyTimelineState {
     }
 
     /// Supposed to be called once per audio callback.
-    pub fn on_audio_buffer(&self, buffer_length: u64, sample_rate: Hz) {
+    pub fn on_audio_buffer(&self, audio_request_props: BasicAudioRequestProps) {
         let tempo = Reaper::get()
             .medium_reaper()
             .time_map_2_get_divided_bpm_at_time(
@@ -255,7 +256,7 @@ impl SteadyTimelineState {
         let prev_tempo = self.tempo();
         let prev_sample_count = self
             .sample_counter
-            .fetch_add(buffer_length, Ordering::SeqCst);
+            .fetch_add(audio_request_props.block_length as _, Ordering::SeqCst);
         if tempo != prev_tempo {
             let prev_sample_count_at_last_tempo_change = self.sample_count_at_last_tempo_change();
             let prev_beat_at_last_tempo_change = self.beat_at_last_tempo_change();
@@ -272,7 +273,8 @@ impl SteadyTimelineState {
             self.beat_at_last_tempo_change.store(beat, Ordering::SeqCst);
         }
         self.tempo.store(tempo, Ordering::SeqCst);
-        self.sample_rate.store(sample_rate, Ordering::SeqCst);
+        self.sample_rate
+            .store(audio_request_props.frame_rate, Ordering::SeqCst);
     }
 
     fn tempo_and_time_sig_ref_pos() -> PositionInSeconds {

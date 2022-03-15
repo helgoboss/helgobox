@@ -15,7 +15,7 @@ use helgoboss_midi::{
     ShortMessageFactory, ShortMessageType,
 };
 use reaper_high::{MidiOutputDevice, Reaper};
-use reaper_medium::{Hz, MidiInputDeviceId, MidiOutputDeviceId, SendMidiTime};
+use reaper_medium::{Hz, MidiInputDeviceId, MidiOutputDeviceId, OnAudioBufferArgs, SendMidiTime};
 use slog::{debug, trace};
 
 use crate::base::Global;
@@ -144,8 +144,12 @@ impl RealTimeProcessor {
     }
 
     /// This should be regularly called by audio hook in normal mode.
-    pub fn run_from_audio_hook_all(&mut self, sample_count: usize, might_be_rebirth: bool) {
-        self.run_from_audio_hook_essential(sample_count, might_be_rebirth);
+    pub fn run_from_audio_hook_all(
+        &mut self,
+        block_props: AudioBlockProps,
+        might_be_rebirth: bool,
+    ) {
+        self.run_from_audio_hook_essential(block_props, might_be_rebirth);
         self.run_from_audio_hook_control_and_learn();
     }
 
@@ -211,17 +215,21 @@ impl RealTimeProcessor {
     /// The rebirth parameter is `true` if this could be the first audio cycle after an "unplanned"
     /// downtime of the audio device. It could also be just a downtime related to opening the
     /// project itself, which we detect to some degree. See the code that reacts to this parameter.
-    pub fn run_from_audio_hook_essential(&mut self, sample_count: usize, might_be_rebirth: bool) {
+    pub fn run_from_audio_hook_essential(
+        &mut self,
+        block_props: AudioBlockProps,
+        might_be_rebirth: bool,
+    ) {
         // Poll if this is the clip matrix of this instance. If we would do polling for a foreign
         // clip matrix as well, it would be polled more than once, which is unnecessary.
         if self.clip_matrix_is_owned {
             if let Some(clip_matrix) = self.clip_matrix.as_ref().and_then(|m| m.upgrade()) {
-                clip_matrix.lock().poll();
+                clip_matrix.lock().poll(block_props.to_playtime());
             }
         }
         // Increase MIDI clock calculator's sample counter
         self.midi_clock_calculator
-            .increase_sample_counter_by(sample_count as u64);
+            .increase_sample_counter_by(block_props.block_length as u64);
         if might_be_rebirth {
             self.request_full_sync_and_discard_tasks_if_successful();
         }
@@ -1723,6 +1731,28 @@ impl<'a> IncomingMidiMessage<'a> {
         match self {
             Short(msg) => MidiSourceValue::Plain(msg),
             SysEx(msg) => MidiSourceValue::BorrowedSysEx(msg),
+        }
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct AudioBlockProps {
+    pub block_length: usize,
+    pub frame_rate: Hz,
+}
+
+impl AudioBlockProps {
+    pub fn from_on_audio_buffer_args(args: &OnAudioBufferArgs) -> Self {
+        Self {
+            block_length: args.len as _,
+            frame_rate: args.srate,
+        }
+    }
+
+    pub fn to_playtime(&self) -> playtime_clip_engine::rt::BasicAudioRequestProps {
+        playtime_clip_engine::rt::BasicAudioRequestProps {
+            block_length: self.block_length,
+            frame_rate: self.frame_rate,
         }
     }
 }

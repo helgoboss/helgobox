@@ -1,17 +1,17 @@
 use crate::conversion_util::{
     adjust_proportionally_positive, convert_duration_in_frames_to_other_frame_rate,
     convert_duration_in_frames_to_seconds, convert_duration_in_seconds_to_frames,
-    convert_position_in_seconds_to_frames,
 };
 use crate::main::{create_pcm_source_from_api_source, ClipSlotCoordinates};
 use crate::rt::buffer::AudioBufMut;
+use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::{
     AudioSupplier, ChainEquipment, ChainSettings, CompleteRecordingData,
-    KindSpecificRecordingOutcome, MaterialInfo, MidiSupplier, RecordTiming, Recorder,
-    RecorderRequest, RecordingArgs, RecordingEquipment, SupplierChain, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM,
-    MIDI_FRAME_RATE,
+    KindSpecificRecordingOutcome, MaterialInfo, MidiSupplier, PollRecordingOutcome, RecordTiming,
+    Recorder, RecorderRequest, RecordingArgs, RecordingEquipment, RecordingOutcome,
+    StopRecordingOutcome, SupplierChain, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestGeneralInfo, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus,
+    WithMaterialInfo, WriteAudioRequest, WriteMidiRequest, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::tempo_util::determine_tempo_from_time_base;
 use crate::rt::{ColumnSettings, OverridableMatrixSettings};
@@ -26,8 +26,8 @@ use playtime_api::{
 };
 use reaper_high::Project;
 use reaper_medium::{
-    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OwnedPcmSource, PcmSourceTransfer,
-    PositionInSeconds,
+    BorrowedMidiEventList, Bpm, DurationInSeconds, Hz, OnAudioBufferArgs, OwnedPcmSource,
+    PcmSourceTransfer, PositionInSeconds,
 };
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::Arc;
@@ -181,15 +181,6 @@ enum StateAfterSuspension {
 
 #[derive(Copy, Clone, Debug)]
 struct RecordingState {
-    /// Marks the current record position
-    ///
-    /// - Can be negative for count-in.
-    /// - Is advanced on each audio block respecting, faster or slower depending on the tempo.
-    /// - I guess only necessary for recording MIDI because we can write MIDI anywhere into the
-    ///   source so we need to know where exactly.
-    pub pos: MaterialPos,
-    // TODO-high Make clear what's the difference of RecordTiming to the timing stored in the recorder.
-    timing: RecordTiming,
     rollback_data: Option<RollbackData>,
     settings: MatrixClipRecordSettings,
     initial_play_start_timing: ClipPlayStartTiming,
@@ -242,25 +233,9 @@ impl Clip {
         Ok(clip)
     }
 
-    pub fn recording(
-        instruction: RecordNewClipInstruction,
-        audio_request_props: BasicAudioRequestProps,
-    ) -> Self {
-        let tempo = instruction
-            .timeline
-            .tempo_at(instruction.timeline_cursor_pos);
-        let initial_pos = resolve_initial_recording_pos(
-            instruction.timing,
-            &instruction.timeline,
-            instruction.timeline_cursor_pos,
-            tempo,
-            audio_request_props,
-            instruction.is_midi,
-        );
+    pub fn recording(instruction: RecordNewClipInstruction) -> Self {
         let recording_state = RecordingState {
-            pos: initial_pos,
             rollback_data: None,
-            timing: instruction.timing,
             settings: instruction.settings,
             initial_play_start_timing: instruction.initial_play_start_timing,
         };
@@ -341,7 +316,6 @@ impl Clip {
     pub fn record(
         &mut self,
         args: ClipRecordArgs,
-        audio_request_props: BasicAudioRequestProps,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &ColumnSettings,
     ) -> Result<(), ErrorWithPayload<ClipRecordArgs>> {
@@ -352,7 +326,6 @@ impl Clip {
                     args,
                     self.project,
                     &mut self.supplier_chain,
-                    audio_request_props,
                     matrix_settings,
                     column_settings,
                 );
@@ -381,9 +354,47 @@ impl Clip {
         }
     }
 
+    /// Should be called exactly once per block when recording and before writing material,
+    /// in order to drive various record-related processing and also to know when to stop polling
+    /// and writing material.
+    ///
+    /// Returns `false` if not necessary to poll and write material anymore.
+    pub fn recording_poll<H: HandleStopEvent>(
+        &mut self,
+        args: ClipRecordingPollArgs,
+        event_handler: &H,
+    ) -> bool {
+        use ClipState::*;
+        match &mut self.state {
+            Ready(s) => match &s.state {
+                ReadySubState::Playing(s) => s.overdubbing,
+                _ => false,
+            },
+            Recording(s) => {
+                use PollRecordingOutcome::*;
+                match self.supplier_chain.poll_recording(args.audio_request_props) {
+                    PleaseStopPolling => false,
+                    CommittedRecording(outcome) => {
+                        let ready_state = s.finish_recording(
+                            outcome,
+                            &mut self.supplier_chain,
+                            event_handler,
+                            args.matrix_settings,
+                            args.column_settings,
+                        );
+                        self.state = Ready(ready_state);
+                        false
+                    }
+                    PleaseContinuePolling => true,
+                }
+            }
+        }
+    }
+
+    /// Writes the events in the given request into the currently recording MIDI source.
     pub fn write_midi(&mut self, request: WriteMidiRequest) {
         use ClipState::*;
-        let source_frame = match &self.state {
+        let overdub_frame = match &self.state {
             Ready(s) => match s.state {
                 ReadySubState::Playing(PlayingState {
                     overdubbing: true,
@@ -394,20 +405,23 @@ impl Clip {
                         Ok(i) => i,
                         Err(_) => return,
                     };
-                    modulo_frame(pos, material_info.frame_count())
+                    let mod_frame = modulo_frame(pos, material_info.frame_count());
+                    if mod_frame < 0 {
+                        return;
+                    }
+                    Some(mod_frame as usize)
                 }
                 _ => return,
             },
-            Recording(s) => s.pos,
+            Recording(_) => None,
         };
-        if source_frame < 0 {
-            return;
-        }
-        let source_seconds =
-            convert_duration_in_frames_to_seconds(source_frame as usize, MIDI_FRAME_RATE);
-        self.supplier_chain.write_midi(request, source_seconds);
+        self.supplier_chain.write_midi(request, overdub_frame);
     }
 
+    /// Writes the samples in the given request into the currently recording audio source.
+    ///
+    /// Also drives processing during recording because it's called exactly once per audio block
+    /// anyway.
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
         self.supplier_chain.write_audio(request);
     }
@@ -437,6 +451,7 @@ impl Clip {
         args: &mut ClipProcessArgs,
         event_handler: &H,
     ) -> ClipPlayingOutcome {
+        // TODO-high Simplify
         use ClipState::*;
         let (outcome, changed_state) = match &mut self.state {
             Ready(s) => {
@@ -444,9 +459,10 @@ impl Clip {
                     s.process(args, &mut self.supplier_chain, &mut self.shared_pos);
                 (Some(outcome), changed_state.map(Recording))
             }
-            Recording(s) => {
-                let changed_state = s.process(args, &mut self.supplier_chain, event_handler);
-                (None, changed_state.map(Ready))
+            Recording(_) => {
+                // Recording is not driven by the preview register processing but uses a separate
+                // record polling which is driven by the code that provides the input material.
+                (None, None)
             }
         };
         let outcome = if let Some(s) = changed_state {
@@ -1070,7 +1086,6 @@ impl ReadyState {
         args: ClipRecordArgs,
         project: Option<Project>,
         supplier_chain: &mut SupplierChain,
-        audio_request_props: BasicAudioRequestProps,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &ColumnSettings,
     ) -> Option<RecordingState> {
@@ -1087,14 +1102,6 @@ impl ReadyState {
             initial_play_start_timing,
         );
         let is_midi = args.recording_equipment.is_midi();
-        let initial_pos = resolve_initial_recording_pos(
-            timing,
-            &timeline,
-            timeline_cursor_pos,
-            tempo,
-            audio_request_props,
-            is_midi,
-        );
         let recording_args = RecordingArgs {
             equipment: args.recording_equipment,
             project,
@@ -1106,14 +1113,12 @@ impl ReadyState {
         };
         supplier_chain.prepare_recording(recording_args);
         let recording_state = RecordingState {
-            pos: initial_pos,
             rollback_data: {
                 let data = RollbackData {
                     play_settings: self.play_settings,
                 };
                 Some(data)
             },
-            timing,
             settings: args.settings,
             initial_play_start_timing,
         };
@@ -1264,138 +1269,45 @@ impl RecordingState {
         supplier_chain: &mut SupplierChain,
         event_handler: &H,
     ) -> ClipRecordingStopOutcome {
-        use ClipRecordingStopOutcome::*;
-        match self.timing {
-            RecordTiming::Unsynced => {
+        let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
+        match supplier_chain
+            .stop_recording(args.timeline, ref_pos, args.audio_request_props)
+            .unwrap()
+        {
+            StopRecordingOutcome::Committed(outcome) => {
                 let ready_state = self.finish_recording(
-                    None,
+                    outcome,
                     supplier_chain,
-                    &args.timeline,
                     event_handler,
                     args.matrix_settings,
                     args.column_settings,
                 );
-                TransitionToReady(ready_state)
+                ClipRecordingStopOutcome::TransitionToReady(ready_state)
             }
-            RecordTiming::Synced { start, end } => {
-                let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
-                let next_qp = args
-                    .timeline
-                    .next_quantized_pos_at(ref_pos, start.quantization());
-                if next_qp.position() <= start.position() {
-                    // Zero point of recording hasn't even been reached yet. Try to roll back.
-                    if let Some(rollback_data) = &self.rollback_data {
-                        // We have a previous source that we can roll back to.
-                        supplier_chain.rollback_recording().unwrap();
-                        event_handler.normal_recording_finished(NormalRecordingOutcome::Cancelled);
-                        let ready_state = ReadyState {
-                            state: ReadySubState::Stopped,
-                            play_settings: rollback_data.play_settings,
-                        };
-                        TransitionToReady(ready_state)
-                    } else {
-                        // There was nothing to roll back to. How sad.
-                        ClearSlot
-                    }
-                } else {
-                    // We are recording already.
-                    // TODO-high This is a bit weird, we change the settings ...
-                    if end.is_some() {
-                        // End already scheduled. Take care of stopping after recording.
-                        self.settings.looped = false;
-                    } else {
-                        // End not scheduled yet. Schedule end.
-                        supplier_chain.schedule_end_of_recording(next_qp, &args.timeline);
-                        self.timing = RecordTiming::Synced {
-                            start,
-                            end: Some(next_qp),
-                        };
-                    }
-                    KeepState
-                }
+            StopRecordingOutcome::RolledBack => {
+                let rollback_data = &self
+                    .rollback_data
+                    .expect("recorder rolled back but no rollback data available");
+                event_handler.normal_recording_finished(NormalRecordingOutcome::Cancelled);
+                let ready_state = ReadyState {
+                    state: ReadySubState::Stopped,
+                    play_settings: rollback_data.play_settings,
+                };
+                ClipRecordingStopOutcome::TransitionToReady(ready_state)
             }
-        }
-    }
-
-    fn process<H: HandleStopEvent>(
-        &mut self,
-        args: &mut ClipProcessArgs,
-        supplier_chain: &mut SupplierChain,
-        event_handler: &H,
-    ) -> Option<ReadyState> {
-        // Advance recording position (for MIDI mainly)
-        {
-            let recording_info = supplier_chain
-                .recording_info()
-                .expect("no recording info available");
-            let (source_frame_rate, ref_tempo) = if recording_info.is_midi {
-                (MIDI_FRAME_RATE, MIDI_BASE_BPM)
-            } else {
-                (args.dest_sample_rate, recording_info.initial_tempo)
-            };
-            let num_source_frames = convert_duration_in_frames_to_other_frame_rate(
-                args.dest_buffer.frame_count(),
-                args.dest_sample_rate,
-                source_frame_rate,
-            );
-            let tempo_factor = args.timeline_tempo.get() / ref_tempo.get();
-            let tempo_adjusted_num_source_frames =
-                adjust_proportionally_positive(num_source_frames as f64, tempo_factor);
-            self.pos += tempo_adjusted_num_source_frames as isize;
-        }
-        // Process scheduled stop
-        if let RecordTiming::Synced {
-            start,
-            end: Some(end),
-        } = self.timing
-        {
-            let next_qp = args
-                .timeline
-                .next_quantized_pos_at(args.timeline_cursor_pos, end.quantization());
-            if next_qp.position() >= end.position() {
-                // Close to scheduled recording end.
-                let block_length_in_timeline_frames = args.dest_buffer.frame_count();
-                let timeline_frame_rate = args.dest_sample_rate;
-                let block_length_in_secs = convert_duration_in_frames_to_seconds(
-                    block_length_in_timeline_frames,
-                    timeline_frame_rate,
-                );
-                let block_end_pos = args.timeline_cursor_pos + block_length_in_secs;
-                let downbeat_pos = supplier_chain.downbeat_pos_during_recording(&args.timeline);
-                let record_end_pos = args.timeline.pos_of_quantized_pos(end) - downbeat_pos;
-                if block_end_pos >= record_end_pos {
-                    // We have recorded the last block.
-                    let ready_state = self.finish_recording(
-                        Some((start, end)),
-                        supplier_chain,
-                        &args.timeline,
-                        event_handler,
-                        args.matrix_settings,
-                        args.column_settings,
-                    );
-                    Some(ready_state)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        } else {
-            None
+            StopRecordingOutcome::EndScheduled => ClipRecordingStopOutcome::KeepState,
         }
     }
 
     fn finish_recording<H: HandleStopEvent>(
         self,
-        start_and_end_pos: Option<(QuantizedPosition, QuantizedPosition)>,
+        outcome: RecordingOutcome,
         supplier_chain: &mut SupplierChain,
-        timeline: &HybridTimeline,
         event_handler: &H,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &ColumnSettings,
     ) -> ReadyState {
         debug!("Finishing recording");
-        let outcome = supplier_chain.commit_recording(timeline).unwrap();
         let clip_settings = ProcessingRelevantClipSettings::derive_from_recording(
             &self.settings,
             &outcome.data,
@@ -1412,9 +1324,9 @@ impl RecordingState {
         let ready_state = ReadyState {
             state: if clip_settings.looped {
                 ReadySubState::Playing(PlayingState {
-                    virtual_pos: match start_and_end_pos {
+                    virtual_pos: match outcome.data.quantized_end_pos {
                         None => VirtualPosition::Now,
-                        Some((_, end)) => VirtualPosition::Quantized(end),
+                        Some(qp) => VirtualPosition::Quantized(qp),
                     },
                     ..Default::default()
                 })
@@ -1444,21 +1356,6 @@ enum ClipRecordingStopOutcome {
     KeepState,
     TransitionToReady(ReadyState),
     ClearSlot,
-}
-
-/// It can make a difference if we apply a factor once on a large integer x and then round or
-/// n times on x/n and round each time. Latter is what happens in practice because we advance
-/// frames step by step in n blocks.
-fn adjust_proportionally_in_blocks(value: isize, factor: f64, block_length: usize) -> isize {
-    let abs_value = value.abs() as usize;
-    let block_count = abs_value / block_length;
-    let remainder = abs_value % block_length;
-    let adjusted_block_length = adjust_proportionally_positive(block_length as f64, factor);
-    let adjusted_remainder = adjust_proportionally_positive(remainder as f64, factor);
-    let total_without_remainder = block_count * adjusted_block_length;
-    let total = total_without_remainder + adjusted_remainder;
-    // dbg!(abs_value, adjusted_block_length, block_count, remainder, adjusted_remainder, total_without_remainder, total);
-    total as isize * value.signum()
 }
 
 #[derive(Clone, Debug)]
@@ -1492,6 +1389,14 @@ pub struct ClipStopArgs<'a> {
     pub enforce_play_stop: bool,
     pub matrix_settings: &'a OverridableMatrixSettings,
     pub column_settings: &'a ColumnSettings,
+    pub audio_request_props: BasicAudioRequestProps,
+}
+
+#[derive(Debug)]
+pub struct ClipRecordingPollArgs<'a> {
+    pub matrix_settings: &'a OverridableMatrixSettings,
+    pub column_settings: &'a ColumnSettings,
+    pub audio_request_props: BasicAudioRequestProps,
 }
 
 impl<'a> ClipStopArgs<'a> {
@@ -1979,37 +1884,6 @@ fn log_natural_deviation(
     );
 }
 
-fn resolve_initial_recording_pos(
-    timing: RecordTiming,
-    timeline: &HybridTimeline,
-    timeline_cursor_pos: PositionInSeconds,
-    timeline_tempo: Bpm,
-    audio_request_props: BasicAudioRequestProps,
-    is_midi: bool,
-) -> isize {
-    match timing {
-        RecordTiming::Unsynced => 0,
-        RecordTiming::Synced { start, .. } => {
-            let equipment = QuantizedPosCalcEquipment {
-                audio_request_props,
-                timeline: &timeline,
-                timeline_cursor_pos,
-                clip_tempo_factor: if is_midi {
-                    timeline_tempo.get() / MIDI_BASE_BPM.get()
-                } else {
-                    1.0
-                },
-                source_frame_rate: if is_midi {
-                    MIDI_FRAME_RATE
-                } else {
-                    audio_request_props.frame_rate
-                },
-            };
-            calc_distance_from_quantized_pos(start, equipment)
-        }
-    }
-}
-
 fn resolve_virtual_pos(
     virtual_pos: VirtualPosition,
     process_args: &ClipProcessArgs,
@@ -2059,6 +1933,13 @@ pub struct BasicAudioRequestProps {
 }
 
 impl BasicAudioRequestProps {
+    pub fn from_on_audio_buffer_args(args: &OnAudioBufferArgs) -> Self {
+        Self {
+            block_length: args.len as _,
+            frame_rate: args.srate,
+        }
+    }
+
     pub fn from_transfer(transfer: &PcmSourceTransfer) -> Self {
         Self {
             block_length: transfer.length() as _,
@@ -2075,81 +1956,30 @@ pub struct QuantizedPosCalcEquipment<'a> {
     pub source_frame_rate: Hz,
 }
 
-/// So, this is how we do play scheduling. Whenever the preview register
-/// calls get_samples() and we are in a fresh ScheduledOrPlaying state, the
-/// relative number of count-in frames will be determined. Based on the given
-/// absolute bar for which the clip is scheduled.
-///
-/// 1. We use a *relative* count-in (instead of just
-/// using the absolute scheduled-play position and check if we reached it)
-/// in order to respect arbitrary tempo changes during the count-in phase and
-/// still end up starting on the correct point in time. Okay, we could reach
-/// the same goal also by regularly checking whether we finally reached the
-/// start of the bar. But first, we need the relative count-in anyway for pickup beats,
-/// which start to play during count-in time. And second, just counting is cheaper
-/// than repeatedly doing time/beat mapping.
-///
-/// 2. We resolve the count-in length here, not at the time the play is requested.
-/// Reason: Here we have block information such as block length and frame rate available.
-/// That's not an urgent reason ... we could always cache this information and thus make it
-/// available in the play request itself. Or we make sure that play/stop is always triggered
-/// via receiving in get_samples()! That's good! TODO-medium Implement it.
-/// In the past there were more urgent reasons but they are gone. I'll document them here
-/// because they might remove doubt in case of possible future refactorings:
-///
-/// 2a) The play request didn't happen in a real-time thread but in the main thread.
-/// At that time it was important to resolve in get_samples() because the start time of the
-/// next bar at play-request time was not necessarily the same as the one in the get_samples()
-/// call, which would lead to wrong results. However, today, play requests always happen in
-/// the real-time thread (a change introduced in favor of a lock-free design).
-///
-/// 2b) I still thought that it would be better to do it here in case "Live FX multiprocessing"
-/// is enabled. If this is enabled, it means get_samples() will in most situations be called in
-/// a different real-time thread (some REAPER worker thread) than the play-request code
-/// (audio interface thread). I worried that GetPlayPosition2Ex() in the worker thread would
-/// return a different position as the audio interface thread would do. However, Justin
-/// assured that the worker threads are designed to be synchronous with the audio interface
-/// thread and they return the same values. So this is not a reason anymore.
-fn calc_distance_from_quantized_pos(
-    quantized_pos: QuantizedPosition,
-    equipment: QuantizedPosCalcEquipment,
-) -> isize {
-    // Essential calculation
-    let quantized_timeline_pos = equipment.timeline.pos_of_quantized_pos(quantized_pos);
-    let rel_pos_from_quant_in_secs = equipment.timeline_cursor_pos - quantized_timeline_pos;
-    let rel_pos_from_quant_in_source_frames = convert_position_in_seconds_to_frames(
-        rel_pos_from_quant_in_secs,
-        equipment.source_frame_rate,
-    );
-    //region Description
-    // Now we have a countdown/position in source frames, but it doesn't yet
-    // take the tempo adjustment of the source into account.
-    // Once we have initialized the countdown with the first value, each
-    // get_samples() call - including this one - will advance it by a frame
-    // count that ideally = block length in source frames * tempo factor.
-    // We use this countdown approach for two reasons.
-    //
-    // 1. In order to allow tempo changes during count-in time.
-    // 2. If the downbeat is > 0, the count-in phase plays source material already.
-    //
-    // Especially (2) means that the count-in phase will not always have that
-    // ideal length which makes the source frame ZERO be perfectly aligned with
-    // the ZERO of the timeline bar. I think this is unavoidable when dealing
-    // with material that needs sample-rate conversion and/or time
-    // stretching. So if one of this is involved, this is just an estimation.
-    // However, in real-world scenarios this usually results in slight start
-    // deviations around 0-5ms, so it still makes sense musically.
-    //endregion
-    let block_length_in_source_frames = convert_duration_in_frames_to_other_frame_rate(
-        equipment.audio_request_props.block_length,
-        equipment.audio_request_props.frame_rate,
-        equipment.source_frame_rate,
-    );
-    adjust_proportionally_in_blocks(
-        rel_pos_from_quant_in_source_frames,
-        equipment.clip_tempo_factor,
-        block_length_in_source_frames,
-    )
+impl<'a> QuantizedPosCalcEquipment<'a> {
+    pub fn new_with_unmodified_tempo(
+        timeline: &'a HybridTimeline,
+        timeline_cursor_pos: PositionInSeconds,
+        timeline_tempo: Bpm,
+        audio_request_props: BasicAudioRequestProps,
+        is_midi: bool,
+    ) -> Self {
+        QuantizedPosCalcEquipment {
+            audio_request_props,
+            timeline,
+            timeline_cursor_pos,
+            clip_tempo_factor: if is_midi {
+                timeline_tempo.get() / MIDI_BASE_BPM.get()
+            } else {
+                1.0
+            },
+            source_frame_rate: if is_midi {
+                MIDI_FRAME_RATE
+            } else {
+                audio_request_props.frame_rate
+            },
+        }
+    }
 }
 
 fn modulo_frame(frame: isize, frame_count: usize) -> isize {

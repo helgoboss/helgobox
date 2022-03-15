@@ -1,22 +1,22 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
     Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
-    LoopBehavior, Looper, MaterialInfo, MidiSupplier, PreBuffer, PreBufferCacheMissBehavior,
-    PreBufferFillRequest, PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, Recorder,
-    RecordingArgs, RecordingInfo, RecordingOutcome, Resampler, Section, StartEndHandler,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo,
-    WriteAudioRequest, WriteMidiRequest,
+    LoopBehavior, Looper, MaterialInfo, MidiSupplier, PollRecordingOutcome, PreBuffer,
+    PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions, PreBufferRequest,
+    PreBufferSourceSkill, Recorder, RecordingArgs, RecordingInfo, Resampler, Section,
+    StartEndHandler, StopRecordingOutcome, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
+    TimeStretcher, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
-use crate::rt::AudioBufMut;
-use crate::{ClipEngineResult, HybridTimeline, QuantizedPosition, Timeline};
+use crate::rt::{AudioBufMut, BasicAudioRequestProps};
+use crate::{ClipEngineResult, HybridTimeline};
 use crossbeam_channel::Sender;
 use playtime_api as api;
 use playtime_api::{
     AudioCacheBehavior, AudioTimeStretchMode, ClipTimeBase, Db, MidiResetMessageRange,
     PositiveBeat, PositiveSecond, VirtualResampleMode,
 };
-use reaper_medium::{BorrowedMidiEventList, Bpm, DurationInSeconds, OwnedPcmSource};
+use reaper_medium::{BorrowedMidiEventList, Bpm, OwnedPcmSource, PositionInSeconds};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// The head of the supplier chain (just an alias).
@@ -281,6 +281,7 @@ impl SupplierChain {
         self.pre_buffer_wormhole()
             .recorder()
             .register_midi_overdub_mirror_source(mirror_source)
+            .unwrap();
     }
 
     pub fn take_midi_overdub_mirror_source(&mut self) -> Option<OwnedPcmSource> {
@@ -290,45 +291,50 @@ impl SupplierChain {
             .take_midi_overdub_mirror_source()
     }
 
-    pub fn schedule_end_of_recording(&mut self, end: QuantizedPosition, timeline: &dyn Timeline) {
+    pub fn write_midi(&mut self, request: WriteMidiRequest, overdub_frame: Option<usize>) {
         // When recording, there's no contention.
         self.pre_buffer_wormhole()
             .recorder()
-            .schedule_end(end, timeline);
-    }
-
-    pub fn write_midi(&mut self, request: WriteMidiRequest, pos: DurationInSeconds) {
-        // When recording, there's no contention.
-        self.pre_buffer_wormhole()
-            .recorder()
-            .write_midi(request, pos);
+            .write_midi(request, overdub_frame)
+            .unwrap();
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
         // When recording, there's no contention.
-        self.pre_buffer_wormhole().recorder().write_audio(request);
-    }
-
-    pub fn rollback_recording(&mut self) -> ClipEngineResult<()> {
-        // When recording, there's no contention.
-        self.pre_buffer_wormhole().recorder().rollback_recording()
-    }
-
-    pub fn commit_recording(
-        &mut self,
-        timeline: &HybridTimeline,
-    ) -> ClipEngineResult<RecordingOutcome> {
         self.pre_buffer_wormhole()
             .recorder()
-            .commit_recording(timeline)
+            .write_audio(request)
+            .unwrap();
     }
 
-    /// This must not be done in a real-time thread!
+    pub fn poll_recording(
+        &mut self,
+        audio_request_props: BasicAudioRequestProps,
+    ) -> PollRecordingOutcome {
+        self.pre_buffer_wormhole()
+            .recorder()
+            .poll_recording(audio_request_props)
+    }
+
+    pub fn stop_recording(
+        &mut self,
+        timeline: &HybridTimeline,
+        timeline_cursor_pos: PositionInSeconds,
+        audio_request_props: BasicAudioRequestProps,
+    ) -> ClipEngineResult<StopRecordingOutcome> {
+        self.pre_buffer_wormhole().recorder().stop_recording(
+            timeline,
+            timeline_cursor_pos,
+            audio_request_props,
+        )
+    }
+
     pub fn prepare_recording(&mut self, args: RecordingArgs) {
         // When recording, there's no contention.
         self.pre_buffer_wormhole()
             .recorder()
-            .prepare_recording(args);
+            .prepare_recording(args)
+            .unwrap();
     }
 
     fn set_audio_cache_behavior(&mut self, cache_behavior: AudioCacheBehavior) {
@@ -421,13 +427,6 @@ impl SupplierChain {
     ) {
         let command = ChainPreBufferCommand::SetSectionBoundsInSeconds { start, length };
         self.pre_buffer_supplier().send_command(command);
-    }
-
-    pub fn downbeat_pos_during_recording(&self, timeline: &dyn Timeline) -> DurationInSeconds {
-        // While recording, the pre-buffer worker shouldn't buffer anything.
-        self.pre_buffer_wormhole()
-            .recorder()
-            .downbeat_pos_during_recording(timeline)
     }
 
     fn amplifier(&self) -> &AmplifierTail {
