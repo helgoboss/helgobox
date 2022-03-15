@@ -1,11 +1,12 @@
 use crate::mutex_util::non_blocking_lock;
 use crate::rt::supplier::{
     Amplifier, AudioSupplier, Cache, CacheRequest, CommandProcessor, Downbeat, InteractionHandler,
-    LoopBehavior, Looper, MaterialInfo, MidiSupplier, PollRecordingOutcome, PreBuffer,
-    PreBufferCacheMissBehavior, PreBufferFillRequest, PreBufferOptions, PreBufferRequest,
-    PreBufferSourceSkill, Recorder, RecordingArgs, RecordingInfo, Resampler, Section,
-    StartEndHandler, StopRecordingOutcome, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
-    TimeStretcher, WithMaterialInfo, WriteAudioRequest, WriteMidiRequest,
+    LoopBehavior, Looper, MaterialInfo, MidiSupplier, PollRecordingOutcome,
+    PositionTranslationSkill, PreBuffer, PreBufferCacheMissBehavior, PreBufferFillRequest,
+    PreBufferOptions, PreBufferRequest, PreBufferSourceSkill, Recorder, RecordingArgs,
+    RecordingInfo, Resampler, Section, StartEndHandler, StopRecordingOutcome, SupplyAudioRequest,
+    SupplyMidiRequest, SupplyResponse, TimeStretcher, WithMaterialInfo, WriteAudioRequest,
+    WriteMidiRequest,
 };
 use crate::rt::tempo_util::determine_tempo_from_beat_time_base;
 use crate::rt::{AudioBufMut, BasicAudioRequestProps};
@@ -291,12 +292,26 @@ impl SupplierChain {
             .take_midi_overdub_mirror_source()
     }
 
-    pub fn write_midi(&mut self, request: WriteMidiRequest, overdub_frame: Option<usize>) {
+    /// If we are in MIDI overdub mode, the play position parameter must be set.
+    pub fn write_midi(
+        &mut self,
+        request: WriteMidiRequest,
+        play_pos: Option<isize>,
+    ) -> ClipEngineResult<()> {
         // When recording, there's no contention.
+        let translated_play_pos = match play_pos {
+            None => None,
+            Some(play_pos) => {
+                let translated = self.translate_play_pos_to_source_pos(play_pos);
+                if translated < 0 {
+                    return Err("translated play position is not within source bounds");
+                }
+                Some(translated as usize)
+            }
+        };
         self.pre_buffer_wormhole()
             .recorder()
-            .write_midi(request, overdub_frame)
-            .unwrap();
+            .write_midi(request, translated_play_pos)
     }
 
     pub fn write_audio(&mut self, request: WriteAudioRequest) {
@@ -556,6 +571,12 @@ impl WithMaterialInfo for SupplierChain {
 impl PreBufferSourceSkill for SupplierChain {
     fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         self.head.pre_buffer(request)
+    }
+}
+
+impl PositionTranslationSkill for SupplierChain {
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        self.head.translate_play_pos_to_source_pos(play_pos)
     }
 }
 

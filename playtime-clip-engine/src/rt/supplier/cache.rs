@@ -8,8 +8,9 @@ use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::rt::source_util::pcm_source_is_midi;
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSupplier, SupplyAudioRequest,
-    SupplyMidiRequest, SupplyRequestInfo, SupplyResponse, WithMaterialInfo, WithSource,
+    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse, WithMaterialInfo,
+    WithSource,
 };
 use crate::ClipEngineResult;
 
@@ -215,5 +216,11 @@ impl<S: WithMaterialInfo> WithMaterialInfo for Cache<S> {
         } else {
             self.supplier.material_info()
         }
+    }
+}
+
+impl<S: PositionTranslationSkill> PositionTranslationSkill for Cache<S> {
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        self.supplier.translate_play_pos_to_source_pos(play_pos)
     }
 }

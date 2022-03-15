@@ -400,28 +400,18 @@ impl Clip {
     /// Writes the events in the given request into the currently recording MIDI source.
     pub fn write_midi(&mut self, request: WriteMidiRequest) {
         use ClipState::*;
-        let overdub_frame = match &self.state {
+        let play_pos = match &self.state {
             Ready(s) => match s.state {
                 ReadySubState::Playing(PlayingState {
                     overdubbing: true,
                     pos: Some(pos),
                     ..
-                }) => {
-                    let material_info = match self.supplier_chain.material_info() {
-                        Ok(i) => i,
-                        Err(_) => return,
-                    };
-                    let mod_frame = modulo_frame(pos, material_info.frame_count());
-                    if mod_frame < 0 {
-                        return;
-                    }
-                    Some(mod_frame as usize)
-                }
+                }) => Some(pos),
                 _ => return,
             },
             Recording(_) => None,
         };
-        self.supplier_chain.write_midi(request, overdub_frame);
+        self.supplier_chain.write_midi(request, play_pos).unwrap();
     }
 
     /// Writes the samples in the given request into the currently recording audio source.

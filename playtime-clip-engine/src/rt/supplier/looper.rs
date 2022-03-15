@@ -1,8 +1,9 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, MaterialInfo, MidiSupplier, SupplyAudioRequest, SupplyMidiRequest,
-    SupplyRequest, SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
+    midi_util, AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill,
+    SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo, SupplyResponse,
+    SupplyResponseStatus, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
 use playtime_api::MidiResetMessageRange;
@@ -107,10 +108,11 @@ impl<S: WithMaterialInfo> Looper<S> {
         Ok(())
     }
 
-    fn check_relevance(&self, start_frame: isize, frame_count: usize) -> Option<RelevantData> {
+    fn check_relevance(&self, start_frame: isize) -> Option<RelevantData> {
         if !self.enabled {
             return None;
         }
+        let frame_count = self.supplier.material_info().unwrap().frame_count();
         let current_cycle = get_cycle_at_frame(start_frame, frame_count);
         let cycle_in_scope = self
             .loop_behavior
@@ -123,6 +125,7 @@ impl<S: WithMaterialInfo> Looper<S> {
         let data = RelevantData {
             start_frame,
             current_cycle,
+            frame_count,
         };
         Some(data)
     }
@@ -138,15 +141,16 @@ impl<S: WithMaterialInfo> Looper<S> {
 struct RelevantData {
     start_frame: isize,
     current_cycle: usize,
+    frame_count: usize,
 }
 
 impl RelevantData {
     /// Start from beginning if we encounter a start frame after the end (modulo).
-    fn modulo_start_frame(&self, total_frame_count: usize) -> isize {
+    fn modulo_start_frame(&self) -> isize {
         if self.start_frame < 0 {
             self.start_frame
         } else {
-            self.start_frame % total_frame_count as isize
+            self.start_frame % self.frame_count as isize
         }
     }
 }
@@ -157,14 +161,13 @@ impl<S: AudioSupplier + WithMaterialInfo> AudioSupplier for Looper<S> {
         request: &SupplyAudioRequest,
         dest_buffer: &mut AudioBufMut,
     ) -> SupplyResponse {
-        let supplier_frame_count = self.supplier.material_info().unwrap().frame_count();
-        let data = match self.check_relevance(request.start_frame, supplier_frame_count) {
+        let data = match self.check_relevance(request.start_frame) {
             None => {
                 return self.supplier.supply_audio(request, dest_buffer);
             }
             Some(d) => d,
         };
-        let modulo_start_frame = data.modulo_start_frame(supplier_frame_count);
+        let modulo_start_frame = data.modulo_start_frame();
         let modulo_request = SupplyAudioRequest {
             start_frame: modulo_start_frame,
             dest_sample_rate: request.dest_sample_rate,
@@ -228,14 +231,13 @@ impl<S: MidiSupplier + WithMaterialInfo> MidiSupplier for Looper<S> {
         request: &SupplyMidiRequest,
         event_list: &mut BorrowedMidiEventList,
     ) -> SupplyResponse {
-        let supplier_frame_count = self.supplier.material_info().unwrap().frame_count();
-        let data = match self.check_relevance(request.start_frame, supplier_frame_count) {
+        let data = match self.check_relevance(request.start_frame) {
             None => {
                 return self.supplier.supply_midi(request, event_list);
             }
             Some(d) => d,
         };
-        let modulo_start_frame = data.modulo_start_frame(supplier_frame_count);
+        let modulo_start_frame = data.modulo_start_frame();
         let modulo_request = SupplyMidiRequest {
             start_frame: modulo_start_frame,
             dest_frame_count: request.dest_frame_count,
@@ -313,4 +315,15 @@ pub fn get_cycle_at_frame(frame: isize, frame_count: usize) -> usize {
         return 0;
     }
     frame as usize / frame_count
+}
+
+impl<S: PositionTranslationSkill + WithMaterialInfo> PositionTranslationSkill for Looper<S> {
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        let effective_play_pos = match self.check_relevance(play_pos) {
+            None => play_pos,
+            Some(d) => d.modulo_start_frame(),
+        };
+        self.supplier
+            .translate_play_pos_to_source_pos(effective_play_pos)
+    }
 }

@@ -4,9 +4,9 @@ use crate::rt::supplier::fade_util::{
 };
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
-    midi_util, AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest,
-    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithMaterialInfo,
+    midi_util, AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill,
+    PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
 use playtime_api::MidiResetMessageRange;
@@ -377,5 +377,11 @@ impl<S: WithMaterialInfo> WithMaterialInfo for InteractionHandler<S> {
 impl<S: PreBufferSourceSkill> PreBufferSourceSkill for InteractionHandler<S> {
     fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         self.supplier.pre_buffer(request);
+    }
+}
+
+impl<S: PositionTranslationSkill> PositionTranslationSkill for InteractionHandler<S> {
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        self.supplier.translate_play_pos_to_source_pos(play_pos)
     }
 }

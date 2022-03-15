@@ -1,7 +1,7 @@
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
+    AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill, PreBufferFillRequest,
+    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
 use helgoboss_midi::{
@@ -97,5 +97,11 @@ impl<S: WithMaterialInfo> WithMaterialInfo for Amplifier<S> {
 impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Amplifier<S> {
     fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         self.supplier.pre_buffer(request);
+    }
+}
+
+impl<S: PositionTranslationSkill> PositionTranslationSkill for Amplifier<S> {
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        self.supplier.translate_play_pos_to_source_pos(play_pos)
     }
 }

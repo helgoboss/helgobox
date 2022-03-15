@@ -7,9 +7,9 @@ use crate::rt::buffer::{AudioBuf, AudioBufMut, OwnedAudioBuffer};
 use crate::rt::schedule_util::calc_distance_from_quantized_pos;
 use crate::rt::supplier::audio_util::{supply_audio_material, transfer_samples_from_buffer};
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier, SectionBounds,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyResponse, WithMaterialInfo, WithSource,
-    MIDI_BASE_BPM, MIDI_FRAME_RATE,
+    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
+    PositionTranslationSkill, SectionBounds, SupplyAudioRequest, SupplyMidiRequest, SupplyResponse,
+    WithMaterialInfo, WithSource, MIDI_BASE_BPM, MIDI_FRAME_RATE,
 };
 use crate::rt::{BasicAudioRequestProps, ClipRecordArgs, QuantizedPosCalcEquipment};
 use crate::timeline::{clip_timeline, Timeline};
@@ -1273,4 +1273,10 @@ pub enum PollRecordingOutcome {
     PleaseStopPolling,
     CommittedRecording(RecordingOutcome),
     PleaseContinuePolling,
+}
+
+impl PositionTranslationSkill for Recorder {
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        play_pos
+    }
 }

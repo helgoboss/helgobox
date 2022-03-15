@@ -1,9 +1,9 @@
 use crate::conversion_util::convert_duration_in_seconds_to_frames;
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo, SupplyResponse,
-    WithMaterialInfo,
+    AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill, PreBufferFillRequest,
+    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo,
+    SupplyResponse, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
 use playtime_api::PositiveBeat;
@@ -135,6 +135,18 @@ impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Downbeat<S> {
             ..request
         };
         self.supplier.pre_buffer(inner_request);
+    }
+}
+
+impl<S: PositionTranslationSkill> PositionTranslationSkill for Downbeat<S> {
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        let effective_play_pos = if self.enabled {
+            play_pos + self.downbeat_frame as isize
+        } else {
+            play_pos
+        };
+        self.supplier
+            .translate_play_pos_to_source_pos(effective_play_pos)
     }
 }
 

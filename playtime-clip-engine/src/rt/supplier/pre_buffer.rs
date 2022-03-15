@@ -1,8 +1,8 @@
 use crate::rt::buffer::{AudioBufMut, OwnedAudioBuffer};
 use crate::rt::supplier::{
-    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSupplier, PreBufferFillRequest,
-    PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithMaterialInfo,
+    AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiSupplier, PositionTranslationSkill,
+    PreBufferFillRequest, PreBufferSourceSkill, SupplyAudioRequest, SupplyMidiRequest,
+    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
 use core::cmp;
@@ -431,6 +431,17 @@ where
                 s.pre_buffer(args, self.id, &self.request_sender);
             }
         }
+    }
+}
+
+impl<S, F, C> PositionTranslationSkill for PreBuffer<S, F, C>
+where
+    S: PositionTranslationSkill,
+    F: Debug,
+    C: Debug,
+{
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        self.supplier.translate_play_pos_to_source_pos(play_pos)
     }
 }
 

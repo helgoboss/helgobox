@@ -1,8 +1,8 @@
 use crate::conversion_util::adjust_proportionally_positive;
 use crate::rt::buffer::AudioBufMut;
 use crate::rt::supplier::{
-    AudioSupplier, MaterialInfo, SupplyAudioRequest, SupplyResponse, SupplyResponseStatus,
-    WithMaterialInfo, MIDI_FRAME_RATE,
+    AudioSupplier, MaterialInfo, PositionTranslationSkill, SupplyAudioRequest, SupplyResponse,
+    SupplyResponseStatus, WithMaterialInfo, MIDI_FRAME_RATE,
 };
 use crate::rt::supplier::{
     MidiSupplier, PreBufferFillRequest, PreBufferSourceSkill, SupplyMidiRequest, SupplyRequestInfo,
@@ -255,5 +255,15 @@ impl<S: MidiSupplier> MidiSupplier for Resampler<S> {
 impl<S: PreBufferSourceSkill> PreBufferSourceSkill for Resampler<S> {
     fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         self.supplier.pre_buffer(request);
+    }
+}
+
+impl<S: PositionTranslationSkill> PositionTranslationSkill for Resampler<S> {
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        // There's no translation because the resampler doesn't actually change the scale
+        // in which positions are measured, not even if the resampler is responsible for
+        // tempo adjustments. E.g. if the tempo is higher, the play position will just do larger
+        // steps forward.
+        self.supplier.translate_play_pos_to_source_pos(play_pos)
     }
 }

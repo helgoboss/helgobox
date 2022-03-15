@@ -28,6 +28,10 @@ pub trait PreBufferSourceSkill: Debug {
     fn pre_buffer(&mut self, request: PreBufferFillRequest);
 }
 
+pub trait PositionTranslationSkill: Debug {
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize;
+}
+
 pub trait MidiSupplier: Debug {
     /// Writes a portion of MIDI material into the given destination buffer so that it completely
     /// fills that buffer.
@@ -353,5 +357,11 @@ impl<T: MidiSupplier> MidiSupplier for Arc<Mutex<T>> {
 impl<T: PreBufferSourceSkill> PreBufferSourceSkill for Arc<Mutex<T>> {
     fn pre_buffer(&mut self, request: PreBufferFillRequest) {
         non_blocking_lock(&*self, "pre-buffer").pre_buffer(request);
+    }
+}
+
+impl<T: PositionTranslationSkill> PositionTranslationSkill for Arc<Mutex<T>> {
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        non_blocking_lock(&*self, "position translation").translate_play_pos_to_source_pos(play_pos)
     }
 }

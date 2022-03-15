@@ -6,8 +6,8 @@ use crate::rt::supplier::fade_util::{
 use crate::rt::supplier::midi_util::SilenceMidiBlockMode;
 use crate::rt::supplier::{
     midi_util, AudioMaterialInfo, AudioSupplier, MaterialInfo, MidiMaterialInfo, MidiSupplier,
-    SupplyAudioRequest, SupplyMidiRequest, SupplyRequest, SupplyRequestInfo, SupplyResponse,
-    SupplyResponseStatus, WithMaterialInfo,
+    PositionTranslationSkill, SupplyAudioRequest, SupplyMidiRequest, SupplyRequest,
+    SupplyRequestInfo, SupplyResponse, SupplyResponseStatus, WithMaterialInfo,
 };
 use crate::ClipEngineResult;
 use playtime_api::{MidiResetMessageRange, PositiveSecond};
@@ -377,4 +377,12 @@ enum PhaseTwo {
         bounded_num_frames_to_be_written: usize,
         ideal_num_frames_to_be_consumed: usize,
     },
+}
+
+impl<S: PositionTranslationSkill> PositionTranslationSkill for Section<S> {
+    fn translate_play_pos_to_source_pos(&self, play_pos: isize) -> isize {
+        let effective_play_pos = self.bounds.start_frame as isize + play_pos;
+        self.supplier
+            .translate_play_pos_to_source_pos(effective_play_pos)
+    }
 }
