@@ -290,41 +290,63 @@ impl Column {
         self.slots.get_mut(index).ok_or(SLOT_DOESNT_EXIST)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the slot doesn't exist, doesn't have any clip or is currently recording.
     pub fn play_clip(
         &mut self,
         args: ColumnPlayClipArgs,
         audio_request_props: BasicAudioRequestProps,
     ) -> ClipEngineResult<()> {
         let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
-        if self.settings.play_mode.is_exclusive() {
-            for (i, slot) in self
-                .slots
-                .iter_mut()
-                .enumerate()
-                .filter(|(i, _)| *i != args.slot_index)
-            {
-                let stop_args = ClipStopArgs {
-                    stop_timing: None,
-                    timeline: &args.timeline,
-                    ref_pos: Some(ref_pos),
-                    enforce_play_stop: true,
-                    matrix_settings: &self.matrix_settings,
-                    column_settings: &self.settings,
-                    audio_request_props,
-                };
-                let event_handler = ClipEventHandler::new(&self.event_sender, i);
-                let _ = slot.stop_clip(stop_args, &event_handler, &self.event_sender);
-            }
-        }
         let clip_args = ClipPlayArgs {
             timeline: &args.timeline,
             ref_pos: Some(ref_pos),
             matrix_settings: &self.matrix_settings,
             column_settings: &self.settings,
         };
-        get_slot_mut(&mut self.slots, args.slot_index)?.play_clip(clip_args)
+        get_slot_mut(&mut self.slots, args.slot_index)?.play_clip(clip_args)?;
+        if self.settings.play_mode.is_exclusive() {
+            self.stop_other_clips(
+                audio_request_props,
+                ref_pos,
+                &args.timeline,
+                args.slot_index,
+            );
+        }
+        Ok(())
     }
 
+    fn stop_other_clips(
+        &mut self,
+        audio_request_props: BasicAudioRequestProps,
+        ref_pos: PositionInSeconds,
+        timeline: &HybridTimeline,
+        this_slot_index: usize,
+    ) {
+        for (i, slot) in self
+            .slots
+            .iter_mut()
+            .enumerate()
+            .filter(|(i, _)| *i != this_slot_index)
+        {
+            let stop_args = ClipStopArgs {
+                stop_timing: None,
+                timeline,
+                ref_pos: Some(ref_pos),
+                enforce_play_stop: true,
+                matrix_settings: &self.matrix_settings,
+                column_settings: &self.settings,
+                audio_request_props,
+            };
+            let event_handler = ClipEventHandler::new(&self.event_sender, i);
+            let _ = slot.stop_clip(stop_args, &event_handler, &self.event_sender);
+        }
+    }
+
+    /// # Errors
+    ///
+    /// Returns an error if the slot doesn't exist or doesn't have any clip.
     pub fn stop_clip(
         &mut self,
         args: ColumnStopClipArgs,
@@ -372,11 +394,23 @@ impl Column {
         }
     }
 
-    fn record_clip(&mut self, slot_index: usize, instruction: SlotRecordInstruction) {
+    fn record_clip(
+        &mut self,
+        slot_index: usize,
+        instruction: SlotRecordInstruction,
+        audio_request_props: BasicAudioRequestProps,
+    ) {
         let slot = get_slot_mut_insert(&mut self.slots, slot_index);
         let result = slot.record_clip(instruction, &self.matrix_settings, &self.settings);
         let (successful, instruction) = match result {
-            Ok(_) => (true, None),
+            Ok(_) => {
+                if self.settings.play_mode.is_exclusive() {
+                    let timeline = clip_timeline(self.project, false);
+                    let ref_pos = timeline.cursor_pos();
+                    self.stop_other_clips(audio_request_props, ref_pos, &timeline, slot_index);
+                }
+                (true, None)
+            }
             Err(e) => {
                 debug!("Error recording clip: {}", e.message);
                 (false, Some(e.payload))
@@ -450,10 +484,10 @@ impl Column {
                         .dispose(ColumnGarbage::FillSlotArgs(boxed_args))
                 }
                 PlayClip(args) => {
-                    self.play_clip(args, audio_request_props).unwrap();
+                    let _ = self.play_clip(args, audio_request_props);
                 }
                 StopClip(args) => {
-                    self.stop_clip(args, audio_request_props).unwrap();
+                    let _ = self.stop_clip(args, audio_request_props);
                 }
                 PauseClip(args) => {
                     self.pause_clip(args.index).unwrap();
@@ -468,7 +502,7 @@ impl Column {
                     self.set_clip_looped(args).unwrap();
                 }
                 RecordClip(args) => {
-                    self.record_clip(args.slot_index, args.instruction);
+                    self.record_clip(args.slot_index, args.instruction, audio_request_props);
                 }
             }
         }
