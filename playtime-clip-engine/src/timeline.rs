@@ -28,35 +28,6 @@ pub fn clip_timeline_cursor_pos(project: Option<Project>) -> PositionInSeconds {
     clip_timeline(project, false).cursor_pos()
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct TimelineMoment {
-    cursor_pos: PositionInSeconds,
-    tempo: Bpm,
-    next_bar: i32,
-}
-
-impl TimelineMoment {
-    pub fn new(cursor_pos: PositionInSeconds, tempo: Bpm, next_bar: i32) -> Self {
-        Self {
-            next_bar,
-            cursor_pos,
-            tempo,
-        }
-    }
-
-    pub fn cursor_pos(&self) -> PositionInSeconds {
-        self.cursor_pos
-    }
-
-    pub fn tempo(&self) -> Bpm {
-        self.tempo
-    }
-
-    pub fn next_bar(&self) -> i32 {
-        self.next_bar
-    }
-}
-
 /// This represents the timeline of a REAPER project.
 ///
 /// Characteristics:
@@ -135,10 +106,6 @@ impl Timeline for ReaperTimeline {
         !self.play_state().is_paused
     }
 
-    fn follows_reaper_transport(&self) -> bool {
-        true
-    }
-
     fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm {
         Reaper::get()
             .medium_reaper()
@@ -154,13 +121,6 @@ impl Timeline for ReaperTimeline {
 }
 
 pub trait Timeline {
-    fn capture_moment(&self) -> TimelineMoment {
-        let cursor_pos = self.cursor_pos();
-        let tempo = self.tempo_at(cursor_pos);
-        let next_bar = self.next_bar_at(cursor_pos);
-        TimelineMoment::new(cursor_pos, tempo, next_bar)
-    }
-
     fn cursor_pos(&self) -> PositionInSeconds;
 
     fn next_quantized_pos_at(
@@ -169,20 +129,9 @@ pub trait Timeline {
         quantization: EvenQuantization,
     ) -> QuantizedPosition;
 
-    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
-        self.next_quantized_pos_at(timeline_pos, EvenQuantization::ONE_BAR)
-            .position as _
-    }
-
     fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds;
 
-    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
-        self.pos_of_quantized_pos(QuantizedPosition::bar(bar as _))
-    }
-
     fn is_running(&self) -> bool;
-
-    fn follows_reaper_transport(&self) -> bool;
 
     fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm;
 
@@ -494,10 +443,6 @@ fn get_pos_of_quantized_pos(
 }
 
 impl<T: Timeline> Timeline for &T {
-    fn capture_moment(&self) -> TimelineMoment {
-        (*self).capture_moment()
-    }
-
     fn cursor_pos(&self) -> PositionInSeconds {
         (*self).cursor_pos()
     }
@@ -510,24 +455,12 @@ impl<T: Timeline> Timeline for &T {
         (*self).next_quantized_pos_at(timeline_pos, quantization)
     }
 
-    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
-        (*self).next_bar_at(timeline_pos)
-    }
-
     fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
         (*self).pos_of_quantized_pos(quantized_pos)
     }
 
-    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
-        (*self).pos_of_bar(bar)
-    }
-
     fn is_running(&self) -> bool {
         (*self).is_running()
-    }
-
-    fn follows_reaper_transport(&self) -> bool {
-        (*self).follows_reaper_transport()
     }
 
     fn tempo_at(&self, timeline_pos: PositionInSeconds) -> Bpm {
@@ -554,13 +487,6 @@ pub enum HybridTimeline {
 }
 
 impl Timeline for HybridTimeline {
-    fn capture_moment(&self) -> TimelineMoment {
-        match self {
-            HybridTimeline::ReaperProject(t) => t.capture_moment(),
-            HybridTimeline::GlobalSteady(t) => t.capture_moment(),
-        }
-    }
-
     fn cursor_pos(&self) -> PositionInSeconds {
         match self {
             HybridTimeline::ReaperProject(t) => t.cursor_pos(),
@@ -579,13 +505,6 @@ impl Timeline for HybridTimeline {
         }
     }
 
-    fn next_bar_at(&self, timeline_pos: PositionInSeconds) -> i32 {
-        match self {
-            HybridTimeline::ReaperProject(t) => t.next_bar_at(timeline_pos),
-            HybridTimeline::GlobalSteady(t) => t.next_bar_at(timeline_pos),
-        }
-    }
-
     fn pos_of_quantized_pos(&self, quantized_pos: QuantizedPosition) -> PositionInSeconds {
         match self {
             HybridTimeline::ReaperProject(t) => t.pos_of_quantized_pos(quantized_pos),
@@ -593,24 +512,10 @@ impl Timeline for HybridTimeline {
         }
     }
 
-    fn pos_of_bar(&self, bar: i32) -> PositionInSeconds {
-        match self {
-            HybridTimeline::ReaperProject(t) => t.pos_of_bar(bar),
-            HybridTimeline::GlobalSteady(t) => t.pos_of_bar(bar),
-        }
-    }
-
     fn is_running(&self) -> bool {
         match self {
             HybridTimeline::ReaperProject(t) => t.is_running(),
             HybridTimeline::GlobalSteady(t) => t.is_running(),
-        }
-    }
-
-    fn follows_reaper_transport(&self) -> bool {
-        match self {
-            HybridTimeline::ReaperProject(t) => t.follows_reaper_transport(),
-            HybridTimeline::GlobalSteady(t) => t.follows_reaper_transport(),
         }
     }
 

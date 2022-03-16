@@ -1798,7 +1798,9 @@ fn log_natural_deviation(
     let beat_count = calculate_beat_count(args.clip_tempo, clip_duration);
     let bar_count = (beat_count as f64 / 4.0).ceil() as u32;
     let end_bar = start_bar + bar_count as i32;
-    let end_bar_timeline_pos = args.timeline.pos_of_bar(end_bar);
+    let end_bar_timeline_pos = args
+        .timeline
+        .pos_of_quantized_pos(QuantizedPosition::bar(end_bar as i64));
     debug_assert!(
         end_bar_timeline_pos > start_bar_timeline_pos,
         "end_bar_timeline_pos {} <= start_bar_timeline_pos {}",

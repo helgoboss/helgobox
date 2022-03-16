@@ -3,6 +3,8 @@ use crate::conversion_util::{
 };
 use crate::rt::supplier::SupplyRequest;
 use crate::timeline::{clip_timeline, Timeline};
+use crate::QuantizedPosition;
+use playtime_api::EvenQuantization;
 use reaper_medium::PositionInSeconds;
 use std::cmp;
 
@@ -19,14 +21,16 @@ pub fn print_distance_from_beat_start_at(
     );
     let ref_pos = request.general_info().audio_block_timeline_cursor_pos + offset_in_timeline_secs;
     let timeline = clip_timeline(None, false);
-    let next_bar = timeline.next_bar_at(ref_pos);
+    let next_bar = timeline
+        .next_quantized_pos_at(ref_pos, EvenQuantization::ONE_BAR)
+        .position() as i32;
     struct BarInfo {
         bar: i32,
         pos: PositionInSeconds,
         rel_pos: PositionInSeconds,
     }
     let create_bar_info = |bar| {
-        let bar_pos = timeline.pos_of_bar(bar);
+        let bar_pos = timeline.pos_of_quantized_pos(QuantizedPosition::bar(bar as i64));
         BarInfo {
             bar,
             pos: bar_pos,
