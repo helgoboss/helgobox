@@ -1,10 +1,10 @@
 use crate::metrics_util::measure_time;
-use crate::rt::supplier::{WriteAudioRequest, WriteMidiRequest};
+use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::StopSlotInstruction::KeepSlot;
 use crate::rt::{
-    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordingPollArgs, ClipStopArgs,
-    ColumnEvent, ColumnEventSender, ColumnGarbage, ColumnProcessTransportChangeArgs,
-    ColumnSettings, HandleStopEvent, OverridableMatrixSettings, SlotRecordInstruction,
+    Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs, ClipRecordArgs, ClipRecordingPollArgs,
+    ClipStopArgs, ColumnEvent, ColumnEventSender, ColumnGarbage, ColumnProcessTransportChangeArgs,
+    ColumnSettings, HandleStopEvent, OverridableMatrixSettings, SharedPos, SlotRecordInstruction,
     StopSlotInstruction,
 };
 use crate::{ClipEngineResult, ErrorWithPayload};
@@ -16,11 +16,11 @@ use reaper_medium::PlayState;
 #[derive(Debug, Default)]
 pub struct Slot {
     clip: Option<Clip>,
-    runtime_data: RuntimeData,
+    runtime_data: InternalRuntimeData,
 }
 
 #[derive(Debug, Default)]
-struct RuntimeData {
+struct InternalRuntimeData {
     last_play_state: ClipPlayState,
     stop_was_caused_by_transport_change: bool,
 }
@@ -89,7 +89,7 @@ impl Slot {
         if let Some(clip) = self.clip.take() {
             event_sender.dispose(ColumnGarbage::Clip(clip));
         };
-        self.runtime_data = RuntimeData::default();
+        self.runtime_data = InternalRuntimeData::default();
     }
 
     pub fn set_clip_looped(&mut self, repeated: bool) -> ClipEngineResult<()> {
@@ -107,7 +107,7 @@ impl Slot {
         instruction: SlotRecordInstruction,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &ColumnSettings,
-    ) -> Result<(), ErrorWithPayload<SlotRecordInstruction>> {
+    ) -> Result<Option<SlotRuntimeData>, ErrorWithPayload<SlotRecordInstruction>> {
         use SlotRecordInstruction::*;
         match instruction {
             NewClip(instruction) => {
@@ -119,19 +119,28 @@ impl Slot {
                     ));
                 }
                 let clip = Clip::recording(instruction);
+                let runtime_data = SlotRuntimeData {
+                    play_state: clip.play_state(),
+                    pos: clip.shared_pos(),
+                    material_info: clip
+                        .recording_material_info()
+                        .expect("recording clip should return recording material info"),
+                };
                 self.clip = Some(clip);
-                Ok(())
+                Ok(Some(runtime_data))
             }
             ExistingClip(args) => {
-                debug!("Record existing clip");
+                debug!("Record with existing clip");
                 let clip = match self.clip.as_mut() {
                     None => {
                         return Err(ErrorWithPayload::new("slot empty", ExistingClip(args)));
                     }
                     Some(c) => c,
                 };
-                clip.record(args, matrix_settings, column_settings)
-                    .map_err(|e| e.map_payload(ExistingClip))
+                match clip.record(args, matrix_settings, column_settings) {
+                    Ok(_) => Ok(None),
+                    Err(e) => Err(e.map_payload(ExistingClip)),
+                }
             }
             MidiOverdub(instruction) => {
                 debug!("MIDI overdub");
@@ -144,8 +153,10 @@ impl Slot {
                     }
                     Some(c) => c,
                 };
-                clip.midi_overdub(instruction)
-                    .map_err(|e| e.map_payload(MidiOverdub))
+                match clip.midi_overdub(instruction) {
+                    Ok(_) => Ok(None),
+                    Err(e) => Err(e.map_payload(MidiOverdub)),
+                }
             }
         }
     }
@@ -312,7 +323,7 @@ impl Slot {
     }
 }
 
-impl RuntimeData {
+impl InternalRuntimeData {
     fn stop_clip_by_transport<H: HandleStopEvent>(
         &mut self,
         clip: &mut Clip,
@@ -388,4 +399,24 @@ fn play_clip_by_transport(
     };
     clip.play(args).unwrap();
     StopSlotInstruction::KeepSlot
+}
+
+#[derive(Clone, Debug)]
+pub struct SlotRuntimeData {
+    pub play_state: ClipPlayState,
+    pub pos: SharedPos,
+    pub material_info: MaterialInfo,
+}
+
+impl SlotRuntimeData {
+    pub fn mod_frame(&self) -> isize {
+        let frame = self.pos.get();
+        if frame < 0 {
+            frame
+        } else if self.material_info.frame_count() > 0 {
+            frame % self.material_info.frame_count() as isize
+        } else {
+            0
+        }
+    }
 }

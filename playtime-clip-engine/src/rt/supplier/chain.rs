@@ -273,6 +273,13 @@ impl SupplierChain {
         self.resampler_mut().set_mode(mode);
     }
 
+    pub fn recording_material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        // With MIDI, there's no contention.
+        self.pre_buffer_wormhole()
+            .recorder()
+            .recording_material_info()
+    }
+
     pub fn register_midi_overdub_mirror_source(&mut self, mirror_source: OwnedPcmSource) {
         // With MIDI, there's no contention.
         self.pre_buffer_wormhole()

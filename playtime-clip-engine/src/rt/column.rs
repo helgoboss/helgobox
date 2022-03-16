@@ -3,7 +3,7 @@ use crate::rt::supplier::{MaterialInfo, WriteAudioRequest, WriteMidiRequest};
 use crate::rt::{
     AudioBufMut, BasicAudioRequestProps, Clip, ClipPlayArgs, ClipPlayState, ClipProcessArgs,
     ClipRecordingPollArgs, ClipStopArgs, HandleStopEvent, NormalRecordingOutcome, OwnedAudioBuffer,
-    Slot, SlotProcessTransportChangeArgs, SlotRecordInstruction, TransportChange,
+    Slot, SlotProcessTransportChangeArgs, SlotRecordInstruction, SlotRuntimeData, TransportChange,
 };
 use crate::timeline::{clip_timeline, HybridTimeline, Timeline};
 use crate::ClipEngineResult;
@@ -160,8 +160,7 @@ pub trait ColumnEventSender {
     fn record_request_acknowledged(
         &self,
         slot_index: usize,
-        successful: bool,
-        original_instruction: Option<SlotRecordInstruction>,
+        result: Result<Option<SlotRuntimeData>, SlotRecordInstruction>,
     );
 
     fn midi_overdub_finished(&self, slot_index: usize, mirror_source: OwnedPcmSource);
@@ -195,14 +194,9 @@ impl ColumnEventSender for Sender<ColumnEvent> {
     fn record_request_acknowledged(
         &self,
         slot_index: usize,
-        successful: bool,
-        original_instruction: Option<SlotRecordInstruction>,
+        result: Result<Option<SlotRuntimeData>, SlotRecordInstruction>,
     ) {
-        let event = ColumnEvent::RecordRequestAcknowledged {
-            slot_index,
-            successful,
-            original_instruction,
-        };
+        let event = ColumnEvent::RecordRequestAcknowledged { slot_index, result };
         self.send_event(event);
     }
 
@@ -408,20 +402,20 @@ impl Column {
     ) -> ClipEngineResult<()> {
         let slot = get_slot_mut_insert(&mut self.slots, slot_index);
         let result = slot.record_clip(instruction, &self.matrix_settings, &self.settings);
-        let (result, instruction) = match result {
-            Ok(_) => {
+        let (informative_result, ack_result) = match result {
+            Ok(slot_runtime_data) => {
                 if self.settings.play_mode.is_exclusive() {
                     let timeline = clip_timeline(self.project, false);
                     let ref_pos = timeline.cursor_pos();
                     self.stop_other_clips(audio_request_props, ref_pos, &timeline, slot_index);
                 }
-                (Ok(()), None)
+                (Ok(()), Ok(slot_runtime_data))
             }
-            Err(e) => (Err(e.message), Some(e.payload)),
+            Err(e) => (Err(e.message), Err(e.payload)),
         };
         self.event_sender
-            .record_request_acknowledged(slot_index, result.is_ok(), instruction);
-        result
+            .record_request_acknowledged(slot_index, ack_result);
+        informative_result
     }
 
     pub fn pause_clip(&mut self, index: usize) -> ClipEngineResult<()> {
@@ -849,9 +843,9 @@ pub enum ColumnEvent {
     },
     RecordRequestAcknowledged {
         slot_index: usize,
-        successful: bool,
-        /// Just for disposing
-        original_instruction: Option<SlotRecordInstruction>,
+        /// Slot runtime data is returned only if it's a recording from scratch (slot was not
+        /// filled before).
+        result: Result<Option<SlotRuntimeData>, SlotRecordInstruction>,
     },
     MidiOverdubFinished {
         slot_index: usize,

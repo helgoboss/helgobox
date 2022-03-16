@@ -4,7 +4,9 @@ use crate::conversion_util::{
 use crate::main::Clip;
 use crate::rt::supplier::{MaterialInfo, MIDI_BASE_BPM};
 use crate::rt::tempo_util::calc_tempo_factor;
-use crate::rt::{ClipChangedEvent, ClipPlayState, NormalRecordingOutcome, SharedPos};
+use crate::rt::{
+    ClipChangedEvent, ClipPlayState, NormalRecordingOutcome, SlotRecordInstruction, SlotRuntimeData,
+};
 use crate::{rt, ClipEngineResult, HybridTimeline, Timeline};
 use helgoboss_learn::UnitValue;
 use reaper_high::Project;
@@ -17,26 +19,6 @@ pub struct Slot {
     // even while a new clip is being recorded and thus the slot is not yet filled with a
     // full-blown clip.
     runtime_data: Option<SlotRuntimeData>,
-}
-
-#[derive(Clone, Debug)]
-struct SlotRuntimeData {
-    play_state: ClipPlayState,
-    pos: SharedPos,
-    material_info: MaterialInfo,
-}
-
-impl SlotRuntimeData {
-    pub fn mod_frame(&self) -> isize {
-        let frame = self.pos.get();
-        if frame < 0 {
-            frame
-        } else if self.material_info.frame_count() > 0 {
-            frame % self.material_info.frame_count() as isize
-        } else {
-            0
-        }
-    }
 }
 
 impl Slot {
@@ -163,16 +145,20 @@ impl Slot {
 
     pub fn notify_recording_request_acknowledged(
         &mut self,
-        successful: bool,
+        result: Result<Option<SlotRuntimeData>, SlotRecordInstruction>,
     ) -> ClipEngineResult<()> {
         use SlotState::*;
         match &mut self.state {
             Empty => Err("recording was not requested"),
             RecordingFromScratchRequested => {
-                self.state = if successful {
-                    RecordingFromScratch
-                } else {
-                    Empty
+                self.state = match result {
+                    Ok(runtime_data) => {
+                        // Important to set runtime data here, mainly for the shared position,
+                        // so we are "connected" to the new clip already while it's being recorded.
+                        self.runtime_data = runtime_data;
+                        RecordingFromScratch
+                    }
+                    Err(_) => Empty,
                 };
                 Ok(())
             }
@@ -208,14 +194,9 @@ impl Slot {
                     recording.clip_settings,
                     temporary_project,
                 )?;
-                let runtime_data = SlotRuntimeData {
-                    play_state: recording.play_state,
-                    pos: recording.shared_pos,
-                    material_info: recording.material_info,
-                };
                 debug!("Fill slot with clip: {:#?}", &clip);
+                // Runtime should already have been filled when recording start was acknowledged.
                 self.state = SlotState::Filled(clip);
-                self.runtime_data = Some(runtime_data);
                 Ok(None)
             }
             NormalRecordingOutcome::Canceled => {
@@ -228,6 +209,7 @@ impl Slot {
                     }
                     _ => {
                         self.state = SlotState::Empty;
+                        self.runtime_data = None;
                         Ok(Some(ClipChangedEvent::Removed))
                     }
                 }

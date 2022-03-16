@@ -223,6 +223,11 @@ impl Clip {
         }
     }
 
+    /// If recording, delivers material info of the material that's being recorded.
+    pub fn recording_material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        self.supplier_chain.recording_material_info()
+    }
+
     /// Plays the clip if it's not recording.
     pub fn play(&mut self, args: ClipPlayArgs) -> ClipEngineResult<PlayOutcome> {
         use ClipState::*;
@@ -246,12 +251,7 @@ impl Clip {
             }
             Recording(s) => {
                 use ClipRecordingStopOutcome::*;
-                match s.stop(
-                    args,
-                    &mut self.supplier_chain,
-                    event_handler,
-                    &self.shared_pos,
-                )? {
+                match s.stop(args, &mut self.supplier_chain, event_handler)? {
                     KeepState => StopSlotInstruction::KeepSlot,
                     TransitionToReady(ready_state) => {
                         self.state = Ready(ready_state);
@@ -362,7 +362,6 @@ impl Clip {
                             event_handler,
                             args.matrix_settings,
                             args.column_settings,
-                            self.shared_pos.clone(),
                         );
                         self.state = Ready(ready_state);
                         false
@@ -406,6 +405,9 @@ impl Clip {
         self.shared_pos.clone()
     }
 
+    /// Attention: If this returns some info while in the middle of recording, this returns
+    /// information about the previous clip's material! Use [`Self::recording_material_info`]
+    /// instead if you need to query information about the material that's being recorded.
     pub fn material_info(&self) -> ClipEngineResult<MaterialInfo> {
         self.supplier_chain.material_info()
     }
@@ -1231,7 +1233,6 @@ impl RecordingState {
         args: ClipStopArgs,
         supplier_chain: &mut SupplierChain,
         event_handler: &H,
-        shared_pos: &SharedPos,
     ) -> ClipEngineResult<ClipRecordingStopOutcome> {
         let ref_pos = args.ref_pos.unwrap_or_else(|| args.timeline.cursor_pos());
         let outcome = match supplier_chain.stop_recording(
@@ -1246,7 +1247,6 @@ impl RecordingState {
                     event_handler,
                     args.matrix_settings,
                     args.column_settings,
-                    shared_pos.clone(),
                 );
                 ClipRecordingStopOutcome::TransitionToReady(ready_state)
             }
@@ -1276,7 +1276,6 @@ impl RecordingState {
         event_handler: &H,
         matrix_settings: &OverridableMatrixSettings,
         column_settings: &ColumnSettings,
-        shared_pos: SharedPos,
     ) -> ReadyState {
         debug!("Finishing recording");
         let clip_settings = ProcessingRelevantClipSettings::derive_from_recording(
@@ -1306,13 +1305,14 @@ impl RecordingState {
             play_settings: clip_settings.create_play_settings(),
         };
         // Send event
+        // TODO-high The main slot runtime data is already to connected to the slot but we should
+        //  probably push the final frame count as event. But THIS material info is not well suited
+        //  for this. Use the one from the chain because this contains the section info. So we
+        //  don't need the outcome material info at all actually.
         let material_info = outcome.material_info();
         let committed_recording = CommittedRecording {
             kind_specific: outcome.kind_specific,
             clip_settings,
-            material_info,
-            shared_pos,
-            play_state: ready_state.play_state(),
         };
         event_handler
             .normal_recording_finished(NormalRecordingOutcome::Committed(committed_recording));
@@ -1635,9 +1635,6 @@ pub enum NormalRecordingOutcome {
 pub struct CommittedRecording {
     pub kind_specific: KindSpecificRecordingOutcome,
     pub clip_settings: ProcessingRelevantClipSettings,
-    pub material_info: MaterialInfo,
-    pub shared_pos: SharedPos,
-    pub play_state: ClipPlayState,
 }
 
 /// All settings of a clip that affect processing.

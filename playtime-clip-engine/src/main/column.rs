@@ -257,13 +257,10 @@ impl Column {
                 }
                 Dispose(_) => None,
                 RecordRequestAcknowledged {
-                    slot_index,
-                    successful,
-                    ..
+                    slot_index, result, ..
                 } => {
                     let slot = get_slot_mut_insert(&mut self.slots, slot_index);
-                    slot.notify_recording_request_acknowledged(successful)
-                        .unwrap();
+                    slot.notify_recording_request_acknowledged(result).unwrap();
                     None
                 }
                 MidiOverdubFinished {

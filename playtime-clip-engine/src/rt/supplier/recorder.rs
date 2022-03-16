@@ -123,6 +123,7 @@ struct RecordingState {
     recording: Option<Recording>,
     length: RecordLength,
     committed: bool,
+    // TODO-high Make this a property of Recording! Without recording, its values don't make sense.
     scheduled_end: Option<ScheduledEnd>,
     initial_play_start_timing: ClipPlayStartTiming,
 }
@@ -178,6 +179,24 @@ struct RecordingAudioActiveState {
 struct RecordingAudioFinishingState {
     temporary_audio_buffer: OwnedAudioBuffer,
     file: PathBuf,
+}
+
+impl RecordingAudioFinishingState {
+    /// Produces a material info that *doesn't*. Appropriate for producing the final info that will
+    /// go through the whole chain!
+    pub fn material_info(&self, recording: &Option<Recording>) -> AudioMaterialInfo {
+        let recording =recording
+            .as_ref()
+            .expect("recording data must be available if audio recording is finishing");
+        AudioMaterialInfo {
+            channel_count: self
+                .temporary_audio_buffer
+                .to_buf()
+                .channel_count(),
+            frame_count: recording.total_frame_offset,
+            frame_rate: recording.frame_rate,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -272,6 +291,15 @@ impl Recorder {
             state: Some(state),
             request_sender,
             response_channel: ResponseChannel::new(),
+        }
+    }
+
+    pub fn recording_material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        match self.state.as_ref().unwrap() {
+            State::Ready(_) => Err("not recording"),
+            State::Recording(s) => {
+                s.recording_material_info()
+            }
         }
     }
 
@@ -574,6 +602,52 @@ impl Recorder {
     }
 }
 impl RecordingState {
+    pub fn recording_material_info(&self) -> ClipEngineResult<MaterialInfo> {
+        if let Some(recording) = self.recording {
+            let total_length = if let Some(scheduled_end) = self.scheduled_end {
+                scheduled_end.complete_length
+            } else {
+                recording.total_frame_offset
+            };
+            total_length.saturating_sub(recording.num_count_in_frames)
+        }
+        let frame_count = if let Some(scheduled_end) = self.scheduled_end {
+            scheduled_end.complete_length.saturating_sub(recording)
+        } else if let Some(recording) = self.recording {
+            recording.total_frame_offset.saturating_sub(recording.num_count_in_frames)
+        };
+        match &self.kind_state {
+            KindState::Audio(s) => {
+                let audio_material_info = match s {
+                    RecordingAudioState::Active(active) => {
+                        AudioMaterialInfo {
+                            channel_count: active.temporary_audio_buffer.to_buf().channel_count(),
+                            frame_count,
+                            frame_rate: Default::default()
+                        }
+                    }
+                    RecordingAudioState::Finishing(finishing) => {
+                        AudioMaterialInfo {
+                            channel_count: finishing.temporary_audio_buffer.to_buf().channel_count(),
+                            frame_count,
+                            frame_rate: finishing.)
+                        }
+                    }
+                };
+                MaterialInfo::Audio(audio_material_info)
+            }
+            KindState::Midi(_) => {
+                MaterialInfo::Midi(MidiMaterialInfo {
+                    frame_count: if let Some(recording) = self.recording {
+                        if recording.
+                    } else {
+                        0
+                    }
+                })
+            }
+        }
+    }
+
     pub fn stop_recording(
         mut self,
         timeline: &HybridTimeline,
@@ -1043,18 +1117,7 @@ impl WithMaterialInfo for Recorder {
                 KindState::Audio(RecordingAudioState::Finishing(finishing_state)) => {
                     // Audio recording is being finished. In that case we prefer playing the first
                     // blocks of the new material (from temporary audio buffer).
-                    let recording = s
-                        .recording
-                        .as_ref()
-                        .expect("recording data must be available if audio recording is finishing");
-                    let info = AudioMaterialInfo {
-                        channel_count: finishing_state
-                            .temporary_audio_buffer
-                            .to_buf()
-                            .channel_count(),
-                        frame_count: recording.total_frame_offset,
-                        frame_rate: recording.frame_rate,
-                    };
+                    let info = finishing_state.material_info(&s.recording);
                     Ok(MaterialInfo::Audio(info))
                 }
                 _ => {
